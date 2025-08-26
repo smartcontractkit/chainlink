@@ -3,13 +3,16 @@ package cre
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -45,9 +49,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
@@ -57,7 +64,9 @@ import (
 /*
 To execute on local start the local CRE first with following command:
 # inside core/scripts/cre/environment directory
-go run . env start
+1. ensure necessary capabilities (cron, readcontract) are added (see README in core/scripts/cre/environment for [extra_capabilities])
+2. `go run . env start && ctf obs up && ctf bs up`.
+It will start env + observability + blockscout.
 */
 func Test_CRE_Workflow_Don(t *testing.T) {
 	confErr := setConfigurationIfMissing("../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml", "workflow")
@@ -75,7 +84,7 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	/*
 		LOAD ENVIRONMENT STATE
 	*/
-	in, err := framework.Load[environment.Config](nil)
+	in, err := framework.Load[envconfig.Config](nil)
 	require.NoError(t, err, "couldn't load environment state")
 
 	var envArtifact environment.EnvArtifact
@@ -93,9 +102,14 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	t.Run("vault DON test", func(t *testing.T) {
 		executeVaultTest(t, in, envArtifact)
 	})
+
+	t.Run("DON Time test", func(t *testing.T) {
+		// TODO: Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028
+		t.Skip()
+	})
 }
 
-func executePoRTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact, verificationTimeout time.Duration) {
+func executePoRTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact, verificationTimeout time.Duration) {
 	testLogger := framework.L
 	cldLogger := cldlogger.NewSingleFileLogger(t)
 
@@ -112,41 +126,72 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 	require.NoError(t, loadErr, "failed to load environment")
 
 	homeChainSelector := wrappedBlockchainOutputs[0].ChainSelector
-	numberOfWriteableChains := 0
+	writeableChains := []uint64{}
 	for _, bcOutput := range wrappedBlockchainOutputs {
-		if !bcOutput.ReadOnly {
-			numberOfWriteableChains++
+		for _, donMetadata := range fullCldEnvOutput.DonTopology.DonsWithMetadata {
+			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
+				if !slices.Contains(writeableChains, bcOutput.ChainID) {
+					writeableChains = append(writeableChains, bcOutput.ChainID)
+				}
+			}
 		}
 	}
-	require.Len(t, feedIDs, numberOfWriteableChains, "number of writeable chains must match number of feed IDs (look for read-only chains in the environment)")
+	require.Len(t, feedIDs, len(writeableChains), "number of writeable chains must match number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
 
 	/*
-		DEPLOY DATA FEEDS CACHE CONTRACTS ON ALL CHAINS (except read-only ones)
+		DEPLOY DATA FEEDS CACHE + READ BALANCES CONTRACTS ON ALL CHAINS (except read-only ones)
 		Workflow will write price data to the data feeds cache contract
 
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
 	*/
 	for idx, bcOutput := range wrappedBlockchainOutputs {
-		if bcOutput.ReadOnly {
+		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
+			continue
+		}
+		// deploy data feeds cache contract only on chains that require a forwarder contract. It's required for the PoR workflow to work and we treat it as a proxy
+		// for deciding whether need to deploy the data feeds cache contract.
+		hasForwarderContract := false
+		for _, donMetadata := range fullCldEnvOutput.DonTopology.DonsWithMetadata {
+			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
+				hasForwarderContract = true
+				break
+			}
+		}
+
+		if !hasForwarderContract {
 			continue
 		}
 
-		deployConfig := df_changeset_types.DeployConfig{
-			ChainsToDeploy: []uint64{bcOutput.ChainSelector},
+		chainSelector := bcOutput.ChainSelector
+
+		testLogger.Info().Msgf("Deploying additional contracts to %d", chainSelector)
+		testLogger.Info().Msg("Deploying Data Feeds Cache contract...")
+		deployDfConfig := df_changeset_types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
 			Labels:         []string{"data-feeds"}, // label required by the changeset
 		}
-
-		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployConfig)
-		require.NoError(t, dfErr, "failed to deploy data feed cache contract")
-
+		dfOutput, dfErr := changeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployDfConfig)
+		require.NoError(t, dfErr, "failed to deploy Data Feed Cache contract")
 		mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
-		require.NoError(t, mergeErr, "failed to merge address book")
+		require.NoError(t, mergeErr, "failed to merge address book of Data Feeds Cache contract")
+		testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
+
+		testLogger.Info().Msg("Deploying Read Balances contract...")
+		deployReadBalanceRequest := &keystone_changeset.DeployRequestV2{ChainSel: chainSelector}
+		rbOutput, rbErr := keystone_changeset.DeployBalanceReaderV2(*fullCldEnvOutput.Environment, deployReadBalanceRequest)
+		require.NoError(t, rbErr, "failed to deploy Read Balances contract")
+		mergeErr2 := fullCldEnvOutput.Environment.ExistingAddresses.Merge(rbOutput.AddressBook) //nolint:staticcheck // won't migrate now
+		require.NoError(t, mergeErr2, "failed to merge address book of Read Balances contract")
+		testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
+
+		mergeErr3 := dfOutput.DataStore.Merge(rbOutput.DataStore.Seal())
+		require.NoError(t, mergeErr3, "failed to merge data stores")
 		fullCldEnvOutput.Environment.DataStore = dfOutput.DataStore.Seal()
 
 		workflowName := "por-workflow-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]
 
 		dfConfigInput := &configureDataFeedsCacheInput{
-			chainSelector:      bcOutput.ChainSelector,
+			chainSelector:      chainSelector,
 			fullCldEnvironment: fullCldEnvOutput.Environment,
 			workflowName:       workflowName,
 			feedID:             feedIDs[idx],
@@ -156,27 +201,40 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 		dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 		require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
-		testLogger.Info().Msg("Proceeding to register PoR workflow...")
-
+		chainID := bcOutput.ChainID
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
 			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			homeChainSelector,
+			homeChainSelector, // it should live only on one chain, it is not deployed to all chains
 			keystone_changeset.WorkflowRegistry.String(),
 		)
-		require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", bcOutput.ChainID)
+		require.NoError(t, workflowRegistryErr, "failed to find Workflow Registry address.")
+		testLogger.Info().Msgf("Workflow Registry contract found at chain selector %d at %s", homeChainSelector, workflowRegistryAddress)
+
+		testLogger.Info().Msgf("Registering PoR workflow on chain %d (%d)", chainID, chainSelector)
+		testLogger.Info().Msg("Creating workflow config file.")
+		readBalancesAddress, readContractErr := crecontracts.FindAddressesForChain(
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			chainSelector,
+			keystone_changeset.BalanceReader.String(),
+		)
+		require.NoError(t, readContractErr, "failed to find Read Balances contract address for chain %d", chainID)
+		testLogger.Info().Msgf("Read Balances contract found on chain %d at %s", chainID, readBalancesAddress)
 
 		dataFeedsCacheAddress, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
 			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-			bcOutput.ChainSelector,
+			chainSelector,
 			df_changeset.DataFeedsCache.String(),
 		)
-		require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", bcOutput.ChainID)
+		require.NoError(t, dataFeedsCacheErr, "failed to find Data Feeds Cache address for chain %d", chainID)
+		testLogger.Info().Msgf("Data Feeds Cache contract found on chain %d at %s", chainID, dataFeedsCacheAddress)
 
-		workflowConfigFilePath, configErr := createConfigFile(dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(bcOutput.ChainID))
+		workflowConfigFilePath, configErr := createWorkflowConfigFile(bcOutput, readBalancesAddress, dataFeedsCacheAddress, workflowName, feedIDs[idx], priceProvider.URL(), corevm.GenerateWriteTargetName(chainID))
 		require.NoError(t, configErr, "failed to create workflow config file")
+		testLogger.Info().Msgf("Workflow config file created.")
 
 		compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
 		require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
+		testLogger.Info().Msgf("Workflow compiled successfully.")
 
 		t.Cleanup(func() {
 			wasmErr := os.Remove(compressedWorkflowWasmPath)
@@ -195,13 +253,13 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 		})
 
 		containerTargetDir := "/home/chainlink/workflows"
-		workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+		workflowCopyErr := creworkflow.CopyArtifactToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
 		require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
 
-		configCopyErr := creworkflow.CopyWorkflowToDockerContainers(workflowConfigFilePath, "workflow-node", containerTargetDir)
+		configCopyErr := creworkflow.CopyArtifactToDockerContainers(workflowConfigFilePath, "workflow-node", containerTargetDir)
 		require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
 
-		registerErr := creworkflow.RegisterWithContract(
+		workflowID, registerErr := creworkflow.RegisterWithContract(
 			t.Context(),
 			wrappedBlockchainOutputs[0].SethClient, // crucial to use Seth Client connected to home chain (first chain in the set)
 			workflowRegistryAddress,
@@ -213,6 +271,7 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 			&containerTargetDir,
 		)
 		require.NoError(t, registerErr, "failed to register PoR workflow")
+		testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
 	}
 
 	/*
@@ -221,6 +280,9 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 	*/
 	eg := &errgroup.Group{}
 	for idx, bcOutput := range wrappedBlockchainOutputs {
+		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
+			continue
+		}
 		eg.Go(func() error {
 			feedID := feedIDs[idx]
 			testLogger.Info().Msgf("Waiting for feed %s to update...", feedID)
@@ -271,28 +333,14 @@ func executePoRTest(t *testing.T, in *environment.Config, envArtifact environmen
 	testLogger.Info().Msgf("All prices were found for all feeds")
 }
 
-func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environment.EnvArtifact) {
+func executeVaultTest(t *testing.T, in *envconfig.Config, envArtifact environment.EnvArtifact) {
+	// Skip till we figure out and fix the issues with environment startup on this test
+	t.Skip()
 	/*
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
 	fullCldEnvOutput, _, loadErr := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, loadErr, "failed to load environment")
-
-	/*
-		CREATE NEW VAULT SECRET
-	*/
-	framework.L.Info().Msg("Creating secret...")
-	secretsRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		Method:  vault.MethodSecretsCreate,
-		Params: &vault.SecretsCreateRequest{
-			ID:    "test-secret",
-			Value: "test-secret-value",
-		},
-		ID: "1",
-	}
-	requestBody, err := json.Marshal(secretsRequest)
-	require.NoError(t, err, "failed to marshal secrets request")
 
 	framework.L.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, fullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
@@ -300,11 +348,97 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	require.NoError(t, err, "failed to parse gateway URL")
 
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
-	framework.L.Info().Msg("Executing request...")
-	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL.String(), bytes.NewBuffer(requestBody))
+
+	framework.L.Info().Msgf("Sleeping 2 minutes to allow the Vault DON to start...")
+	time.Sleep(2 * time.Minute)
+	framework.L.Info().Msgf("Sleep over. Executing test now...")
+
+	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
+	owner := "Owner1"
+	secretValue := "Secret Value to be stored"
+
+	executeVaultSecretsCreateTest(t, secretValue, secretID, owner, gatewayURL.String())
+
+	framework.L.Info().Msg("------------------------------------------------------")
+	framework.L.Info().Msg("------------------------------------------------------")
+	framework.L.Info().Msg("------------------------------------------------------")
+	framework.L.Info().Msg("------------------------------------------------------")
+	framework.L.Info().Msg("------------------------------------------------------")
+
+	executeVaultSecretsGetTest(t, secretValue, secretID, owner, gatewayURL.String())
+}
+
+func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, gatewayURL string) {
+	framework.L.Info().Msg("Creating secret...")
+	uniqueRequestID := uuid.New().String()
+
+	secretsCreateRequest := jsonrpc.Request[vault.SecretsCreateRequest]{
+		Version: jsonrpc.JsonRpcVersion,
+		Method:  vault.MethodSecretsCreate,
+		Params: &vault.SecretsCreateRequest{
+			ID:    secretID,
+			Value: encryptSecret(t, secretValue),
+			Owner: owner,
+		},
+		ID: uniqueRequestID,
+	}
+	requestBody, err := json.Marshal(secretsCreateRequest)
+	require.NoError(t, err, "failed to marshal secrets request")
+
+	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
 	require.NoError(t, err, "failed to create request")
 
-	req.Header.Set("Content-Type", "application/jsonrpc")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	require.NoError(t, err, "failed to execute request")
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err, "failed to read createResponse body")
+	framework.L.Info().Msgf("Response Body: %s", string(body))
+
+	framework.L.Info().Msg("Checking createResponse status...")
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
+
+	framework.L.Info().Msg("Checking createResponse structure...")
+	var createResponse jsonrpc.Response[json.RawMessage]
+	err = json.Unmarshal(body, &createResponse)
+	require.NoError(t, err, "failed to unmarshal createResponse")
+	framework.L.Info().Msgf("createResponse Body: %v", createResponse)
+	if createResponse.Error != nil {
+		require.Empty(t, createResponse.Error.Error())
+	}
+	result := *createResponse.Result
+	framework.L.Info().Msgf("SecretsCreateResponse: %s", string(result))
+
+	require.Equal(t, jsonrpc.JsonRpcVersion, createResponse.Version)
+
+	framework.L.Info().Msg("Secret created successfully")
+}
+
+func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gatewayURL string) {
+	uniqueRequestID := uuid.New().String()
+	framework.L.Info().Msg("Getting secret...")
+	secretsGetRequest := jsonrpc.Request[vault.SecretsGetRequest]{
+		Version: jsonrpc.JsonRpcVersion,
+		Method:  vault.MethodSecretsGet,
+		Params: &vault.SecretsGetRequest{
+			ID:    secretID,
+			Owner: owner,
+		},
+		ID: uniqueRequestID,
+	}
+	requestBody, err := json.Marshal(secretsGetRequest)
+	require.NoError(t, err, "failed to marshal secrets request")
+	framework.L.Info().Msgf("Get Request Body: %s", string(requestBody))
+	framework.L.Info().Msg("Executing Get request...")
+	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+	require.NoError(t, err, "failed to create request")
+
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{}
@@ -313,25 +447,44 @@ func executeVaultTest(t *testing.T, in *environment.Config, envArtifact environm
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err, "failed to read response body")
-	framework.L.Debug().Msgf("Response Body: %s", string(body))
+	require.NoError(t, err, "failed to read getResponse body")
+	framework.L.Info().Msgf("getResponse Body: %s", string(body))
 
-	framework.L.Info().Msg("Checking response status...")
+	framework.L.Info().Msg("Checking getResponse status...")
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 
-	framework.L.Info().Msg("Checking response structure...")
-	var response jsonrpc.Response[vault.SecretsCreateResponse]
-	err = json.Unmarshal(body, &response)
-	require.NoError(t, err, "failed to unmarshal response")
+	framework.L.Info().Msg("Checking getResponse structure...")
+	var getResponse jsonrpc.Response[vault.SecretsGetResponse]
+	err = json.Unmarshal(body, &getResponse)
+	require.NoError(t, err, "failed to unmarshal getResponse")
+	framework.L.Info().Msgf("getResponse Body: %v", getResponse)
+	if getResponse.Error != nil {
+		require.Empty(t, getResponse.Error.Error())
+	}
 
-	require.Equal(t, jsonrpc.JsonRpcVersion, response.Version)
-	require.Equal(t, "1", response.ID)
-	require.NoError(t, err, "failed to unmarshal response")
-	require.True(t, response.Result.Success)
-	require.Equal(t, "test-secret", response.Result.SecretID)
-	require.Empty(t, response.Result.ErrorMessage)
+	result := getResponse.Result
+	framework.L.Info().Msgf("SecretsGetResponse: %s", result)
 
-	framework.L.Info().Msg("Secret created successfully")
+	require.Equal(t, jsonrpc.JsonRpcVersion, getResponse.Version)
+
+	require.Empty(t, result.Error)
+	require.Equal(t, secretID, result.SecretID.Key)
+	require.Equal(t, owner, result.SecretID.Owner)
+
+	framework.L.Info().Msg("Secret get successful")
+}
+
+func encryptSecret(t *testing.T, secret string) string {
+	masterPublicKey := tdh2easy.PublicKey{}
+	masterPublicKeyBytes, err := hex.DecodeString(crevault.MasterPublicKeyStr)
+	require.NoError(t, err)
+	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
+	require.NoError(t, err)
+	cipher, err := tdh2easy.Encrypt(&masterPublicKey, []byte(secret))
+	require.NoError(t, err)
+	cipherBytes, err := cipher.Marshal()
+	require.NoError(t, err)
+	return hex.EncodeToString(cipherBytes)
 }
 
 const (
@@ -415,7 +568,9 @@ func logTestInfo(l zerolog.Logger, feedID, dataFeedsCacheAddr, forwarderAddr str
 	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
-func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
+// Creates workflow configuration file storing the necessary values used by a workflow (i.e. feedID, read/write contract addresses)
+// The values are written to types.WorkflowConfig
+func createWorkflowConfigFile(bcOutput *cre.WrappedBlockchainOutput, readContractAddress, feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
 	cleanFeedID := strings.TrimPrefix(feedID, "0x")
 	feedLength := len(cleanFeedID)
 
@@ -428,8 +583,15 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 	}
 
 	feedIDToUse := "0x" + cleanFeedID
+	chainFamily := bcOutput.BlockchainOutput.Family
+	chainID := bcOutput.BlockchainOutput.ChainID
 
 	workflowConfig := portypes.WorkflowConfig{
+		ChainFamily: chainFamily,
+		ChainID:     chainID,
+		BalanceReaderConfig: portypes.BalanceReaderConfig{
+			BalanceReaderAddress: readContractAddress.Hex(),
+		},
 		ComputeConfig: portypes.ComputeConfig{
 			FeedID:                feedIDToUse,
 			URL:                   dataURL,
@@ -438,6 +600,7 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 		},
 	}
 
+	// Write workflow config to a file
 	configMarshalled, err := yaml.Marshal(workflowConfig)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal workflow config")
@@ -464,7 +627,7 @@ func createConfigFile(feedsConsumerAddress common.Address, workflowName, feedID,
 	return outputFileAbsPath, nil
 }
 
-func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *environment.Config, env *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, feedIDs []string) {
+func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *envconfig.Config, env *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, feedIDs []string) {
 	if t.Failed() {
 		counter := 0
 		for idx, feedID := range feedIDs {

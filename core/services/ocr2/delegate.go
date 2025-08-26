@@ -34,6 +34,7 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	vault2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -684,21 +685,19 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
 	}
 
-	store := requests.NewStore[*vault.Request]()
-	service := vault.NewService(
-		lggr,
-		store,
-		clockwork.NewRealClock(),
-		cfg.RequestExpiryDuration.Duration(),
-	)
-	srvs = append(srvs, service)
+	requestStore := requests.NewStore[*vault.Request]()
+	clock := clockwork.NewRealClock()
+	expiryDuration := cfg.RequestExpiryDuration.Duration()
+	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
+	vaultCapability := vault2.NewCapability(lggr, clock, expiryDuration, requestStoreHandler)
+	srvs = append(srvs, vaultCapability)
 
-	err = capabilitiesRegistry.Add(ctx, service)
+	err = capabilitiesRegistry.Add(ctx, vaultCapability)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to register vault capability: %w", err)
 	}
 
-	handler, err := vault.NewHandler(service, gwconnector, d.lggr)
+	handler, err := vault2.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, d.lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
@@ -707,7 +706,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, handler)
 
-	if gwerr := gwconnector.AddHandler(ctx, []string{vault_api.MethodSecretsCreate}, handler); gwerr != nil {
+	if gwerr := gwconnector.AddHandler(ctx, []string{vault_api.MethodSecretsCreate, vault_api.MethodSecretsGet, vault_api.MethodSecretsUpdate, vault_api.MethodSecretsDelete}, handler); gwerr != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", gwerr)
 	}
 
@@ -772,7 +771,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		ContractTransmitter: vault.NewTransmitter(
 			lggr,
 			ocrtypes.Account(spec.TransmitterID.String),
-			store,
+			requestStoreHandler,
 		),
 		Database:                ocrDB,
 		KeyValueDatabaseFactory: kvFactory,
@@ -792,7 +791,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get DKG keys: %w", err)
 	}
-	rpf, err := vault.NewReportingPluginFactory(lggr, store, pk, secKeyShare)
+	rpf, err := vault.NewReportingPluginFactory(lggr, requestStore, pk, secKeyShare)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}
@@ -806,6 +805,7 @@ func (d *Delegate) newServicesVaultPlugin(
 
 	return srvs, nil
 }
+
 func (d *Delegate) newDonTimePlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,

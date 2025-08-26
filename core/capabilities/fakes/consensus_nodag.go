@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
-	valuespb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )

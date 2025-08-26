@@ -2,10 +2,13 @@ package environment
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +25,12 @@ import (
 const (
 	DefaultArtifactsDir        = "/home/chainlink/workflows"
 	DefaultWorkflowNodePattern = "workflow-node"
+
+	// Might change if deployment sequence changes or if different config file than 'configs/workflow-don.toml' is used
+	DefaultWorkflowRegistryAddress     = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+	DefaultCapabilitiesRegistryAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+
+	DefaultWorkflowOwnerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 )
 
 func workflowCmds() *cobra.Command {
@@ -32,9 +41,11 @@ func workflowCmds() *cobra.Command {
 	}
 
 	workflowCmd.AddCommand(deployAndVerifyExampleWorkflowCmd())
-	workflowCmd.AddCommand(deployWorkflowCmd())
+	workflowCmd.AddCommand(compileDeployWorkflowCmd())
 	workflowCmd.AddCommand(deleteWorkflowCmd())
 	workflowCmd.AddCommand(deleteAllWorkflowsCmd())
+	workflowCmd.AddCommand(compileWorkflowCmd())
+	workflowCmd.AddCommand(deployWorkflowCmd())
 
 	return workflowCmd
 }
@@ -65,7 +76,121 @@ func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress str
 	return nil
 }
 
+func compileWorkflowCmd() *cobra.Command {
+	var (
+		workflowFilePathFlag string
+		workflowNameFlag     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "compile",
+		Short: "Compiles a workflow",
+		Long:  `Compiles, compresses with Brotli and encodes with base64 a workflow`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
+			if compileErr != nil {
+				return errors.Wrap(compileErr, "❌ failed to compile workflow")
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "", "Path to the workflow file")
+	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
+
+	if err := cmd.MarkFlagRequired("workflow-file-path"); err != nil {
+		panic(err)
+	}
+
+	return cmd
+}
+
 func deployWorkflowCmd() *cobra.Command {
+	var (
+		workflowFilePathFlag            string
+		configFilePathFlag              string
+		secretsFilePathFlag             string
+		compileWorkflowFlag             bool
+		containerTargetDirFlag          string
+		containerNamePatternFlag        string
+		workflowNameFlag                string
+		workflowOwnerAddressFlag        string
+		workflowRegistryAddressFlag     string
+		capabilitiesRegistryAddressFlag string
+		deleteWorkflowFileFlag          bool
+		donIDFlag                       uint32
+		chainIDFlag                     uint64
+		rpcURLFlag                      string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "deploy",
+		Short: "Deploys a workflow to the environment",
+		Long:  `Deploys a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			initDxTracker()
+			var regErr error
+
+			defer func() {
+				metaData := map[string]any{}
+				if regErr != nil {
+					metaData["result"] = "failure"
+					metaData["error"] = oneLineErrorMessage(regErr)
+				} else {
+					metaData["result"] = "success"
+				}
+
+				trackingErr := dxTracker.Track("cre.local.workflow.deploy", metaData)
+				if trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track workflow deploy: %s\n", trackingErr)
+				}
+			}()
+
+			if !compileWorkflowFlag {
+				if err := isBase64File(workflowFilePathFlag); err != nil {
+					return errors.Wrap(err, "❌ invalid WASM workflow file. Please make sure you're passing a base64-encoded and compiled workflow WASM file. If you want to compile and deploy a workflow, add '--compile' flag to the command instead")
+				}
+			}
+
+			if compileWorkflowFlag {
+				compiledWorkflowPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
+				if compileErr != nil {
+					return errors.Wrap(compileErr, "❌ failed to compile workflow")
+				}
+
+				workflowFilePathFlag = compiledWorkflowPath
+			}
+
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag, deleteWorkflowFileFlag)
+
+			return regErr
+		},
+	}
+
+	cmd.Flags().StringVarP(&workflowFilePathFlag, "wasm-file-path", "w", "", "Path to a base64-encoded workflow WASM file")
+	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
+	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
+	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", DefaultArtifactsDir, "Path to the target directory in the Docker container")
+	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", DefaultWorkflowNodePattern, "Pattern to match the container name")
+	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
+	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
+	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
+	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", DefaultCapabilitiesRegistryAddress, "Capabilities registry address")
+	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
+	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
+	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Delete the workflow file after deployment")
+	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compile the workflow before deploying it")
+
+	if err := cmd.MarkFlagRequired("wasm-file-path"); err != nil {
+		panic(err)
+	}
+
+	return cmd
+}
+
+func compileDeployWorkflowCmd() *cobra.Command {
 	var (
 		workflowFilePathFlag            string
 		configFilePathFlag              string
@@ -82,10 +207,15 @@ func deployWorkflowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "deploy",
-		Short: "Compiles and uploads a workflow to the environment",
-		Long:  `Compiles and uploads a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
+		Use:    "compile-deploy",
+		Short:  "DEPRECATED: Use 'cre local workflow deploy --compile' instead",
+		Long:   `DEPRECATED: Use 'cre local workflow deploy --compile' instead`,
+		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
+			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'cre local workflow deploy --compile' instead\033[0m\n")
+			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
+
 			initDxTracker()
 			var regErr error
 
@@ -117,9 +247,9 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", DefaultWorkflowNodePattern, "Pattern to match the container name")
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "Workflow owner address")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", "Workflow registry address")
-	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", "Capabilities registry address")
+	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
+	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", DefaultCapabilitiesRegistryAddress, "Capabilities registry address")
 	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
 	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
 
@@ -182,8 +312,8 @@ func deleteWorkflowCmd() *cobra.Command {
 
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "Workflow owner address")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", "Workflow registry address")
+	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "exampleworkflow", "Workflow name")
 
 	return cmd
@@ -233,23 +363,27 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "Workflow owner address")
-	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", "Workflow registry address")
+	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
+	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
 
 	return cmd
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32) error {
+func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, error) {
 	fmt.Printf("\n⚙️ Compiling workflow from %s\n", workflowFilePathFlag)
 
 	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
-		return errors.Wrap(compileErr, "❌ failed to compile workflow")
+		return "", errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
 
-	fmt.Printf("\n✅ Workflow compiled and compressed successfully\n\n")
+	fmt.Printf("\n✅ Workflow saved to %s\n\n", compressedWorkflowWasmPath)
 
-	copyErr := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, containerNamePatternFlag, containerTargetDirFlag)
+	return compressedWorkflowWasmPath, nil
+}
+
+func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
+	copyErr := creworkflow.CopyArtifactToDockerContainers(wasmWorkflowFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
 	}
@@ -278,7 +412,7 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 			return errors.Wrap(configPathAbsErr, "failed to get absolute path of the config file")
 		}
 
-		configCopyErr := creworkflow.CopyWorkflowToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+		configCopyErr := creworkflow.CopyArtifactToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
 		if configCopyErr != nil {
 			return errors.Wrap(configCopyErr, "❌ failed to copy config file to Docker container")
 		}
@@ -298,10 +432,14 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 			return errors.Wrap(secretsErr, "failed to prepare secrets")
 		}
 
+		defer func() {
+			_ = os.Remove(secretPathAbs)
+		}()
+
 		fmt.Printf("\n✅ Encrypted workflow secrets file prepared\n\n")
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
-		secretsCopyErr := creworkflow.CopyWorkflowToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
+		secretsCopyErr := creworkflow.CopyArtifactToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
 		if secretsCopyErr != nil {
 			return errors.Wrap(secretsCopyErr, "❌ failed to copy encrypted secrets file to Docker container")
 		}
@@ -332,16 +470,69 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 
 	fmt.Printf("\n⚙️ Registering workflow '%s' with the workflow registry\n\n", workflowNameFlag)
 
-	registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), uint64(donIDFlag), workflowNameFlag, "file://"+compressedWorkflowWasmPath, configPath, secretsPath, &containerTargetDirFlag)
+	workflowID, registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddressFlag), uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, secretsPath, &containerTargetDirFlag)
 	if registerErr != nil {
 		return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 	}
 
-	defer func() {
-		_ = os.Remove(compressedWorkflowWasmPath)
-	}()
+	if deleteWorkflowFile {
+		defer func() {
+			_ = os.Remove(wasmWorkflowFilePathFlag)
+		}()
+	}
 
-	fmt.Printf("\n✅ Workflow registered successfully\n\n")
+	fmt.Printf("\n✅ Workflow registered successfully: workflowID='%s'\n\n", workflowID)
 
 	return nil
+}
+
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32) error {
+	compressedWorkflowWasmPath, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
+	if compileErr != nil {
+		return errors.Wrap(compileErr, "❌ failed to compile workflow")
+	}
+
+	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag, donIDFlag, true)
+}
+
+func isBase64File(filename string) error {
+	fileInfo, fErr := os.Stat(filename)
+	if fErr != nil {
+		return errors.Wrap(fErr, "failed to get file info")
+	}
+
+	readSize := min(fileInfo.Size(), 4*1024*1024) // 4MB
+
+	file, oErr := os.Open(filename)
+	if oErr != nil {
+		return errors.Wrap(oErr, "failed to open file")
+	}
+	defer file.Close()
+
+	buffer := make([]byte, readSize)
+	n, rErr := file.Read(buffer)
+	if rErr != nil && rErr != io.EOF {
+		return errors.Wrap(rErr, "failed to read file")
+	}
+
+	if !isBase64Content(string(buffer[:n])) {
+		return fmt.Errorf("❌ file %s is not a base64-encoded file", filename)
+	}
+
+	return nil
+}
+
+func isBase64Content(content string) bool {
+	// Remove whitespace and newlines, just to be safe
+	content = strings.ReplaceAll(content, "\n", "")
+	content = strings.ReplaceAll(content, "\r", "")
+	content = strings.ReplaceAll(content, " ", "")
+	content = strings.ReplaceAll(content, "\t", "")
+
+	if len(content) == 0 {
+		return false
+	}
+
+	_, err := base64.StdEncoding.DecodeString(content)
+	return err == nil
 }

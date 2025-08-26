@@ -124,6 +124,7 @@ jobs:
               - 'integration-tests/**/*.toml'
             cre_changes:
               - *core_changes
+              - 'core/scripts/cre/environment/**/*'
               - 'system-tests/**'
             ccip_changes:
               - '**/*ccip*'
@@ -332,7 +333,7 @@ jobs:
     with:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit
 
   run-core-e2e-tests-setup:

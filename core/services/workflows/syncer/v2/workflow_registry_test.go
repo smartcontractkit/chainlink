@@ -155,7 +155,12 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, events, 2)
-		require.Equal(t, WorkflowRegistered, events[0].Name)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+		expectedDeletedEvent := WorkflowDeletedEvent{
+			WorkflowID: wfID,
+		}
+		require.Equal(t, expectedDeletedEvent, events[0].Data)
+		require.Equal(t, WorkflowRegistered, events[1].Name)
 		expectedRegisteredEvent := WorkflowRegisteredEvent{
 			WorkflowID:    wfID2,
 			WorkflowOwner: owner,
@@ -167,12 +172,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Tag:           tag,
 			Attributes:    attributes,
 		}
-		require.Equal(t, expectedRegisteredEvent, events[0].Data)
-		require.Equal(t, WorkflowDeleted, events[1].Name)
-		expectedDeletedEvent := WorkflowDeletedEvent{
-			WorkflowID: wfID,
-		}
-		require.Equal(t, expectedDeletedEvent, events[1].Data)
+		require.Equal(t, expectedRegisteredEvent, events[1].Data)
 	})
 
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
@@ -580,5 +580,66 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 
 		require.Empty(t, pendingEvents)
 		require.Empty(t, events)
+	})
+
+	t.Run("delete events are handled before any other events", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		// Engine already in the workflow registry
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		owner := []byte{1}
+		wfName := "wf name 1"
+		err := er.Add(wfID, &mockService{})
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// The workflow gets a new version with updated metadata, which changes the workflow ID
+		wfID2 := [32]byte{2}
+		binaryURL := "b1"
+		configURL := "c1"
+		createdAt := uint64(1000000)
+		tag := "tag1"
+		attributes := []byte{}
+		donFamily := "A"
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   wfID2,
+				Owner:        owner,
+				CreatedAt:    createdAt,
+				Status:       WorkflowStatusActive,
+				WorkflowName: wfName,
+				BinaryURL:    binaryURL,
+				ConfigURL:    configURL,
+				Tag:          tag,
+				Attributes:   attributes,
+				DonFamily:    donFamily,
+			},
+		}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		require.NoError(t, err)
+
+		// Delete event happens before create event
+		require.Equal(t, events[0].Name, WorkflowDeleted)
+		require.Equal(t, events[1].Name, WorkflowRegistered)
 	})
 }

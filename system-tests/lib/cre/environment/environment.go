@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"os"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,12 +14,15 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials/insecure"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
@@ -30,14 +34,19 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
+	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -52,7 +61,6 @@ import (
 )
 
 const (
-	cronCapabilityAssetFile            = "cron"
 	GithubReadTokenEnvVarName          = "GITHUB_READ_TOKEN"
 	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
@@ -70,17 +78,24 @@ type SetupOutput struct {
 }
 
 type SetupInput struct {
-	CapabilitiesAwareNodeSets            []*cre.CapabilitiesAwareNodeSet
-	CapabilitiesContractFactoryFunctions []func([]cre.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
-	ConfigFactoryFunctions               []cre.ConfigFactoryFn
-	JobSpecFactoryFunctions              []cre.JobSpecFactoryFn
-	BlockchainsInput                     []*cre.WrappedBlockchainInput
-	JdInput                              jd.Input
-	InfraInput                           infra.Input
-	CustomBinariesPaths                  map[cre.CapabilityFlag]string
-	OCR3Config                           *keystone_changeset.OracleConfig
-	VaultOCR3Config                      *keystone_changeset.OracleConfig
-	S3ProviderInput                      *s3provider.Input
+	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
+	BlockchainsInput          []blockchain.Input
+	JdInput                   jd.Input
+	InfraInput                infra.Input
+	OCR3Config                *keystone_changeset.OracleConfig
+	DONTimeConfig             *keystone_changeset.OracleConfig
+	VaultOCR3Config           *keystone_changeset.OracleConfig
+	S3ProviderInput           *s3provider.Input
+	CapabilityConfigs         cre.CapabilityConfigs
+	CopyCapabilityBinaries    bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
+	Capabilities              []cre.InstallableCapability
+
+	// Deprecated: use Capabilities []cre.InstallableCapability instead
+	ConfigFactoryFunctions []cre.NodeConfigFn
+	// Deprecated: use Capabilities []cre.InstallableCapability instead
+	JobSpecFactoryFunctions []cre.JobSpecFn
+	// Deprecated: use Capabilities []cre.InstallableCapability instead
+	CapabilitiesContractFactoryFunctions []cre.CapabilityRegistryConfigFn
 }
 
 type backgroundStageResult struct {
@@ -191,14 +206,26 @@ func SetupTestEnvironment(
 	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds", stageGen.Elapsed().Seconds())))
+
+	// DEPLOY CONTRACTS
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
-	forwardersSelectors := make([]uint64, 0)
+	evmForwardersSelectors := make([]uint64, 0)
+	solForwardersSelectors := make([]uint64, 0)
 	for _, bcOut := range blockchainOutputs {
-		if bcOut.ReadOnly {
+		for _, donMetadata := range input.CapabilitiesAwareNodeSets {
+			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
+				continue
+			}
+			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
+				evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
+			}
+		}
+		if bcOut.SolChain != nil {
+			// we expect that if we have solana, solana write capability is enabled
+			solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
 			continue
 		}
-		forwardersSelectors = append(forwardersSelectors, bcOut.ChainSelector)
 	}
 
 	var allNodeFlags []string
@@ -210,9 +237,23 @@ func SetupTestEnvironment(
 		allNodeFlags = append(allNodeFlags, nodeFlags...)
 	}
 	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
-	evmOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.EVMCapability)
-	consensusAddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapability)
+	evmOCR3AddrFlag := flags.HasFlagForAnyChain(allNodeFlags, cre.EVMCapability)
+	consensusV2AddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapabilityV2)
 
+	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
+	for _, chain := range blockchainOutputs {
+		for _, donMetadata := range input.CapabilitiesAwareNodeSets {
+			if flags.HasFlagForChain(donMetadata.ComputedCapabilities, cre.EVMCapability, chain.ChainID) {
+				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] != 0 {
+					continue
+				}
+				chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] = ks_contracts_op.Selector(chain.ChainSelector)
+			}
+		}
+	}
+
+	// use CLD to deploy the necessary contracts
+	homeChainSelector := homeChainOutput.ChainSelector
 	deployKeystoneReport, err := operations.ExecuteSequence(
 		allChainsCLDEnvironment.OperationsBundle,
 		ks_contracts_op.DeployKeystoneContractsSequence,
@@ -220,13 +261,15 @@ func SetupTestEnvironment(
 			Env: allChainsCLDEnvironment,
 		},
 		ks_contracts_op.DeployKeystoneContractsSequenceInput{
-			RegistryChainSelector: homeChainOutput.ChainSelector,
-			ForwardersSelectors:   forwardersSelectors,
+			RegistryChainSelector: homeChainSelector,
+			ForwardersSelectors:   evmForwardersSelectors,
 			DeployVaultOCR3:       vaultOCR3AddrFlag,
 			DeployEVMOCR3:         evmOCR3AddrFlag,
-			DeployConsensusOCR3:   consensusAddrFlag,
+			EVMChainIDs:           chainsWithEVMCapability,
+			DeployConsensusOCR3:   consensusV2AddrFlag,
 		},
 	)
+
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
 	}
@@ -234,49 +277,139 @@ func SetupTestEnvironment(
 	if err = allChainsCLDEnvironment.ExistingAddresses.Merge(deployKeystoneReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
 		return nil, pkgerrors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
 	}
+
 	if err = memoryDatastore.Merge(deployKeystoneReport.Output.Datastore); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
+
+	for _, sel := range solForwardersSelectors {
+		out, err := operations.ExecuteSequence(
+			allChainsCLDEnvironment.OperationsBundle,
+			ks_sol_seq.DeployForwarderSeq,
+			ks_sol_op.Deps{
+				Env:       *allChainsCLDEnvironment,
+				Chain:     allChainsCLDEnvironment.BlockChains.SolanaChains()[sel],
+				Datastore: memoryDatastore.Seal(),
+			},
+			ks_sol_seq.DeployForwarderSeqInput{
+				ChainSel:    sel,
+				ProgramName: deployment.KeystoneForwarderProgramName,
+			},
+		)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to deploy sol forwarder")
+		}
+
+		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
+			Address:       out.Output.ProgramID.String(),
+			ChainSelector: sel,
+			Version:       semver.MustParse("1.0.0"),
+			Qualifier:     ks_sol.DefaultForwarderQualifier,
+			Type:          ks_sol.ForwarderContract,
+		})
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to add address to the datastore for Solana Forwarder contract")
+		}
+
+		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
+			Address:       out.Output.State.String(),
+			ChainSelector: sel,
+			Version:       semver.MustParse("1.0.0"),
+			Qualifier:     ks_sol.DefaultForwarderQualifier,
+			Type:          ks_sol.ForwarderState,
+		})
+
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
+		}
+
+		testLogger.Info().Msgf("Deployed Forwarder contract on Solana chain chain %d programID: %s state: %s", sel, out.Output.ProgramID.String(), out.Output.State.String())
+	}
 	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
 
-	ocr3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_ocr3")
-	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, ocr3Addr)
+	ocr3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_ocr3")
+	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainSelector, ocr3Addr)
 
-	wfRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String(), "1.0.0", "")
-	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, wfRegAddr)
+	donTimeAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "DONTime")
+	testLogger.Info().Msgf("Deployed DON Time contract on chain %d at %s", homeChainSelector, donTimeAddr)
 
-	capRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String(), "1.1.0", "")
-	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, capRegAddr)
+	wfRegAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), "1.0.0", "")
+	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainSelector, wfRegAddr)
 
-	for _, forwarderSelector := range forwardersSelectors {
+	capRegAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), "1.1.0", "")
+	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainSelector, capRegAddr)
+
+	var vaultOCR3CommonAddr common.Address
+	if vaultOCR3AddrFlag {
+		vaultOCR3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_vault")
+		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainSelector, vaultOCR3Addr)
+		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
+	}
+
+	evmOCR3CommonAddresses := make(map[uint64]common.Address)
+	if evmOCR3AddrFlag {
+		for chainID, selector := range chainsWithEVMCapability {
+			qualifier := ks_contracts_op.GetCapabilityContractIdentifier(uint64(chainID))
+			evmOCR3Addr := mustGetAddress(memoryDatastore, uint64(selector), keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
+			testLogger.Info().Msgf("Deployed EVM OCR3 contract on chainID: %d, selector: %d, at: %s", chainID, selector, evmOCR3Addr)
+			evmOCR3CommonAddresses[uint64(selector)] = common.HexToAddress(evmOCR3Addr)
+		}
+	}
+	var consensusV2OCR3CommonAddr common.Address
+	if consensusV2AddrFlag {
+		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
+		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainSelector, consensusV2OCR3Addr)
+		consensusV2OCR3CommonAddr = common.HexToAddress(consensusV2OCR3Addr)
+	}
+
+	for _, forwarderSelector := range evmForwardersSelectors {
 		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), "1.0.0", "")
 		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, forwarderAddr)
 	}
-	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Contracts deployed in %.2f seconds", stageGen.Elapsed().Seconds())))
-	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Preparing DON(s) configuration")))
+
+	for _, forwarderSelector := range solForwardersSelectors {
+		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderContract.String(), "1.0.0", ks_sol.DefaultForwarderQualifier)
+		forwarderStateAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderState.String(), "1.0.0", ks_sol.DefaultForwarderQualifier)
+		testLogger.Info().Msgf("Deployed Forwarder contract on Solana chain %d at %s state %s", forwarderSelector, forwarderAddr, forwarderStateAddr)
+	}
 
 	// get chainIDs, they'll be used for identifying ETH keys and Forwarder addresses
 	// and also for creating the CLD environment
-	chainIDs := make([]int, 0)
+	evmChainIDs := make([]int, 0)
 	bcOuts := make(map[uint64]*cre.WrappedBlockchainOutput)
 	sethClients := make(map[uint64]*seth.Client)
+	solClients := make(map[uint64]*solrpc.Client)
+	solChainIDs := make([]string, 0)
 	for _, bcOut := range blockchainOutputs {
-		chainIDs = append(chainIDs, libc.MustSafeInt(bcOut.ChainID))
+		if bcOut.SolChain != nil {
+			sel := bcOut.SolChain.ChainSelector
+			bcOuts[sel] = bcOut
+			solClients[sel] = bcOut.SolClient
+			bcOuts[sel].ChainSelector = sel
+			bcOuts[sel].SolChain = bcOut.SolChain
+			bcOuts[sel].SolChain.ArtifactsDir = bcOut.SolChain.ArtifactsDir
+			solChainIDs = append(solChainIDs, bcOut.SolChain.ChainID)
+			continue
+		}
 		bcOuts[bcOut.ChainSelector] = bcOut
+		evmChainIDs = append(evmChainIDs, libc.MustSafeInt(bcOut.ChainID))
 		sethClients[bcOut.ChainSelector] = bcOut.SethClient
 	}
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
 	topology, updatedNodeSets, topoErr := BuildTopology(
-		homeChainOutput.ChainSelector,
+		homeChainSelector,
 		input.CapabilitiesAwareNodeSets,
 		input.InfraInput,
-		chainIDs,
+		evmChainIDs,
+		solChainIDs,
 		bcOuts,
 		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		input.ConfigFactoryFunctions,
-		input.CustomBinariesPaths,
+		allChainsCLDEnvironment.DataStore,
+		input.Capabilities,
+		input.CapabilityConfigs,
+		input.CopyCapabilityBinaries,
 	)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
@@ -317,8 +450,23 @@ func SetupTestEnvironment(
 			chainsWithContracts[chainSelector] = len(addresses) > 0
 		}
 
+		addresses, addrErr1 := allChainsCLDEnvironment.DataStore.Addresses().Fetch()
+		if addrErr1 != nil {
+			backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(addrErr1, "failed to get addresses from datastore")}
+			return
+		}
+
+		for _, addr := range addresses {
+			chainsWithContracts[addr.ChainSelector] = true
+		}
+
 		nonEmptyBlockchains := make(map[uint64]cldf_chain.BlockChain, 0)
 		for chainSelector, chain := range allChainsCLDEnvironment.BlockChains.EVMChains() {
+			if chainsWithContracts[chain.Selector] {
+				nonEmptyBlockchains[chainSelector] = chain
+			}
+		}
+		for chainSelector, chain := range allChainsCLDEnvironment.BlockChains.SolanaChains() {
 			if chainsWithContracts[chain.Selector] {
 				nonEmptyBlockchains[chainSelector] = chain
 			}
@@ -354,6 +502,7 @@ func SetupTestEnvironment(
 		backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 1/3] Workflow Registry configured in %.2f seconds\n", time.Since(startTime).Seconds())}
 	}()
 
+	// JOB DISTRIBUTOR + JOBS (creation and distribution to nodes)
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Job Distributor, DONs and creating Jobs with Job Distributor")))
 
 	jdOutput, nodeSetOutput, jobsSeqErr := SetupJobs(
@@ -374,6 +523,10 @@ func SetupTestEnvironment(
 		input.CapabilitiesAwareNodeSets[idx].Out = nsOut.Output
 	}
 
+	for idx, bcOut := range blockchainOutputs {
+		input.BlockchainsInput[idx].Out = bcOut.BlockchainOutput
+	}
+
 	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	input.JdInput.Out = jdOutput
 
@@ -383,6 +536,7 @@ func SetupTestEnvironment(
 		JdOutput:          jdOutput,
 		BlockchainOutputs: bcOuts,
 		SethClients:       sethClients,
+		SolClients:        solClients,
 		NodeSetOutput:     nodeSetOutput,
 		ExistingAddresses: allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		Datastore:         allChainsCLDEnvironment.DataStore,
@@ -396,13 +550,26 @@ func SetupTestEnvironment(
 	}
 
 	createJobsInput := CreateJobsWithJdOpInput{}
+
+	jobSpecFactoryFunctions := make([]cre.JobSpecFn, 0)
+	for _, capability := range input.Capabilities {
+		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, capability.JobSpecFn())
+	}
+
+	// Deprecated, use Capabilities instead
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
+
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
 		HomeChainBlockchainOutput: homeChainOutput.BlockchainOutput,
 		AddressBook:               allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		JobSpecFactoryFunctions:   input.JobSpecFactoryFunctions,
+		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		FullCLDEnvOutput:          fullCldOutput,
+		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
+		InfraInput:                &input.InfraInput,
+		CapabilitiesConfigs:       input.CapabilityConfigs,
+		Capabilities:              input.Capabilities,
 	}
 	_, createJobsErr := operations.ExecuteOperation(allChainsCLDEnvironment.OperationsBundle, CreateJobsWithJdOp, createJobsDeps, createJobsInput)
 	if createJobsErr != nil {
@@ -447,7 +614,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
 
 	for idx, nodeSetOut := range nodeSetOutput {
-		if !flags.HasFlag(updatedNodeSets[idx].Capabilities, cre.OCR3Capability) || !flags.HasFlag(updatedNodeSets[idx].Capabilities, cre.VaultCapability) {
+		if !flags.HasFlag(updatedNodeSets[idx].ComputedCapabilities, cre.ConsensusCapability) || !flags.HasFlag(updatedNodeSets[idx].ComputedCapabilities, cre.VaultCapability) {
 			continue
 		}
 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
@@ -508,36 +675,20 @@ func SetupTestEnvironment(
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	ocr3CommonAddr := common.HexToAddress(ocr3Addr)
-
-	var vaultOCR3CommonAddr common.Address
-	if vaultOCR3AddrFlag {
-		vaultOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_vault")
-		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, vaultOCR3Addr)
-		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
-	}
-	var evmOCR3CommonAddr common.Address
-	if evmOCR3AddrFlag {
-		evmOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_evm")
-		testLogger.Info().Msgf("Deployed EVM OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, evmOCR3Addr)
-		evmOCR3CommonAddr = common.HexToAddress(evmOCR3Addr)
-	}
-	var consensusV2OCR3CommonAddr common.Address
-	if consensusAddrFlag {
-		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
-		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, consensusV2OCR3Addr)
-		consensusV2OCR3CommonAddr = common.HexToAddress(consensusV2OCR3Addr)
-	}
-
+	donTimeCommonAddr := common.HexToAddress(donTimeAddr)
 	capRegCommonAddr := common.HexToAddress(capRegAddr)
+
 	configureKeystoneInput := cre.ConfigureKeystoneInput{
-		ChainSelector:               homeChainOutput.ChainSelector,
+		ChainSelector:               homeChainSelector,
 		CldEnv:                      fullCldOutput.Environment,
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: &capRegCommonAddr,
 		OCR3Address:                 &ocr3CommonAddr,
+		DONTimeAddress:              &donTimeCommonAddr,
 		VaultOCR3Address:            &vaultOCR3CommonAddr,
-		EVMOCR3Address:              &evmOCR3CommonAddr,
+		EVMOCR3Addresses:            &evmOCR3CommonAddresses,
 		ConsensusV2OCR3Address:      &consensusV2OCR3CommonAddr,
+		NodeSets:                    input.CapabilitiesAwareNodeSets,
 	}
 
 	if input.OCR3Config != nil {
@@ -548,6 +699,17 @@ func SetupTestEnvironment(
 			return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
 		}
 		configureKeystoneInput.OCR3Config = *ocr3Config
+	}
+
+	if input.DONTimeConfig != nil {
+		configureKeystoneInput.DONTimeConfig = *input.DONTimeConfig
+	} else {
+		donTimeConfig, donTimeConfigErr := libcontracts.DefaultOCR3Config(topology)
+		donTimeConfig.DeltaRoundMillis = 0 // Fastest rounds possible
+		if donTimeConfigErr != nil {
+			return nil, pkgerrors.Wrap(donTimeConfigErr, "failed to generate default DON Time config")
+		}
+		configureKeystoneInput.DONTimeConfig = *donTimeConfig
 	}
 
 	ocr3Config, ocr3ConfigErr := libcontracts.DefaultOCR3Config(topology)
@@ -563,7 +725,15 @@ func SetupTestEnvironment(
 	configureKeystoneInput.EVMOCR3Config = *defaultOcr3Config
 	configureKeystoneInput.ConsensusV2OCR3Config = *defaultOcr3Config
 
-	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilitiesContractFactoryFunctions)
+	capabilitiesContractFactoryFunctions := make([]cre.CapabilityRegistryConfigFn, 0)
+	for _, capability := range input.Capabilities {
+		capabilitiesContractFactoryFunctions = append(capabilitiesContractFactoryFunctions, capability.CapabilityRegistryV1ConfigFn())
+	}
+
+	// Deprecated, use Capabilities instead
+	capabilitiesContractFactoryFunctions = append(capabilitiesContractFactoryFunctions, input.CapabilitiesContractFactoryFunctions...)
+
+	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, capabilitiesContractFactoryFunctions)
 	if keystoneErr != nil {
 		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
@@ -578,7 +748,8 @@ func SetupTestEnvironment(
 		*jdOutput,
 		*fullCldOutput.DonTopology,
 		fullCldOutput.Environment.Offchain,
-		input.CapabilitiesContractFactoryFunctions,
+		capabilitiesContractFactoryFunctions,
+		input.CapabilitiesAwareNodeSets,
 	)
 	if artifactErr != nil {
 		testLogger.Error().Err(artifactErr).Msg("failed to generate artifact")
@@ -648,13 +819,15 @@ type ConcurrentNonceMap struct {
 func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*cre.WrappedBlockchainOutput) (*ConcurrentNonceMap, error) {
 	nonceByChainID := make(map[uint64]uint64)
 	for _, bcOut := range blockchainOutputs {
-		var err error
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
-		nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctxWithTimeout, bcOut.SethClient.MustGetRootKeyAddress())
-		cancel()
-		if err != nil {
+		if bcOut.BlockchainOutput.Family == chainselectors.FamilyEVM {
+			var err error
+			ctxWithTimeout, cancel := context.WithTimeout(ctx, bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
+			nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctxWithTimeout, bcOut.SethClient.MustGetRootKeyAddress())
 			cancel()
-			return nil, pkgerrors.Wrapf(err, "failed to get nonce for chain %d", bcOut.ChainID)
+			if err != nil {
+				cancel()
+				return nil, pkgerrors.Wrapf(err, "failed to get nonce for chain %d", bcOut.ChainID)
+			}
 		}
 	}
 	return &ConcurrentNonceMap{nonceByChainID: nonceByChainID}, nil

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -240,7 +241,7 @@ func TestKeystoneView(t *testing.T) {
 				},
 			}
 			var allDons = []internal.DonCapabilities{wfDonCapabilities}
-			cr, err := changeset.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
+			cr, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
 				env.Env.DataStore.Addresses(), env.Env.BlockChains.EVMChains()[env.RegistrySelector], capabilityRegistryAddr,
 			)
 			require.NoError(t, err)

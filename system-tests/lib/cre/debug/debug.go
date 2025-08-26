@@ -79,7 +79,7 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 			l.Info().Msg("✅ Workflow was executing")
 		}
 
-		if flags.HasFlag(debugDon.Flags, cre.OCR3Capability) {
+		if flags.HasFlag(debugDon.Flags, cre.ConsensusCapability) || flags.HasFlag(debugDon.Flags, cre.ConsensusCapabilityV2) {
 			if detectedCount := checkHowManyNodesLogsHaveText(logFiles, workflowNodeCount, "✅ committed outcome"); detectedCount != workflowNodeCount {
 				l.Error().Msgf("❌ OCR was not executing on all nodes (%d/%d)", detectedCount, workflowNodeCount)
 				return
@@ -89,7 +89,7 @@ func PrintTestDebug(ctx context.Context, testName string, l zerolog.Logger, inpu
 
 		// TODO think how to make it handle better a situation when different DONs have writeEVM capability, but for different chains
 		// or when they run multple workflows and we care which one sent the report and which didn't
-		if flags.HasFlag(debugDon.Flags, cre.WriteEVMCapability) {
+		if flags.HasFlag(debugDon.Flags, cre.WriteEVMCapability) || flags.HasFlag(debugDon.Flags, cre.EVMCapability) {
 			if !checkIfAtLeastOneReportWasSent(logFiles, workflowNodeCount) {
 				l.Error().Msg("❌ Reports were not sent")
 				return

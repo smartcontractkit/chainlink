@@ -29,11 +29,12 @@ import (
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/report"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -44,11 +45,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/consensus"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -66,13 +65,13 @@ type WriterTest struct {
 	WorkflowID    string `toml:"workflow_id"`
 }
 type TestConfigLoadTestWriter struct {
-	Blockchains                   []*cretypes.WrappedBlockchainInput `toml:"blockchains" validate:"required"`
-	NodeSets                      []*ns.Input                        `toml:"nodesets" validate:"required"`
-	JD                            *jd.Input                          `toml:"jd" validate:"required"`
-	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput    `toml:"workflow_registry_configuration"`
-	Infra                         *infra.Input                       `toml:"infra" validate:"required"`
-	MockCapabilities              []*MockCapabilities                `toml:"mock_capabilities"`
-	WriterTest                    *WriterTest                        `toml:"writer_test"`
+	Blockchains                   []blockchain.Input              `toml:"blockchains" validate:"required"`
+	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                       `toml:"jd" validate:"required"`
+	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
+	Infra                         *infra.Input                    `toml:"infra" validate:"required"`
+	MockCapabilities              []*MockCapabilities             `toml:"mock_capabilities"`
+	WriterTest                    *WriterTest                     `toml:"writer_test"`
 }
 
 func setupLoadTestWriterEnvironment(
@@ -80,8 +79,8 @@ func setupLoadTestWriterEnvironment(
 	testLogger zerolog.Logger,
 	in *TestConfigLoadTestWriter,
 	mustSetCapabilitiesFn func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet,
-	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
-	jobSpecFactoryFns []cretypes.JobSpecFactoryFn,
+	capabilityFactoryFns []cretypes.CapabilityRegistryConfigFn,
+	jobSpecFactoryFns []cretypes.JobSpecFn,
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
@@ -153,15 +152,23 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*cretypes.CapabilitiesAwareNodeSet {
 		return []*cretypes.CapabilitiesAwareNodeSet{
 			{
-				Input:              input[0],
-				Capabilities:       []string{cretypes.WriteEVMCapability, cretypes.MockCapability, cretypes.OCR3Capability},
-				DONTypes:           []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
-				BootstrapNodeIndex: 0,
+				Input:        input[0],
+				Capabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability},
+				// TODO quick hack, this needs to be migrated to TOML
+				ChainCapabilities: map[string]*cretypes.ChainCapabilityConfig{
+					cretypes.WriteEVMCapability: {
+						EnabledChains: []uint64{1337},
+					},
+				},
+				// TODO quick hack, this needs to be removed after the migration to TOML
+				ComputedCapabilities: []string{cretypes.MockCapability, cretypes.ConsensusCapability, "write-evm-1337"},
+				DONTypes:             []string{cretypes.CapabilitiesDON, cretypes.WorkflowDON},
+				BootstrapNodeIndex:   0,
 			},
 		}
 	}
 
-	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecFactoryInput) (cretypes.DonsToJobSpecs, error) {
+	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
 
 		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
@@ -188,7 +195,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		return donTojobSpecs, nil
 	}
 
-	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+	WriterDONLoadTestCapabilitiesFactoryFn := func(donFlags []string, _ *cretypes.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		if flags.HasFlag(donFlags, cretypes.MockCapability) {
@@ -204,7 +211,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			}
 		}
 
-		if flags.HasFlag(donFlags, cretypes.OCR3Capability) {
+		if flags.HasFlag(donFlags, cretypes.ConsensusCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   "offchain_reporting",
@@ -216,7 +223,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 			})
 		}
 
-		return capabilities
+		return capabilities, nil
 	}
 
 	registryChain := in.Blockchains[0]
@@ -234,9 +241,8 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		//nolint:gosec // disable G115
-		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WriterDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(homeChainIDUint64)))},
-		[]cretypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn, consensus.ConsensusJobSpecFactoryFn(homeChainIDUint64)},
+		[]cretypes.CapabilityRegistryConfigFn{WriterDONLoadTestCapabilitiesFactoryFn, registerEVMWithV1},
+		[]cretypes.JobSpecFn{loadTestJobSpecsFactoryFn, consensusJobSpec(homeChainIDUint64)},
 		feedIDs,
 		[]string{in.WriterTest.WorkflowName},
 	)
@@ -308,7 +314,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	f := 0
 	// Nr of signatures needs to be equal with f+1, compute f based on the nr of ocr3 worker nodes
 	for _, donMetadata := range setupOutput.donTopology.DonsWithMetadata {
-		if flags.HasFlag(donMetadata.Flags, cretypes.OCR3Capability) {
+		if flags.HasFlag(donMetadata.Flags, cretypes.ConsensusCapability) {
 			workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &cretypes.Label{
 				Key:   node.NodeTypeKey,
 				Value: cretypes.WorkerNode,

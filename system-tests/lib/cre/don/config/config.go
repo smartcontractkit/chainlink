@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strconv"
@@ -8,26 +9,23 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-)
-
-const (
-	OCRPeeringPort          = 5001
-	CapabilitiesPeeringPort = 6690
-	GatewayIncomingPort     = 5002
-	GatewayOutgoingPort     = 5003
 )
 
 func Set(t *testing.T, nodeInput *cre.CapabilitiesAwareNodeSet, bc *blockchain.Output) (*cre.WrappedNodeOutput, error) {
@@ -36,10 +34,10 @@ func Set(t *testing.T, nodeInput *cre.CapabilitiesAwareNodeSet, bc *blockchain.O
 		return nil, errors.Wrap(err, "failed to upgrade node set")
 	}
 
-	return &cre.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.Capabilities}, nil
+	return &cre.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.ComputedCapabilities}, nil
 }
 
-func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) (cre.NodeIndexToConfigOverride, error) {
+func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigFn) (cre.NodeIndexToConfigOverride, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
@@ -57,7 +55,28 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 
 	// prepare chains, we need chainIDs, URLs and selectors to get contracts from AddressBook
 	workerEVMInputs := make([]*WorkerEVMInput, 0)
+	workerSolInputs := make([]*WorkerSolanaInput, 0)
 	for chainSelector, bcOut := range input.BlockchainOutput {
+		if bcOut.SolChain != nil {
+			chainID, err := bcOut.SolClient.GetGenesisHash(context.Background())
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get chainID for Solana")
+			}
+
+			// Determine write-solana enablement per chain via node-set ChainCapabilities
+			hasWrite := false
+			hasWrite = slices.Contains(input.NodeSet.Capabilities, cre.WriteSolanaCapability)
+
+			workerSolInputs = append(workerSolInputs, &WorkerSolanaInput{
+				ChainSelector: bcOut.SolChain.ChainSelector,
+				Name:          fmt.Sprintf("node-%d", bcOut.SolChain.ChainSelector),
+				ChainID:       chainID.String(),
+				NodeURL:       bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+				HasWrite:      hasWrite,
+			})
+
+			continue
+		}
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
 		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, bcOut.ChainID) {
 			continue
@@ -67,13 +86,22 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 		if !exists {
 			return configOverrides, errors.Errorf("failed to find selector for chain ID %d", bcOut.ChainID)
 		}
+		// Determine write-evm enablement per chain via node-set ChainCapabilities
+		hasWriteEVM := false
+		if input.NodeSet != nil && input.NodeSet.ChainCapabilities != nil {
+			if cc, ok := input.NodeSet.ChainCapabilities[cre.WriteEVMCapability]; ok && cc != nil {
+				if slices.Contains(cc.EnabledChains, bcOut.ChainID) {
+					hasWriteEVM = true
+				}
+			}
+		}
 		workerEVMInputs = append(workerEVMInputs, &WorkerEVMInput{
-			Name:                 fmt.Sprintf("node-%d", chainSelector),
-			ChainID:              bcOut.ChainID,
-			ChainSelector:        c.Selector,
-			HTTPRPC:              bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			WSRPC:                bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-			HasForwarderContract: !bcOut.ReadOnly,
+			Name:          fmt.Sprintf("node-%d", chainSelector),
+			ChainID:       bcOut.ChainID,
+			ChainSelector: c.Selector,
+			HTTPRPC:       bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			WSRPC:         bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+			WritesToEVM:   hasWriteEVM,
 		})
 	}
 
@@ -129,9 +157,11 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 
 		// generate configuration for the bootstrap node
 		configOverrides[nodeIndex] = BootstrapEVM(donBootstrapNodePeerID, homeChainID, capabilitiesRegistryAddress, workerEVMInputs)
-
 		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
 			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.CapabilitiesPeeringData)
+		}
+		if len(workerSolInputs) > 0 {
+			configOverrides[nodeIndex] += BootstrapSolana(workerSolInputs)
 		}
 	default:
 		return nil, errors.New("multiple bootstrap nodes within a DON found, expected only one")
@@ -154,9 +184,9 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 			}
 		}
 
-		// get all the forwarders and add workflow config for each node ETH key + Forwarder for that chain
+		// get all the forwarders and add workflow config (FromAddress + Forwarder) for chains that have write-evm enabled
 		for _, wi := range workerEVMInputs {
-			if !wi.HasForwarderContract {
+			if !wi.WritesToEVM {
 				continue
 			}
 
@@ -182,15 +212,111 @@ func Generate(input cre.GenerateConfigsInput, factoryFns []cre.ConfigFactoryFn) 
 					}
 				}
 			}
+
+			if input.CapabilityConfigs == nil {
+				return nil, errors.New("additional capabilities configs are nil, but are required to configure the write-evm capability")
+			}
+
+			if writeEvmConfig, ok := input.CapabilityConfigs[cre.WriteEVMCapability]; ok {
+				enabled, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(
+					cre.WriteEVMCapability,
+					input.NodeSet.ChainCapabilities,
+					writeEvmConfig.Config,
+					wi.ChainID,
+				)
+				if rErr != nil {
+					return nil, errors.Wrapf(rErr, "failed to resolve write-evm config for chain %d", wi.ChainID)
+				}
+
+				if !enabled {
+					// This should never happen, but guard anyway. We have already checked that the capability is enabled in the chain capabilities, when we generated the workerEVMInputs.
+					continue
+				}
+
+				runtimeValues := map[string]any{
+					"FromAddress":      wi.FromAddress.Hex(),
+					"ForwarderAddress": wi.ForwarderAddress,
+				}
+
+				var mErr error
+				wi.WorkflowConfig, mErr = don.ApplyRuntimeValues(mergedConfig, runtimeValues)
+				if mErr != nil {
+					return nil, errors.Wrap(mErr, "failed to apply runtime values")
+				}
+			}
+		}
+
+		// get all sol forwarders
+		for _, wi := range workerSolInputs {
+			if !wi.HasWrite {
+				continue
+			}
+			forwarders := input.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(wi.ChainSelector))
+			for _, addr := range forwarders {
+				if addr.Type == ks_sol.ForwarderState {
+					wi.ForwarderState = addr.Address
+					continue
+				}
+				expectedAddressKey := node.AddressKeyFromSelector(wi.ChainSelector)
+				wi.ForwarderAddress = addr.Address
+				for _, label := range workflowNodeSet[i].Labels {
+					if label.Key == expectedAddressKey {
+						if label.Value == "" {
+							return nil, errors.Errorf("%s label value is empty", expectedAddressKey)
+						}
+						wi.FromAddress = solana.MustPublicKeyFromBase58(label.Value)
+						break
+					}
+				}
+				if wi.FromAddress.IsZero() {
+					return nil, errors.Errorf("failed to get from address for Solana chain %d", wi.ChainSelector)
+				}
+			}
+			if input.CapabilityConfigs == nil {
+				return nil, errors.New("additional capabilities configs are nil, but are required to configure the write-evm capability")
+			}
+
+			if writeSolConfig, ok := input.CapabilityConfigs[cre.WriteSolanaCapability]; ok {
+				mergedConfig := envconfig.ResolveCapabilityConfigForDON(
+					cre.WriteSolanaCapability,
+					writeSolConfig.Config,
+					nil,
+				)
+
+				runtimeValues := map[string]any{
+					"FromAddress":      wi.FromAddress.String(),
+					"ForwarderAddress": wi.ForwarderAddress,
+					"ForwarderState":   wi.ForwarderState,
+				}
+
+				var mErr error
+				wi.WorkflowConfig, mErr = don.ApplyRuntimeValues(mergedConfig, runtimeValues)
+				if mErr != nil {
+					return nil, errors.Wrap(mErr, "failed to apply runtime values")
+				}
+			}
 		}
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
 		// we configure both EVM chains, nodes and EVM.Workflow with Forwarder
-		configOverrides[nodeIndex] = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.OCRPeeringData, input.CapabilitiesPeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
+		var workerErr error
+		configOverrides[nodeIndex], workerErr = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.OCRPeeringData, input.CapabilitiesPeeringData, capabilitiesRegistryAddress, homeChainID, workerEVMInputs)
+		if workerErr != nil {
+			return nil, errors.Wrap(workerErr, "failed to generate worker [EVM.Workflow] config")
+		}
+		solOverride, solWorkerErr := WorkerSolana(workerSolInputs)
+		if solWorkerErr != nil {
+			return nil, errors.Wrap(workerErr, "failed to generate worker [Solana.Workflow] config")
+		}
+
+		configOverrides[nodeIndex] += solOverride
 	}
 
-	for _, factoryFn := range factoryFns {
-		newOverrides, err := factoryFn(input)
+	for _, configFn := range nodeConfigFns {
+		if configFn == nil {
+			continue
+		}
+		newOverrides, err := configFn(input)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate nodeset configs")
 		}

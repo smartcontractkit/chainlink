@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
