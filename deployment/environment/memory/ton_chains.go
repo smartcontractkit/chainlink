@@ -84,7 +84,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		chains = append(chains, c)
 		tonChain, ok := c.(cldf_ton.Chain)
 		if !ok {
-			t.Fatalf("expected *cldf_ton.Chain, got %T", c)
+			t.Fatalf("expected cldf_ton.Chain, got %T", c)
 		}
 
 		t.Log("In generate ton chains, Deployer: ", tonChain.WalletAddress.String())
