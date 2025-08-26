@@ -30,7 +30,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/rs/zerolog v1.33.0
 	github.com/sethvargo/go-retry v0.2.4
-	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826180108-780f16a85302
+	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826190403-aed7f5f33cde
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.67
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250818164129-fa2e60d95157
