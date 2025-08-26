@@ -26,6 +26,7 @@ type NodeConfig struct {
 	EncryptionPublicKey string
 	NodeOperatorID      uint32
 	Signer              [32]byte
+	CSAKey              string
 
 	Capabilities []capabilities_registry_v2.CapabilitiesRegistryCapability
 }
@@ -150,12 +151,22 @@ func makeNodeParams(
 			nodeOperatorID = updates.NodeOperatorID
 		}
 
+		csaKey := node.CsaKey
+		if updates.CSAKey != "" {
+			k, err := hex.DecodeString(updates.CSAKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode csa key: %w", err)
+			}
+			csaKey = [32]byte(k)
+		}
+
 		out = append(out, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
 			NodeOperatorId:      nodeOperatorID,
 			P2pId:               node.P2pId,
 			CapabilityIds:       ids,
 			EncryptionPublicKey: encryptionKey,
 			Signer:              signer,
+			CsaKey:              csaKey,
 		})
 	}
 
