@@ -216,6 +216,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
 			continue
 		}
+
 		eg.Go(func() error {
 			feedID := config.FeedIDs[idx]
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
@@ -311,17 +312,9 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
 			continue
 		}
-		// deploy data feeds cache contract only on chains that require a forwarder contract. It's required for the PoR workflow to work and we treat it as a proxy
-		// for deciding whether need to deploy the data feeds cache contract.
-		hasForwarderContract := false
-		for _, donMetadata := range testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata {
-			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
-				hasForwarderContract = true
-				break
-			}
-		}
 
-		if !hasForwarderContract {
+		// deploy data feeds cache contract only on chains that are writeable
+		if !slices.Contains(writeableChains, bcOutput.ChainID) {
 			continue
 		}
 
@@ -412,7 +405,7 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 			if configErr != nil {
 				framework.L.Warn().Msgf("failed to remove workflow config file %s: %s", workflowConfigFilePath, configErr.Error())
 			}
-			deleteErr := creworkflow.DeleteWithContract(t.Context(), bcOutput.SethClient, workflowRegistryAddress, workflowName)
+			deleteErr := creworkflow.DeleteWithContract(t.Context(), testEnv.WrappedBlockchainOutputs[0].SethClient, workflowRegistryAddress, workflowName)
 			if deleteErr != nil {
 				framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", workflowName, deleteErr.Error())
 			}

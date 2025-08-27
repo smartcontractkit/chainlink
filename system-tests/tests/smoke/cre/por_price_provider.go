@@ -239,9 +239,6 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey 
 }
 
 func (f *FakePriceProvider) priceAlreadyFound(feedID string, price *big.Int) bool {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
 	for _, p := range f.actualPrices[feedID] {
 		if p.Cmp(price) == 0 {
 			return true
