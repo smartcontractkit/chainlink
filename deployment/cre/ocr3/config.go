@@ -371,6 +371,9 @@ type ConfigureOCR3Request struct {
 
 func (r ConfigureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
 	nks := makeNodeKeysSlice(r.Nodes, r.Chain.Selector)
+	if r.Cfg == nil {
+		return OCR2OracleConfig{}, errors.New("OCR3 config is required")
+	}
 	return GenerateOCR3Config(*r.Cfg, nks, r.OcrSecrets)
 }
 
