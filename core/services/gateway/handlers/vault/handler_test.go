@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -52,10 +52,17 @@ func setupHandler(t *testing.T) (handlers.Handler, chan handlers.UserCallbackPay
 }
 
 func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
-	createSecretsRequest := SecretsCreateRequest{
-		ID:    "test_id",
-		Value: "test_value",
-		Owner: "test_owner",
+	createSecretsRequest := vaultcommon.CreateSecretsRequest{
+		RequestId: "test_request_id",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:   "test_id",
+					Owner: "test_owner",
+				},
+				EncryptedValue: "test_value",
+			},
+		},
 	}
 	params, err2 := json.Marshal(createSecretsRequest)
 	require.NoError(t, err2)
@@ -71,9 +78,13 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&params),
 		}
 
-		responseData := SecretsCreateResponse{
-			SecretID: SecretIdentifier{Key: createSecretsRequest.ID},
-			Success:  true,
+		responseData := vaultcommon.CreateSecretsResponse{
+			Responses: []*vaultcommon.CreateSecretResponse{
+				{
+					Id:      createSecretsRequest.EncryptedSecrets[0].Id,
+					Success: true,
+				},
+			},
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
@@ -85,12 +96,13 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			callback := <-callbackCh
-			var secretsResponse jsonrpc.Response[SecretsCreateResponse]
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err2 := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, createSecretsRequest.ID, secretsResponse.Result.SecretID.Key, "Secret ID should match")
-			assert.True(t, secretsResponse.Result.Success, "Success should be true")
+			assert.Len(t, secretsResponse.Result.Responses, 1, "Should have one encrypted secret in response")
+			assert.Equal(t, createSecretsRequest.EncryptedSecrets[0].Id.Key, secretsResponse.Result.Responses[0].Id.Key, "Secret ID should match")
+			assert.True(t, secretsResponse.Result.Responses[0].Success, "Success should be true")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)
@@ -106,14 +118,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		h, callbackCh, don := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		id := &vault.SecretIdentifier{
+		id := &vaultcommon.SecretIdentifier{
 			Key:       "foo",
 			Namespace: "default",
 			Owner:     "owner-id",
 		}
-		reqData := &vault.DeleteSecretsRequest{
+		reqData := &vaultcommon.DeleteSecretsRequest{
 			RequestId: "id",
-			Ids: []*vault.SecretIdentifier{
+			Ids: []*vaultcommon.SecretIdentifier{
 				id,
 			},
 		}
@@ -126,8 +138,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&reqDatab),
 		}
 
-		responseData := &vault.DeleteSecretsResponse{
-			Responses: []*vault.DeleteSecretResponse{
+		responseData := &vaultcommon.DeleteSecretsResponse{
+			Responses: []*vaultcommon.DeleteSecretResponse{
 				{
 					Id:      id,
 					Success: true,
@@ -149,7 +161,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			callback := <-callbackCh
-			var secretsResponse jsonrpc.Response[vault.DeleteSecretsResponse]
+			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
 			err2 := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
@@ -180,7 +192,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			callback := <-callbackCh
-			var secretsResponse jsonrpc.Response[SecretsCreateResponse]
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, unsupportedMethodRequest.ID, secretsResponse.ID, "Request ID should match")
@@ -209,7 +221,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			callback := <-callbackCh
-			var secretsResponse jsonrpc.Response[SecretsCreateResponse]
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, emptyParamsRequest.ID, secretsResponse.ID, "Request ID should match")
@@ -222,13 +234,13 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("invalid params error", func(t *testing.T) {
+	t.Run("no request inside the batch request", func(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callbackCh, don := setupHandler(t)
 		// Don't expect SendToNode to be called for invalid params
 		don.AssertNotCalled(t, "SendToNode")
 
-		invalidParams := json.RawMessage(`{"id": "empty_value_field"}`)
+		invalidParams := json.RawMessage(`{"request_id": "empty_value_field"}`)
 		invalidParamsRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "4",
 			Method: MethodSecretsCreate,
@@ -239,11 +251,11 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			callback := <-callbackCh
-			var secretsResponse jsonrpc.Response[SecretsCreateResponse]
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, invalidParamsRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, "invalid params error: secret id and value cannot be empty", secretsResponse.Error.Message, "Error message should match")
+			assert.Equal(t, "invalid params error: must have atleast 1 request", secretsResponse.Error.Message, "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
@@ -252,13 +264,60 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
+	t.Run("invalid params error", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callbackCh, don := setupHandler(t)
+		// Don't expect SendToNode to be called for invalid params
+		don.AssertNotCalled(t, "SendToNode")
+
+		invalidParamsRequest := vaultcommon.CreateSecretsRequest{
+			RequestId: "test_request_id",
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "",
+						Owner: "test_owner",
+					},
+					EncryptedValue: "test_value",
+				},
+			},
+		}
+		params, err2 := json.Marshal(invalidParamsRequest) //nolint:govet // The lock field is not set on this proto
+		require.NoError(t, err2)
+		jsonRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     "4",
+			Method: MethodSecretsCreate,
+			Params: (*json.RawMessage)(&params),
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			callback := <-callbackCh
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+			err := json.Unmarshal(callback.RawResponse, &secretsResponse)
+			assert.NoError(t, err)
+			assert.Equal(t, jsonRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.Equal(t, "invalid params error: secret id key, owner and EncryptedValue cannot be empty on index 0", secretsResponse.Error.Message, "Error message should match")
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
+		}()
+
+		err := h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callbackCh)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
 	t.Run("stale node response", func(t *testing.T) {
 		handler, callbackCh, _ := setupHandler(t)
 
 		// Create a response for a request that was never sent or has already been processed
-		responseData := SecretsCreateResponse{
-			SecretID: SecretIdentifier{Key: createSecretsRequest.ID},
-			Success:  true,
+		responseData := vaultcommon.CreateSecretsResponse{
+			Responses: []*vaultcommon.CreateSecretResponse{
+				{
+					Id:      createSecretsRequest.EncryptedSecrets[0].Id,
+					Success: true,
+				},
+			},
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)

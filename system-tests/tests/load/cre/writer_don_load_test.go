@@ -241,7 +241,6 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 		testLogger,
 		in,
 		mustSetCapabilitiesFn,
-		//nolint:gosec // disable G115
 		[]cretypes.CapabilityRegistryConfigFn{WriterDONLoadTestCapabilitiesFactoryFn, registerEVMWithV1},
 		[]cretypes.JobSpecFn{loadTestJobSpecsFactoryFn, consensusJobSpec(homeChainIDUint64)},
 		feedIDs,

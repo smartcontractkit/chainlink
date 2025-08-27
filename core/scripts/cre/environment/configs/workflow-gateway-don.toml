@@ -46,10 +46,11 @@
 
   env_vars = { CL_EVM_CMD = "" }
 
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger"]
 
    [nodesets.chain_capabilities]
     write-evm = ["1337", "2337"]
+    read-contract = ["1337", "2337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 

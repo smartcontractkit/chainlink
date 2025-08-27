@@ -447,6 +447,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			FetcherFunc:             syncerFetcherFunc,
 			FetcherFactoryFn:        computeFetcherFactory,
 			BillingClient:           billingClient,
+			UseLocalTimeProvider:    cfg.CRE().UseLocalTimeProvider(),
 		},
 		Config:   cfg,
 		DS:       ds,

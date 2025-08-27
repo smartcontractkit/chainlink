@@ -84,11 +84,6 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 		binaryPath := filepath.Join(containerPath, filepath.Base(capabilityConfig.BinaryPath))
 
-		internalHostsBS := getBoostrapWorkflowNames(donWithMetadata, nodeSetInput, donIdx, *infraInput)
-		if len(internalHostsBS) == 0 {
-			return nil, fmt.Errorf("no bootstrap node found for DON %s (there should be at least 1)", donWithMetadata.Name)
-		}
-
 		workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find worker nodes")
@@ -122,6 +117,11 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 		bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
 		if nodeIDErr != nil {
 			return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
+		}
+
+		internalHostsBS, err := getBoostrapWorkflowNames(bootstrapNode, donWithMetadata, infraInput)
+		if err != nil {
+			return nil, fmt.Errorf("no bootstrap node found for DON %s", donWithMetadata.Name)
 		}
 
 		chainIDs, err := enabledChainsProvider(donTopology, nodeSetInput[donIdx], flag)
@@ -258,15 +258,19 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	return donToJobSpecs, nil
 }
 
-func getBoostrapWorkflowNames(donWithMetadata *cre.DonWithMetadata, nodeSetInput []*cre.CapabilitiesAwareNodeSet, donIdx int, infraInput infra.Input) []string {
-	internalHostsBS := make([]string, 0)
-	for nodeIdx := range donWithMetadata.NodesMetadata {
-		if nodeSetInput[donIdx].BootstrapNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].BootstrapNodeIndex {
-			internalHostBS := don.InternalHost(nodeIdx, cre.BootstrapNode, donWithMetadata.Name, infraInput)
-			internalHostsBS = append(internalHostsBS, internalHostBS)
-		}
+func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donWithMetadata *cre.DonWithMetadata, infraInput *infra.Input) ([]string, error) {
+	nodeIndexStr, nErr := node.FindLabelValue(bootstrapNode, node.IndexKey)
+	if nErr != nil {
+		return nil, errors.Wrap(nErr, "failed to find index label")
 	}
-	return internalHostsBS
+
+	nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
+	if nIErr != nil {
+		return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
+	}
+
+	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donWithMetadata.Name, *infraInput)
+	return []string{internalHostBS}, nil
 }
 
 // ConfigMerger merges default config with overrides (either on DON or chain level)

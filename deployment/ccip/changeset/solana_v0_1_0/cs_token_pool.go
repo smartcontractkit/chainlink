@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	solToken "github.com/gagliardetto/solana-go/programs/token"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -233,19 +234,36 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		instructions = append(instructions, poolInitI)
 
+		// fetch current token mint authority
+		var tokenMint solToken.Mint
+		err = chain.GetAccountDataBorshInto(context.Background(), tokenPubKey, &tokenMint)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token mint account data: %w", err)
+		}
+
 		// make pool mint_authority for token
 		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.SolMint {
-			authI, err := solTokenUtil.SetTokenMintAuthority(
-				tokenprogramID,
-				poolSigner,
-				tokenPubKey,
-				chain.DeployerKey.PublicKey(),
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			if tokenMint.MintAuthority != nil && tokenMint.MintAuthority.String() == chain.DeployerKey.PublicKey().String() {
+				authI, err := solTokenUtil.SetTokenMintAuthority(
+					tokenprogramID,
+					poolSigner,
+					tokenPubKey,
+					chain.DeployerKey.PublicKey(),
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+				}
+				instructions = append(instructions, authI)
+				e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+			} else {
+				e.Logger.Warnw("Token's mint authority is not with deployer key, skipping setting poolSigner as mint authority",
+					"poolType", tokenPoolCfg.PoolType, "mintAuthority", tokenMint.MintAuthority.String(),
+					"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 			}
-			instructions = append(instructions, authI)
-			e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+		} else {
+			e.Logger.Warnw("PoolType is not a BurnMintTokenPool, skipping setting poolSigner as mint authority",
+				"poolType", tokenPoolCfg.PoolType, "mintAuthority", tokenMint.MintAuthority.String(),
+				"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 		}
 
 		// confirm instructions

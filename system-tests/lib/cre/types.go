@@ -2,6 +2,7 @@ package cre
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -61,8 +63,65 @@ const (
 	// Add more capabilities as needed
 )
 
+type CLIEnvironmentDependencies interface {
+	CapabilityFlagsProvider
+	ContractVersionsProvider
+}
+
+type ContractVersionsProvider interface {
+	// GetContractVersions returns a map of contract name to semver
+	GetContractVersions() map[string]string
+}
+
+type contractVersionsProvider struct {
+	contracts map[string]string
+}
+
+func (cvp *contractVersionsProvider) GetContractVersions() map[string]string {
+	cv := make(map[string]string, 0)
+	maps.Copy(cv, cvp.contracts)
+	return cv
+}
+
+func NewContractVersionsProvider(overrides map[string]string) *contractVersionsProvider {
+	cvp := &contractVersionsProvider{
+		contracts: map[string]string{
+			keystone_changeset.OCR3Capability.String():       "1.0.0",
+			keystone_changeset.WorkflowRegistry.String():     "1.0.0",
+			keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
+			keystone_changeset.KeystoneForwarder.String():    "1.0.0",
+			ks_sol.ForwarderContract.String():                "1.0.0",
+			ks_sol.ForwarderState.String():                   "1.0.0",
+		},
+	}
+	for k, v := range overrides {
+		cvp.contracts[k] = v
+	}
+	return cvp
+}
+
 type CapabilityFlagsProvider interface {
 	SupportedCapabilityFlags() []CapabilityFlag
+}
+
+func NewEnvironmentDependencies(cfp CapabilityFlagsProvider, cvp ContractVersionsProvider) *envionmentDependencies {
+	return &envionmentDependencies{
+		flagsProvider:       cfp,
+		contractSetProvider: cvp,
+	}
+}
+
+type envionmentDependencies struct {
+	flagsProvider       CapabilityFlagsProvider
+	contractSetProvider ContractVersionsProvider
+}
+
+func (e *envionmentDependencies) GetContractVersions() map[string]string {
+	return e.contractSetProvider.GetContractVersions()
+}
+
+func (e *envionmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
+	return e.flagsProvider.SupportedCapabilityFlags()
 }
 
 type NodeType = string
@@ -76,11 +135,15 @@ const (
 	WorkerNode NodeType = "plugin"
 )
 
-type DonJobs = []*jobv1.ProposeJobRequest
-type DonsToJobSpecs = map[uint64]DonJobs
+type (
+	DonJobs        = []*jobv1.ProposeJobRequest
+	DonsToJobSpecs = map[uint64]DonJobs
+)
 
-type NodeIndexToConfigOverride = map[int]string
-type NodeIndexToSecretsOverride = map[int]string
+type (
+	NodeIndexToConfigOverride  = map[int]string
+	NodeIndexToSecretsOverride = map[int]string
+)
 
 type CapabilityConfigs = map[string]CapabilityConfig
 
@@ -349,8 +412,10 @@ type Incoming struct {
 
 type NodeConfigFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
 
-type HandlerTypeToConfig = map[string]string
-type GatewayHandlerConfigFn = func(donMetadata *DonMetadata) (HandlerTypeToConfig, error)
+type (
+	HandlerTypeToConfig    = map[string]string
+	GatewayHandlerConfigFn = func(donMetadata *DonMetadata) (HandlerTypeToConfig, error)
+)
 
 type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
@@ -507,7 +572,7 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 		return fmt.Errorf("chain_capabilities must be a map, but got %T", c.RawChainCapabilities)
 	}
 
-	var parseChainID = func(v any) (uint64, error) {
+	parseChainID := func(v any) (uint64, error) {
 		var chainID uint64
 		var err error
 
@@ -865,8 +930,10 @@ func (s *StartNixShellInput) Validate() error {
 	return nil
 }
 
-type CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
-type JobSpecFn = func(input *JobSpecInput) (DonsToJobSpecs, error)
+type (
+	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
+	JobSpecFn                  = func(input *JobSpecInput) (DonsToJobSpecs, error)
+)
 
 type JobSpecInput struct {
 	CldEnvironment            *cldf.Environment

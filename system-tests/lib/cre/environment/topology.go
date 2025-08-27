@@ -33,7 +33,6 @@ func BuildTopology(
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
-
 	topologyErr := libdon.ValidateTopology(nodeSets, infraInput)
 	if topologyErr != nil {
 		return nil, nil, errors.Wrap(topologyErr, "failed to validate topology")
