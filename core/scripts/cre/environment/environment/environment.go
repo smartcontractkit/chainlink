@@ -261,8 +261,6 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			panic("test")
-
 			cmdContext := cmd.Context()
 			// Load and validate test configuration
 			in, err := framework.Load[envconfig.Config](nil)
