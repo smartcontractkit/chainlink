@@ -174,7 +174,7 @@ func handlerConfig(donMetadata *cre.DonMetadata) (cre.HandlerTypeToConfig, error
 	return map[string]string{coregateway.VaultHandlerType: `
 ServiceName = "vault"
 [gatewayConfig.Dons.Handlers.Config]
-requestTimeoutSec = 30
+requestTimeoutSec = 70
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
 globalRPS = 50

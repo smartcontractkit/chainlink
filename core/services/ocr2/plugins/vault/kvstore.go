@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
 
 const (
@@ -30,6 +31,8 @@ type WriteKVStore interface {
 	WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error
 	WriteMetadata(owner string, metadata *vault.StoredMetadata) error
 	AddIDToMetadata(id *vault.SecretIdentifier) error
+	RemoveIDFromMetadata(id *vault.SecretIdentifier) error
+	DeleteSecret(id *vault.SecretIdentifier) error
 }
 
 func NewReadStore(reader ocr3_1types.KeyValueReader) ReadKVStore {
@@ -41,7 +44,7 @@ func NewWriteStore(writer ocr3_1types.KeyValueReadWriter) WriteKVStore {
 }
 
 func (s *KVStore) GetSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error) {
-	b, err := s.reader.Read([]byte(keyPrefix + keyFor(id)))
+	b, err := s.reader.Read([]byte(keyPrefix + vaultcap.KeyFor(id)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret: %w", err)
 	}
@@ -125,19 +128,68 @@ func (s *KVStore) AddIDToMetadata(id *vault.SecretIdentifier) error {
 	return nil
 }
 
+func (s *KVStore) RemoveIDFromMetadata(id *vault.SecretIdentifier) error {
+	md, err := s.GetMetadata(id.Owner)
+	if err != nil {
+		return fmt.Errorf("failed to get metadata for owner %s: %w", id.Owner, err)
+	}
+
+	if md == nil {
+		return fmt.Errorf("no metadata found for owner %s", id.Owner)
+	}
+
+	si := []*vault.SecretIdentifier{}
+	var found bool
+	for _, i := range md.SecretIdentifiers {
+		if vaultcap.KeyFor(id) == vaultcap.KeyFor(i) {
+			found = true
+		} else {
+			si = append(si, i)
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("id %s not found in metadata for owner %s", vaultcap.KeyFor(id), id.Owner)
+	}
+
+	newMd := &vault.StoredMetadata{
+		SecretIdentifiers: si,
+	}
+	err = s.WriteMetadata(id.Owner, newMd)
+	if err != nil {
+		return fmt.Errorf("failed to write metadata for owner %s: %w", id.Owner, err)
+	}
+
+	return nil
+}
+
 func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret) error {
 	b, err := proto.Marshal(secret)
 	if err != nil {
 		return fmt.Errorf("failed to marshal secret: %w", err)
 	}
 
-	err = s.writer.Write([]byte(keyPrefix+keyFor(id)), b)
+	err = s.writer.Write([]byte(keyPrefix+vaultcap.KeyFor(id)), b)
 	if err != nil {
 		return fmt.Errorf("failed to write secret: %w", err)
 	}
 
 	if err := s.AddIDToMetadata(id); err != nil {
 		return fmt.Errorf("failed to add id to metadata: %w", err)
+	}
+
+	return nil
+}
+
+func (s *KVStore) DeleteSecret(id *vault.SecretIdentifier) error {
+	err := s.writer.Delete([]byte(keyPrefix + vaultcap.KeyFor(id)))
+	if err != nil {
+		return fmt.Errorf("failed to delete secret: %w", err)
+	}
+
+	err = s.RemoveIDFromMetadata(id)
+	if err != nil {
+		return fmt.Errorf("failed to remove id from metadata: %w", err)
 	}
 
 	return nil

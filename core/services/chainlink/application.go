@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
@@ -100,6 +101,7 @@ import (
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -321,6 +323,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var billingClient metering.BillingClient
 
+	signer, CSAPubKey, err := keystore.BuildNodeAuth(ctx, csaKeystore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build node auth: %w", err)
+	}
+	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(signer, CSAPubKey)
+
 	if opts.BillingClient != nil {
 		billingClient = opts.BillingClient
 	} else if cfg.Billing().URL() != "" {
@@ -329,6 +337,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if opts.Config.Billing().TLSEnabled() {
 			workflowOpts = append(workflowOpts, billing.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 		}
+
+		workflowOpts = append(workflowOpts, billing.WithJWTGenerator(jwtGenerator))
 
 		billingClient, err = billing.NewWorkflowClient(globalLogger, opts.Config.Billing().URL(), workflowOpts...)
 		if err != nil {
@@ -345,6 +355,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if opts.Config.Capabilities().WorkflowRegistry().WorkflowStorage().TLSEnabled() {
 			workflowOpts = append(workflowOpts, storage.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 		}
+
+		workflowOpts = append(workflowOpts, storage.WithJWTGenerator(jwtGenerator))
 
 		storageClient, err = storage.NewWorkflowClient(globalLogger, opts.Config.Capabilities().WorkflowRegistry().WorkflowStorage().URL(), workflowOpts...)
 		if err != nil {
@@ -863,6 +875,12 @@ func newCREServices(
 	lf limits.Factory,
 ) (*CREServices, error) {
 	var srvcs []services.ServiceCtx
+	engineLimiters, err := v2.NewLimiters(lf, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
+	}
+	srvcs = append(srvcs, closerService{name: "WorkflowEngineLimiters", Closer: engineLimiters})
+
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      capCfg.RateLimit().GlobalRPS(),
 		GlobalBurst:    capCfg.RateLimit().GlobalBurst(),
@@ -872,6 +890,7 @@ func newCREServices(
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
+	srvcs = append(srvcs, closerService{name: "WorkflowRateLimiter", Closer: workflowRateLimiter})
 
 	if len(wCfg.Limits().PerOwnerOverrides()) > 0 {
 		globalLogger.Debugw("loaded per owner overrides", "overrides", wCfg.Limits().PerOwnerOverrides())
@@ -885,7 +904,7 @@ func newCREServices(
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
 	}
-	srvcs = append(srvcs, closerService{name: "WorkflowLimiter", Closer: workflowLimits})
+	srvcs = append(srvcs, closerService{name: "WorkflowExecutionLimiter", Closer: workflowLimits})
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if capCfg.GatewayConnector().DonID() != "" {
@@ -1047,6 +1066,7 @@ func newCREServices(
 						dontimeStore,
 						engineRegistry,
 						custmsg.NewLabeler(),
+						engineLimiters,
 						workflowRateLimiter,
 						workflowLimits,
 						artifactsStore,
@@ -1096,7 +1116,7 @@ func newCREServices(
 						retrieverFunc = nil
 					}
 
-					artifactsStore := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
+					artifactsStore, err := artifactsV2.NewStore(lggr, artifactsV2.NewWorkflowRegistryDS(ds, globalLogger),
 						fetcherFunc,
 						retrieverFunc,
 						clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifactsV2.WithMaxArtifactSize(
@@ -1105,7 +1125,13 @@ func newCREServices(
 								MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
 								MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
 							},
-						))
+						),
+						artifactsV2.WithConfig(artifactsV2.StoreConfig{
+							ArtifactStorageHost: capCfg.WorkflowRegistry().WorkflowStorage().ArtifactStorageHost(),
+						}))
+					if err != nil {
+						return nil, fmt.Errorf("unable to create artifact store: %w", err)
+					}
 
 					engineRegistry := syncerV2.NewEngineRegistry()
 
@@ -1115,6 +1141,7 @@ func newCREServices(
 						opts.CapabilitiesRegistry,
 						engineRegistry,
 						custmsg.NewLabeler(),
+						engineLimiters,
 						workflowRateLimiter,
 						workflowLimits,
 						artifactsStore,

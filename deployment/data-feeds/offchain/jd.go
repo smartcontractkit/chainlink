@@ -17,13 +17,16 @@ import (
 )
 
 type NodesFilter struct {
-	DONID        uint64   `json:"donId"`                    // Required
+	DONID        uint64   `json:"donId" yaml:"donId"`       // Required
+	Zone         string   `json:"zone" yaml:"zone"`         // Required. Deployment zone, zone-a or zone-b
 	EnvLabel     string   `json:"envLabel" yaml:"envLabel"` // Required
 	ProductLabel string   `json:"productLabel,omitempty" yaml:"productLabel,omitempty"`
 	Size         int      `json:"size,omitempty" yaml:"size,omitempty"`
 	IsBootstrap  bool     `json:"isBootstrap,omitempty" yaml:"isBootstrap,omitempty"`
 	NodeIDs      []string `json:"nodeIds,omitempty" yaml:"nodeIds,omitempty"` // Optional, if other filters are provided
 }
+
+const defaultZone = "zone-a"
 
 func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 	selectors := []*jdtypesv1.Selector{
@@ -55,6 +58,20 @@ func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 			Key:   devenv.LabelNodeTypeKey,
 			Op:    jdtypesv1.SelectorOp_EQ,
 			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
+		})
+	}
+
+	if f.Zone == defaultZone {
+		// default zone nodes do not have a zone label
+		selectors = append(selectors, &jdtypesv1.Selector{
+			Key: "zone",
+			Op:  jdtypesv1.SelectorOp_NOT_EXIST,
+		})
+	} else {
+		selectors = append(selectors, &jdtypesv1.Selector{
+			Key:   "zone",
+			Op:    jdtypesv1.SelectorOp_EQ,
+			Value: &f.Zone,
 		})
 	}
 

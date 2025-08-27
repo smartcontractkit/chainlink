@@ -39,18 +39,16 @@
   override_mode = "each"
   http_port_range_start = 10100
 
-  # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
-  bootstrap_node_index = 0
-  # added for visiblity, required always, when don_types include "gateway"
-  gateway_node_index = 0
 
+  bootstrap_node_index = 0 # added for visibility, index of the node in the nodeset that will act as a bootstrap
+  gateway_node_index = 0 # added for visibility, required when don_types include "gateway"
   env_vars = { CL_EVM_CMD = "" }
-
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger"]
 
   # Enable capabilities per chain with optional per-chain overrides
   [nodesets.chain_capabilities]
     write-evm = ["1337", "2337"]
+    read-contract = ["1337", "2337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -76,6 +74,7 @@
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
+      ChipIngressInsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
 
@@ -98,6 +97,7 @@
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
@@ -121,6 +121,7 @@
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
@@ -144,6 +145,7 @@
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
@@ -167,6 +169,7 @@
       Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'

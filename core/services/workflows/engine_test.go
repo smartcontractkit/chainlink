@@ -20,12 +20,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -48,7 +48,6 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
@@ -174,8 +173,9 @@ type testHooks struct {
 }
 
 type testConfigProvider struct {
+	core.UnimplementedCapabilitiesRegistryMetadata
 	localNode           func(ctx context.Context) (capabilities.Node, error)
-	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
+	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
 }
 
 func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
@@ -204,12 +204,12 @@ func (t testConfigProvider) NodeByPeerID(ctx context.Context, peerID p2ptypes.Pe
 	}, nil
 }
 
-func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 	if t.configForCapability != nil {
 		return t.configForCapability(ctx, capabilityID, donID)
 	}
 
-	return registrysyncer.CapabilityConfiguration{}, nil
+	return capabilities.CapabilityConfiguration{}, nil
 }
 
 func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
@@ -398,15 +398,11 @@ targets:
 
 		require.NoError(t, err)
 		registry.SetLocalRegistry(&testConfigProvider{
-			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
-				cb, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
-					RestrictedConfig: values.ProtoMap(conf),
+			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+				return capabilities.CapabilityConfiguration{
 					RestrictedKeys:   []string{metering.RatiosKey},
-				})
-
-				return registrysyncer.CapabilityConfiguration{
-					Config: cb,
-				}, err
+					RestrictedConfig: conf,
+				}, nil
 			},
 		})
 	}
@@ -1856,18 +1852,13 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 		simpleWorkflow,
 	)
 	reg.SetLocalRegistry(testConfigProvider{
-		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 			if capabilityID != writeID {
-				return registrysyncer.CapabilityConfiguration{}, nil
+				return capabilities.CapabilityConfiguration{}, nil
 			}
-
-			var cb []byte
-			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
-				DefaultConfig: values.ProtoMap(giveRegistryConfig),
-			})
-			return registrysyncer.CapabilityConfiguration{
-				Config: cb,
-			}, err
+			return capabilities.CapabilityConfiguration{
+				DefaultConfig: giveRegistryConfig,
+			}, nil
 		},
 	})
 
@@ -1996,19 +1987,15 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 		customComputeWorkflow,
 	)
 	reg.SetLocalRegistry(testConfigProvider{
-		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 			if capabilityID != actionID {
-				return registrysyncer.CapabilityConfiguration{}, nil
+				return capabilities.CapabilityConfiguration{}, nil
 			}
 
-			var cb []byte
-			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
-				RestrictedConfig: values.ProtoMap(giveRegistryConfig),
+			return capabilities.CapabilityConfiguration{
+				RestrictedConfig: giveRegistryConfig,
 				RestrictedKeys:   []string{"maxMemoryMBs", "tickInterval", "timeout"},
-			})
-			return registrysyncer.CapabilityConfiguration{
-				Config: cb,
-			}, err
+			}, nil
 		},
 	})
 

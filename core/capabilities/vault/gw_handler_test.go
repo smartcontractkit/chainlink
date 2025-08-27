@@ -10,16 +10,15 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	core_mocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-	vaultCap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
-	vault_api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
-	pluginsvault "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
+	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
@@ -35,22 +34,29 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		{
 			name: "success - create secrets",
 			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
-				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vault.CreateSecretsRequest) bool {
+				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
 					return len(req.EncryptedSecrets) == 1 &&
 						req.EncryptedSecrets[0].Id.Key == "test-secret"
-				})).Return(&pluginsvault.Response{ID: "test-secret"}, nil)
+				})).Return(&vaultcap.Response{ID: "test-secret"}, nil)
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error == nil
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vault_api.MethodSecretsCreate,
+				Method: vaultapi.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
-					params, _ := json.Marshal(vault_api.SecretsCreateRequest{
-						ID:    "test-secret",
-						Value: "encrypted-value",
+					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
+						RequestId: "test-request-id",
+						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+							{
+								Id: &vaultcommon.SecretIdentifier{
+									Key: "test-secret",
+								},
+								EncryptedValue: "encrypted-value",
+							},
+						},
 					})
 					raw := json.RawMessage(params)
 					return &raw
@@ -69,12 +75,19 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vault_api.MethodSecretsCreate,
+				Method: vaultapi.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
-					params, _ := json.Marshal(vault_api.SecretsCreateRequest{
-						ID:    "test-secret",
-						Value: "encrypted-value",
+					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
+						RequestId: "test-request-id",
+						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+							{
+								Id: &vaultcommon.SecretIdentifier{
+									Key: "test-secret",
+								},
+								EncryptedValue: "encrypted-value",
+							},
+						},
 					})
 					raw := json.RawMessage(params)
 					return &raw
@@ -105,10 +118,45 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vault_api.MethodSecretsCreate,
+				Method: vaultapi.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					raw := json.RawMessage([]byte(`{invalid json`))
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
+		{
+			name: "success - delete secrets",
+			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+				ss.EXPECT().DeleteSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.DeleteSecretsRequest) bool {
+					return len(req.Ids) == 1 &&
+						req.Ids[0].Key == "Foo" &&
+						req.Ids[0].Namespace == "Bar" &&
+						req.Ids[0].Owner == "Owner"
+				})).Return(&vaultcap.Response{ID: "test-secret"}, nil)
+
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.Error == nil
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vaultapi.MethodSecretsDelete,
+				ID:     "1",
+				Params: func() *json.RawMessage {
+					params, _ := json.Marshal(vaultcommon.DeleteSecretsRequest{
+						RequestId: "test-secret",
+						Ids: []*vaultcommon.SecretIdentifier{
+							{
+
+								Key:       "Foo",
+								Namespace: "Bar",
+								Owner:     "Owner",
+							},
+						},
+					})
+					raw := json.RawMessage(params)
 					return &raw
 				}(),
 			},
@@ -124,7 +172,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 
 			tt.setupMocks(secretsService, gwConnector)
 
-			handler, err := vaultCap.NewGatewayHandler(capRegistry, secretsService, gwConnector, lggr)
+			handler, err := vaultcap.NewGatewayHandler(capRegistry, secretsService, gwConnector, lggr)
 			require.NoError(t, err)
 
 			err = handler.HandleGatewayMessage(ctx, "gateway-1", tt.request)
@@ -146,7 +194,7 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 	gwConnector := connector_mocks.NewGatewayConnector(t)
 	capRegistry := core_mocks.NewCapabilitiesRegistry(t)
 
-	handler, err := vaultCap.NewGatewayHandler(capRegistry, secretsService, gwConnector, lggr)
+	handler, err := vaultcap.NewGatewayHandler(capRegistry, secretsService, gwConnector, lggr)
 	require.NoError(t, err)
 
 	t.Run("start", func(t *testing.T) {
@@ -162,6 +210,6 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 	t.Run("id", func(t *testing.T) {
 		id, err := handler.ID(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, vaultCap.HandlerName, id)
+		assert.Equal(t, vaultcap.HandlerName, id)
 	})
 }
