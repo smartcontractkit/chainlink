@@ -100,7 +100,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, fmt.Errorf("refusing to update workflow don %d at config version %d because we cannot validate that all forwarder contracts are ready to accept the new configure version", don.Id, don.ConfigCount)
 		}
 
-		cfgs, err := computeConfigs(input.CapabilityConfigs)
+		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations)
 		if err != nil {
 			return UpdateDONOutput{}, fmt.Errorf("failed to compute configs: %w", err)
 		}
@@ -120,10 +120,12 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 		}
 
 		tx, err := registry.UpdateDONByName(txOpts, don.Name, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
+			Name:                     don.Name,
 			Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
 			CapabilityConfigurations: cfgs,
 			IsPublic:                 isPublic,
 			F:                        f,
+			Config:                   don.Config,
 		})
 		if err != nil {
 			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
@@ -147,17 +149,19 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 	},
 )
 
-func computeConfigs(capCfgs []CapabilityConfig) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
-	out := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(capCfgs))
-	for i, capCfg := range capCfgs {
-		out[i] = capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
-		out[i].CapabilityId = capCfg.Capability.CapabilityID
+func computeConfigs(capCfgs []CapabilityConfig, existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	// We merge the already existing configs with the new ones, to make sure that capabilities required by the DON
+	// are still supported.
+	out := existingCapConfigs
+	for _, capCfg := range capCfgs {
+		cfg := capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
+		cfg.CapabilityId = capCfg.Capability.CapabilityID
 		configBytes, err := json.Marshal(capCfg.Config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal capability configuration config: %w", err)
 		}
-		out[i].Config = configBytes
-		if out[i].Config == nil {
+		cfg.Config = configBytes
+		if cfg.Config == nil {
 			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
 		}
 	}
