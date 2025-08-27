@@ -31,7 +31,7 @@ type PluginConfig struct {
 type PluginServices struct {
 	PluginConfig   PluginConfig
 	AddrCodec      AddressCodec
-	ExtraDataCodec ExtraDataCodec
+	ExtraDataCodec ccipocr3.ExtraDataCodec
 	ChainRW        MultiChainRW
 }
 
