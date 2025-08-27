@@ -51,16 +51,10 @@ var DeployOCR3 = operations.NewSequence(
 	semver.MustParse("1.0.0"),
 	"Deploys the OCR3 contract",
 	func(b operations.Bundle, deps DeployOCR3Deps, input DeployOCR3Input) (DeployOCR3Output, error) {
-		// Set default qualifier if not provided
-		qualifier := input.Qualifier
-		if qualifier == "" {
-			qualifier = "capability_consensus"
-		}
-
 		// Step 1: Deploy OCR3 Contract for Consensus Capability
 		ocr3DeploymentReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps{Env: deps.Env}, contracts.DeployOCR3Input{
 			ChainSelector: input.RegistryChainSel,
-			Qualifier:     qualifier,
+			Qualifier:     input.Qualifier,
 		})
 		if err != nil {
 			return DeployOCR3Output{}, err
@@ -109,7 +103,9 @@ var DeployOCR3 = operations.NewSequence(
 )
 
 func getCapabilitiesRegistryContract(deps DeployOCR3Deps, input DeployOCR3Input) (*capabilities_registry_v2.CapabilitiesRegistry, error) {
-	refs := deps.Env.DataStore.Addresses().Filter(datastore.AddressRefByType("CapabilitiesRegistry"))
+	refs := deps.Env.DataStore.Addresses().Filter(
+		datastore.AddressRefByType("CapabilitiesRegistry"),
+		datastore.AddressRefByChainSelector(input.RegistryChainSel))
 	if len(refs) == 0 {
 		return nil, errors.New("failed to get capabilities registry ref")
 	}
