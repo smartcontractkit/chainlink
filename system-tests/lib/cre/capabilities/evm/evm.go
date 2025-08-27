@@ -63,7 +63,7 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
 
-		faultyNodes := uint32((nodeSetInput.Nodes - 1) / 3)
+		faultyNodes := uint32((nodeSetInput.Nodes - 1) / 3) //nolint:gosec // disable G115
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "evm" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
