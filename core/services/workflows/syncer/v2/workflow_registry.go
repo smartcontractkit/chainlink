@@ -320,7 +320,10 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 	}
 
 	if len(pendingEvents) != 0 {
-		return nil, fmt.Errorf("invariant violation: some pending events were not handled in the reconcile loop: keys=%+v, len=%d", maps.Keys(pendingEvents), len(pendingEvents))
+		w.lggr.Debugf("some pending events were not handled in the reconcile loop, cleaning up: keys=%+v, len=%d", maps.Keys(pendingEvents), len(pendingEvents))
+		for id := range pendingEvents {
+			delete(pendingEvents, id)
+		}
 	}
 
 	return events, nil
