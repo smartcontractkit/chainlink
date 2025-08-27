@@ -14,7 +14,7 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20_with_drip"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipton"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
@@ -668,7 +668,7 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 		if ramp.IsAddrNone() {
 			return nil, fmt.Errorf("no onramp found in the state for TON chain %d", chainSelector)
 		}
-		tonAC := ccipton.AddressCodec{}
+		tonAC := codec.NewAddressCodec()
 		onRampAddressBytes, err = tonAC.AddressStringToBytes(ramp.String())
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert TON onramp address %s to bytes: %w", ramp.String(), err)
