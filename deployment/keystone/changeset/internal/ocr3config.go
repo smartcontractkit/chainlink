@@ -197,7 +197,7 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecrets) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
-		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v", len(nca), cfg.TransmissionSchedule)
+		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
 	}
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}

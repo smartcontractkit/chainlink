@@ -45,6 +45,7 @@ import (
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -392,6 +393,8 @@ func Test_SecretsWorker(t *testing.T) {
 			contents, err := orm.GetContents(ctx, giveSecretsURL)
 			require.NoError(t, err)
 			require.Equal(t, string(beforeSecretsPayload), contents)
+			limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+			require.NoError(t, err)
 			rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 			require.NoError(t, err)
 
@@ -407,7 +410,7 @@ func Test_SecretsWorker(t *testing.T) {
 
 			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, engineRegistry,
-				emitter, rl, wl, store, workflowEncryptionKey)
+				emitter, limiters, rl, wl, store, workflowEncryptionKey)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
@@ -579,6 +582,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
+	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
 
@@ -591,7 +596,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, er, emitter, rl, wl, store, workflowEncryptionKey)
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -687,6 +692,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
+	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
@@ -699,7 +706,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, er,
-		emitter, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
+		emitter, limiters, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(

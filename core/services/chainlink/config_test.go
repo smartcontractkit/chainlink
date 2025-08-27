@@ -510,7 +510,7 @@ func TestConfig_Marshal(t *testing.T) {
 			SyncStrategy:            ptr("event"),
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: ptr(""),
-				URL:                 ptr("localhost:4566"),
+				URL:                 ptr(""),
 				TLSEnabled:          ptr(true),
 			},
 		},
