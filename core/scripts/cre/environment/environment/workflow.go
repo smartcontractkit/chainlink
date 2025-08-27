@@ -208,12 +208,12 @@ func compileDeployWorkflowCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:    "compile-deploy",
-		Short:  "DEPRECATED: Use 'cre local workflow deploy --compile' instead",
-		Long:   `DEPRECATED: Use 'cre local workflow deploy --compile' instead`,
+		Short:  "DEPRECATED: Use 'go run . env workflow deploy --compile' instead",
+		Long:   `DEPRECATED: Use 'go run . env workflow deploy --compile' instead`,
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
-			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'cre local workflow deploy --compile' instead\033[0m\n")
+			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'go run . env workflow deploy --compile' instead\033[0m\n")
 			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
 
 			initDxTracker()
