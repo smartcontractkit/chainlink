@@ -91,7 +91,7 @@ type dataSource struct {
 	cache                  *Cache
 	observationLoopStarted atomic.Bool
 	observationLoopCloseCh services.StopChan
-	waitForLoopToExitCh    chan struct{} // will be closed when we exit the observation loop
+	observationLoopDoneCh  chan struct{} // will be closed when we exit the observation loop
 
 	configDigestToStreamMu sync.Mutex
 	configDigestToStream   map[types.ConfigDigest]observableStreamValues
@@ -109,18 +109,12 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCac
 		cache:                  NewCache(500*time.Millisecond, time.Minute),
 		configDigestToStream:   make(map[types.ConfigDigest]observableStreamValues),
 		observationLoopCloseCh: make(chan struct{}),
-		waitForLoopToExitCh:    make(chan struct{}),
+		observationLoopDoneCh:  make(chan struct{}),
 	}
 }
 
 // Observe looks up all streams in the registry and populates a map of stream ID => value
 func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) error {
-	if opts == nil {
-		return errors.New("opts cannot be nil")
-	}
-	if d.lggr == nil {
-		return errors.New("logger cannot be nil")
-	}
 	// Observation loop logic
 	{
 		// Update the list of streams to observe for this config digest and set the timeout
@@ -136,38 +130,10 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 
 	// Fetch the cached observations for all streams.
 	for streamID := range streamValues {
-		val := d.fromCache(streamID)
-		if val != nil {
-			streamValues[streamID] = val
-		}
+		streamValues[streamID] = d.cache.Get(streamID)
 	}
 
 	return nil
-}
-
-func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) {
-	values := make(llo.StreamValues, len(streamValues))
-	for streamID := range streamValues {
-		values[streamID] = nil
-	}
-
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		deadline = time.Now().Add(100 * time.Millisecond)
-	}
-
-	streamVals := make(llo.StreamValues)
-	for streamID := range values {
-		streamVals[streamID] = values[streamID]
-	}
-
-	d.configDigestToStreamMu.Lock()
-	d.configDigestToStream[opts.ConfigDigest()] = observableStreamValues{
-		opts:                opts,
-		streamValues:        streamVals,
-		observationInterval: time.Until(deadline),
-	}
-	d.configDigestToStreamMu.Unlock()
 }
 
 // startObservationLoop continuously makes observations for the streams in d.configDigestToStream and stores those in
@@ -175,22 +141,32 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 //
 // NOTE: This method needs to be run in a goroutine.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
-	var elapsed time.Duration
+	if !d.observationLoopStarted.CompareAndSwap(false, true) {
+		close(loopStartedCh)
+		return
+	}
 
+	loopStarting := true
+	var elapsed time.Duration
 	stopChanCtx, stopChanCancel := d.observationLoopCloseCh.NewCtx()
 	defer stopChanCancel()
+
 	for {
 		if stopChanCtx.Err() != nil {
-			close(d.waitForLoopToExitCh)
+			close(d.observationLoopDoneCh)
 			return
 		}
 
-		loopStart := time.Now()
+		startTS := time.Now()
 		opts, streamValues, observationInterval := d.getObservableStreams()
-		if len(streamValues) == 0 {
-			// There is nothing to observe, exit the loop and let the next Observe() call restart it.
-			d.lggr.Debugw("No streams to observe, exiting observation loop")
-			close(d.waitForLoopToExitCh)
+		if len(streamValues) == 0 || opts == nil {
+			// There is nothing to observe, exit and let the next Observe() call reinitialize the loop.
+			d.lggr.Debugw("invalid observation loop parameters", "opts", opts, "streamValues", streamValues)
+
+			// still at the loop initialization, notify the caller and return
+			if loopStarting {
+				close(loopStartedCh)
+			}
 			return
 		}
 
@@ -253,16 +229,16 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 				}
 
 				// cache the observed value
-				d.toCache(streamID, val)
+				d.cache.Add(streamID, val)
 			}(streamID)
 		}
 
 		wg.Wait()
-		elapsed = time.Since(loopStart)
+		elapsed = time.Since(startTS)
 
-		// Notify the caller that we've completed our first round of observations.
-		if !d.observationLoopStarted.Load() {
-			d.observationLoopStarted.Store(true)
+		// notify the caller that we've completed our first round of observations.
+		if loopStarting {
+			loopStarting = false
 			close(loopStartedCh)
 		}
 
@@ -317,22 +293,9 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 func (d *dataSource) Close() error {
 	close(d.observationLoopCloseCh)
 	d.observationLoopStarted.Store(false)
-	<-d.waitForLoopToExitCh
+	<-d.observationLoopDoneCh
 
 	return nil
-}
-
-func (d *dataSource) fromCache(streamID llotypes.StreamID) llo.StreamValue {
-	if streamValue, found := d.cache.Get(streamID); found && streamValue != nil {
-		return streamValue
-	}
-	return nil
-}
-
-func (d *dataSource) toCache(streamID llotypes.StreamID, val llo.StreamValue) {
-	if val != nil {
-		d.cache.Add(streamID, val)
-	}
 }
 
 type observableStreamValues struct {
@@ -355,6 +318,32 @@ func (o *observableStreamValues) IsActive() (bool, error) {
 	return false, nil
 }
 
+// setObservableStreams sets the observable streams for the given config digest.
+func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) {
+	values := make(llo.StreamValues, len(streamValues))
+	for streamID := range streamValues {
+		values[streamID] = nil
+	}
+
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add(100 * time.Millisecond)
+	}
+
+	streamVals := make(llo.StreamValues)
+	for streamID := range values {
+		streamVals[streamID] = values[streamID]
+	}
+
+	d.configDigestToStreamMu.Lock()
+	d.configDigestToStream[opts.ConfigDigest()] = observableStreamValues{
+		opts:                opts,
+		streamValues:        streamVals,
+		observationInterval: time.Until(deadline),
+	}
+	d.configDigestToStreamMu.Unlock()
+}
+
 // getObservableStreams returns the active plugin data source options, the streams to observe and the observation interval
 // the observation interval is the maximum time we can spend observing streams. We ensure that we don't exceed this time and
 // we wait for the remaining time in the observation loop.
@@ -366,18 +355,17 @@ func (d *dataSource) getObservableStreams() (llo.DSOpts, llo.StreamValues, time.
 	}
 	d.configDigestToStreamMu.Unlock()
 
-	// deduplicate streams and get the active ocr instance options
 	for _, vals := range streamsToObserve {
 		active, err := vals.IsActive()
 		if err != nil {
 			d.lggr.Errorw("getObservableStreams: failed to check if OCR instance is active", "error", err)
 			continue
 		}
-		if !active {
-			continue
+
+		if active {
+			return vals.opts, vals.streamValues, vals.observationInterval
 		}
 
-		return vals.opts, vals.streamValues, vals.observationInterval
 	}
 
 	d.lggr.Errorw("getObservableStreams: no active OCR instance found")
