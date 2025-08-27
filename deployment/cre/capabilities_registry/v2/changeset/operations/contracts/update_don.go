@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -59,7 +60,7 @@ type UpdateDONOutput struct {
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig struct {
 	Capability Capability
-	Config     []byte // this is the marshalled proto config. if nil, a default config is used
+	Config     map[string]interface{} // this is the marshalled proto config. if nil, a default config is used
 }
 
 type Capability struct {
@@ -151,7 +152,11 @@ func computeConfigs(capCfgs []CapabilityConfig) ([]capabilities_registry_v2.Capa
 	for i, capCfg := range capCfgs {
 		out[i] = capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
 		out[i].CapabilityId = capCfg.Capability.CapabilityID
-		out[i].Config = capCfg.Config
+		configBytes, err := json.Marshal(capCfg.Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal capability configuration config: %w", err)
+		}
+		out[i].Config = configBytes
 		if out[i].Config == nil {
 			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
 		}
