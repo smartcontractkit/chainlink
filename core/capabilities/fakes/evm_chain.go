@@ -157,6 +157,9 @@ func (fc *FakeEVMChain) WriteReport(
 		return nil, err
 	}
 
+	// Set gas limit
+	auth.GasLimit = input.GasConfig.GasLimit
+
 	signatures := make([][]byte, len(input.Report.Sigs))
 	for i, sig := range input.Report.Sigs {
 		signatures[i] = sig.Signature
