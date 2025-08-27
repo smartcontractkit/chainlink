@@ -80,7 +80,7 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 					},
 				},
 			},
-		}
+		})
 	}
 
 	return capabilities, nil
