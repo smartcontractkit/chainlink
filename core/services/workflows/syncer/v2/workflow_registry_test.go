@@ -652,6 +652,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		er := NewEngineRegistry()
 		wfID := [32]byte{1}
 		err := er.Add(wfID, &mockService{})
+		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,
 			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {

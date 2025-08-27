@@ -330,9 +330,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 					break
 				}
 			}
-			if existsInMetadata {
-				continue
-			} else {
+			if !existsInMetadata {
 				delete(pendingEvents, id)
 			}
 		}
