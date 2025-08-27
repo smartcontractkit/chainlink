@@ -268,7 +268,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
+	handler, err := syncer.NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -370,7 +370,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er,
+	handler, err := syncer.NewEventHandler(lggr, wfStore, nil, true, capRegistry, er,
 		emitter, limiters, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 

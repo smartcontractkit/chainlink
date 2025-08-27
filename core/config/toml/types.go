@@ -1823,8 +1823,9 @@ type StreamsConfig struct {
 }
 
 type CreConfig struct {
-	Streams         *StreamsConfig         `toml:",omitempty"`
-	WorkflowFetcher *WorkflowFetcherConfig `toml:",omitempty"`
+	Streams              *StreamsConfig         `toml:",omitempty"`
+	WorkflowFetcher      *WorkflowFetcherConfig `toml:",omitempty"`
+	UseLocalTimeProvider *bool                  `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
@@ -1851,6 +1852,12 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.WorkflowFetcher.URL; v != nil {
 			c.WorkflowFetcher.URL = v
+		}
+	}
+
+	if f.UseLocalTimeProvider != nil {
+		if c.UseLocalTimeProvider == nil {
+			c.UseLocalTimeProvider = f.UseLocalTimeProvider
 		}
 	}
 }

@@ -102,6 +102,8 @@ func NewContractVersionsProvider(overrides map[string]string) *contractVersionsP
 
 type CapabilityFlagsProvider interface {
 	SupportedCapabilityFlags() []CapabilityFlag
+	GlobalCapabilityFlags() []CapabilityFlag
+	ChainSpecificCapabilityFlags() []CapabilityFlag
 }
 
 func NewEnvironmentDependencies(cfp CapabilityFlagsProvider, cvp ContractVersionsProvider) *envionmentDependencies {
@@ -122,6 +124,14 @@ func (e *envionmentDependencies) GetContractVersions() map[string]string {
 
 func (e *envionmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
 	return e.flagsProvider.SupportedCapabilityFlags()
+}
+
+func (e *envionmentDependencies) GlobalCapabilityFlags() []CapabilityFlag {
+	return e.flagsProvider.GlobalCapabilityFlags()
+}
+
+func (e *envionmentDependencies) ChainSpecificCapabilityFlags() []CapabilityFlag {
+	return e.flagsProvider.ChainSpecificCapabilityFlags()
 }
 
 type NodeType = string

@@ -6,6 +6,7 @@ type CRE interface {
 	StreamsAPIKey() string
 	StreamsAPISecret() string
 	WorkflowFetcher() WorkflowFetcher
+	UseLocalTimeProvider() bool
 }
 
 // WorkflowFetcher defines configuration for fetching workflow files
