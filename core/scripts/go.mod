@@ -13,8 +13,6 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based => ./cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based
 
-replace github.com/smartcontractkit/chainlink-testing-framework/framework => ../../../chainlink-testing-framework/framework
-
 // Uncomment to work with local version of crib-sdk
 // replace github.com/smartcontractkit/crib-sdk => ../../../crib-sdk
 
@@ -55,7 +53,7 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.3.2
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250819150450-95ef563f6e6d
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.12
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.16
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.10
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
@@ -72,6 +70,7 @@ require (
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
 	github.com/urfave/cli v1.22.16
 	go.uber.org/zap v1.27.0
+	golang.org/x/sync v0.16.0
 	golang.org/x/text v0.27.0
 	google.golang.org/protobuf v1.36.7
 	gopkg.in/yaml.v3 v3.0.1
@@ -585,7 +584,6 @@ require (
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/term v0.33.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
