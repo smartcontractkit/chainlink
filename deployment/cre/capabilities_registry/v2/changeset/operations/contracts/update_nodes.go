@@ -77,7 +77,6 @@ var UpdateNodes = operations.NewOperation[UpdateNodesInput, UpdateNodesOutput, U
 		resp := UpdateNodesOutput{
 			UpdatedNodes: make([]*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated, 0, len(receipt.Logs)),
 		}
-
 		// Parse the logs to get the updated nodes
 		for i, log := range receipt.Logs {
 			if log == nil {
@@ -123,12 +122,11 @@ func makeNodeParams(
 			return nil, fmt.Errorf("capabilities not found for node %s", p2pIDStr)
 		}
 
+		// We merge the already existing capabilities IDs with the new ones, to make sure that capabilities required by the DON
+		// are still supported.
 		ids := node.CapabilityIds
-		if len(updates.Capabilities) > 0 {
-			ids = make([]string, 0, len(updates.Capabilities))
-			for _, capability := range updates.Capabilities {
-				ids = append(ids, capability.CapabilityId)
-			}
+		for _, capability := range updates.Capabilities {
+			ids = append(ids, capability.CapabilityId)
 		}
 
 		encryptionKey := node.EncryptionPublicKey

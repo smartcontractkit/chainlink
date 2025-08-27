@@ -150,9 +150,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 )
 
 func computeConfigs(capCfgs []CapabilityConfig, existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
-	// We merge the already existing configs with the new ones, to make sure that capabilities required by the DON
-	// are still supported.
-	out := existingCapConfigs
+	var out []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
 	for _, capCfg := range capCfgs {
 		cfg := capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
 		cfg.CapabilityId = capCfg.Capability.CapabilityID
@@ -164,6 +162,7 @@ func computeConfigs(capCfgs []CapabilityConfig, existingCapConfigs []capabilitie
 		if cfg.Config == nil {
 			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
 		}
+		out = append(out, cfg)
 	}
 	return out, nil
 }
