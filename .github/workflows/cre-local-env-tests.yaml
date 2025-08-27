@@ -163,7 +163,7 @@ jobs:
       - name: Deploy v2 Cron workflow
         shell: bash
         run: |
-          go run main.go env workflow deploy --compile --wasm-file-path core/scripts/cre/environment/examples/workflows/v2/cron/main.go --workflow-name cronv2workflow
+          go run main.go env workflow deploy --compile --wasm-file-path core/scripts/cre/environment/examples/workflows/v2/cron/main.go --name cronv2workflow
 
       - name: Delete v2 Cron workflow
         shell: bash
