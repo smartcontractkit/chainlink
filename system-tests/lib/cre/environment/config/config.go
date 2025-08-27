@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -26,25 +28,50 @@ type Config struct {
 
 // Validate performs validation checks on the configuration, ensuring all required fields
 // are present and all referenced capabilities are known to the system.
-func (c Config) Validate(capabilityFlagsProvider cre.CapabilityFlagsProvider) error {
+func (c Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 	if c.JD.CSAEncryptionKey == "" {
 		return errors.New("jd.csa_encryption_key must be provided")
 	}
 
 	for _, nodeSet := range c.NodeSets {
 		for _, capability := range nodeSet.Capabilities {
-			if !slices.Contains(capabilityFlagsProvider.SupportedCapabilityFlags(), capability) {
+			if !slices.Contains(envDependencies.SupportedCapabilityFlags(), capability) {
 				return errors.New("unknown capability: " + capability + ". Make sure you have added it to the capabilityFlagsProvider")
 			}
 		}
 
 		for capability := range nodeSet.ChainCapabilities {
-			if !slices.Contains(capabilityFlagsProvider.SupportedCapabilityFlags(), capability) {
+			if !slices.Contains(envDependencies.SupportedCapabilityFlags(), capability) {
 				return errors.New("unknown capability: " + capability + ". Make sure you have added it to the capabilityFlagsProvider")
 			}
 		}
 	}
 
+	if err := validateContractVersions(envDependencies.GetContractVersions()); err != nil {
+		return fmt.Errorf("failed to validate initial contract set: %w", err)
+	}
+
+	return nil
+}
+
+// TODO(CRE-741): support contracts other than major version 1
+func validateContractVersions(cv map[string]string) error {
+	supportedSet := map[string]string{
+		keystone_changeset.OCR3Capability.String():       "1.0.0",
+		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
+		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
+		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
+	}
+	for k, v := range supportedSet {
+		version, ok := cv[k]
+		if !ok {
+			return fmt.Errorf("required contract %s not configured for deployment", k)
+		}
+
+		if version != v {
+			return fmt.Errorf("unsupported version %s for contract %s configured for deployment", v, k)
+		}
+	}
 	return nil
 }
 

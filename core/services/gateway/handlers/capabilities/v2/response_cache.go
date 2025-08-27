@@ -1,12 +1,14 @@
 package v2
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
 
 // responseCache is a thread-safe cache for storing HTTP responses.
@@ -17,6 +19,7 @@ type responseCache struct {
 	cache   map[string]*cachedResponse
 	lggr    logger.Logger
 	ttl     time.Duration
+	metrics *metrics.Metrics
 }
 
 type cachedResponse struct {
@@ -24,11 +27,12 @@ type cachedResponse struct {
 	storedAt time.Time
 }
 
-func newResponseCache(lggr logger.Logger, ttlMs int) *responseCache {
+func newResponseCache(lggr logger.Logger, ttlMs int, metrics *metrics.Metrics) *responseCache {
 	return &responseCache{
-		cache: make(map[string]*cachedResponse),
-		lggr:  logger.Named(lggr, "ResponseCache"),
-		ttl:   time.Duration(ttlMs) * time.Millisecond,
+		cache:   make(map[string]*cachedResponse),
+		lggr:    logger.Named(lggr, "ResponseCache"),
+		ttl:     time.Duration(ttlMs) * time.Millisecond,
+		metrics: metrics,
 	}
 }
 
@@ -57,13 +61,14 @@ func cacheKey(workflowID string, req gateway.OutboundHTTPRequest) string {
 // the age of cached response is less than the max age of the request.
 // If the cached response is expired or not cached, it fetches a new response from the fetchFn.
 // and caches the response if it is cacheable.
-func (rc *responseCache) CachedFetch(workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse) gateway.OutboundHTTPResponse {
+func (rc *responseCache) CachedFetch(ctx context.Context, workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse) gateway.OutboundHTTPResponse {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
 	key := cacheKey(workflowID, req)
 	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
 	cachedResp, exists := rc.cache[key]
 	if exists && cachedResp.storedAt.Add(cacheMaxAge).After(time.Now()) {
+		rc.metrics.Action.IncrementCacheHitCount(ctx, rc.lggr)
 		return cachedResp.response
 	}
 	response := fetchFn()
@@ -89,7 +94,7 @@ func (rc *responseCache) Set(workflowID string, req gateway.OutboundHTTPRequest,
 	}
 }
 
-func (rc *responseCache) DeleteExpired() int {
+func (rc *responseCache) DeleteExpired(ctx context.Context) int {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
 	now := time.Now()
@@ -101,5 +106,7 @@ func (rc *responseCache) DeleteExpired() int {
 		}
 	}
 	rc.lggr.Debugw("Removed expired cached HTTP responses", "count", expiredCount, "remaining", len(rc.cache))
+	rc.metrics.Action.IncrementCacheCleanUpCount(ctx, int64(expiredCount), rc.lggr)
+	rc.metrics.Action.RecordCacheSize(ctx, int64(len(rc.cache)), rc.lggr)
 	return expiredCount
 }

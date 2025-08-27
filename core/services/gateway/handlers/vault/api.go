@@ -2,7 +2,7 @@ package vault
 
 import (
 	"encoding/json"
-	"strconv"
+	"fmt"
 )
 
 const (
@@ -12,92 +12,21 @@ const (
 	MethodSecretsGet    = "vault.secrets.get"
 	MethodSecretsUpdate = "vault.secrets.update"
 	MethodSecretsDelete = "vault.secrets.delete"
+
+	MaxBatchSize = 10
 )
 
-type SecretIdentifier struct {
-	Key       string `json:"key,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-	Owner     string `json:"owner,omitempty"`
-}
-
-func (s *SecretIdentifier) String() string {
-	return "SecretIdentifier{" +
-		"Key: " + s.Key +
-		", Namespace: " + s.Namespace +
-		", Owner: " + s.Owner +
-		"}"
-}
-
-type SecretsCreateRequest struct {
-	ID    string `json:"id"`
-	Value string `json:"value"`
-	Owner string `json:"owner"`
-}
-
-type SecretsGetRequest struct {
-	ID    string `json:"id"`
-	Owner string `json:"owner"`
-}
-
-// SignedResponse is a structure that represents a signed response from the Vault DON.
-// It should be validated by the client before use.
-// The Payload field contains the actual response data, while Context and Signatures
-// are used for signature verification and context information.
-type SignedResponse struct {
+// SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.
+// External clients should verify that the signatures match the payload and context, before trusting this response.
+// Only after validating, clients should decode the payload for further processing.
+// If however the Error field is non-empty, it indicates there was an error talking to the Vault DON.
+type SignedOCRResponse struct {
+	Error      string          `json:"error"`
 	Payload    json.RawMessage `json:"payload"`
 	Context    []byte          `json:"__context"`
 	Signatures [][]byte        `json:"__signatures"`
 }
 
-type ResponseBase struct {
-	ID       string         `json:"id,omitempty"`
-	Error    string         `json:"error,omitempty"`
-	Response SignedResponse `json:"response,omitempty"`
-}
-
-func (r *ResponseBase) String() string {
-	return "ResponseBase{" +
-		"ID: " + r.ID +
-		", Error: " + r.Error +
-		", Response: SignedResponse{" +
-		", Payload: " + string(r.Response.Payload) +
-		", Context: []byte blob" +
-		", Signatures: [][]byte blob}" +
-		"}"
-}
-
-type SecretsCreateResponse struct {
-	SecretID SecretIdentifier `json:"secret_id,omitempty"`
-	Success  bool             `json:"success,omitempty"`
-}
-
-func (r *SecretsCreateResponse) String() string {
-	return "SecretsCreateResponse{" +
-		", SecretID: " + r.SecretID.String() +
-		", Success: " + strconv.FormatBool(r.Success) +
-		"}"
-}
-
-type SecretsGetResponse struct {
-	SecretID    SecretIdentifier `json:"secret_id,omitempty"`
-	SecretValue SecretData       `json:"secret_value,omitempty"`
-	Error       string           `json:"error,omitempty"`
-}
-
-func (r *SecretsGetResponse) String() string {
-	return "SecretsGetResponse{" +
-		", SecretID: " + r.SecretID.String() +
-		", SecretValue: <val>" +
-		", Error: " + r.Error +
-		"}"
-}
-
-type SecretData struct {
-	EncryptedValue               string             `json:"encrypted_value,omitempty"`
-	EncryptedDecryptionKeyShares []*EncryptedShares `json:"encrypted_decryption_key_shares,omitempty"`
-}
-
-type EncryptedShares struct {
-	Shares        []string `json:"shares,omitempty"`
-	EncryptionKey string   `json:"encryption_key,omitempty"`
+func (r *SignedOCRResponse) String() string {
+	return fmt.Sprintf("SignedOCRResponse { Error: %s, Payload: %s, Context: <[%d]byte blob>, Signatures: <[%d][]byte blob>}", r.Error, string(r.Payload), len(r.Context), len(r.Signatures))
 }

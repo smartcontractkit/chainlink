@@ -516,7 +516,7 @@ SyncStrategy = 'event' # Default
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 # URL is the location for the workflow storage service to be communicated with.
-URL = "localhost:4566" # Default
+URL = "localhost:4566" # Example
 # TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
 TLSEnabled = true # Default
 # ArtifactStorageHost is the host name that, when present within the workflow metadata binary or config URL, designates that a signed URL should be retrieved from the workflow storage service.
@@ -857,3 +857,7 @@ PollingInterval = "5m" # Default
 IgnoreInvalidBridges = true # Default
 # IgnoreJoblessBridges skips bridges that have no associated jobs.
 IgnoreJoblessBridges = false # Default
+
+[CRE]
+# UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
+UseLocalTimeProvider = true # Default
