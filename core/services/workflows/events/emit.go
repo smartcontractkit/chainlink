@@ -108,7 +108,6 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 	if err := emitProtoMessage(ctx, v2Event); err != nil {
 		multiErr = errors.Join(multiErr, err)
 	}
-	lggr.Errorw("PATRICK EXECUTION FINISHED LOG", "v2Event", v2Event, "error", multiErr)
 	return multiErr
 }
 
@@ -211,11 +210,6 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 
 func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport, lggr logger.Logger) error {
 	rpt.Metadata = buildWorkflowMetadata(labels, rpt.Metadata.WorkflowExecutionID)
-
-	// TODO: remove
-	if lggr != nil {
-		lggr.Infow("PATRICK METERING REPORT", "rpt", rpt)
-	}
 
 	return emitProtoMessage(ctx, rpt)
 }

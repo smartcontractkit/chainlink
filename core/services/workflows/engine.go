@@ -36,7 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 
-	"github.com/smartcontractkit/chain-selectors"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 )
 
 const (
@@ -1476,7 +1476,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		platform.WorkflowRegistryChain, strconv.FormatUint(chainSelector, 10),
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.Itoa(int(nodeState.WorkflowDON.ConfigVersion)),
-		platform.KeyOrganizationID, "TODO",
+		// TODO platform.KeyOrganizationID, "TODO",
 	)
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
