@@ -2,6 +2,7 @@ package ccipton
 
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -9,9 +10,11 @@ import (
 )
 
 // InitializePluginConfig returns a pluginConfig for TON chains.
-func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
+func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		AddressCodec: codec.NewAddressCodec(),
+		AddressCodec:       codec.NewAddressCodec(),
+		CommitPluginCodec:  codec.NewCommitPluginCodecV1(),
+		ExecutePluginCodec: codec.NewExecutePluginCodecV1(extraDataCodec),
 	}
 }
 

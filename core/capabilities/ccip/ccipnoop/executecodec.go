@@ -14,7 +14,7 @@ type ExecutePluginCodecV1 struct {
 	extraDataCodec common.ExtraDataCodec
 }
 
-func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePluginCodecV1 {
+func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodec) *ExecutePluginCodecV1 {
 	return &ExecutePluginCodecV1{
 		extraDataCodec: extraDataCodec,
 	}

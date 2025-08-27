@@ -6,6 +6,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -29,12 +30,12 @@ type PluginConfig struct {
 type PluginServices struct {
 	PluginConfig   PluginConfig
 	AddrCodec      AddressCodec
-	ExtraDataCodec ExtraDataCodec
+	ExtraDataCodec ccipocr3.ExtraDataCodec
 	ChainRW        MultiChainRW
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
-type InitFunction func(logger.Logger, ExtraDataCodec) PluginConfig
+type InitFunction func(logger.Logger, ccipocr3.ExtraDataCodec) PluginConfig
 
 var registeredFactories = make(map[string]InitFunction)
 
@@ -51,7 +52,7 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 	}
 
 	pluginServices := PluginServices{
-		ExtraDataCodec: make(ExtraDataCodec), // lazy initialize it after factory init call
+		ExtraDataCodec: make(ccipocr3.ExtraDataCodec), // lazy initialize it after factory init call
 	}
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)

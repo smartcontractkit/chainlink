@@ -634,7 +634,8 @@ func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, 
 		offRampAddress = ccipAddress[:]
 	case chain_selectors.FamilyTon:
 		or := c.TonChains[chainSelector].OffRamp
-		offRampAddress = or.Data()
+		rawBytes := codec.ToRawAddr(&or)
+		offRampAddress = rawBytes[:]
 
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
@@ -672,11 +673,8 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 		if ramp.IsAddrNone() {
 			return nil, fmt.Errorf("no onramp found in the state for TON chain %d", chainSelector)
 		}
-		tonAC := codec.NewAddressCodec()
-		onRampAddressBytes, err = tonAC.AddressStringToBytes(ramp.String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert TON onramp address %s to bytes: %w", ramp.String(), err)
-		}
+		rawAddress := codec.ToRawAddr(&ramp)
+		onRampAddressBytes = rawAddress[:]
 
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)

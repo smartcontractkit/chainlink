@@ -10,9 +10,8 @@ import (
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/mock"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
@@ -180,12 +179,12 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		"accountIsWritableBitmap": uint64(2),
 		"TokenReceiver":           [32]byte(solanago.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF").Bytes()),
 	}, nil).Maybe()
-	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+	registeredMockExtraDataCodecMap := map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    mockExtraDataCodec,
 		chainsel.FamilySolana: mockExtraDataCodec,
 	}
 
-	edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+	edc := ccipocr3.ExtraDataCodec(registeredMockExtraDataCodecMap)
 	cd := NewExecutePluginCodecV1(edc)
 
 	for _, tc := range testCases {
@@ -226,7 +225,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		"ComputeUnits":            uint32(1000),
 		"accountIsWritableBitmap": uint64(2),
 	}, nil)
-	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+	registeredMockExtraDataCodecMap := map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    mockExtraDataCodec,
 		chainsel.FamilySolana: mockExtraDataCodec,
 	}
@@ -269,7 +268,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		err = onChainReport.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
-		edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+		edc := ccipocr3.ExtraDataCodec(registeredMockExtraDataCodecMap)
 		executeCodec := NewExecutePluginCodecV1(edc)
 		decode, err := executeCodec.Decode(testutils.Context(t), buf.Bytes())
 		require.NoError(t, err)
@@ -286,7 +285,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
 		ocrReport := randomExecuteReport(t, 124615329519749607)
-		edc := ccipcommon.ExtraDataCodec(registeredMockExtraDataCodecMap)
+		edc := ccipocr3.ExtraDataCodec(registeredMockExtraDataCodecMap)
 		cd := NewExecutePluginCodecV1(edc)
 		encodedReport, err := cd.Encode(testutils.Context(t), ocrReport)
 		require.NoError(t, err)

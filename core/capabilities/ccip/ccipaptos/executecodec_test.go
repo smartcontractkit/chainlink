@@ -10,12 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 )
 
@@ -154,7 +154,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		},
 	}
 
-	registeredMockExtraDataCodecMap := map[string]ccipcommon.SourceChainExtraDataCodec{
+	registeredMockExtraDataCodecMap := map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    mockExtraDataCodec,
 		chainsel.FamilySolana: mockExtraDataCodec,
 		chainsel.FamilyAptos:  mockExtraDataCodec,
