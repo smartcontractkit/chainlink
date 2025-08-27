@@ -205,7 +205,7 @@ func setIdlAuthority(e cldf.Environment, newAuthority, programsPath, programID, 
 
 // changeset to close idl account for a program - this is needed when the idl increased so much in size that it no longer fits in the account
 // and the idl account can not be resized when it already contains data, so you need to close the account and reinitialize it
-func CloseIDLAccount(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
+func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
@@ -217,25 +217,25 @@ func CloseIDLAccount(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 
 	// CCIP Core Programs
 	if c.Router {
-		err := closeIDLAccount(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
+		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.FeeQuoter {
-		err := closeIDLAccount(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName)
+		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.OffRamp {
-		err := closeIDLAccount(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName)
+		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.RMNRemote {
-		err := closeIDLAccount(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName)
+		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -244,20 +244,20 @@ func CloseIDLAccount(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	// Token Pools
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err := closeIDLAccount(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
+		err := runCloseIDLAccount(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err := closeIDLAccount(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
+		err := runCloseIDLAccount(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.CCTPTokenPool {
-		err := closeIDLAccount(e, chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName)
+		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -274,19 +274,19 @@ func CloseIDLAccount(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	}
 
 	if c.AccessController {
-		err = closeIDLAccount(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String())
+		err = runCloseIDLAccount(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String())
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.Timelock {
-		err = closeIDLAccount(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String())
+		err = runCloseIDLAccount(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String())
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.MCM {
-		err = closeIDLAccount(e, chain.ProgramsPath, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String())
+		err = runCloseIDLAccount(e, chain.ProgramsPath, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String())
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -296,7 +296,7 @@ func CloseIDLAccount(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 }
 
 // Close IDL account for a program
-func closeIDLAccount(e cldf.Environment, programsPath, programID, programName string) error {
+func runCloseIDLAccount(e cldf.Environment, programsPath, programID, programName string) error {
 	e.Logger.Infow("Closing IDL Account", "programName", programName)
 	args := []string{"idl", "close", programID}
 	e.Logger.Info(args)
