@@ -20,14 +20,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestService_CapabilityCall(t *testing.T) {
+func TestCapability_CapabilityCall(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
 	store := requests.NewStore[*Request]()
 	handler := requests.NewHandler[*Request, *Response](lggr, store, clock, expiry)
-	service := NewService(lggr, clock, expiry, handler)
-	servicetest.Run(t, service)
+	capability := NewCapability(lggr, clock, expiry, handler)
+	servicetest.Run(t, capability)
 
 	owner := "test-owner"
 	workflowID := "test-workflow-id"
@@ -95,7 +95,7 @@ func TestService_CapabilityCall(t *testing.T) {
 		}
 	}()
 
-	resp, err := service.Execute(t.Context(), capabilities.CapabilityRequest{
+	resp, err := capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
@@ -114,14 +114,14 @@ func TestService_CapabilityCall(t *testing.T) {
 	assert.True(t, proto.Equal(expectedResponse, typedResponse))
 }
 
-func TestService_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
+func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
 	store := requests.NewStore[*Request]()
 	handler := requests.NewHandler[*Request, *Response](lggr, store, clock, expiry)
-	service := NewService(lggr, clock, expiry, handler)
-	servicetest.Run(t, service)
+	capability := NewCapability(lggr, clock, expiry, handler)
+	servicetest.Run(t, capability)
 
 	owner := "test-owner"
 	workflowID := "test-workflow-id"
@@ -188,7 +188,7 @@ func TestService_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 		}
 	}()
 
-	resp, err := service.Execute(t.Context(), capabilities.CapabilityRequest{
+	resp, err := capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
@@ -207,14 +207,14 @@ func TestService_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	assert.True(t, proto.Equal(expectedResponse, typedResponse))
 }
 
-func TestService_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
+func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
 	store := requests.NewStore[*Request]()
 	handler := requests.NewHandler[*Request, *Response](lggr, store, clock, expiry)
-	service := NewService(lggr, clock, expiry, handler)
-	servicetest.Run(t, service)
+	capability := NewCapability(lggr, clock, expiry, handler)
+	servicetest.Run(t, capability)
 
 	owner := "test-owner"
 	workflowID := "test-workflow-id"
@@ -263,7 +263,7 @@ func TestService_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 		}
 	}()
 
-	_, err = service.Execute(t.Context(), capabilities.CapabilityRequest{
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
@@ -278,14 +278,14 @@ func TestService_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	assert.ErrorContains(t, err, "cannot parse invalid wire-format data")
 }
 
-func TestService_CapabilityCall_TimeOut(t *testing.T) {
+func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	fakeClock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
 	store := requests.NewStore[*Request]()
 	handler := requests.NewHandler[*Request, *Response](lggr, store, fakeClock, expiry)
-	service := NewService(lggr, fakeClock, expiry, handler)
-	servicetest.Run(t, service)
+	capability := NewCapability(lggr, fakeClock, expiry, handler)
+	servicetest.Run(t, capability)
 
 	owner := "test-owner"
 	workflowID := "test-workflow-id"
@@ -330,7 +330,7 @@ func TestService_CapabilityCall_TimeOut(t *testing.T) {
 		}
 	}()
 
-	_, err = service.Execute(t.Context(), capabilities.CapabilityRequest{
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
@@ -345,7 +345,7 @@ func TestService_CapabilityCall_TimeOut(t *testing.T) {
 	assert.ErrorContains(t, err, "timeout exceeded")
 }
 
-func TestService_CRUD(t *testing.T) {
+func TestCapability_CRUD(t *testing.T) {
 	requestID := "test-request-id"
 	owner := "test-owner"
 	sid := &vault.SecretIdentifier{
@@ -358,7 +358,7 @@ func TestService_CRUD(t *testing.T) {
 		name     string
 		error    string
 		response *Response
-		call     func(t *testing.T, service *Service) (*Response, error)
+		call     func(t *testing.T, capability *Capability) (*Response, error)
 	}{
 		{
 			name: "CreateSecrets",
@@ -367,7 +367,7 @@ func TestService_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, service *Service) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -377,7 +377,7 @@ func TestService_CRUD(t *testing.T) {
 						},
 					},
 				}
-				return service.CreateSecrets(t.Context(), req)
+				return capability.CreateSecrets(t.Context(), req)
 			},
 		},
 		{
@@ -387,7 +387,7 @@ func TestService_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, service *Service) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -397,7 +397,7 @@ func TestService_CRUD(t *testing.T) {
 						},
 					},
 				}
-				return service.UpdateSecrets(t.Context(), req)
+				return capability.UpdateSecrets(t.Context(), req)
 			},
 		},
 		{
@@ -408,7 +408,7 @@ func TestService_CRUD(t *testing.T) {
 				Format:  "protobuf",
 			},
 			error: "request batch size exceeds maximum of 10",
-			call: func(t *testing.T, service *Service) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -458,7 +458,7 @@ func TestService_CRUD(t *testing.T) {
 						},
 					},
 				}
-				return service.UpdateSecrets(t.Context(), req)
+				return capability.UpdateSecrets(t.Context(), req)
 			},
 		},
 		{
@@ -469,7 +469,7 @@ func TestService_CRUD(t *testing.T) {
 				Format:  "protobuf",
 			},
 			error: "request ID must not be empty",
-			call: func(t *testing.T, service *Service) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: "",
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -479,7 +479,7 @@ func TestService_CRUD(t *testing.T) {
 						},
 					},
 				}
-				return service.UpdateSecrets(t.Context(), req)
+				return capability.UpdateSecrets(t.Context(), req)
 			},
 		},
 		{
@@ -490,7 +490,7 @@ func TestService_CRUD(t *testing.T) {
 				Format:  "protobuf",
 			},
 			error: "secret ID must have both key and owner set",
-			call: func(t *testing.T, service *Service) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -504,7 +504,162 @@ func TestService_CRUD(t *testing.T) {
 						},
 					},
 				}
-				return service.UpdateSecrets(t.Context(), req)
+				return capability.UpdateSecrets(t.Context(), req)
+			},
+		},
+		{
+			name: "UpdateSecrets_InvalidRequests_DuplicateIDs",
+			response: &Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
+			error: "duplicate secret ID found",
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
+				req := &vault.UpdateSecretsRequest{
+					RequestId: requestID,
+					EncryptedSecrets: []*vault.EncryptedSecret{
+						{
+							Id: &vault.SecretIdentifier{
+								Key:       "Foo",
+								Namespace: "Bar",
+								Owner:     "Owner",
+							},
+							EncryptedValue: "encrypted-value",
+						},
+						{
+							Id: &vault.SecretIdentifier{
+								Key:       "Foo",
+								Namespace: "Bar",
+								Owner:     "Owner",
+							},
+							EncryptedValue: "encrypted-value",
+						},
+					},
+				}
+				return capability.UpdateSecrets(t.Context(), req)
+			},
+		},
+		{
+			name:     "DeleteSecrets_Invalid_BatchTooBig",
+			response: nil,
+			error:    "request batch size exceeds maximum of 10",
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
+				req := &vault.DeleteSecretsRequest{
+					RequestId: requestID,
+					Ids: []*vault.SecretIdentifier{
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+					},
+				}
+				return capability.DeleteSecrets(t.Context(), req)
+			},
+		},
+		{
+			name:     "DeleteSecrets_Invalid_RequestIDMissing",
+			response: nil,
+			error:    "request ID must not be empty",
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
+				req := &vault.DeleteSecretsRequest{
+					RequestId: "",
+				}
+				return capability.DeleteSecrets(t.Context(), req)
+			},
+		},
+		{
+			name: "DeleteSecrets",
+			response: &Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
+				req := &vault.DeleteSecretsRequest{
+					RequestId: requestID,
+					Ids: []*vault.SecretIdentifier{
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+					},
+				}
+				return capability.DeleteSecrets(t.Context(), req)
+			},
+		},
+		{
+			name:  "DeleteSecrets_Invalid_Duplicates",
+			error: "duplicate secret ID found",
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
+				req := &vault.DeleteSecretsRequest{
+					RequestId: requestID,
+					Ids: []*vault.SecretIdentifier{
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+						{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     owner,
+						},
+					},
+				}
+				return capability.DeleteSecrets(t.Context(), req)
 			},
 		},
 	}
@@ -516,8 +671,8 @@ func TestService_CRUD(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*Request]()
 			handler := requests.NewHandler[*Request, *Response](lggr, store, clock, expiry)
-			service := NewService(lggr, clock, expiry, handler)
-			servicetest.Run(t, service)
+			capability := NewCapability(lggr, clock, expiry, handler)
+			servicetest.Run(t, capability)
 
 			wait := func() {}
 			if tc.error == "" {
@@ -542,7 +697,7 @@ func TestService_CRUD(t *testing.T) {
 				wait = wg.Wait
 			}
 
-			resp, err := tc.call(t, service)
+			resp, err := tc.call(t, capability)
 			wait()
 
 			if tc.error != "" {

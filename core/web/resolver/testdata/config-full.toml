@@ -320,7 +320,8 @@ MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
-URL = 'localhost:4566'
+ArtifactStorageHost = ''
+URL = ''
 TLSEnabled = true
 
 [Capabilities.GatewayConnector]
@@ -344,7 +345,9 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
+ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogStreamingEnabled = false
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'
@@ -356,6 +359,8 @@ Global = 200
 PerOwner = 200
 
 [CRE]
+UseLocalTimeProvider = true
+
 [CRE.Streams]
 WsURL = 'streams.url'
 RestURL = 'streams.url'

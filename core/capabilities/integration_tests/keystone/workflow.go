@@ -157,8 +157,8 @@ consensus:
       key_id: "evm"
       aggregation_method: "secure_mint" #NEW AGGREGRATION METHOD
       aggregation_config:
-        targetChainSelector:
-          "{{.ChainSelector}}" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
+        targetChainSelector: "{{.ChainSelector}}" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
+        dataID: "{{.DataID}}"
       encoder: "EVM"
       encoder_config:
         abi: "(bytes16 DataID, uint32 Timestamp, uint224 Answer)[] Reports"
@@ -168,33 +168,36 @@ targets:
     inputs:
       signed_report: $(secure-mint-consensus.outputs)
     config:
-      address: "{{.DFCacheAddr}}"
+      address: "{{.DFCacheAddress}}"
       params: ["$(report)"]
       abi: "receive(report bytes)"
       deltaStage: 1s
       schedule: oneAtATime
 `
 
-type secureMintWorkflowData struct {
-	WorkflowName  string
-	WorkflowOwner string
-	ChainSelector uint64
-	DFCacheAddr   string
+type secureMintWorkflowTemplateData struct {
+	ChainSelector  uint64
+	DataID         string
+	DFCacheAddress string
+	WorkflowName   string
+	WorkflowOwner  string
 }
 
 func createSecureMintWorkflowJob(t *testing.T,
 	workflowName string,
 	workflowOwner string,
 	chainSelector uint64,
-	dfCacheAddr common.Address) job.Job {
+	dataID string,
+	dfCacheAddress common.Address) job.Job {
 	tmpl, err := template.New("secureMintWorkflow").Parse(secureMintWorkflowTemplate)
 	require.NoError(t, err)
 
-	data := secureMintWorkflowData{
-		WorkflowName:  workflowName,
-		WorkflowOwner: workflowOwner,
-		ChainSelector: chainSelector,
-		DFCacheAddr:   dfCacheAddr.String(),
+	data := secureMintWorkflowTemplateData{
+		ChainSelector:  chainSelector,
+		DataID:         dataID,
+		DFCacheAddress: dfCacheAddress.String(),
+		WorkflowName:   workflowName,
+		WorkflowOwner:  workflowOwner,
 	}
 
 	var buf bytes.Buffer

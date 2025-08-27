@@ -51,28 +51,43 @@ func getAllConfiguredTokensPaginated(taContract *token_admin_registry.TokenAdmin
 	if err != nil {
 		return nil, fmt.Errorf("failed to get supported tokens for tokenAdminRegistry %s: %w", taContract.Address().String(), err)
 	}
+
 	tokenDetailsSyncMap := sync.Map{}
+
+	// Create worker pool with fixed number of goroutines (8)
+	const numWorkers = 8
+	jobCh := make(chan common.Address, len(allTokens))
 	grp := errgroup.Group{}
-	// try to get all token details in parallel
-	for _, token := range allTokens {
-		token := token
+
+	// Start fixed number of workers
+	for i := 0; i < numWorkers; i++ {
 		grp.Go(func() error {
-			config, err := taContract.GetTokenConfig(nil, token)
-			if err != nil {
-				return fmt.Errorf("failed to get token config for token %s tokenAdminReg %s: %w",
-					token.String(), taContract.Address().String(), err)
+			for token := range jobCh {
+				config, err := taContract.GetTokenConfig(nil, token)
+				if err != nil {
+					return fmt.Errorf("failed to get token config for token %s tokenAdminReg %s: %w",
+						token.String(), taContract.Address().String(), err)
+				}
+				tokenDetailsSyncMap.Store(token, TokenDetails{
+					Pool:         config.TokenPool,
+					Admin:        config.Administrator,
+					PendingAdmin: config.PendingAdministrator,
+				})
 			}
-			tokenDetailsSyncMap.Store(token, TokenDetails{
-				Pool:         config.TokenPool,
-				Admin:        config.Administrator,
-				PendingAdmin: config.PendingAdministrator,
-			})
 			return nil
 		})
 	}
+
+	// Send jobs to workers
+	for _, token := range allTokens {
+		jobCh <- token
+	}
+	close(jobCh)
+
 	if err := grp.Wait(); err != nil {
 		return nil, fmt.Errorf("failed to get token details for tokenAdminRegistry %s: %w", taContract.Address().String(), err)
 	}
+
 	// convert sync map to regular map
 	tokenDetailsSyncMap.Range(func(key, value interface{}) bool {
 		tokenDetails[key.(common.Address)] = value.(TokenDetails)

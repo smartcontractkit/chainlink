@@ -7,6 +7,7 @@ Slack: #topic-local-dev-environments
 
 1. [Using the CLI](#using-the-cli)
    - [Prerequisites](#prerequisites-for-docker)
+   - [Setup](#setup)
    - [Start Environment](#start-environment)
     - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
     - [Beholder](#beholder)
@@ -82,6 +83,14 @@ If you are missing requirements, you may need to fix the errors and re-run.
 
 Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOijQ-R-5BIZrTdAaumlquQVZ48/edit?tab=t.0#heading=h.wqgcsrk9ncjs) for troubleshooting and FAQ. Use `#topic-local-dev-environments` for help.
 
+## Setup
+
+Environment can be setup by running `go run . env setup` inside `fdf` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
+- you have AWS CLI installed and configured
+- you have GH CLI installed and authenticated
+- you have required Job Distributor and Chip Ingress (Beholder) images
+- build and copy all capability binaries to expected location
+
 ## Start Environment
 ```bash
 # while in core/scripts/cre/environment
@@ -90,7 +99,7 @@ go run . env start [--auto-setup]
 # to start environment with an example workflow web API-based workflow
 go run . env start --with-example
 
- # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
+ # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary present in `/binaries` folder)
 go run . env start --with-example --example-workflow-trigger cron
 
 # to start environment using image with all supported capabilities
@@ -269,14 +278,7 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
       - Cloning [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repository (Make sure they are built for `linux/amd64`!)
       - Building each capability manually by running `GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o evm` inside capability's folder or building all of them at once with `./nx run-many -t build` in root of `capabilities` folder
 
-     Once that is done reference them in your TOML like:
-       ```toml
-       [extra_capabilities]
-       cron_capability_binary_path = "./cron" # remember to adjust binary name and path
-       # log even trigger and read-contract binaries go here
-       # they are all commented out by default
-       ```
-     Do make sure that the path to the binary is either relative to the `environment` folder or absolute. Then the binary will be copied to the Docker image.
+     **Once that is done copy them to `core/scripts/cre/environment/binaries` folder.**  Each binary will be copied to the Docker image (if the DON has that capability enabled).
    - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
 3.  **Decide whether to build or reuse Chainlink Docker Image**
      - By default, the config builds the Docker image from your local branch. To use an existing image change to:
@@ -1097,10 +1099,6 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
-
-# Ensure cron binary is available or use plugins image
-[extra_capabilities]
-cron_capability_binary_path = "./binaries/cron"
 ```
 
 #### Example 2: Full Capability Setup

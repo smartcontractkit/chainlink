@@ -54,7 +54,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	trackInvalidPermissionEventsOnDFCache(t, dataFeedsCache)
 
 	// generate a wf job
-	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, uint64(chainID), dataFeedsCache.Address())
+	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, uint64(chainID), secureMintFeedDataID, dataFeedsCache.Address())
 	err = workflowDon.AddJob(ctx, &job)
 	require.NoError(t, err)
 
@@ -74,7 +74,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	// The price is packed from Mintable (99) and block number (10)
 	expectedUpdates := []secureMintUpdate{
 		{
-			dataID:         "0x04de41ba4fc9d91ad900000000000000", // 0x4 + 16015286601757825753 as bytes + right padded with 0s
+			dataID:         secureMintFeedDataID,
 			mintableAmount: mintableAmount,
 			blockNumber:    blockNumber,
 		},
