@@ -151,6 +151,10 @@ jobs:
           mkdir ./binaries
           touch ./binaries/cron
           touch ./binaries/readcontract
+          touch ./binaries/http_action
+          touch ./binaries/http_trigger
+          touch ./binaries/consensus
+          touch ./binaries/evm
           { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
