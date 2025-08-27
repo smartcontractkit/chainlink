@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -42,7 +43,7 @@ type DeployConfigureForwardersSeqDeps struct {
 type ForwarderDeploymentOps struct {
 	// Qualifier is the qualifier of the forwarder. If not empty, it will be used to check if the forwarder is already deployed.
 	Qualifier string
-	// Dons is the list of DONs to configure.
+	// Dons is the list of DONs to configure on the forwarder.
 	WfDons []ConfigureKeystoneDON
 }
 
@@ -257,7 +258,7 @@ func configureForwarderOp(
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to resolve DONs for chain %d: %w", target, err)
 	}
-	forwarderContract, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](as.Addresses(), chain, forwarderAddress.String())
+	forwarderContract, err := crecontracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](as.Addresses(), chain, forwarderAddress.String())
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
 	}
