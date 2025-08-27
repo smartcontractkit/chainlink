@@ -2018,7 +2018,7 @@ func (s *WorkflowStorage) setFrom(f *WorkflowStorage) {
 func (s *WorkflowStorage) ValidateConfig() error {
 	URLIsSet := s.URL != nil && *s.URL != ""
 	ArtifactStorageHostIsNotSet := s.ArtifactStorageHost == nil || *s.ArtifactStorageHost == ""
-	if URLIsSet && !ArtifactStorageHostIsNotSet {
+	if URLIsSet && ArtifactStorageHostIsNotSet {
 		return configutils.ErrInvalid{Name: "ArtifactStorageHost", Value: "", Msg: "workflow storage service artifact storage host must be set"}
 	}
 
