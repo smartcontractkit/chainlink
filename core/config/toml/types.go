@@ -2008,6 +2008,21 @@ func (s *WorkflowStorage) setFrom(f *WorkflowStorage) {
 	}
 }
 
+func (s *WorkflowStorage) ValidateConfig() error {
+	URLIsSet := s.URL != nil && *s.URL != ""
+	ArtifactStorageHostIsNotSet := s.ArtifactStorageHost == nil || *s.ArtifactStorageHost == ""
+	if URLIsSet && !ArtifactStorageHostIsNotSet {
+		return configutils.ErrInvalid{Name: "ArtifactStorageHost", Value: "", Msg: "workflow storage service artifact storage host must be set"}
+	}
+
+	if s.TLSEnabled == nil {
+		val := true
+		s.TLSEnabled = &val
+	}
+
+	return nil
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
@@ -2269,17 +2284,18 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled               *bool
-	CACertFile            *string
-	Endpoint              *string
-	InsecureConnection    *bool
-	ResourceAttributes    map[string]string `toml:",omitempty"`
-	TraceSampleRatio      *float64
-	EmitterBatchProcessor *bool
-	EmitterExportTimeout  *commonconfig.Duration
-	ChipIngressEndpoint   *string
-	HeartbeatInterval     *commonconfig.Duration
-	LogStreamingEnabled   *bool
+	Enabled                       *bool
+	CACertFile                    *string
+	Endpoint                      *string
+	InsecureConnection            *bool
+	ResourceAttributes            map[string]string `toml:",omitempty"`
+	TraceSampleRatio              *float64
+	EmitterBatchProcessor         *bool
+	EmitterExportTimeout          *commonconfig.Duration
+	ChipIngressEndpoint           *string
+	ChipIngressInsecureConnection *bool
+	HeartbeatInterval             *commonconfig.Duration
+	LogStreamingEnabled           *bool
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2309,6 +2325,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.ChipIngressEndpoint; v != nil {
 		b.ChipIngressEndpoint = v
+	}
+	if v := f.ChipIngressInsecureConnection; v != nil {
+		b.ChipIngressInsecureConnection = v
 	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v

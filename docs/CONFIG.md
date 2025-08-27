@@ -1440,7 +1440,7 @@ Options are: event which watches for contract events or reconciliation which dif
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
 [Capabilities.WorkflowRegistry.WorkflowStorage]
-URL = "localhost:4566" # Default
+URL = "localhost:4566" # Example
 TLSEnabled = true # Default
 ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 ```
@@ -1448,7 +1448,7 @@ ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 
 ### URL
 ```toml
-URL = "localhost:4566" # Default
+URL = "localhost:4566" # Example
 ```
 URL is the location for the workflow storage service to be communicated with.
 
@@ -2228,6 +2228,7 @@ TraceSampleRatio = 0.01 # Default
 EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
 ChipIngressEndpoint = '' # Default
+ChipIngressInsecureConnection = false # Default
 HeartbeatInterval = '1s' # Default
 LogStreamingEnabled = false # Default
 ```
@@ -2284,6 +2285,12 @@ EmitterExportTimeout sets timeout for exporting telemetry events
 ChipIngressEndpoint = '' # Default
 ```
 ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
+
+### ChipIngressInsecureConnection
+```toml
+ChipIngressInsecureConnection = false # Default
+```
+ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
 
 ### HeartbeatInterval
 ```toml

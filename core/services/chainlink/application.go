@@ -101,6 +101,7 @@ import (
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -874,6 +875,12 @@ func newCREServices(
 	lf limits.Factory,
 ) (*CREServices, error) {
 	var srvcs []services.ServiceCtx
+	engineLimiters, err := v2.NewLimiters(lf, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
+	}
+	srvcs = append(srvcs, closerService{name: "WorkflowEngineLimiters", Closer: engineLimiters})
+
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      capCfg.RateLimit().GlobalRPS(),
 		GlobalBurst:    capCfg.RateLimit().GlobalBurst(),
@@ -883,6 +890,7 @@ func newCREServices(
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
+	srvcs = append(srvcs, closerService{name: "WorkflowRateLimiter", Closer: workflowRateLimiter})
 
 	if len(wCfg.Limits().PerOwnerOverrides()) > 0 {
 		globalLogger.Debugw("loaded per owner overrides", "overrides", wCfg.Limits().PerOwnerOverrides())
@@ -896,7 +904,7 @@ func newCREServices(
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
 	}
-	srvcs = append(srvcs, closerService{name: "WorkflowLimiter", Closer: workflowLimits})
+	srvcs = append(srvcs, closerService{name: "WorkflowExecutionLimiter", Closer: workflowLimits})
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if capCfg.GatewayConnector().DonID() != "" {
@@ -1058,6 +1066,7 @@ func newCREServices(
 						dontimeStore,
 						engineRegistry,
 						custmsg.NewLabeler(),
+						engineLimiters,
 						workflowRateLimiter,
 						workflowLimits,
 						artifactsStore,
@@ -1132,6 +1141,7 @@ func newCREServices(
 						opts.CapabilitiesRegistry,
 						engineRegistry,
 						custmsg.NewLabeler(),
+						engineLimiters,
 						workflowRateLimiter,
 						workflowLimits,
 						artifactsStore,

@@ -465,7 +465,7 @@ SyncStrategy = 'event'
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 ArtifactStorageHost = ''
-URL = 'localhost:4566'
+URL = ''
 TLSEnabled = true
 
 [Capabilities.GatewayConnector]
@@ -489,6 +489,7 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
 LogStreamingEnabled = false
 

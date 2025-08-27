@@ -10,6 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -29,6 +32,12 @@ type FundsToSend struct {
 	Nonce      *uint64
 }
 
+type FundsToSendSol struct {
+	Recipent   solana.PublicKey
+	PrivateKey solana.PrivateKey
+	Amount     uint64
+}
+
 func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
@@ -36,6 +45,64 @@ func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 		return common.Address{}, errors.New("error casting public key to ECDSA")
 	}
 	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
+}
+
+func SendFundsSol(ctx context.Context, logger zerolog.Logger, client *rpc.Client, payload FundsToSendSol) error {
+	funder := payload.PrivateKey
+	recipient := payload.Recipent
+	if recipient.IsZero() {
+		return errors.New("recipient is zero")
+	}
+	bal, err := client.GetBalance(ctx, funder.PublicKey(), rpc.CommitmentConfirmed)
+	if err != nil {
+		return fmt.Errorf("failed to get funder balance: %w", err)
+	}
+	logger.Debug().
+		Uint64("Sender balance:", bal.Value)
+
+	recent, err := client.GetRecentBlockhash(ctx, rpc.CommitmentFinalized)
+	if err != nil {
+		return fmt.Errorf("failed to get recent block hash: %w", err)
+	}
+
+	tx, err := solana.NewTransaction([]solana.Instruction{
+		system.NewTransferInstruction(
+			payload.Amount,
+			funder.PublicKey(),
+			recipient,
+		).Build(),
+	},
+		recent.Value.Blockhash,
+		solana.TransactionPayer(funder.PublicKey()))
+	if err != nil {
+		return fmt.Errorf("failed to build fund transaction: %w", err)
+	}
+
+	_, err = tx.Sign(
+		func(key solana.PublicKey) *solana.PrivateKey {
+			if funder.PublicKey().Equals(key) {
+				return &funder
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to sign fund transaction: %w", err)
+	}
+
+	_, err = client.SendTransaction(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to send fund transaction: %w", err)
+	}
+
+	bal2, err := client.GetBalance(ctx, funder.PublicKey(), rpc.CommitmentConfirmed)
+	if err != nil {
+		return fmt.Errorf("failed to get recipient balance: %w", err)
+	}
+
+	logger.Debug().
+		Uint64("Recipient balance: ", bal2.Value)
+	return nil
 }
 
 func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, payload FundsToSend) (*types.Receipt, error) {
