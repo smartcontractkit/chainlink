@@ -7,11 +7,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	"github.com/smartcontractkit/chainlink/deployment/cre"
 )
 
 func TestDeployCapabilitiesRegistry(t *testing.T) {
 	lggr := logger.Test(t)
-	env, chainSelector := BuildMinimalEnvironment(t, lggr)
+	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Starting changeset application...")

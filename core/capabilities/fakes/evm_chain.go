@@ -138,7 +138,11 @@ func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata commonCap.Req
 	return &responseAndMetadata, nil
 }
 
-func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.WriteReportRequest) (*commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply], error) {
+func (fc *FakeEVMChain) WriteReport(
+	ctx context.Context,
+	metadata commonCap.RequestMetadata,
+	input *evmcappb.WriteReportRequest,
+) (*commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply], error) {
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 
@@ -152,6 +156,9 @@ func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.Requ
 	if err != nil {
 		return nil, err
 	}
+
+	// Set gas limit
+	auth.GasLimit = input.GasConfig.GasLimit
 
 	signatures := make([][]byte, len(input.Report.Sigs))
 	for i, sig := range input.Report.Sigs {

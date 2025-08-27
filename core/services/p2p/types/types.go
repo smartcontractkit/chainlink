@@ -26,6 +26,7 @@ type PeerWrapper interface {
 }
 
 type Signer interface {
+	Initialize() error
 	Sign(data []byte) ([]byte, error)
 }
 

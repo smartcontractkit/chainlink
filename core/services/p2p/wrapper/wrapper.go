@@ -3,8 +3,6 @@ package wrapper
 import (
 	"context"
 	"crypto"
-	"crypto/rand"
-	"errors"
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,7 +30,6 @@ type peerWrapper struct {
 }
 
 var _ types.PeerWrapper = &peerWrapper{}
-var _ types.Signer = &peerWrapper{}
 
 func NewExternalPeerWrapper(keystoreP2P keystore.P2P, p2pConfig config.P2P, ds sqlutil.DataSource, lggr logger.Logger) *peerWrapper {
 	return &peerWrapper{
@@ -129,11 +126,4 @@ func (e *peerWrapper) HealthReport() map[string]error {
 
 func (e *peerWrapper) Name() string {
 	return e.lggr.Name()
-}
-
-func (e *peerWrapper) Sign(msg []byte) ([]byte, error) {
-	if e.privateKey == nil {
-		return nil, errors.New("private key not set")
-	}
-	return e.privateKey.Sign(rand.Reader, msg, crypto.Hash(0))
 }

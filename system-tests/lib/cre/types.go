@@ -102,6 +102,8 @@ func NewContractVersionsProvider(overrides map[string]string) *contractVersionsP
 
 type CapabilityFlagsProvider interface {
 	SupportedCapabilityFlags() []CapabilityFlag
+	GlobalCapabilityFlags() []CapabilityFlag
+	ChainSpecificCapabilityFlags() []CapabilityFlag
 }
 
 func NewEnvironmentDependencies(cfp CapabilityFlagsProvider, cvp ContractVersionsProvider) *envionmentDependencies {
@@ -122,6 +124,14 @@ func (e *envionmentDependencies) GetContractVersions() map[string]string {
 
 func (e *envionmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
 	return e.flagsProvider.SupportedCapabilityFlags()
+}
+
+func (e *envionmentDependencies) GlobalCapabilityFlags() []CapabilityFlag {
+	return e.flagsProvider.GlobalCapabilityFlags()
+}
+
+func (e *envionmentDependencies) ChainSpecificCapabilityFlags() []CapabilityFlag {
+	return e.flagsProvider.ChainSpecificCapabilityFlags()
 }
 
 type NodeType = string
@@ -692,6 +702,19 @@ func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchai
 	}
 
 	return nil
+}
+
+// MaxFaultyNodes returns the maximum number of faulty (Byzantine) nodes
+// that a network of `n` total nodes can tolerate while still maintaining
+// consensus safety under the standard BFT assumption (n >= 3f + 1).
+//
+// For example, with 4 nodes, at most 1 can be faulty.
+// With 7 nodes, at most 2 can be faulty.
+func (c *CapabilitiesAwareNodeSet) MaxFaultyNodes() (uint32, error) {
+	if c.Nodes <= 0 {
+		return 0, fmt.Errorf("total nodes must be greater than 0, got %d", c.Nodes)
+	}
+	return uint32((c.Nodes - 1) / 3), nil //nolint:gosec // disable G115
 }
 
 type GenerateKeysInput struct {

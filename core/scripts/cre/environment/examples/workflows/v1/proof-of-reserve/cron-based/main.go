@@ -224,9 +224,10 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 	}
 
 	chainwriter.TargetConfig{
-		Address:    workflowConfig.DataFeedsCacheAddress, // KeystoneConsumer contract address
-		DeltaStage: "15s",
-		Schedule:   "oneAtATime",
+		Address:        workflowConfig.DataFeedsCacheAddress, // KeystoneConsumer contract address
+		DeltaStage:     "15s",
+		Schedule:       "oneAtATime",
+		CreStepTimeout: 40,
 	}.New(workflow, writeTargetName, targetInput)
 
 	return workflow

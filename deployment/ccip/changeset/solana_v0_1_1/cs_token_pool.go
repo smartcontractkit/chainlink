@@ -292,14 +292,18 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		// fetch current token mint authority
 		var tokenMint solToken.Mint
+		var mintAuthority string
 		err = chain.GetAccountDataBorshInto(context.Background(), tokenPubKey, &tokenMint)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token mint account data: %w", err)
 		}
+		if tokenMint.MintAuthority != nil {
+			mintAuthority = tokenMint.MintAuthority.String()
+		}
 
 		// make pool mint_authority for token
 		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.SolMint {
-			if tokenMint.MintAuthority != nil && tokenMint.MintAuthority.String() == chain.DeployerKey.PublicKey().String() {
+			if mintAuthority == chain.DeployerKey.PublicKey().String() {
 				authI, err := solTokenUtil.SetTokenMintAuthority(
 					tokenprogramID,
 					poolSigner,
@@ -313,12 +317,12 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
 			} else {
 				e.Logger.Warnw("Token's mint authority is not with deployer key, skipping setting poolSigner as mint authority",
-					"poolType", tokenPoolCfg.PoolType, "mintAuthority", tokenMint.MintAuthority.String(),
+					"poolType", tokenPoolCfg.PoolType, "mintAuthority", mintAuthority,
 					"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 			}
 		} else {
 			e.Logger.Warnw("PoolType is not a BurnMintTokenPool, skipping setting poolSigner as mint authority",
-				"poolType", tokenPoolCfg.PoolType, "mintAuthority", tokenMint.MintAuthority.String(),
+				"poolType", tokenPoolCfg.PoolType, "mintAuthority", mintAuthority,
 				"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 		}
 

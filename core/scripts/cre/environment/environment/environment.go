@@ -161,6 +161,9 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 		if removeErr != nil {
 			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCtfCleanupMsg).Error())
 		}
+
+		// signal that the environment failed to start
+		os.Exit(1)
 	}
 }
 
@@ -347,6 +350,20 @@ func startCmd() *cobra.Command {
 					cleanupWait,
 					protoConfigs,
 				)
+
+				metaData := map[string]any{}
+				if startBeholderErr != nil {
+					metaData["result"] = "failure"
+					metaData["error"] = oneLineErrorMessage(startBeholderErr)
+				} else {
+					metaData["result"] = "success"
+				}
+
+				trackingErr := dxTracker.Track(tracking.MetricBeholderStart, metaData)
+				if trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
+				}
+
 				if startBeholderErr != nil {
 					if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
 						beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
@@ -482,13 +499,13 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 		metadata["panicked"] = *panicked
 	}
 
-	dxStartupErr := dxTracker.Track("cre.local.startup.result", metadata)
+	dxStartupErr := dxTracker.Track(tracking.MetricStartupResult, metadata)
 	if dxStartupErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxStartupErr)
 	}
 
 	if success {
-		dxTimeErr := dxTracker.Track("cre.local.startup.time", map[string]any{
+		dxTimeErr := dxTracker.Track(tracking.MetricStartupTime, map[string]any{
 			"duration_seconds":       time.Since(provisioningStartTime).Seconds(),
 			"has_built_docker_image": hasBuiltDockerImage,
 		})

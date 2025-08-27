@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -35,14 +36,14 @@ func (c Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 
 	for _, nodeSet := range c.NodeSets {
 		for _, capability := range nodeSet.Capabilities {
-			if !slices.Contains(envDependencies.SupportedCapabilityFlags(), capability) {
-				return errors.New("unknown capability: " + capability + ". Make sure you have added it to the capabilityFlagsProvider")
+			if !slices.Contains(envDependencies.GlobalCapabilityFlags(), capability) {
+				return errors.New("unknown global capability: " + capability + ". Valid ones are: " + strings.Join(envDependencies.GlobalCapabilityFlags(), ", ") + ". If it is a new capability make sure you have added it to the capabilityFlagsProvider. If it's chain-specific add it under [nodesets.chain_capabilities] TOML table.")
 			}
 		}
 
 		for capability := range nodeSet.ChainCapabilities {
-			if !slices.Contains(envDependencies.SupportedCapabilityFlags(), capability) {
-				return errors.New("unknown capability: " + capability + ". Make sure you have added it to the capabilityFlagsProvider")
+			if !slices.Contains(envDependencies.ChainSpecificCapabilityFlags(), capability) {
+				return errors.New("unknown chain-specific capability: " + capability + ". Valid ones are: " + strings.Join(envDependencies.ChainSpecificCapabilityFlags(), ", ") + ". If it is a new capability make sure you have added it to the capabilityFlagsProvider. If it's a global capability add it under 'capabilities' TOML key.")
 			}
 		}
 	}

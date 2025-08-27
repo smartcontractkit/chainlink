@@ -18,6 +18,7 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre"
 )
 
 type testFixture struct {
@@ -325,7 +326,7 @@ dons:
 
 func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	lggr := logger.Test(t)
-	env, chainSelector := BuildMinimalEnvironment(t, lggr)
+	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Running deployment changeset...")
