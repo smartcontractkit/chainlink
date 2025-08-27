@@ -694,6 +694,19 @@ func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchai
 	return nil
 }
 
+// MaxFaultyNodes returns the maximum number of faulty (Byzantine) nodes
+// that a network of `n` total nodes can tolerate while still maintaining
+// consensus safety under the standard BFT assumption (n >= 3f + 1).
+//
+// For example, with 4 nodes, at most 1 can be faulty.
+// With 7 nodes, at most 2 can be faulty.
+func (c *CapabilitiesAwareNodeSet) MaxFaultyNodes() (uint32, error) {
+	if c.Nodes <= 0 {
+		return 0, fmt.Errorf("total nodes must be greater than 0, got %d", c.Nodes)
+	}
+	return uint32((c.Nodes - 1) / 3), nil //nolint:gosec // disable G115
+}
+
 type GenerateKeysInput struct {
 	GenerateEVMKeysForChainIDs []int
 	GenerateSolKeysForChainIDs []string

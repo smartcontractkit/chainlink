@@ -63,7 +63,10 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
 
-		faultyNodes := uint32((nodeSetInput.Nodes - 1) / 3) //nolint:gosec // disable G115
+		faultyNodes, faultyErr := nodeSetInput.MaxFaultyNodes()
+		if faultyErr != nil {
+			return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
+		}
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "evm" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
