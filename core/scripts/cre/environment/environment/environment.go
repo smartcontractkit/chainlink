@@ -161,6 +161,9 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 		if removeErr != nil {
 			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCtfCleanupMsg).Error())
 		}
+
+		// signal that the environment failed to start
+		os.Exit(1)
 	}
 }
 
