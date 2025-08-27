@@ -11,22 +11,19 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	vault2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
+	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
-var _ SecretsService = (*Capability)(nil)
-
-const maxBatchSize = 10
 
 type Capability struct {
-	clock        clockwork.Clock
 	lggr         logger.Logger
+	clock        clockwork.Clock
 	expiresAfter time.Duration
-	handler      *requests.Handler[*vault2.Request, *vault2.Response]
+	handler      *requests.Handler[*Request, *Response]
 }
 
 func (s *Capability) Start(ctx context.Context) error {
@@ -38,7 +35,7 @@ func (s *Capability) Close() error {
 }
 
 func (s *Capability) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
-	return capabilities.NewCapabilityInfo(vault.CapabilityID, capabilities.CapabilityTypeAction, "Vault Capability")
+	return capabilities.NewCapabilityInfo(vaultcommon.CapabilityID, capabilities.CapabilityTypeAction, "Vault Capability")
 }
 
 func (s *Capability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -58,11 +55,11 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("capability does not support v1 requests")
 	}
 
-	if request.Method != vault.MethodGetSecrets {
+	if request.Method != vaultapi.MethodSecretsGet {
 		return capabilities.CapabilityResponse{}, errors.New("unsupported method: can only call GetSecrets via capability interface")
 	}
 
-	r := &vault.GetSecretsRequest{}
+	r := &vaultcommon.GetSecretsRequest{}
 	err := request.Payload.UnmarshalTo(r)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal payload to GetSecretsRequest: %w", err)
@@ -93,7 +90,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 
 	// Note: we can drop the signatures from the response above here
 	// since only a valid report will be successfully decryptable by the workflow DON.
-	resppb := &vault.GetSecretsResponse{}
+	resppb := &vaultcommon.GetSecretsResponse{}
 	err = proto.Unmarshal(resp.Payload, resppb)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal response to GetSecretsResponse: %w", err)
@@ -109,9 +106,9 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}, nil
 }
 
-func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vault2.Response, error) {
-	respCh := make(chan *vault2.Response, 1)
-	s.handler.SendRequest(ctx, &vault2.Request{
+func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*Response, error) {
+	respCh := make(chan *Response, 1)
+	s.handler.SendRequest(ctx, &Request{
 		Payload:      request,
 		ResponseChan: respCh,
 
@@ -133,19 +130,22 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	}
 }
 
-func (s *Capability) CreateSecrets(ctx context.Context, request *vault.CreateSecretsRequest) (*vault2.Response, error) {
+func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*Response, error) {
 	// TODO validate the request
 	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
+	if len(request.EncryptedSecrets) >= vaultapi.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
+	}
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*vault2.Response, error) {
+func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*Response, error) {
 	if request.RequestId == "" {
 		return nil, errors.New("request ID must not be empty")
 	}
 
-	if len(request.EncryptedSecrets) >= maxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", maxBatchSize)
+	if len(request.EncryptedSecrets) >= vaultapi.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
 	}
 
 	uniqueIDs := map[string]bool{}
@@ -158,25 +158,25 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vault.UpdateSec
 			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", req.Id)
 		}
 
-		_, ok := uniqueIDs[vault2.KeyFor(req.Id)]
+		_, ok := uniqueIDs[KeyFor(req.Id)]
 		if ok {
 			return nil, fmt.Errorf("duplicate secret ID found: %v", req.Id)
 		}
 
-		uniqueIDs[vault2.KeyFor(req.Id)] = true
+		uniqueIDs[KeyFor(req.Id)] = true
 	}
 
 	// TODO: secrets should be encrypted with the correct key
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) DeleteSecrets(ctx context.Context, request *vault.DeleteSecretsRequest) (*vault2.Response, error) {
+func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*Response, error) {
 	if request.RequestId == "" {
 		return nil, errors.New("request ID must not be empty")
 	}
 
-	if len(request.Ids) >= maxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", maxBatchSize)
+	if len(request.Ids) >= vaultapi.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
 	}
 
 	uniqueIDs := map[string]bool{}
@@ -185,21 +185,24 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vault.DeleteSec
 			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", id)
 		}
 
-		_, ok := uniqueIDs[vault2.KeyFor(id)]
+		_, ok := uniqueIDs[KeyFor(id)]
 		if ok {
 			return nil, fmt.Errorf("duplicate secret ID found: %v", id)
 		}
 
-		uniqueIDs[vault2.KeyFor(id)] = true
+		uniqueIDs[KeyFor(id)] = true
 	}
 
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*vault2.Response, error) {
+func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*Response, error) {
 	s.lggr.Infof("Received GetSecrets call: %s", request.String())
 	if len(request.Requests) == 0 {
 		return nil, errors.New("no GetSecret request specified in request")
+	}
+	if len(request.Requests) >= vaultapi.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
 	}
 	return s.handleRequest(ctx, requestID, request)
 }
@@ -208,7 +211,7 @@ func NewCapability(
 	lggr logger.Logger,
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
-	handler *requests.Handler[*vault2.Request, *vault2.Response],
+	handler *requests.Handler[*Request, *Response],
 ) *Capability {
 	return &Capability{
 

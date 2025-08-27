@@ -8,9 +8,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
 
-// Test helpers to avoid repetition
+func createCacheTestMetrics(t *testing.T) *metrics.Metrics {
+	m, err := metrics.NewMetrics()
+	require.NoError(t, err)
+	return m
+}
+
 func createTestRequest(method, url string) gateway_common.OutboundHTTPRequest {
 	return gateway_common.OutboundHTTPRequest{
 		Method: method,
@@ -112,7 +118,8 @@ func TestCacheKey(t *testing.T) {
 }
 
 func TestIsExpiredOrNotCached(t *testing.T) {
-	cache := newResponseCache(logger.Test(t), 1000) // 1 second TTL
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 1000, testMetrics) // 1 second TTL
 	workflowID := "workflow-123"
 	req := createTestRequest("GET", "https://example.com")
 
@@ -145,7 +152,8 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 }
 
 func TestCachedFetch(t *testing.T) {
-	cache := newResponseCache(logger.Test(t), 10000) // 10 seconds TTL
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 	workflowID := "workflow-123"
 
 	t.Run("calls fetchFn when cache miss", func(t *testing.T) {
@@ -158,7 +166,7 @@ func TestCachedFetch(t *testing.T) {
 			return expectedResp
 		}
 
-		result := cache.CachedFetch(workflowID, req, fetchFn)
+		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
 
 		require.True(t, fetchCalled)
 		require.Equal(t, expectedResp, result)
@@ -181,7 +189,7 @@ func TestCachedFetch(t *testing.T) {
 			return createTestResponse(200, "should not be called")
 		}
 
-		result := cache.CachedFetch(workflowID, req, fetchFn)
+		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
 
 		require.False(t, fetchCalled, "fetchFn should not be called on cache hit")
 		require.Equal(t, cachedResp, result)
@@ -204,7 +212,7 @@ func TestCachedFetch(t *testing.T) {
 			return expectedResp
 		}
 
-		result := cache.CachedFetch(workflowID, req, fetchFn)
+		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
 
 		require.True(t, fetchCalled)
 		require.Equal(t, expectedResp, result)
@@ -218,7 +226,7 @@ func TestCachedFetch(t *testing.T) {
 			return response
 		}
 
-		cache.CachedFetch(workflowID, req, fetchFn)
+		cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
 
 		key := cacheKey(workflowID, req)
 		cachedEntry, exists := cache.cache[key]
@@ -234,7 +242,7 @@ func TestCachedFetch(t *testing.T) {
 			return response
 		}
 
-		result := cache.CachedFetch(workflowID, req, fetchFn)
+		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn)
 
 		// Should return the response but not cache it
 		require.Equal(t, response, result)
@@ -246,7 +254,8 @@ func TestCachedFetch(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	cache := newResponseCache(logger.Test(t), 10000)
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 	workflowID := "workflow-123"
 
 	t.Run("sets cacheable response", func(t *testing.T) {
@@ -307,7 +316,8 @@ func TestSet(t *testing.T) {
 }
 
 func TestDeleteExpired(t *testing.T) {
-	cache := newResponseCache(logger.Test(t), 1000)
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 1000, testMetrics)
 
 	t.Run("deletes expired entries and returns count", func(t *testing.T) {
 		workflowID := "workflow-123"
@@ -332,7 +342,7 @@ func TestDeleteExpired(t *testing.T) {
 			storedAt: validTime,
 		}
 
-		count := cache.DeleteExpired()
+		count := cache.DeleteExpired(t.Context())
 
 		require.Equal(t, 2, count, "should delete 2 expired entries")
 		require.Len(t, cache.cache, 1, "should have 1 entry remaining")
@@ -343,27 +353,30 @@ func TestDeleteExpired(t *testing.T) {
 	})
 
 	t.Run("returns zero when cache is empty", func(t *testing.T) {
-		emptyCache := newResponseCache(logger.Test(t), 1000)
-		count := emptyCache.DeleteExpired()
+		testMetrics := createCacheTestMetrics(t)
+		emptyCache := newResponseCache(logger.Test(t), 1000, testMetrics)
+		count := emptyCache.DeleteExpired(t.Context())
 		require.Equal(t, 0, count)
 	})
 }
 
 func TestEdgeCases(t *testing.T) {
 	t.Run("zero TTL cache", func(t *testing.T) {
-		cache := newResponseCache(logger.Test(t), 0)
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 0, testMetrics)
 		workflowID := "workflow-123"
 		req := createTestRequest("GET", "https://example.com/zero-ttl")
 
 		require.True(t, cache.isExpiredOrNotCached(workflowID, req))
 
 		cache.Set(workflowID, req, createTestResponse(200, "test"))
-		count := cache.DeleteExpired()
+		count := cache.DeleteExpired(t.Context())
 		require.Equal(t, 1, count, "entry should be immediately expired")
 	})
 
 	t.Run("handles nil response headers", func(t *testing.T) {
-		cache := newResponseCache(logger.Test(t), 5000)
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 5000, testMetrics)
 		workflowID := "workflow-123"
 		req := createTestRequest("GET", "https://example.com/nil-headers")
 
@@ -375,14 +388,15 @@ func TestEdgeCases(t *testing.T) {
 
 		cache.Set(workflowID, req, resp)
 
-		result := cache.CachedFetch(workflowID, req, func() gateway_common.OutboundHTTPResponse {
+		result := cache.CachedFetch(t.Context(), workflowID, req, func() gateway_common.OutboundHTTPResponse {
 			return resp
 		})
 		require.Equal(t, resp, result)
 	})
 
 	t.Run("handles empty request", func(t *testing.T) {
-		cache := newResponseCache(logger.Test(t), 5000)
+		testMetrics := createCacheTestMetrics(t)
+		cache := newResponseCache(logger.Test(t), 5000, testMetrics)
 		workflowID := "workflow-123"
 
 		emptyReq := gateway_common.OutboundHTTPRequest{

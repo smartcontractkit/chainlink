@@ -34,7 +34,6 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
-	vault2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -53,10 +52,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	vault_api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
+	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -76,7 +76,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
+	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -624,7 +624,7 @@ type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
 
-func dkgKeys(key workflowkey.Key, dkgConfig *vault.DKGConfig) (*tdh2easy.PublicKey, *tdh2easy.PrivateShare, error) {
+func dkgKeys(key workflowkey.Key, dkgConfig *vaultocrplugin.DKGConfig) (*tdh2easy.PublicKey, *tdh2easy.PrivateShare, error) {
 	masterPublicKeyHex := dkgConfig.MasterPublicKey
 	masterPublicKey, err := hex.DecodeString(masterPublicKeyHex)
 	if err != nil {
@@ -670,7 +670,7 @@ func (d *Delegate) newServicesVaultPlugin(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	cfg := &vault.Config{}
+	cfg := &vaultocrplugin.Config{}
 	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to unmarshal plugin config: %w", err)
@@ -685,11 +685,11 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
 	}
 
-	requestStore := requests.NewStore[*vault.Request]()
+	requestStore := requests.NewStore[*vaultcap.Request]()
 	clock := clockwork.NewRealClock()
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
-	vaultCapability := vault2.NewCapability(lggr, clock, expiryDuration, requestStoreHandler)
+	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler)
 	srvs = append(srvs, vaultCapability)
 
 	err = capabilitiesRegistry.Add(ctx, vaultCapability)
@@ -697,7 +697,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to register vault capability: %w", err)
 	}
 
-	handler, err := vault2.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, d.lggr)
+	handler, err := vaultcap.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, d.lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
@@ -706,7 +706,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, handler)
 
-	if gwerr := gwconnector.AddHandler(ctx, []string{vault_api.MethodSecretsCreate, vault_api.MethodSecretsGet, vault_api.MethodSecretsUpdate, vault_api.MethodSecretsDelete}, handler); gwerr != nil {
+	if gwerr := gwconnector.AddHandler(ctx, []string{vaultapi.MethodSecretsCreate, vaultapi.MethodSecretsGet, vaultapi.MethodSecretsUpdate, vaultapi.MethodSecretsDelete}, handler); gwerr != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", gwerr)
 	}
 
@@ -768,7 +768,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
-		ContractTransmitter: vault.NewTransmitter(
+		ContractTransmitter: vaultocrplugin.NewTransmitter(
 			lggr,
 			ocrtypes.Account(spec.TransmitterID.String),
 			requestStoreHandler,
@@ -791,7 +791,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get DKG keys: %w", err)
 	}
-	rpf, err := vault.NewReportingPluginFactory(lggr, requestStore, pk, secKeyShare)
+	rpf, err := vaultocrplugin.NewReportingPluginFactory(lggr, requestStore, pk, secKeyShare)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}

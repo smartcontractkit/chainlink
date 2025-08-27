@@ -321,7 +321,7 @@ SyncStrategy = 'event'
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 ArtifactStorageHost = ''
-URL = 'localhost:4566'
+URL = ''
 TLSEnabled = true
 
 [Capabilities.GatewayConnector]
