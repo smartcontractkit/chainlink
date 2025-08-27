@@ -8,6 +8,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/burn_mint_with_external_minter_token_pool"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/token_governor"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
@@ -103,6 +106,7 @@ type CCIPChainState struct {
 	BurnMintTokens677         map[shared.TokenSymbol]*burn_mint_erc677.BurnMintERC677
 	BurnMintERC20             map[shared.TokenSymbol]*burn_mint_erc20.BurnMintERC20
 	BurnMintERC20WithDrip     map[shared.TokenSymbol]*burn_mint_erc20_with_drip.BurnMintERC20
+	TokenGovernor             map[shared.TokenSymbol]*token_governor.TokenGovernor
 
 	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
@@ -111,6 +115,8 @@ type CCIPChainState struct {
 	HybridWithExternalMinterFastTransferTokenPools   map[shared.TokenSymbol]map[semver.Version]*hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPool
 	BurnWithFromMintTokenPools                       map[shared.TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools                           map[shared.TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
+	BurnMintWithExternalMinterTokenPool              map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_token_pool.BurnMintWithExternalMinterTokenPool
+	HybridWithExternalMinterTokenPool                map[shared.TokenSymbol]map[semver.Version]*hybrid_with_external_minter_token_pool.HybridWithExternalMinterTokenPool
 	// Newer versions of the USDCTokenPool use a message transmitter proxy
 	CCTPMessageTransmitterProxies map[semver.Version]*cctp_message_transmitter_proxy.CCTPMessageTransmitterProxy
 	USDCTokenPools                map[semver.Version]*usdc_token_pool.USDCTokenPool

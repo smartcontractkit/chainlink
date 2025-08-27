@@ -22,8 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -42,9 +43,6 @@ const (
 	defaultLimitsMaxReportCount                          = 10
 	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024        // 1KB
 	defaultLimitsMaxBlobPayloadLength                    = 1024 * 1024 // 1MB
-
-	DefaultNamespace = "main"
-	keySeparator     = ":"
 )
 
 var (
@@ -65,7 +63,7 @@ type ReportingPluginConfig struct {
 	MaxIdentifierNamespaceLengthBytes int
 }
 
-func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Request], publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare) (*ReportingPluginFactory, error) {
+func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*vaultcap.Request], publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare) (*ReportingPluginFactory, error) {
 	if publicKey == nil {
 		return nil, errors.New("public key cannot be nil")
 	}
@@ -86,12 +84,12 @@ func NewReportingPluginFactory(lggr logger.Logger, store *requests.Store[*Reques
 
 type ReportingPluginFactory struct {
 	lggr  logger.Logger
-	store *requests.Store[*Request]
+	store *requests.Store[*vaultcap.Request]
 	cfg   *ReportingPluginConfig
 }
 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
-	var configProto vault.ReportingPluginConfig
+	var configProto vaultcommon.ReportingPluginConfig
 	if err := proto.Unmarshal(config.OffchainConfig, &configProto); err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
 	}
@@ -178,7 +176,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 
 type ReportingPlugin struct {
 	lggr       logger.Logger
-	store      *requests.Store[*Request]
+	store      *requests.Store[*vaultcap.Request]
 	onchainCfg ocr3types.ReportingPluginConfig
 	cfg        *ReportingPluginConfig
 }
@@ -201,21 +199,21 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 
 	ids := []string{}
-	obs := []*vault.Observation{}
+	obs := []*vaultcommon.Observation{}
 	for _, req := range batch {
-		o := &vault.Observation{
+		o := &vaultcommon.Observation{
 			Id: req.ID(),
 		}
 		ids = append(ids, req.ID())
 
 		switch req.Payload.(type) {
-		case *vault.GetSecretsRequest:
+		case *vaultcommon.GetSecretsRequest:
 			r.observeGetSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
-		case *vault.CreateSecretsRequest:
+		case *vaultcommon.CreateSecretsRequest:
 			r.observeCreateSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
-		case *vault.UpdateSecretsRequest:
+		case *vaultcommon.UpdateSecretsRequest:
 			r.observeUpdateSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
-		case *vault.DeleteSecretsRequest:
+		case *vaultcommon.DeleteSecretsRequest:
 			r.observeDeleteSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
 		default:
 			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", req.Payload), "id", req.ID())
@@ -225,7 +223,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		obs = append(obs, o)
 	}
 
-	obsb, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vault.Observations{
+	obsb, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vaultcommon.Observations{
 		Observations: obs,
 	})
 	if err != nil {
@@ -239,13 +237,13 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	return types.Observation(obsb), nil
 }
 
-func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vault.Observation) {
-	tp := req.(*vault.GetSecretsRequest)
-	o.RequestType = vault.RequestType_GET_SECRETS
-	o.Request = &vault.Observation_GetSecretsRequest{
+func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	tp := req.(*vaultcommon.GetSecretsRequest)
+	o.RequestType = vaultcommon.RequestType_GET_SECRETS
+	o.Request = &vaultcommon.Observation_GetSecretsRequest{
 		GetSecretsRequest: tp,
 	}
-	resps := []*vault.SecretResponse{}
+	resps := []*vaultcommon.SecretResponse{}
 	for _, secretRequest := range tp.Requests {
 		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest)
 		if ierr != nil {
@@ -254,9 +252,9 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
 			}
-			resps = append(resps, &vault.SecretResponse{
+			resps = append(resps, &vaultcommon.SecretResponse{
 				Id: secretRequest.Id,
-				Result: &vault.SecretResponse_Error{
+				Result: &vaultcommon.SecretResponse_Error{
 					Error: errorMsg,
 				},
 			})
@@ -266,14 +264,14 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 		}
 	}
 
-	o.Response = &vault.Observation_GetSecretsResponse{
-		GetSecretsResponse: &vault.GetSecretsResponse{
+	o.Response = &vaultcommon.Observation_GetSecretsResponse{
+		GetSecretsResponse: &vaultcommon.GetSecretsResponse{
 			Responses: resps,
 		},
 	}
 }
 
-func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.SecretRequest) (*vault.SecretResponse, error) {
+func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest) (*vaultcommon.SecretResponse, error) {
 	id, err := r.validateSecretIdentifier(secretRequest.Id)
 	if err != nil {
 		return nil, err
@@ -304,7 +302,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		return nil, errors.New("could not marshal decryption share")
 	}
 
-	shares := []*vault.EncryptedShares{}
+	shares := []*vaultcommon.EncryptedShares{}
 	for _, pk := range secretRequest.EncryptionKeys {
 		publicKey, err := hex.DecodeString(pk)
 		if err != nil {
@@ -321,7 +319,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 			return nil, fmt.Errorf("failed to encrypt decryption share: %w", err)
 		}
 
-		shares = append(shares, &vault.EncryptedShares{
+		shares = append(shares, &vaultcommon.EncryptedShares{
 			EncryptionKey: pk,
 			Shares: []string{
 				hex.EncodeToString(encrypted),
@@ -329,10 +327,10 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		})
 	}
 
-	return &vault.SecretResponse{
+	return &vaultcommon.SecretResponse{
 		Id: id,
-		Result: &vault.SecretResponse_Data{
-			Data: &vault.SecretData{
+		Result: &vaultcommon.SecretResponse_Data{
+			Data: &vaultcommon.SecretData{
 				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
 				EncryptedDecryptionKeyShares: shares,
 			},
@@ -340,10 +338,10 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	}, nil
 }
 
-func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vault.Observation) {
-	tp := req.(*vault.CreateSecretsRequest)
-	o.RequestType = vault.RequestType_CREATE_SECRETS
-	o.Request = &vault.Observation_CreateSecretsRequest{
+func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	tp := req.(*vaultcommon.CreateSecretsRequest)
+	o.RequestType = vaultcommon.RequestType_CREATE_SECRETS
+	o.Request = &vaultcommon.Observation_CreateSecretsRequest{
 		CreateSecretsRequest: tp,
 	}
 	l := r.lggr.With("requestID", tp.RequestId, "requestType", "CreateSecrets")
@@ -357,12 +355,12 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 		if sr.Id == nil {
 			key = "<nil>"
 		} else {
-			key = KeyFor(sr.Id)
+			key = vaultcap.KeyFor(sr.Id)
 		}
 		requestsCountForID[key]++
 	}
 
-	resps := []*vault.CreateSecretResponse{}
+	resps := []*vaultcommon.CreateSecretResponse{}
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
@@ -371,14 +369,14 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
 			}
-			resps = append(resps, &vault.CreateSecretResponse{
+			resps = append(resps, &vaultcommon.CreateSecretResponse{
 				Id:      sr.Id,
 				Success: false,
 				Error:   errorMsg,
 			})
 		} else {
 			r.lggr.Debugw("observed create secret request item", "id", validatedID)
-			resps = append(resps, &vault.CreateSecretResponse{
+			resps = append(resps, &vaultcommon.CreateSecretResponse{
 				Id: validatedID,
 				// false because it hasn't been processed yet.
 				// When the write is handled successfully in StateTransition
@@ -388,21 +386,21 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 		}
 	}
 
-	o.Response = &vault.Observation_CreateSecretsResponse{
-		CreateSecretsResponse: &vault.CreateSecretsResponse{
+	o.Response = &vaultcommon.Observation_CreateSecretsResponse{
+		CreateSecretsResponse: &vaultcommon.CreateSecretsResponse{
 			Responses: resps,
 		},
 	}
 }
 
-func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.EncryptedSecret, requestsCountForID map[string]int) (*vault.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(secretRequest.Id)
 	if err != nil {
 		return id, err
 	}
 
-	if requestsCountForID[KeyFor(secretRequest.Id)] > 1 {
-		return id, newUserError("duplicate request for secret identifier " + KeyFor(id))
+	if requestsCountForID[vaultcap.KeyFor(secretRequest.Id)] > 1 {
+		return id, newUserError("duplicate request for secret identifier " + vaultcap.KeyFor(id))
 	}
 
 	rawCiphertext := secretRequest.EncryptedValue
@@ -429,10 +427,10 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 	return id, nil
 }
 
-func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vault.Observation) {
-	tp := req.(*vault.UpdateSecretsRequest)
-	o.RequestType = vault.RequestType_UPDATE_SECRETS
-	o.Request = &vault.Observation_UpdateSecretsRequest{
+func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	tp := req.(*vaultcommon.UpdateSecretsRequest)
+	o.RequestType = vaultcommon.RequestType_UPDATE_SECRETS
+	o.Request = &vaultcommon.Observation_UpdateSecretsRequest{
 		UpdateSecretsRequest: tp,
 	}
 	l := r.lggr.With("requestID", tp.RequestId, "requestType", "UpdateSecrets")
@@ -446,12 +444,12 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 		if sr.Id == nil {
 			key = "<nil>"
 		} else {
-			key = KeyFor(sr.Id)
+			key = vaultcap.KeyFor(sr.Id)
 		}
 		requestsCountForID[key]++
 	}
 
-	resps := []*vault.UpdateSecretResponse{}
+	resps := []*vaultcommon.UpdateSecretResponse{}
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeUpdateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
@@ -460,14 +458,14 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
 			}
-			resps = append(resps, &vault.UpdateSecretResponse{
+			resps = append(resps, &vaultcommon.UpdateSecretResponse{
 				Id:      sr.Id,
 				Success: false,
 				Error:   errorMsg,
 			})
 		} else {
 			l.Debugw("observed update secret request item", "id", validatedID)
-			resps = append(resps, &vault.UpdateSecretResponse{
+			resps = append(resps, &vaultcommon.UpdateSecretResponse{
 				Id: validatedID,
 				// false because it hasn't been processed yet.
 				// When the write is handled successfully in StateTransition
@@ -477,24 +475,24 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 		}
 	}
 
-	o.Response = &vault.Observation_UpdateSecretsResponse{
-		UpdateSecretsResponse: &vault.UpdateSecretsResponse{
+	o.Response = &vaultcommon.Observation_UpdateSecretsResponse{
+		UpdateSecretsResponse: &vaultcommon.UpdateSecretsResponse{
 			Responses: resps,
 		},
 	}
 }
 
-func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vault.EncryptedSecret, requestsCountForID map[string]int) (*vault.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
 	// The checks at this stage are identical since we only check the correctness of the payload
 	// at this stage. Checks that are different between update and create, like whether the secret already exists,
 	// are handled in the StateTransition phase.
 	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID)
 }
 
-func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vault.Observation) {
-	tp := req.(*vault.DeleteSecretsRequest)
-	o.RequestType = vault.RequestType_DELETE_SECRETS
-	o.Request = &vault.Observation_DeleteSecretsRequest{
+func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	tp := req.(*vaultcommon.DeleteSecretsRequest)
+	o.RequestType = vaultcommon.RequestType_DELETE_SECRETS
+	o.Request = &vaultcommon.Observation_DeleteSecretsRequest{
 		DeleteSecretsRequest: tp,
 	}
 	l := r.lggr.With("requestId", tp.RequestId, "requestType", "DeleteSecrets")
@@ -508,12 +506,12 @@ func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadK
 		if sr == nil {
 			key = "<nil>"
 		} else {
-			key = KeyFor(sr)
+			key = vaultcap.KeyFor(sr)
 		}
 		requestsCountForID[key]++
 	}
 
-	resps := []*vault.DeleteSecretResponse{}
+	resps := []*vaultcommon.DeleteSecretResponse{}
 	for _, id := range tp.Ids {
 		validatedID, ierr := r.observeDeleteSecretRequest(ctx, reader, id, requestsCountForID)
 		if ierr != nil {
@@ -522,14 +520,14 @@ func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadK
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
 			}
-			resps = append(resps, &vault.DeleteSecretResponse{
+			resps = append(resps, &vaultcommon.DeleteSecretResponse{
 				Id:      id,
 				Success: false,
 				Error:   errorMsg,
 			})
 		} else {
 			l.Debugw("observed delete secret request item", "id", validatedID)
-			resps = append(resps, &vault.DeleteSecretResponse{
+			resps = append(resps, &vaultcommon.DeleteSecretResponse{
 				Id: validatedID,
 				// false because it hasn't been processed yet.
 				// When the write is handled successfully in StateTransition
@@ -539,21 +537,21 @@ func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadK
 		}
 	}
 
-	o.Response = &vault.Observation_DeleteSecretsResponse{
-		DeleteSecretsResponse: &vault.DeleteSecretsResponse{
+	o.Response = &vaultcommon.Observation_DeleteSecretsResponse{
+		DeleteSecretsResponse: &vaultcommon.DeleteSecretsResponse{
 			Responses: resps,
 		},
 	}
 }
 
-func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader ReadKVStore, identifier *vault.SecretIdentifier, requestsCountForID map[string]int) (*vault.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader ReadKVStore, identifier *vaultcommon.SecretIdentifier, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(identifier)
 	if err != nil {
 		return id, err
 	}
 
-	if requestsCountForID[KeyFor(identifier)] > 1 {
-		return id, newUserError("duplicate request for secret identifier " + KeyFor(id))
+	if requestsCountForID[vaultcap.KeyFor(identifier)] > 1 {
+		return id, newUserError("duplicate request for secret identifier " + vaultcap.KeyFor(id))
 	}
 
 	ss, err := reader.GetSecret(id)
@@ -568,7 +566,7 @@ func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader
 	return id, nil
 }
 
-func (r *ReportingPlugin) validateSecretIdentifier(id *vault.SecretIdentifier) (*vault.SecretIdentifier, error) {
+func (r *ReportingPlugin) validateSecretIdentifier(id *vaultcommon.SecretIdentifier) (*vaultcommon.SecretIdentifier, error) {
 	if id == nil {
 		return nil, newUserError("invalid secret identifier: cannot be nil")
 	}
@@ -583,14 +581,14 @@ func (r *ReportingPlugin) validateSecretIdentifier(id *vault.SecretIdentifier) (
 
 	namespace := id.Namespace
 	if namespace == "" {
-		namespace = DefaultNamespace
+		namespace = vaultcap.DefaultNamespace
 	}
 
 	if !isValidIDComponent(id.Key) || !isValidIDComponent(id.Owner) || !isValidIDComponent(namespace) {
 		return nil, newUserError("invalid secret identifier: key, owner and namespace must only contain alphanumeric characters")
 	}
 
-	newID := &vault.SecretIdentifier{
+	newID := &vaultcommon.SecretIdentifier{
 		Key:       id.Key,
 		Owner:     id.Owner,
 		Namespace: namespace,
@@ -627,16 +625,8 @@ func (u *userError) Is(target error) bool {
 	return ok
 }
 
-func KeyFor(id *vault.SecretIdentifier) string {
-	namespace := id.Namespace
-	if namespace == "" {
-		namespace = DefaultNamespace
-	}
-	return fmt.Sprintf("%s::%s::%s", id.Owner, namespace, id.Key)
-}
-
 func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, keyValueReader ocr3_1types.KeyValueReader, blobFetcher ocr3_1types.BlobFetcher) error {
-	obs := &vault.Observations{}
+	obs := &vaultcommon.Observations{}
 	if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
 		return errors.New("failed to unmarshal observations: " + err.Error())
 	}
@@ -672,9 +662,9 @@ func shaForProto(msg proto.Message) (string, error) {
 	return fmt.Sprintf("%x", sha256.Sum256(protoBytes)), nil
 }
 
-func shaForObservation(o *vault.Observation) (string, error) {
+func shaForObservation(o *vaultcommon.Observation) (string, error) {
 	switch o.RequestType {
-	case vault.RequestType_GET_SECRETS:
+	case vaultcommon.RequestType_GET_SECRETS:
 		cloned := proto.CloneOf(o)
 		for _, r := range cloned.GetGetSecretsResponse().Responses {
 			if r.GetData() != nil {
@@ -689,13 +679,13 @@ func shaForObservation(o *vault.Observation) (string, error) {
 	}
 }
 
-func validateObservation(o *vault.Observation) error {
+func validateObservation(o *vaultcommon.Observation) error {
 	if o.Id == "" {
 		return errors.New("observation id cannot be empty")
 	}
 
 	switch o.RequestType {
-	case vault.RequestType_GET_SECRETS:
+	case vaultcommon.RequestType_GET_SECRETS:
 		if o.GetGetSecretsRequest() == nil || o.GetGetSecretsResponse() == nil {
 			return errors.New("GetSecrets observation must have both request and response")
 		}
@@ -703,7 +693,7 @@ func validateObservation(o *vault.Observation) error {
 		if len(o.GetGetSecretsRequest().Requests) != len(o.GetGetSecretsResponse().Responses) {
 			return errors.New("GetSecrets request and response must have the same number of items")
 		}
-	case vault.RequestType_CREATE_SECRETS:
+	case vaultcommon.RequestType_CREATE_SECRETS:
 		if o.GetCreateSecretsRequest() == nil || o.GetCreateSecretsResponse() == nil {
 			return errors.New("CreateSecrets observation must have both request and response")
 		}
@@ -716,14 +706,14 @@ func validateObservation(o *vault.Observation) error {
 		// This prevents users from clobbering their own writes.
 		idSet := map[string]bool{}
 		for _, r := range o.GetCreateSecretsRequest().EncryptedSecrets {
-			_, ok := idSet[KeyFor(r.Id)]
+			_, ok := idSet[vaultcap.KeyFor(r.Id)]
 			if ok {
 				return fmt.Errorf("CreateSecrets requests cannot contain duplicate request for a given secret identifier: %s", r.Id)
 			}
 
-			idSet[KeyFor(r.Id)] = true
+			idSet[vaultcap.KeyFor(r.Id)] = true
 		}
-	case vault.RequestType_UPDATE_SECRETS:
+	case vaultcommon.RequestType_UPDATE_SECRETS:
 		if o.GetUpdateSecretsRequest() == nil || o.GetUpdateSecretsResponse() == nil {
 			return errors.New("UpdateSecrets observation must have both request and response")
 		}
@@ -736,14 +726,14 @@ func validateObservation(o *vault.Observation) error {
 		// This prevents users from clobbering their own writes.
 		idSet := map[string]bool{}
 		for _, r := range o.GetUpdateSecretsRequest().EncryptedSecrets {
-			_, ok := idSet[KeyFor(r.Id)]
+			_, ok := idSet[vaultcap.KeyFor(r.Id)]
 			if ok {
 				return fmt.Errorf("UpdateSecrets requests cannot contain duplicate request for a given secret identifier: %s", r.Id)
 			}
 
-			idSet[KeyFor(r.Id)] = true
+			idSet[vaultcap.KeyFor(r.Id)] = true
 		}
-	case vault.RequestType_DELETE_SECRETS:
+	case vaultcommon.RequestType_DELETE_SECRETS:
 		if o.GetDeleteSecretsRequest() == nil || o.GetDeleteSecretsResponse() == nil {
 			return errors.New("DeleteSecrets observation must have both request and response")
 		}
@@ -756,12 +746,12 @@ func validateObservation(o *vault.Observation) error {
 		// This prevents users from clobbering their own writes.
 		idSet := map[string]bool{}
 		for _, r := range o.GetDeleteSecretsRequest().Ids {
-			_, ok := idSet[KeyFor(r)]
+			_, ok := idSet[vaultcap.KeyFor(r)]
 			if ok {
 				return fmt.Errorf("DeleteSecrets requests cannot contain duplicate request for a given secret identifier: %s", r)
 			}
 
-			idSet[KeyFor(r)] = true
+			idSet[vaultcap.KeyFor(r)] = true
 		}
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
@@ -773,9 +763,9 @@ func validateObservation(o *vault.Observation) error {
 func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReadWriter ocr3_1types.KeyValueReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
 	store := NewWriteStore(keyValueReadWriter)
 
-	obsMap := map[string][]*vault.Observation{}
+	obsMap := map[string][]*vaultcommon.Observation{}
 	for _, ao := range aos {
-		obs := &vault.Observations{}
+		obs := &vaultcommon.Observations{}
 		if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
 			// Note: this shouldn't happen as all observations are validated in ValidateObservation.
 			r.lggr.Errorw("failed to unmarshal observations", "error", err, "observation", ao.Observation)
@@ -784,7 +774,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 
 		for _, o := range obs.Observations {
 			if _, ok := obsMap[o.Id]; !ok {
-				obsMap[o.Id] = []*vault.Observation{}
+				obsMap[o.Id] = []*vaultcommon.Observation{}
 			}
 			obsMap[o.Id] = append(obsMap[o.Id], o)
 		}
@@ -792,15 +782,15 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// TODO -- we need to validate that a single oracle doesn't submit multiple observations for the same request.
 	}
 
-	os := &vault.Outcomes{
-		Outcomes: []*vault.Outcome{},
+	os := &vaultcommon.Outcomes{
+		Outcomes: []*vaultcommon.Outcome{},
 	}
 	for id, obs := range obsMap {
 		// For each observation we've received for a given Id,
 		// we'll sha it and store it in `shaToObs`.
 		// This means that each entry in `shaToObs` will contain a list of all
 		// of the entries matching a given sha.
-		shaToObs := map[string][]*vault.Observation{}
+		shaToObs := map[string][]*vaultcommon.Observation{}
 		for _, ob := range obs {
 			sha, err := shaForObservation(ob)
 			if err != nil {
@@ -814,7 +804,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// We do this by checking if which sha has 2F+1 observations.
 		// Once we have it, we can break, as mathematically only one
 		// sha can reach at least 2F+1 observaions.
-		chosen := []*vault.Observation{}
+		chosen := []*vaultcommon.Observation{}
 		threshold := 2*r.onchainCfg.F + 1
 		for sha, obs := range shaToObs {
 			if len(obs) >= threshold {
@@ -832,21 +822,21 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// The shas are the same so the requests will have
 		// the same Id and Type.
 		first := chosen[0]
-		o := &vault.Outcome{
+		o := &vaultcommon.Outcome{
 			Id:          first.Id,
 			RequestType: first.RequestType,
 		}
 		switch first.RequestType {
-		case vault.RequestType_GET_SECRETS:
+		case vaultcommon.RequestType_GET_SECRETS:
 			r.stateTransitionGetSecrets(ctx, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
-		case vault.RequestType_CREATE_SECRETS:
+		case vaultcommon.RequestType_CREATE_SECRETS:
 			r.stateTransitionCreateSecrets(ctx, store, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
-		case vault.RequestType_UPDATE_SECRETS:
+		case vaultcommon.RequestType_UPDATE_SECRETS:
 			r.stateTransitionUpdateSecrets(ctx, store, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
-		case vault.RequestType_DELETE_SECRETS:
+		case vaultcommon.RequestType_DELETE_SECRETS:
 			r.stateTransitionDeleteSecrets(ctx, store, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		default:
@@ -866,25 +856,25 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
 
-func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen []*vault.Observation, o *vault.Outcome) {
+func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	first := chosen[0]
 	// First, let's generate the aggregated request.
 	// We've validated that all requests with the same sha have the same
 	// contents, so we can just sort the SecretRequests by their ID
 	// and use that as the aggregated request.
 	reqs := first.GetGetSecretsRequest().Requests
-	idToReqs := map[string]*vault.SecretRequest{}
+	idToReqs := map[string]*vaultcommon.SecretRequest{}
 	for _, req := range reqs {
-		idToReqs[KeyFor(req.Id)] = req
+		idToReqs[vaultcap.KeyFor(req.Id)] = req
 	}
 
-	newReqs := []*vault.SecretRequest{}
+	newReqs := []*vaultcommon.SecretRequest{}
 	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 		newReqs = append(newReqs, idToReqs[sreq])
 	}
 
-	o.Request = &vault.Outcome_GetSecretsRequest{
-		GetSecretsRequest: &vault.GetSecretsRequest{
+	o.Request = &vaultcommon.Outcome_GetSecretsRequest{
+		GetSecretsRequest: &vaultcommon.GetSecretsRequest{
 			Requests: newReqs,
 		},
 	}
@@ -893,14 +883,14 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 	// For each request, we take the Id of the first observation
 	// then aggregate the encrypted shares across all observations.
 	// Like with the requests, we sort these by Id and use the result as the response.
-	idToAggResponse := map[string]*vault.SecretResponse{}
+	idToAggResponse := map[string]*vaultcommon.SecretResponse{}
 	for _, resp := range chosen {
 		getSecretsResp := resp.GetGetSecretsResponse()
 		for _, rsp := range getSecretsResp.Responses {
-			key := KeyFor(rsp.Id)
+			key := vaultcap.KeyFor(rsp.Id)
 			mergedResp, ok := idToAggResponse[key]
 			if !ok {
-				resp := &vault.SecretResponse{
+				resp := &vaultcommon.SecretResponse{
 					Id:     rsp.Id,
 					Result: rsp.Result,
 				}
@@ -912,10 +902,10 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 				data := mergedResp.GetData()
 
 				if len(data.EncryptedDecryptionKeyShares) == 0 {
-					data.EncryptedDecryptionKeyShares = []*vault.EncryptedShares{}
+					data.EncryptedDecryptionKeyShares = []*vaultcommon.EncryptedShares{}
 				}
 
-				keyToShares := map[string]*vault.EncryptedShares{}
+				keyToShares := map[string]*vaultcommon.EncryptedShares{}
 				for _, s := range data.EncryptedDecryptionKeyShares {
 					keyToShares[s.EncryptionKey] = s
 				}
@@ -935,37 +925,37 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 		}
 	}
 
-	sortedResponses := []*vault.SecretResponse{}
+	sortedResponses := []*vaultcommon.SecretResponse{}
 	for _, k := range slices.Sorted(maps.Keys(idToAggResponse)) {
 		sortedResponses = append(sortedResponses, idToAggResponse[k])
 	}
 
-	o.Response = &vault.Outcome_GetSecretsResponse{
-		GetSecretsResponse: &vault.GetSecretsResponse{
+	o.Response = &vaultcommon.Outcome_GetSecretsResponse{
+		GetSecretsResponse: &vaultcommon.GetSecretsResponse{
 			Responses: sortedResponses,
 		},
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, store WriteKVStore, chosen []*vault.Observation, o *vault.Outcome) {
+func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, store WriteKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	first := chosen[0]
 	reqID := first.GetCreateSecretsRequest().RequestId
 	// First we'll aggregate the requests.
 	// Since the shas for all requests match, we can just take the first entry
 	// and sort the requests contained within it.
 	req := first.GetCreateSecretsRequest().EncryptedSecrets
-	idToReqs := map[string]*vault.EncryptedSecret{}
+	idToReqs := map[string]*vaultcommon.EncryptedSecret{}
 	for _, r := range req {
-		idToReqs[KeyFor(r.Id)] = r
+		idToReqs[vaultcap.KeyFor(r.Id)] = r
 	}
 
-	newReqs := []*vault.EncryptedSecret{}
+	newReqs := []*vaultcommon.EncryptedSecret{}
 	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 		newReqs = append(newReqs, idToReqs[sreq])
 	}
 
-	o.Request = &vault.Outcome_CreateSecretsRequest{
-		CreateSecretsRequest: &vault.CreateSecretsRequest{
+	o.Request = &vaultcommon.Outcome_CreateSecretsRequest{
+		CreateSecretsRequest: &vaultcommon.CreateSecretsRequest{
 			RequestId:        reqID,
 			EncryptedSecrets: newReqs,
 		},
@@ -976,12 +966,12 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	// there was a validation error. If not, we write it to the key value store.
 	// The responses are sorted by Id.
 	resp := first.GetCreateSecretsResponse()
-	idToResps := map[string]*vault.CreateSecretResponse{}
+	idToResps := map[string]*vaultcommon.CreateSecretResponse{}
 	for _, r := range resp.Responses {
-		idToResps[KeyFor(r.Id)] = r
+		idToResps[vaultcap.KeyFor(r.Id)] = r
 	}
 
-	sortedResps := []*vault.CreateSecretResponse{}
+	sortedResps := []*vaultcommon.CreateSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
 		req := idToReqs[id]
@@ -992,26 +982,26 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 			if errors.Is(err, &userError{}) {
 				errorMsg = err.Error()
 			}
-			sortedResps = append(sortedResps, &vault.CreateSecretResponse{
+			sortedResps = append(sortedResps, &vaultcommon.CreateSecretResponse{
 				Id:      req.Id,
 				Success: false,
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", KeyFor(req.Id), "requestID", reqID)
+			r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", vaultcap.KeyFor(req.Id), "requestID", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
 
 	}
 
-	o.Response = &vault.Outcome_CreateSecretsResponse{
-		CreateSecretsResponse: &vault.CreateSecretsResponse{
+	o.Response = &vaultcommon.Outcome_CreateSecretsResponse{
+		CreateSecretsResponse: &vaultcommon.CreateSecretsResponse{
 			Responses: sortedResps,
 		},
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vault.EncryptedSecret, resp *vault.CreateSecretResponse) (*vault.CreateSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.CreateSecretResponse) (*vaultcommon.CreateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -1039,39 +1029,39 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (%d)", req.Id.Owner, r.cfg.MaxSecretsPerOwner))
 	}
 
-	err = store.WriteSecret(req.Id, &vault.StoredSecret{
+	err = store.WriteSecret(req.Id, &vaultcommon.StoredSecret{
 		EncryptedSecret: encryptedSecret,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to write secret to key value store: %w", err)
 	}
 
-	return &vault.CreateSecretResponse{
+	return &vaultcommon.CreateSecretResponse{
 		Id:      req.Id,
 		Success: true,
 		Error:   "",
 	}, nil
 }
 
-func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, store WriteKVStore, chosen []*vault.Observation, o *vault.Outcome) {
+func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, store WriteKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	first := chosen[0]
 	reqID := first.GetUpdateSecretsRequest().RequestId
 	// First we'll aggregate the requests.
 	// Since the shas for all requests match, we can just take the first entry
 	// and sort the requests contained within it.
 	req := first.GetUpdateSecretsRequest().EncryptedSecrets
-	idToReqs := map[string]*vault.EncryptedSecret{}
+	idToReqs := map[string]*vaultcommon.EncryptedSecret{}
 	for _, r := range req {
-		idToReqs[KeyFor(r.Id)] = r
+		idToReqs[vaultcap.KeyFor(r.Id)] = r
 	}
 
-	newReqs := []*vault.EncryptedSecret{}
+	newReqs := []*vaultcommon.EncryptedSecret{}
 	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 		newReqs = append(newReqs, idToReqs[sreq])
 	}
 
-	o.Request = &vault.Outcome_UpdateSecretsRequest{
-		UpdateSecretsRequest: &vault.UpdateSecretsRequest{
+	o.Request = &vaultcommon.Outcome_UpdateSecretsRequest{
+		UpdateSecretsRequest: &vaultcommon.UpdateSecretsRequest{
 			RequestId:        reqID,
 			EncryptedSecrets: newReqs,
 		},
@@ -1082,12 +1072,12 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	// there was a validation error. If not, we write it to the key value store.
 	// The responses are sorted by Id.
 	resp := first.GetUpdateSecretsResponse()
-	idToResps := map[string]*vault.UpdateSecretResponse{}
+	idToResps := map[string]*vaultcommon.UpdateSecretResponse{}
 	for _, r := range resp.Responses {
-		idToResps[KeyFor(r.Id)] = r
+		idToResps[vaultcap.KeyFor(r.Id)] = r
 	}
 
-	sortedResps := []*vault.UpdateSecretResponse{}
+	sortedResps := []*vaultcommon.UpdateSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
 		req := idToReqs[id]
@@ -1098,25 +1088,25 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 			if errors.Is(err, &userError{}) {
 				errorMsg = err.Error()
 			}
-			sortedResps = append(sortedResps, &vault.UpdateSecretResponse{
+			sortedResps = append(sortedResps, &vaultcommon.UpdateSecretResponse{
 				Id:      req.Id,
 				Success: false,
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("successfully wrote secret to key value store", "method", "UpdateSecrets", "key", KeyFor(req.Id), "requestID", reqID)
+			r.lggr.Debugw("successfully wrote secret to key value store", "method", "UpdateSecrets", "key", vaultcap.KeyFor(req.Id), "requestID", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
 	}
 
-	o.Response = &vault.Outcome_UpdateSecretsResponse{
-		UpdateSecretsResponse: &vault.UpdateSecretsResponse{
+	o.Response = &vaultcommon.Outcome_UpdateSecretsResponse{
+		UpdateSecretsResponse: &vaultcommon.UpdateSecretsResponse{
 			Responses: sortedResps,
 		},
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vault.EncryptedSecret, resp *vault.UpdateSecretResponse) (*vault.UpdateSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse) (*vaultcommon.UpdateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -1135,39 +1125,39 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 		return nil, newUserError("could not write update to key value store: key does not exist")
 	}
 
-	err = store.WriteSecret(req.Id, &vault.StoredSecret{
+	err = store.WriteSecret(req.Id, &vaultcommon.StoredSecret{
 		EncryptedSecret: encryptedSecret,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to write secret to key value store: %w", err)
 	}
 
-	return &vault.UpdateSecretResponse{
+	return &vaultcommon.UpdateSecretResponse{
 		Id:      req.Id,
 		Success: true,
 		Error:   "",
 	}, nil
 }
 
-func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, store WriteKVStore, chosen []*vault.Observation, o *vault.Outcome) {
+func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, store WriteKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	first := chosen[0]
 	reqID := first.GetDeleteSecretsRequest().RequestId
 	// First we'll aggregate the requests.
 	// Since the shas for all requests match, we can just take the first entry
 	// and sort the requests contained within it.
 	req := first.GetDeleteSecretsRequest().Ids
-	idToReqs := map[string]*vault.SecretIdentifier{}
+	idToReqs := map[string]*vaultcommon.SecretIdentifier{}
 	for _, r := range req {
-		idToReqs[KeyFor(r)] = r
+		idToReqs[vaultcap.KeyFor(r)] = r
 	}
 
-	newReqs := []*vault.SecretIdentifier{}
+	newReqs := []*vaultcommon.SecretIdentifier{}
 	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 		newReqs = append(newReqs, idToReqs[sreq])
 	}
 
-	o.Request = &vault.Outcome_DeleteSecretsRequest{
-		DeleteSecretsRequest: &vault.DeleteSecretsRequest{
+	o.Request = &vaultcommon.Outcome_DeleteSecretsRequest{
+		DeleteSecretsRequest: &vaultcommon.DeleteSecretsRequest{
 			RequestId: reqID,
 			Ids:       newReqs,
 		},
@@ -1178,12 +1168,12 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	// there was a validation error. If not, we write it to the key value store.
 	// The responses are sorted by Id.
 	resp := first.GetDeleteSecretsResponse()
-	idToResps := map[string]*vault.DeleteSecretResponse{}
+	idToResps := map[string]*vaultcommon.DeleteSecretResponse{}
 	for _, r := range resp.Responses {
-		idToResps[KeyFor(r.Id)] = r
+		idToResps[vaultcap.KeyFor(r.Id)] = r
 	}
 
-	sortedResps := []*vault.DeleteSecretResponse{}
+	sortedResps := []*vaultcommon.DeleteSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
 		req := idToReqs[id]
@@ -1194,25 +1184,25 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 			if errors.Is(err, &userError{}) {
 				errorMsg = err.Error()
 			}
-			sortedResps = append(sortedResps, &vault.DeleteSecretResponse{
+			sortedResps = append(sortedResps, &vaultcommon.DeleteSecretResponse{
 				Id:      req,
 				Success: false,
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("successfully deleted secret in key value store", "method", "DeleteSecrets", "key", KeyFor(req), "requestId", reqID)
+			r.lggr.Debugw("successfully deleted secret in key value store", "method", "DeleteSecrets", "key", vaultcap.KeyFor(req), "requestId", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
 	}
 
-	o.Response = &vault.Outcome_DeleteSecretsResponse{
-		DeleteSecretsResponse: &vault.DeleteSecretsResponse{
+	o.Response = &vaultcommon.Outcome_DeleteSecretsResponse{
+		DeleteSecretsResponse: &vaultcommon.DeleteSecretsResponse{
 			Responses: sortedResps,
 		},
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vault.SecretIdentifier, resp *vault.DeleteSecretResponse) (*vault.DeleteSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vaultcommon.SecretIdentifier, resp *vaultcommon.DeleteSecretResponse) (*vaultcommon.DeleteSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -1222,7 +1212,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Contex
 		return nil, fmt.Errorf("failed to delete secret from key value store: %w", err)
 	}
 
-	return &vault.DeleteSecretResponse{
+	return &vaultcommon.DeleteSecretResponse{
 		Id:      id,
 		Success: true,
 		Error:   "",
@@ -1235,7 +1225,7 @@ func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueR
 }
 
 func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlusPrecursor ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {
-	outcomes := &vault.Outcomes{}
+	outcomes := &vaultcommon.Outcomes{}
 	err := proto.Unmarshal([]byte(reportsPlusPrecursor), outcomes)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal outcomes: %w", err)
@@ -1244,7 +1234,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 	reports := []ocr3types.ReportPlus[[]byte]{}
 	for _, o := range outcomes.Outcomes {
 		switch o.RequestType {
-		case vault.RequestType_GET_SECRETS:
+		case vaultcommon.RequestType_GET_SECRETS:
 			rep, err := r.generateProtoReport(o.Id, o.RequestType, o.GetGetSecretsResponse())
 			if err != nil {
 				r.lggr.Errorw("failed to generate Proto report", "error", err, "id", o.Id)
@@ -1254,7 +1244,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			reports = append(reports, ocr3types.ReportPlus[[]byte]{
 				ReportWithInfo: rep,
 			})
-		case vault.RequestType_CREATE_SECRETS:
+		case vaultcommon.RequestType_CREATE_SECRETS:
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetCreateSecretsResponse())
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
@@ -1264,7 +1254,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			reports = append(reports, ocr3types.ReportPlus[[]byte]{
 				ReportWithInfo: rep,
 			})
-		case vault.RequestType_UPDATE_SECRETS:
+		case vaultcommon.RequestType_UPDATE_SECRETS:
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetUpdateSecretsResponse())
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
@@ -1274,7 +1264,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			reports = append(reports, ocr3types.ReportPlus[[]byte]{
 				ReportWithInfo: rep,
 			})
-		case vault.RequestType_DELETE_SECRETS:
+		case vaultcommon.RequestType_DELETE_SECRETS:
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetDeleteSecretsResponse())
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
@@ -1294,7 +1284,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 	return reports, nil
 }
 
-func (r *ReportingPlugin) generateProtoReport(id string, requestType vault.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
+func (r *ReportingPlugin) generateProtoReport(id string, requestType vaultcommon.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
 	if msg == nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
 	}
@@ -1304,10 +1294,10 @@ func (r *ReportingPlugin) generateProtoReport(id string, requestType vault.Reque
 		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to marshal response to proto: %w", err)
 	}
 
-	rip, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vault.ReportInfo{
+	rip, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vaultcommon.ReportInfo{
 		Id:          id,
 		RequestType: requestType,
-		Format:      vault.ReportFormat_REPORT_FORMAT_PROTOBUF,
+		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_PROTOBUF,
 	})
 	if err != nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to marshal report info: %w", err)
@@ -1316,7 +1306,7 @@ func (r *ReportingPlugin) generateProtoReport(id string, requestType vault.Reque
 	return wrapReportWithKeyBundleInfo(rpb, rip)
 }
 
-func (r *ReportingPlugin) generateJSONReport(id string, requestType vault.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
+func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
 	if msg == nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
 	}
@@ -1326,10 +1316,10 @@ func (r *ReportingPlugin) generateJSONReport(id string, requestType vault.Reques
 		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to convert proto to canonical JSON: %w", err)
 	}
 
-	rip, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vault.ReportInfo{
+	rip, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vaultcommon.ReportInfo{
 		Id:          id,
 		RequestType: requestType,
-		Format:      vault.ReportFormat_REPORT_FORMAT_JSON,
+		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 	})
 	if err != nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to marshal report info: %w", err)

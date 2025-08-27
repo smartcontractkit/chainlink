@@ -39,7 +39,7 @@ func (k keyedOwnerSettings) GetScoped(ctx context.Context, scope settings.Scope,
 }
 
 func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limits.ResourceLimiter[int], error) {
-	lggr = logger.Named(lggr, "WorkflowLimiter")
+	lggr = logger.Named(lggr, "WorkflowExecutionLimiter")
 	cfg.PerOwnerOverrides = normalizeOverrides(cfg.PerOwnerOverrides)
 
 	ownerLimit := cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit
@@ -51,15 +51,16 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 		perOwner[k] = strconv.Itoa(int(v))
 	}
 	lf.Settings = keyedOwnerSettings{key: ownerLimit.Key, vals: perOwner}
-	owner, err := limits.NewResourcePoolLimiter(lf, ownerLimit)
+	owner, err := limits.MakeResourcePoolLimiter(lf, ownerLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create owner resource limiter: %w", err)
 	}
-	globalLimit := cresettings.Config.WorkflowLimit
+
+	globalLimit := cresettings.Default.WorkflowExecutionConcurrencyLimit
 	if cfg.Global > 0 {
 		globalLimit.DefaultValue = int(cfg.Global)
 	}
-	global, err := limits.NewResourcePoolLimiter(lf, globalLimit)
+	global, err := limits.MakeResourcePoolLimiter(lf, globalLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global resource limiter: %w", err)
 	}

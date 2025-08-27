@@ -1440,7 +1440,7 @@ Options are: event which watches for contract events or reconciliation which dif
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
 [Capabilities.WorkflowRegistry.WorkflowStorage]
-URL = "localhost:4566" # Default
+URL = "localhost:4566" # Example
 TLSEnabled = true # Default
 ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 ```
@@ -1448,7 +1448,7 @@ ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 
 ### URL
 ```toml
-URL = "localhost:4566" # Default
+URL = "localhost:4566" # Example
 ```
 URL is the location for the workflow storage service to be communicated with.
 

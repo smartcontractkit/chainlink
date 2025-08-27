@@ -104,12 +104,12 @@ jobs:
           go-version-file: system-tests/tests/go.mod
           cache: true
 
-      # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
+      # We need to login to ECR to allow the test to pull the Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) images
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
-          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
           role-duration-seconds: 1800
           mask-aws-account-id: true
 
