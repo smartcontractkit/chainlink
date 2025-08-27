@@ -14,8 +14,7 @@ import (
 )
 
 type DeployOCR3Deps struct {
-	Env       *cldf.Environment
-	Datastore datastore.MutableDataStore
+	Env *cldf.Environment
 }
 
 type DeployOCR3Input struct {
@@ -30,6 +29,7 @@ type DeployOCR3Output struct {
 	Type          string
 	Version       string
 	Labels        []string
+	Datastore     datastore.DataStore
 }
 
 // DeployOCR3 is an operation that deploys the OCR3 contract.
@@ -87,7 +87,14 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			Labels:        labels,
 		}
 
-		if err := deps.Datastore.Addresses().Add(addressRef); err != nil {
+		// Create a mutable datastore in order to be able to add the ocr3 address and access it from the configure step
+		ds := datastore.NewMemoryDataStore()
+		err = ds.Merge(deps.Env.DataStore)
+		if err != nil {
+			return DeployOCR3Output{}, fmt.Errorf("failed to merge datastore: %w", err)
+		}
+
+		if err := ds.AddressRefStore.Add(addressRef); err != nil {
 			return DeployOCR3Output{}, err
 		}
 
@@ -100,6 +107,7 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			Type:          string(tv.Type),
 			Version:       tv.Version.String(),
 			Labels:        tv.Labels.List(),
+			Datastore:     ds.Seal(),
 		}, nil
 	},
 )

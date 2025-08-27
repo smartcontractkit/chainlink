@@ -1,7 +1,9 @@
 package sequences
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +19,8 @@ import (
 )
 
 type DeployOCR3Deps struct {
-	Env *cldf.Environment
+	Env                  *cldf.Environment
+	WriteGeneratedConfig io.Writer
 }
 
 type DeployOCR3Input struct {
@@ -54,19 +57,8 @@ var DeployOCR3 = operations.NewSequence(
 			qualifier = "capability_consensus"
 		}
 
-		ds := datastore.NewMemoryDataStore()
-
-		addresses, err := deps.Env.DataStore.Addresses().Fetch()
-		if err != nil {
-			return DeployOCR3Output{}, fmt.Errorf("failed to fetch addresses: %w", err)
-		}
-		// copy addresses to the mutable instance of the datastore
-		for _, ref := range addresses {
-			ds.Addresses().Add(ref)
-		}
-
 		// Step 1: Deploy OCR3 Contract for Consensus Capability
-		ocr3DeploymentReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps{Env: deps.Env, Datastore: ds}, contracts.DeployOCR3Input{
+		ocr3DeploymentReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps{Env: deps.Env}, contracts.DeployOCR3Input{
 			ChainSelector: input.RegistryChainSel,
 			Qualifier:     qualifier,
 		})
@@ -76,22 +68,13 @@ var DeployOCR3 = operations.NewSequence(
 
 		ocr3ContractAddress := common.HexToAddress(ocr3DeploymentReport.Output.Address)
 
-		// Step 2: Get all the dependencies needed for the OCR3 configuration
-		// 2.1 get capabilities registry
-		refs := deps.Env.DataStore.Addresses().Filter(datastore.AddressRefByType("CapabilitiesRegistry"))
-		if len(refs) == 0 {
-			return DeployOCR3Output{}, fmt.Errorf("failed to get capabilities registry ref: %w", err)
-		}
-		capabilitiesRegistryRef := refs[0]
+		// Update the environment datastore to include the newly deployed OCR3 contract
+		deps.Env.DataStore = ocr3DeploymentReport.Output.Datastore
 
-		// Get the target chain
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.RegistryChainSel]
-		if !ok {
-			return DeployOCR3Output{}, fmt.Errorf("chain not found for selector %d", input.RegistryChainSel)
-		}
-		capabilitiesRegistry, err := crecontracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](ds.Addresses(), chain, capabilitiesRegistryRef.Address)
+		// Step 2: Get the capabilities registry contract
+		capabilitiesRegistry, err := getCapabilitiesRegistryContract(deps, input)
 		if err != nil {
-			return DeployOCR3Output{}, fmt.Errorf("failed to get owned contract: %w", err)
+			return DeployOCR3Output{}, fmt.Errorf("failed to get capabilities registry: %w", err)
 		}
 
 		// Step 3: Configure OCR3 Contract with DONs
@@ -100,10 +83,9 @@ var DeployOCR3 = operations.NewSequence(
 			"dryRun", input.DryRun)
 
 		_, err = operations.ExecuteOperation(b, contracts.ConfigureOCR3, contracts.ConfigureOCR3Deps{
-			Env: deps.Env,
-			// WriteGeneratedConfig: deps.WriteGeneratedConfig, TODO
-			Registry:  capabilitiesRegistry.Contract,
-			Datastore: ds,
+			Env:                  deps.Env,
+			WriteGeneratedConfig: deps.WriteGeneratedConfig,
+			Registry:             capabilitiesRegistry,
 		}, contracts.ConfigureOCR3Input{
 			ContractAddress:  &ocr3ContractAddress,
 			RegistryChainSel: input.RegistryChainSel,
@@ -125,3 +107,21 @@ var DeployOCR3 = operations.NewSequence(
 		}, nil
 	},
 )
+
+func getCapabilitiesRegistryContract(deps DeployOCR3Deps, input DeployOCR3Input) (*capabilities_registry_v2.CapabilitiesRegistry, error) {
+	refs := deps.Env.DataStore.Addresses().Filter(datastore.AddressRefByType("CapabilitiesRegistry"))
+	if len(refs) == 0 {
+		return nil, errors.New("failed to get capabilities registry ref")
+	}
+	capabilitiesRegistryRef := refs[0]
+
+	chain, ok := deps.Env.BlockChains.EVMChains()[input.RegistryChainSel]
+	if !ok {
+		return nil, fmt.Errorf("chain not found for selector %d", input.RegistryChainSel)
+	}
+	capabilitiesRegistry, err := crecontracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](deps.Env.DataStore.Addresses(), chain, capabilitiesRegistryRef.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get owned contract: %w", err)
+	}
+	return capabilitiesRegistry.Contract, nil
+}
