@@ -62,7 +62,6 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 		if selectorErr != nil {
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
-
 		faultyNodes, faultyErr := nodeSetInput.MaxFaultyNodes()
 		if faultyErr != nil {
 			return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
