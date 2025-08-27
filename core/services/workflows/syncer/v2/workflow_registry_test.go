@@ -644,7 +644,60 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Equal(t, events[1].Name, WorkflowRegistered)
 	})
 
-	t.Run("pending events which are no longer relevant are removed", func(t *testing.T) {
+	t.Run("pending delete events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		// Engine already in the workflow registry
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		err := er.Add(wfID, &mockService{})
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// A workflow is to be removed, but hits a failure, causing it to stay pending
+		event := WorkflowDeletedEvent{
+			WorkflowID: wfID,
+		}
+		pendingEvents := map[string]*reconciliationEvent{
+			hex.EncodeToString(wfID[:]): {
+				Event: Event{
+					Data: event,
+					Name: WorkflowDeleted,
+				},
+				id:          hex.EncodeToString(wfID[:]),
+				signature:   fmt.Sprintf("%s-%s-%s", WorkflowDeleted, hex.EncodeToString(wfID[:]), toSpecStatus(WorkflowStatusActive)),
+				nextRetryAt: time.Now(),
+				retryCount:  5,
+			},
+		}
+
+		// No workflows in metadata
+		metadata := []WorkflowMetadataView{}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		require.NoError(t, err)
+		require.Len(t, events, 1)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+		require.Empty(t, pendingEvents)
+	})
+
+	t.Run("pending create events are handled when workflow metadata no longer exists", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
