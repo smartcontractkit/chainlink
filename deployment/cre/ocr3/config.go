@@ -22,7 +22,6 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
-	kocr3 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -361,7 +360,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecret
 type ConfigureOCR3Request struct {
 	Cfg        *OracleConfig
 	Chain      cldf_evm.Chain
-	Contract   *kocr3.OCR3Capability
+	Contract   *ocr3_capability.OCR3Capability
 	Nodes      []deployment.Node
 	DryRun     bool
 	OcrSecrets cldf.OCRSecrets
@@ -408,7 +407,7 @@ func ConfigureOCR3contract(req ConfigureOCR3Request) (*ConfigureOCR3Response, er
 		ocrConfig.OffchainConfig,
 	)
 	if err != nil {
-		err = cldf.DecodeErr(kocr3.OCR3CapabilityABI, err)
+		err = cldf.DecodeErr(ocr3_capability.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.Contract.Address().String(), req.UseMCMS, err)
 	}
 
@@ -416,7 +415,7 @@ func ConfigureOCR3contract(req ConfigureOCR3Request) (*ConfigureOCR3Response, er
 	if !req.UseMCMS {
 		_, err = req.Chain.Confirm(tx)
 		if err != nil {
-			err = cldf.DecodeErr(kocr3.OCR3CapabilityABI, err)
+			err = cldf.DecodeErr(ocr3_capability.OCR3CapabilityABI, err)
 			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.Contract.Address().String(), err)
 		}
 	} else {
@@ -493,7 +492,7 @@ func makeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeK
 }
 
 func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
-	var aptosOcr2KeyBundleId string
+	var aptosOcr2KeyBundleID string
 	var aptosOnchainPublicKey string
 	var aptosCC *deployment.OCRConfig
 	for details, cfg := range o.SelToOCRConfig {
@@ -503,7 +502,7 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		}
 	}
 	if aptosCC != nil {
-		aptosOcr2KeyBundleId = aptosCC.KeyBundleID
+		aptosOcr2KeyBundleID = aptosCC.KeyBundleID
 		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
 	}
 	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
@@ -523,7 +522,7 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
 		// TODO Aptos support. How will that be modeled in clo data?
 		// TODO: AptosAccount is unset but probably unused
-		AptosBundleID:         aptosOcr2KeyBundleId,
+		AptosBundleID:         aptosOcr2KeyBundleID,
 		AptosOnchainPublicKey: aptosOnchainPublicKey,
 	}
 }
