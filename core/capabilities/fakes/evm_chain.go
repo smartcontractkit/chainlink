@@ -138,7 +138,11 @@ func (fc *FakeEVMChain) CallContract(ctx context.Context, metadata commonCap.Req
 	return &responseAndMetadata, nil
 }
 
-func (fc *FakeEVMChain) WriteReport(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.WriteReportRequest) (*commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply], error) {
+func (fc *FakeEVMChain) WriteReport(
+	ctx context.Context,
+	metadata commonCap.RequestMetadata,
+	input *evmcappb.WriteReportRequest,
+) (*commonCap.ResponseAndMetadata[*evmcappb.WriteReportReply], error) {
 	fc.eng.Infow("EVM Chain WriteReport Started")
 	fc.eng.Debugw("EVM Chain WriteReport Input", "input", input)
 
