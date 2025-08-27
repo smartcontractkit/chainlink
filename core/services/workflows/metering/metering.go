@@ -243,7 +243,9 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
-	return r.balance.Add(credits)
+	r.balance.Set(credits)
+
+	return nil
 }
 
 // DeductOpt changes both the functional behavior of the Deduct method. We chose to do DeductOpt because the standard deduction
