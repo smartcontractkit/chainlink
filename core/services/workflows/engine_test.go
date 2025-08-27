@@ -3119,6 +3119,50 @@ targets:
 			})).
 			Return(nil, errBillingClient)
 
+		expectedSteps := map[string]*eventspb.MeteringReportStep{
+			"write_polygon-testnet-mumbai@1.0.0": {
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId: "12D3KooW9pNAk8aiBuGVQtWRdbkLmo5qVL3e2h5UxbN2Nz9ttwiw",
+						SpendUnit:    "RESOURCE_TYPE_COMPUTE",
+						SpendValue:   "100",
+					},
+				},
+			},
+		}
+
+		stepCompare := func(expected, compared map[string]*eventspb.MeteringReportStep) bool {
+			if len(expected) != len(compared) {
+				return false
+			}
+
+			for key, step := range expected {
+				comparedStep, exists := compared[key]
+				if !exists {
+					return false
+				}
+
+				expectedNodes := step.GetNodes()
+				comparedNodes := comparedStep.GetNodes()
+
+				if len(expectedNodes) != len(comparedNodes) {
+					return false
+				}
+
+				for idx, node := range expectedNodes {
+					comparedNode := comparedNodes[idx]
+
+					if comparedNode.GetPeer_2PeerId() != node.GetPeer_2PeerId() ||
+						comparedNode.GetSpendUnit() != node.GetSpendUnit() ||
+						comparedNode.GetSpendValue() != node.GetSpendValue() {
+						return false
+					}
+				}
+			}
+
+			return true
+		}
+
 		// Verify that SubmitWorkflowReceipt is called with the correct workflow registry information
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -3126,7 +3170,7 @@ targets:
 					return false
 				}
 
-				return len(req.Metering.Steps) == 1 && strings.Contains(req.Metering.Message, errBillingClient.Error()) &&
+				return stepCompare(expectedSteps, req.Metering.Steps) && strings.Contains(req.Metering.Message, errBillingClient.Error()) &&
 					req.WorkflowRegistryAddress == expectedRegistryAddress &&
 					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
 			})).
