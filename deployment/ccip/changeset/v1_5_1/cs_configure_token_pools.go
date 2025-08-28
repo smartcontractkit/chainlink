@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/mcms"
 
@@ -28,6 +27,7 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -46,7 +46,7 @@ import (
 var (
 	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
 	ConfigureMultipleTokenPools                                                   = cldf.CreateChangeSet(ConfigureMultiplePoolLogic, configureMultiplePoolPreconditionValidation)
-	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = UpdateGroupsTokenPool
+	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = UpdateGroupsOnHybridWithExternalMinterTokenPool
 )
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
@@ -666,8 +666,8 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 	return finalOutput, nil
 }
 
-// UpdateGroupsTokenPool updates the groups on hybrid with external minter token pools for a given token across multiple chains.
-func UpdateGroupsTokenPool(env cldf.Environment, c ConfigureTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
+// UpdateGroupsOnHybridWithExternalMinterTokenPool updates the groups on hybrid with external minter token pools for a given token across multiple chains.
+func UpdateGroupsOnHybridWithExternalMinterTokenPool(env cldf.Environment, c ConfigureTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
 	}
