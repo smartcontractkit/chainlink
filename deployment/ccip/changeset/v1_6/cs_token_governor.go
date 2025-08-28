@@ -328,7 +328,7 @@ func GrantRoleTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangesetCo
 	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("token governor role grant")
 
 	for chainSelector, tokens := range c.Tokens {
-		opts, err := deployerGroup.GetDeployer(chainSelector)
+		_, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %d: %w", chainSelector, err)
 		}
