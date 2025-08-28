@@ -2,7 +2,6 @@ package executable
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
@@ -71,9 +69,7 @@ func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID 
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
 	if messageHasher == nil {
-		messageHasher = &v1Hasher{
-			requestHashExcludedAttributes: remoteExecutableConfig.RequestHashExcludedAttributes,
-		}
+		messageHasher = NewV1Hasher(remoteExecutableConfig.RequestHashExcludedAttributes)
 	}
 	return &server{
 		config:       remoteExecutableConfig,
@@ -228,36 +224,6 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}); executeTaskErr != nil {
 		r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
 	}
-}
-
-type v1Hasher struct {
-	requestHashExcludedAttributes []string
-}
-
-func (r *v1Hasher) Hash(msg *types.MessageBody) ([32]byte, error) {
-	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
-	}
-
-	// An attribute called StepDependency is used to define a data dependency between steps,
-	// and not to provide input values; we should therefore disregard it when hashing the request
-	if len(r.requestHashExcludedAttributes) == 0 {
-		r.requestHashExcludedAttributes = []string{"StepDependency"}
-	}
-
-	for _, path := range r.requestHashExcludedAttributes {
-		if req.Inputs != nil {
-			req.Inputs.DeleteAtPath(path)
-		}
-	}
-
-	reqBytes, err := pb.MarshalCapabilityRequest(req)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
-	}
-	hash := sha256.Sum256(reqBytes)
-	return hash, nil
 }
 
 func GetMessageID(msg *types.MessageBody) (string, error) {
