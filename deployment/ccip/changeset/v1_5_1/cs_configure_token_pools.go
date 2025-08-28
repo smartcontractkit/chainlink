@@ -697,7 +697,7 @@ func UpdateGroupsTokenPool(env cldf.Environment, c ConfigureTokenPoolContractsCo
 		}
 
 		if _, err := pool.UpdateGroups(opts, tokenPool.GroupUpdates); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to update groups on token pool with address %s on %s: %w", pool.Address, chain, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to update groups on token pool with address %s on %s: %w", pool.Address().String(), chain, err)
 		}
 	}
 
