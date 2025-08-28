@@ -29,6 +29,7 @@ var (
 	DonIDClaimer         deployment.ContractType = "DonIDClaimer"
 	PriceFeed            deployment.ContractType = "PriceFeed"
 	TokenGovernor        deployment.ContractType = "TokenGovernor"
+	BaseSignerRegistry   deployment.ContractType = "BaseSignerRegistry"
 
 	// Test contracts. Note test router maps to a regular router contract.
 	TestRouter             deployment.ContractType = "TestRouter"
