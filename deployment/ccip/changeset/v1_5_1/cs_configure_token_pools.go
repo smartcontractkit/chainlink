@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/mcms"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -44,6 +46,7 @@ import (
 var (
 	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
 	ConfigureMultipleTokenPools                                                   = cldf.CreateChangeSet(ConfigureMultiplePoolLogic, configureMultiplePoolPreconditionValidation)
+	_                           cldf.ChangeSet[ConfigureTokenPoolContractsConfig] = UpdateGroupsTokenPool
 )
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
@@ -195,6 +198,9 @@ type TokenPoolConfig struct {
 
 	// AptosChainUpdates defines the Aptos chains and corresponding rate limits that should be defined on the token pool.
 	AptosChainUpdates map[uint64]AptosChainUpdate
+
+	// Updates the group on hybrid token pools. Can only be called by the owner.
+	GroupUpdates []hybrid_with_external_minter_token_pool.HybridTokenPoolAbstractGroupUpdate
 
 	// Type is the type of the token pool.
 	Type cldf.ContractType `json:"type"`
@@ -658,4 +664,42 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 		finalOutput.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
 	}
 	return finalOutput, nil
+}
+
+// UpdateGroupsTokenPool updates the groups on hybrid with external minter token pools for a given token across multiple chains.
+func UpdateGroupsTokenPool(env cldf.Environment, c ConfigureTokenPoolContractsConfig) (cldf.ChangesetOutput, error) {
+	if err := c.Validate(env); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
+	}
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pool groups", c.TokenSymbol))
+
+	for chainSelector, tokenPool := range c.PoolUpdates {
+		if tokenPool.Type != shared.HybridWithExternalMinterTokenPool {
+			return cldf.ChangesetOutput{}, fmt.Errorf("token pool type %s is not supported", tokenPool.Type)
+		}
+
+		chain := env.BlockChains.EVMChains()[chainSelector]
+		chainState, _ := state.EVMChainState(chainSelector)
+
+		opts, err := deployerGroup.GetDeployer(chainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+		}
+
+		pool, ok := chainState.HybridWithExternalMinterTokenPool[c.TokenSymbol][deployment.Version1_6_0]
+		if !ok {
+			return cldf.ChangesetOutput{}, fmt.Errorf("token pool does not exist on %s with symbol %s", chain, c.TokenSymbol)
+		}
+
+		if _, err := pool.UpdateGroups(opts, tokenPool.GroupUpdates); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to update groups on token pool with address %s on %s: %w", pool.Address, chain, err)
+		}
+	}
+
+	return deployerGroup.Enact()
 }
