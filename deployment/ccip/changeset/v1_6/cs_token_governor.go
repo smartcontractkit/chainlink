@@ -35,6 +35,7 @@ const (
 	RoleUnpauser
 	RoleRecovery
 	RoleCheckerAdmin
+	RoleDefaultAdmin
 )
 
 var (
@@ -83,11 +84,13 @@ func (r TokenGovernorRole) String() string {
 	case RolePauser:
 		return "PAUSER_ROLE"
 	case RoleUnpauser:
-		return "UNPAUSER"
+		return "UNPAUSER_ROLE"
 	case RoleRecovery:
 		return "RECOVERY_ROLE"
 	case RoleCheckerAdmin:
 		return "CHECKER_ADMIN_ROLE"
+	case RoleDefaultAdmin:
+		return "DEFAULT_ADMIN_ROLE"
 	default:
 		return "UNKNOWN"
 	}
@@ -248,6 +251,12 @@ func GetRoleFromTokenGovernor(ctx context.Context, tokenGovernor *token_governor
 		r, err := tokenGovernor.CHECKERADMINROLE(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed to fetch checker admin role: %w", err)
+		}
+		return r, nil
+	case RoleDefaultAdmin:
+		r, err := tokenGovernor.DEFAULTADMINROLE(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to fetch default admin role: %w", err)
 		}
 		return r, nil
 	}
