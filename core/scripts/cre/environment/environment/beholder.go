@@ -320,6 +320,5 @@ func fetchAndRegisterProtosCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&schemaURL, "red-panda-schema-registry-url", "r", "http://localhost:"+chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT, "Red Panda Schema Registry URL")
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
-	// Remove the MarkFlagRequired calls to allow default values
 	return cmd
 }
