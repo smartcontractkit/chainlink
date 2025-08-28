@@ -67,6 +67,32 @@ type TokenGovernorRoleChangesetConfig struct {
 	MCMS   *proposalutils.TimelockConfig
 }
 
+// String returns the string representation of the TokenGovernorRole.
+func (r TokenGovernorRole) String() string {
+	switch r {
+	case RoleMinter:
+		return "MINTER"
+	case RoleBridgerMinterOrBurner:
+		return "BRIDGE_MINTER_OR_BURNER"
+	case RoleBurner:
+		return "BURNER"
+	case RoleFreezer:
+		return "FREEZER"
+	case RoleUnfreezer:
+		return "UNFREEZER"
+	case RolePauser:
+		return "PAUSER"
+	case RoleUnpauser:
+		return "UNPAUSER"
+	case RoleRecovery:
+		return "RECOVERY"
+	case RoleCheckerAdmin:
+		return "CHECKER_ADMIN"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 // Validate validates the TokenGovernorChangesetConfig.
 func (c TokenGovernorChangesetConfig) Validate(env cldf.Environment) error {
 	state, err := stateview.LoadOnchainState(env)
