@@ -46,8 +46,8 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250825135846-84f0d5167f8f
-	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250905131850-7713941a6848
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250827194531-48d824b94c91
+	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250821165313-cbb8fcc9bedd
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.25.0
 	github.com/smartcontractkit/chainlink-evm v0.3.2
@@ -490,7 +490,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250908183256-730b8437bad0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250826190349-3ad790a746ae // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250827154639-52c598a71129 // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250826025907-025695d4ffe1 // indirect
 	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250826025907-025695d4ffe1 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
