@@ -2392,15 +2392,6 @@ targets:
       abi: "receive(report bytes)"
 `
 
-type mockFetcher struct {
-	retval map[string]string
-	retErr error
-}
-
-func (m *mockFetcher) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
-	return m.retval, m.retErr
-}
-
 func TestEngine_FetchesSecrets(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
@@ -2964,13 +2955,13 @@ targets:
 			SpecType: job.YamlSpec,
 		}).SDKSpec(testutils.Context(t))
 		require.NoError(t, err)
-	
+
 		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
 			cfg.BillingClient = mBillingClient
 			cfg.WorkflowRegistryAddress = expectedRegistryAddress
 			cfg.WorkflowRegistryChainID = invalidChainSelector
 			cfg.Lggr = lggr
-		},)
+		})
 		require.Error(t, err)
 
 		// When chain selector parsing fails, the engine should fail to start
@@ -2981,14 +2972,14 @@ targets:
 			cfg.WorkflowRegistryAddress = expectedRegistryAddress
 			cfg.WorkflowRegistryChainID = ""
 			cfg.Lggr = lggr
-		},)
+		})
 		require.Error(t, err)
 
 		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
 			cfg.BillingClient = mBillingClient
 			cfg.WorkflowRegistryAddress = ""
 			cfg.Lggr = lggr
-		},)
+		})
 		require.Error(t, err)
 
 	})
