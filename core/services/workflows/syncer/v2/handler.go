@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -40,6 +41,8 @@ type eventHandler struct {
 
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
+	donTimeStore           *dontime.Store
+	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
@@ -100,6 +103,8 @@ type WorkflowArtifactsStore interface {
 func NewEventHandler(
 	lggr logger.Logger,
 	workflowStore store.Store,
+	donTimeStore *dontime.Store,
+	useLocalTimeProvider bool,
 	capRegistry core.CapabilitiesRegistry,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
@@ -119,11 +124,16 @@ func NewEventHandler(
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
+	if donTimeStore == nil && !useLocalTimeProvider {
+		return nil, errors.New("donTimeStore must be provided")
+	}
 
 	eh := &eventHandler{
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		donTimeStore:           donTimeStore,
+		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
 		engineLimiters:         engineLimiters,
@@ -355,11 +365,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 	// V2 aka "NoDAG"
 	cfg := &v2.EngineConfig{
-		Lggr:            h.lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     h.capRegistry,
-		ExecutionsStore: h.workflowStore,
+		Lggr:                 h.lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          h.capRegistry,
+		UseLocalTimeProvider: h.useLocalTimeProvider,
+		DonTimeStore:         h.donTimeStore,
+		ExecutionsStore:      h.workflowStore,
 
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,

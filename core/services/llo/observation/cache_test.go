@@ -87,7 +87,6 @@ func TestCache_Add_Get(t *testing.T) {
 		value     llo.StreamValue
 		maxAge    time.Duration
 		wantValue llo.StreamValue
-		wantFound bool
 		beforeGet func(cache *Cache)
 	}{
 		{
@@ -96,15 +95,12 @@ func TestCache_Add_Get(t *testing.T) {
 			value:     &mockStreamValue{value: []byte{42}},
 			maxAge:    time.Second,
 			wantValue: &mockStreamValue{value: []byte{42}},
-			wantFound: true,
 		},
 		{
 			name:      "get non-existent value",
 			streamID:  1,
-			value:     &mockStreamValue{value: []byte{42}},
 			maxAge:    time.Second,
 			wantValue: nil,
-			wantFound: false,
 		},
 		{
 			name:      "get expired by age",
@@ -112,7 +108,6 @@ func TestCache_Add_Get(t *testing.T) {
 			value:     &mockStreamValue{value: []byte{42}},
 			maxAge:    time.Nanosecond * 100,
 			wantValue: nil,
-			wantFound: false,
 			beforeGet: func(_ *Cache) {
 				time.Sleep(time.Millisecond)
 			},
@@ -123,19 +118,13 @@ func TestCache_Add_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cache := NewCache(tt.maxAge, 0)
 
-			if tt.wantFound {
-				cache.Add(tt.streamID, tt.value)
-			}
+			cache.Add(tt.streamID, tt.value)
 
 			if tt.beforeGet != nil {
 				tt.beforeGet(cache)
 			}
 
-			gotValue, gotFound := cache.Get(tt.streamID)
-			assert.Equal(t, tt.wantFound, gotFound)
-			if tt.wantFound {
-				assert.Equal(t, tt.wantValue, gotValue)
-			}
+			assert.Equal(t, tt.wantValue, cache.Get(tt.streamID))
 		})
 	}
 }
@@ -148,8 +137,7 @@ func TestCache_Cleanup(t *testing.T) {
 	cache.Add(streamID, value)
 	time.Sleep(time.Millisecond * 2)
 
-	gotValue, gotFound := cache.Get(streamID)
-	assert.False(t, gotFound)
+	gotValue := cache.Get(streamID)
 	assert.Nil(t, gotValue)
 }
 
@@ -177,9 +165,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 	for i := uint32(0); i < numGoroutines; i++ {
 		for j := uint32(0); j < numOperations; j++ {
 			streamID := i*numOperations + j
-			value, found := cache.Get(streamID)
-			assert.True(t, found)
-			assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, value)
+			assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, cache.Get(streamID))
 		}
 	}
 }

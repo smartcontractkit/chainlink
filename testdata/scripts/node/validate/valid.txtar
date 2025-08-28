@@ -398,6 +398,8 @@ Global = 200
 PerOwner = 200
 
 [CRE]
+UseLocalTimeProvider = true
+
 [CRE.Streams]
 WsURL = ''
 RestURL = ''
