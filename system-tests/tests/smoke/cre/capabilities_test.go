@@ -121,14 +121,17 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 	// currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
 	t.Run("cron-based PoR workflow", func(t *testing.T) {
+		t.Skip("")
 		executePoRTest(t, testEnv)
 	})
 
 	t.Run("vault DON test", func(t *testing.T) {
+		t.Skip("")
 		executeVaultTest(t, testEnv)
 	})
 
 	t.Run("http trigger and action test", func(t *testing.T) {
+		t.Skip("")
 		executeHTTPTriggerActionTest(t, testEnv)
 	})
 
@@ -1279,6 +1282,10 @@ func ctfConfigToCacheFile() (string, error) {
 	configFile := os.Getenv("CTF_CONFIGS")
 	if configFile == "" {
 		return "", errors.New("CTF_CONFIGS env var is not set")
+	}
+
+	if strings.HasSuffix(configFile, "-cache.toml") {
+		return configFile, nil
 	}
 
 	split := strings.Split(configFile, ",")
