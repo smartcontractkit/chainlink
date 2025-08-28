@@ -999,7 +999,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		for i := range numSteps {
 			stepRef := strconv.Itoa(i)
 
-			_, err := report.Deduct(stepRef, ByResource(testUnitA, decimal.NewFromInt(1)))
+			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 			require.NoError(t, err)
 
 			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
