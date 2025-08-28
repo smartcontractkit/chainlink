@@ -353,7 +353,7 @@ func GrantRoleTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangesetCo
 				return cldf.ChangesetOutput{}, fmt.Errorf("account %s already has role %s", governor.Account, governor.Role)
 			}
 
-			tx, err := tokenGovernor.GrantRole(opts, role, governor.Account)
+			tx, err := tokenGovernor.GrantRole(chain.DeployerKey, role, governor.Account)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to grant role %s to account %s on chain %d: %w", governor.Role, governor.Account, chainSelector, err)
 			}
