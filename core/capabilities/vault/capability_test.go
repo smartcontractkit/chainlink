@@ -662,6 +662,45 @@ func TestCapability_CRUD(t *testing.T) {
 				return capability.DeleteSecrets(t.Context(), req)
 			},
 		},
+		{
+			name:     "ListSecretIdentifiers_Invalid_OwnerMissing",
+			response: nil,
+			error:    "owner must not be empty",
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
+				req := &vault.ListSecretIdentifiersRequest{
+					RequestId: requestID,
+					Owner:     "",
+				}
+				return capability.ListSecretIdentifiers(t.Context(), req)
+			},
+		},
+		{
+			name:     "ListSecretIdentifiers_Invalid_RequestIDMissing",
+			response: nil,
+			error:    "request ID must not be empty",
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
+				req := &vault.ListSecretIdentifiersRequest{
+					RequestId: "",
+					Owner:     "owner",
+				}
+				return capability.ListSecretIdentifiers(t.Context(), req)
+			},
+		},
+		{
+			name: "ListSecretIdentifiers",
+			response: &Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
+			call: func(t *testing.T, capability *Capability) (*Response, error) {
+				req := &vault.ListSecretIdentifiersRequest{
+					RequestId: requestID,
+					Owner:     owner,
+				}
+				return capability.ListSecretIdentifiers(t.Context(), req)
+			},
+		},
 	}
 
 	for _, tc := range testCases {

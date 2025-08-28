@@ -12,6 +12,7 @@ const (
 	MethodSecretsGet    = "vault.secrets.get"
 	MethodSecretsUpdate = "vault.secrets.update"
 	MethodSecretsDelete = "vault.secrets.delete"
+	MethodSecretsList   = "vault.secrets.list"
 
 	MaxBatchSize = 10
 )

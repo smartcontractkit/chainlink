@@ -104,12 +104,12 @@ jobs:
           go-version-file: system-tests/tests/go.mod
           cache: true
 
-      # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
+      # We need to login to ECR to allow the test to pull the Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) images
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
-          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
           role-duration-seconds: 1800
           mask-aws-account-id: true
 
@@ -131,7 +131,6 @@ jobs:
         shell: bash
         id: start-local-cre
         env:
-          TOPOLOGY: ${{ matrix.tests.topology }}
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
@@ -139,9 +138,9 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.configs }}
         run: |
           cd core/scripts/cre/environment
-          go run . env start --topology ${TOPOLOGY} --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
+          go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
           exit_code=$?
-          
+
           if [ $exit_code -ne 0 ]; then
             echo "Error: failed to start local CRE, exit code $exit_code"
             exit $exit_code
@@ -157,7 +156,9 @@ jobs:
           TEST_NAME: ${{ matrix.tests.test_name }}
           ENV_ARTIFACT_PATH: ${{ steps.start-local-cre.outputs.env_artifact_path }}
           CTF_CONFIGS: ${{ steps.start-local-cre.outputs.env_config_path }}
-          CRE_TOPOLOGY: ${{ matrix.tests.topology }}
+          # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
+          # Beholder stack will be started only for the Beholder test
+          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:qa-latest
           TEST_TIMEOUT: 30m
         run: |
           # Sleep to allow testcontainers to stop

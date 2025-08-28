@@ -23,7 +23,7 @@ func deleteJobsJDLogic(env cldf.Environment, c types.DeleteJobsConfig) (cldf.Cha
 	ctx, cancel := context.WithTimeout(env.GetContext(), deleteJobTimeout)
 	defer cancel()
 
-	offchain.DeleteJobs(ctx, env, c.JobIDs, c.WorkflowName, c.Environment)
+	offchain.DeleteJobs(ctx, env, c.JobIDs, c.WorkflowName, c.Environment, c.Zone)
 
 	ds := datastore.NewMemoryDataStore()
 	// Delete the workflow spec from the datastore if workflow name is provided

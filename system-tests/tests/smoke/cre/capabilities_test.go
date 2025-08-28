@@ -29,7 +29,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protojson"
+
+	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
+
+	common_events "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflow_events "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -78,12 +83,12 @@ const (
 	DefaultVerificationTimeout = 5 * time.Minute
 	ContainerTargetDir         = "/home/chainlink/workflows"
 	WorkflowNodePrefix         = "workflow-node"
-	DefaultConfigPath          = "../../../../core/scripts/cre/environment/configs/workflow-don-cache.toml"
-	DefaultTopology            = "workflow"
+	DefaultConfigPath          = "../../../../core/scripts/cre/environment/configs/workflow-don.toml"
 	DefaultEnvironmentDir      = "../../../../core/scripts/cre/environment"
 	PoRWorkflowLocation        = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 	HTTPWorkflowLocation       = "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go"
 	DefaultEnvArtifactPath     = "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json"
+	DefaultEnvArtifactFile     = "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json"
 	RetryInterval              = 2 * time.Second
 	ValidationInterval         = 10 * time.Second
 )
@@ -131,6 +136,10 @@ func Test_CRE_Workflow_Don(t *testing.T) {
 		// TODO: Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028
 		t.Skip()
 	})
+
+	t.Run("Beholder test", func(t *testing.T) {
+		executeBeholderTest(t, testEnv)
+	})
 }
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
@@ -146,17 +155,18 @@ type WorkflowRegistrationConfig struct {
 
 // setupTestEnvironment initializes the common test environment
 func setupTestEnvironment(t *testing.T) *TestEnvironment {
-	confErr := setConfigurationIfMissing(DefaultConfigPath, DefaultTopology)
+	confErr := setConfigurationIfMissing(DefaultConfigPath, DefaultEnvArtifactFile)
 	require.NoError(t, confErr, "failed to set configuration")
 
-	configurationFiles := os.Getenv("CTF_CONFIGS")
-	require.NotEmpty(t, configurationFiles, "CTF_CONFIGS env var is not set")
-
-	topology := os.Getenv("CRE_TOPOLOGY")
-	require.NotEmpty(t, topology, "CRE_TOPOLOGY env var is not set")
-
-	createErr := createEnvironmentIfNotExists(configurationFiles, "../../../../core/scripts/cre/environment", topology)
+	createErr := createEnvironmentIfNotExists(DefaultEnvironmentDir)
 	require.NoError(t, createErr, "failed to create environment")
+
+	// transform the config file to the cache file, so that we can use the cached environment
+	cachedConfigFile, cacheErr := ctfConfigToCacheFile()
+	require.NoError(t, cacheErr, "failed to get cached config file")
+
+	setErr := os.Setenv("CTF_CONFIGS", cachedConfigFile)
+	require.NoError(t, setErr, "failed to set CTF_CONFIGS env var")
 
 	/*
 		LOAD ENVIRONMENT STATE
@@ -1062,24 +1072,172 @@ func createWorkflowConfigFile(bcOutput *cre.WrappedBlockchainOutput, readContrac
 	return outputFileAbsPath, nil
 }
 
-func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) error {
-	split := strings.Split(stateFile, ",")
-	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
-		ctfConfigs := os.Getenv("CTF_CONFIGS")
-		defer func() {
-			setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
-			if setErr != nil {
-				framework.L.Error().Err(setErr).Msg("failed to set CTF_CONFIGS env var")
-			}
-		}()
+func executeBeholderTest(t *testing.T, testEnv *TestEnvironment) {
+	testLogger := framework.L
 
-		// unset the CTF_CONFIGS env var to avoid using the cached environment
-		setErr := os.Setenv("CTF_CONFIGS", "")
-		if setErr != nil {
-			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+	bErr := startBeholderStackIfIsNotRunning(DefaultBeholderStackCacheFile, DefaultEnvironmentDir)
+	require.NoError(t, bErr, "failed to start Beholder")
+
+	chipConfig, chipErr := loadBeholderStackCache()
+	require.NoError(t, chipErr, "failed to load chip ingress cache")
+	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
+	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
+
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	workflowName := "cronbeholder"
+
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowFileLocation, workflowName)
+	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
+
+	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
+	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		homeChainSelector,
+		keystone_changeset.WorkflowRegistry.String(),
+	)
+	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
+
+	t.Cleanup(func() {
+		wasmErr := os.Remove(compressedWorkflowWasmPath)
+		if wasmErr != nil {
+			framework.L.Warn().Msgf("failed to remove workflow wasm file %s: %s", compressedWorkflowWasmPath, wasmErr.Error())
 		}
 
-		cmd := exec.Command("go", "run", ".", "env", "start", "--topology", topology)
+		deleteErr := creworkflow.DeleteWithContract(t.Context(), testEnv.WrappedBlockchainOutputs[0].SethClient, workflowRegistryAddress, workflowName)
+		if deleteErr != nil {
+			framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", workflowName, deleteErr.Error())
+		}
+	})
+
+	workflowCopyErr := creworkflow.CopyArtifactToDockerContainers(compressedWorkflowWasmPath, creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir)
+	require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
+
+	_, registerErr := creworkflow.RegisterWithContract(
+		t.Context(),
+		testEnv.WrappedBlockchainOutputs[0].SethClient, // crucial to use Seth Client connected to home chain (first chain in the set)
+		workflowRegistryAddress,
+		testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+		workflowName,
+		"file://"+compressedWorkflowWasmPath,
+		nil,
+		nil,
+		&creworkflow.DefaultWorkflowTargetDir,
+	)
+	require.NoError(t, registerErr, "failed to register cron beholder workflow")
+
+	listenerCtx, cancelListener := context.WithTimeout(t.Context(), 2*time.Minute)
+	t.Cleanup(func() {
+		cancelListener()
+	})
+
+	kafkaErrChan := make(chan error, 1)
+	messageChan := make(chan proto.Message, 10)
+
+	// We are interested in UserLogs (successful execution)
+	// or BaseMessage with specific error message (engine initialization failure)
+	messageTypes := map[string]func() proto.Message{
+		"workflows.v1.UserLogs": func() proto.Message {
+			return &workflow_events.UserLogs{}
+		},
+		"BaseMessage": func() proto.Message {
+			return &common_events.BaseMessage{}
+		},
+	}
+
+	// Start listening for messages in the background
+	go func() {
+		listenForKafkaMessages(listenerCtx, testLogger, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, chipConfig.Kafka.Topics[0], messageTypes, messageChan, kafkaErrChan)
+	}()
+
+	expectedUserLog := "Amazing workflow user log"
+
+	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
+	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
+	receivedUserLogs := 0
+	// Start message processor goroutine
+	go func() {
+		for {
+			select {
+			case <-listenerCtx.Done():
+				return
+			case msg := <-messageChan:
+				// Process received messages
+				switch typedMsg := msg.(type) {
+				case *common_events.BaseMessage:
+					if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
+						foundErrorLog <- true
+					}
+				case *workflow_events.UserLogs:
+					testLogger.Info().
+						Msg("🎉 Received UserLogs message in test")
+					receivedUserLogs++
+
+					for _, logLine := range typedMsg.LogLines {
+						if strings.Contains(logLine.Message, expectedUserLog) {
+							testLogger.Info().
+								Str("expected_log", expectedUserLog).
+								Str("found_message", strings.TrimSpace(logLine.Message)).
+								Msg("🎯 Found expected user log message!")
+
+							select {
+							case foundExpectedLog <- true:
+							default: // Channel might already have a value
+							}
+							return // Exit the processor goroutine
+						}
+						testLogger.Warn().
+							Str("expected_log", expectedUserLog).
+							Str("found_message", strings.TrimSpace(logLine.Message)).
+							Msg("Received UserLogs message, but it does not match expected log")
+					}
+				default:
+					// ignore other message types
+				}
+			}
+		}
+	}()
+
+	timeout := 2 * time.Minute
+
+	testLogger.Info().
+		Str("expected_log", expectedUserLog).
+		Dur("timeout", timeout).
+		Msg("Waiting for expected user log message or timeout")
+
+	// Wait for either the expected log to be found, or engine initialization failure to be detected, or timeout (2 minutes)
+	select {
+	case <-foundExpectedLog:
+		testLogger.Info().
+			Str("expected_log", expectedUserLog).
+			Msg("✅ Test completed successfully - found expected user log message!")
+		return
+	case <-foundErrorLog:
+		require.Fail(t, "Test completed with error - found engine initialization failure message!")
+	case <-time.After(timeout):
+		testLogger.Error().Msg("Timed out waiting for expected user log message")
+		if receivedUserLogs > 0 {
+			testLogger.Warn().Int("received_user_logs", receivedUserLogs).Msg("Received some UserLogs messages, but none matched expected log")
+		} else {
+			testLogger.Warn().Msg("Did not receive any UserLogs messages")
+		}
+		require.Failf(t, "Timed out waiting for expected user log message", "Expected user log message: '%s' not found after %s", expectedUserLog, timeout.String())
+	case err := <-kafkaErrChan:
+		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution")
+		require.Fail(t, "Kafka listener failed", err.Error())
+	}
+
+	testLogger.Info().Msg("Beholder test completed")
+}
+
+func createEnvironmentIfNotExists(environmentDir string) error {
+	cachedConfigFile, cacheErr := ctfConfigToCacheFile()
+	if cacheErr != nil {
+		return errors.Wrap(cacheErr, "failed to get cached config file")
+	}
+
+	if _, err := os.Stat(cachedConfigFile); os.IsNotExist(err) {
+		framework.L.Info().Str("cached_config_file", cachedConfigFile).Msg("Cached config file does not exist, starting environment...")
+		cmd := exec.Command("go", "run", ".", "env", "start")
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -1092,7 +1250,7 @@ func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) er
 	return nil
 }
 
-func setConfigurationIfMissing(configName, topology string) error {
+func setConfigurationIfMissing(configName, envArtifactPath string) error {
 	if os.Getenv("CTF_CONFIGS") == "" {
 		err := os.Setenv("CTF_CONFIGS", configName)
 		if err != nil {
@@ -1100,19 +1258,26 @@ func setConfigurationIfMissing(configName, topology string) error {
 		}
 	}
 
-	if os.Getenv("CRE_TOPOLOGY") == "" {
-		err := os.Setenv("CRE_TOPOLOGY", topology)
-		if err != nil {
-			return errors.Wrap(err, "failed to set CRE_TOPOLOGY env var")
-		}
-	}
-
 	if os.Getenv("ENV_ARTIFACT_PATH") == "" {
-		err := os.Setenv("ENV_ARTIFACT_PATH", "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json")
+		err := os.Setenv("ENV_ARTIFACT_PATH", envArtifactPath)
 		if err != nil {
 			return errors.Wrap(err, "failed to set ENV_ARTIFACT_PATH env var")
 		}
 	}
 
 	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
+}
+
+func ctfConfigToCacheFile() (string, error) {
+	configFile := os.Getenv("CTF_CONFIGS")
+	if configFile == "" {
+		return "", errors.New("CTF_CONFIGS env var is not set")
+	}
+
+	if strings.HasSuffix(configFile, "-cache.toml") {
+		return configFile, nil
+	}
+
+	split := strings.Split(configFile, ",")
+	return strings.ReplaceAll(split[0], ".toml", "") + "-cache.toml", nil
 }
