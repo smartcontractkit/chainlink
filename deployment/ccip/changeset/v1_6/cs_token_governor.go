@@ -156,7 +156,7 @@ func (c TokenGovernorRoleChangesetConfig) Validate(env cldf.Environment) error {
 	}
 
 	for chainSelector, tokens := range c.Tokens {
-		for token, _ := range tokens {
+		for token := range tokens {
 			if token == "" {
 				return errors.New("token must be defined")
 			}
@@ -454,7 +454,7 @@ func AcceptOwnershipTokenGovernor(env cldf.Environment, c TokenGovernorChangeset
 
 		chainState, _ := state.EVMChainState(chainSelector)
 
-		for token, _ := range tokens {
+		for token := range tokens {
 			tokenGovernor := chainState.TokenGovernor[token]
 			if _, err := tokenGovernor.AcceptOwnership(opts); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept ownership on chain %d: %w", chainSelector, err)
@@ -511,7 +511,7 @@ func AcceptDefaultAdminTransferTokenGovernor(env cldf.Environment, c TokenGovern
 
 		chainState, _ := state.EVMChainState(chainSelector)
 
-		for token, _ := range tokens {
+		for token := range tokens {
 			tokenGovernor := chainState.TokenGovernor[token]
 			if _, err := tokenGovernor.AcceptDefaultAdminTransfer(opts); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept ownership on chain %d: %w", chainSelector, err)
