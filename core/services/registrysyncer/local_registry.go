@@ -204,13 +204,10 @@ func (l *LocalRegistry) DONsForCapability(ctx context.Context, capabilityID stri
 			}
 
 			nodes = append(nodes, node)
-
-			fmt.Printf("d: %+v\n", d)
 		}
 		(&d).Nodes = nodes
 	}
 
-	fmt.Printf("foundDONs: %+v\n", foundDONs)
 	return foundDONs, nil
 }
 

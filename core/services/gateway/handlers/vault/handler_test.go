@@ -48,7 +48,6 @@ func setupHandler(t *testing.T) (handlers.Handler, chan handlers.UserCallbackPay
 	methodConfig, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
 
-	// TODO
 	handler, err := NewHandler(methodConfig, donConfig, don, nil, lggr)
 	handler.aggregator = &mockAggregator{}
 	require.NoError(t, err)
