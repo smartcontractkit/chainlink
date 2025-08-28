@@ -1000,14 +1000,6 @@ func capTypeToInt(capType string) uint8 {
 	}
 }
 
-func logTestInfo(l zerolog.Logger, feedID, workflowName, dataFeedsCacheAddr, forwarderAddr string) {
-	l.Info().Msg("------ Test configuration:")
-	l.Info().Msgf("Feed ID: %s", feedID)
-	l.Info().Msgf("Workflow name: %s", workflowName)
-	l.Info().Msgf("DataFeedsCache address: %s", dataFeedsCacheAddr)
-	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
-}
-
 func compareBenchmarkReports(t *testing.T, baselineReport, currentReport *benchspy.StandardReport) {
 	// Define threshold percentages for different metrics
 	thresholds := map[string]float64{

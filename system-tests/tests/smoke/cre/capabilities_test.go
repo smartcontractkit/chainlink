@@ -1003,13 +1003,6 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 	return configErr
 }
 
-func logTestInfo(l zerolog.Logger, feedID, dataFeedsCacheAddr, forwarderAddr string) {
-	l.Info().Msg("------ Test configuration:")
-	l.Info().Msgf("Feed ID: %s", feedID)
-	l.Info().Msgf("DataFeedsCache address: %s", dataFeedsCacheAddr)
-	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
-}
-
 // Creates workflow configuration file storing the necessary values used by a workflow (i.e. feedID, read/write contract addresses)
 // The values are written to types.WorkflowConfig
 func createWorkflowConfigFile(bcOutput *cre.WrappedBlockchainOutput, readContractAddress, feedsConsumerAddress common.Address, workflowName, feedID, dataURL, writeTargetName string) (string, error) {
