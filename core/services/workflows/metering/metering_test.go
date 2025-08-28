@@ -1019,7 +1019,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-		Return(&successReserveResponse, nil)
+			Return(&successReserveResponse, nil)
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
 
@@ -1037,7 +1037,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 				req.WorkflowRegistryChainSelector == 16015286601757825753 &&
 				req.Metering != nil &&
 				req.Metering.Metadata != nil &&
-				req.Metering.MeteringMode == true &&
+				req.Metering.MeteringMode &&
 				req.Metering.Message == "empty rate card"
 		})).Return(nil, nil)
 		report := newTestReport(t, logger.Nop(), billingClient)
@@ -1095,7 +1095,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 				req.WorkflowRegistryChainSelector == 16015286601757825753 &&
 				req.Metering != nil &&
 				req.Metering.Metadata != nil &&
-				req.Metering.MeteringMode == false &&
+				!req.Metering.MeteringMode &&
 				req.Metering.Message == ""
 		})).Return(&emptypb.Empty{}, nil)
 
@@ -1184,7 +1184,7 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		}
 
 		assert.Equal(t, expected, report.FormatReport().Steps)
-		report.SendReceipt(t.Context())
+		require.NoError(t, report.SendReceipt(t.Context()))
 		billingClient.AssertExpectations(t)
 	})
 
