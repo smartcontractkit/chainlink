@@ -373,6 +373,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 					myDON.DON,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
+					nil, // V1 capabilities read transmission schedule from every request
 					w.lggr,
 				)
 				return client, nil
@@ -391,6 +392,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 					myDON.DON,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
+					nil, // V1 capabilities read transmission schedule from every request
 					w.lggr,
 				)
 				return client, nil
