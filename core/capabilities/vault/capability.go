@@ -140,18 +140,18 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 	}
 
 	uniqueIDs := map[string]bool{}
-	for _, req := range request.EncryptedSecrets {
+	for idx, req := range request.EncryptedSecrets {
 		if req.Id == nil {
-			return nil, errors.New("secret ID must not be nil")
+			return nil, fmt.Errorf("secret ID must not be nil at index %d", idx)
 		}
 
 		if req.Id.Key == "" || req.Id.Owner == "" {
-			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", req.Id)
+			return nil, fmt.Errorf("secret ID must have both key and owner set at index %d: %v", idx, req.Id)
 		}
 
 		_, ok := uniqueIDs[KeyFor(req.Id)]
 		if ok {
-			return nil, fmt.Errorf("duplicate secret ID found: %v", req.Id)
+			return nil, fmt.Errorf("duplicate secret ID found at index %d: %v", idx, req.Id)
 		}
 
 		uniqueIDs[KeyFor(req.Id)] = true
@@ -170,18 +170,18 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 	}
 
 	uniqueIDs := map[string]bool{}
-	for _, req := range request.EncryptedSecrets {
+	for idx, req := range request.EncryptedSecrets {
 		if req.Id == nil {
-			return nil, errors.New("secret ID must not be nil")
+			return nil, fmt.Errorf("secret ID must not be nil at index %d", idx)
 		}
 
 		if req.Id.Key == "" || req.Id.Owner == "" {
-			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", req.Id)
+			return nil, fmt.Errorf("secret ID must have both key and owner set at index %d: %v", idx, req.Id)
 		}
 
 		_, ok := uniqueIDs[KeyFor(req.Id)]
 		if ok {
-			return nil, fmt.Errorf("duplicate secret ID found: %v", req.Id)
+			return nil, fmt.Errorf("duplicate secret ID found at index %d: %v", idx, req.Id)
 		}
 
 		uniqueIDs[KeyFor(req.Id)] = true
@@ -201,14 +201,14 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 	}
 
 	uniqueIDs := map[string]bool{}
-	for _, id := range request.Ids {
+	for idx, id := range request.Ids {
 		if id.Key == "" || id.Owner == "" {
-			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", id)
+			return nil, fmt.Errorf("secret ID must have both key and owner set at index %d: %v", idx, id)
 		}
 
 		_, ok := uniqueIDs[KeyFor(id)]
 		if ok {
-			return nil, fmt.Errorf("duplicate secret ID found: %v", id)
+			return nil, fmt.Errorf("duplicate secret ID found at index %d: %v", idx, id)
 		}
 
 		uniqueIDs[KeyFor(id)] = true

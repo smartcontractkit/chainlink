@@ -205,13 +205,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return []string{
-		vaultcap.MethodSecretsCreate,
-		vaultcap.MethodSecretsGet,
-		vaultcap.MethodSecretsUpdate,
-		vaultcap.MethodSecretsDelete,
-		vaultcap.MethodSecretsList,
-	}
+	return vaultcap.Methods
 }
 
 func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- gwhandlers.UserCallbackPayload) error {
@@ -280,7 +274,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 	resp, err := h.aggregator.Aggregate(ctx, l, ar, resp)
 	if err != nil {
-		l.Debugw("error aggregating responses", "error", err)
+		l.Warnw("error aggregating responses", "error", err)
 		return nil
 	}
 

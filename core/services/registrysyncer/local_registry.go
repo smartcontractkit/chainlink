@@ -183,7 +183,7 @@ func (l *LocalRegistry) DONsForCapability(ctx context.Context, capabilityID stri
 			if cid == capabilityID {
 				nodes, err := l.nodesForDON(ctx, don.DON)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("could not fetch nodes for DON %d: %w", don.DON.ID, err)
 				}
 				donWithNodes := capabilities.DONWithNodes{DON: don.DON, Nodes: nodes}
 				foundDONs = append(foundDONs, donWithNodes)

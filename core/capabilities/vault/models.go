@@ -19,8 +19,8 @@ import (
 var DefaultNamespace = "main"
 
 const (
-	// Note: any addition to this list should be reflected in
-	// HandlerTypeForMethod in handler_factory.go
+	// Note: additional methods should be reflected
+	// in the `Methods` list below.
 	MethodSecretsCreate = "vault.secrets.create"
 	MethodSecretsGet    = "vault.secrets.get"
 	MethodSecretsUpdate = "vault.secrets.update"
@@ -30,6 +30,16 @@ const (
 	MaxBatchSize = 10
 )
 
+var (
+	Methods = []string{
+		MethodSecretsCreate,
+		MethodSecretsGet,
+		MethodSecretsUpdate,
+		MethodSecretsDelete,
+		MethodSecretsList,
+	}
+)
+
 // SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.
 // External clients should verify that the signatures match the payload and context, before trusting this response.
 // Only after validating, clients should decode the payload for further processing.
@@ -37,8 +47,8 @@ const (
 type SignedOCRResponse struct {
 	Error      string          `json:"error"`
 	Payload    json.RawMessage `json:"payload"`
-	Context    []byte          `json:"__context"`
-	Signatures [][]byte        `json:"__signatures"`
+	Context    []byte          `json:"context"`
+	Signatures [][]byte        `json:"signatures"`
 }
 
 func (r *SignedOCRResponse) String() string {
@@ -147,6 +157,7 @@ func ValidateSignatures(resp *SignedOCRResponse, allowedSigners []common.Address
 	//   - 0:27 -> zero padding
 	//   - 27:31 -> sequence number (big endian uint32)
 	//   - 31:32 -> zero round value
+	// 64:96 -> extra hash (not used by the vault plugin)
 	cd, epochRound := resp.Context[:32], resp.Context[32:64]
 	configDigest, err := ocr2types.BytesToConfigDigest(cd)
 	if err != nil {
