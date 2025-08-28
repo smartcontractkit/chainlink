@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -2948,7 +2949,7 @@ targets:
 			cfg.WorkflowRegistryAddress = expectedRegistryAddress
 			cfg.WorkflowRegistryChainID = invalidChainSelector
 			cfg.Lggr = lggr
-		},)
+		})
 		require.Error(t, err)
 
 		// When chain selector parsing fails, the engine should fail to start
@@ -2959,14 +2960,14 @@ targets:
 			cfg.WorkflowRegistryAddress = expectedRegistryAddress
 			cfg.WorkflowRegistryChainID = ""
 			cfg.Lggr = lggr
-		},)
+		})
 		require.Error(t, err)
 
 		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
 			cfg.BillingClient = mBillingClient
 			cfg.WorkflowRegistryAddress = ""
 			cfg.Lggr = lggr
-		},)
+		})
 		require.Error(t, err)
 
 	})
