@@ -13,6 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
+var (
+	DefaultWorkflowTargetDir   = "/home/chainlink/workflows"
+	DefaultWorkflowNodePattern = "workflow-node"
+)
+
 func findAllDockerContainerNames(pattern string) ([]string, error) {
 	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
 	if dockerClientErr != nil {

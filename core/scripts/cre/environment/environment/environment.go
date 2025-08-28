@@ -55,6 +55,7 @@ var (
 	binDir string
 
 	defaultCapabilitiesConfigFile = "configs/capability_defaults.toml"
+	defaultArtifactsPathFile      = "artifact_paths.json"
 )
 
 // DX tracking
@@ -81,7 +82,7 @@ var EnvironmentCmd = &cobra.Command{
 
 func init() {
 	EnvironmentCmd.AddCommand(startCmd())
-	EnvironmentCmd.AddCommand(stopCmd)
+	EnvironmentCmd.AddCommand(stopCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
 
@@ -429,8 +430,23 @@ func startCmd() *cobra.Command {
 //
 // This makes local iteration and CI reruns faster and deterministic.
 func storeArtifacts(in *envconfig.Config) error {
+	if err := storeCTFConfigs(in); err != nil {
+		return err
+	}
+
+	return saveArtifactPaths()
+}
+
+func storeCTFConfigs[ConfigType any](config *ConfigType) error {
 	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file (which we added as the first one, so that other configs can override it)
 	ctfConfigs := os.Getenv("CTF_CONFIGS")
+	defer func() {
+		setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
+		if setErr != nil {
+			framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
+		}
+	}()
+
 	splitConfigs := strings.Split(ctfConfigs, ",")
 	if len(splitConfigs) > 1 {
 		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
@@ -443,9 +459,17 @@ func storeArtifacts(in *envconfig.Config) error {
 		}
 	}
 
-	_ = framework.Store(in)
+	storeErr := framework.Store(config)
+	if storeErr != nil {
+		return errors.Wrap(storeErr, "failed to store environment cached config")
+	}
 
-	return saveArtifactPaths()
+	return nil
+}
+
+type artifactPaths struct {
+	EnvArtifact string `json:"env_artifact"`
+	EnvConfig   string `json:"env_config"`
 }
 
 func saveArtifactPaths() error {
@@ -454,35 +478,43 @@ func saveArtifactPaths() error {
 		return artifactAbsPathErr
 	}
 
+	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file (which we added as the first one, so that other configs can override it)
 	ctfConfigs := os.Getenv("CTF_CONFIGS")
-	if ctfConfigs == "" {
-		return errors.New("CTF_CONFIGS env var is not set")
-	}
+	defer func() {
+		setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
+		if setErr != nil {
+			framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
+		}
+	}()
 
 	splitConfigs := strings.Split(ctfConfigs, ",")
-	baseConfigPath := splitConfigs[0]
-	newCacheName := strings.ReplaceAll(baseConfigPath, ".toml", "")
-	if strings.Contains(newCacheName, "cache") {
-		return nil
-	}
-	cachedOutName := strings.ReplaceAll(baseConfigPath, ".toml", "") + "-cache.toml"
+	if len(splitConfigs) > 1 {
+		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
+			splitConfigs = splitConfigs[1:]
+		}
 
-	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(cachedOutName)
+		setErr := os.Setenv("CTF_CONFIGS", strings.Join(splitConfigs, ","))
+		if setErr != nil {
+			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+		}
+	}
+
+	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(splitConfigs[0])
 	if ctfConfigsAbsPathErr != nil {
 		return ctfConfigsAbsPathErr
 	}
 
-	artifactPaths := map[string]string{
-		"env_artifact": artifactAbsPath,
-		"env_config":   ctfConfigsAbsPath,
+	ap := artifactPaths{
+		EnvArtifact: artifactAbsPath,
+		EnvConfig:   ctfConfigsAbsPath,
 	}
 
-	marshalled, mErr := json.Marshal(artifactPaths)
+	marshalled, mErr := json.Marshal(ap)
 	if mErr != nil {
 		return errors.Wrap(mErr, "failed to marshal artifact paths")
 	}
 
-	return os.WriteFile("artifact_paths.json", marshalled, 0o600)
+	return os.WriteFile(defaultArtifactsPathFile, marshalled, 0o600)
 }
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
@@ -518,41 +550,50 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 	return nil
 }
 
-var stopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stops the environment",
-	Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		removeErr := framework.RemoveTestContainers()
-		if removeErr != nil {
-			return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
-		}
-
-		framework.L.Info().Msg("Removing environment state files")
-		// remove cache config files
-		cacheConfigPattern := "configs/*-cache.toml"
-		cacheFiles, globErr := filepath.Glob(cacheConfigPattern)
-		if globErr != nil {
-			fmt.Fprintf(os.Stderr, "failed to find cache config files: %s\n", globErr)
-		} else {
-			for _, file := range cacheFiles {
-				if removeFileErr := os.Remove(file); removeFileErr != nil {
-					framework.L.Warn().Msgf("failed to remove cache config file %s: %s\n", file, removeFileErr)
-				} else {
-					framework.L.Debug().Msgf("Removed cache config file: %s\n", file)
-				}
+func stopCmd() *cobra.Command {
+	var allFlag bool
+	cmd := &cobra.Command{
+		Use:   "stop",
+		Short: "Stops the environment",
+		Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			removeErr := framework.RemoveTestContainers()
+			if removeErr != nil {
+				return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
 			}
-		}
 
-		if removeDirErr := os.RemoveAll("env_artifact"); removeDirErr != nil {
-			framework.L.Warn().Msgf("failed to remove env_artifact folder: %s\n", removeDirErr)
-		} else {
-			framework.L.Debug().Msg("Removed env_artifact folder")
-		}
+			stopBeholderErr := stopBeholder()
+			if stopBeholderErr != nil {
+				return errors.Wrap(stopBeholderErr, "failed to stop beholder")
+			}
 
-		fmt.Println("Environment stopped successfully")
-		return nil
-	},
+			// TODO we don't have CTF_CONFIGS set at this point
+			var shouldRemove shouldRemove
+			if allFlag {
+				shouldRemove = removeAll
+			} else {
+				shouldRemove = removeCurrentCtfConfigs
+			}
+
+			removeCacheErr := removeCacheFiles(shouldRemove)
+			if removeCacheErr != nil {
+				framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
+			}
+
+			if removeDirErr := os.RemoveAll("env_artifact"); removeDirErr != nil {
+				framework.L.Warn().Msgf("failed to remove env_artifact folder: %s\n", removeDirErr)
+			} else {
+				framework.L.Debug().Msg("Removed env_artifact folder")
+			}
+
+			fmt.Println("Environment stopped successfully")
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove all environment state files")
+
+	return cmd
 }
 
 func StartCLIEnvironment(
@@ -822,6 +863,69 @@ func ensureDockerImageExists(ctx context.Context, logger zerolog.Logger, imageNa
 		logger.Debug().Msgf("Image '%s' pulled successfully", imageName)
 
 		return nil
+	}
+
+	return nil
+}
+
+type shouldRemove = func(file string) bool
+
+var removeAll = func(_ string) bool {
+	return true
+}
+
+var removeCurrentCtfConfigs = func(file string) bool {
+	ctfConfigs := os.Getenv("CTF_CONFIGS")
+	if ctfConfigs != "" {
+		for config := range strings.SplitSeq(ctfConfigs, ",") {
+			if strings.Contains(file, strings.ReplaceAll(config, ".toml", "-cache.toml")) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	content, readErr := os.ReadFile(defaultArtifactsPathFile)
+	if readErr != nil {
+		return false
+	}
+
+	var paths artifactPaths
+	if err := json.Unmarshal(content, &paths); err != nil {
+		return false
+	}
+
+	if paths.EnvConfig == file {
+		return true
+	}
+
+	return false
+}
+
+func removeCacheFiles(shouldRemove shouldRemove) error {
+	framework.L.Info().Msg("Removing environment state files")
+
+	cacheConfigPattern := "configs/*-cache.toml"
+	cacheFiles, globErr := filepath.Glob(cacheConfigPattern)
+	if globErr != nil {
+		fmt.Fprintf(os.Stderr, "failed to find cache config files: %s\n", globErr)
+	} else {
+		for _, file := range cacheFiles {
+			absFile, absFileErr := filepath.Abs(file)
+			if absFileErr != nil {
+				framework.L.Warn().Msgf("failed to get absolute path of cache config file %s: %s\n", file, absFileErr)
+				continue
+			}
+
+			if shouldRemove(absFile) {
+				if removeFileErr := os.Remove(file); removeFileErr != nil {
+					framework.L.Warn().Msgf("failed to remove cache config file %s: %s\n", file, removeFileErr)
+				} else {
+					framework.L.Debug().Msgf("Removed cache config file: %s\n", file)
+				}
+			}
+		}
 	}
 
 	return nil

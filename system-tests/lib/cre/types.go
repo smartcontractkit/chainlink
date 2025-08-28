@@ -543,7 +543,7 @@ type CapabilitiesAwareNodeSet struct {
 
 	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
 	// Merged list of global and chain-specific capabilities. The latter ones are transformed to the format "capability-chainID", e.g. "evm-1337" for the evm capability on chain 1337.
-	ComputedCapabilities []string `toml:"-"`
+	ComputedCapabilities []string `toml:"computed_capabilities"`
 }
 
 type CapabilitiesPeeringData struct {
