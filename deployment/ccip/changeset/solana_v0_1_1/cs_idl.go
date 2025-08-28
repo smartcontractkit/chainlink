@@ -37,7 +37,26 @@ var _ cldf.ChangeSet[IDLConfig] = SetAuthorityIDL
 // use this changeset to upgrade the IDL of a program via timelock
 var _ cldf.ChangeSet[IDLConfig] = UpgradeIDL
 
+// Discriminator to invoke IDL operations
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
+
+//Number ids of the operations:
+//pub enum IdlInstruction {
+//
+//	0 Create { data_len: u64 }, // One time initializer for creating the program's idl account.
+//
+//	1 CreateBuffer, // Creates a new IDL account buffer. Can be called several times.
+//
+//	2 Write { data: Vec<u8> }, // Appends the given data to the end of the idl account buffer.
+//
+//	3 SetBuffer, // Sets a new data buffer for the IdlAccount.
+//
+//	4 SetAuthority { new_authority: Pubkey }, // Sets a new authority on the IdlAccount.
+//
+//	5 Close, // Closes the IDL pda Account
+//
+//	6 Resize { data_len: u64 }, // Increases account size for accounts that need over 10kb.
+//}
 
 // IDL
 type IDLConfig struct {
@@ -323,7 +342,7 @@ func closeIDLAccountIx(e cldf.Environment, programID, authority, spillAddress so
 		return solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)
 	}
 	data := binary.LittleEndian.AppendUint64([]byte{}, IdlIxTag) // 4-byte Extend instruction identifier
-	data = append(data, byte(2))                                 // ID for Close operation
+	data = append(data, byte(5))                                 // ID for Close operation
 
 	instruction := solana.NewInstruction(
 		programID,
