@@ -1461,7 +1461,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	}
 
 	if cfg.WorkflowRegistryAddress == "" {
-		return nil, fmt.Errorf("workflow registry address is required")
+		return nil, errors.New("workflow registry address is required")
 	}
 
 	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID,
@@ -1480,7 +1480,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		platform.WorkflowRegistryChain, strconv.FormatUint(chainSelector, 10),
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.Itoa(int(nodeState.WorkflowDON.ConfigVersion)),
-		// TODO platform.KeyOrganizationID, "TODO",
+		// TODO platform.KeyOrganizationID, wire through org ID from linking service
 	)
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
