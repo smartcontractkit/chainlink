@@ -1,11 +1,13 @@
 package secrets
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
@@ -23,6 +25,12 @@ type NodeEthKey struct {
 	ChainID  int    `toml:"ID"`
 }
 
+type NodeSolKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+	ChainID  string `toml:"ID"`
+}
+
 type NodeP2PKey struct {
 	JSON     string `toml:"JSON"`
 	Password string `toml:"Password"`
@@ -32,8 +40,13 @@ type NodeEthKeyWrapper struct {
 	EthKeys []NodeEthKey `toml:"Keys"`
 }
 
+type NodeSolKeyWrapper struct {
+	SolKeys []NodeSolKey `toml:"Keys"`
+}
+
 type NodeSecret struct {
 	EthKeys NodeEthKeyWrapper `toml:"EVM"`
+	SolKeys NodeSolKeyWrapper `toml:"Solana"`
 	P2PKey  NodeP2PKey        `toml:"P2PKey"`
 	// Add more fields as needed to reflect 'Secrets' struct from /core/config/toml/types.go
 	// We can't use the original struct, because it's using custom types that serlialize secrets to 'xxxxx'
@@ -66,6 +79,17 @@ func GenerateSecrets(input *cre.GenerateSecretsInput) (cre.NodeIndexToSecretsOve
 			nodeSecret.P2PKey = NodeP2PKey{
 				JSON:     string(input.P2PKeys.EncryptedJSONs[i]),
 				Password: input.P2PKeys.Password,
+			}
+		}
+
+		if input.SolKeys != nil {
+			nodeSecret.SolKeys = NodeSolKeyWrapper{}
+			for chainID, solKeys := range input.SolKeys {
+				nodeSecret.SolKeys.SolKeys = append(nodeSecret.SolKeys.SolKeys, NodeSolKey{
+					JSON:     string(solKeys.EncryptedJSONs[i]),
+					Password: solKeys.Password,
+					ChainID:  chainID,
+				})
 			}
 		}
 
@@ -136,6 +160,29 @@ func AddKeysToTopology(topology *cre.Topology, keys *cre.GenerateKeysOutput) (*c
 				})
 			}
 		}
+
+		chainIDsToSolKeys, ok := keys.SolKeys[donMetadata.ID]
+		if !ok {
+			continue
+		}
+
+		for chainID, solKeys := range chainIDsToSolKeys {
+			selector, ok := chainselectors.SolanaChainIdToChainSelector()[chainID]
+			if !ok {
+				return nil, errors.New("selector not found for solana chainID " + chainID)
+			}
+
+			if len(solKeys.PublicAddresses) != len(donMetadata.NodesMetadata) {
+				return nil, fmt.Errorf("number of sol keys for DON %d and chainID %s doesn't match the number of Nodes. Expected %d got %d",
+					donMetadata.ID, chainID, len(donMetadata.NodesMetadata), len(solKeys.PublicAddresses))
+			}
+			for idx, nodeMetadata := range donMetadata.NodesMetadata {
+				nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
+					Key:   node.AddressKeyFromSelector(selector),
+					Value: solKeys.PublicAddresses[idx].String(),
+				})
+			}
+		}
 	}
 
 	return topology, nil
@@ -146,6 +193,7 @@ func AddKeysToTopology(topology *cre.Topology, keys *cre.GenerateKeysOutput) (*c
 type secrets struct {
 	EVM    ethKeys `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	P2PKey p2PKey  `toml:",omitempty"`
+	Solana solKeys `toml:",omitempty"`
 }
 
 type p2PKey struct {
@@ -163,6 +211,16 @@ type ethKey struct {
 	Password *string
 }
 
+type solKeys struct {
+	Keys []*solKey
+}
+
+type solKey struct {
+	JSON     *string
+	ID       *string
+	Password *string
+}
+
 // struct required for reading "address" from this bit of encrypted JSON:
 // JSON = '{"address":"e753ac0b6e175ce3a939c55433a0109c5a6f8777"}'
 type evmJSON struct {
@@ -176,6 +234,27 @@ var publicEVMAddressFromEncryptedJSON = func(jsonString string) (string, error) 
 		return "", errors.Wrap(err, "failed to unmarshal evm json")
 	}
 	return eJSON.Address, nil
+}
+
+// struct required for reading "address" from this bit of encrypted JSON:
+// JSON = '{"publicKey":"22b4b2618de6dc8254d76276d51f6a9d53471d5b2465c8cae237f21425b10b7d"}'
+type solJSON struct {
+	PublicKey string `json:"publicKey"`
+}
+
+var publicSolKeyFromEncryptedJSON = func(jsonString string) (solana.PublicKey, error) {
+	var eJSON solJSON
+	err := json.Unmarshal([]byte(jsonString), &eJSON)
+	if err != nil {
+		return solana.PublicKey{}, errors.Wrap(err, "failed to unmarshal Solana json")
+	}
+
+	b, err := hex.DecodeString(eJSON.PublicKey)
+	if err != nil {
+		return solana.PublicKey{}, errors.Wrap(err, "invalid hex string for public key solana")
+	}
+
+	return solana.PublicKeyFromBytes(b), nil
 }
 
 // struct required for reading "peerID" from this bit of encrypted JSON:
@@ -196,14 +275,17 @@ var publicP2PAddressFromEncryptedJSON = func(jsonString string) (string, error) 
 func KeysOutputFromConfig(nodeSets []*cre.CapabilitiesAwareNodeSet) (*cre.GenerateKeysOutput, error) {
 	output := &cre.GenerateKeysOutput{
 		EVMKeys: make(cre.DonsToEVMKeys),
+		SolKeys: make(cre.DonsToSolKeys),
 		P2PKeys: make(cre.DonsToP2PKeys),
 	}
+
 	p2pKeysFoundPerDon := make(map[uint32]int)
 	evmKeysFoundPerDon := make(map[uint32]int)
 	for donIdx, nodeSet := range nodeSets {
 		donIdxUint32 := uint32(donIdx) // #nosec G115: ignore as this will NEVER happen, we don't have zillions of DONs
 		p2pKeys := crypto.P2PKeys{}
 		evmKeysPerChainID := make(cre.ChainIDToEVMKeys)
+		solKeysPerChainID := make(cre.ChainIDToSolKeys)
 		for nodeIdx, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestSecretsOverrides != "" {
 				var sSecrets secrets
@@ -252,12 +334,36 @@ func KeysOutputFromConfig(nodeSets []*cre.CapabilitiesAwareNodeSet) (*cre.Genera
 					evmKeysPerChainID[*evmKey.ID].Password = *evmKey.Password
 				}
 				evmKeysFoundPerDon[donIdxUint32]++
+
+				for _, solKey := range sSecrets.Solana.Keys {
+					if solKey.JSON == nil || solKey.Password == nil || solKey.ID == nil {
+						return nil, fmt.Errorf("solana key or password or id is nil for node %d in don %d", nodeIdx, donIdx)
+					}
+					// if the DON doesn't support solana chain, we skip it
+					if !slices.Contains(nodeSet.SupportedSolChains, *solKey.ID) {
+						continue
+					}
+
+					publicSolAddr, addrErr := publicSolKeyFromEncryptedJSON(*solKey.JSON)
+					if addrErr != nil {
+						return nil, errors.Wrapf(addrErr, "failed to get public Solana address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
+					}
+					if _, ok := solKeysPerChainID[*solKey.ID]; !ok {
+						solKeysPerChainID[*solKey.ID] = &crypto.SolKeys{}
+					}
+
+					solKeysPerChainID[*solKey.ID].EncryptedJSONs = append(solKeysPerChainID[*solKey.ID].EncryptedJSONs, []byte(*solKey.JSON))
+					solKeysPerChainID[*solKey.ID].PublicAddresses = append(solKeysPerChainID[*solKey.ID].PublicAddresses,
+						publicSolAddr)
+					solKeysPerChainID[*solKey.ID].Password = *solKey.Password
+				}
 			}
 		}
 		// +1 because we use 1-based indexing in the CRE
 		donIndexToUse := libc.MustSafeUint64FromInt(donIdx + 1)
 		output.P2PKeys[donIndexToUse] = &p2pKeys
 		output.EVMKeys[donIndexToUse] = evmKeysPerChainID
+		output.SolKeys[donIndexToUse] = solKeysPerChainID
 	}
 
 	anyFound := false
@@ -298,6 +404,7 @@ func GenerateKeys(input *cre.GenerateKeysInput) (*cre.GenerateKeysOutput, error)
 
 	output := &cre.GenerateKeysOutput{
 		EVMKeys: make(cre.DonsToEVMKeys),
+		SolKeys: make(cre.DonsToSolKeys),
 		P2PKeys: make(cre.DonsToP2PKeys),
 	}
 
@@ -325,6 +432,18 @@ func GenerateKeys(input *cre.GenerateKeysInput) (*cre.GenerateKeysOutput, error)
 				}
 				output.EVMKeys[donMetadata.ID][chainID] = evmKeys
 			}
+		}
+
+		for _, chainID := range input.GenerateSolKeysForChainIDs {
+			solKeys, err := crypto.GenerateSolKeys(input.Password, len(donMetadata.NodesMetadata))
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to generate Sol keys")
+			}
+			if _, ok := output.SolKeys[donMetadata.ID]; !ok {
+				output.SolKeys[donMetadata.ID] = make(cre.ChainIDToSolKeys)
+			}
+
+			output.SolKeys[donMetadata.ID][chainID] = solKeys
 		}
 	}
 

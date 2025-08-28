@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -38,7 +40,7 @@ const (
 
 func TestEngineConfig_Validate(t *testing.T) {
 	t.Parallel()
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, nil)
 
 	t.Run("nil module", func(t *testing.T) {
 		cfg.Module = nil
@@ -48,7 +50,8 @@ func TestEngineConfig_Validate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		cfg.Module = modulemocks.NewModuleV2(t)
 		require.NoError(t, cfg.Validate())
-		require.NotEqual(t, 0, cfg.LocalLimits.TriggerEventQueueSize)
+		require.NotEqual(t, 0, cfg.LocalLimits.HeartbeatFrequencyMs)
+		require.NotEqual(t, 0, cfg.LocalLimits.ShutdownTimeoutMs)
 		require.NotNil(t, cfg.Hooks.OnInitialized)
 	})
 
@@ -59,39 +62,45 @@ func TestEngineConfig_Validate(t *testing.T) {
 	})
 }
 
-func defaultTestConfig(t *testing.T) *v2.EngineConfig {
+// defaultTestConfig returns a default v2.EngineConfig. CRE settings can optionally be configured by cfgFn.
+func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.EngineConfig {
+	lf := limits.Factory{Logger: logger.TestLogger(t)}
 	name, err := types.NewWorkflowName(testWorkflowNameA)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, limits.Factory{})
+	sLimiter, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{}, lf)
 	require.NoError(t, err)
 	rateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      10.0,
 		GlobalBurst:    100,
 		PerSenderRPS:   10.0,
 		PerSenderBurst: 100,
-	}, limits.Factory{})
+	}, lf)
 	require.NoError(t, err)
+	limiters, err := v2.NewLimiters(lf, cfgFn)
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, limiters.Close()) })
 
 	return &v2.EngineConfig{
-		Lggr:                          lggr,
-		Module:                        modulemocks.NewModuleV2(t),
-		CapRegistry:                   regmocks.NewCapabilitiesRegistry(t),
-		DonTimeStore:                  dontime.NewStore(dontime.DefaultRequestTimeout),
-		UseLocalTimeProvider:          true,
-		ExecutionsStore:               store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-		WorkflowID:                    testWorkflowID,
-		WorkflowOwner:                 testWorkflowOwnerA,
-		WorkflowName:                  name,
-		WorkflowTag:                   testWorkflowTagA,
-		WorkflowEncryptionKey:         workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
-		LocalLimits:                   v2.EngineLimits{},
-		GlobalLimits:                  sLimiter,
-		ExecutionRateLimiter:          rateLimiter,
-		BeholderEmitter:               &noopBeholderEmitter{},
-		BillingClient:                 metmocks.NewBillingClient(t),
-		WorkflowRegistryAddress:       "0x123",
-		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID
+		Lggr:                              lggr,
+		Module:                            modulemocks.NewModuleV2(t),
+		CapRegistry:                       regmocks.NewCapabilitiesRegistry(t),
+		DonTimeStore:                      dontime.NewStore(dontime.DefaultRequestTimeout),
+		UseLocalTimeProvider:              true,
+		ExecutionsStore:                   store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		WorkflowID:                        testWorkflowID,
+		WorkflowOwner:                     testWorkflowOwnerA,
+		WorkflowName:                      name,
+		WorkflowTag:                       testWorkflowTagA,
+		WorkflowEncryptionKey:             workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+		LocalLimits:                       v2.EngineLimits{},
+		LocalLimiters:                     limiters,
+		GlobalExecutionConcurrencyLimiter: sLimiter,
+		GlobalExecutionRateLimiter:        rateLimiter,
+		BeholderEmitter:                   &noopBeholderEmitter{},
+		BillingClient:                     metmocks.NewBillingClient(t),
+		WorkflowRegistryAddress:           "0x123",
+		WorkflowRegistryChainSelector:     "11155111", // Sepolia chain ID
 	}
 }
 

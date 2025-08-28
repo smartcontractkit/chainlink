@@ -14,18 +14,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
-type ChipIngressConfig struct {
-	ChipIngress *chipingressset.Input `toml:"chip_ingress"`
-	Kafka       *KafkaConfig          `toml:"kafka"`
-}
-
-type KafkaConfig struct {
-	Topics []string `toml:"topics"`
-}
+const DefaultBeholderConfigFile = "configs/chip-ingress.toml"
 
 func beholderCmds() *cobra.Command {
 	cmd := &cobra.Command{
@@ -53,13 +48,31 @@ func startBeholderCmd() *cobra.Command {
 		Short: "Start the Beholder",
 		Long:  `Start the Beholder`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			initDxTracker()
+			var startBeholderErr error
+
+			defer func() {
+				metaData := map[string]any{}
+				if startBeholderErr != nil {
+					metaData["result"] = "failure"
+					metaData["error"] = oneLineErrorMessage(startBeholderErr)
+				} else {
+					metaData["result"] = "success"
+				}
+
+				trackingErr := dxTracker.Track(tracking.MetricBeholderStart, metaData)
+				if trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
+				}
+			}()
+
 			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
 			setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 			if setErr != nil {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs)
+			startBeholderErr = startBeholder(cmd.Context(), timeout, protoConfigs)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
 				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -86,8 +99,22 @@ var stopBeholderCmd = &cobra.Command{
 	Short: "Stop the Beholder",
 	Long:  `Stop the Beholder`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+		return stopBeholder()
 	},
+}
+
+func stopBeholder() error {
+	setErr := os.Setenv("CTF_CONFIGS", DefaultBeholderConfigFile)
+	if setErr != nil {
+		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
+	}
+
+	removeCacheErr := removeCacheFiles(removeCurrentCtfConfigs)
+	if removeCacheErr != nil {
+		framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
+	}
+
+	return framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 }
 
 var protoRegistrationErrMsg = "proto registration failed"
@@ -120,19 +147,29 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 			if beholderRemoveErr != nil {
 				fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
 			}
+
+			os.Exit(1)
 		}
 	}()
 
 	stageGen := creenv.NewStageGen(3, "STAGE")
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Chip Ingress stack")))
 
-	setErr := os.Setenv("CTF_CONFIGS", "configs/chip-ingress.toml")
+	previousCTFConfig := os.Getenv("CTF_CONFIGS")
+	defer func() {
+		setErr := os.Setenv("CTF_CONFIGS", previousCTFConfig)
+		if setErr != nil {
+			framework.L.Warn().Msgf("failed to restore previous CTF_CONFIGS environment variable: %s", setErr)
+		}
+	}()
+
+	setErr := os.Setenv("CTF_CONFIGS", DefaultBeholderConfigFile)
 	if setErr != nil {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 	}
 
 	// Load and validate test configuration
-	in, err := framework.Load[ChipIngressConfig](nil)
+	in, err := framework.Load[envconfig.ChipIngressConfig](nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to load test configuration")
 	}
@@ -170,7 +207,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	fmt.Println()
 	fmt.Print("To terminate Beholder stack execute: `go run . env beholder stop`\n\n")
 
-	return nil
+	return storeCTFConfigs(in)
 }
 
 func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []string, schemaRegistryExternalURL string) error {

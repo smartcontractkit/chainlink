@@ -1,23 +1,33 @@
 package vault
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 const (
 	// Note: any addition to this list should be reflected in
 	// HandlerTypeForMethod in handler_factory.go
 	MethodSecretsCreate = "vault.secrets.create"
+	MethodSecretsGet    = "vault.secrets.get"
 	MethodSecretsUpdate = "vault.secrets.update"
+	MethodSecretsDelete = "vault.secrets.delete"
+	MethodSecretsList   = "vault.secrets.list"
+
+	MaxBatchSize = 10
 )
 
-type SecretsCreateRequest struct {
-	ID    string `json:"id"`
-	Value string `json:"value"`
+// SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.
+// External clients should verify that the signatures match the payload and context, before trusting this response.
+// Only after validating, clients should decode the payload for further processing.
+// If however the Error field is non-empty, it indicates there was an error talking to the Vault DON.
+type SignedOCRResponse struct {
+	Error      string          `json:"error"`
+	Payload    json.RawMessage `json:"payload"`
+	Context    []byte          `json:"__context"`
+	Signatures [][]byte        `json:"__signatures"`
 }
 
-type ResponseBase struct {
-	Success      bool   `json:"success"`
-	ErrorMessage string `json:"error_message,omitempty"`
-}
-
-type SecretsCreateResponse struct {
-	ResponseBase
-	SecretID string `json:"secret_id,omitempty"`
+func (r *SignedOCRResponse) String() string {
+	return fmt.Sprintf("SignedOCRResponse { Error: %s, Payload: %s, Context: <[%d]byte blob>, Signatures: <[%d][]byte blob>}", r.Error, string(r.Payload), len(r.Context), len(r.Signatures))
 }

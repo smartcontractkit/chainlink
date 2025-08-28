@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -58,49 +57,6 @@ type CapabilityHost struct {
 type Nop struct {
 	capabilities_registry.CapabilitiesRegistryNodeOperator
 	NodeIDs []string // nodes run by this operator
-}
-
-func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
-	var aptosOcr2KeyBundleId string
-	var aptosOnchainPublicKey string
-	var aptosCC *deployment.OCRConfig
-	for details, cfg := range o.SelToOCRConfig {
-		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil && family == chainsel.FamilyAptos {
-			aptosCC = &cfg
-			break
-		}
-	}
-	if aptosCC != nil {
-		aptosOcr2KeyBundleId = aptosCC.KeyBundleID
-		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
-	}
-	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
-	if !exists {
-		panic(fmt.Sprintf("ocr2 config not found for chain selector %d", registryChainSel))
-	}
-	return NodeKeys{
-		EthAddress:            string(evmCC.TransmitAccount),
-		P2PPeerID:             strings.TrimPrefix(o.PeerID.String(), "p2p_"),
-		OCR2BundleID:          evmCC.KeyBundleID,
-		OCR2OffchainPublicKey: hex.EncodeToString(evmCC.OffchainPublicKey[:]),
-		OCR2OnchainPublicKey:  fmt.Sprintf("%x", evmCC.OnchainPublicKey[:]),
-		OCR2ConfigPublicKey:   hex.EncodeToString(evmCC.ConfigEncryptionPublicKey[:]),
-		CSAPublicKey:          o.CSAKey,
-		// default value of encryption public key is the CSA public key
-		// TODO: DEVSVCS-760
-		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
-		// TODO Aptos support. How will that be modeled in clo data?
-		// TODO: AptosAccount is unset but probably unused
-		AptosBundleID:         aptosOcr2KeyBundleId,
-		AptosOnchainPublicKey: aptosOnchainPublicKey,
-	}
-}
-func makeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeKeys {
-	var out []NodeKeys
-	for _, n := range nodes {
-		out = append(out, toNodeKeys(&n, registryChainSel))
-	}
-	return out
 }
 
 type NOP struct {

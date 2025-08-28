@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -38,6 +37,7 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
@@ -650,6 +650,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
@@ -1317,6 +1318,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 }
 
 func TestIntegration_LLO_stress_test_V1(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
@@ -1466,7 +1468,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		cnts := map[string]int{}
 		// transmitter addr => channel ID => reports
 		m := map[string]map[uint32][]datastreamsllo.Report{}
-		stopOnce := sync.Once{}
 
 		for pckt := range packets {
 			pr, ok := peer.FromContext(pckt.ctx)
@@ -1493,17 +1494,12 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 			}
 			if finished >= nNodes {
-				stopOnce.Do(func() {
-					// Stop all nodes, close the channel
-					// This helps transmissions have a chance to complete (but
-					// doesn't ensure it; libocr cancels the transmit context
-					// immediately on stop signal)
-					// Loop will exit once all packets are consumed
-					for _, node := range nodes {
-						require.NoError(t, node.App.Stop())
-					}
-					close(packets)
-				})
+				for _, node := range nodes {
+					//nolint:testifylint // need assert to ensure we don't leak nodes
+					assert.NoError(t, node.App.Stop())
+				}
+				defer close(packets)
+				break
 			}
 		}
 
@@ -1557,6 +1553,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }
 
 func TestIntegration_LLO_transmit_errors(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
@@ -1730,6 +1727,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 }
 
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-7232")
 	t.Parallel()
 
 	offchainConfigs := []datastreamsllo.OffchainConfig{

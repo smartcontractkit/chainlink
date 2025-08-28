@@ -303,14 +303,36 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 			toDeletedEvent := WorkflowDeletedEvent{
 				WorkflowID: engine.WorkflowID,
 			}
-			events = append(events, &reconciliationEvent{
-				Event: Event{
-					Data: toDeletedEvent,
-					Name: WorkflowDeleted,
+			events = append(
+				[]*reconciliationEvent{
+					{
+						Event: Event{
+							Data: toDeletedEvent,
+							Name: WorkflowDeleted,
+						},
+						signature: signature,
+						id:        id,
+					},
 				},
-				signature: signature,
-				id:        id,
-			})
+				events...,
+			)
+		}
+	}
+
+	// Clean up create events which no longer need to be attempted because
+	// the workflow no longer exists in the workflow registry contract
+	for id, event := range pendingEvents {
+		if event.Name == WorkflowRegistered {
+			existsInMetadata := false
+			for _, wfMeta := range workflowMetadata {
+				if wfMeta.WorkflowID.Hex() == event.Data.(WorkflowRegisteredEvent).WorkflowID.Hex() {
+					existsInMetadata = true
+					break
+				}
+			}
+			if !existsInMetadata {
+				delete(pendingEvents, id)
+			}
 		}
 	}
 

@@ -1823,8 +1823,9 @@ type StreamsConfig struct {
 }
 
 type CreConfig struct {
-	Streams         *StreamsConfig         `toml:",omitempty"`
-	WorkflowFetcher *WorkflowFetcherConfig `toml:",omitempty"`
+	Streams              *StreamsConfig         `toml:",omitempty"`
+	WorkflowFetcher      *WorkflowFetcherConfig `toml:",omitempty"`
+	UseLocalTimeProvider *bool                  `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
@@ -1851,6 +1852,12 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.WorkflowFetcher.URL; v != nil {
 			c.WorkflowFetcher.URL = v
+		}
+	}
+
+	if f.UseLocalTimeProvider != nil {
+		if c.UseLocalTimeProvider == nil {
+			c.UseLocalTimeProvider = f.UseLocalTimeProvider
 		}
 	}
 }
@@ -1991,17 +1998,36 @@ func (r *Limits) setFrom(f *Limits) {
 }
 
 type WorkflowStorage struct {
-	URL        *string
-	TLSEnabled *bool
+	ArtifactStorageHost *string
+	URL                 *string
+	TLSEnabled          *bool
 }
 
 func (s *WorkflowStorage) setFrom(f *WorkflowStorage) {
+	if f.ArtifactStorageHost != nil {
+		s.ArtifactStorageHost = f.ArtifactStorageHost
+	}
 	if f.URL != nil {
 		s.URL = f.URL
 	}
 	if f.TLSEnabled != nil {
 		s.TLSEnabled = f.TLSEnabled
 	}
+}
+
+func (s *WorkflowStorage) ValidateConfig() error {
+	URLIsSet := s.URL != nil && *s.URL != ""
+	ArtifactStorageHostIsSet := s.ArtifactStorageHost != nil && *s.ArtifactStorageHost != ""
+	if URLIsSet && !ArtifactStorageHostIsSet {
+		return configutils.ErrInvalid{Name: "ArtifactStorageHost", Value: "", Msg: "workflow storage service artifact storage host must be set"}
+	}
+
+	if s.TLSEnabled == nil {
+		val := true
+		s.TLSEnabled = &val
+	}
+
+	return nil
 }
 
 type WorkflowRegistry struct {
@@ -2265,16 +2291,18 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled               *bool
-	CACertFile            *string
-	Endpoint              *string
-	InsecureConnection    *bool
-	ResourceAttributes    map[string]string `toml:",omitempty"`
-	TraceSampleRatio      *float64
-	EmitterBatchProcessor *bool
-	EmitterExportTimeout  *commonconfig.Duration
-	ChipIngressEndpoint   *string
-	HeartbeatInterval     *commonconfig.Duration
+	Enabled                       *bool
+	CACertFile                    *string
+	Endpoint                      *string
+	InsecureConnection            *bool
+	ResourceAttributes            map[string]string `toml:",omitempty"`
+	TraceSampleRatio              *float64
+	EmitterBatchProcessor         *bool
+	EmitterExportTimeout          *commonconfig.Duration
+	ChipIngressEndpoint           *string
+	ChipIngressInsecureConnection *bool
+	HeartbeatInterval             *commonconfig.Duration
+	LogStreamingEnabled           *bool
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2305,8 +2333,14 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.ChipIngressEndpoint; v != nil {
 		b.ChipIngressEndpoint = v
 	}
+	if v := f.ChipIngressInsecureConnection; v != nil {
+		b.ChipIngressInsecureConnection = v
+	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v
+	}
+	if v := f.LogStreamingEnabled; v != nil {
+		b.LogStreamingEnabled = v
 	}
 }
 

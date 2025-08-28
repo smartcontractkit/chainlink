@@ -633,26 +633,12 @@ func TestCCIPReader_NextSeqNum(t *testing.T) {
 		chainS3: 30,
 	}
 
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameOffRamp: {
-				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.MethodNameGetSourceChainConfig: {
-						ChainSpecificName: "getSourceChainConfig",
-						ReadType:          evmtypes.Method,
-					},
-				},
-			},
-		},
-	}
-
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	s := testSetup(ctx, t, testSetupParams{
 		ReaderChain:        chainD,
 		DestChain:          chainD,
 		OnChainSeqNums:     onChainSeqNums,
-		Cfg:                cfg,
+		Cfg:                evmconfig.DestReaderConfig,
 		ToBindContracts:    nil,
 		ToMockBindings:     nil,
 		BindTester:         true,
@@ -1446,15 +1432,34 @@ func testSetup(
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, params.Cfg)
 	require.NoError(t, err)
 
-	extendedCr := contractreader.NewExtendedContractReader(cr)
+	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
+	chainWriter, err := evm.NewChainWriterService(
+		logger.TestLogger(t),
+		cl,
+		nil,
+		nil,
+		evmtypes.ChainWriterConfig{
+			MaxGasPrice: assets.GWei(1),
+		},
+	)
+	require.NoError(t, err)
+	contractWriters[params.DestChain] = chainWriter
+	contractWriters[params.ReaderChain] = chainWriter
+
+	extendedCrReaderChain := contractreader.NewExtendedContractReader(cr)
+
+	chainAccessors := make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
+	chainAccessors[params.ReaderChain] = newChainAccessor(
+		t.(*testing.T),
+		params.ReaderChain,
+		extendedCrReaderChain,
+		contractWriters[params.ReaderChain],
+	)
 
 	if params.BindTester {
-		err = extendedCr.Bind(ctx, []types.BoundContract{
-			{
-				Address: address.String(),
-				Name:    params.ContractNameToBind,
-			},
-		})
+		addressBytes, err := cciptypes.NewUnknownAddressFromHex(address.String())
+		require.NoError(t, err)
+		err = chainAccessors[params.ReaderChain].Sync(ctx, params.ContractNameToBind, addressBytes)
 		require.NoError(t, err)
 	}
 
@@ -1473,10 +1478,21 @@ func testSetup(
 		cr2, err2 := evm.NewChainReaderService(ctx, lggr, lp2, headTracker2, cl2, params.Cfg)
 		require.NoError(t, err2)
 
-		extendedCr2 := contractreader.NewExtendedContractReader(cr2)
-		err2 = extendedCr2.Bind(ctx, bindings)
-		require.NoError(t, err2)
-		otherCrs[chain] = extendedCr2
+		otherExtendedCr := contractreader.NewExtendedContractReader(cr2)
+		otherCrs[chain] = otherExtendedCr
+
+		chainAccessors[chain] = newChainAccessor(
+			t.(*testing.T),
+			chain,
+			otherCrs[chain],
+			contractWriters[chain],
+		)
+		for _, binding := range bindings {
+			addressBytes, err := cciptypes.NewUnknownAddressFromHex(binding.Address)
+			require.NoError(t, err)
+			err2 = chainAccessors[chain].Sync(ctx, binding.Name, addressBytes)
+			require.NoError(t, err2)
+		}
 	}
 
 	for chain, bindings := range params.ToMockBindings {
@@ -1494,42 +1510,9 @@ func testSetup(
 	err = cr.Start(ctx)
 	require.NoError(t, err)
 
-	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{params.ReaderChain: extendedCr}
-	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := evm.NewChainWriterService(
-		logger.TestLogger(t),
-		cl,
-		nil,
-		nil,
-		evmtypes.ChainWriterConfig{
-			MaxGasPrice: assets.GWei(1),
-		},
-	)
-	require.NoError(t, err)
-	chainAccessors := make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
-	contractWriters[params.DestChain] = chainWriter
-	contractWriters[params.ReaderChain] = chainWriter
-	chainAccessors[params.ReaderChain] = newChainAccessor(
-		t.(*testing.T),
-		params.ReaderChain,
-		contractReaders[params.ReaderChain],
-		contractWriters[params.ReaderChain],
-	)
-	chainAccessors[params.DestChain] = newChainAccessor(
-		t.(*testing.T),
-		params.DestChain,
-		extendedCr,
-		contractWriters[params.DestChain],
-	)
+	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{params.ReaderChain: extendedCrReaderChain}
 	for chain, cr := range otherCrs {
 		contractReaders[chain] = cr
-		contractWriters[chain] = chainWriter
-		chainAccessors[chain] = newChainAccessor(
-			t.(*testing.T),
-			chain,
-			contractReaders[chain],
-			contractWriters[chain],
-		)
 	}
 
 	mokAddrCodec := newMockAddressCodec(t)
@@ -1558,7 +1541,7 @@ func testSetup(
 		lp:           lp,
 		cl:           cl,
 		reader:       reader,
-		extendedCR:   extendedCr,
+		extendedCR:   extendedCrReaderChain,
 		dbs:          db,
 	}
 }

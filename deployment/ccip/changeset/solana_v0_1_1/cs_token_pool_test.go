@@ -531,6 +531,22 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 			multisig2 := createMultiSig(ctx, t, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
 
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ExtendTokenPoolLookupTable),
+				ccipChangesetSolana.ExtendTokenPoolLookupTableConfig{
+					SkipValidationsForDuplicates: false,
+					ChainSelector:                solChain,
+					TokenPubKey:                  tokenAddress,
+					PoolType:                     testCase.poolType,
+					Metadata:                     tokenMetadata,
+					Accounts: []solana.PublicKey{
+						multisig1.PublicKey(),
+						multisig2.PublicKey(),
+					},
+				},
+			)})
+			require.NoError(t, err)
+
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),
 				ccipChangesetSolana.NewMintTokenPoolConfig{
 					NewMintAuthority: multisig1.PublicKey(),

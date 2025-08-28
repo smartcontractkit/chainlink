@@ -208,7 +208,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 	return multiErr
 }
 
-func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport, lggr logger.Logger) error {
+func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport) error {
 	rpt.Metadata = buildWorkflowMetadata(labels, labels[platform.KeyWorkflowExecutionID])
 
 	return emitProtoMessage(ctx, rpt)

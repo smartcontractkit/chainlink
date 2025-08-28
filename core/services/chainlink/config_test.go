@@ -509,8 +509,9 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 			SyncStrategy:            ptr("event"),
 			WorkflowStorage: toml.WorkflowStorage{
-				URL:        ptr("localhost:4566"),
-				TLSEnabled: ptr(true),
+				ArtifactStorageHost: ptr(""),
+				URL:                 ptr(""),
+				TLSEnabled:          ptr(true),
 			},
 		},
 		Dispatcher: toml.Dispatcher{
@@ -581,18 +582,21 @@ func TestConfig_Marshal(t *testing.T) {
 		Release:     ptr("v1.2.3"),
 	}
 	full.Telemetry = toml.Telemetry{
-		Enabled:               ptr(true),
-		CACertFile:            ptr("cert-file"),
-		Endpoint:              ptr("example.com/collector"),
-		InsecureConnection:    ptr(true),
-		ResourceAttributes:    map[string]string{"Baz": "test", "Foo": "bar"},
-		TraceSampleRatio:      ptr(0.01),
-		EmitterBatchProcessor: ptr(true),
-		EmitterExportTimeout:  commoncfg.MustNewDuration(1 * time.Second),
-		ChipIngressEndpoint:   ptr("example.com/chip-ingress"),
-		HeartbeatInterval:     commoncfg.MustNewDuration(1 * time.Second),
+		Enabled:                       ptr(true),
+		CACertFile:                    ptr("cert-file"),
+		Endpoint:                      ptr("example.com/collector"),
+		InsecureConnection:            ptr(true),
+		ResourceAttributes:            map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:              ptr(0.01),
+		EmitterBatchProcessor:         ptr(true),
+		EmitterExportTimeout:          commoncfg.MustNewDuration(1 * time.Second),
+		ChipIngressEndpoint:           ptr("example.com/chip-ingress"),
+		ChipIngressInsecureConnection: ptr(false),
+		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
+		LogStreamingEnabled:           ptr(false),
 	}
 	full.CRE = toml.CreConfig{
+		UseLocalTimeProvider: ptr(true),
 		Streams: &toml.StreamsConfig{
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),

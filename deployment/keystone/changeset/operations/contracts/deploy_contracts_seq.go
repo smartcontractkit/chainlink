@@ -58,16 +58,6 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 		ab := deployment.NewMemoryAddressBook()
 		as := datastore.NewMemoryDataStore()
 
-		// BalanceReader Contract
-		balanceReaderDeployReport, err := operations.ExecuteOperation(b, DeployBalanceReaderOp, DeployBalanceReaderOpDeps(deps), DeployBalanceReaderOpInput{ChainSelector: input.RegistryChainSelector})
-		if err != nil {
-			return DeployKeystoneContractsSequenceOutput{}, err
-		}
-		err = updateAddresses(as.Addresses(), balanceReaderDeployReport.Output.Addresses, ab, balanceReaderDeployReport.Output.AddressBook)
-		if err != nil {
-			return DeployKeystoneContractsSequenceOutput{}, err
-		}
-
 		// Capabilities Registry contract
 		capabilitiesRegistryDeployReport, err := operations.ExecuteOperation(b, DeployCapabilityRegistryOp, DeployCapabilityRegistryOpDeps(deps), DeployCapabilityRegistryInput{ChainSelector: input.RegistryChainSelector})
 		if err != nil {

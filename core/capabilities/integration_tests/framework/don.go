@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -111,11 +112,12 @@ func (c DonContext) WaitForWorkflowRegistryMetadata(t *testing.T, workflowName s
 
 type capabilityNode struct {
 	*cltest.TestApplication
-	registry  *capabilities.Registry
-	key       ethkey.KeyV2
-	KeyBundle ocr2key.KeyBundle
-	peer      peerIDAndOCRSigner
-	start     func()
+	registry    *capabilities.Registry
+	key         ethkey.KeyV2
+	KeyBundle   ocr2key.KeyBundle
+	peer        peerIDAndOCRSigner
+	workflowKey *workflowkey.Key
+	start       func()
 }
 
 type DON struct {
@@ -147,7 +149,6 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 	don := &DON{t: t, lggr: logger.Named(lggr, donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
 		workflowRegistry: donContext.workflowRegistry}
 
-	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
 	if supportsOCR {
 		// This is required to support the non standard OCR3 capability - will be removed when required OCR3 behaviour is implemented as standard capabilities
 		don.fakeLibOcr = NewFakeLibOCR(t, lggr, donConfig.F, protocolRoundInterval)
@@ -174,6 +175,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		}
 		don.nodes = append(don.nodes, cn)
 
+		var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
 		if supportsOCR {
 			factory := newFakeOracleFactoryFactory(t, lggr, donConfig.KeyBundles[i], len(donConfig.Members), donConfig.F,
 				protocolRoundInterval)
@@ -190,6 +192,14 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 					}
 				}, donContext.syncerFetcherFunc, donContext.computeFetcherFactory)
 			require.NoError(t, node.KeyStore.P2P().Add(ctx, donConfig.p2pKeys[i]))
+			workflowKeys, err := node.KeyStore.Workflow().GetAll()
+			require.NoError(t, err)
+
+			// Workflow nodes should only have at most 1 workflow key.
+			require.LessOrEqual(t, len(workflowKeys), 1)
+			if len(workflowKeys) == 1 {
+				cn.workflowKey = &workflowKeys[0]
+			}
 			require.NoError(t, node.Start(testutils.Context(t)))
 			cn.TestApplication = node
 		}
@@ -258,6 +268,17 @@ func (d *DON) GetPeerIDsAndOCRSigners() []peerIDAndOCRSigner {
 		peers = append(peers, node.peer)
 	}
 	return peers
+}
+
+func (d *DON) GetWorkflowPublicKeys() []*[32]byte {
+	keys := make([]*[32]byte, 0, len(d.nodes))
+	for _, node := range d.nodes {
+		if node.workflowKey != nil {
+			pubKey := node.workflowKey.PublicKey()
+			keys = append(keys, &pubKey)
+		}
+	}
+	return keys
 }
 
 func (d *DON) Start(ctx context.Context) error {
@@ -455,6 +476,7 @@ func startNewNode(ctx context.Context,
 		c.Capabilities.WorkflowRegistry.SyncStrategy = ptr(syncer.SyncStrategyReconciliation)
 		c.Feature.FeedsManager = ptr(false)
 		c.Feature.LogPoller = ptr(true)
+		c.CRE.UseLocalTimeProvider = ptr(true)
 
 		if setupCfg != nil {
 			setupCfg(c)

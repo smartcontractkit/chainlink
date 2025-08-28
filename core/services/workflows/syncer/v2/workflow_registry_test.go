@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -155,7 +156,12 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, events, 2)
-		require.Equal(t, WorkflowRegistered, events[0].Name)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+		expectedDeletedEvent := WorkflowDeletedEvent{
+			WorkflowID: wfID,
+		}
+		require.Equal(t, expectedDeletedEvent, events[0].Data)
+		require.Equal(t, WorkflowRegistered, events[1].Name)
 		expectedRegisteredEvent := WorkflowRegisteredEvent{
 			WorkflowID:    wfID2,
 			WorkflowOwner: owner,
@@ -167,12 +173,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Tag:           tag,
 			Attributes:    attributes,
 		}
-		require.Equal(t, expectedRegisteredEvent, events[0].Data)
-		require.Equal(t, WorkflowDeleted, events[1].Name)
-		expectedDeletedEvent := WorkflowDeletedEvent{
-			WorkflowID: wfID,
-		}
-		require.Equal(t, expectedDeletedEvent, events[1].Data)
+		require.Equal(t, expectedRegisteredEvent, events[1].Data)
 	})
 
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
@@ -580,5 +581,185 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 
 		require.Empty(t, pendingEvents)
 		require.Empty(t, events)
+	})
+
+	t.Run("delete events are handled before any other events", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		// Engine already in the workflow registry
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		owner := []byte{1}
+		wfName := "wf name 1"
+		err := er.Add(wfID, &mockService{})
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// The workflow gets a new version with updated metadata, which changes the workflow ID
+		wfID2 := [32]byte{2}
+		binaryURL := "b1"
+		configURL := "c1"
+		createdAt := uint64(1000000)
+		tag := "tag1"
+		attributes := []byte{}
+		donFamily := "A"
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   wfID2,
+				Owner:        owner,
+				CreatedAt:    createdAt,
+				Status:       WorkflowStatusActive,
+				WorkflowName: wfName,
+				BinaryURL:    binaryURL,
+				ConfigURL:    configURL,
+				Tag:          tag,
+				Attributes:   attributes,
+				DonFamily:    donFamily,
+			},
+		}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		require.NoError(t, err)
+
+		// Delete event happens before create event
+		require.Equal(t, events[0].Name, WorkflowDeleted)
+		require.Equal(t, events[1].Name, WorkflowRegistered)
+	})
+
+	t.Run("pending delete events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		// Engine already in the workflow registry
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		err := er.Add(wfID, &mockService{})
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// A workflow is to be removed, but hits a failure, causing it to stay pending
+		event := WorkflowDeletedEvent{
+			WorkflowID: wfID,
+		}
+		pendingEvents := map[string]*reconciliationEvent{
+			hex.EncodeToString(wfID[:]): {
+				Event: Event{
+					Data: event,
+					Name: WorkflowDeleted,
+				},
+				id:          hex.EncodeToString(wfID[:]),
+				signature:   fmt.Sprintf("%s-%s-%s", WorkflowDeleted, hex.EncodeToString(wfID[:]), toSpecStatus(WorkflowStatusActive)),
+				nextRetryAt: time.Now(),
+				retryCount:  5,
+			},
+		}
+
+		// No workflows in metadata
+		metadata := []WorkflowMetadataView{}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		require.NoError(t, err)
+		require.Len(t, events, 1)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+		require.Empty(t, pendingEvents)
+	})
+
+	t.Run("pending create events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// A workflow is added, but hits a failure during creation, causing it to stay pending
+		binaryURL := "b1"
+		configURL := "c1"
+		wfID := [32]byte{1}
+		owner := []byte{}
+		wfName := "wf name 1"
+		createdAt := uint64(1000000)
+		tag := "tag1"
+		attributes := []byte{}
+		event := WorkflowRegisteredEvent{
+			WorkflowID:    wfID,
+			WorkflowOwner: owner,
+			CreatedAt:     createdAt,
+			Status:        WorkflowStatusActive,
+			WorkflowName:  wfName,
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			Tag:           tag,
+			Attributes:    attributes,
+		}
+		pendingEvents := map[string]*reconciliationEvent{
+			hex.EncodeToString(wfID[:]): {
+				Event: Event{
+					Data: event,
+					Name: WorkflowRegistered,
+				},
+				id:          hex.EncodeToString(wfID[:]),
+				signature:   fmt.Sprintf("%s-%s-%s", WorkflowRegistered, hex.EncodeToString(wfID[:]), toSpecStatus(WorkflowStatusActive)),
+				nextRetryAt: time.Now(),
+				retryCount:  5,
+			},
+		}
+
+		// The workflow then gets removed
+		metadata := []WorkflowMetadataView{}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		require.NoError(t, err)
+		require.Empty(t, events)
+		require.Empty(t, pendingEvents)
 	})
 }
