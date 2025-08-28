@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -28,7 +29,7 @@ type ConfigureOCR3OpInput struct {
 	ContractAddress  *common.Address
 	RegistryChainSel uint64
 	DONs             []ConfigureKeystoneDON
-	Config           *internal.OracleConfig
+	Config           *ocr3.OracleConfig
 	DryRun           bool
 
 	MCMSConfig *changeset.MCMSConfig

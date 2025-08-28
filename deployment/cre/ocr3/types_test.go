@@ -1,4 +1,4 @@
-package internal
+package ocr3
 
 import (
 	"encoding/hex"

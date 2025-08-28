@@ -60,12 +60,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	credebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 )
@@ -218,6 +216,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
 			continue
 		}
+
 		eg.Go(func() error {
 			feedID := config.FeedIDs[idx]
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
@@ -313,17 +312,9 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
 			continue
 		}
-		// deploy data feeds cache contract only on chains that require a forwarder contract. It's required for the PoR workflow to work and we treat it as a proxy
-		// for deciding whether need to deploy the data feeds cache contract.
-		hasForwarderContract := false
-		for _, donMetadata := range testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata {
-			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
-				hasForwarderContract = true
-				break
-			}
-		}
 
-		if !hasForwarderContract {
+		// deploy data feeds cache contract only on chains that are writeable
+		if !slices.Contains(writeableChains, bcOutput.ChainID) {
 			continue
 		}
 
@@ -414,11 +405,10 @@ func executePoRWorkflowTest(t *testing.T, testEnv *TestEnvironment, priceProvide
 			if configErr != nil {
 				framework.L.Warn().Msgf("failed to remove workflow config file %s: %s", workflowConfigFilePath, configErr.Error())
 			}
-			deleteErr := creworkflow.DeleteWithContract(t.Context(), bcOutput.SethClient, workflowRegistryAddress, workflowName)
+			deleteErr := creworkflow.DeleteWithContract(t.Context(), testEnv.WrappedBlockchainOutputs[0].SethClient, workflowRegistryAddress, workflowName)
 			if deleteErr != nil {
 				framework.L.Warn().Msgf("failed to delete workflow %s: %s. Please delete it manually.", workflowName, deleteErr.Error())
 			}
-			debugPoRTest(t, testLogger, testEnv.Config, testEnv.FullCldEnvOutput, testEnv.WrappedBlockchainOutputs, config.FeedIDs)
 		})
 
 		copyWorkflowFilesToContainers(t, compressedWorkflowWasmPath, workflowConfigFilePath, ContainerTargetDir)
@@ -1077,61 +1067,6 @@ func createWorkflowConfigFile(bcOutput *cre.WrappedBlockchainOutput, readContrac
 	}
 
 	return outputFileAbsPath, nil
-}
-
-func debugPoRTest(t *testing.T, testLogger zerolog.Logger, in *envconfig.Config, env *cre.FullCLDEnvironmentOutput, wrappedBlockchainOutputs []*cre.WrappedBlockchainOutput, feedIDs []string) {
-	if t.Failed() {
-		counter := 0
-		for idx, feedID := range feedIDs {
-			chainSelector := wrappedBlockchainOutputs[idx].ChainSelector
-			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-				env.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-				chainSelector,
-				df_changeset.DataFeedsCache.String(),
-			)
-			require.NoError(t, dataFeedsCacheErr, "failed to find data feeds cache address for chain %d", chainSelector)
-
-			forwarderAddresses, forwarderErr := crecontracts.FindAddressesForChain(
-				env.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-				chainSelector,
-				keystone_changeset.KeystoneForwarder.String(),
-			)
-			require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", chainSelector)
-
-			logTestInfo(testLogger, feedID, dataFeedsCacheAddresses.Hex(), forwarderAddresses.Hex())
-			counter++
-			// log scanning is not supported for CRIB
-			if in.Infra.Type == infra.CRIB {
-				return
-			}
-
-			_, saveErr := framework.SaveContainerLogs(os.TempDir())
-			if saveErr != nil {
-				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-				return
-			}
-
-			debugDons := make([]*cre.DebugDon, 0, len(env.DonTopology.DonsWithMetadata))
-			for i, donWithMetadata := range env.DonTopology.DonsWithMetadata {
-				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range in.NodeSets[i].Out.CLNodes {
-					containerNames = append(containerNames, output.Node.ContainerName)
-				}
-				debugDons = append(debugDons, &cre.DebugDon{
-					NodesMetadata:  donWithMetadata.NodesMetadata,
-					Flags:          donWithMetadata.Flags,
-					ContainerNames: containerNames,
-				})
-			}
-
-			debugInput := cre.DebugInput{
-				DebugDons:        debugDons,
-				BlockchainOutput: wrappedBlockchainOutputs[idx].BlockchainOutput,
-				InfraInput:       in.Infra,
-			}
-			credebug.PrintTestDebug(t.Context(), t.Name(), testLogger, debugInput)
-		}
-	}
 }
 
 func createEnvironmentIfNotExists(stateFile, environmentDir, topology string) error {

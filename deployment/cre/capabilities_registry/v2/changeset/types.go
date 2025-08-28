@@ -1,11 +1,11 @@
 package changeset
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
@@ -52,12 +52,12 @@ type CapabilitiesRegistryNodeParams struct {
 }
 
 func (node CapabilitiesRegistryNodeParams) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryNodeParams, error) {
-	csaKeyBytes, err := hexStringTo32Bytes(node.CsaKey)
+	csaKeyBytes, err := pkg.HexStringTo32Bytes(node.CsaKey)
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert CSA key: %w", err)
 	}
 
-	signerBytes, err := hexStringTo32Bytes(node.Signer)
+	signerBytes, err := pkg.HexStringTo32Bytes(node.Signer)
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert signer: %w", err)
 	}
@@ -68,7 +68,7 @@ func (node CapabilitiesRegistryNodeParams) ToWrapper() (capabilities_registry_v2
 		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert P2P ID: %w", err)
 	}
 
-	encryptionPublicKeyBytes, err := hexStringTo32Bytes(node.EncryptionPublicKey)
+	encryptionPublicKeyBytes, err := pkg.HexStringTo32Bytes(node.EncryptionPublicKey)
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert encryption public key: %w", err)
 	}
@@ -137,29 +137,4 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v
 		IsPublic:                 don.IsPublic,
 		AcceptsWorkflows:         don.AcceptsWorkflows,
 	}, nil
-}
-
-// hexStringTo32Bytes converts a hex string (with or without 0x prefix) to [32]byte
-func hexStringTo32Bytes(hexStr string) ([32]byte, error) {
-	var result [32]byte
-
-	// Remove 0x prefix if present
-	if len(hexStr) >= 2 && hexStr[:2] == "0x" {
-		hexStr = hexStr[2:]
-	}
-
-	// Validate length
-	if len(hexStr) != 64 {
-		return result, fmt.Errorf("invalid hex string length: expected 64 hex characters, got %d", len(hexStr))
-	}
-
-	// Decode hex string
-	bytes, err := hex.DecodeString(hexStr)
-	if err != nil {
-		return result, fmt.Errorf("invalid hex string: %w", err)
-	}
-
-	// Copy to fixed-size array
-	copy(result[:], bytes)
-	return result, nil
 }

@@ -76,6 +76,7 @@ var (
 	testUnitA      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 	testUnitB      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_UNSPECIFIED)]
 	testUnitC      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_NETWORK)]
+	testUnitGas    = "GAS.5009297550715157269" // ETH mainnet
 	validConfig, _ = values.NewMap(map[string]any{
 		RatiosKey: map[string]string{
 			testUnitA: "0.4",
@@ -512,6 +513,55 @@ func Test_Report_Deduct(t *testing.T) {
 		billingClient.AssertExpectations(t)
 	})
 
+	t.Run("happy path with rates and gas tokens", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "230140614074074", // ETH mainnet
+				},
+			}, nil)
+
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithMultiRates, nil)
+
+		require.NoError(t, report.Reserve(t.Context()))
+
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]string{
+				testUnitA:   "0.4",
+				testUnitGas: "0.6",
+			},
+		})
+
+		info := capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				capabilities.CapabilitySpendType(testUnitA),
+				capabilities.CapabilitySpendType(testUnitGas),
+			},
+		}
+
+		emptyLimit := decimal.NewNullDecimal(decimal.Zero)
+		emptyLimit.Valid = false
+		limits, err := report.Deduct("ref1", ByDerivedAvailability(emptyLimit, 1, info, config))
+
+		require.NoError(t, err)
+		require.NotNil(t, limits)
+		require.Len(t, limits, 2)
+		assert.Equal(t, testUnitA, string(limits[0].SpendType))
+		assert.Equal(t, testUnitGas, string(limits[1].SpendType))
+		assert.Equal(t, "2000.000", limits[0].Limit)            // conversion rate of 2 at 40% ratio
+		assert.Equal(t, "1380843684444444000", limits[1].Limit) // gas should be a fixed precision integer
+		assert.False(t, report.meteringMode, "should not switch to metering mode")
+
+		billingClient.AssertExpectations(t)
+	})
+
 	t.Run("happy path splits spend types per provided ratios", func(t *testing.T) {
 		t.Parallel()
 
@@ -796,6 +846,59 @@ func Test_Report_Settle(t *testing.T) {
 
 		require.NoError(t, report.Settle("ref1", steps))
 		assert.Len(t, logs.All(), 1)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("successfully settles gas token usage", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "200000000000000", // ETH mainnet
+				},
+			}, nil)
+		report := newTestReport(t, lggr, billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		config, _ := values.NewMap(map[string]any{
+			RatiosKey: map[string]string{
+				testUnitGas: "1.0",
+			},
+		})
+
+		info := capabilities.CapabilityInfo{
+			SpendTypes: []capabilities.CapabilitySpendType{
+				capabilities.CapabilitySpendType(testUnitGas),
+			},
+		}
+
+		value := decimal.NewNullDecimal(decimal.Zero)
+		value.Valid = false
+
+		_, err := report.Deduct("ref1", ByDerivedAvailability(value, 1, info, config))
+		require.NoError(t, err)
+
+		steps := []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "0.000700000000000000"}, // should convert to 3.5 credits
+		}
+
+		require.NoError(t, report.Settle("ref1", steps))
+
+		billingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(report *billing.SubmitWorkflowReceiptRequest) bool {
+				return report.CreditsConsumed == "3.5"
+			})).Return(&emptypb.Empty{}, nil).Once()
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+
+		assert.Empty(t, logs.All())
 		billingClient.AssertExpectations(t)
 	})
 }

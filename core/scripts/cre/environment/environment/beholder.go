@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
@@ -53,13 +54,31 @@ func startBeholderCmd() *cobra.Command {
 		Short: "Start the Beholder",
 		Long:  `Start the Beholder`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			initDxTracker()
+			var startBeholderErr error
+
+			defer func() {
+				metaData := map[string]any{}
+				if startBeholderErr != nil {
+					metaData["result"] = "failure"
+					metaData["error"] = oneLineErrorMessage(startBeholderErr)
+				} else {
+					metaData["result"] = "success"
+				}
+
+				trackingErr := dxTracker.Track(tracking.MetricBeholderStart, metaData)
+				if trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
+				}
+			}()
+
 			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
 			setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 			if setErr != nil {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			startBeholderErr := startBeholder(cmd.Context(), timeout, protoConfigs)
+			startBeholderErr = startBeholder(cmd.Context(), timeout, protoConfigs)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
 				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
@@ -120,6 +139,8 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 			if beholderRemoveErr != nil {
 				fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
 			}
+
+			os.Exit(1)
 		}
 	}()
 

@@ -19,6 +19,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 )
 
@@ -129,6 +130,7 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf
 	switch any(*new(T)).(type) {
 	case *forwarder.KeystoneForwarder:
 	case *capabilities_registry.CapabilitiesRegistry:
+	case *capabilities_registry_v2.CapabilitiesRegistry:
 	case *ocr3_capability.OCR3Capability:
 	case *workflow_registry.WorkflowRegistry:
 	default:
@@ -162,6 +164,9 @@ func createContractInstance[T Ownable](addr string, chain cldf_evm.Chain) (*T, e
 		instance, err = any(c).(T), e
 	case *capabilities_registry.CapabilitiesRegistry:
 		c, e := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(addr), chain.Client)
+		instance, err = any(c).(T), e
+	case *capabilities_registry_v2.CapabilitiesRegistry:
+		c, e := capabilities_registry_v2.NewCapabilitiesRegistry(common.HexToAddress(addr), chain.Client)
 		instance, err = any(c).(T), e
 	case *ocr3_capability.OCR3Capability:
 		c, e := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.Client)

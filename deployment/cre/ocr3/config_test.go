@@ -1,6 +1,4 @@
-// TODO: KS-458 copied from https://github.com/smartcontractkit/chainlink/blob/65924811dc53a211613927c814d7f04fd85439a4/core/scripts/keystone/src/88_gen_ocr3_config.go#L1
-// to unblock go mod issues when trying to import the scripts package
-package internal
+package ocr3
 
 import (
 	"encoding/json"
@@ -91,13 +89,13 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 	var cfg OracleConfig
 	err := json.Unmarshal([]byte(ocr3Cfg), &cfg)
 	require.NoError(t, err)
-	r := configureOCR3Request{
-		cfg:   &cfg,
-		nodes: nodes,
-		chain: cldf_evm.Chain{
+	r := ConfigureOCR3Request{
+		Cfg:   &cfg,
+		Nodes: nodes,
+		Chain: cldf_evm.Chain{
 			Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 		},
-		ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),
+		OcrSecrets: cldf.XXXGenerateTestOCRSecrets(),
 	}
 	got, err := r.generateOCR3Config()
 	require.NoError(t, err)
@@ -111,13 +109,13 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 		for i := 1; i <= len(nodes); i++ {
 			cfg2.TransmissionSchedule = append(cfg2.TransmissionSchedule, i)
 		}
-		r := configureOCR3Request{
-			cfg:   &cfg2,
-			nodes: nodes,
-			chain: cldf_evm.Chain{
+		r := ConfigureOCR3Request{
+			Cfg:   &cfg2,
+			Nodes: nodes,
+			Chain: cldf_evm.Chain{
 				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 			},
-			ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),
+			OcrSecrets: cldf.XXXGenerateTestOCRSecrets(),
 		}
 		_, err := r.generateOCR3Config()
 		require.Error(t, err)
@@ -125,13 +123,13 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 	t.Run("transmitter schedule eqaul num nodes", func(t *testing.T) {
 		cfg2 := cfg
 		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
-		r := configureOCR3Request{
-			cfg:   &cfg2,
-			nodes: nodes,
-			chain: cldf_evm.Chain{
+		r := ConfigureOCR3Request{
+			Cfg:   &cfg2,
+			Nodes: nodes,
+			Chain: cldf_evm.Chain{
 				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 			},
-			ocrSecrets: cldf.XXXGenerateTestOCRSecrets(),
+			OcrSecrets: cldf.XXXGenerateTestOCRSecrets(),
 		}
 		_, err := r.generateOCR3Config()
 		require.Error(t, err)

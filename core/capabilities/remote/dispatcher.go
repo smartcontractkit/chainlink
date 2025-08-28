@@ -77,6 +77,10 @@ func (d *dispatcher) Start(ctx context.Context) error {
 	if d.peer == nil {
 		return errors.New("peer is not initialized")
 	}
+	err := d.signer.Initialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to initialize signer")
+	}
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()
