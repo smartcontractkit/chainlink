@@ -41,5 +41,9 @@ func Test_CRE_Suite(t *testing.T) {
 		t.Run("[v2] Beholder test", func(t *testing.T) {
 			ExecuteBeholderTest(t, testEnv)
 		})
+
+		t.Run("[v2] Consensus test", func(t *testing.T) {
+			executeConsensusTest(t, testEnv)
+		})
 	})
 }

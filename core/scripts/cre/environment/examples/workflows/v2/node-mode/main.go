@@ -3,11 +3,11 @@
 package main
 
 import (
-	"fmt"
+	"log/slog"
+	"math/rand"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
-	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
-
+	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
@@ -19,9 +19,9 @@ func main() {
 	}).Run(RunSimpleCronWorkflow)
 }
 
-func RunSimpleCronWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], error) {
-	workflows := sdk.Workflow[None]{
-		sdk.Handler(
+func RunSimpleCronWorkflow(_ None, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[None], error) {
+	workflows := cre.Workflow[None]{
+		cre.Handler(
 			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
 			onTrigger,
 		),
@@ -29,17 +29,25 @@ func RunSimpleCronWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], erro
 	return workflows, nil
 }
 
-func onTrigger(env *sdk.Environment[None], runtime sdk.Runtime, trigger *cron.Payload) (string, error) {
-	mathPromise := sdk.RunInNodeMode(env, runtime, fetchData, sdk.ConsensusIdenticalAggregation[float64]())
+func onTrigger(cfg None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
+	runtime.Logger().Info("Triggered fetch of value")
+
+	mathPromise := cre.RunInNodeMode(cfg, runtime, fetchData, cre.ConsensusMedianAggregation[int]())
 	offchainValue, err := mathPromise.Await()
 	if err != nil {
+		runtime.Logger().Info("Consensus error", "error", err)
 		return "", err
 	}
-	env.Logger.Info("Successfully fetched offchain value", "result", offchainValue)
-	return fmt.Sprintf("value: %f", offchainValue), nil
+	runtime.Logger().Info("Successfully fetched offchain value and reached consensus", "result", offchainValue)
+
+	return "success", nil
 }
 
-func fetchData(env *sdk.NodeEnvironment[None], nodeRuntime sdk.NodeRuntime) (float64, error) {
-	// pretend we're fetching some node-mode data
-	return 420.69, nil
+func fetchData(cfg None, nodeRuntime cre.NodeRuntime) (int, error) {
+
+	randomValue := rand.Intn(10000)
+	nodeRuntime.Logger().Info("Generate random value", "randomValue", randomValue)
+
+	// Generate a random int64
+	return randomValue, nil
 }

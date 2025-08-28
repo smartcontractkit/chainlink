@@ -28,8 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 
@@ -206,4 +207,28 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFile
 
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
+}
+
+func compileAndDeployWorkflow(t *testing.T, testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string, workflowFileLocation string) {
+	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
+
+	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, &None{}, workflowFileLocation)
+
+	// Ignoring the deprecation warning as the suggest solution is not working in CI
+	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String()) //lint:ignore SA1019 ignoring deprecation warning for this usage
+	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
+
+	t.Cleanup(func() {
+		deleteWorkflows(t, workflowName, "", compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
+	})
+
+	workflowRegConfig := &WorkflowRegistrationConfig{
+		WorkflowName:         workflowName,
+		WorkflowLocation:     workflowFileLocation,
+		CompressedWasmPath:   compressedWorkflowWasmPath,
+		WorkflowRegistryAddr: workflowRegistryAddress,
+		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+		ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
+	}
+	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
 }
