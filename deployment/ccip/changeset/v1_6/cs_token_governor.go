@@ -71,23 +71,23 @@ type TokenGovernorRoleChangesetConfig struct {
 func (r TokenGovernorRole) String() string {
 	switch r {
 	case RoleMinter:
-		return "MINTER"
+		return "MINTER_ROLE"
 	case RoleBridgerMinterOrBurner:
-		return "BRIDGE_MINTER_OR_BURNER"
+		return "BRIDGE_MINTER_OR_BURNER_ROLE"
 	case RoleBurner:
-		return "BURNER"
+		return "BURNER_ROLE"
 	case RoleFreezer:
-		return "FREEZER"
+		return "FREEZER_ROLE"
 	case RoleUnfreezer:
-		return "UNFREEZER"
+		return "UNFREEZER_ROLE"
 	case RolePauser:
-		return "PAUSER"
+		return "PAUSER_ROLE"
 	case RoleUnpauser:
 		return "UNPAUSER"
 	case RoleRecovery:
-		return "RECOVERY"
+		return "RECOVERY_ROLE"
 	case RoleCheckerAdmin:
-		return "CHECKER_ADMIN"
+		return "CHECKER_ADMIN_ROLE"
 	default:
 		return "UNKNOWN"
 	}
