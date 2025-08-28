@@ -994,7 +994,20 @@ func Test_Report_SendReceipt(t *testing.T) {
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponse, nil)
-		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).Return(nil, someErr)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			if req == nil {
+				return false
+			}
+			// Assert on key fields that should be present in a valid receipt
+			return req.WorkflowId == "workflowId" &&
+				req.WorkflowExecutionId == "workflowExecutionId" &&
+				req.CreditsConsumed == "0" &&
+				req.WorkflowOwner == "accountId" &&
+				req.WorkflowRegistryAddress == "0x123" &&
+				req.WorkflowRegistryChainSelector == 16015286601757825753 &&
+				req.Metering != nil &&
+				req.Metering.Metadata != nil
+		})).Return(nil, someErr)
 
 		require.NoError(t, report.Reserve(t.Context()))
 		require.ErrorIs(t, report.SendReceipt(t.Context()), someErr)
@@ -1005,24 +1018,88 @@ func Test_Report_SendReceipt(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+		Return(&successReserveResponse, nil)
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
-		report := newTestReport(t, logger.Nop(), billingClient)
 
+		// errors on nil response
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			if req == nil {
+				return false
+			}
+			// Assert on key fields that should be present in a valid receipt
+			return req.WorkflowId == "workflowId" &&
+				req.WorkflowExecutionId == "workflowExecutionId" &&
+				req.CreditsConsumed == "0" &&
+				req.WorkflowOwner == "accountId" &&
+				req.WorkflowRegistryAddress == "0x123" &&
+				req.WorkflowRegistryChainSelector == 16015286601757825753 &&
+				req.Metering != nil &&
+				req.Metering.Metadata != nil &&
+				req.Metering.MeteringMode == true &&
+				req.Metering.Message == "empty rate card"
+		})).Return(nil, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+		require.NoError(t, report.Reserve(t.Context()))
+		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrReceiptFailed)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("happy path with deductions", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+			}, nil)
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&successReserveResponse, nil)
+			Return(&successReserveResponseWithRates, nil)
+
+		report := newTestReport(t, logger.Nop(), billingClient)
 
 		require.NoError(t, report.Reserve(t.Context()))
 
-		// errors on nil response
-		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).Return(nil, nil)
-		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrReceiptFailed)
+		// Deduct and Settle a few times to consume credits
+		// Each deduction of 2 units of compute consumes 1 credit (rate: 2 units per credit)
+		_, err := report.Deduct("step1", ByResource(testUnitA, "", decimal.NewFromInt(2)))
+		require.NoError(t, err)
+		require.NoError(t, report.Settle("step1", []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node1", SpendUnit: testUnitA, SpendValue: "2"},
+		}))
 
-		// errors on unsuccessful response
-		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
-			Return(&emptypb.Empty{}, nil)
-		require.ErrorIs(t, report.SendReceipt(t.Context()), ErrReceiptFailed)
+		_, err = report.Deduct("step2", ByResource(testUnitA, "", decimal.NewFromInt(4)))
+		require.NoError(t, err)
+		require.NoError(t, report.Settle("step2", []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node2", SpendUnit: testUnitA, SpendValue: "4"},
+		}))
 
+		_, err = report.Deduct("step3", ByResource(testUnitA, "", decimal.NewFromInt(2)))
+		require.NoError(t, err)
+		require.NoError(t, report.Settle("step3", []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "node3", SpendUnit: testUnitA, SpendValue: "2"},
+		}))
+
+		// Total deducted: 2 + 4 + 2 = 8 units of compute = 16 credits consumed
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			if req == nil {
+				return false
+			}
+
+			return req.WorkflowId == "workflowId" &&
+				req.WorkflowExecutionId == "workflowExecutionId" &&
+				req.CreditsConsumed == "16" &&
+				req.WorkflowOwner == "accountId" &&
+				req.WorkflowRegistryAddress == "0x123" &&
+				req.WorkflowRegistryChainSelector == 16015286601757825753 &&
+				req.Metering != nil &&
+				req.Metering.Metadata != nil &&
+				req.Metering.MeteringMode == false &&
+				req.Metering.Message == ""
+		})).Return(&emptypb.Empty{}, nil)
+
+		require.NoError(t, report.SendReceipt(t.Context()))
 		billingClient.AssertExpectations(t)
 	})
 }
@@ -1033,17 +1110,19 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		beholderTester := beholdertest.NewObserver(t)
 		billingClient := mocks.NewBillingClient(t)
 
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponseWithRates, nil)
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{
 				OrganizationId:     "",
 				RateCards:          successRates,
 				GasTokensPerCredit: map[uint64]string{},
 			}, nil)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(&emptypb.Empty{}, nil)
 
 		report := newTestReport(t, logger.Nop(), billingClient)
 
-		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-			Return(&successReserveResponseWithRates, nil)
 		require.NoError(t, report.Reserve(t.Context()))
 
 		require.NoError(t, report.EmitReceipt(t.Context()))
@@ -1062,6 +1141,9 @@ func Test_Report_EmitReceipt(t *testing.T) {
 				assert.Equal(t, testAccountID, report.Metadata.WorkflowOwner)
 			}
 		}
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+		billingClient.AssertExpectations(t)
 	})
 
 	t.Run("sends receipt with report data when billing service errors", func(t *testing.T) {
@@ -1072,10 +1154,12 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		billingClient := mocks.NewBillingClient(t)
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(nil, errBillingFailure)
-		report := newTestReport(t, logger.Nop(), billingClient)
-
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(nil, errBillingFailure)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Return(&emptypb.Empty{}, nil)
+
+		report := newTestReport(t, logger.Nop(), billingClient)
 		require.NoError(t, report.Reserve(t.Context()))
 
 		expected := map[string]*eventspb.MeteringReportStep{}
@@ -1100,6 +1184,7 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		}
 
 		assert.Equal(t, expected, report.FormatReport().Steps)
+		report.SendReceipt(t.Context())
 		billingClient.AssertExpectations(t)
 	})
 
