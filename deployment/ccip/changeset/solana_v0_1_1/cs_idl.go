@@ -43,6 +43,7 @@ const IdlIxTag uint64 = 0x0a69e9a778bcf440
 type IDLConfig struct {
 	ChainSelector                uint64
 	GitCommitSha                 string                        // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
+	SpillAddress                 solana.PublicKey              // used when closing the IDL account
 	Router                       bool                          // whether to upload the IDL for the router
 	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
 	OffRamp                      bool                          // whether to upload the IDL for the off ramp
@@ -203,98 +204,6 @@ func setIdlAuthority(e cldf.Environment, newAuthority, programsPath, programID, 
 	return nil
 }
 
-// changeset to close idl account for a program - this is needed when the idl increased so much in size that it no longer fits in the account
-// and the idl account can not be resized when it already contains data, so you need to close the account and reinitialize it
-func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
-	if err := c.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
-	}
-	state, _ := stateview.LoadOnchainState(e)
-	chainState := state.SolChains[c.ChainSelector]
-	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-
-	// close idl accounts
-
-	// CCIP Core Programs
-	if c.Router {
-		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-	if c.FeeQuoter {
-		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-	if c.OffRamp {
-		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-	if c.RMNRemote {
-		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-
-	// Token Pools
-	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err := runCloseIDLAccount(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err := runCloseIDLAccount(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-	if c.CCTPTokenPool {
-		err := runCloseIDLAccount(e, chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-
-	// MCMS Programs
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
-	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
-	}
-
-	if c.AccessController {
-		err = runCloseIDLAccount(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String())
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-	if c.Timelock {
-		err = runCloseIDLAccount(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String())
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-	if c.MCM {
-		err = runCloseIDLAccount(e, chain.ProgramsPath, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String())
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-
-	return cldf.ChangesetOutput{}, nil
-}
-
 // Close IDL account for a program
 func runCloseIDLAccount(e cldf.Environment, programsPath, programID, programName string) error {
 	e.Logger.Infow("Closing IDL Account", "programName", programName)
@@ -358,7 +267,7 @@ func setBufferIx(e cldf.Environment, programID, buffer, authority solana.PublicK
 		return solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)
 	}
 	data := binary.LittleEndian.AppendUint64([]byte{}, IdlIxTag) // 4-byte Extend instruction identifier
-	data = append(data, byte(3))
+	data = append(data, byte(3))                                 // Id for CreateBuffer operation
 
 	instruction := solana.NewInstruction(
 		programID,
@@ -398,6 +307,54 @@ func upgradeIDLIx(e cldf.Environment, programsPath, programID, programName strin
 		upgradeTx, err := BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create upgrade transaction: %w", err)
+		}
+		return upgradeTx, nil
+	}
+	if err := e.BlockChains.SolanaChains()[c.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
+		return nil, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	return nil, nil
+}
+
+// generate set buffer ix using solana-go sdk
+func closeIDLAccountIx(e cldf.Environment, programID, authority, spillAddress solana.PublicKey) (solana.GenericInstruction, error) {
+	idlAddress, err := getIDLAddress(e, programID)
+	if err != nil {
+		return solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)
+	}
+	data := binary.LittleEndian.AppendUint64([]byte{}, IdlIxTag) // 4-byte Extend instruction identifier
+	data = append(data, byte(2))                                 // ID for Close operation
+
+	instruction := solana.NewInstruction(
+		programID,
+		solana.AccountMetaSlice{
+			solana.NewAccountMeta(idlAddress, true, false), // IDL account
+			solana.NewAccountMeta(authority, false, true),
+			solana.NewAccountMeta(spillAddress, true, false), // sol destination for close funds
+		},
+		data,
+	)
+	return *instruction, nil
+}
+
+// generate upgrade IDL ix for a program via timelock
+func removeIDLIx(e cldf.Environment, programID, programName string, spillAddress solana.PublicKey, c IDLConfig) (*mcmsTypes.Transaction, error) {
+	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("error loading timelockSignerPDA: %w", err)
+	}
+	authority := e.BlockChains.SolanaChains()[c.ChainSelector].DeployerKey.PublicKey()
+	if c.MCMS != nil {
+		authority = timelockSignerPDA
+	}
+	instruction, err := closeIDLAccountIx(e, solana.MustPublicKeyFromBase58(programID), authority, spillAddress)
+	if err != nil {
+		return nil, fmt.Errorf("error closing IDL account ix: %w", err)
+	}
+	if c.MCMS != nil {
+		upgradeTx, err := BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create close IDL transaction: %w", err)
 		}
 		return upgradeTx, nil
 	}
@@ -754,6 +711,140 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	}
 	if c.MCM {
 		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, c.ChainSelector, "proposal to upgrade CCIP contracts", c.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
+// changeset to close idl account for a program - this is needed when the idl increased so much in size that it no longer fits in the account
+// and the idl account can not be resized when it already contains data, so you need to close the account and reinitialize it
+func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
+	if err := c.Validate(e); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
+	}
+	if c.SpillAddress.IsZero() {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config, spill address must be set")
+	}
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
+	state, _ := stateview.LoadOnchainState(e)
+	chainState := state.SolChains[c.ChainSelector]
+	spillAddress := c.SpillAddress
+
+	mcmsTxs := make([]mcmsTypes.Transaction, 0)
+	if c.Router {
+		upgradeTx, err := removeIDLIx(e, chainState.Router.String(), deployment.RouterProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	if c.FeeQuoter {
+		upgradeTx, err := removeIDLIx(e, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	if c.OffRamp {
+		upgradeTx, err := removeIDLIx(e, chainState.OffRamp.String(), deployment.OffRampProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	if c.RMNRemote {
+		upgradeTx, err := removeIDLIx(e, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
+		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
+		upgradeTx, err := removeIDLIx(e, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
+		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
+		upgradeTx, err := removeIDLIx(e, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	if c.CCTPTokenPool {
+		tokenPool := chainState.GetActiveTokenPool(shared.CCTPTokenPool, shared.CLLMetadata)
+		upgradeTx, err := removeIDLIx(e, tokenPool.String(), deployment.CCTPTokenPoolProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+
+	if c.AccessController {
+		upgradeTx, err := removeIDLIx(e, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	if c.Timelock {
+		upgradeTx, err := removeIDLIx(e, mcmState.TimelockProgram.String(), deployment.TimelockProgramName, spillAddress, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		}
+	}
+	if c.MCM {
+		upgradeTx, err := removeIDLIx(e, mcmState.McmProgram.String(), deployment.McmProgramName, spillAddress, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
