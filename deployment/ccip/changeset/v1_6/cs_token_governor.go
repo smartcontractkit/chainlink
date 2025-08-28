@@ -328,7 +328,7 @@ func GrantRoleTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangesetCo
 	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("token governor role grant")
 
 	for chainSelector, tokens := range c.Tokens {
-		_, err := deployerGroup.GetDeployer(chainSelector)
+		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %d: %w", chainSelector, err)
 		}
@@ -353,7 +353,7 @@ func GrantRoleTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangesetCo
 				return cldf.ChangesetOutput{}, fmt.Errorf("account %s already has role %s", governor.Account, governor.Role)
 			}
 
-			tx, err := tokenGovernor.GrantRole(chain.DeployerKey, role, governor.Account)
+			tx, err := tokenGovernor.GrantRole(opts, role, governor.Account)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to grant role %s to account %s on chain %d: %w", governor.Role, governor.Account, chainSelector, err)
 			}
@@ -433,18 +433,13 @@ func TransferOwnershipTokenGovernor(env cldf.Environment, c TokenGovernorRoleCha
 		}
 
 		chainState, _ := state.EVMChainState(chainSelector)
-		chain := env.BlockChains.EVMChains()[chainSelector]
 
 		for token, governor := range tokens {
 			tokenGovernor := chainState.TokenGovernor[token]
 
-			tx, err := tokenGovernor.TransferOwnership(opts, governor.Account)
+			_, err := tokenGovernor.TransferOwnership(opts, governor.Account)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to account %s on chain %d: %w", governor.Account, chainSelector, err)
-			}
-
-			if _, err := chain.Confirm(tx); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm tx %s on chain %d: %w", tx.Hash().Hex(), chainSelector, err)
 			}
 		}
 	}
