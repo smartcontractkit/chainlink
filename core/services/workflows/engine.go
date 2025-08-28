@@ -1460,6 +1460,10 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		return nil, fmt.Errorf("could not get chain selector: %w", err)
 	}
 
+	if cfg.WorkflowRegistryAddress == "" {
+		return nil, fmt.Errorf("workflow registry address is required")
+	}
+
 	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),

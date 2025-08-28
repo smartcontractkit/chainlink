@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -2871,7 +2870,7 @@ targets:
 		return target
 	}
 
-	t.Run("ReserveCredits includes workflow registry information", func(t *testing.T) {
+	t.Run("ReserveCredits_includes_workflow_registry_information", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
@@ -2949,157 +2948,49 @@ targets:
 		mBillingClient.AssertExpectations(t)
 	})
 
-	t.Run("handles invalid chain selector gracefully", func(t *testing.T) {
+	t.Run("invalid_chain_selector_errors", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := t.Context()
 		reg := coreCap.NewRegistry(logger.NullLogger)
 		mBillingClient := new(mocks.BillingClient)
-
-		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-			Return(&billing.GetWorkflowExecutionRatesResponse{
-				RateCards: []*billing.RateCard{
-					{
-						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-						UnitsPerCredit:  "0.0001",
-					},
-				},
-			}, nil)
-
-		mBillingClient.EXPECT().
-			ReserveCredits(mock.Anything, mock.Anything).
-			Return(&billing.ReserveCreditsResponse{
-				Success: true,
-				Credits: "10000",
-			}, nil)
 
 		expectedRegistryAddress := "0x1234567890123456789012345678901234567890"
 		invalidChainSelector := "invalid-chain-id"
 
-		mBillingClient.EXPECT().
-			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
-				if req == nil {
-					return false
-				}
-				// Check that the workflow registry fields are set correctly
-				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
-					req.WorkflowRegistryChainSelector == 0 // default value
-			})).
-			Return(&emptypb.Empty{}, nil)
-
-		// billing calls still happen, but with invalid chain selector
-
-		tr := withTrigger(t, reg)
-		target := withTarget(t, reg)
-
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
 
-		eng, testHooks := newTestEngineWithYAMLSpec(
-			t,
-			reg,
-			testWorkflow,
-			func(cfg *Config) {
-				cfg.BillingClient = mBillingClient
-				cfg.WorkflowRegistryAddress = expectedRegistryAddress
-				cfg.WorkflowRegistryChainID = invalidChainSelector
-				cfg.Lggr = lggr
-			},
-		)
-
-		// When chain selector parsing fails, the engine should switch to metering mode
-		// and call SubmitWorkflowReceipt with metering mode set to true.
-
-		servicetest.Run(t, eng)
-
-		eid := getExecutionID(t, eng, testHooks)
-		resp := <-target.response
-		assert.Equal(t, tr.Event.Outputs, resp.Value)
-
-		state, err := eng.executionsStore.Get(ctx, eid)
+		sdkSpec, err := (&job.WorkflowSpec{
+			Workflow: testWorkflow,
+			SpecType: job.YamlSpec,
+		}).SDKSpec(testutils.Context(t))
 		require.NoError(t, err)
-		assert.Equal(t, store.StatusCompleted, state.Status)
+	
+		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
+			cfg.BillingClient = mBillingClient
+			cfg.WorkflowRegistryAddress = expectedRegistryAddress
+			cfg.WorkflowRegistryChainID = invalidChainSelector
+			cfg.Lggr = lggr
+		},)
+		require.Error(t, err)
+
+		// When chain selector parsing fails, the engine should fail to start
+		assert.Contains(t, err.Error(), "could not parse chain ID")
+
+		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
+			cfg.BillingClient = mBillingClient
+			cfg.WorkflowRegistryAddress = expectedRegistryAddress
+			cfg.WorkflowRegistryChainID = ""
+			cfg.Lggr = lggr
+		},)
+		require.Error(t, err)
+
+		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
+			cfg.BillingClient = mBillingClient
+			cfg.WorkflowRegistryAddress = ""
+			cfg.Lggr = lggr
+		},)
+		require.Error(t, err)
+
 	})
 
-	t.Run("handles empty workflow registry information", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := t.Context()
-		reg := coreCap.NewRegistry(logger.NullLogger)
-		mBillingClient := new(mocks.BillingClient)
-
-		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-			Return(&billing.GetWorkflowExecutionRatesResponse{
-				RateCards: []*billing.RateCard{
-					{
-						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-						UnitsPerCredit:  "0.0001",
-					},
-				},
-			}, nil)
-
-		mBillingClient.EXPECT().
-			ReserveCredits(mock.Anything, mock.Anything).
-			Return(&billing.ReserveCreditsResponse{
-				Success: true,
-				Credits: "10000",
-			}, nil)
-
-		mBillingClient.EXPECT().
-			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
-				if req == nil {
-					return false
-				}
-				// Check that the workflow registry fields are set correctly
-				return req.WorkflowRegistryAddress == "" &&
-					req.WorkflowRegistryChainSelector == 0 // default value
-			})).
-			Return(&emptypb.Empty{}, nil)
-
-		tr := withTrigger(t, reg)
-		target := withTarget(t, reg)
-
-		lggr, logs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
-
-		eng, testHooks := newTestEngineWithYAMLSpec(
-			t,
-			reg,
-			testWorkflow,
-			func(cfg *Config) {
-				cfg.BillingClient = mBillingClient
-				cfg.WorkflowRegistryAddress = ""
-				cfg.WorkflowRegistryChainID = ""
-				cfg.Lggr = lggr
-			},
-		)
-
-		// When chain selector is empty, the engine should switch to metering mode
-		// but still call SubmitWorkflowReceipt. The workflow should still complete successfully.
-
-		servicetest.Run(t, eng)
-
-		eid := getExecutionID(t, eng, testHooks)
-		resp := <-target.response
-		assert.Equal(t, tr.Event.Outputs, resp.Value)
-
-		state, err := eng.executionsStore.Get(ctx, eid)
-		require.NoError(t, err)
-		assert.Equal(t, store.StatusCompleted, state.Status)
-
-		// Verify that warnings were logged about the empty chain selector
-		warnLogs := logs.TakeAll()
-		require.Len(t, warnLogs, 3) // Error about chain selector parsing, warning about no metering report, error about failed to end metering report
-		chainSelectorWarnings := 0
-		for _, log := range warnLogs {
-			if strings.Contains(log.Message, "failed to parse workflow registry chain selector") {
-				chainSelectorWarnings++
-			}
-		}
-		assert.GreaterOrEqual(t, chainSelectorWarnings, 0) // May or may not have chain selector warnings
-
-		// When chain selector is empty, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// This is expected behavior since no metering report exists
-		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
-	})
 }

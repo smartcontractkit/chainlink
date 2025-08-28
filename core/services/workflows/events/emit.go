@@ -209,7 +209,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 }
 
 func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport, lggr logger.Logger) error {
-	rpt.Metadata = buildWorkflowMetadata(labels, rpt.Metadata.WorkflowExecutionID)
+	rpt.Metadata = buildWorkflowMetadata(labels, labels[platform.KeyWorkflowExecutionID])
 
 	return emitProtoMessage(ctx, rpt)
 }
