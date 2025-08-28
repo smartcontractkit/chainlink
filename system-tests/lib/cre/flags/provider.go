@@ -47,16 +47,18 @@ func (p *DefaultCapbilityFlagsProvider) ChainSpecificCapabilityFlags() []cre.Cap
 // All of these capabilities are provided as external binaries
 func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 	return &DefaultCapbilityFlagsProvider{
-		supportedCapabilities: []cre.CapabilityFlag{
+		globalCapabilities: []cre.CapabilityFlag{
 			cre.ConsensusCapability,
 			cre.ConsensusCapabilityV2,
 			cre.CronCapability,
-			cre.EVMCapability,
-			cre.ReadContractCapability,
-			cre.LogTriggerCapability,
 			cre.MockCapability,
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
+		},
+		chainSpecificCapabilities: []cre.CapabilityFlag{
+			cre.EVMCapability,
+			cre.ReadContractCapability,
+			cre.LogTriggerCapability,
 		},
 	}
 }
