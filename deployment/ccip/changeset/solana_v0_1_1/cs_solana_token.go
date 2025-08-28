@@ -429,13 +429,13 @@ func (cfg UploadTokenMetadataConfig) Validate(e cldf.Environment) error {
 
 func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	out1, err1 := runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	out1, err1 := RunCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set url output", "output", out1)
 	if err1 != nil {
 		e.Logger.Errorw("solana config set url error", "error", err1)
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
 	}
-	out2, err2 := runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	out2, err2 := RunCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set keypair output", "output", out2)
 	if err2 != nil {
 		e.Logger.Errorw("solana config set keypair error", "error", err2)
@@ -452,7 +452,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Uploading token metadata", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"create", "metadata", "--mint", metadata.TokenPubkey.String(), "--metadata", metadata.MetadataJSONPath}
 			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			output, err := RunCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
 				e.Logger.Errorw("metaboss create error", "error", err)
@@ -466,7 +466,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Updating token metadata name", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"update", "name", "--account", metadata.TokenPubkey.String(), "--new-name", metadata.UpdateName}
 			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			output, err := RunCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
 				e.Logger.Errorw("metaboss update name error", "error", err)
@@ -480,7 +480,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Updating token metadata symbol", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"update", "symbol", "--account", metadata.TokenPubkey.String(), "--new-symbol", metadata.UpdateSymbol}
 			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			output, err := RunCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
 				e.Logger.Errorw("metaboss update symbol error", "error", err)
@@ -494,7 +494,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Updating token metadata uri", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"update", "uri", "--account", metadata.TokenPubkey.String(), "--new-uri", metadata.UpdateURI}
 			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			output, err := RunCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
 				e.Logger.Errorw("metaboss update uri error", "error", err)
@@ -508,7 +508,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Updating token metadata authority", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"set", "update-authority", "--account", metadata.TokenPubkey.String(), "--new-update-authority", metadata.UpdateAuthority.String()}
 			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			output, err := RunCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
 				e.Logger.Errorw("metaboss set error", "error", err)
@@ -607,13 +607,13 @@ func DisableFreezeAuthority(e cldf.Environment, cfg DisableFreezeAuthorityConfig
 		return cldf.ChangesetOutput{}, errors.New("chain selector is required")
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	out1, err1 := runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	out1, err1 := RunCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set url output", "output", out1)
 	if err1 != nil {
 		e.Logger.Errorw("solana config set url error", "error", err1)
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
 	}
-	out2, err2 := runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	out2, err2 := RunCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set keypair output", "output", out2)
 	if err2 != nil {
 		e.Logger.Errorw("solana config set keypair error", "error", err2)
@@ -624,7 +624,7 @@ func DisableFreezeAuthority(e cldf.Environment, cfg DisableFreezeAuthorityConfig
 		e.Logger.Infow("Disabling freeze authority", "tokenPubkey", tokenPubkey.String())
 		args := []string{"authorize", tokenPubkey.String(), "freeze", "--disable"}
 		e.Logger.Info(args)
-		output, err := runCommand("spl-token", args, chain.ProgramsPath)
+		output, err := RunCommand("spl-token", args, chain.ProgramsPath)
 		e.Logger.Debugw("spl-token output", "output", output)
 		if err != nil {
 			e.Logger.Debugw("spl-token authorize error", "error", err)

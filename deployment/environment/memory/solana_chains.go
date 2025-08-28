@@ -307,6 +307,7 @@ var SolanaProgramIDs = map[string]string{
 	"external_program_cpi_stub": "2zZwzyptLqwFJFEFxjPvrdhiGpH9pJ3MfrrmZX6NTKxm",
 	"rmn_remote":                "RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7",
 	"cctp_token_pool":           "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ",
+	"ccip_signer_registry":      "S1GN4jus9XzKVVnoHqfkjo1GN8bX46gjXZQwsdGBPHE",
 }
 
 var once = &sync.Once{}
