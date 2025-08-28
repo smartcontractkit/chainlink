@@ -393,7 +393,7 @@ func startCmd() *cobra.Command {
 				var workflowDonID uint32
 				for idx, don := range output.DonTopology.DonsWithMetadata {
 					if flags.HasFlag(don.Flags, cre.WorkflowDON) {
-						workflowDonID = uint32(idx + 1)
+						workflowDonID = libc.MustSafeUint32(idx + 1)
 						break
 					}
 				}

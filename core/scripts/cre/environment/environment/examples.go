@@ -62,7 +62,6 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 type executableWorkflowFn = func(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error
 
 func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error {
-
 	ticker := 5 * time.Second
 	for {
 		select {
