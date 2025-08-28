@@ -394,7 +394,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
 			Peer2PeerID:   nodeDetail.Peer2PeerID,
 			SpendValue:    nodeDetail.SpendValue,
-			CRESpendValue: decimal.NewFromInt(67),
+			CRESpendValue: decimal.Zero,
 		})
 	}
 
@@ -432,10 +432,11 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 		bal, err := r.balance.ConvertToBalance(unit, aggregated.SpendValue)
 		if err != nil {
 			r.switchToMeteringMode(fmt.Errorf("attempted to Settle [%s]: %w", unit, err))
+		} else {
+			aggregated.CRESpendValue = bal
+			spentCredits = spentCredits.Add(bal)
 		}
 
-		aggregated.CRESpendValue = bal
-		spentCredits = spentCredits.Add(bal)
 		step.AggregatedSpends[unit] = aggregated
 	}
 

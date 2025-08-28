@@ -1254,13 +1254,18 @@ func Test_Report_EmitReceipt(t *testing.T) {
 				{Peer2PeerID: "xyz", SpendUnit: "a", SpendValue: "42"},
 			}))
 
-			expected[stepRef] = &eventspb.MeteringReportStep{Nodes: []*eventspb.MeteringReportNodeDetail{
-				{
-					Peer_2PeerId: "xyz",
-					SpendUnit:    "a",
-					SpendValue:   "42",
-				},
-			}}
+			expected[stepRef] = &eventspb.MeteringReportStep{
+				AggSpendValue:    "42.000",
+				AggSpendUnit:     "a",
+				AggSpendValueCre: "0.000",
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId:  "xyz",
+						SpendUnit:     "a",
+						SpendValue:    "42",
+						SpendValueCre: "0.000",
+					},
+				}}
 		}
 
 		assert.Equal(t, expected, report.FormatReport().Steps)
