@@ -40,8 +40,8 @@ var _ cldf.ChangeSet[IDLConfig] = UpgradeIDL
 // Discriminator to invoke IDL operations
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
-//Number ids of the operations:
-//pub enum IdlInstruction {
+// Number ids of the operations:
+// pub enum IdlInstruction {
 //
 //	0 Create { data_len: u64 }, // One time initializer for creating the program's idl account.
 //
@@ -56,7 +56,7 @@ const IdlIxTag uint64 = 0x0a69e9a778bcf440
 //	5 Close, // Closes the IDL pda Account
 //
 //	6 Resize { data_len: u64 }, // Increases account size for accounts that need over 10kb.
-//}
+// }
 
 // IDL
 type IDLConfig struct {
@@ -223,18 +223,6 @@ func setIdlAuthority(e cldf.Environment, newAuthority, programsPath, programID, 
 	return nil
 }
 
-// Close IDL account for a program
-func runCloseIDLAccount(e cldf.Environment, programsPath, programID, programName string) error {
-	e.Logger.Infow("Closing IDL Account", "programName", programName)
-	args := []string{"idl", "close", programID}
-	e.Logger.Info(args)
-	_, err := runCommand("anchor", args, programsPath)
-	if err != nil {
-		return fmt.Errorf("error closing idl account: %w", err)
-	}
-	return nil
-}
-
 // get IDL address for a program
 func getIDLAddress(e cldf.Environment, programID solana.PublicKey) (solana.PublicKey, error) {
 	base, _, _ := solana.FindProgramAddress([][]byte{}, programID)
@@ -356,7 +344,7 @@ func closeIDLAccountIx(e cldf.Environment, programID, authority, spillAddress so
 	return *instruction, nil
 }
 
-// generate upgrade IDL ix for a program via timelock
+// generate close IDL PDA ix for a program via timelock
 func removeIDLIx(e cldf.Environment, programID, programName string, spillAddress solana.PublicKey, c IDLConfig) (*mcmsTypes.Transaction, error) {
 	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
 	if err != nil {
