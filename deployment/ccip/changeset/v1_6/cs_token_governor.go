@@ -44,6 +44,8 @@ var (
 	_ cldf.ChangeSet[TokenGovernorRoleChangesetConfig] = RenounceRoleTokenGovernor
 	_ cldf.ChangeSet[TokenGovernorRoleChangesetConfig] = TransferOwnershipTokenGovernor
 	_ cldf.ChangeSet[TokenGovernorChangesetConfig]     = AcceptOwnershipTokenGovernor
+	_ cldf.ChangeSet[TokenGovernorRoleChangesetConfig] = BeingDefaultAdminTransferTokenGovernor
+	_ cldf.ChangeSet[TokenGovernorChangesetConfig]     = AcceptDefaultAdminTransferTokenGovernor
 )
 
 type TokenGovernor struct {
@@ -455,6 +457,63 @@ func AcceptOwnershipTokenGovernor(env cldf.Environment, c TokenGovernorChangeset
 		for token, _ := range tokens {
 			tokenGovernor := chainState.TokenGovernor[token]
 			if _, err := tokenGovernor.AcceptOwnership(opts); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept ownership on chain %d: %w", chainSelector, err)
+			}
+		}
+	}
+
+	return deployerGroup.Enact()
+}
+
+// BeingDefaultAdminTransferTokenGovernor transfers ownership of the token governor contracts to the given account on the given chains.
+func BeingDefaultAdminTransferTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangesetConfig) (cldf.ChangesetOutput, error) {
+	if err := c.Validate(env); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenGovernorRoleChangesetConfig: %w", err)
+	}
+
+	state, _ := stateview.LoadOnchainState(env)
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("token governor transfer adming ownership")
+
+	for chainSelector, tokens := range c.Tokens {
+		opts, err := deployerGroup.GetDeployer(chainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %d: %w", chainSelector, err)
+		}
+
+		chainState, _ := state.EVMChainState(chainSelector)
+
+		for token, governor := range tokens {
+			tokenGovernor := chainState.TokenGovernor[token]
+
+			if _, err := tokenGovernor.BeginDefaultAdminTransfer(opts, governor.Account); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to account %s on chain %d: %w", governor.Account, chainSelector, err)
+			}
+		}
+	}
+
+	return deployerGroup.Enact()
+}
+
+// AcceptDefaultAdminTransferTokenGovernor accepts ownership of the token governor contracts on the given chains.
+func AcceptDefaultAdminTransferTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (cldf.ChangesetOutput, error) {
+	if err := c.Validate(env); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("invalid TokenGovernorChangesetConfig: %w", err)
+	}
+
+	state, _ := stateview.LoadOnchainState(env)
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("token governor accept admin ownership")
+
+	for chainSelector, tokens := range c.Tokens {
+		opts, err := deployerGroup.GetDeployer(chainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %d: %w", chainSelector, err)
+		}
+
+		chainState, _ := state.EVMChainState(chainSelector)
+
+		for token, _ := range tokens {
+			tokenGovernor := chainState.TokenGovernor[token]
+			if _, err := tokenGovernor.AcceptDefaultAdminTransfer(opts); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept ownership on chain %d: %w", chainSelector, err)
 			}
 		}
