@@ -334,7 +334,6 @@ func GrantRoleTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangesetCo
 		}
 
 		chainState, _ := state.EVMChainState(chainSelector)
-		chain := env.BlockChains.EVMChains()[chainSelector]
 
 		for token, governor := range tokens {
 			tokenGovernor := chainState.TokenGovernor[token]
@@ -353,13 +352,8 @@ func GrantRoleTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangesetCo
 				return cldf.ChangesetOutput{}, fmt.Errorf("account %s already has role %s", governor.Account, governor.Role)
 			}
 
-			tx, err := tokenGovernor.GrantRole(opts, role, governor.Account)
-			if err != nil {
+			if _, err := tokenGovernor.GrantRole(opts, role, governor.Account); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to grant role %s to account %s on chain %d: %w", governor.Role, governor.Account, chainSelector, err)
-			}
-
-			if _, err := chain.Confirm(tx); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm tx %s on chain %d: %w", tx.Hash().Hex(), chainSelector, err)
 			}
 		}
 	}
@@ -383,7 +377,6 @@ func RenounceRoleTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangese
 		}
 
 		chainState, _ := state.EVMChainState(chainSelector)
-		chain := env.BlockChains.EVMChains()[chainSelector]
 
 		for token, governor := range tokens {
 			tokenGovernor := chainState.TokenGovernor[token]
@@ -402,13 +395,8 @@ func RenounceRoleTokenGovernor(env cldf.Environment, c TokenGovernorRoleChangese
 				return cldf.ChangesetOutput{}, fmt.Errorf("account %s does not have role %s", governor.Account, governor.Role)
 			}
 
-			tx, err := tokenGovernor.RenounceRole(opts, role, governor.Account)
-			if err != nil {
+			if _, err := tokenGovernor.RenounceRole(opts, role, governor.Account); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to renounce role %s from account %s on chain %d: %w", governor.Role, governor.Account, chainSelector, err)
-			}
-
-			if _, err := chain.Confirm(tx); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm tx %s on chain %d: %w", tx.Hash().Hex(), chainSelector, err)
 			}
 		}
 	}
@@ -437,8 +425,7 @@ func TransferOwnershipTokenGovernor(env cldf.Environment, c TokenGovernorRoleCha
 		for token, governor := range tokens {
 			tokenGovernor := chainState.TokenGovernor[token]
 
-			_, err := tokenGovernor.TransferOwnership(opts, governor.Account)
-			if err != nil {
+			if _, err := tokenGovernor.TransferOwnership(opts, governor.Account); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership to account %s on chain %d: %w", governor.Account, chainSelector, err)
 			}
 		}
@@ -464,17 +451,11 @@ func AcceptOwnershipTokenGovernor(env cldf.Environment, c TokenGovernorChangeset
 		}
 
 		chainState, _ := state.EVMChainState(chainSelector)
-		chain := env.BlockChains.EVMChains()[chainSelector]
 
 		for token, _ := range tokens {
 			tokenGovernor := chainState.TokenGovernor[token]
-			tx, err := tokenGovernor.AcceptOwnership(opts)
-			if err != nil {
+			if _, err := tokenGovernor.AcceptOwnership(opts); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept ownership on chain %d: %w", chainSelector, err)
-			}
-
-			if _, err := chain.Confirm(tx); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm tx %s on chain %d: %w", tx.Hash().Hex(), chainSelector, err)
 			}
 		}
 	}
