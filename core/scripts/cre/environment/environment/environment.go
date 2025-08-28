@@ -343,6 +343,20 @@ func startCmd() *cobra.Command {
 					cleanupWait,
 					protoConfigs,
 				)
+
+				metaData := map[string]any{}
+				if startBeholderErr != nil {
+					metaData["result"] = "failure"
+					metaData["error"] = oneLineErrorMessage(startBeholderErr)
+				} else {
+					metaData["result"] = "success"
+				}
+
+				trackingErr := dxTracker.Track(tracking.MetricBeholderStart, metaData)
+				if trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
+				}
+
 				if startBeholderErr != nil {
 					if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
 						beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
@@ -439,7 +453,7 @@ func storeCTFConfigs(config cre.PersistentConfig) error {
 		}
 	}()
 
-	// make sure that cache file doesn't exist
+	// remove cache file, if it exists
 	ctfConfigFileName := addCachePrefix(findCtfConfigFile())
 	if _, err := os.Stat(ctfConfigFileName); err == nil {
 		removeErr := os.Remove(ctfConfigFileName)
@@ -449,7 +463,7 @@ func storeCTFConfigs(config cre.PersistentConfig) error {
 	}
 
 	// just in case remove "-cache.toml" suffix, because if it's present in the env var name
-	// config won't be cached as the logic assumes it already exists and we want to overwrite it
+	// config won't be saved as the CTF logic assumes it already exists
 	setErr := os.Setenv("CTF_CONFIGS", removeCachePrefix(ctfConfigFileName))
 	if setErr != nil {
 		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
@@ -483,9 +497,16 @@ type artifactPaths struct {
 }
 
 func findCtfConfigFile() string {
-	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file
-	// which we add, when environment starts, as the first one (that way it can be overridden by other configs)
 	ctfConfigs := os.Getenv("CTF_CONFIGS")
+	defer func() {
+		setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
+		if setErr != nil {
+			framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
+		}
+	}()
+
+	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file
+	// which we add, when environment starts, as adding it as the first one, allows other configs to override it if needed
 	splitConfigs := strings.Split(ctfConfigs, ",")
 	if len(splitConfigs) > 1 {
 		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
@@ -535,13 +556,13 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 		metadata["panicked"] = *panicked
 	}
 
-	dxStartupErr := dxTracker.Track("cre.local.startup.result", metadata)
+	dxStartupErr := dxTracker.Track(tracking.MetricStartupResult, metadata)
 	if dxStartupErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxStartupErr)
 	}
 
 	if success {
-		dxTimeErr := dxTracker.Track("cre.local.startup.time", map[string]any{
+		dxTimeErr := dxTracker.Track(tracking.MetricStartupTime, map[string]any{
 			"duration_seconds":       time.Since(provisioningStartTime).Seconds(),
 			"has_built_docker_image": hasBuiltDockerImage,
 		})
@@ -909,7 +930,6 @@ var removeCurrentCtfConfigs = func(file string) bool {
 }
 
 func removeAllEnvironmentStateFiles() error {
-	// remove all cache files
 	removeCacheErr := removeCtfConfigsCacheFiles(removeAll)
 	if removeCacheErr != nil {
 		return errors.Wrap(removeCacheErr, "failed to remove cache files")

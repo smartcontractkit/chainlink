@@ -193,6 +193,7 @@ func (h *handler) Methods() []string {
 		MethodSecretsGet,
 		MethodSecretsUpdate,
 		MethodSecretsDelete,
+		MethodSecretsList,
 	}
 }
 
@@ -226,6 +227,8 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return h.handleSecretsUpdate(ctx, ar)
 	case MethodSecretsDelete:
 		return h.handleSecretsDelete(ctx, ar)
+	case MethodSecretsList:
+		return h.handleSecretsList(ctx, ar)
 	default:
 		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method)))
 	}
@@ -393,24 +396,28 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error 
 		}
 	}
 
-	// At this point, we know that the request is valid and we can send it to the nodes
-	var nodeErrors []error
-	for _, node := range h.donConfig.Members {
-		err := h.don.SendToNode(ctx, node.Address, &ar.req)
-		if err != nil {
-			nodeErrors = append(nodeErrors, err)
-			l.Errorw("error sending request to node", "node", node.Address, "error", err)
-		}
-	}
-
-	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
-	}
-
-	l.Debugw("successfully forwarded request to Vault nodes")
-	return nil
+	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
+func (h *handler) handleSecretsList(ctx context.Context, ar activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+
+	req := &vaultcommon.ListSecretIdentifiersRequest{}
+	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+	}
+
+	req.RequestId = ar.req.ID
+
+	reqb, err := json.Marshal(req)
+	if err != nil {
+		l.Errorw("failed to marshal request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
+	}
+
+	ar.req.Params = (*json.RawMessage)(&reqb)
+	return h.fanOutToVaultNodes(ctx, l, ar)
+}
 
 func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar activeRequest) error {
 	var nodeErrors []error

@@ -1,23 +1,26 @@
 package changeset
 
-import "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+import (
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+)
 
 //TODO: KS-673 refactor internal package to reduce and remove the duplication
 
 // OracleConfig is the configuration for an oracle
-type OracleConfig = internal.OracleConfig
+type OracleConfig = ocr3.OracleConfig
 
 // OCR3OnchainConfig is the onchain configuration of an OCR2 contract
-type OCR3OnchainConfig = internal.OCR2OracleConfig
+type OCR3OnchainConfig = ocr3.OCR2OracleConfig
 
 // NodeKeys is a set of public keys for a node
-type NodeKeys = internal.NodeKeys
+type NodeKeys = ocr3.NodeKeys
 
 // TopLevelConfigSource is the top level configuration source
-type TopLevelConfigSource = internal.TopLevelConfigSource
+type TopLevelConfigSource = ocr3.TopLevelConfigSource
 
 // GenerateOCR3Config generates an OCR3 config
-var GenerateOCR3Config = internal.GenerateOCR3Config
+var GenerateOCR3Config = ocr3.GenerateOCR3Config
 
 // NOP is a node operator profile, required to register a node with the capabilities registry
 type NOP = internal.NOP

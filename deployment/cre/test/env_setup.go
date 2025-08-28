@@ -31,6 +31,11 @@ import (
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
+const (
+	DONName           = "test-don"
+	RegistryQualifier = "test-registry"
+)
+
 type EnvWrapperV2 struct {
 	t *testing.T
 
@@ -67,7 +72,7 @@ func initEnv(t *testing.T, lggr logger.Logger) (uint64, *cldf.Environment) {
 			cldf.CreateChangeSet(deployCapRegChangeset.Apply, deployCapRegChangeset.VerifyPreconditions),
 			changeset2.DeployCapabilitiesRegistryInput{
 				ChainSelector: registryChainSel,
-				Qualifier:     "test-registry",
+				Qualifier:     RegistryQualifier,
 			},
 		),
 	}
@@ -91,7 +96,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 
 	n := 4
 	donCfg := donConfig{
-		Name:             "test-don",
+		Name:             DONName,
 		N:                n,
 		F:                (n-1)/3 + 1,
 		RegistryChainSel: registryChainSel,
@@ -219,6 +224,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		t:                t,
 		Env:              &env,
 		RegistrySelector: registryChainSel,
+		RegistryAddress:  common.HexToAddress(registryAddrs[0].Address),
 	}
 }
 

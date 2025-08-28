@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/shopspring/decimal"
@@ -27,7 +28,9 @@ import (
 )
 
 const (
-	RatiosKey               = "spendRatios"
+	RatiosKey = "spendRatios"
+	// the default decimal precision is a fixed number defined in the billing service. if this gets changed
+	// in the billing service project, the value here needs to change.
 	defaultDecimalPrecision = 3 // one thousandth of a dollar
 )
 
@@ -99,6 +102,7 @@ type Report struct {
 	meteringMode    bool
 	meteringModeErr error
 	steps           map[string]ReportStep
+	rateCard        map[string]decimal.Decimal
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -152,7 +156,7 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		lggr.Errorf("switching to metering mode: failed to get selector for chain id: %s", err)
 	}
 
-	rateCard := make(map[string]decimal.Decimal)
+	report.rateCard = make(map[string]decimal.Decimal)
 
 	if client != nil {
 		report.client = client
@@ -168,7 +172,7 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 			lggr.Error(err)
 		}
 
-		rateCard, err = toRateCard(resp.GetRateCards())
+		report.rateCard, err = toRateCard(resp)
 		if err != nil {
 			lggr.Errorf("switching to metering mode: %s", err)
 
@@ -176,23 +180,10 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		}
 	}
 
-	if len(rateCard) == 0 && !report.meteringMode {
+	if len(report.rateCard) == 0 && !report.meteringMode {
 		lggr.Error("switching to metering mode: empty rate card")
 
 		report.meteringMode = true
-	}
-
-	report.balance, err = NewBalanceStore(decimal.Zero, rateCard)
-	if err != nil {
-		lggr.Error("switching to metering mode: failed to create balance store: %s", err)
-		report.meteringMode = true
-
-		// we can recover with an empty rate card and in metering mode
-		report.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
-		if err != nil {
-			// this should never happen, but if it does, we cannot proceed
-			return nil, err
-		}
 	}
 
 	return &report, nil
@@ -203,6 +194,9 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 func (r *Report) Reserve(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	// to avoid nil pointers, the balance store should be initialized with a zero value
+	r.balance, _ = NewBalanceStore(decimal.Zero, r.rateCard)
 
 	if r.client == nil {
 		r.switchToMeteringMode(ErrNoBillingClient)
@@ -246,7 +240,23 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	r.ready = true
 
-	return r.balance.Add(credits)
+	// once credits are available, the balance store can be initialized again with the actual initial balance
+	r.balance, err = NewBalanceStore(credits, r.rateCard)
+	if err != nil {
+		r.lggr.Error("switching to metering mode: failed to create balance store: %s", err)
+		r.meteringMode = true
+
+		// we can recover with an empty rate card and in metering mode
+		r.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
+		if err != nil {
+			// this should never happen, but if it does, we cannot proceed
+			r.lggr.Error("failed to create empty balance store with no rates: %s", err)
+
+			return err
+		}
+	}
+
+	return nil
 }
 
 // DeductOpt changes both the functional behavior of the Deduct method. We chose to do DeductOpt because the standard deduction
@@ -376,6 +386,13 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
 				// throw out invalid values for local balance settlement. they will still be included in metering report.
 				continue
+			}
+
+			if isGasSpendType(unit) {
+				// TODO: this decimal shift should be temporary and converted when write capabilities
+				// are converted to provide spend as big.Int fixed point values
+				// WARNING: 18 is a magic number here and assumes all gas tokens will have the same level of precision
+				value = value.Shift(18) // shift to fixed point value
 			}
 
 			deciVals = append(deciVals, value)
@@ -532,10 +549,19 @@ func (r *Report) creditToSpendingLimits(
 			return []capabilities.SpendLimit{}
 		}
 
-		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: spendLimit.StringFixed(defaultDecimalPrecision)})
+		formattedLimit := spendLimit.StringFixed(defaultDecimalPrecision)
+		if isGasSpendType(string(spendType)) {
+			formattedLimit = spendLimit.StringFixed(0)
+		}
+
+		limits = append(limits, capabilities.SpendLimit{SpendType: spendType, Limit: formattedLimit})
 	}
 
 	return limits
+}
+
+func isGasSpendType(spendType string) bool {
+	return strings.HasPrefix(spendType, "GAS.")
 }
 
 // getMaxSpendForInvocation returns the amount of credits that can be used based on the minimum between an optionally
@@ -579,7 +605,9 @@ func (r *Report) switchToMeteringMode(err error) {
 	r.ready = true
 }
 
-func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
+func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]decimal.Decimal, error) {
+	rates := resp.GetRateCards()
+
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
 		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
@@ -588,6 +616,19 @@ func toRateCard(rates []*billing.RateCard) (map[string]decimal.Decimal, error) {
 		}
 
 		rateCard[rate.ResourceType.String()] = conversionDeci
+	}
+
+	// credits per gas are provided in the form of map[chainselector] -> <gasRate>string
+	// each entry should be converted to a usable rate card with form of GAS.[chainselector] -> <unitsPerCredit>decimal
+	gasCredits := resp.GetGasTokensPerCredit()
+
+	for chainSelector, gasRate := range gasCredits {
+		conversionDeci, err := decimal.NewFromString(gasRate)
+		if err != nil {
+			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert gas rate %d's value %s to decimal", chainSelector, gasRate)
+		}
+
+		rateCard[fmt.Sprintf("GAS.%d", chainSelector)] = conversionDeci
 	}
 
 	return rateCard, nil

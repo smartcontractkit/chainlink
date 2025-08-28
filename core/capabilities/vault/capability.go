@@ -196,6 +196,18 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
+func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*Response, error) {
+	if request.RequestId == "" {
+		return nil, errors.New("request ID must not be empty")
+	}
+
+	if request.Owner == "" {
+		return nil, errors.New("owner must not be empty")
+	}
+
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
 func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*Response, error) {
 	s.lggr.Infof("Received GetSecrets call: %s", request.String())
 	if len(request.Requests) == 0 {

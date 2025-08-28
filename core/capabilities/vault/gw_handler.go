@@ -103,6 +103,8 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 		response = h.handleSecretsUpdate(ctx, gatewayID, req)
 	case vaultapi.MethodSecretsDelete:
 		response = h.handleSecretsDelete(ctx, gatewayID, req)
+	case vaultapi.MethodSecretsList:
+		response = h.handleSecretsList(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
@@ -209,6 +211,30 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 	resp, err := h.secretsService.DeleteSecrets(ctx, r)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to delete secrets: %w", err))
+	}
+
+	resultBytes, err := resp.ToJSONRPCResult()
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+
+	return &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&resultBytes),
+	}
+}
+
+func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	r := &vaultcommon.ListSecretIdentifiersRequest{}
+	if err := json.Unmarshal(*req.Params, r); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+
+	resp, err := h.secretsService.ListSecretIdentifiers(ctx, r)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
 	}
 
 	resultBytes, err := resp.ToJSONRPCResult()

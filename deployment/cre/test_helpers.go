@@ -1,4 +1,4 @@
-package changeset
+package cre
 
 import (
 	"testing"
