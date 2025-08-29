@@ -200,12 +200,12 @@ func idlInit(e cldf.Environment, programsPath, programID, programName string) er
 	return nil
 }
 
-func setAuthorityIdlInstruction(e cldf.Environment, programID, authority solana.PublicKey) (solana.GenericInstruction, error) {
+func setAuthorityIdlInstruction(e cldf.Environment, programID, authority, newAuthority solana.PublicKey) (solana.GenericInstruction, error) {
 	accounts, instruction, err2 := getAccountsForSetAuthorityIdlInstruction(e, programID, authority)
 	if err2 != nil {
 		return instruction, err2
 	}
-	return buildIdlInstruction(programID, accounts, IdlInstructionSetAuthority)
+	return buildIdlInstruction(programID, accounts, IdlInstructionSetAuthority, newAuthority.Bytes())
 }
 
 func getAccountsForSetAuthorityIdlInstruction(e cldf.Environment, programID solana.PublicKey, authority solana.PublicKey) (solana.AccountMetaSlice, solana.GenericInstruction, error) {
@@ -221,7 +221,7 @@ func getAccountsForSetAuthorityIdlInstruction(e cldf.Environment, programID sola
 }
 
 // generate close IDL PDA ix for a program via timelock
-func setAuthorityIDLIx(e cldf.Environment, programID, programName string, c IDLConfig) (*mcmsTypes.Transaction, error) {
+func setAuthorityIDLIx(e cldf.Environment, programID, programName string, newAuthority solana.PublicKey, c IDLConfig) (*mcmsTypes.Transaction, error) {
 	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("error loading timelockSignerPDA: %w", err)
@@ -230,7 +230,7 @@ func setAuthorityIDLIx(e cldf.Environment, programID, programName string, c IDLC
 	if c.MCMS != nil {
 		authority = timelockSignerPDA
 	}
-	instruction, err := setAuthorityIdlInstruction(e, solana.MustPublicKeyFromBase58(programID), authority)
+	instruction, err := setAuthorityIdlInstruction(e, solana.MustPublicKeyFromBase58(programID), authority, newAuthority)
 	if err != nil {
 		return nil, fmt.Errorf("error setting authority IDL ix: %w", err)
 	}
@@ -297,7 +297,7 @@ func setBufferIdlInstruction(e cldf.Environment, programID, buffer, authority so
 	if err2 != nil {
 		return instruction, err2
 	}
-	return buildIdlInstruction(programID, accounts, IdlInstructionSetBuffer)
+	return buildIdlInstruction(programID, accounts, IdlInstructionSetBuffer, []byte{})
 }
 
 func getAccountsForCreateBufferIdlInstruction(e cldf.Environment, programID solana.PublicKey, buffer solana.PublicKey, authority solana.PublicKey) (solana.AccountMetaSlice, solana.GenericInstruction, error) {
@@ -313,9 +313,10 @@ func getAccountsForCreateBufferIdlInstruction(e cldf.Environment, programID sola
 	return accounts, solana.GenericInstruction{}, nil
 }
 
-func buildIdlInstruction(programID solana.PublicKey, accountsForIx solana.AccountMetaSlice, idlInstruction int) (solana.GenericInstruction, error) {
+func buildIdlInstruction(programID solana.PublicKey, accountsForIx solana.AccountMetaSlice, idlInstruction int, params []byte) (solana.GenericInstruction, error) {
 	data := binary.LittleEndian.AppendUint64([]byte{}, IdlIxTag) // 4-byte Extend instruction identifier
 	data = append(data, byte(idlInstruction))                    // Append the numeric ID of the operation
+	data = append(data, params...)                               // Append any additional parameters
 
 	instruction := solana.NewInstruction(
 		programID,
@@ -381,7 +382,7 @@ func closeIdlInstruction(e cldf.Environment, programID, authority, spillAddress 
 	if err != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)
 	}
-	return buildIdlInstruction(programID, accounts, IdlInstructionClose)
+	return buildIdlInstruction(programID, accounts, IdlInstructionClose, []byte{})
 }
 
 func getAccountsForCloseIdlInstruction(e cldf.Environment, programID solana.PublicKey, authority solana.PublicKey, spillAddress solana.PublicKey) (solana.AccountMetaSlice, error) {
@@ -578,8 +579,9 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 
 	// set idl authority
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
+	newAuthority := e.BlockChains.SolanaChains()[c.ChainSelector].DeployerKey.PublicKey()
 	if c.Router {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.Router.String(), deployment.RouterProgramName, c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.Router.String(), deployment.RouterProgramName, newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -588,7 +590,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 		}
 	}
 	if c.FeeQuoter {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -597,7 +599,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 		}
 	}
 	if c.OffRamp {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.OffRamp.String(), deployment.OffRampProgramName, c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.OffRamp.String(), deployment.OffRampProgramName, newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -606,7 +608,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 		}
 	}
 	if c.RMNRemote {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -616,7 +618,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		setAuthorityTx, err := setAuthorityIDLIx(e, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -626,7 +628,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		setAuthorityTx, err := setAuthorityIDLIx(e, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -635,7 +637,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 		}
 	}
 	if c.CCTPTokenPool {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -654,7 +656,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 	}
 
 	if c.AccessController {
-		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String(), c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String(), newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -663,7 +665,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 		}
 	}
 	if c.Timelock {
-		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String(), c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String(), newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -672,7 +674,7 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 		}
 	}
 	if c.MCM {
-		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String(), c)
+		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String(), newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
