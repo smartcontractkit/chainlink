@@ -40,8 +40,6 @@ inputs:
   products:
     description: "Products to deploy (multiline string)"
     required: false
-    default: |
-      cre
   aws-role-duration-seconds:
     description: "AWS role duration in seconds"
     required: false
