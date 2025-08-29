@@ -134,8 +134,8 @@ func getLatestNonce(tc TestCase) uint64 {
 		_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
 		latestNonce = nonceCounterAccount.Counter
 	case chain_selectors.FamilyTon:
-		// TODO investigate TON nonce management, return +1 for now
-		return *tc.Nonce + 1
+		// No nonce management on Ton, just return the test value
+		return *tc.Nonce
 	}
 	return latestNonce
 }
