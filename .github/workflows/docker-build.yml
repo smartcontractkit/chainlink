@@ -258,3 +258,6 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          products: |
+            ccip-nightlies
+            cre
