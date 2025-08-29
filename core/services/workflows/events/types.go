@@ -28,6 +28,12 @@ const (
 	// SchemaUserLogs represents the schema for user log events
 	SchemaUserLogs string = "/cre-events-user-logs/v1"
 
+	// V2 schema constants
+	SchemaWorkflowStartedV2    string = "/cre-events-workflow-started/v2"
+	SchemaWorkflowFinishedV2   string = "/cre-events-workflow-finished/v2"
+	SchemaCapabilityStartedV2  string = "/cre-events-capability-started/v2"
+	SchemaCapabilityFinishedV2 string = "/cre-events-capability-finished/v2"
+
 	MeteringReportSchema string = "/workflows/v1/metering.proto"
 	MeteringReportDomain string = "platform"
 	MeteringReportEntity string = "MeteringReport"

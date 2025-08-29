@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -39,10 +40,11 @@ type WorkflowMetadataHandler struct {
 	don             handlers.DON
 	donConfig       *config.DONConfig
 	stopCh          services.StopChan
+	metrics         *metrics.Metrics
 }
 
 // NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler.
-func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handlers.DON, donConfig *config.DONConfig) *WorkflowMetadataHandler {
+func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handlers.DON, donConfig *config.DONConfig, metrics *metrics.Metrics) *WorkflowMetadataHandler {
 	// f+1 identical responses from workflow are needed for workflow metadata to be registered
 	threshold := donConfig.F + 1
 	return &WorkflowMetadataHandler{
@@ -50,16 +52,17 @@ func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handl
 		authorizedKeys:  make(map[string]map[gateway.AuthorizedKey]struct{}),
 		workflowRefToID: make(map[workflowReference]string),
 		workflowIDToRef: make(map[string]workflowReference),
-		agg:             aggregation.NewWorkflowMetadataAggregator(lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond),
+		agg:             aggregation.NewWorkflowMetadataAggregator(lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond, metrics),
 		don:             don,
 		donConfig:       donConfig,
 		config:          cfg,
 		stopCh:          make(services.StopChan),
+		metrics:         metrics,
 	}
 }
 
 func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req *jsonrpc.Request[json.RawMessage]) (*gateway.AuthorizedKey, error) {
-	_, signer, err := utils.VerifyRequestJWT[json.RawMessage](token, *req)
+	_, signer, err := utils.VerifyRequestJWT(token, *req)
 	if err != nil {
 		h.lggr.Errorw("Failed to verify JWT", "error", err)
 		return nil, err
@@ -125,7 +128,11 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 
 // sendMetadataPullRequest sends a request to all nodes in the DON to pull the latest metadata.
 // no retries are performed, as the caller is expected to poll periodically.
-func (h *WorkflowMetadataHandler) sendMetadataPullRequest(ctx context.Context) error {
+func (h *WorkflowMetadataHandler) sendMetadataPullRequest() error {
+	timeout := time.Duration(h.config.MetadataPullRequestTimeoutMs) * time.Millisecond
+	ctx, cancel := h.stopCh.CtxWithTimeout(timeout)
+	defer cancel()
+
 	req := &jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      gateway.GetRequestID(gateway.MethodPullWorkflowMetadata),
@@ -133,8 +140,10 @@ func (h *WorkflowMetadataHandler) sendMetadataPullRequest(ctx context.Context) e
 	}
 	var combinedErr error
 	for _, member := range h.donConfig.Members {
+		h.metrics.Trigger.IncrementCapabilityRequestCount(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
 		err := h.don.SendToNode(ctx, member.Address, req)
 		if err != nil {
+			h.metrics.Trigger.IncrementCapabilityRequestFailures(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
 			combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to send pull request to node %s: %w", member.Address, err))
 		}
 	}
@@ -190,7 +199,7 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 			return err
 		}
 		h.runTicker(time.Duration(h.config.MetadataPullIntervalMs)*time.Millisecond, func() {
-			err2 := h.sendMetadataPullRequest(ctx)
+			err2 := h.sendMetadataPullRequest()
 			if err2 != nil {
 				h.lggr.Errorw("Failed to send pull request", "error", err2)
 			}

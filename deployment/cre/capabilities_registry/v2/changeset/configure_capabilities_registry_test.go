@@ -16,6 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+
+	"github.com/smartcontractkit/chainlink/deployment/cre"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 )
 
 type testFixture struct {
@@ -323,7 +326,7 @@ dons:
 
 func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	lggr := logger.Test(t)
-	env, chainSelector := BuildMinimalEnvironment(t, lggr)
+	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Running deployment changeset...")
@@ -512,16 +515,16 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 	require.Len(t, registeredNodes, len(fixture.nodes), "should have registered the correct number of nodes")
 
 	for i, node := range fixture.nodes {
-		expectedSigner, err := hexStringTo32Bytes(node.Signer)
+		expectedSigner, err := pkg.HexStringTo32Bytes(node.Signer)
 		require.NoError(t, err, "failed to convert signer hex string to bytes")
 
-		expectedCsaKey, err := hexStringTo32Bytes(node.CsaKey)
+		expectedCsaKey, err := pkg.HexStringTo32Bytes(node.CsaKey)
 		require.NoError(t, err, "failed to convert CSA key hex string to bytes")
 
 		bytes32P2pID, err := p2pkey.MakePeerID(node.P2pID)
 		require.NoError(t, err, "failed to convert P2P ID string to bytes")
 
-		expectedEncryptionPublicKey, err := hexStringTo32Bytes(node.EncryptionPublicKey)
+		expectedEncryptionPublicKey, err := pkg.HexStringTo32Bytes(node.EncryptionPublicKey)
 		require.NoError(t, err, "failed to convert encryption public key hex string to bytes")
 
 		got, err := capabilitiesRegistry.GetNode(nil, bytes32P2pID)

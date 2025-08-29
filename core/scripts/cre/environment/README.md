@@ -99,7 +99,7 @@ go run . env start [--auto-setup]
 # to start environment with an example workflow web API-based workflow
 go run . env start --with-example
 
- # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
+ # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary present in `/binaries` folder)
 go run . env start --with-example --example-workflow-trigger cron
 
 # to start environment using image with all supported capabilities
@@ -194,7 +194,7 @@ go run . workflow deploy [flags]
 - `-n, --workflow-name`: Workflow name (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-b, --capabilities-registry-address`: Capabilities registry address (default: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 - `-e, --don-id`: DON ID (default: `1`)
@@ -216,7 +216,7 @@ go run . workflow delete [flags]
 - `-n, --name`: Workflow name to delete (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 
 **Example:**
@@ -235,7 +235,7 @@ go run . workflow delete-all [flags]
 **Key flags:**
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 
 **Example:**
@@ -278,14 +278,7 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
       - Cloning [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repository (Make sure they are built for `linux/amd64`!)
       - Building each capability manually by running `GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o evm` inside capability's folder or building all of them at once with `./nx run-many -t build` in root of `capabilities` folder
 
-     Once that is done reference them in your TOML like:
-       ```toml
-       [extra_capabilities]
-       cron_capability_binary_path = "./cron" # remember to adjust binary name and path
-       # log even trigger and read-contract binaries go here
-       # they are all commented out by default
-       ```
-     Do make sure that the path to the binary is either relative to the `environment` folder or absolute. Then the binary will be copied to the Docker image.
+     **Once that is done copy them to `core/scripts/cre/environment/binaries` folder.**  Each binary will be copied to the Docker image (if the DON has that capability enabled).
    - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
 3.  **Decide whether to build or reuse Chainlink Docker Image**
      - By default, the config builds the Docker image from your local branch. To use an existing image change to:
@@ -449,7 +442,7 @@ go run . workflow deploy-and-verify-example [flags]
 - `-u, --example-workflow-timeout`: Time to wait for workflow execution (default: `5m`)
 - `-g, --gateway-url`: Gateway URL for web API trigger (default: `http://localhost:5002`)
 - `-d, --don-id`: DON ID for web API trigger (default: `vault`)
-- `-w, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
+- `-w, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 
 **Examples:**
@@ -1106,10 +1099,6 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
-
-# Ensure cron binary is available or use plugins image
-[extra_capabilities]
-cron_capability_binary_path = "./binaries/cron"
 ```
 
 #### Example 2: Full Capability Setup

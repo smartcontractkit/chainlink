@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -9,7 +10,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
@@ -42,10 +45,30 @@ func EmitExecutionStartedEvent(
 		TriggerID: triggerEventID,
 	}
 
-	return emitProtoMessage(ctx, event)
+	// Also emit v2 event
+	creInfo := buildCREMetadataV2(labels)
+	workflowKey := buildWorkflowKeyV2(labels, executionID)
+
+	v2Event := &eventsv2.WorkflowExecutionStarted{
+		CreInfo:             creInfo,
+		Workflow:            workflowKey,
+		WorkflowExecutionID: executionID,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		TriggerID:           triggerEventID,
+	}
+
+	// Emit both v1 and v2 events
+	var multiErr error
+	if err := emitProtoMessage(ctx, event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+	if err := emitProtoMessage(ctx, v2Event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+	return multiErr
 }
 
-func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string) error {
+func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, lggr logger.Logger) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.WorkflowExecutionFinished{
@@ -54,7 +77,38 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 		Status:    status,
 	}
 
-	return emitProtoMessage(ctx, event)
+	// Also emit v2 event
+	creInfo := buildCREMetadataV2(labels)
+	workflowKey := buildWorkflowKeyV2(labels, executionID)
+
+	// Convert status string to v2 ExecutionStatus enum
+	var executionStatus eventsv2.ExecutionStatus
+	switch status {
+	case "completed": // there are enums in workflows/store, but we shouldn't import that here
+		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED
+	case "errored", "timeout":
+		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED
+	default:
+		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED
+	}
+
+	v2Event := &eventsv2.WorkflowExecutionFinished{
+		CreInfo:             creInfo,
+		Workflow:            workflowKey,
+		WorkflowExecutionID: executionID,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		Status:              executionStatus,
+	}
+
+	// Emit both v1 and v2 events
+	var multiErr error
+	if err := emitProtoMessage(ctx, event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+	if err := emitProtoMessage(ctx, v2Event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+	return multiErr
 }
 
 func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef string) error {
@@ -67,7 +121,36 @@ func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, e
 		StepRef:      stepRef,
 	}
 
-	return emitProtoMessage(ctx, event)
+	// Also emit v2 event
+	creInfo := buildCREMetadataV2(labels)
+	workflowKey := buildWorkflowKeyV2(labels, executionID)
+
+	// Convert stepRef string to int32
+	// V1 engine has arbitrary string stepRefs, v2 engine has monotonically increasing integers
+	// We will support both v1 and v2 events for the short term, so need to handle both cases
+	stepRefInt, err := strconv.ParseInt(stepRef, 10, 32)
+	if err != nil {
+		stepRefInt = -1
+	}
+
+	v2Event := &eventsv2.CapabilityExecutionStarted{
+		CreInfo:             creInfo,
+		Workflow:            workflowKey,
+		WorkflowExecutionID: executionID,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		CapabilityID:        capabilityID,
+		StepRef:             int32(stepRefInt),
+	}
+
+	// Emit both v1 and v2 events
+	var multiErr error
+	if err := emitProtoMessage(ctx, event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+	if err := emitProtoMessage(ctx, v2Event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+	return multiErr
 }
 
 func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string) error {
@@ -81,11 +164,52 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 		Status:       status,
 	}
 
-	return emitProtoMessage(ctx, event)
+	// Also emit v2 event
+	creInfo := buildCREMetadataV2(labels)
+	workflowKey := buildWorkflowKeyV2(labels, executionID)
+
+	// Convert stepRef string to int32
+	// V1 engine has arbitrary string stepRefs, v2 engine has monotonically increasing integers
+	// We will support both v1 and v2 events for the short term, so need to handle both cases
+	stepRefInt, err := strconv.ParseInt(stepRef, 10, 32)
+	if err != nil {
+		stepRefInt = -1
+	}
+
+	// Convert status string to v2 ExecutionStatus enum
+	var executionStatus eventsv2.ExecutionStatus
+	switch status {
+	case "completed":
+		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED
+	case "errored", "timeout":
+		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED
+	default:
+		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED
+	}
+
+	v2Event := &eventsv2.CapabilityExecutionFinished{
+		CreInfo:             creInfo,
+		Workflow:            workflowKey,
+		WorkflowExecutionID: executionID,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		CapabilityID:        capabilityID,
+		StepRef:             int32(stepRefInt),
+		Status:              executionStatus,
+	}
+
+	// Emit both v1 and v2 events
+	var multiErr error
+	if err := emitProtoMessage(ctx, event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+	if err := emitProtoMessage(ctx, v2Event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+	return multiErr
 }
 
 func EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport) error {
-	rpt.Metadata = buildWorkflowMetadata(labels, rpt.Metadata.WorkflowExecutionID)
+	rpt.Metadata = buildWorkflowMetadata(labels, labels[platform.KeyWorkflowExecutionID])
 
 	return emitProtoMessage(ctx, rpt)
 }
@@ -131,6 +255,19 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *events.UserLogs:
 		schema = SchemaUserLogs
 		entity = fmt.Sprintf("%s.%s", ProtoPkg, UserLogs)
+	// V2 event types
+	case *eventsv2.WorkflowExecutionStarted:
+		schema = SchemaWorkflowStartedV2
+		entity = "workflows.v2." + WorkflowExecutionStarted
+	case *eventsv2.WorkflowExecutionFinished:
+		schema = SchemaWorkflowFinishedV2
+		entity = "workflows.v2." + WorkflowExecutionFinished
+	case *eventsv2.CapabilityExecutionStarted:
+		schema = SchemaCapabilityStartedV2
+		entity = "workflows.v2." + CapabilityExecutionStarted
+	case *eventsv2.CapabilityExecutionFinished:
+		schema = SchemaCapabilityFinishedV2
+		entity = "workflows.v2." + CapabilityExecutionFinished
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
@@ -149,10 +286,7 @@ func buildWorkflowMetadata(kvs map[string]string, workflowExecutionID string) *e
 	m.WorkflowName = kvs[platform.KeyWorkflowName]
 	m.Version = kvs[platform.KeyWorkflowVersion]
 	m.WorkflowID = kvs[platform.KeyWorkflowID]
-	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
-	if workflowExecutionID != "" {
-		m.WorkflowExecutionID = workflowExecutionID
-	}
+	m.WorkflowExecutionID = workflowExecutionID
 
 	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
 		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
@@ -174,4 +308,48 @@ func buildWorkflowMetadata(kvs map[string]string, workflowExecutionID string) *e
 	}
 
 	return m
+}
+
+// buildCREMetadataV2 populates a CREInfo from kvs (map[string]string).
+func buildCREMetadataV2(kvs map[string]string) *eventsv2.CreInfo {
+	m := &eventsv2.CreInfo{}
+
+	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
+		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
+			m.DonID = int32(id)
+		}
+	}
+
+	m.P2PID = kvs[platform.KeyP2PID]
+
+	if donFStr, ok := kvs[platform.KeyDonF]; ok {
+		if id, err := strconv.ParseInt(donFStr, 10, 32); err == nil {
+			m.DonF = int32(id)
+		}
+	}
+	if donNStr, ok := kvs[platform.KeyDonN]; ok {
+		if id, err := strconv.ParseInt(donNStr, 10, 32); err == nil {
+			m.DonN = int32(id)
+		}
+	}
+
+	m.WorkflowRegistryAddress = kvs[platform.WorkflowRegistryAddress]
+	m.WorkflowRegistryVersion = kvs[platform.WorkflowRegistryVersion]
+	m.WorkflowRegistryChain = kvs[platform.WorkflowRegistryChain]
+	m.EngineVersion = kvs[platform.EngineVersion]
+	m.CapabilitiesRegistryVersion = kvs[platform.CapabilitiesRegistryVersion]
+	m.DonVersion = kvs[platform.DonVersion]
+
+	return m
+}
+
+// buildWorkflowKeyV2 populates a WorkflowKey from kvs (map[string]string).
+func buildWorkflowKeyV2(kvs map[string]string, workflowExecutionID string) *eventsv2.WorkflowKey {
+	w := &eventsv2.WorkflowKey{}
+
+	w.WorkflowOwner = kvs[platform.KeyWorkflowOwner]
+	w.WorkflowName = kvs[platform.KeyWorkflowName]
+	w.WorkflowID = kvs[platform.KeyWorkflowID]
+
+	return w
 }

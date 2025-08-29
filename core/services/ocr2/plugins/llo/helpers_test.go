@@ -257,6 +257,9 @@ func setupNode(
 		// [Log]
 		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
 
+		// [CRE]
+		c.CRE.UseLocalTimeProvider = ptr(true)
+
 		// [EVM.Transactions]
 		for _, evmCfg := range c.EVM {
 			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr

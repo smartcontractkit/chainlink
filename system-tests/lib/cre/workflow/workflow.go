@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -22,10 +23,10 @@ import (
 	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
 )
 
-func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, donID uint64, workflowName, binaryURL string, configURL, secretsURL *string, artifactsDirInContainer *string) error {
+func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, donID uint64, workflowName, binaryURL string, configURL, secretsURL *string, artifactsDirInContainer *string) (string, error) {
 	workFlowData, workFlowErr := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
 	if workFlowErr != nil {
-		return errors.Wrap(workFlowErr, "failed to download and decode workflow binary")
+		return "", errors.Wrap(workFlowErr, "failed to download and decode workflow binary")
 	}
 
 	var binaryURLToUse string
@@ -38,10 +39,10 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	var configData []byte
 	var configErr error
 	configURLToUse := ""
-	if configURL != nil {
+	if configURL != nil && *configURL != "" {
 		configData, configErr = libnet.Download(ctx, *configURL)
 		if configErr != nil {
-			return errors.Wrap(configErr, "failed to download workflow config")
+			return "", errors.Wrap(configErr, "failed to download workflow config")
 		}
 
 		if artifactsDirInContainer != nil {
@@ -52,7 +53,7 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	}
 
 	secretsURLToUse := ""
-	if secretsURL != nil {
+	if secretsURL != nil && *secretsURL != "" {
 		if artifactsDirInContainer != nil {
 			secretsURLToUse = fmt.Sprintf("file://%s/%s", *artifactsDirInContainer, filepath.Base(*secretsURL))
 		} else {
@@ -63,21 +64,21 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	// use non-encoded workflow name
 	workflowID, idErr := generateWorkflowIDFromStrings(sc.MustGetRootKeyAddress().Hex(), workflowName, workFlowData, configData, secretsURLToUse)
 	if idErr != nil {
-		return errors.Wrap(idErr, "failed to generate workflow ID")
+		return "", errors.Wrap(idErr, "failed to generate workflow ID")
 	}
 
 	workflowRegistryInstance, instanceErr := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
 	if instanceErr != nil {
-		return errors.Wrap(instanceErr, "failed to create workflow registry instance")
+		return "", errors.Wrap(instanceErr, "failed to create workflow registry instance")
 	}
 
 	// use non-encoded workflow name
 	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), libc.MustSafeUint32FromUint64(donID), uint8(0), binaryURLToUse, configURLToUse, secretsURLToUse))
 	if decodeErr != nil {
-		return errors.Wrap(decodeErr, "failed to register workflow")
+		return "", errors.Wrap(decodeErr, "failed to register workflow")
 	}
 
-	return nil
+	return workflowID, nil
 }
 
 func GetWorkflowNames(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address) ([]string, error) {
@@ -154,6 +155,20 @@ func DeleteWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAd
 		return errors.Wrap(deleteErr, "failed to delete workflow named "+workflowName)
 	}
 
+	return nil
+}
+
+func RemoveWorkflowArtifactsFromLocalEnv(workflowArtifactsLocations ...string) error {
+	for _, artifactLocation := range workflowArtifactsLocations {
+		if artifactLocation == "" {
+			continue
+		}
+
+		err := os.Remove(artifactLocation)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to remove workflow artifact located at %s: %s", artifactLocation, err.Error()))
+		}
+	}
 	return nil
 }
 

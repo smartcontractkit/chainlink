@@ -66,6 +66,25 @@ type CCIPChainState struct {
 	RMNRemoteCursesPDA   solana.PublicKey
 }
 
+func (s CCIPChainState) GetTokenPoolLookupTableAddress(tokenPubKey solana.PublicKey, poolType cldf.ContractType, metadata string) (solana.PublicKey, error) {
+	poolToMeta, ok := s.TokenPoolLookupTable[tokenPubKey]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("failed to find token public key '%s' in chainState.TokenPoolLookupTable", tokenPubKey.String())
+	}
+
+	metaToAlut, ok := poolToMeta[poolType]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("failed to find pool type '%s' in chainState.TokenPoolLookupTable['%s']", poolType, tokenPubKey.String())
+	}
+
+	alutPubKey, ok := metaToAlut[metadata]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("failed to find metadata '%s' in chainState.TokenPoolLookupTable['%s']['%s']", metadata, tokenPubKey.String(), poolType)
+	}
+
+	return alutPubKey, nil
+}
+
 func (s CCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (solana.PublicKey, error) {
 	if tokenAddress.Equals(s.LinkToken) || tokenAddress.Equals(s.WSOL) || tokenAddress.Equals(s.USDCToken) {
 		return solana.TokenProgramID, nil

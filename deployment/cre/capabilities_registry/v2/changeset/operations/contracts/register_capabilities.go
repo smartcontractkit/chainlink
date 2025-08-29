@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -33,24 +34,26 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 	semver.MustParse("1.0.0"),
 	"Register Capabilities in Capabilities Registry",
 	func(b operations.Bundle, deps RegisterCapabilitiesDeps, input RegisterCapabilitiesInput) (RegisterCapabilitiesOutput, error) {
-		// Validate input
-
-		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("chain not found for selector %d", input.ChainSelector)
 		}
 
-		// Get the CapabilitiesRegistryTransactor contract
-		capabilityRegistryTransactor, err := capabilities_registry_v2.NewCapabilitiesRegistryTransactor(
-			common.HexToAddress(input.Address),
-			chain.Client,
+		capabilitiesRegistry, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+			common.HexToAddress(input.Address), chain.Client,
 		)
 		if err != nil {
-			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryTransactor: %w", err)
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 		}
 
-		tx, err := capabilityRegistryTransactor.AddCapabilities(chain.DeployerKey, input.Capabilities)
+		// We have to make sure the capabilities are not already in the contract, to avoid reverting the transaction.
+		// This is also important when we use MCMS, so the whole batch doesn't get reverted.
+		capabilities, err := dedupCapabilities(capabilitiesRegistry, input.Capabilities)
+		if err != nil {
+			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to deduplicate capabilities: %w", err)
+		}
+
+		tx, err := capabilitiesRegistry.AddCapabilities(chain.DeployerKey, capabilities)
 		if err != nil {
 			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to call AddCapabilities: %w", err)
@@ -67,15 +70,6 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to mine AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 
-		// Get the CapabilitiesRegistryFilterer contract
-		capabilityRegistryFilterer, err := capabilities_registry_v2.NewCapabilitiesRegistryFilterer(
-			common.HexToAddress(input.Address),
-			chain.Client,
-		)
-		if err != nil {
-			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistryFilterer: %w", err)
-		}
-
 		resp := RegisterCapabilitiesOutput{
 			Capabilities: make([]*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured, 0, len(receipt.Logs)),
 		}
@@ -85,7 +79,7 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 				continue
 			}
 
-			o, err := capabilityRegistryFilterer.ParseCapabilityConfigured(*log)
+			o, err := capabilitiesRegistry.ParseCapabilityConfigured(*log)
 			if err != nil {
 				return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
 			}
@@ -95,3 +89,46 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 		return resp, nil
 	},
 )
+
+// dedupCapabilities deduplicates the capabilities with respect to the registry
+// The contract reverts on adding the same capability twice and that would cause the whole transaction to revert.
+func dedupCapabilities(
+	capReg *capabilities_registry_v2.CapabilitiesRegistry,
+	capabilities []capabilities_registry_v2.CapabilitiesRegistryCapability,
+) ([]capabilities_registry_v2.CapabilitiesRegistryCapability, error) {
+	if capReg == nil {
+		return nil, errors.New("capabilities registry is nil")
+	}
+	if len(capabilities) == 0 {
+		return nil, errors.New("capabilities list is empty")
+	}
+
+	caps, err := capReg.GetCapabilities(nil)
+	if err != nil {
+		err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to call GetCapabilities: %w", err)
+	}
+	existingByID := make(map[string]struct{})
+	for _, existingCap := range caps {
+		existingByID[existingCap.CapabilityId] = struct{}{}
+	}
+
+	var out []capabilities_registry_v2.CapabilitiesRegistryCapability
+
+	// Deduplicate capabilities by their ID
+	seen := make(map[string]struct{}, len(capabilities))
+	for _, candidate := range capabilities {
+		// Process a capability only once in terms of the input list, to avoid duplicates in the output
+		if _, exists := seen[candidate.CapabilityId]; exists {
+			continue
+		}
+		seen[candidate.CapabilityId] = struct{}{}
+
+		// Skip capabilities that already exist in the registry
+		if _, exists := existingByID[candidate.CapabilityId]; !exists {
+			out = append(out, candidate)
+		}
+	}
+
+	return out, nil
+}

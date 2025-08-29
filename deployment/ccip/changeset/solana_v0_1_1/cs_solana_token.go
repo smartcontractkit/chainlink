@@ -334,8 +334,18 @@ type UploadTokenMetadataConfig struct {
 
 func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	_, _ = runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
-	_, _ = runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	out1, err1 := runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	e.Logger.Infow("solana config set url output", "output", out1)
+	if err1 != nil {
+		e.Logger.Errorw("solana config set url error", "error", err1)
+		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
+	}
+	out2, err2 := runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	e.Logger.Infow("solana config set keypair output", "output", out2)
+	if err2 != nil {
+		e.Logger.Errorw("solana config set keypair error", "error", err2)
+		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana keypair: %w", err2)
+	}
 	for _, metadata := range cfg.TokenMetadata {
 		if metadata.TokenPubkey.IsZero() {
 			e.Logger.Errorw("Token pubkey is zero", "tokenPubkey", metadata.TokenPubkey.String())
@@ -413,5 +423,43 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 	}
 
+	return cldf.ChangesetOutput{}, nil
+}
+
+type DisableFreezeAuthorityConfig struct {
+	ChainSelector uint64
+	TokenPubkeys  []solana.PublicKey
+}
+
+func DisableFreezeAuthority(e cldf.Environment, cfg DisableFreezeAuthorityConfig) (cldf.ChangesetOutput, error) {
+	if cfg.ChainSelector == 0 {
+		return cldf.ChangesetOutput{}, errors.New("chain selector is required")
+	}
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	out1, err1 := runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	e.Logger.Infow("solana config set url output", "output", out1)
+	if err1 != nil {
+		e.Logger.Errorw("solana config set url error", "error", err1)
+		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
+	}
+	out2, err2 := runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	e.Logger.Infow("solana config set keypair output", "output", out2)
+	if err2 != nil {
+		e.Logger.Errorw("solana config set keypair error", "error", err2)
+		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana keypair: %w", err2)
+	}
+
+	for _, tokenPubkey := range cfg.TokenPubkeys {
+		e.Logger.Infow("Disabling freeze authority", "tokenPubkey", tokenPubkey.String())
+		args := []string{"authorize", tokenPubkey.String(), "freeze", "--disable"}
+		e.Logger.Info(args)
+		output, err := runCommand("spl-token", args, chain.ProgramsPath)
+		e.Logger.Debugw("spl-token output", "output", output)
+		if err != nil {
+			e.Logger.Debugw("spl-token authorize error", "error", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("error disabling freeze authority: %w", err)
+		}
+		e.Logger.Infow("Token freeze authority disabled", "tokenPubkey", tokenPubkey.String())
+	}
 	return cldf.ChangesetOutput{}, nil
 }

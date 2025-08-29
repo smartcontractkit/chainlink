@@ -1,6 +1,4 @@
-// TODO: KS-458 copied from https://github.com/smartcontractkit/chainlink/blob/65924811dc53a211613927c814d7f04fd85439a4/core/scripts/keystone/src/88_gen_ocr3_config.go#L1
-// to unblock go mod issues when trying to import the scripts package
-package internal
+package ocr3
 
 import (
 	"crypto/ed25519"
@@ -16,6 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -23,7 +22,7 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
-	kocr3 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -35,8 +34,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
+var (
+	OCR3Capability cldf.ContractType = "OCR3Capability" // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
+)
+
 type TopLevelConfigSource struct {
 	OracleConfig OracleConfig
+}
+
+type MCMSConfig struct {
+	MinDuration time.Duration
 }
 
 type OracleConfig struct {
@@ -197,7 +204,7 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecrets) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
-		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v", len(nca), cfg.TransmissionSchedule)
+		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
 	}
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
@@ -350,45 +357,48 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecret
 	return config, nil
 }
 
-type configureOCR3Request struct {
-	cfg        *OracleConfig
-	chain      cldf_evm.Chain
-	contract   *kocr3.OCR3Capability
-	nodes      []deployment.Node
-	dryRun     bool
-	ocrSecrets cldf.OCRSecrets
+type ConfigureOCR3Request struct {
+	Cfg        *OracleConfig
+	Chain      cldf_evm.Chain
+	Contract   *ocr3_capability.OCR3Capability
+	Nodes      []deployment.Node
+	DryRun     bool
+	OcrSecrets cldf.OCRSecrets
 
-	useMCMS bool
+	UseMCMS bool
 }
 
-func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
-	nks := makeNodeKeysSlice(r.nodes, r.chain.Selector)
-	return GenerateOCR3Config(*r.cfg, nks, r.ocrSecrets)
+func (r ConfigureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
+	nks := makeNodeKeysSlice(r.Nodes, r.Chain.Selector)
+	if r.Cfg == nil {
+		return OCR2OracleConfig{}, errors.New("OCR3 config is required")
+	}
+	return GenerateOCR3Config(*r.Cfg, nks, r.OcrSecrets)
 }
 
-type configureOCR3Response struct {
-	ocrConfig OCR2OracleConfig
-	ops       *mcmstypes.BatchOperation
+type ConfigureOCR3Response struct {
+	OcrConfig OCR2OracleConfig
+	Ops       *mcmstypes.BatchOperation
 }
 
-func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
-	if req.contract == nil {
+func ConfigureOCR3contract(req ConfigureOCR3Request) (*ConfigureOCR3Response, error) {
+	if req.Contract == nil {
 		return nil, errors.New("OCR3 contract is nil")
 	}
 	ocrConfig, err := req.generateOCR3Config()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
-	if req.dryRun {
-		return &configureOCR3Response{ocrConfig, nil}, nil
+	if req.DryRun {
+		return &ConfigureOCR3Response{ocrConfig, nil}, nil
 	}
 
-	txOpt := req.chain.DeployerKey
-	if req.useMCMS {
+	txOpt := req.Chain.DeployerKey
+	if req.UseMCMS {
 		txOpt = cldf.SimTransactOpts()
 	}
 
-	tx, err := req.contract.SetConfig(txOpt,
+	tx, err := req.Contract.SetConfig(txOpt,
 		ocrConfig.Signers,
 		ocrConfig.Transmitters,
 		ocrConfig.F,
@@ -397,23 +407,122 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		ocrConfig.OffchainConfig,
 	)
 	if err != nil {
-		err = cldf.DecodeErr(kocr3.OCR3CapabilityABI, err)
-		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.contract.Address().String(), req.useMCMS, err)
+		err = cldf.DecodeErr(ocr3_capability.OCR3CapabilityABI, err)
+		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.Contract.Address().String(), req.UseMCMS, err)
 	}
 
 	var ops mcmstypes.BatchOperation
-	if !req.useMCMS {
-		_, err = req.chain.Confirm(tx)
+	if !req.UseMCMS {
+		_, err = req.Chain.Confirm(tx)
 		if err != nil {
-			err = cldf.DecodeErr(kocr3.OCR3CapabilityABI, err)
-			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
+			err = cldf.DecodeErr(ocr3_capability.OCR3CapabilityABI, err)
+			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.Contract.Address().String(), err)
 		}
 	} else {
-		ops, err = proposalutils.BatchOperationForChain(req.chain.Selector, req.contract.Address().Hex(), tx.Data(), big.NewInt(0), string(OCR3Capability), nil)
+		ops, err = proposalutils.BatchOperationForChain(req.Chain.Selector, req.Contract.Address().Hex(), tx.Data(), big.NewInt(0), string(OCR3Capability), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create batch operation: %w", err)
 		}
 	}
 
-	return &configureOCR3Response{ocrConfig, &ops}, nil
+	return &ConfigureOCR3Response{ocrConfig, &ops}, nil
+}
+
+type ConfigureOCR3Resp struct {
+	OCR2OracleConfig
+	Ops *mcmstypes.BatchOperation
+}
+
+type ConfigureOCR3Config struct {
+	ChainSel   uint64
+	NodeIDs    []string
+	Contract   *ocr3_capability.OCR3Capability
+	OCR3Config *OracleConfig
+	DryRun     bool
+
+	UseMCMS bool
+}
+
+func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
+	prefix := ""
+	if cfg.DryRun {
+		prefix = "DRY RUN: "
+	}
+	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", prefix, cfg.ChainSel)
+	if cfg.Contract == nil {
+		return nil, errors.New("OCR3 contract is required")
+	}
+
+	evmChains := env.BlockChains.EVMChains()
+	registryChain, ok := evmChains[cfg.ChainSel]
+	if !ok {
+		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
+	}
+
+	contract := cfg.Contract
+
+	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
+	if err != nil {
+		return nil, err
+	}
+	r, err := ConfigureOCR3contract(ConfigureOCR3Request{
+		Cfg:        cfg.OCR3Config,
+		Chain:      registryChain,
+		Contract:   contract,
+		Nodes:      nodes,
+		DryRun:     cfg.DryRun,
+		UseMCMS:    cfg.UseMCMS,
+		OcrSecrets: env.OCRSecrets,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ConfigureOCR3Resp{
+		OCR2OracleConfig: r.OcrConfig,
+		Ops:              r.Ops,
+	}, nil
+}
+
+func makeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeKeys {
+	var out []NodeKeys
+	for _, n := range nodes {
+		out = append(out, toNodeKeys(&n, registryChainSel))
+	}
+	return out
+}
+
+func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
+	var aptosOcr2KeyBundleID string
+	var aptosOnchainPublicKey string
+	var aptosCC *deployment.OCRConfig
+	for details, cfg := range o.SelToOCRConfig {
+		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil && family == chainsel.FamilyAptos {
+			aptosCC = &cfg
+			break
+		}
+	}
+	if aptosCC != nil {
+		aptosOcr2KeyBundleID = aptosCC.KeyBundleID
+		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
+	}
+	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
+	if !exists {
+		panic(fmt.Sprintf("ocr2 config not found for chain selector %d", registryChainSel))
+	}
+	return NodeKeys{
+		EthAddress:            string(evmCC.TransmitAccount),
+		P2PPeerID:             strings.TrimPrefix(o.PeerID.String(), "p2p_"),
+		OCR2BundleID:          evmCC.KeyBundleID,
+		OCR2OffchainPublicKey: hex.EncodeToString(evmCC.OffchainPublicKey[:]),
+		OCR2OnchainPublicKey:  fmt.Sprintf("%x", evmCC.OnchainPublicKey[:]),
+		OCR2ConfigPublicKey:   hex.EncodeToString(evmCC.ConfigEncryptionPublicKey[:]),
+		CSAPublicKey:          o.CSAKey,
+		// default value of encryption public key is the CSA public key
+		// TODO: DEVSVCS-760
+		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
+		// TODO Aptos support. How will that be modeled in clo data?
+		// TODO: AptosAccount is unset but probably unused
+		AptosBundleID:         aptosOcr2KeyBundleID,
+		AptosOnchainPublicKey: aptosOnchainPublicKey,
+	}
 }

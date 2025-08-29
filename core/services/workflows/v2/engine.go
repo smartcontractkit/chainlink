@@ -47,9 +47,9 @@ type Engine struct {
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
-	allTriggerEventsQueueCh chan enqueuedTriggerEvent
-	executionsSemaphore     chan struct{}
-	capCallsSemaphore       *semaphore[*sdkpb.CapabilityResponse]
+	allTriggerEventsQueueCh limits.QueueLimiter[enqueuedTriggerEvent]
+	executionsSemaphore     limits.ResourcePoolLimiter[int]
+	capCallsSemaphore       limits.ResourcePoolLimiter[int]
 
 	meterReports *metering.Reports
 
@@ -100,6 +100,11 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 			int(localNode.WorkflowDON.F),
 		)),
 		platform.KeyP2PID, localNode.PeerID.String(),
+		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
+		platform.WorkflowRegistryChain, cfg.WorkflowRegistryChainSelector,
+		platform.EngineVersion, platform.ValueWorkflowVersionV2,
+		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
+		// TODO platform.KeyOrganizationID, "TODO",
 	}
 
 	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...)
@@ -121,7 +126,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 			metricsLabeler,
 			cfg.CapRegistry,
 			beholderLogger,
-			NewSemaphore[[]*sdkpb.SecretResponse](cfg.LocalLimits.MaxConcurrentSecretsCallsPerWorkflow),
+			cfg.LocalLimiters.SecretsConcurrency,
 			cfg.WorkflowOwner,
 			cfg.WorkflowName.String(),
 			cfg.WorkflowEncryptionKey)
@@ -133,9 +138,9 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		loggerLabels:            labelsMap,
 		localNode:               localNode,
 		triggers:                make(map[string]*triggerCapability),
-		allTriggerEventsQueueCh: make(chan enqueuedTriggerEvent, cfg.LocalLimits.TriggerEventQueueSize),
-		executionsSemaphore:     make(chan struct{}, cfg.LocalLimits.MaxConcurrentWorkflowExecutions),
-		capCallsSemaphore:       NewSemaphore[*sdkpb.CapabilityResponse](cfg.LocalLimits.MaxConcurrentCapabilityCallsPerWorkflow),
+		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
+		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
+		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
 		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
 		metrics:                 metricsLabeler,
 	}
@@ -160,7 +165,7 @@ func (e *Engine) start(ctx context.Context) error {
 func (e *Engine) init(ctx context.Context) {
 	// apply global engine instance limits
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
-	err := e.cfg.GlobalLimits.Use(ctx, 1)
+	err := e.cfg.GlobalExecutionConcurrencyLimiter.Use(ctx, 1)
 	if err != nil {
 		var errLimited limits.ErrorResourceLimited[int]
 		if errors.As(err, &errLimited) {
@@ -197,10 +202,17 @@ func (e *Engine) init(ctx context.Context) {
 
 func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// call into the workflow to get trigger subscriptions
-	subCtx, subCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.TriggerSubscriptionRequestTimeoutMs))
+	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
+	if err != nil {
+		return err
+	}
 	defer subCancel()
 
-	userLogChan := make(chan *protoevents.LogLine, e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
+	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
+	if err != nil {
+		return err
+	}
+	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
 	e.srvcEng.Go(func(_ context.Context) {
 		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID)
@@ -211,9 +223,16 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
 	}
 
+	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
+	if err != nil {
+		return err
+	}
+	if moduleExecuteMaxResponseSizeBytes < 0 {
+		return fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+	}
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          e.cfg.WorkflowConfig,
 	}, NewDisallowedExecutionHelper(e.lggr, userLogChan, timeProvider, e.cfg.SecretsFetcher))
 	if err != nil {
@@ -226,8 +245,9 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	if subs == nil {
 		return errors.New("subscribe result is nil")
 	}
-	if len(subs.Subscriptions) > int(e.cfg.LocalLimits.MaxTriggerSubscriptions) {
-		return fmt.Errorf("too many trigger subscriptions: %d", len(subs.Subscriptions))
+	err = e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(subs.Subscriptions))
+	if err != nil {
+		return err
 	}
 
 	// check if all requested triggers exist in the registry
@@ -241,7 +261,10 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	}
 
 	// register to all triggers
-	regCtx, regCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.TriggerAllRegistrationsTimeoutMs))
+	regCtx, regCancel, err := e.cfg.LocalLimiters.TriggerRegistrationsTime.WithTimeout(ctx)
+	if err != nil {
+		return err
+	}
 	defer regCancel()
 	e.triggersRegMu.Lock()
 	defer e.triggersRegMu.Unlock()
@@ -284,10 +307,10 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 
 	// start listening for trigger events only if all registrations succeeded
 	for idx, triggerEventCh := range eventChans {
-		e.srvcEng.Go(func(srvcCtx context.Context) {
+		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			for {
 				select {
-				case <-srvcCtx.Done():
+				case <-ctx.Done():
 					return
 				case event, isOpen := <-triggerEventCh:
 					if !isOpen {
@@ -295,19 +318,24 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					}
 					if event.Err != nil {
 						e.lggr.Errorw("Received a trigger event with error, dropping", "triggerID", subs.Subscriptions[idx].Id, "err", event.Err)
-						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(srvcCtx)
+						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
-					select {
-					case e.allTriggerEventsQueueCh <- enqueuedTriggerEvent{
+					if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
 						triggerCapID: subs.Subscriptions[idx].Id,
 						triggerIndex: idx,
 						timestamp:    e.cfg.Clock.Now(),
 						event:        event,
-					}:
-					default: // queue full, drop the event
-						e.lggr.Errorw("Trigger event queue is full, dropping event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx)
-						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventQueueFullCounter(srvcCtx)
+					}); err != nil {
+						var errFull limits.ErrorQueueFull
+						if errors.As(err, &errFull) {
+							// queue full, drop the event
+							e.lggr.Errorw("Trigger event queue is full, dropping event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
+							e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventQueueFullCounter(ctx)
+						}
+						e.lggr.Errorw("Failed to enqueue trigger event", "triggerID", subs.Subscriptions[idx].Id, "triggerIndex", idx, "err", err)
+						e.metrics.With(platform.KeyTriggerID, subs.Subscriptions[idx].Id).IncrementWorkflowTriggerEventErrorCounter(ctx)
+						continue
 					}
 				}
 			}
@@ -321,28 +349,29 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 
 func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 	for {
-		select {
-		case <-ctx.Done():
+		queueHead, err := e.allTriggerEventsQueueCh.Wait(ctx)
+		if err != nil {
 			return
-		case queueHead, isOpen := <-e.allTriggerEventsQueueCh:
-			if !isOpen {
-				return
-			}
-			eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
-			if eventAge > time.Duration(e.cfg.LocalLimits.TriggerEventMaxAgeMs)*time.Millisecond {
-				e.lggr.Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", queueHead.event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
-				continue
-			}
-			select {
-			case e.executionsSemaphore <- struct{}{}: // block if too many concurrent workflow executions
-				e.srvcEng.Go(func(srvcCtx context.Context) {
-					e.startExecution(srvcCtx, queueHead)
-					<-e.executionsSemaphore
-				})
-			case <-ctx.Done():
-				return
-			}
 		}
+		eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
+		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
+		if err != nil {
+			e.lggr.Errorw("Failed to get trigger event queue time limit", "err", err)
+			continue
+		}
+		if eventAge > triggerEventMaxAge {
+			e.lggr.Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", queueHead.event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
+			continue
+		}
+		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
+		if err != nil {
+			e.lggr.Errorw("Failed to acquire executions semaphore", "err", err)
+			continue
+		}
+		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+			defer free()
+			e.startExecution(ctx, queueHead)
+		})
 	}
 }
 
@@ -370,14 +399,23 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			return
 		}
 
-		e.deductStandardBalances(meteringReport)
+		e.deductStandardBalances(ctx, meteringReport)
 	}
 
-	execCtx, execCancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs))
+	execCtx, execCancel, err := e.cfg.LocalLimiters.ExecutionTime.WithTimeout(ctx)
+	if err != nil {
+		e.lggr.Errorw("Failed to get execution time limit", "err", err)
+		return
+	}
 	defer execCancel()
 	executionLogger := logger.With(e.lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 
-	userLogChan := make(chan *protoevents.LogLine, e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
+	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
+	if err != nil {
+		e.lggr.Errorw("Failed to get log event limit", "err", err)
+		return
+	}
+	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
 	e.srvcEng.Go(func(_ context.Context) {
 		e.emitUserLogs(execCtx, userLogChan, executionID)
@@ -399,6 +437,15 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.lggr)
 	}
 
+	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
+	if err != nil {
+		e.lggr.Errorw("Failed to get execution response size limit", "err", err)
+		return
+	}
+	if moduleExecuteMaxResponseSizeBytes < 0 {
+		e.lggr.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+		return
+	}
 	result, err := e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
@@ -406,7 +453,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 				Payload: triggerEvent.Payload,
 			},
 		},
-		MaxResponseSize: uint64(e.cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          e.cfg.WorkflowConfig,
 	}, &ExecutionHelper{Engine: e, WorkflowExecutionID: executionID, UserLogChan: userLogChan,
 		TimeProvider: timeProvider, SecretsFetcher: e.cfg.SecretsFetcher})
@@ -437,7 +484,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			executionStatus = store.StatusTimeout
 		}
 		executionLogger.Errorw("Workflow execution failed", "err", err, "status", executionStatus, "durationMs", executionDuration.Milliseconds())
-		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID)
+		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(err.Error())
 		return
@@ -449,7 +496,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID)
+	_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
@@ -468,7 +515,7 @@ func (e *Engine) close() error {
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
 
-	return e.cfg.GlobalLimits.Free(ctx, 1)
+	return e.cfg.GlobalExecutionConcurrencyLimiter.Free(ctx, 1)
 }
 
 // NOTE: needs to be called under the triggersRegMu lock
@@ -510,16 +557,21 @@ func (e *Engine) heartbeatLoop(ctx context.Context) {
 	}
 }
 
-func (e *Engine) deductStandardBalances(meteringReport *metering.Report) {
+func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *metering.Report) {
 	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
 	// Add an extra second of metering padding for context cancel propagation
 	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
-	compMs := decimal.NewFromInt(int64(e.cfg.LocalLimits.WorkflowExecutionTimeoutMs) + ctxCancelPadding)
+	workflowExecutionTimeout, err := e.cfg.LocalLimiters.ExecutionTime.Limit(ctx)
+	if err != nil {
+		e.lggr.Errorw("Failed to get execution time limit", "err", err)
+		return
+	}
+	compMs := decimal.NewFromInt(workflowExecutionTimeout.Milliseconds() + ctxCancelPadding)
 	computeUnit := billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()
 
 	if _, err := meteringReport.Deduct(
 		computeUnit,
-		metering.ByResource(computeUnit, compMs),
+		metering.ByResource(computeUnit, "v2-standard-deduction-compute", compMs),
 	); err != nil {
 		e.lggr.Errorw("could not deduct balance for capability request", "capReq", "standard-deduction-compute", "err", err)
 	}
@@ -541,12 +593,23 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 			if e.cfg.DebugMode {
 				e.lggr.Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
 			}
-			if count >= int(e.cfg.LocalLimits.MaxUserLogEventsPerExecution) {
-				e.lggr.Warnw("Max user log events per execution reached, dropping event", "maxEvents", e.cfg.LocalLimits.MaxUserLogEventsPerExecution)
+			err := e.cfg.LocalLimiters.LogEvent.Check(ctx, count)
+			if err != nil {
+				var errBoundLimited limits.ErrorBoundLimited[int]
+				if errors.As(err, &errBoundLimited) {
+					e.lggr.Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit)
+					return
+				}
+				e.lggr.Errorw("Failed to get user log event limit", "err", err)
 				return
 			}
-			if len(logLine.Message) > int(e.cfg.LocalLimits.MaxUserLogLineLength) {
-				logLine.Message = logLine.Message[:e.cfg.LocalLimits.MaxUserLogLineLength] + " ...(truncated)"
+			maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(ctx)
+			if err != nil {
+				e.lggr.Errorw("Failed to get user log line limit", "err", err)
+				return
+			}
+			if len(logLine.Message) > int(maxUserLogLength) {
+				logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
 			}
 
 			if err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {

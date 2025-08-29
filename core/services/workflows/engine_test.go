@@ -20,12 +20,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -48,7 +48,6 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
@@ -174,8 +173,9 @@ type testHooks struct {
 }
 
 type testConfigProvider struct {
+	core.UnimplementedCapabilitiesRegistryMetadata
 	localNode           func(ctx context.Context) (capabilities.Node, error)
-	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
+	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
 }
 
 func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
@@ -204,12 +204,12 @@ func (t testConfigProvider) NodeByPeerID(ctx context.Context, peerID p2ptypes.Pe
 	}, nil
 }
 
-func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 	if t.configForCapability != nil {
 		return t.configForCapability(ctx, capabilityID, donID)
 	}
 
-	return registrysyncer.CapabilityConfiguration{}, nil
+	return capabilities.CapabilityConfiguration{}, nil
 }
 
 func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
@@ -398,15 +398,11 @@ targets:
 
 		require.NoError(t, err)
 		registry.SetLocalRegistry(&testConfigProvider{
-			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
-				cb, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
-					RestrictedConfig: values.ProtoMap(conf),
+			configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+				return capabilities.CapabilityConfiguration{
 					RestrictedKeys:   []string{metering.RatiosKey},
-				})
-
-				return registrysyncer.CapabilityConfiguration{
-					Config: cb,
-				}, err
+					RestrictedConfig: conf,
+				}, nil
 			},
 		})
 	}
@@ -925,7 +921,7 @@ triggers:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
         - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
-        
+
 consensus:
   - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
@@ -1417,7 +1413,7 @@ actions:
     inputs:
       action:
         - "$(trigger.outputs)"
-        
+
 consensus:
   - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
@@ -1856,18 +1852,13 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 		simpleWorkflow,
 	)
 	reg.SetLocalRegistry(testConfigProvider{
-		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 			if capabilityID != writeID {
-				return registrysyncer.CapabilityConfiguration{}, nil
+				return capabilities.CapabilityConfiguration{}, nil
 			}
-
-			var cb []byte
-			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
-				DefaultConfig: values.ProtoMap(giveRegistryConfig),
-			})
-			return registrysyncer.CapabilityConfiguration{
-				Config: cb,
-			}, err
+			return capabilities.CapabilityConfiguration{
+				DefaultConfig: giveRegistryConfig,
+			}, nil
 		},
 	})
 
@@ -1996,19 +1987,15 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 		customComputeWorkflow,
 	)
 	reg.SetLocalRegistry(testConfigProvider{
-		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 			if capabilityID != actionID {
-				return registrysyncer.CapabilityConfiguration{}, nil
+				return capabilities.CapabilityConfiguration{}, nil
 			}
 
-			var cb []byte
-			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
-				RestrictedConfig: values.ProtoMap(giveRegistryConfig),
+			return capabilities.CapabilityConfiguration{
+				RestrictedConfig: giveRegistryConfig,
 				RestrictedKeys:   []string{"maxMemoryMBs", "tickInterval", "timeout"},
-			})
-			return registrysyncer.CapabilityConfiguration{
-				Config: cb,
-			}, err
+			}, nil
 		},
 	})
 
@@ -2093,7 +2080,7 @@ triggers:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
         - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
-        
+
 consensus:
   - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
@@ -2392,15 +2379,6 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-
-type mockFetcher struct {
-	retval map[string]string
-	retErr error
-}
-
-func (m *mockFetcher) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
-	return m.retval, m.retErr
-}
 
 func TestEngine_FetchesSecrets(t *testing.T) {
 	ctx := testutils.Context(t)
@@ -2871,7 +2849,7 @@ targets:
 		return target
 	}
 
-	t.Run("ReserveCredits includes workflow registry information", func(t *testing.T) {
+	t.Run("ReserveCredits_includes_workflow_registry_information", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
@@ -2949,52 +2927,141 @@ targets:
 		mBillingClient.AssertExpectations(t)
 	})
 
-	t.Run("handles invalid chain selector gracefully", func(t *testing.T) {
+	t.Run("invalid_chain_selector_errors", func(t *testing.T) {
+		t.Parallel()
+
+		reg := coreCap.NewRegistry(logger.NullLogger)
+		mBillingClient := new(mocks.BillingClient)
+
+		expectedRegistryAddress := "0x1234567890123456789012345678901234567890"
+		invalidChainSelector := "invalid-chain-id"
+
+		lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+
+		sdkSpec, err := (&job.WorkflowSpec{
+			Workflow: testWorkflow,
+			SpecType: job.YamlSpec,
+		}).SDKSpec(testutils.Context(t))
+		require.NoError(t, err)
+
+		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
+			cfg.BillingClient = mBillingClient
+			cfg.WorkflowRegistryAddress = expectedRegistryAddress
+			cfg.WorkflowRegistryChainID = invalidChainSelector
+			cfg.Lggr = lggr
+		})
+		require.Error(t, err)
+
+		// When chain selector parsing fails, the engine should fail to start
+		assert.Contains(t, err.Error(), "could not parse chain ID")
+
+		// Empty chain ID should now be handled gracefully with defaults
+		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
+			cfg.BillingClient = mBillingClient
+			cfg.WorkflowRegistryAddress = expectedRegistryAddress
+			cfg.WorkflowRegistryChainID = ""
+			cfg.Lggr = lggr
+		})
+		require.NoError(t, err) // Empty chain ID gets default value, no error expected
+
+		// Empty registry address should now be handled gracefully with defaults
+		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
+			cfg.BillingClient = mBillingClient
+			cfg.WorkflowRegistryAddress = ""
+			cfg.Lggr = lggr
+		})
+		require.NoError(t, err) // Empty address gets default value, no error expected
+
+	})
+	t.Run("includes step data when billing client errors", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
 		reg := coreCap.NewRegistry(logger.NullLogger)
 		mBillingClient := new(mocks.BillingClient)
+		errBillingClient := errors.New("billing client error")
+
+		expectedRegistryAddress := "0xe3188aFCc8FA3aE39Ea38d73DBBf90A6AD529128"
+		expectedChainID := uint64(11155111) // Sepolia chain ID
+		expectedChainSelector, err := chainselectors.SelectorFromChainId(expectedChainID)
+		require.NoError(t, err)
 
 		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-			Return(&billing.GetWorkflowExecutionRatesResponse{
-				RateCards: []*billing.RateCard{
-					{
-						ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-						MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-						UnitsPerCredit:  "0.0001",
-					},
-				},
-			}, nil)
+			Return(nil, errBillingClient)
 
+		// Verify that ReserveCredits is called with the correct workflow registry information
+		// Sepolia chain ID 11155111 converts to the expected chainSelector
 		mBillingClient.EXPECT().
-			ReserveCredits(mock.Anything, mock.Anything).
-			Return(&billing.ReserveCreditsResponse{
-				Success: true,
-				Credits: "10000",
-			}, nil)
-
-		expectedRegistryAddress := "0x1234567890123456789012345678901234567890"
-		invalidChainSelector := "invalid-chain-id"
-
-		mBillingClient.EXPECT().
-			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 				if req == nil {
 					return false
 				}
 				// Check that the workflow registry fields are set correctly
 				return req.WorkflowRegistryAddress == expectedRegistryAddress &&
-					req.WorkflowRegistryChainSelector == 0 // default value
+					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
 			})).
-			Return(&emptypb.Empty{}, nil)
+			Return(nil, errBillingClient)
 
-		// billing calls still happen, but with invalid chain selector
+		expectedSteps := map[string]*eventspb.MeteringReportStep{
+			"write_polygon-testnet-mumbai@1.0.0": {
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId: "12D3KooW9pNAk8aiBuGVQtWRdbkLmo5qVL3e2h5UxbN2Nz9ttwiw",
+						SpendUnit:    "RESOURCE_TYPE_COMPUTE",
+						SpendValue:   "100",
+					},
+				},
+			},
+		}
+
+		stepCompare := func(expected, compared map[string]*eventspb.MeteringReportStep) bool {
+			if len(expected) != len(compared) {
+				return false
+			}
+
+			for key, step := range expected {
+				comparedStep, exists := compared[key]
+				if !exists {
+					return false
+				}
+
+				expectedNodes := step.GetNodes()
+				comparedNodes := comparedStep.GetNodes()
+
+				if len(expectedNodes) != len(comparedNodes) {
+					return false
+				}
+
+				for idx, node := range expectedNodes {
+					comparedNode := comparedNodes[idx]
+
+					if comparedNode.GetPeer_2PeerId() != node.GetPeer_2PeerId() ||
+						comparedNode.GetSpendUnit() != node.GetSpendUnit() ||
+						comparedNode.GetSpendValue() != node.GetSpendValue() {
+						return false
+					}
+				}
+			}
+
+			return true
+		}
+
+		// Verify that SubmitWorkflowReceipt is called with the correct workflow registry information
+		mBillingClient.EXPECT().
+			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+				if req == nil {
+					return false
+				}
+
+				return stepCompare(expectedSteps, req.Metering.Steps) && strings.Contains(req.Metering.Message, errBillingClient.Error()) &&
+					req.WorkflowRegistryAddress == expectedRegistryAddress &&
+					req.WorkflowRegistryChainSelector == expectedChainSelector // Sepolia selector
+			})).
+			Return(nil, errBillingClient)
 
 		tr := withTrigger(t, reg)
 		target := withTarget(t, reg)
-
-		lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
-
+		lggr, logs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
@@ -3002,13 +3069,10 @@ targets:
 			func(cfg *Config) {
 				cfg.BillingClient = mBillingClient
 				cfg.WorkflowRegistryAddress = expectedRegistryAddress
-				cfg.WorkflowRegistryChainID = invalidChainSelector
+				cfg.WorkflowRegistryChainID = "11155111"
 				cfg.Lggr = lggr
 			},
 		)
-
-		// When chain selector parsing fails, the engine should switch to metering mode
-		// and call SubmitWorkflowReceipt with metering mode set to true.
 
 		servicetest.Run(t, eng)
 
@@ -3019,15 +3083,18 @@ targets:
 		state, err := eng.executionsStore.Get(ctx, eid)
 		require.NoError(t, err)
 		assert.Equal(t, store.StatusCompleted, state.Status)
+
+		// expected errors include a switch to metering mode due to billing client error and a failure to end
+		// a report due to billing client error.
+		assert.Len(t, logs.All(), 2)
+
+		mBillingClient.AssertExpectations(t)
 	})
-
-	t.Run("handles empty workflow registry information", func(t *testing.T) {
+	t.Run("handles_empty_workflow_registry_information", func(t *testing.T) {
 		t.Parallel()
-
 		ctx := t.Context()
 		reg := coreCap.NewRegistry(logger.NullLogger)
 		mBillingClient := new(mocks.BillingClient)
-
 		mBillingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{
 				RateCards: []*billing.RateCard{
@@ -3038,30 +3105,25 @@ targets:
 					},
 				},
 			}, nil)
-
 		mBillingClient.EXPECT().
 			ReserveCredits(mock.Anything, mock.Anything).
 			Return(&billing.ReserveCreditsResponse{
 				Success: true,
 				Credits: "10000",
 			}, nil)
-
 		mBillingClient.EXPECT().
 			SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 				if req == nil {
 					return false
 				}
-				// Check that the workflow registry fields are set correctly
-				return req.WorkflowRegistryAddress == "" &&
-					req.WorkflowRegistryChainSelector == 0 // default value
+				// Check that the workflow registry fields are set to default values
+				return req.WorkflowRegistryAddress == "0xv1EngineDefault" &&
+					req.WorkflowRegistryChainSelector == 5009297550715157269 // chain selector for chain ID 1
 			})).
 			Return(&emptypb.Empty{}, nil)
-
 		tr := withTrigger(t, reg)
 		target := withTarget(t, reg)
-
 		lggr, logs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
-
 		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
@@ -3073,33 +3135,24 @@ targets:
 				cfg.Lggr = lggr
 			},
 		)
-
 		// When chain selector is empty, the engine should switch to metering mode
 		// but still call SubmitWorkflowReceipt. The workflow should still complete successfully.
-
 		servicetest.Run(t, eng)
-
 		eid := getExecutionID(t, eng, testHooks)
 		resp := <-target.response
 		assert.Equal(t, tr.Event.Outputs, resp.Value)
-
 		state, err := eng.executionsStore.Get(ctx, eid)
 		require.NoError(t, err)
 		assert.Equal(t, store.StatusCompleted, state.Status)
-
-		// Verify that warnings were logged about the empty chain selector
+		// Verify that no warnings are logged since empty workflow registry info is now handled gracefully with defaults
 		warnLogs := logs.TakeAll()
-		require.Len(t, warnLogs, 3) // Error about chain selector parsing, warning about no metering report, error about failed to end metering report
 		chainSelectorWarnings := 0
 		for _, log := range warnLogs {
-			if strings.Contains(log.Message, "failed to parse workflow registry chain selector") {
+			if strings.Contains(log.Message, "failed to parse registry chain id") {
 				chainSelectorWarnings++
 			}
 		}
-		assert.GreaterOrEqual(t, chainSelectorWarnings, 0) // May or may not have chain selector warnings
-
-		// When chain selector is empty, metering fails to initialize, so SubmitWorkflowReceipt is not called
-		// This is expected behavior since no metering report exists
-		mBillingClient.AssertNotCalled(t, "SubmitWorkflowReceipt")
+		assert.Equal(t, 0, chainSelectorWarnings) // No chain selector warnings expected since defaults are applied
+		mBillingClient.AssertExpectations(t)
 	})
 }

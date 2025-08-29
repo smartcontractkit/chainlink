@@ -82,6 +82,7 @@ type SetupInput struct {
 	BlockchainsInput          []blockchain.Input
 	JdInput                   jd.Input
 	InfraInput                infra.Input
+	ContractVersions          map[string]string
 	OCR3Config                *keystone_changeset.OracleConfig
 	DONTimeConfig             *keystone_changeset.OracleConfig
 	VaultOCR3Config           *keystone_changeset.OracleConfig
@@ -206,6 +207,8 @@ func SetupTestEnvironment(
 	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Blockchains started in %.2f seconds", stageGen.Elapsed().Seconds())))
+
+	// DEPLOY CONTRACTS
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Deploying Keystone contracts")))
 
 	evmForwardersSelectors := make([]uint64, 0)
@@ -250,6 +253,8 @@ func SetupTestEnvironment(
 		}
 	}
 
+	// use CLD to deploy the necessary contracts
+	homeChainSelector := homeChainOutput.ChainSelector
 	deployKeystoneReport, err := operations.ExecuteSequence(
 		allChainsCLDEnvironment.OperationsBundle,
 		ks_contracts_op.DeployKeystoneContractsSequence,
@@ -257,7 +262,7 @@ func SetupTestEnvironment(
 			Env: allChainsCLDEnvironment,
 		},
 		ks_contracts_op.DeployKeystoneContractsSequenceInput{
-			RegistryChainSelector: homeChainOutput.ChainSelector,
+			RegistryChainSelector: homeChainSelector,
 			ForwardersSelectors:   evmForwardersSelectors,
 			DeployVaultOCR3:       vaultOCR3AddrFlag,
 			DeployEVMOCR3:         evmOCR3AddrFlag,
@@ -265,7 +270,6 @@ func SetupTestEnvironment(
 			DeployConsensusOCR3:   consensusV2AddrFlag,
 		},
 	)
-
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to deploy Keystone contracts")
 	}
@@ -295,52 +299,49 @@ func SetupTestEnvironment(
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to deploy sol forwarder")
 		}
+
 		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
 			Address:       out.Output.ProgramID.String(),
 			ChainSelector: sel,
-			Version:       semver.MustParse("1.0.0"),
+			Version:       semver.MustParse(input.ContractVersions[ks_sol.ForwarderContract.String()]),
 			Qualifier:     ks_sol.DefaultForwarderQualifier,
 			Type:          ks_sol.ForwarderContract,
 		})
 		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to add address to the datastore")
+			return nil, pkgerrors.Wrap(err, "failed to add address to the datastore for Solana Forwarder contract")
 		}
 
 		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
 			Address:       out.Output.State.String(),
 			ChainSelector: sel,
-			Version:       semver.MustParse("1.0.0"),
+			Version:       semver.MustParse(input.ContractVersions[ks_sol.ForwarderState.String()]),
 			Qualifier:     ks_sol.DefaultForwarderQualifier,
 			Type:          ks_sol.ForwarderState,
 		})
-
 		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to add address to the datastore")
+			return nil, pkgerrors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
 		}
 
 		testLogger.Info().Msgf("Deployed Forwarder contract on Solana chain chain %d programID: %s state: %s", sel, out.Output.ProgramID.String(), out.Output.State.String())
 	}
 	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
 
-	balanceReaderAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.BalanceReader.String(), "1.0.0", "")
-	testLogger.Info().Msgf("Deployed BalanceReader contract on chain %d at %s", homeChainOutput.ChainSelector, balanceReaderAddr)
+	ocr3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], "capability_ocr3")
+	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainSelector, ocr3Addr)
 
-	ocr3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_ocr3")
-	testLogger.Info().Msgf("Deployed OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, ocr3Addr)
+	donTimeAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], "DONTime")
+	testLogger.Info().Msgf("Deployed DON Time contract on chain %d at %s", homeChainSelector, donTimeAddr)
 
-	donTimeAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "DONTime")
-	testLogger.Info().Msgf("Deployed DON Time contract on chain %d at %s", homeChainOutput.ChainSelector, donTimeAddr)
+	wfRegAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainSelector, wfRegAddr)
 
-	wfRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.WorkflowRegistry.String(), "1.0.0", "")
-	testLogger.Info().Msgf("Deployed Workflow Registry contract on chain %d at %s", homeChainOutput.ChainSelector, wfRegAddr)
-
-	capRegAddr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.CapabilitiesRegistry.String(), "1.1.0", "")
-	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainOutput.ChainSelector, capRegAddr)
+	capRegAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
+	testLogger.Info().Msgf("Deployed Capabilities Registry contract on chain %d at %s", homeChainSelector, capRegAddr)
 
 	var vaultOCR3CommonAddr common.Address
 	if vaultOCR3AddrFlag {
-		vaultOCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_vault")
-		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, vaultOCR3Addr)
+		vaultOCR3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], "capability_vault")
+		testLogger.Info().Msgf("Deployed Vault OCR3 contract on chain %d at %s", homeChainSelector, vaultOCR3Addr)
 		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
 	}
 
@@ -348,25 +349,26 @@ func SetupTestEnvironment(
 	if evmOCR3AddrFlag {
 		for chainID, selector := range chainsWithEVMCapability {
 			qualifier := ks_contracts_op.GetCapabilityContractIdentifier(uint64(chainID))
-			evmOCR3Addr := mustGetAddress(memoryDatastore, uint64(selector), keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
+			evmOCR3Addr := mustGetAddress(memoryDatastore, uint64(selector), keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], qualifier)
 			testLogger.Info().Msgf("Deployed EVM OCR3 contract on chainID: %d, selector: %d, at: %s", chainID, selector, evmOCR3Addr)
 			evmOCR3CommonAddresses[uint64(selector)] = common.HexToAddress(evmOCR3Addr)
 		}
 	}
 	var consensusV2OCR3CommonAddr common.Address
 	if consensusV2AddrFlag {
-		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainOutput.ChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", "capability_consensus")
-		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainOutput.ChainSelector, consensusV2OCR3Addr)
+		consensusV2OCR3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], "capability_consensus")
+		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 contract on chain %d at %s", homeChainSelector, consensusV2OCR3Addr)
 		consensusV2OCR3CommonAddr = common.HexToAddress(consensusV2OCR3Addr)
 	}
 
 	for _, forwarderSelector := range evmForwardersSelectors {
-		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), "1.0.0", "")
+		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 		testLogger.Info().Msgf("Deployed Forwarder contract on chain %d at %s", forwarderSelector, forwarderAddr)
 	}
+
 	for _, forwarderSelector := range solForwardersSelectors {
-		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderContract.String(), "1.0.0", ks_sol.DefaultForwarderQualifier)
-		forwarderStateAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderState.String(), "1.0.0", ks_sol.DefaultForwarderQualifier)
+		forwarderAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderContract.String(), input.ContractVersions[ks_sol.ForwarderContract.String()], ks_sol.DefaultForwarderQualifier)
+		forwarderStateAddr := mustGetAddress(memoryDatastore, forwarderSelector, ks_sol.ForwarderState.String(), input.ContractVersions[ks_sol.ForwarderState.String()], ks_sol.DefaultForwarderQualifier)
 		testLogger.Info().Msgf("Deployed Forwarder contract on Solana chain %d at %s state %s", forwarderSelector, forwarderAddr, forwarderStateAddr)
 	}
 
@@ -396,7 +398,7 @@ func SetupTestEnvironment(
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
 	topology, updatedNodeSets, topoErr := BuildTopology(
-		homeChainOutput.ChainSelector,
+		homeChainSelector,
 		input.CapabilitiesAwareNodeSets,
 		input.InfraInput,
 		evmChainIDs,
@@ -499,6 +501,7 @@ func SetupTestEnvironment(
 		backgroundStagesCh <- backgroundStageResult{successMessage: libformat.PurpleText("\n<--- [BACKGROUND 1/3] Workflow Registry configured in %.2f seconds\n", time.Since(startTime).Seconds())}
 	}()
 
+	// JOB DISTRIBUTOR + JOBS (creation and distribution to nodes)
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Job Distributor, DONs and creating Jobs with Job Distributor")))
 
 	jdOutput, nodeSetOutput, jobsSeqErr := SetupJobs(
@@ -675,7 +678,7 @@ func SetupTestEnvironment(
 	capRegCommonAddr := common.HexToAddress(capRegAddr)
 
 	configureKeystoneInput := cre.ConfigureKeystoneInput{
-		ChainSelector:               homeChainOutput.ChainSelector,
+		ChainSelector:               homeChainSelector,
 		CldEnv:                      fullCldOutput.Environment,
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: &capRegCommonAddr,

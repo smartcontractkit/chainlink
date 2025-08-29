@@ -5,11 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	solToken "github.com/gagliardetto/solana-go/programs/token"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -55,6 +59,9 @@ var _ cldf.ChangeSet[TokenPoolOpsCfg] = TokenPoolOps
 
 // sync supported CCTP domains
 var _ cldf.ChangeSet[SyncDomainConfig] = SyncDomain
+
+// extend token pool lookup table
+var _ cldf.ChangeSet[ExtendTokenPoolLookupTableConfig] = ExtendTokenPoolLookupTable
 
 // append mcms txns generated from solanainstructions
 func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, poolType cldf.ContractType, txns *[]mcmsTypes.Transaction) error {
@@ -283,19 +290,40 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		instructions = append(instructions, poolInitI)
 
+		// fetch current token mint authority
+		var tokenMint solToken.Mint
+		var mintAuthority string
+		err = chain.GetAccountDataBorshInto(context.Background(), tokenPubKey, &tokenMint)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token mint account data: %w", err)
+		}
+		if tokenMint.MintAuthority != nil {
+			mintAuthority = tokenMint.MintAuthority.String()
+		}
+
 		// make pool mint_authority for token
 		if tokenPoolCfg.PoolType == shared.BurnMintTokenPool && tokenPubKey != solana.SolMint {
-			authI, err := solTokenUtil.SetTokenMintAuthority(
-				tokenprogramID,
-				poolSigner,
-				tokenPubKey,
-				chain.DeployerKey.PublicKey(),
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			if mintAuthority == chain.DeployerKey.PublicKey().String() {
+				authI, err := solTokenUtil.SetTokenMintAuthority(
+					tokenprogramID,
+					poolSigner,
+					tokenPubKey,
+					chain.DeployerKey.PublicKey(),
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+				}
+				instructions = append(instructions, authI)
+				e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+			} else {
+				e.Logger.Warnw("Token's mint authority is not with deployer key, skipping setting poolSigner as mint authority",
+					"poolType", tokenPoolCfg.PoolType, "mintAuthority", mintAuthority,
+					"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 			}
-			instructions = append(instructions, authI)
-			e.Logger.Infow("Setting mint authority", "poolSigner", poolSigner.String())
+		} else {
+			e.Logger.Warnw("PoolType is not a BurnMintTokenPool, skipping setting poolSigner as mint authority",
+				"poolType", tokenPoolCfg.PoolType, "mintAuthority", mintAuthority,
+				"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 		}
 
 		// confirm instructions
@@ -735,7 +763,6 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 			newMintAuthority,
 			tokenPool,
 			programData.Address).ValidateAndBuild()
-
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
@@ -761,7 +788,6 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 		}
 
 		ix, err := builder.ValidateAndBuild()
-
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to multisig: %w", err)
 		}
@@ -2524,6 +2550,169 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
+type ExtendTokenPoolLookupTableConfig struct {
+	// NOTE: the default behavior would be to block duplicates, but if you need to run the changeset without this restriction, then you can set this to true
+	SkipValidationsForDuplicates bool
+	ChainSelector                uint64
+	TokenPubKey                  solana.PublicKey
+	PoolType                     cldf.ContractType
+	Metadata                     string
+	Accounts                     solana.PublicKeySlice
+}
+
+func (cfg ExtendTokenPoolLookupTableConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	if len(cfg.Accounts) == 0 {
+		return nil
+	}
+
+	if cfg.TokenPubKey.IsZero() {
+		return errors.New("required field 'TokenPubKey' is empty or the zero address")
+	}
+
+	if cfg.PoolType == "" {
+		return errors.New("required field 'PoolType' is empty or not provided")
+	}
+
+	if cfg.Metadata == "" {
+		return errors.New("required field 'Metadata' is empty or not provided")
+	}
+
+	if !cfg.SkipValidationsForDuplicates {
+		acctSet := map[string]bool{}
+		for _, acct := range cfg.Accounts {
+			key := acct.String()
+			if _, exists := acctSet[key]; exists {
+				return fmt.Errorf("field 'Accounts' has 1 or more duplicate public keys: %s", key)
+			}
+			acctSet[key] = true
+		}
+	}
+
+	solChain, exist := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	if !exist {
+		return fmt.Errorf("chain selector '%d' was not found in environment", cfg.ChainSelector)
+	}
+
+	lutPublKey, err := chainState.GetTokenPoolLookupTableAddress(cfg.TokenPubKey, cfg.PoolType, cfg.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to get lookup table address: %w", err)
+	}
+
+	lutEntries, err := solCommonUtil.GetAddressLookupTable(e.GetContext(), solChain.Client, lutPublKey)
+	if err != nil {
+		return fmt.Errorf("failed to get entries of address lookup table at address '%s': %w", lutPublKey.String(), err)
+	}
+
+	if !cfg.SkipValidationsForDuplicates {
+		alutSet := map[string]bool{}
+		for _, entry := range lutEntries {
+			alutSet[entry.String()] = true
+		}
+
+		duplSet := map[string]bool{}
+		for _, acct := range cfg.Accounts {
+			key := acct.String()
+			if _, exists := alutSet[key]; exists {
+				duplSet[key] = true
+			}
+		}
+
+		if len(duplSet) > 0 {
+			return fmt.Errorf(
+				"refusing to extend lookup table at address '%s' - one or more input accounts overlap with existing LUT entries: [ %s ]",
+				lutPublKey.String(),
+				strings.Join(slices.AppendSeq([]string{}, maps.Keys(duplSet)), ", "),
+			)
+		}
+	}
+
+	entries := solana.PublicKeySlice{}
+	entries.Append(lutEntries...)
+	e.Logger.Infof(
+		"Validations complete - lookup table at address '%s' has %d accounts and currently looks like this: [ %s ]",
+		lutPublKey.String(),
+		len(entries),
+		strings.Join(entries.ToBase58(), ", "),
+	)
+
+	return nil
+}
+
+func ExtendTokenPoolLookupTable(e cldf.Environment, cfg ExtendTokenPoolLookupTableConfig) (cldf.ChangesetOutput, error) {
+	if len(cfg.Accounts) == 0 {
+		e.Logger.Warn("no accounts were provided - exiting early as there is nothing to do")
+		return cldf.ChangesetOutput{}, nil
+	}
+
+	chainState, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	solState, exist := chainState.SolChains[cfg.ChainSelector]
+	if !exist {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain selector '%d' was not found in state", cfg.ChainSelector)
+	}
+
+	solChain, exist := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	if !exist {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain selector '%d' was not found in environment", cfg.ChainSelector)
+	}
+
+	lutPublKey, err := solState.GetTokenPoolLookupTableAddress(cfg.TokenPubKey, cfg.PoolType, cfg.Metadata)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get lookup table address: %w", err)
+	}
+
+	if solChain.DeployerKey == nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("solana deployer key is nil for selector '%d'", cfg.ChainSelector)
+	}
+
+	if err := solChain.DeployerKey.Validate(); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("solana deployer key is invalid for selector '%d': %w", cfg.ChainSelector, err)
+	}
+
+	e.Logger.Infof(
+		"Extending lookup table at address '%s' with %d accounts: [ %s ]",
+		lutPublKey.String(),
+		cfg.Accounts.Len(),
+		strings.Join(cfg.Accounts.ToBase58(), ", "),
+	)
+
+	ctx := e.GetContext()
+	if err := solCommonUtil.ExtendLookupTable(
+		ctx,
+		solChain.Client,
+		lutPublKey,
+		*solChain.DeployerKey,
+		cfg.Accounts,
+	); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
+	}
+
+	// Displays the new LUT or fallbacks to displaying the newly added accounts if an error occurs
+	if lutEntries, err := solCommonUtil.GetAddressLookupTable(ctx, solChain.Client, lutPublKey); err != nil {
+		e.Logger.Warnf("could not display full LUT due to error - showing only newly added entries instead: %v", err)
+		e.Logger.Infof(
+			"Lookup table at address '%s' was successfully extended with %d accounts: [ %s ]",
+			lutPublKey.String(),
+			cfg.Accounts.Len(),
+			strings.Join(cfg.Accounts.ToBase58(), ", "),
+		)
+	} else {
+		accounts := solana.PublicKeySlice{}
+		accounts.Append(lutEntries...)
+		e.Logger.Infof(
+			"Lookup table at address '%s' was successfully extended with %d accounts - the LUT looks like this now: [ %s ]",
+			lutPublKey.String(),
+			cfg.Accounts.Len(),
+			strings.Join(accounts.ToBase58(), ", "),
+		)
 	}
 
 	return cldf.ChangesetOutput{}, nil

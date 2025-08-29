@@ -28,6 +28,7 @@ func RunSimpleCronWorkflow(_ None, _ *slog.Logger, _ cre.SecretsProvider) (cre.W
 	return workflows, nil
 }
 
-func onTrigger(_ None, _ cre.Runtime, _ *cron.Payload) (string, error) {
+func onTrigger(_ None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
+	runtime.Logger().Info("Amazing workflow user log")
 	return "such a lovely disaster", nil
 }
