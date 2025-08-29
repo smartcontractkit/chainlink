@@ -32,7 +32,7 @@ import (
 var _ cldf.ChangeSet[IDLConfig] = UploadIDL
 
 // use this changeset to set the authority for the IDL of a program (timelock)
-var _ cldf.ChangeSet[IDLConfig] = SetAuthorityIDLByDeployerKey
+var _ cldf.ChangeSet[IDLConfig] = SetAuthorityIDL
 
 // use this changeset to upgrade the IDL of a program via timelock
 var _ cldf.ChangeSet[IDLConfig] = UpgradeIDL
@@ -55,7 +55,6 @@ const (
 type IDLConfig struct {
 	ChainSelector                uint64
 	GitCommitSha                 string                        // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
-	SpillAddress                 solana.PublicKey              // used when closing the IDL account
 	Router                       bool                          // whether to upload the IDL for the router
 	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
 	OffRamp                      bool                          // whether to upload the IDL for the off ramp
@@ -569,7 +568,7 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 }
 
 // changeset to set idl authority for a program to timelock
-func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
+func SetAuthorityIDLByMCMs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
@@ -693,6 +692,97 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
+// changeset to set idl authority for a program to timelock
+func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
+	if err := c.Validate(e); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
+	}
+	state, _ := stateview.LoadOnchainState(e)
+	chainState := state.SolChains[c.ChainSelector]
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
+
+	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
+	}
+
+	// set idl authority
+	if c.Router {
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+	if c.FeeQuoter {
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+	if c.OffRamp {
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+	if c.RMNRemote {
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
+		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
+		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+	if c.CCTPTokenPool {
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+
+	if c.AccessController {
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String(), "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+	if c.Timelock {
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String(), "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
+	if c.MCM {
+		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String(), "")
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
 	}
 
 	return cldf.ChangesetOutput{}, nil
@@ -837,13 +927,10 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
-	if c.SpillAddress.IsZero() {
-		return cldf.ChangesetOutput{}, errors.New("error validating idl config, spill address must be set")
-	}
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
 	chainState := state.SolChains[c.ChainSelector]
-	spillAddress := c.SpillAddress
+	spillAddress := e.BlockChains.SolanaChains()[c.ChainSelector].DeployerKey.PublicKey()
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	if c.Router {
