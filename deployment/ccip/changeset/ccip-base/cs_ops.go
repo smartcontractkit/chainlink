@@ -17,11 +17,20 @@ type RotateBaseSignerNopsConfig struct {
 	NopKeysToRemove []string
 }
 
+type AddGreenKeysConfig struct {
+	ChainSelector uint64
+	// Pairs of blue key (existing on the account) and new green key for that NOP
+	BlueGreenKeys [][2]string
+}
+
 // use these changesets to rotate NOPs (entirely remove addresses or add new ones)
 var _ cldf.ChangeSet[RotateBaseSignerNopsConfig] = RotateBaseSignerNopsChangeset
 
+// use these changesets to begin a key rotation (add green keys to blue ones)
+var _ cldf.ChangeSet[AddGreenKeysConfig] = AddGreenKeysChangeset
+
 func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsConfig) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Rotating Base signer keys", "chain_selector", c.ChainSelector)
+	e.Logger.Infow("Rotating Base signer nops", "chain_selector", c.ChainSelector, "removing", c.NopKeysToAdd, "adding", c.NopKeysToAdd)
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 	c.Validate(e)
 
@@ -110,8 +119,90 @@ func (c RotateBaseSignerNopsConfig) Validate(e cldf.Environment) error {
 	currentSignerCount := len(signersAccount.Signers)
 	finalSignerCount := currentSignerCount - len(keysToRemoveParsed) + len(keysToAddParsed)
 	if finalSignerCount > 20 {
-		return fmt.Errorf("final signer count would be %d, which exceeds the maximum of 20 (current: %d, removing: %d, adding: %d)", 
+		return fmt.Errorf("final signer count would be %d, which exceeds the maximum of 20 (current: %d, removing: %d, adding: %d)",
 			finalSignerCount, currentSignerCount, len(keysToRemoveParsed), len(keysToAddParsed))
+	}
+
+	return nil
+}
+
+func AddGreenKeysChangeset(e cldf.Environment, c AddGreenKeysConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Adding green keys to begin rotation", "chain_selector", c.ChainSelector)
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
+	c.Validate(e)
+	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signerRegistry.ProgramID)
+	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signerRegistry.ProgramID)
+	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signerRegistry.ProgramID)
+
+	for _, keyPair := range c.BlueGreenKeys {
+		// Parse blue key
+		blue, _ := parseEVMAddress(keyPair[0])
+		green, _ := parseEVMAddress(keyPair[1])
+
+		ix, err := signerRegistry.NewSetSignerNewAddressInstruction(blue, green, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signerRegistry.ProgramID)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to add green key: %w", err)
+		}
+		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to add green key: %w", err)
+		}
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
+func (c AddGreenKeysConfig) Validate(e cldf.Environment) error {
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
+
+	// Parse and validate all blue and green keys
+	blueKeysParsed := make([][20]uint8, len(c.BlueGreenKeys))
+	greenKeysParsed := make([][20]uint8, len(c.BlueGreenKeys))
+
+	for i, keyPair := range c.BlueGreenKeys {
+		// Parse blue key
+		blueParsed, err := parseEVMAddress(keyPair[0])
+		if err != nil {
+			return fmt.Errorf("invalid BlueGreenKeys[%d] blue key: %w", i, err)
+		}
+		blueKeysParsed[i] = blueParsed
+
+		// Parse green key
+		greenParsed, err := parseEVMAddress(keyPair[1])
+		if err != nil {
+			return fmt.Errorf("invalid BlueGreenKeys[%d] green key: %w", i, err)
+		}
+		greenKeysParsed[i] = greenParsed
+	}
+
+	// Get current signers account
+	var signersAccount signerRegistry.Signers
+	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signerRegistry.ProgramID)
+
+	if err := chain.GetAccountDataBorshInto(e.GetContext(), signersPda, &signersAccount); err != nil {
+		return fmt.Errorf("failed to get signers: %w", err)
+	}
+
+	// Check that all blue keys exist in signersAccount (either as EvmAddress or NewEvmAddress)
+	for i, blueKey := range blueKeysParsed {
+		if !keyExistsInSigners(blueKey, signersAccount.Signers) {
+			return fmt.Errorf("BlueGreenKeys[%d] blue key (%s) does not exist in current signers", i, c.BlueGreenKeys[i][0])
+		}
+	}
+
+	// Check that none of the green keys already exist in signersAccount
+	for i, greenKey := range greenKeysParsed {
+		if keyExistsInSigners(greenKey, signersAccount.Signers) {
+			return fmt.Errorf("BlueGreenKeys[%d] green key (%s) already exists in current signers", i, c.BlueGreenKeys[i][1])
+		}
+	}
+
+	// Check that no green key appears as a blue key in the same config (no circular references)
+	for i, greenKey := range greenKeysParsed {
+		for j, blueKey := range blueKeysParsed {
+			if greenKey == blueKey {
+				return fmt.Errorf("green key %s appears as both green key in BlueGreenKeys[%d] and blue key in BlueGreenKeys[%d]", c.BlueGreenKeys[i][1], i, j)
+			}
+		}
 	}
 
 	return nil
