@@ -12,6 +12,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	signerRegistry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
@@ -22,15 +23,23 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
+// use these changesets to deploy the base signer registry contract
 var _ cldf.ChangeSet[DeployBaseSignerRegistryContractConfig] = DeployBaseSignerRegistryContractChangeset
 
+// use these changesets to initialize the base signer registry contract and set an initial owner
+var _ cldf.ChangeSet[InitalizeBaseSignerRegistryContractConfig] = InitializeBaseSignerRegistryContractChangeset
+
 type DeployBaseSignerRegistryContractConfig struct {
-	HomeChainSelector uint64 // eth mainnet/testnet
-	ChainSelector     uint64
-	Version           semver.Version
-	WorkflowRun       string
-	ArtifactId        string
-	IsUpgrade         bool
+	ChainSelector uint64
+	Version       semver.Version
+	WorkflowRun   string
+	ArtifactId    string
+	IsUpgrade     bool
+}
+
+type InitalizeBaseSignerRegistryContractConfig struct {
+	ChainSelector uint64
+	Owner         solana.PublicKey
 }
 
 func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
@@ -50,6 +59,26 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
+}
+
+func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c InitalizeBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
+	config.Validate(e)
+	chainSel := c.ChainSelector
+	chain := e.BlockChains.SolanaChains()[chainSel]
+	authority := chain.DeployerKey.PublicKey()
+
+	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signerRegistry.ProgramID)
+	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signerRegistry.ProgramID)
+	ix, err := signerRegistry.NewInitializeInstruction(c.Owner, authority, solana.SystemProgramID, configPda, signersPda)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to initialize base signer registry contract: %w", err)
+	}
+
+	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to initialize base signer registry contract: %w", err)
+	}
+
+	return cldf.ChangesetOutput{}, nil
 }
 
 func DeployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, ab cldf.AddressBook, config DeployBaseSignerRegistryContractConfig,
@@ -79,9 +108,18 @@ func DeployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chai
 }
 
 func (c DeployBaseSignerRegistryContractConfig) Validate(e cldf.Environment) error {
-	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
-		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
+	if err := cldf.IsValidChainSelector(c.ChainSelector); err != nil {
+		return fmt.Errorf("invalid chain selector: %d - %w", c.ChainSelector, err)
 	}
+	family, _ := chainsel.GetSelectorFamily(c.ChainSelector)
+	if family != chainsel.FamilySolana {
+		return fmt.Errorf("chain %d is not a solana chain", c.ChainSelector)
+	}
+
+	return nil
+}
+
+func (c InitalizeBaseSignerRegistryContractConfig) Validate(e cldf.Environment) error {
 	if err := cldf.IsValidChainSelector(c.ChainSelector); err != nil {
 		return fmt.Errorf("invalid chain selector: %d - %w", c.ChainSelector, err)
 	}
