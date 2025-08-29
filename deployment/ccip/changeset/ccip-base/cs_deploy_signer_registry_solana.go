@@ -14,7 +14,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	signerRegistry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -43,7 +42,8 @@ type InitalizeBaseSignerRegistryContractConfig struct {
 }
 
 func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
-	config.Validate(e)
+	e.Logger.Infow("Deploying base signer registry", "chain_selector", c.ChainSelector)
+	c.Validate(e)
 	chainSel := c.ChainSelector
 	chain := e.BlockChains.SolanaChains()[chainSel]
 
@@ -62,7 +62,8 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 }
 
 func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c InitalizeBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
-	config.Validate(e)
+	e.Logger.Infow("Initializing base signer registry", "chain_selector", c.ChainSelector)
+	c.Validate(e)
 	chainSel := c.ChainSelector
 	chain := e.BlockChains.SolanaChains()[chainSel]
 	authority := chain.DeployerKey.PublicKey()
