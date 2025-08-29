@@ -24,7 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
 
 func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
@@ -70,7 +70,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 	secretsCreateRequest := jsonrpc.Request[vaultcommon.CreateSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
-		Method:  vaultapi.MethodSecretsCreate,
+		Method:  vault.MethodSecretsCreate,
 		Params: &vaultcommon.CreateSecretsRequest{
 			RequestId: uniqueRequestID,
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
@@ -90,7 +90,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 
 	httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vaultapi.SignedOCRResponse]
+	var jsonResponse jsonrpc.Response[vault.SignedOCRResponse]
 	err = json.Unmarshal(httpResponseBody, &jsonResponse)
 	require.NoError(t, err, "failed to unmarshal getResponse")
 	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
@@ -98,7 +98,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 		require.Empty(t, jsonResponse.Error.Error())
 	}
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, vaultapi.MethodSecretsCreate, jsonResponse.Method)
+	require.Equal(t, vault.MethodSecretsCreate, jsonResponse.Method)
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
@@ -128,7 +128,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 	secretsUpdateRequest := jsonrpc.Request[vaultcommon.UpdateSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
-		Method:  vaultapi.MethodSecretsUpdate,
+		Method:  vault.MethodSecretsUpdate,
 		Params: &vaultcommon.UpdateSecretsRequest{
 			RequestId: uniqueRequestID,
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
@@ -154,7 +154,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 
 	httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vaultapi.SignedOCRResponse]
+	var jsonResponse jsonrpc.Response[vault.SignedOCRResponse]
 	err = json.Unmarshal(httpResponseBody, &jsonResponse)
 	require.NoError(t, err, "failed to unmarshal getResponse")
 	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
@@ -163,7 +163,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 	}
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, vaultapi.MethodSecretsUpdate, jsonResponse.Method)
+	require.Equal(t, vault.MethodSecretsUpdate, jsonResponse.Method)
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
@@ -192,7 +192,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 	framework.L.Info().Msg("Getting secret...")
 	secretsGetRequest := jsonrpc.Request[vaultcommon.GetSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
-		Method:  vaultapi.MethodSecretsGet,
+		Method:  vault.MethodSecretsGet,
 		Params: &vaultcommon.GetSecretsRequest{
 			Requests: []*vaultcommon.SecretRequest{
 				{
@@ -217,7 +217,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 		require.Empty(t, jsonResponse.Error.Error())
 	}
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, vaultapi.MethodSecretsGet, jsonResponse.Method)
+	require.Equal(t, vault.MethodSecretsGet, jsonResponse.Method)
 
 	/*
 	 * The json unmarshaling is not compatible with the proto oneof in vaultcommon.SecretResponse

@@ -21,7 +21,7 @@ func makeNodes(t *testing.T, signers []string) []capabilities.Node {
 	for idx, s := range signers {
 		b, err := hex.DecodeString(s)
 		require.NoError(t, err)
-		nodes = append(nodes, capabilities.Node{PeerID: &p2ptypes.PeerID{0: uint8(idx)}, Signer: [32]byte(b)})
+		nodes = append(nodes, capabilities.Node{PeerID: &p2ptypes.PeerID{0: uint8(idx)}, Signer: [32]byte(b)}) //nolint:gosec // G115
 	}
 	return nodes
 }
@@ -167,9 +167,9 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 
 	respDigests := []string{}
 	for _, r := range []*jsonrpc.Response[json.RawMessage]{oldResp1, oldResp2, currResp} {
-		d, err := r.Digest()
-		require.NoError(t, err)
-		respDigests = append(respDigests, d)
+		dig, ierr := r.Digest()
+		require.NoError(t, ierr)
+		respDigests = append(respDigests, dig)
 	}
 
 	// The response is one of the responses we received.
