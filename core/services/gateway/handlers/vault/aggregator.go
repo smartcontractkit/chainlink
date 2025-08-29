@@ -66,6 +66,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeReq
 	}
 
 	shaToCount := map[string]int{}
+	maxShaToCount := 0
 	for _, r := range ar.responses {
 		sha, err := a.sha(r)
 		if err != nil {
@@ -73,9 +74,17 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeReq
 			continue
 		}
 		shaToCount[sha]++
+		if shaToCount[sha] > maxShaToCount {
+			maxShaToCount = shaToCount[sha]
+		}
 		if shaToCount[sha] >= requiredQuorum {
 			return r, nil
 		}
+	}
+
+	remainingResponses := len(don.Members) - len(ar.responses)
+	if maxShaToCount+remainingResponses < requiredQuorum {
+		return nil, errQuorumUnobtainable
 	}
 
 	return nil, errInsufficientResponsesForQuorum

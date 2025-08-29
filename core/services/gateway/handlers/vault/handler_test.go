@@ -16,6 +16,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -55,9 +56,14 @@ func setupHandler(t *testing.T) (handlers.Handler, chan handlers.UserCallbackPay
 	return handler, make(chan handlers.UserCallbackPayload), don
 }
 
-type mockAggregator struct{}
+type mockAggregator struct {
+	err error
+}
 
 func (m *mockAggregator) Aggregate(ctx context.Context, l logger.Logger, ar *activeRequest, currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+	if m.err != nil {
+		return nil, m.err
+	}
 	return currResp, nil
 }
 
@@ -67,10 +73,15 @@ type mockCapabilitiesRegistry struct {
 }
 
 func (m *mockCapabilitiesRegistry) DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error) {
+	members := []p2ptypes.PeerID{}
+	for _, n := range m.Nodes {
+		members = append(members, *n.PeerID)
+	}
 	return []capabilities.DONWithNodes{
 		{
 			DON: capabilities.DON{
-				F: m.F,
+				F:       m.F,
+				Members: members,
 			},
 			Nodes: m.Nodes,
 		},
@@ -249,6 +260,54 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)
+		require.NoError(t, err)
+
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
+	t.Run("unhappy path - quorum unobtainable", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callbackCh, don := setupHandler(t)
+		h.(*handler).aggregator = &mockAggregator{err: errQuorumUnobtainable}
+
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		reqData := &vaultcommon.ListSecretIdentifiersRequest{
+			RequestId: "id",
+			Owner:     "owner-id",
+		}
+		reqDatab, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     "1",
+			Method: vaultcap.MethodSecretsList,
+			Params: (*json.RawMessage)(&reqDatab),
+		}
+
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     "1",
+			Method: vaultcap.MethodSecretsList,
+			Error: &jsonrpc.WireError{
+				Code:    -32603,
+				Message: "quorum unobtainable",
+			},
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			callback := <-callbackCh
+			var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
+			err2 := json.Unmarshal(callback.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.Equal(t, response.Error, secretsResponse.Error, "Response error should match")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callbackCh)

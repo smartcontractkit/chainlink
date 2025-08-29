@@ -33,7 +33,9 @@ const (
 var (
 	Methods = []string{
 		MethodSecretsCreate,
-		MethodSecretsGet,
+		// Uncomment the line below to expose the GetSecrets method
+		// to the Gateway for testing purposes.
+		// MethodSecretsGet,
 		MethodSecretsUpdate,
 		MethodSecretsDelete,
 		MethodSecretsList,

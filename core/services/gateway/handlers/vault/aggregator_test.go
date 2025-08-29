@@ -6,14 +6,25 @@ import (
 	"encoding/json"
 	"testing"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/v3/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
+
+func makeNodes(t *testing.T, signers []string) []capabilities.Node {
+	nodes := []capabilities.Node{}
+	for idx, s := range signers {
+		b, err := hex.DecodeString(s)
+		require.NoError(t, err)
+		nodes = append(nodes, capabilities.Node{PeerID: &p2ptypes.PeerID{0: uint8(idx)}, Signer: [32]byte(b)})
+	}
+	return nodes
+}
 
 func TestAggregator_Valid_Signatures(t *testing.T) {
 	signers := []string{
@@ -22,12 +33,7 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 		"e9bf394856d73402b30e160d0e05c847796f0e29000000000000000000000000",
 		"efd5bdb6c3256f04489a6ca32654d547297f48b9000000000000000000000000",
 	}
-	nodes := []capabilities.Node{}
-	for _, s := range signers {
-		b, err := hex.DecodeString(s)
-		require.NoError(t, err)
-		nodes = append(nodes, capabilities.Node{Signer: [32]byte(b)})
-	}
+	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	agg := &baseAggregator{capabilitiesRegistry: mcr}
 
@@ -57,7 +63,9 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 		Result:  (*json.RawMessage)(&rawResp),
 	}
 	ar := &activeRequest{
-		responses: []*jsonrpc.Response[json.RawMessage]{currResp},
+		responses: map[string]*jsonrpc.Response[json.RawMessage]{
+			"a": currResp,
+		},
 	}
 	resp, err := agg.Aggregate(t.Context(), logger.Test(t), ar, currResp)
 	require.NoError(t, err)
@@ -100,7 +108,13 @@ func newMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
 
 func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 	// No valid signers
-	nodes := []capabilities.Node{}
+	signers := []string{
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+	}
+	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	agg := &baseAggregator{capabilitiesRegistry: mcr}
 
@@ -115,7 +129,11 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 		},
 	}
 	ar := &activeRequest{
-		responses: []*jsonrpc.Response[json.RawMessage]{currResp, currResp, currResp},
+		responses: map[string]*jsonrpc.Response[json.RawMessage]{
+			"a": currResp,
+			"b": currResp,
+			"c": currResp,
+		},
 	}
 	resp, err := agg.Aggregate(t.Context(), logger.Test(t), ar, currResp)
 	require.NoError(t, err)
@@ -124,7 +142,13 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 
 func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T) {
 	// No valid signers
-	nodes := []capabilities.Node{}
+	signers := []string{
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+	}
+	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	agg := &baseAggregator{capabilitiesRegistry: mcr}
 
@@ -132,11 +156,26 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 	oldResp2 := newMessage(t)
 	currResp := newMessage(t)
 	ar := &activeRequest{
-		responses: []*jsonrpc.Response[json.RawMessage]{oldResp1, oldResp2, currResp},
+		responses: map[string]*jsonrpc.Response[json.RawMessage]{
+			"a": oldResp1,
+			"b": oldResp2,
+			"c": currResp,
+		},
 	}
 	resp, err := agg.Aggregate(t.Context(), logger.Test(t), ar, currResp)
 	require.NoError(t, err)
-	assert.Equal(t, currResp, resp)
+
+	respDigests := []string{}
+	for _, r := range []*jsonrpc.Response[json.RawMessage]{oldResp1, oldResp2, currResp} {
+		d, err := r.Digest()
+		require.NoError(t, err)
+		respDigests = append(respDigests, d)
+	}
+
+	// The response is one of the responses we received.
+	digest, err := resp.Digest()
+	require.NoError(t, err)
+	assert.Contains(t, respDigests, digest)
 }
 
 func TestAggregator_InsufficientResponses(t *testing.T) {
@@ -151,8 +190,54 @@ func TestAggregator_InsufficientResponses(t *testing.T) {
 		Result:  &rm,
 	}
 	ar := &activeRequest{
-		responses: []*jsonrpc.Response[json.RawMessage]{currResp},
+		responses: map[string]*jsonrpc.Response[json.RawMessage]{
+			"a": currResp,
+		},
 	}
 	_, err := agg.Aggregate(t.Context(), logger.Test(t), ar, currResp)
 	require.ErrorContains(t, err, "insufficient valid responses to reach quorum")
+}
+
+func TestAggregator_QuorumUnobtainable(t *testing.T) {
+	// No valid signers
+	signers := []string{
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+		hex.EncodeToString(mustRandom(64)),
+	}
+	nodes := makeNodes(t, signers)
+	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
+	agg := &baseAggregator{capabilitiesRegistry: mcr}
+
+	rm1 := json.RawMessage([]byte(`{}`))
+	resp1 := &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "1",
+		Method:  vault.MethodSecretsGet,
+		Result:  &rm1,
+	}
+	rm2 := json.RawMessage([]byte(`{"foo": "bar"}`))
+	resp2 := &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "1",
+		Method:  vault.MethodSecretsGet,
+		Result:  &rm2,
+	}
+	rm3 := json.RawMessage([]byte(`{"baz": "qux"}`))
+	resp3 := &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "1",
+		Method:  vault.MethodSecretsGet,
+		Result:  &rm3,
+	}
+	ar := &activeRequest{
+		responses: map[string]*jsonrpc.Response[json.RawMessage]{
+			"a": resp1,
+			"b": resp2,
+			"c": resp3,
+		},
+	}
+	_, err := agg.Aggregate(t.Context(), logger.Test(t), ar, resp3)
+	require.ErrorContains(t, err, "failed to validate using quorum: quorum unobtainable")
 }

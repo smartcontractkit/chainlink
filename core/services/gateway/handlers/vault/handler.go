@@ -34,6 +34,7 @@ const (
 var (
 	_                                 gwhandlers.Handler = (*handler)(nil)
 	errInsufficientResponsesForQuorum                    = errors.New("insufficient valid responses to reach quorum")
+	errQuorumUnobtainable                                = errors.New("quorum unobtainable")
 )
 
 type metrics struct {
@@ -67,7 +68,7 @@ func newMetrics() (*metrics, error) {
 
 type activeRequest struct {
 	req       jsonrpc.Request[json.RawMessage]
-	responses []*jsonrpc.Response[json.RawMessage]
+	responses map[string]*jsonrpc.Response[json.RawMessage]
 	mu        sync.Mutex
 
 	createdAt  time.Time
@@ -224,6 +225,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		callbackCh: callbackCh,
 		req:        req,
 		createdAt:  time.Now(),
+		responses:  map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
 
 	h.mu.Lock()
@@ -269,12 +271,22 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	ar.mu.Lock()
-	ar.responses = append(ar.responses, resp)
+	_, exists := ar.responses[nodeAddr]
+	if exists {
+		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
+		ar.mu.Unlock()
+		return nil
+	}
+	ar.responses[nodeAddr] = resp
 	ar.mu.Unlock()
 
 	resp, err := h.aggregator.Aggregate(ctx, l, ar, resp)
-	if err != nil {
-		l.Warnw("error aggregating responses", "error", err)
+	switch {
+	case errors.Is(err, errQuorumUnobtainable):
+		l.Error("quorum unobtainable, returning response to user...", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err))
+	case err != nil:
+		l.Warnw("error aggregating responses, waiting for other nodes...", "error", err)
 		return nil
 	}
 
