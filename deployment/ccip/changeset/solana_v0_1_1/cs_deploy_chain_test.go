@@ -425,7 +425,7 @@ func TestIDL(t *testing.T) {
 
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDLByDeployerKey),
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector: solChain,
 				Router:        true,
