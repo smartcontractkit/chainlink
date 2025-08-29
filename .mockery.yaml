@@ -421,6 +421,7 @@ packages:
     interfaces:
       ORM:
       WorkflowClient:
+      WorkflowRegistrySyncer:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering:
     interfaces:
       BillingClient:

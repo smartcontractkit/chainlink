@@ -1600,11 +1600,6 @@ type closerService struct {
 	io.Closer
 }
 
-func (c closerService) GetAllowlistedRequests(ctx context.context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (c closerService) Start(ctx context.Context) error { return nil }
 
 func (c closerService) Ready() error { return nil }
