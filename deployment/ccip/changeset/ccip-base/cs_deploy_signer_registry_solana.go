@@ -22,10 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
-// use these changesets to deploy the base signer registry contract
+// use this changeset to deploy the base signer registry contract
 var _ cldf.ChangeSet[DeployBaseSignerRegistryContractConfig] = DeployBaseSignerRegistryContractChangeset
 
-// use these changesets to initialize the base signer registry contract and set an initial owner
+// use this changeset to initialize the base signer registry contract and set an initial owner
 var _ cldf.ChangeSet[InitalizeBaseSignerRegistryContractConfig] = InitializeBaseSignerRegistryContractChangeset
 
 type DeployBaseSignerRegistryContractConfig struct {

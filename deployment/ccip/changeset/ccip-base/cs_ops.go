@@ -11,6 +11,15 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
+// use this changeset to rotate NOPs (entirely remove addresses or add new ones)
+var _ cldf.ChangeSet[RotateBaseSignerNopsConfig] = RotateBaseSignerNopsChangeset
+
+// use this changeset to begin a key rotation (add green keys to blue ones)
+var _ cldf.ChangeSet[AddGreenKeysConfig] = AddGreenKeysChangeset
+
+// use this changeset to finalize a key rotation (promote green keys to blue ones)
+var _ cldf.ChangeSet[PromoteKeysConfig] = PromoteKeysChangeset
+
 type RotateBaseSignerNopsConfig struct {
 	ChainSelector   uint64
 	NopKeysToAdd    []string
@@ -23,11 +32,11 @@ type AddGreenKeysConfig struct {
 	BlueGreenKeys [][2]string
 }
 
-// use these changesets to rotate NOPs (entirely remove addresses or add new ones)
-var _ cldf.ChangeSet[RotateBaseSignerNopsConfig] = RotateBaseSignerNopsChangeset
-
-// use these changesets to begin a key rotation (add green keys to blue ones)
-var _ cldf.ChangeSet[AddGreenKeysConfig] = AddGreenKeysChangeset
+type PromoteKeysConfig struct {
+	ChainSelector uint64
+	// Keys to promote (nops can be identified by blue or green indistinctly)
+	KeysToPromote []string
+}
 
 func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Rotating Base signer nops", "chain_selector", c.ChainSelector, "removing", c.NopKeysToAdd, "adding", c.NopKeysToAdd)
@@ -64,7 +73,6 @@ func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsCon
 }
 
 func (c RotateBaseSignerNopsConfig) Validate(e cldf.Environment) error {
-	// Parse and validate NopKeysToAdd
 	keysToAddParsed := make([][20]uint8, len(c.NopKeysToAdd))
 	for i, key := range c.NopKeysToAdd {
 		parsed, err := parseEVMAddress(key)
@@ -74,7 +82,6 @@ func (c RotateBaseSignerNopsConfig) Validate(e cldf.Environment) error {
 		keysToAddParsed[i] = parsed
 	}
 
-	// Parse and validate NopKeysToRemove
 	keysToRemoveParsed := make([][20]uint8, len(c.NopKeysToRemove))
 	for i, key := range c.NopKeysToRemove {
 		parsed, err := parseEVMAddress(key)
@@ -135,7 +142,6 @@ func AddGreenKeysChangeset(e cldf.Environment, c AddGreenKeysConfig) (cldf.Chang
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signerRegistry.ProgramID)
 
 	for _, keyPair := range c.BlueGreenKeys {
-		// Parse blue key
 		blue, _ := parseEVMAddress(keyPair[0])
 		green, _ := parseEVMAddress(keyPair[1])
 
@@ -159,14 +165,12 @@ func (c AddGreenKeysConfig) Validate(e cldf.Environment) error {
 	greenKeysParsed := make([][20]uint8, len(c.BlueGreenKeys))
 
 	for i, keyPair := range c.BlueGreenKeys {
-		// Parse blue key
 		blueParsed, err := parseEVMAddress(keyPair[0])
 		if err != nil {
 			return fmt.Errorf("invalid BlueGreenKeys[%d] blue key: %w", i, err)
 		}
 		blueKeysParsed[i] = blueParsed
 
-		// Parse green key
 		greenParsed, err := parseEVMAddress(keyPair[1])
 		if err != nil {
 			return fmt.Errorf("invalid BlueGreenKeys[%d] green key: %w", i, err)
@@ -208,6 +212,66 @@ func (c AddGreenKeysConfig) Validate(e cldf.Environment) error {
 	return nil
 }
 
+func PromoteKeysChangeset(e cldf.Environment, c PromoteKeysConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Promoting green keys to finalize rotation", "chain_selector", c.ChainSelector, "keys", c.KeysToPromote)
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
+	c.Validate(e)
+	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signerRegistry.ProgramID)
+	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signerRegistry.ProgramID)
+	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signerRegistry.ProgramID)
+
+	for _, keyHex := range c.KeysToPromote {
+		key, _ := parseEVMAddress(keyHex)
+
+		ix, err := signerRegistry.NewPromoteSignerAddressInstruction(key, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signerRegistry.ProgramID)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to promote key: %w", err)
+		}
+		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to promote key: %w", err)
+		}
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
+func (c PromoteKeysConfig) Validate(e cldf.Environment) error {
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
+
+	// Parse and validate all keys to promote
+	keysParsed := make([][20]uint8, len(c.KeysToPromote))
+	for i, key := range c.KeysToPromote {
+		parsed, err := parseEVMAddress(key)
+		if err != nil {
+			return fmt.Errorf("invalid KeysToPromote[%d]: %w", i, err)
+		}
+		keysParsed[i] = parsed
+	}
+
+	// Get current signers account
+	var signersAccount signerRegistry.Signers
+	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signerRegistry.ProgramID)
+
+	if err := chain.GetAccountDataBorshInto(e.GetContext(), signersPda, &signersAccount); err != nil {
+		return fmt.Errorf("failed to get signers: %w", err)
+	}
+
+	// Check that each key exists and has an active blue/green pair
+	for i, keyBytes := range keysParsed {
+		signer := findSignerWithKey(keyBytes, signersAccount.Signers)
+		if signer == nil {
+			return fmt.Errorf("KeysToPromote[%d] (%s) does not exist in current signers", i, c.KeysToPromote[i])
+		}
+
+		// Check that this signer has an active blue/green pair (NewEvmAddress is non-zero)
+		if signer.NewEvmAddress == nil {
+			return fmt.Errorf("KeysToPromote[%d] (%s) does not have a green key to promote", i, c.KeysToPromote[i])
+		}
+	}
+
+	return nil
+}
+
 func parseEVMAddress(addr string) ([20]uint8, error) {
 	if strings.HasPrefix(addr, "0x") || strings.HasPrefix(addr, "0X") {
 		addr = addr[2:]
@@ -229,6 +293,12 @@ func parseEVMAddress(addr string) ([20]uint8, error) {
 
 // keyExistsInSigners checks if a key exists in the signers list (either as EvmAddress or NewEvmAddress)
 func keyExistsInSigners(key [20]uint8, signers []signerRegistry.Signer) bool {
+	// Special case: the zero-key is never considered to be in the signers list (as it's an alias for "removal")
+	var zeroKey [20]uint8
+	if key == zeroKey {
+		return false
+	}
+
 	for _, signer := range signers {
 		// Check current EvmAddress
 		if signer.EvmAddress == key {
@@ -240,4 +310,26 @@ func keyExistsInSigners(key [20]uint8, signers []signerRegistry.Signer) bool {
 		}
 	}
 	return false
+}
+
+// findSignerWithKey finds and returns the signer that contains the given key (either as EvmAddress or NewEvmAddress)
+func findSignerWithKey(key [20]uint8, signers []signerRegistry.Signer) *signerRegistry.Signer {
+	// Return nil for all-zero keys
+	var zeroKey [20]uint8
+	if key == zeroKey {
+		return nil
+	}
+
+	for i := range signers {
+		signer := &signers[i]
+		// Check current EvmAddress
+		if signer.EvmAddress == key {
+			return signer
+		}
+		// Check NewEvmAddress if it exists
+		if signer.NewEvmAddress != nil && *signer.NewEvmAddress == key {
+			return signer
+		}
+	}
+	return nil
 }
