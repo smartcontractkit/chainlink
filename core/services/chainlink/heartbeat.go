@@ -27,11 +27,11 @@ type Heartbeat struct {
 }
 
 type HeartbeatConfig struct {
-	Beat   time.Duration
-	Lggr   logger.Logger
-	P2P    string
-	AppID  string
-	CSAKey string
+	Beat         time.Duration
+	Lggr         logger.Logger
+	P2P          string
+	AppID        string
+	CSAPublicKey string
 }
 
 func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
@@ -48,11 +48,11 @@ func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
 	}
 
 	return HeartbeatConfig{
-		Beat:   cfg.Config.Telemetry().HeartbeatInterval(),
-		Lggr:   cfg.Logger,
-		P2P:    cfg.Config.P2P().PeerID().String(),
-		AppID:  cfg.Config.AppID().String(),
-		CSAKey: csaKey,
+		Beat:         cfg.Config.Telemetry().HeartbeatInterval(),
+		Lggr:         cfg.Logger,
+		P2P:          cfg.Config.P2P().PeerID().String(),
+		AppID:        cfg.Config.AppID().String(),
+		CSAPublicKey: csaKey,
 	}
 }
 
@@ -67,8 +67,8 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 	if cfg.AppID != "" {
 		labels["appID"] = cfg.AppID
 	}
-	if cfg.CSAKey != "" {
-		labels["csa_key"] = cfg.CSAKey
+	if cfg.CSAPublicKey != "" {
+		labels["csa_key"] = cfg.CSAPublicKey
 	}
 
 	cme.WithMapLabels(labels)
