@@ -258,6 +258,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          pr-close-enabled: true
           products: |
             cre
 
@@ -278,5 +279,6 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
+          pr-close-enabled: true
           products: |
             ccip-nightlies
