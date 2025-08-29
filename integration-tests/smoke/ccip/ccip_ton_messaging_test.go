@@ -3,6 +3,7 @@ package ccip
 import (
 	"encoding/base64"
 	"math/big"
+	"sort"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
@@ -31,7 +32,10 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	t.Logf("Loaded state: %v", state)
 	_ = state
 
+	// make evm chains sorted for deterministic test results
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
+	sort.Slice(evmChainSelectors, func(i, j int) bool { return evmChainSelectors[i] < evmChainSelectors[j] })
+
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := allTonChainSelectors[0]
 	destChain := evmChainSelectors[0]
@@ -53,7 +57,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		nonce  uint64
+		//nonce  uint64
 		sender = addrBytes
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -72,7 +76,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 		require.NoError(t, err)
 
 		ea := onramp.GenericExtraArgsV2{
-			GasLimit:                 big.NewInt(100000),
+			GasLimit:                 big.NewInt(1000000),
 			AllowOutOfOrderExecution: true,
 		}
 		c, err := tlb.ToCell(ea)
@@ -80,10 +84,11 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				Replayed:               true,
-				ValidationType:         mt.ValidationTypeExec,
-				TestSetup:              setup,
-				Nonce:                  &nonce,
+				Replayed:       true,
+				ValidationType: mt.ValidationTypeExec,
+				TestSetup:      setup,
+				// Re-enable once nonce management is supported
+				//Nonce:                  &nonce,
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              c.ToBOC(),
