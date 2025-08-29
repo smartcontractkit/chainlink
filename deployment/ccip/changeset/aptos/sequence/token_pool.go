@@ -203,7 +203,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	tokenPool := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 	supportedChains, err := tokenPool.ManagedTokenPool().GetSupportedChains(nil)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to get supported chains from token pool: %w", err)
+		b.Logger.Debugf("failed to get supported chains from token pool %s, likely because it isn't deployed yet: %v", in.TokenPoolAddress.StringLong(), err)
 	}
 	for remoteSel, remotePool := range in.RemotePools {
 		// Always apply rate limits
