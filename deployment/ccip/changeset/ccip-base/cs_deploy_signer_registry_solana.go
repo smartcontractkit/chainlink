@@ -39,8 +39,13 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 	chain := e.BlockChains.SolanaChains()[chainSel]
 
 	newAddresses := cldf.NewMemoryAddressBook()
-	DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), e, c.WorkflowRun, c.ArtifactId, chain)
-	DeployBaseSignerRegistryContract(e, chain, newAddresses, c)
+	if err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), e, c.WorkflowRun, c.ArtifactId, chain); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to download release artifacts: %w", err)
+	}
+	_, err := DeployBaseSignerRegistryContract(e, chain, newAddresses, c)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy base signer registry contract: %w", err)
+	}
 
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
@@ -158,7 +163,6 @@ func DownloadReleaseArtifactsFromGithubWorkflowRun(
 			targetFile.Close()
 			return fmt.Errorf("failed to write file %s: %w", targetPath, err)
 		}
-		targetFile.Close()
 
 		e.Logger.Infow("Downloaded file", "filename", file.Name, "targetPath", targetPath)
 	}
