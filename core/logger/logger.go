@@ -12,9 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
-	otelzap "github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -171,10 +169,6 @@ type Config struct {
 	diskPollConfig       zapDiskPollConfig
 	// This is for tests only
 	testDiskLogLvlChan chan zapcore.Level
-
-	// Additional cores to combine with the default core
-	// Useful for adding OtelZap core to export logs to Loki through Beholder
-	AdditionalCores []zapcore.Core
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -195,9 +189,9 @@ func (c *Config) New() (Logger, func() error) {
 		err         error
 	)
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, c.AdditionalCores...)
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c, c.AdditionalCores...)
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -247,22 +241,20 @@ func newZapConfigBase() zap.Config {
 	return cfg
 }
 
-func newDefaultLogger(zcfg zap.Config, unixTS bool, cores ...zapcore.Core) (Logger, func() error, error) {
-	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
+func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
 		return nil, nil, err
 	}
-	cores = append(cores, defaultCore)
 
-	core := zapcore.NewTee(cores...)
 	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)
 	if err != nil {
-		defaultCloseFn()
+		coreCloseFn()
 		return nil, nil, err
 	}
 
 	return l, func() error {
-		defaultCloseFn()
+		coreCloseFn()
 		loggerCloseFn()
 		return nil
 	}, nil
@@ -317,13 +309,4 @@ func newDiskCore(diskLogLevel zap.AtomicLevel, local Config) (zapcore.Core, erro
 	)
 
 	return zapcore.NewCore(encoder, sink, allLogLevels), nil
-}
-
-// Should be used when beholder client and global providers are set
-func NewOtelCore() zapcore.Core {
-	otelZapCore := otelzap.NewCore(
-		beholder.GetLogger(),
-	)
-
-	return otelZapCore
 }
