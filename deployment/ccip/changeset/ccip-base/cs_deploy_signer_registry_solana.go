@@ -13,38 +13,41 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	signerRegistry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-// Temporary reference to prevent import removal
-var _ = signerRegistry.SIGNERS_SEED
+var _ cldf.ChangeSet[DeployBaseSignerRegistryContractConfig] = DeployBaseSignerRegistryContractChangeset
 
-type DeploySignerRegistryContractConfig struct {
+type DeployBaseSignerRegistryContractConfig struct {
 	HomeChainSelector uint64 // eth mainnet/testnet
 	ChainSelector     uint64
+	Version           semver.Version
+	WorkflowRun       string
+	ArtifactId        string
+	IsUpgrade         bool
 }
 
-func DeploySignerRegistryContractChangeset(e cldf.Environment, c DeploySignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
-	existingState, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load existing onchain state: %w", err)
-	}
-	if err := c.Validate(e, existingState); err != nil {
-		// TODO
-		return cldf.ChangesetOutput{}, fmt.Errorf("Invalid DeploySignerRegistryContractConfig: %w", err)
-	}
+func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
+	config.Validate(e)
+	chainSel := c.ChainSelector
+	chain := e.BlockChains.SolanaChains()[chainSel]
 
+	newAddresses := cldf.NewMemoryAddressBook()
+	DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), e, c.WorkflowRun, c.ArtifactId, chain)
+	DeployBaseSignerRegistryContract(e, chain, newAddresses, c)
+
+	return cldf.ChangesetOutput{
+		AddressBook: newAddresses,
+	}, nil
 }
 
-func DeploySignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, ab cldf.AddressBook, config DeploySignerRegistryContractConfig,
-	version semver.Version,
+func DeployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, ab cldf.AddressBook, config DeployBaseSignerRegistryContractConfig,
 ) (solana.PublicKey, error) {
 	contractType := shared.BaseSignerRegistry
 	programName := deployment.BaseSignerRegistryProgramName
@@ -52,7 +55,7 @@ func DeploySignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, a
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 		Name:  programName,
 		Bytes: deployment.SolanaProgramBytes[programName],
-	}, false, true)
+	}, config.IsUpgrade, true)
 
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
@@ -60,7 +63,7 @@ func DeploySignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, a
 	address := solana.MustPublicKeyFromBase58(programID)
 
 	e.Logger.Infow("Deployed program", "Program", contractType, "addr", programID, "chain", chain.String())
-	tv := cldf.NewTypeAndVersion(contractType, version)
+	tv := cldf.NewTypeAndVersion(contractType, config.Version)
 	err = ab.Save(chain.Selector, programID, tv)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
@@ -70,7 +73,7 @@ func DeploySignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, a
 
 }
 
-func (c DeploySignerRegistryContractConfig) Validate(e cldf.Environment, existingState stateview.CCIPOnChainState) error {
+func (c DeployBaseSignerRegistryContractConfig) Validate(e cldf.Environment) error {
 	if err := cldf.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
 	}
@@ -81,26 +84,21 @@ func (c DeploySignerRegistryContractConfig) Validate(e cldf.Environment, existin
 	if family != chainsel.FamilySolana {
 		return fmt.Errorf("chain %d is not a solana chain", c.ChainSelector)
 	}
-	if _, exists := existingState.SupportedChains()[c.ChainSelector]; !exists {
-		return fmt.Errorf("chain %d not supported", c.ChainSelector)
-	}
 
 	return nil
 }
 
-// DownloadReleaseArtifactsFromGithub makes a GET request to the URL, retrieves the release artifacts zip file,
-// and extracts it to a destinationDir
-func DownloadReleaseArtifactsFromGithub(
+func DownloadReleaseArtifactsFromGithubWorkflowRun(
 	ctx context.Context,
 	e cldf.Environment,
-	name string,
-	tag string,
-	destinationDir string,
+	run string,
+	artifactId string,
+	chain cldf_solana.Chain,
 ) error {
 	url := fmt.Sprintf(
-		"https://github.com/smartcontractkit/ccip-base/releases/download/%s/%s",
-		tag,
-		name,
+		"https://github.com/smartcontractkit/ccip-base/actions/runs/%s/artifacts/%s",
+		run,
+		artifactId,
 	)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -132,9 +130,8 @@ func DownloadReleaseArtifactsFromGithub(
 
 	// Extract each file from the zip archive
 	for _, file := range zipReader.File {
-		targetPath := filepath.Join(destinationDir, file.Name)
+		targetPath := filepath.Join(chain.ProgramsPath, file.Name)
 
-		// Check if it's a directory
 		if file.FileInfo().IsDir() {
 			if err := os.MkdirAll(targetPath, file.Mode()); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
@@ -162,7 +159,7 @@ func DownloadReleaseArtifactsFromGithub(
 			return fmt.Errorf("failed to write file %s: %w", targetPath, err)
 		}
 		targetFile.Close()
-		
+
 		e.Logger.Infow("Downloaded file", "filename", file.Name, "targetPath", targetPath)
 	}
 
