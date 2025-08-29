@@ -49,8 +49,7 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] DON Time test", func(t *testing.T) {
-			const skipReason = "Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028"
-			t.Skipf("Skipping test for the following reason: %s", skipReason)
+			ExecuteDonTimeTest(t, testEnv)
 		})
 
 		t.Run("[v2] Beholder test", func(t *testing.T) {
