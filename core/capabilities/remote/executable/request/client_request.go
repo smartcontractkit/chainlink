@@ -54,9 +54,10 @@ type ClientRequest struct {
 	wg       *sync.WaitGroup
 }
 
+// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration) (*ClientRequest, error) {
+	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
@@ -71,9 +72,14 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	// to ensure that it supports parallel step execution
 	requestID := types.MethodExecute + ":" + workflowExecutionID + ":" + req.Metadata.ReferenceID
 
-	tc, err := transmission.ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
+	var tc transmission.TransmissionConfig
+	if transmissionConfig != nil { // global setting used by V2 Capabilities
+		tc = *transmissionConfig
+	} else { // per-workflow setting used by V1 Capabilities
+		tc, err = transmission.ExtractTransmissionConfig(req.Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
+		}
 	}
 
 	lggr = logger.With(lggr, "requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
