@@ -1451,14 +1451,18 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		return nil, fmt.Errorf("could not get local node state: %w", err)
 	}
 
-	chainIDint, err := strconv.ParseUint(cfg.WorkflowRegistryChainID, 10, 64)
-	if err != nil {
+	if cfg.WorkflowRegistryChainID == "" {
 		// current integration tests (and things like the local-cre) sometimes
 		// need to avoid setting TOML config for the cap and workflow registry
 		// syncers as they spin up relayers. Setting default values like this
 		// prevents current and future tests from needing to setup custom
 		// wiring so that engine instances can be created with the proper registry values.
 		cfg.WorkflowRegistryChainID = "1"
+	}
+
+	chainIDint, err := strconv.ParseUint(cfg.WorkflowRegistryChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse chain ID: %w", err)
 	}
 	chainSelector, err := chain_selectors.SelectorFromChainId(chainIDint)
 	if err != nil {
