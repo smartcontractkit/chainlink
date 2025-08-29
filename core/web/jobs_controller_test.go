@@ -641,11 +641,6 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		// Set workflow registry dummy values for workflows created via job pipeline
-		// this is the legacy approach; the v2 engine always expects these config values
-		// to be set properly since workflows are pulled from a valid workflow registry
-		c.Capabilities.WorkflowRegistry.Address = ptr("0xjobpipeline")
-		c.Capabilities.WorkflowRegistry.ChainID = ptr("0")
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
@@ -710,9 +705,6 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		// Set workflow registry dummy values for workflows created via job pipeline
-		c.Capabilities.WorkflowRegistry.Address = ptr("0xjobpipeline")
-		c.Capabilities.WorkflowRegistry.ChainID = ptr("0")
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 
@@ -799,9 +791,6 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		// Set workflow registry dummy values for workflows created via job pipeline
-		c.Capabilities.WorkflowRegistry.Address = ptr("0xjobpipeline")
-		c.Capabilities.WorkflowRegistry.ChainID = ptr("0")
 	})
 	ec := setupEthClientForControllerTests(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
@@ -831,9 +820,6 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		// Set workflow registry dummy values for workflows created via job pipeline
-		c.Capabilities.WorkflowRegistry.Address = ptr("0xjobpipeline")
-		c.Capabilities.WorkflowRegistry.ChainID = ptr("0")
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 

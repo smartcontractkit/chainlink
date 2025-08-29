@@ -2971,6 +2971,7 @@ targets:
 		require.Error(t, err)
 
 	})
+
 	t.Run("includes step data when billing client errors", func(t *testing.T) {
 		t.Parallel()
 
