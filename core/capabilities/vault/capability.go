@@ -119,7 +119,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request)
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaultapi.MethodSecretsCreate)
 	if authorized == false || err != nil {
 		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
 		return nil, errors.New("request not authorized: " + err.Error())
@@ -145,7 +145,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request)
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaultapi.MethodSecretsUpdate)
 	if authorized == false || err != nil {
 		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
 		return nil, errors.New("request not authorized: " + err.Error())
@@ -172,6 +172,22 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		return nil, err
 	}
 
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaultapi.MethodSecretsDelete)
+	if authorized == false || err != nil {
+		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
+		return nil, errors.New("request not authorized: " + err.Error())
+	}
+	if !strings.HasPrefix(request.RequestId, owner) {
+		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+	}
+	for _, req := range request.Ids {
+		// Right owner for secrets can only be set here, after authorization
+		// This ensures that users cannot access secrets belonging to other owners
+		req.Owner = owner
+	}
+	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -212,7 +228,7 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	}
 }
 
-func (s *Capability) isAuthorizedRequest(ctx context.Context, request any) (bool, string, error) {
+func (s *Capability) isAuthorizedRequest(ctx context.Context, request any, method string) (bool, string, error) {
 	var params json.RawMessage
 	params, err := json.Marshal(request)
 	if err != nil {
@@ -220,7 +236,7 @@ func (s *Capability) isAuthorizedRequest(ctx context.Context, request any) (bool
 	}
 	jsonRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
-		Method:  vaultapi.MethodSecretsCreate,
+		Method:  method,
 		Params:  &params,
 	}
 	return s.requestAuthorizer.AuthorizeRequest(ctx, jsonRequest)
