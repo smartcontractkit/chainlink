@@ -19,8 +19,8 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250826151008-ae5ec0ee6f2c
-	github.com/smartcontractkit/chainlink/v2 v2.23.2-por-beta.1.0.20250815210725-a8797a246179
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250827140128-db51db1d1316
+	github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250827140128-db51db1d1316
 )
 
 require (
@@ -47,7 +47,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250827194531-48d824b94c91
-	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250821165313-cbb8fcc9bedd
+	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250827130112-75577ebd4ed4
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.25.0
 	github.com/smartcontractkit/chainlink-evm v0.3.2
@@ -245,7 +245,7 @@ require (
 	github.com/gagliardetto/binary v0.8.0 // indirect
 	github.com/gagliardetto/solana-go v1.13.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
-	github.com/gagliardetto/utilz v0.1.1 // indirect
+	github.com/gagliardetto/utilz v0.1.3 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/gibson042/canonicaljson-go v1.0.3 // indirect
@@ -486,9 +486,9 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250829192229-752389fe3c36 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250829192229-752389fe3c36 // indirect
-	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250829192229-752389fe3c36 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250829201010-23f1c63ba3f1 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250829201010-23f1c63ba3f1 // indirect
+	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250829201010-23f1c63ba3f1 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250818141131-0b979c98bab0 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect
