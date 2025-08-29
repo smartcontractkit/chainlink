@@ -32,7 +32,7 @@ func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, ar *act
 	}
 
 	l.Debugw("failed to validate signatures, falling back to quorum aggregation", "error", err)
-	currResp, err = a.validateUsingQuorum(don.DON, ar)
+	currResp, err = a.validateUsingQuorum(don.DON, ar, l)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate using quorum: %w", err)
 	}
@@ -56,7 +56,7 @@ func (a *baseAggregator) donForVaultCapability(ctx context.Context) (*capabiliti
 	return &don, nil
 }
 
-func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeRequest) (*jsonrpc.Response[json.RawMessage], error) {
+func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeRequest, l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
 	requiredQuorum := int(2*don.F + 1)
 
 	ar.mu.Lock()
@@ -67,10 +67,10 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeReq
 
 	shaToCount := map[string]int{}
 	for _, r := range ar.responses {
-		// TODO: not sure this digest is correct -- we need to exclude signatures if they exist.
 		sha, err := a.sha(r)
 		if err != nil {
-			return nil, fmt.Errorf("failed to validate using quorum: failed to compute digest: %w", err)
+			l.Errorw("failed to compute digest of response during quorum validation, skipping...", "error", err)
+			continue
 		}
 		shaToCount[sha]++
 		if shaToCount[sha] >= requiredQuorum {
