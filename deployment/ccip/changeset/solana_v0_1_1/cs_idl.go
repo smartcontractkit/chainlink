@@ -838,7 +838,7 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
 	if c.SpillAddress.IsZero() {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config, spill address must be set")
+		return cldf.ChangesetOutput{}, errors.New("error validating idl config, spill address must be set")
 	}
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 	state, _ := stateview.LoadOnchainState(e)
