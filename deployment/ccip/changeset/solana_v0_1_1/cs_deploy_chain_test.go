@@ -473,7 +473,7 @@ func TestIDL(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Test transfering ownership of the IDL back to the deployer key and then close and recreate the PDA
+	// Test transferring ownership of the IDL back to the deployer key and then close and recreate the PDA
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDLByMCMs),
