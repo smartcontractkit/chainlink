@@ -138,6 +138,10 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 			Key:   "environment",
 			Value: &nodeFilters.EnvLabel,
 		},
+		&ptypes.Label{
+			Key:   "zone",
+			Value: &nodeFilters.Zone,
+		},
 	}
 	if workflowName != nil {
 		jobLabels = append(jobLabels, &ptypes.Label{
@@ -167,7 +171,7 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 	return out, nil
 }
 
-func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, workflowName string, environment string) {
+func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, workflowName string, environment string, zone string) {
 	if len(jobIDs) == 0 {
 		env.Logger.Debugf("jobIDs not present. Listing jobs to delete via workflow name")
 		jobSelectors := []*jdtypesv1.Selector{
@@ -182,6 +186,14 @@ func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, work
 				Key:   "environment",
 				Op:    jdtypesv1.SelectorOp_EQ,
 				Value: &environment,
+			})
+		}
+
+		if zone != "" {
+			jobSelectors = append(jobSelectors, &jdtypesv1.Selector{
+				Key:   "zone",
+				Op:    jdtypesv1.SelectorOp_EQ,
+				Value: &zone,
 			})
 		}
 

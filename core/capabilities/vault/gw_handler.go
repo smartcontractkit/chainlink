@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 var (
@@ -95,14 +94,16 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
-	case vaultapi.MethodSecretsCreate:
+	case MethodSecretsCreate:
 		response = h.handleSecretsCreate(ctx, gatewayID, req)
-	case vaultapi.MethodSecretsGet:
+	case MethodSecretsGet:
 		response = h.handleSecretsGet(ctx, gatewayID, req)
-	case vaultapi.MethodSecretsUpdate:
+	case MethodSecretsUpdate:
 		response = h.handleSecretsUpdate(ctx, gatewayID, req)
-	case vaultapi.MethodSecretsDelete:
+	case MethodSecretsDelete:
 		response = h.handleSecretsDelete(ctx, gatewayID, req)
+	case MethodSecretsList:
+		response = h.handleSecretsList(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
@@ -224,6 +225,30 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 	}
 }
 
+func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	r := &vaultcommon.ListSecretIdentifiersRequest{}
+	if err := json.Unmarshal(*req.Params, r); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+
+	resp, err := h.secretsService.ListSecretIdentifiers(ctx, r)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
+	}
+
+	resultBytes, err := resp.ToJSONRPCResult()
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+
+	return &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&resultBytes),
+	}
+}
+
 func (h *GatewayHandler) errorResponse(
 	ctx context.Context,
 	gatewayID string,
@@ -240,6 +265,7 @@ func (h *GatewayHandler) errorResponse(
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      req.ID,
+		Method:  req.Method,
 		Error: &jsonrpc.WireError{
 			Code:    api.ToJSONRPCErrorCode(errorCode),
 			Message: err.Error(),

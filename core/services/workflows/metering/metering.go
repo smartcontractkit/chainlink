@@ -49,6 +49,7 @@ var (
 	ErrRatiosAndTypesNoMatch = errors.New("spending types and ratios do not match")
 	ErrInvalidRatios         = errors.New("invalid spending type ratios")
 	ErrDeductOptionRequired  = errors.New("deduct option required")
+	ErrEmptyRateCard         = errors.New("empty rate card")
 )
 
 type BillingClient interface {
@@ -70,6 +71,8 @@ type ProtoDetail struct {
 }
 
 type ReportStep struct {
+	// The ID of the capability being used in this step
+	CapabilityID string
 	// The maximum amount of universal credits that should be used in this step
 	Deduction decimal.Decimal
 	// The actual resource spend that each node used for this step
@@ -92,8 +95,8 @@ type Report struct {
 	metrics *monitoring.WorkflowsMetricLabeler
 
 	// internal state
-	mu    sync.RWMutex
-	ready bool
+	mu       sync.RWMutex
+	reserved bool
 
 	// meteringMode turns off double spend checks.
 	// In meteringMode, no accounting wrt universal credits is required;
@@ -103,6 +106,7 @@ type Report struct {
 	meteringModeErr error
 	steps           map[string]ReportStep
 	rateCard        map[string]decimal.Decimal
+	stepRefLookup   []string
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -119,14 +123,15 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		}
 	}
 
-	report := Report{
+	report := &Report{
 		labels:                  labels,
 		lggr:                    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
 		metrics:                 metrics,
 		workflowRegistryAddress: workflowRegistryAddress,
+		rateCard:                make(map[string]decimal.Decimal),
 
-		ready: false,
-		steps: make(map[string]ReportStep),
+		reserved: false,
+		steps:    make(map[string]ReportStep),
 	}
 
 	// for safety in evaluating the client interface.
@@ -137,26 +142,18 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 	}
 
 	if client == nil {
-		report.meteringMode = true
-
-		lggr.Errorf("switching to metering mode: %s", ErrNoBillingClient)
+		report.switchToMeteringMode(ErrNoBillingClient)
 	}
 
 	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
 	if err != nil {
-		report.meteringMode = true
-
-		lggr.Errorf("switching to metering mode: failed to parse registry chain id: %s", err)
+		report.switchToMeteringMode(fmt.Errorf("failed to parse registry chain id: %w", err))
 	}
 
 	report.workflowRegistryChainSelector, err = chainselectors.SelectorFromChainId(chainID)
 	if err != nil {
-		report.meteringMode = true
-
-		lggr.Errorf("switching to metering mode: failed to get selector for chain id: %s", err)
+		report.switchToMeteringMode(fmt.Errorf("failed to get selector for chain id: %w", err))
 	}
-
-	report.rateCard = make(map[string]decimal.Decimal)
 
 	if client != nil {
 		report.client = client
@@ -169,24 +166,32 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 			ChainSelector:           report.workflowRegistryChainSelector,
 		})
 		if err != nil {
-			lggr.Error(err)
+			report.switchToMeteringMode(err)
 		}
 
 		report.rateCard, err = toRateCard(resp)
 		if err != nil {
-			lggr.Errorf("switching to metering mode: %s", err)
-
-			report.meteringMode = true
+			report.switchToMeteringMode(err)
 		}
 	}
 
-	if len(report.rateCard) == 0 && !report.meteringMode {
-		lggr.Error("switching to metering mode: empty rate card")
-
-		report.meteringMode = true
+	if len(report.rateCard) == 0 {
+		report.switchToMeteringMode(ErrEmptyRateCard)
 	}
 
-	return &report, nil
+	report.balance, err = NewBalanceStore(decimal.Zero, report.rateCard)
+	if err != nil {
+		report.switchToMeteringMode(fmt.Errorf("failed to create balance store: %w", err))
+
+		// we can recover with an empty rate card and in metering mode
+		report.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
+		if err != nil {
+			// this should never happen, but if it does, we cannot proceed
+			return nil, err
+		}
+	}
+
+	return report, nil
 }
 
 // Reserve calls the billing service for the initial credit balance that can be used in an execution.
@@ -195,8 +200,8 @@ func (r *Report) Reserve(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// to avoid nil pointers, the balance store should be initialized with a zero value
-	r.balance, _ = NewBalanceStore(decimal.Zero, r.rateCard)
+	// always indicate that reserve was called.
+	r.reserved = true
 
 	if r.client == nil {
 		r.switchToMeteringMode(ErrNoBillingClient)
@@ -238,23 +243,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return nil
 	}
 
-	r.ready = true
-
-	// once credits are available, the balance store can be initialized again with the actual initial balance
-	r.balance, err = NewBalanceStore(credits, r.rateCard)
-	if err != nil {
-		r.lggr.Error("switching to metering mode: failed to create balance store: %s", err)
-		r.meteringMode = true
-
-		// we can recover with an empty rate card and in metering mode
-		r.balance, err = NewBalanceStore(decimal.Zero, map[string]decimal.Decimal{})
-		if err != nil {
-			// this should never happen, but if it does, we cannot proceed
-			r.lggr.Error("failed to create empty balance store with no rates: %s", err)
-
-			return err
-		}
-	}
+	r.balance.Set(credits)
 
 	return nil
 }
@@ -267,20 +256,26 @@ type DeductOpt func(string, *Report) ([]capabilities.SpendLimit, error)
 // ByResource returns a DeductOpt that earmarks a specified amount of local universal credit balance for a given spend
 // type.
 func ByResource(
-	spendType string,
+	spendType, capabilityID string,
 	amount decimal.Decimal,
 ) func(string, *Report) ([]capabilities.SpendLimit, error) {
 	return func(ref string, r *Report) ([]capabilities.SpendLimit, error) {
+		step := ReportStep{
+			CapabilityID: capabilityID,
+			Deduction:    decimal.Zero,
+		}
+
+		defer func() {
+			r.steps[ref] = step
+		}()
+
 		bal, err := r.balance.ConvertToBalance(spendType, amount)
 		if err != nil {
 			// Fail open, continue optimistically
 			r.switchToMeteringMode(fmt.Errorf("failed to convert to balance [%s]: %w", spendType, err))
 		}
 
-		r.steps[ref] = ReportStep{
-			Deduction: bal,
-			Spends:    nil,
-		}
+		step.Deduction = bal
 
 		// if in metering mode, exit early without modifying local balance
 		if r.meteringMode {
@@ -300,6 +295,15 @@ func ByDerivedAvailability(
 	config *values.Map,
 ) func(string, *Report) ([]capabilities.SpendLimit, error) {
 	return func(ref string, r *Report) ([]capabilities.SpendLimit, error) {
+		step := ReportStep{
+			CapabilityID: info.ID,
+			Deduction:    decimal.Zero,
+		}
+
+		defer func() {
+			r.steps[ref] = step
+		}()
+
 		limit, err := r.getMaxSpendForInvocation(userSpendLimit, openConcurrentCallSlots)
 		if err != nil {
 			return nil, err
@@ -309,10 +313,7 @@ func ByDerivedAvailability(
 			return []capabilities.SpendLimit{}, nil
 		}
 
-		r.steps[ref] = ReportStep{
-			Deduction: limit.Decimal,
-			Spends:    nil,
-		}
+		step.Deduction = limit.Decimal
 
 		// if in metering mode, exit early without modifying local balance
 		if r.meteringMode {
@@ -330,12 +331,12 @@ func (r *Report) Deduct(ref string, opt DeductOpt) ([]capabilities.SpendLimit, e
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if opt == nil {
-		return nil, ErrDeductOptionRequired
+	if !r.reserved {
+		return nil, ErrNoReserve
 	}
 
-	if !r.ready {
-		return nil, ErrNoReserve
+	if opt == nil {
+		return nil, ErrDeductOptionRequired
 	}
 
 	if _, ok := r.steps[ref]; ok {
@@ -353,7 +354,7 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if !r.ready {
+	if !r.reserved {
 		return ErrNoReserve
 	}
 
@@ -435,8 +436,11 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		protoReport.Message = r.meteringModeErr.Error()
 	}
 
+	r.stepRefLookup = []string{}
+
 	for ref, step := range r.steps {
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
+		r.stepRefLookup = append(r.stepRefLookup, ref+":"+step.CapabilityID)
 
 		for unit, details := range step.Spends {
 			for _, detail := range details {
@@ -457,7 +461,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 }
 
 func (r *Report) SendReceipt(ctx context.Context) error {
-	if !r.ready {
+	if !r.reserved {
 		return ErrNoReserve
 	}
 
@@ -492,11 +496,15 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 }
 
 func (r *Report) EmitReceipt(ctx context.Context) error {
-	if !r.ready {
+	if !r.reserved {
 		return ErrNoReserve
 	}
 
-	return wfEvents.EmitMeteringReport(ctx, r.labels, r.FormatReport())
+	rpt := r.FormatReport()
+
+	r.lggr.Debug("Emitting metering report", "report", rpt, "stepRefs", strings.Join(r.stepRefLookup, ","))
+
+	return wfEvents.EmitMeteringReport(ctx, r.labels, rpt)
 }
 
 // creditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
@@ -579,7 +587,7 @@ func (r *Report) getMaxSpendForInvocation(
 		return nullCapSpendLimit, ErrNoOpenCalls
 	}
 
-	if !r.ready {
+	if !r.reserved {
 		return nullCapSpendLimit, ErrNoReserve
 	}
 
@@ -598,11 +606,18 @@ func (r *Report) getMaxSpendForInvocation(
 }
 
 func (r *Report) switchToMeteringMode(err error) {
+	// add to the reported errors to indicate all errors encountered during metering
+	r.meteringModeErr = errors.Join(r.meteringModeErr, err)
+
+	if r.meteringMode {
+		return
+	}
+
+	// only log a single metering mode switch error. this error should indicate the first metering related error
+	// encountered
 	r.lggr.Errorf("switching to metering mode: %s", err)
 
 	r.meteringMode = true
-	r.meteringModeErr = err
-	r.ready = true
 }
 
 func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]decimal.Decimal, error) {

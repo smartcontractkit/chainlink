@@ -48,7 +48,8 @@ func main() {
 
 	lggr, _ := logger.NewLogger()
 
-	handlerFactory := gateway.NewHandlerFactory(nil, nil, nil, lggr)
+	// Note: these nils are optional dependencies that are not needed for simple handlers.
+	handlerFactory := gateway.NewHandlerFactory(nil, nil, nil, nil, lggr)
 	gw, err := gateway.NewGatewayFromConfig(&cfg, handlerFactory, lggr)
 	if err != nil {
 		fmt.Println("error creating Gateway object:", err)
