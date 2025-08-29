@@ -96,7 +96,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 
 	content, readErr := os.ReadFile(defaultArtifactsPathFile)
 	if readErr != nil {
-		return errors.Wrap(readErr, "failed to read artifact paths file. Make sure that local CRE environment is running")
+		return errors.Wrapf(readErr, "failed to read artifact paths file from %s. Make sure that local CRE environment is running", defaultArtifactsPathFile)
 	}
 
 	var paths artifactPaths

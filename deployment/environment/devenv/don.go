@@ -584,6 +584,8 @@ var MatchAll = func(jobSpec string) bool {
 	return true
 }
 
+// MatchFn matches job specs by string content.
+// Takes a string instead of the full job proposal to avoid internal package type dependencies.
 type MatchFn func(jobSpec string) bool
 
 func (n *Node) CancelProposals(ctx context.Context, matchFn MatchFn) ([]string, error) {
