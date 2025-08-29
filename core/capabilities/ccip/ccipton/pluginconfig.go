@@ -15,6 +15,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDat
 		AddressCodec:       codec.NewAddressCodec(),
 		CommitPluginCodec:  codec.NewCommitPluginCodecV1(),
 		ExecutePluginCodec: codec.NewExecutePluginCodecV1(extraDataCodec),
+		ExtraDataCodec:     codec.NewExtraDataDecoder(),
 	}
 }
 

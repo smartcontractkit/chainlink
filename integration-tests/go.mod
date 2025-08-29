@@ -62,7 +62,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250827154639-52c598a71129
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250828214118-9ce7f61f9a76
 	github.com/smartcontractkit/libocr v0.0.0-20250707144819-babe0ec4e358
 	github.com/smartcontractkit/mcms v0.21.1
 	github.com/spf13/cobra v1.9.1
@@ -489,8 +489,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250710151719-d98d7674da89 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.12 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250826131645-7efc17eace43 // indirect
-	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250826131645-7efc17eace43 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250828214118-9ce7f61f9a76 // indirect
+	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250828214118-9ce7f61f9a76 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
