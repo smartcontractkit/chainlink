@@ -683,6 +683,18 @@ func SetAuthorityIDLByDeployerKey(e cldf.Environment, c IDLConfig) (cldf.Changes
 		}
 	}
 
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, c.ChainSelector, "proposal to upgrade CCIP contracts", c.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
 	return cldf.ChangesetOutput{}, nil
 }
 
