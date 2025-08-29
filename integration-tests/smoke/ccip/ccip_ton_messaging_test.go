@@ -57,7 +57,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		//nonce  uint64
+		nonce  uint64
 		sender = addrBytes
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -84,11 +84,10 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				Replayed:       true,
-				ValidationType: mt.ValidationTypeExec,
-				TestSetup:      setup,
-				// Re-enable once nonce management is supported
-				//Nonce:                  &nonce,
+				Replayed:               true,
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Nonce:                  &nonce,
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              c.ToBOC(),
