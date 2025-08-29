@@ -58,11 +58,7 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	compressedWorkflowWasmPath, httpConfigFilePath := createWorkflowArtifacts(t, testLogger, uniqueWorkflowName, &httpWorkflowConfig, HTTPWorkflowFileLocation)
 
 	testLogger.Info().Msg("Registering HTTP workflow")
-	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(
-		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		homeChainSelector,
-		keystone_changeset.WorkflowRegistry.String(),
-	)
+	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, err, "failed to find workflow registry address for chain %d", homeChainSelector)
 
 	regConfig := &WorkflowRegistrationConfig{

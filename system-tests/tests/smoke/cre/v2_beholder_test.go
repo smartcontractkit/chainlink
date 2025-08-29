@@ -33,21 +33,15 @@ func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 	testLogger.Info().Msg("Starting Beholder...")
 	bErr := startBeholderStackIfIsNotRunning(DefaultBeholderStackCacheFile, DefaultEnvironmentDir)
 	require.NoError(t, bErr, "failed to start Beholder")
-	testLogger.Info().Msg("Beholder successfully started.")
 
 	chipConfig, chipErr := loadBeholderStackCache()
 	require.NoError(t, chipErr, "failed to load chip ingress cache")
 	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
 	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
 
-	var workflowConfig *BeholderWorkflowConfig = nil
-	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, workflowConfig, workflowFileLocation)
+	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, &None{}, workflowFileLocation)
 
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		homeChainSelector,
-		keystone_changeset.WorkflowRegistry.String(),
-	)
+	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
 
 	t.Cleanup(func() {
@@ -159,7 +153,7 @@ func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 		}
 		require.Failf(t, "Timed out waiting for expected user log message", "Expected user log message: '%s' not found after %s", expectedUserLog, timeout.String())
 	case err := <-kafkaErrChan:
-		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution")
+		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
 		require.Fail(t, "Kafka listener failed", err.Error())
 	}
 

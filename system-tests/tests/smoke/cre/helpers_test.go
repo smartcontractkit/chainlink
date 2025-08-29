@@ -39,8 +39,12 @@ import (
 // Generic WorkflowConfig interface for creation of different workflow configurations
 // Register your workflow configuration types here
 type WorkflowConfig interface {
-	portypes.WorkflowConfig | HTTPWorkflowConfig | BeholderWorkflowConfig
+	None | portypes.WorkflowConfig | HTTPWorkflowConfig
 }
+
+// None represents an empty workflow configuration
+// It is used to satisfy the workflowConfigFactory, avoiding workflow config creation
+type None struct{}
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
 type WorkflowRegistrationConfig struct {
@@ -129,6 +133,10 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 	// nil is an acceptable argument that allows skipping config file creation when it is not necessary
 	if workflowConfig != nil {
 		switch cfg := any(workflowConfig).(type) {
+		case *None:
+			workflowConfigFilePath = ""
+			testLogger.Info().Msg("Workflow config file is not requested and will not be created.")
+
 		case *portypes.WorkflowConfig:
 			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath

@@ -92,10 +92,10 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		crecontracts.MergeAllDataStores(fullCldEnvOutput, dfOutput, rbOutput)
 
 		testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
-		forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
+		forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String())
 		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
 
-		uniqueWorkflowName := baseWorkflowTestConfig.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4] // por-workflow-1337-5f37_config
+		uniqueWorkflowName := baseWorkflowTestConfig.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4] // e.g. 'por-workflow-1337-5f37_config'
 		configInput := &cre.ConfigureDataFeedsCacheInput{
 			CldEnv:                fullCldEnvOutput.Environment,
 			ChainSelector:         chainSelector,
@@ -130,7 +130,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 
 		testLogger.Info().Msgf("Registering PoR workflow on chain %d (%d)", chainID, chainSelector)
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+			fullCldEnvOutput.Environment.ExistingAddresses,
 			homeChainSelector, // it should live only on one chain, it is not deployed to all chains
 			keystone_changeset.WorkflowRegistry.String(),
 		)
@@ -236,7 +236,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
 
 			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-				testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+				testEnv.FullCldEnvOutput.Environment.ExistingAddresses,
 				bcOutput.ChainSelector,
 				df_changeset.DataFeedsCache.String(),
 			)
