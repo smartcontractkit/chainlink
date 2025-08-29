@@ -158,7 +158,7 @@ func Test_Handler(t *testing.T) {
 
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey, WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
@@ -184,7 +184,7 @@ func Test_Handler(t *testing.T) {
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey, WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
@@ -206,7 +206,7 @@ func Test_Handler(t *testing.T) {
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, nil, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey, WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
 		giveURL := "https://original-url.com"
@@ -259,7 +259,7 @@ func Test_Handler(t *testing.T) {
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey, WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 		err = h.Handle(ctx, giveEvent)
 		require.ErrorIs(t, err, assert.AnError)
@@ -298,7 +298,7 @@ func Test_Handler(t *testing.T) {
 		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey, WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
@@ -796,7 +796,6 @@ func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workfl
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		opts = append(opts, WithWorkflowRegistry("0x123", "1"))
 		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, opts...)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, h.Close()) })
@@ -908,7 +907,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er), WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 		err =
 			h.workflowRegisteredEvent(ctx, active)
@@ -985,7 +984,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er), WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 
 		deleteEvent := WorkflowDeletedV1{
@@ -1056,7 +1055,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er), WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 		err =
 			h.workflowRegisteredEvent(ctx, active)
@@ -1153,7 +1152,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er), WithWorkflowRegistry("0x123", "1"))
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
 
 		err = h.workflowRegisteredEvent(ctx, active)
@@ -1269,7 +1268,6 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 		workflowLimits,
 		artifactStore,
 		workflowEncryptionKey,
-		WithWorkflowRegistry("0x123", "1"),
 	)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, eventHandler.Close()) }()
