@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -70,13 +72,14 @@ type activeRequest struct {
 
 type handler struct {
 	services.StateMachine
-	methodConfig Config
-	donConfig    *config.DONConfig
-	don          gwhandlers.DON
-	lggr         logger.Logger
-	codec        api.JsonRPCCodec
-	mu           sync.RWMutex
-	stopCh       services.StopChan
+	methodConfig      Config
+	donConfig         *config.DONConfig
+	don               gwhandlers.DON
+	lggr              logger.Logger
+	codec             api.JsonRPCCodec
+	mu                sync.RWMutex
+	stopCh            services.StopChan
+	requestAuthorizer RequestAuthorizer
 
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
@@ -104,7 +107,7 @@ type Config struct {
 	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -125,16 +128,17 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	}
 
 	return &handler{
-		methodConfig:    cfg,
-		donConfig:       donConfig,
-		don:             don,
-		lggr:            logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
-		requestTimeout:  time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter: nodeRateLimiter,
-		activeRequests:  make(map[string]activeRequest),
-		mu:              sync.RWMutex{},
-		stopCh:          make(services.StopChan),
-		metrics:         metrics,
+		methodConfig:      cfg,
+		donConfig:         donConfig,
+		don:               don,
+		lggr:              logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
+		requestTimeout:    time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:   nodeRateLimiter,
+		activeRequests:    make(map[string]activeRequest),
+		mu:                sync.RWMutex{},
+		requestAuthorizer: NewRequestAuthorizer(lggr, workflowRegistrySyncer),
+		stopCh:            make(services.StopChan),
+		metrics:           metrics,
 	}, nil
 }
 
@@ -207,7 +211,16 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request ID cannot be empty")
 	}
 
-	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
+	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
+	if !isAuthorized {
+		h.lggr.Errorw("request not authorized", "request_id", req.ID, "owner", owner, "reason:", err)
+		errors.New("request not authorized: " + err.Error())
+	}
+
+	// Prefix request id with owner, to ensure uniqueness across different owners
+	req.ID = owner + "::" + req.ID
+
+	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
 	ar := activeRequest{
 		callbackCh: callbackCh,
 		req:        req,
@@ -254,6 +267,12 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
+	// Strip the owner prefix from the response ID before sending it back to the user
+	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
+	index := strings.Index(resp.ID, "::")
+	if index != -1 {
+		resp.ID = resp.ID[index+2:]
+	}
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
@@ -411,7 +430,6 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error 
 	return nil
 }
 
-
 func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar activeRequest) error {
 	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
@@ -461,6 +479,13 @@ func (h *handler) errorResponse(
 	case api.RequestTimeoutError:
 	case api.StaleNodeResponseError:
 		// Unused in this handler
+	}
+
+	// Strip the owner prefix from the json response ID before sending it back to the user
+	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
+	index := strings.Index(req.ID, "::")
+	if index != -1 {
+		req.ID = req.ID[index+2:]
 	}
 
 	return gwhandlers.UserCallbackPayload{

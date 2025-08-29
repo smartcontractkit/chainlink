@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+
 )
 
 const (
@@ -30,16 +32,18 @@ type handlerFactory struct {
 	ds           sqlutil.DataSource
 	lggr         logger.Logger
 	httpClient   network.HTTPClient
+	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, lggr logger.Logger) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
 		lggr,
 		httpClient,
+		workflowRegistrySyncer,
 	}
 }
 
