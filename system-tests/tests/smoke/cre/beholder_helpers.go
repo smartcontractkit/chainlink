@@ -17,9 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-const DefaultBeholderStackCacheFile = "../../../../core/scripts/cre/environment/configs/chip-ingress-cache.toml"
-
-func loadBeholderStackCache() (*config.ChipIngressConfig, error) {
+func loadBeholderStackCache(beholderConfigPath string) (*config.ChipIngressConfig, error) {
 	originalCtfConfigs := os.Getenv("CTF_CONFIGS")
 	defer func() {
 		setErr := os.Setenv("CTF_CONFIGS", originalCtfConfigs)
@@ -28,7 +26,7 @@ func loadBeholderStackCache() (*config.ChipIngressConfig, error) {
 		}
 	}()
 
-	setErr := os.Setenv("CTF_CONFIGS", DefaultBeholderStackCacheFile)
+	setErr := os.Setenv("CTF_CONFIGS", beholderConfigPath)
 	if setErr != nil {
 		return nil, errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
 	}

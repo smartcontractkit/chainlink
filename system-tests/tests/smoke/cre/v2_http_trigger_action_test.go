@@ -154,7 +154,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 
 		testEnv.Logger.Info().Msg("Successfully received 200 OK response from gateway")
 		return true
-	}, tests.WaitTimeout(t), DefaultRetryInterval, "gateway should respond with 200 OK and valid response once workflow is loaded (ensure the workflow is loaded)")
+	}, tests.WaitTimeout(t), testEnv.TestConfig.RetryInterval, "gateway should respond with 200 OK and valid response once workflow is loaded (ensure the workflow is loaded)")
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, finalResponse.Version, "expected JSON-RPC version %s, got %s", jsonrpc.JsonRpcVersion, finalResponse.Version)
 	require.Equal(t, triggerRequest.ID, finalResponse.ID, "expected response ID %s, got %s", triggerRequest.ID, finalResponse.ID)
@@ -166,7 +166,7 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment) {
 	require.Eventually(t, func() bool {
 		records, err := fake.R.Get("POST", "/orders")
 		return err == nil && len(records) > 0
-	}, tests.WaitTimeout(t), DefaultRetryInterval, "workflow should have made at least one HTTP request to mock server")
+	}, tests.WaitTimeout(t), testEnv.TestConfig.RetryInterval, "workflow should have made at least one HTTP request to mock server")
 
 	records, err := fake.R.Get("POST", "/orders")
 	require.NoError(t, err, "failed to get recorded requests")

@@ -36,28 +36,6 @@ import (
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 )
 
-// Generic WorkflowConfig interface for creation of different workflow configurations
-// Register your workflow configuration types here
-type WorkflowConfig interface {
-	None | portypes.WorkflowConfig | HTTPWorkflowConfig
-}
-
-// None represents an empty workflow configuration
-// It is used to satisfy the workflowConfigFactory, avoiding workflow config creation
-type None struct{}
-
-// WorkflowRegistrationConfig holds configuration for workflow registration
-type WorkflowRegistrationConfig struct {
-	WorkflowName         string
-	WorkflowLocation     string
-	ConfigFilePath       string
-	CompressedWasmPath   string
-	SecretsURL           string
-	WorkflowRegistryAddr common.Address
-	DonID                uint64
-	ContainerTargetDir   string
-}
-
 /////////////////////////
 // ENVIRONMENT HELPERS //
 /////////////////////////
@@ -91,6 +69,28 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 //////////////////////////////
 // WORKFLOW-RELATED HELPERS //
 //////////////////////////////
+
+// Generic WorkflowConfig interface for creation of different workflow configurations
+// Register your workflow configuration types here
+type WorkflowConfig interface {
+	None | portypes.WorkflowConfig | HTTPWorkflowConfig
+}
+
+// None represents an empty workflow configuration
+// It is used to satisfy the workflowConfigFactory, avoiding workflow config creation
+type None struct{}
+
+// WorkflowRegistrationConfig holds configuration for workflow registration
+type WorkflowRegistrationConfig struct {
+	WorkflowName         string
+	WorkflowLocation     string
+	ConfigFilePath       string
+	CompressedWasmPath   string
+	SecretsURL           string
+	WorkflowRegistryAddr common.Address
+	DonID                uint64
+	ContainerTargetDir   string
+}
 
 /*
 Creates the necessary workflow artifacts based on WorkflowConfig:
@@ -192,6 +192,9 @@ func registerWorkflow(ctx context.Context, t *testing.T, workflowConfig *Workflo
 Deletes workflows from:
  1. Local environment
  2. Workflow Registry
+
+Recommendation:
+Use it at the end of your test to `t.Cleanup()` the env after test run
 */
 func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFilePath string, compressedWorkflowWasmPath string, blockchainOutputs []*cre.WrappedBlockchainOutput, workflowRegistryAddress common.Address) {
 	t.Helper()

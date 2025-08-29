@@ -37,11 +37,15 @@ type WorkflowTestConfig struct {
 	WorkflowName         string
 	WorkflowFileLocation string
 	FeedIDs              []string
-	Timeout              time.Duration
 }
 
 func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 	testLogger := framework.L
+	// AuthorizationKeySecretName := "AUTH_KEY"
+	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
+	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
+	// It is needed for FakePriceProvider
+	AuthorizationKey := "" // required by FakePriceProvider
 	PoRWorkflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 	blockchainOutputs := testEnv.WrappedBlockchainOutputs
 	homeChainSelector := blockchainOutputs[0].ChainSelector
@@ -51,7 +55,6 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		WorkflowName:         baseWorkflowName,
 		WorkflowFileLocation: PoRWorkflowFileLocation,
 		FeedIDs:              feedIDs,
-		Timeout:              DefaultVerificationTimeout,
 	}
 
 	writeableChains := getWritableChainsFromSavedEnvironmentState(t, testEnv)
@@ -250,6 +253,8 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 			}
 
 			startTime := time.Now()
+			waitFor := testEnv.TestConfig.VerificationTimeout
+			tick := testEnv.TestConfig.RetryInterval
 			require.Eventually(t, func() bool {
 				elapsed := time.Since(startTime).Round(time.Second)
 				price, err := dataFeedsCacheInstance.GetLatestAnswer(bcOutput.SethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
@@ -260,7 +265,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 
 				// if there are no more prices to be found, we can stop waiting
 				return !priceProvider.NextPrice(feedID, price, elapsed)
-			}, config.Timeout, DefaultValidationInterval, "feed %s did not update, timeout after: %s", feedID, config.Timeout)
+			}, waitFor, tick, "feed %s did not update, timeout after: %s", feedID, waitFor.String())
 
 			expected := priceProvider.ExpectedPrices(feedID)
 			actual := priceProvider.ActualPrices(feedID)

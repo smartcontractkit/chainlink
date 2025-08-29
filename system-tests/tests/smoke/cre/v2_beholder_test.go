@@ -21,8 +21,6 @@ import (
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
-type BeholderWorkflowConfig struct{}
-
 func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 	testLogger := framework.L
 	timeout := 2 * time.Minute
@@ -31,10 +29,11 @@ func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 	workflowName := "cronbeholder"
 
 	testLogger.Info().Msg("Starting Beholder...")
-	bErr := startBeholderStackIfIsNotRunning(DefaultBeholderStackCacheFile, DefaultEnvironmentDir)
+	beholderConfigPath := testEnv.TestConfig.BeholderConfigPath
+	bErr := startBeholderStackIfIsNotRunning(beholderConfigPath, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, bErr, "failed to start Beholder")
 
-	chipConfig, chipErr := loadBeholderStackCache()
+	chipConfig, chipErr := loadBeholderStackCache(beholderConfigPath)
 	require.NoError(t, chipErr, "failed to load chip ingress cache")
 	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
 	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
