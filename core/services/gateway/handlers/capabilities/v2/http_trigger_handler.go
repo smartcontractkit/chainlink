@@ -305,6 +305,7 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 		ErrorCode:   api.NoError,
 	}:
 		delete(h.callbacks, resp.ID)
+		h.metrics.Trigger.IncrementRequestSuccess(ctx, h.lggr)
 		latencyMs := time.Since(saved.requestStartTime).Milliseconds()
 		h.metrics.Trigger.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
 	}
@@ -385,8 +386,8 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 		h.lggr.Errorw("failed to marshal error response", "err", err, "requestID", requestID)
 		return
 	}
-	errorCode := api.ErrorCode(code)
-	h.metrics.Trigger.IncrementRequestErrors(ctx, errorCode.String(), h.lggr)
+	errorCode := api.FromJSONRPCErrorCode(code)
+	h.metrics.Trigger.IncrementRequestErrors(ctx, code, h.lggr)
 	callbackCh <- handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   errorCode,
