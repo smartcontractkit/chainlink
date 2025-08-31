@@ -519,7 +519,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 		params := GetWorkflowListByDONParams{
 			DonFamily: family,
 			Start:     big.NewInt(0),
-			Limit:     big.NewInt(int64(MaxResultsPerQuery)),
+			Limit:     big.NewInt(int64(MaxResultsPerQuery)), //nolint:gosec // safe conversion
 		}
 
 		for {
@@ -584,7 +584,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 	var allAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 	params := GetAllowlistedRequestsParams{
 		Start: big.NewInt(0),
-		Limit: big.NewInt(int64(MaxResultsPerQuery)),
+		Limit: big.NewInt(int64(MaxResultsPerQuery)), //nolint:gosec // safe conversion
 	}
 
 	for {

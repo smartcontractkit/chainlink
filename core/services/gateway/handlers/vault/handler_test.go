@@ -130,9 +130,9 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestId := owner + "::" + requestID
+		expectedRequestID := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
-			ID:     expectedRequestId,
+			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
 		}
 		wg.Add(1)
@@ -191,9 +191,9 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestId := owner + "::" + requestID
+		expectedRequestID := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
-			ID:     expectedRequestId,
+			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
 			Method: vaulttypes.MethodSecretsDelete,
 		}
@@ -249,9 +249,9 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestId := owner + "::" + requestID
+		expectedRequestID := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
-			ID:     expectedRequestId,
+			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
 			Method: vaulttypes.MethodSecretsList,
 		}
@@ -298,9 +298,9 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
-		expectedRequestId := owner + "::" + requestID
+		expectedRequestID := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
-			ID:     expectedRequestId,
+			ID:     expectedRequestID,
 			Method: vaulttypes.MethodSecretsList,
 			Error: &jsonrpc.WireError{
 				Code:    -32603,
