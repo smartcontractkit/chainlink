@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -18,20 +19,22 @@ import (
 )
 
 type Delegate struct {
-	legacyChains legacyevm.LegacyChainContainer
-	ks           keystore.Eth
-	ds           sqlutil.DataSource
-	lggr         logger.Logger
+	legacyChains         legacyevm.LegacyChainContainer
+	ks                   keystore.Eth
+	ds                   sqlutil.DataSource
+	lggr                 logger.Logger
+	capabilitiesRegistry core.CapabilitiesRegistry
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, lggr logger.Logger) *Delegate {
+func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry core.CapabilitiesRegistry, lggr logger.Logger) *Delegate {
 	return &Delegate{
-		legacyChains: legacyChains,
-		ks:           ks,
-		ds:           ds,
-		lggr:         lggr,
+		legacyChains:         legacyChains,
+		ks:                   ks,
+		ds:                   ds,
+		capabilitiesRegistry: capabilitiesRegistry,
+		lggr:                 lggr,
 	}
 }
 
@@ -59,7 +62,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err != nil {
 		return nil, err
 	}
-	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.lggr)
+	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.lggr)
 	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr)
 	if err != nil {
 		return nil, err

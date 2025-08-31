@@ -14,7 +14,6 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
@@ -55,7 +54,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("capability does not support v1 requests")
 	}
 
-	if request.Method != vaultapi.MethodSecretsGet {
+	if request.Method != MethodSecretsGet {
 		return capabilities.CapabilityResponse{}, errors.New("unsupported method: can only call GetSecrets via capability interface")
 	}
 
@@ -131,11 +130,33 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*Response, error) {
-	// TODO validate the request
 	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
-	if len(request.EncryptedSecrets) >= vaultapi.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
+	if request.RequestId == "" {
+		return nil, errors.New("request ID must not be empty")
 	}
+
+	if len(request.EncryptedSecrets) >= MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", MaxBatchSize)
+	}
+
+	uniqueIDs := map[string]bool{}
+	for idx, req := range request.EncryptedSecrets {
+		if req.Id == nil {
+			return nil, fmt.Errorf("secret ID must not be nil at index %d", idx)
+		}
+
+		if req.Id.Key == "" || req.Id.Owner == "" {
+			return nil, fmt.Errorf("secret ID must have both key and owner set at index %d: %v", idx, req.Id)
+		}
+
+		_, ok := uniqueIDs[KeyFor(req.Id)]
+		if ok {
+			return nil, fmt.Errorf("duplicate secret ID found at index %d: %v", idx, req.Id)
+		}
+
+		uniqueIDs[KeyFor(req.Id)] = true
+	}
+
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -144,23 +165,23 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		return nil, errors.New("request ID must not be empty")
 	}
 
-	if len(request.EncryptedSecrets) >= vaultapi.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
+	if len(request.EncryptedSecrets) >= MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", MaxBatchSize)
 	}
 
 	uniqueIDs := map[string]bool{}
-	for _, req := range request.EncryptedSecrets {
+	for idx, req := range request.EncryptedSecrets {
 		if req.Id == nil {
-			return nil, errors.New("secret ID must not be nil")
+			return nil, fmt.Errorf("secret ID must not be nil at index %d", idx)
 		}
 
 		if req.Id.Key == "" || req.Id.Owner == "" {
-			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", req.Id)
+			return nil, fmt.Errorf("secret ID must have both key and owner set at index %d: %v", idx, req.Id)
 		}
 
 		_, ok := uniqueIDs[KeyFor(req.Id)]
 		if ok {
-			return nil, fmt.Errorf("duplicate secret ID found: %v", req.Id)
+			return nil, fmt.Errorf("duplicate secret ID found at index %d: %v", idx, req.Id)
 		}
 
 		uniqueIDs[KeyFor(req.Id)] = true
@@ -175,22 +196,34 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		return nil, errors.New("request ID must not be empty")
 	}
 
-	if len(request.Ids) >= vaultapi.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
+	if len(request.Ids) >= MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", MaxBatchSize)
 	}
 
 	uniqueIDs := map[string]bool{}
-	for _, id := range request.Ids {
+	for idx, id := range request.Ids {
 		if id.Key == "" || id.Owner == "" {
-			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", id)
+			return nil, fmt.Errorf("secret ID must have both key and owner set at index %d: %v", idx, id)
 		}
 
 		_, ok := uniqueIDs[KeyFor(id)]
 		if ok {
-			return nil, fmt.Errorf("duplicate secret ID found: %v", id)
+			return nil, fmt.Errorf("duplicate secret ID found at index %d: %v", idx, id)
 		}
 
 		uniqueIDs[KeyFor(id)] = true
+	}
+
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*Response, error) {
+	if request.RequestId == "" {
+		return nil, errors.New("request ID must not be empty")
+	}
+
+	if request.Owner == "" {
+		return nil, errors.New("owner must not be empty")
 	}
 
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -201,8 +234,8 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 	if len(request.Requests) == 0 {
 		return nil, errors.New("no GetSecret request specified in request")
 	}
-	if len(request.Requests) >= vaultapi.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
+	if len(request.Requests) >= MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", MaxBatchSize)
 	}
 	return s.handleRequest(ctx, requestID, request)
 }

@@ -203,6 +203,65 @@ func (_c *SecretsService_GetSecrets_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// ListSecretIdentifiers provides a mock function with given fields: ctx, request
+func (_m *SecretsService) ListSecretIdentifiers(ctx context.Context, request *vault.ListSecretIdentifiersRequest) (*capabilitiesvault.Response, error) {
+	ret := _m.Called(ctx, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListSecretIdentifiers")
+	}
+
+	var r0 *capabilitiesvault.Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *vault.ListSecretIdentifiersRequest) (*capabilitiesvault.Response, error)); ok {
+		return rf(ctx, request)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *vault.ListSecretIdentifiersRequest) *capabilitiesvault.Response); ok {
+		r0 = rf(ctx, request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*capabilitiesvault.Response)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *vault.ListSecretIdentifiersRequest) error); ok {
+		r1 = rf(ctx, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SecretsService_ListSecretIdentifiers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListSecretIdentifiers'
+type SecretsService_ListSecretIdentifiers_Call struct {
+	*mock.Call
+}
+
+// ListSecretIdentifiers is a helper method to define mock.On call
+//   - ctx context.Context
+//   - request *vault.ListSecretIdentifiersRequest
+func (_e *SecretsService_Expecter) ListSecretIdentifiers(ctx interface{}, request interface{}) *SecretsService_ListSecretIdentifiers_Call {
+	return &SecretsService_ListSecretIdentifiers_Call{Call: _e.mock.On("ListSecretIdentifiers", ctx, request)}
+}
+
+func (_c *SecretsService_ListSecretIdentifiers_Call) Run(run func(ctx context.Context, request *vault.ListSecretIdentifiersRequest)) *SecretsService_ListSecretIdentifiers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*vault.ListSecretIdentifiersRequest))
+	})
+	return _c
+}
+
+func (_c *SecretsService_ListSecretIdentifiers_Call) Return(_a0 *capabilitiesvault.Response, _a1 error) *SecretsService_ListSecretIdentifiers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *SecretsService_ListSecretIdentifiers_Call) RunAndReturn(run func(context.Context, *vault.ListSecretIdentifiersRequest) (*capabilitiesvault.Response, error)) *SecretsService_ListSecretIdentifiers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateSecrets provides a mock function with given fields: ctx, request
 func (_m *SecretsService) UpdateSecrets(ctx context.Context, request *vault.UpdateSecretsRequest) (*capabilitiesvault.Response, error) {
 	ret := _m.Called(ctx, request)

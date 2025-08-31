@@ -52,6 +52,12 @@ func (bs *balanceStore) convertToBalance(fromResourceType string, amount decimal
 		return amount, ErrResourceTypeNotFound
 	}
 
+	// Special case for gas as gas token conversions are provided in amount per credit.
+	// Other rates are provided as the inverse.
+	if isGasSpendType(fromResourceType) {
+		return amount.Div(rate).Round(defaultDecimalPrecision), nil
+	}
+
 	return amount.Mul(rate), nil
 }
 
@@ -71,6 +77,12 @@ func (bs *balanceStore) convertFromBalance(toResourceType string, amount decimal
 		return amount, ErrResourceTypeNotFound
 	}
 
+	// Special case for gas as gas token conversions are provided in amount per credit.
+	// Other rates are provided as the inverse.
+	if isGasSpendType(toResourceType) {
+		return amount.Mul(rate).Round(0), nil
+	}
+
 	return amount.Div(rate), nil
 }
 
@@ -80,6 +92,15 @@ func (bs *balanceStore) ConvertFromBalance(toResourceType string, amount decimal
 	defer bs.mu.RUnlock()
 
 	return bs.convertFromBalance(toResourceType, amount)
+}
+
+// Set sets the current balance to the provided amount and resets spend.
+func (bs *balanceStore) Set(amount decimal.Decimal) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	bs.balance = amount
+	bs.spent = decimal.Zero
 }
 
 // Get returns the current credit balance
@@ -151,6 +172,7 @@ func (bs *balanceStore) Add(amount decimal.Decimal) error {
 	}
 
 	bs.balance = bs.balance.Add(amount)
+	bs.spent = bs.spent.Sub(amount)
 
 	return nil
 }
@@ -170,6 +192,7 @@ func (bs *balanceStore) AddAs(resourceType string, amount decimal.Decimal) error
 	}
 
 	bs.balance = bs.balance.Add(bal)
+	bs.spent = bs.spent.Sub(bal)
 
 	return nil
 }

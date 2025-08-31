@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
-	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
@@ -44,7 +43,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vaultapi.MethodSecretsCreate,
+				Method: vaultcap.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
@@ -75,7 +74,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vaultapi.MethodSecretsCreate,
+				Method: vaultcap.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
@@ -118,7 +117,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vaultapi.MethodSecretsCreate,
+				Method: vaultcap.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					raw := json.RawMessage([]byte(`{invalid json`))
@@ -142,7 +141,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vaultapi.MethodSecretsDelete,
+				Method: vaultcap.MethodSecretsDelete,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.DeleteSecretsRequest{

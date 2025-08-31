@@ -10,6 +10,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"sort"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -215,6 +216,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			r.observeUpdateSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
 		case *vaultcommon.DeleteSecretsRequest:
 			r.observeDeleteSecrets(ctx, NewReadStore(keyValueReader), req.Payload, o)
+		case *vaultcommon.ListSecretIdentifiersRequest:
+			r.observeListSecretIdentifiers(ctx, NewReadStore(keyValueReader), req.Payload, o)
 		default:
 			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", req.Payload), "id", req.ID())
 			continue
@@ -364,7 +367,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
-			l.Errorw("observed to handle create secret request item", "id", sr.Id, "error", ierr)
+			l.Errorw("failed to handle create secret request item", "id", sr.Id, "error", ierr)
 			errorMsg := "failed to handle create secret request"
 			if errors.Is(ierr, &userError{}) {
 				errorMsg = ierr.Error()
@@ -375,7 +378,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("observed create secret request item", "id", validatedID)
+			l.Debugw("observed create secret request item", "id", validatedID)
 			resps = append(resps, &vaultcommon.CreateSecretResponse{
 				Id: validatedID,
 				// false because it hasn't been processed yet.
@@ -487,6 +490,73 @@ func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader
 	// at this stage. Checks that are different between update and create, like whether the secret already exists,
 	// are handled in the StateTransition phase.
 	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID)
+}
+
+func (r *ReportingPlugin) observeListSecretIdentifiers(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	tp := req.(*vaultcommon.ListSecretIdentifiersRequest)
+	o.RequestType = vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS
+	o.Request = &vaultcommon.Observation_ListSecretIdentifiersRequest{
+		ListSecretIdentifiersRequest: tp,
+	}
+	l := r.lggr.With("requestId", tp.RequestId, "requestType", "ListSecretIdentifiers", "owner", tp.Owner)
+
+	resp, err := r.processListSecretIdentifiersRequest(ctx, l, reader, tp)
+	if err != nil {
+		l.Debugw("failed to process list secret identifiers request", "error", err)
+		o.Response = &vaultcommon.Observation_ListSecretIdentifiersResponse{
+			ListSecretIdentifiersResponse: &vaultcommon.ListSecretIdentifiersResponse{
+				Error:   err.Error(),
+				Success: false,
+			},
+		}
+		return
+	}
+
+	l.Debugw("observed list secret identifiers request")
+	o.Response = &vaultcommon.Observation_ListSecretIdentifiersResponse{
+		ListSecretIdentifiersResponse: resp,
+	}
+}
+
+func (r *ReportingPlugin) processListSecretIdentifiersRequest(ctx context.Context, l logger.Logger, reader ReadKVStore, req *vaultcommon.ListSecretIdentifiersRequest) (*vaultcommon.ListSecretIdentifiersResponse, error) {
+	if req.Owner == "" {
+		return nil, errors.New("invalid request: owner cannot be empty")
+	}
+
+	md, err := reader.GetMetadata(req.Owner)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metadata for owner: %w", err)
+	}
+
+	if md == nil {
+		// No metadata, so the list is empty.
+		// The user hasn't added any items to the vault DON yet.
+		l.Debugw("successfully read metadata for owner: no metadata found, returning empty list")
+		return &vaultcommon.ListSecretIdentifiersResponse{Identifiers: []*vaultcommon.SecretIdentifier{}, Success: true}, nil
+	}
+
+	sort.Slice(md.SecretIdentifiers, func(i, j int) bool {
+		if md.SecretIdentifiers[i].Namespace == md.SecretIdentifiers[j].Namespace {
+			return md.SecretIdentifiers[i].Key < md.SecretIdentifiers[j].Key
+		}
+		return md.SecretIdentifiers[i].Namespace < md.SecretIdentifiers[j].Namespace
+	})
+
+	if req.Namespace == "" {
+		return &vaultcommon.ListSecretIdentifiersResponse{Identifiers: md.SecretIdentifiers, Success: true}, nil
+	}
+
+	si := []*vaultcommon.SecretIdentifier{}
+	for _, id := range md.SecretIdentifiers {
+		if id.Namespace == req.Namespace {
+			si = append(si, id)
+		}
+	}
+
+	return &vaultcommon.ListSecretIdentifiersResponse{
+		Identifiers: si,
+		Success:     true,
+	}, nil
 }
 
 func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
@@ -753,6 +823,10 @@ func validateObservation(o *vaultcommon.Observation) error {
 
 			idSet[vaultcap.KeyFor(r)] = true
 		}
+	case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
+		if o.GetListSecretIdentifiersRequest() == nil || o.GetListSecretIdentifiersResponse() == nil {
+			return errors.New("ListSecretIdentifiers observation must have both request and response")
+		}
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
 	}
@@ -838,6 +912,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			os.Outcomes = append(os.Outcomes, o)
 		case vaultcommon.RequestType_DELETE_SECRETS:
 			r.stateTransitionDeleteSecrets(ctx, store, chosen, o)
+			os.Outcomes = append(os.Outcomes, o)
+		case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
+			r.stateTransitionListSecretIdentifiers(ctx, store, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		default:
 			r.lggr.Debugw("unknown request type, skipping...", "requestType", first.RequestType, "id", id)
@@ -1219,6 +1296,20 @@ func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Contex
 	}, nil
 }
 
+func (r *ReportingPlugin) stateTransitionListSecretIdentifiers(ctx context.Context, store WriteKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+	// All of the logic for the ListSecretIdentifiers request is in the
+	// observation phase. This returns the observations in sorted order,
+	// so we can just take the first aggregated request and response and
+	// use it as the outcome.
+	first := chosen[0]
+	o.Request = &vaultcommon.Outcome_ListSecretIdentifiersRequest{
+		ListSecretIdentifiersRequest: first.GetListSecretIdentifiersRequest(),
+	}
+	o.Response = &vaultcommon.Outcome_ListSecretIdentifiersResponse{
+		ListSecretIdentifiersResponse: first.GetListSecretIdentifiersResponse(),
+	}
+}
+
 func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueReader) error {
 	// Not currently used by the protocol, so we noop here.
 	return nil
@@ -1266,6 +1357,16 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			})
 		case vaultcommon.RequestType_DELETE_SECRETS:
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetDeleteSecretsResponse())
+			if err != nil {
+				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				continue
+			}
+
+			reports = append(reports, ocr3types.ReportPlus[[]byte]{
+				ReportWithInfo: rep,
+			})
+		case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetListSecretIdentifiersResponse())
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue

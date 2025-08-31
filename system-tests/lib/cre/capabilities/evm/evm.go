@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"strconv"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
@@ -28,6 +30,8 @@ import (
 
 const flag = cre.EVMCapability
 const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}","logTriggerPollInterval":{{.LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}","receiverGasMinimum":{{.ReceiverGasMinimum}},"nodeAddress":"{{.NodeAddress}}"}'`
+const registrationRefresh = 20 * time.Second
+const registrationExpiry = 60 * time.Second
 
 func New() (*capabilities.Capability, error) {
 	return capabilities.New(
@@ -58,15 +62,26 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 		if selectorErr != nil {
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
-
+		faultyNodes, faultyErr := nodeSetInput.MaxFaultyNodes()
+		if faultyErr != nil {
+			return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
+		}
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "evm" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
 				Version:        "1.0.0",
-				CapabilityType: 3, // TARGET
-				ResponseType:   1, // OBSERVATION_IDENTICAL
+				CapabilityType: 0, // TRIGGER
 			},
-			Config: &capabilitiespb.CapabilityConfig{},
+			Config: &capabilitiespb.CapabilityConfig{
+				RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						// needed for message_cache.go#Ready(), without these events from the capability will never be accepted
+						RegistrationRefresh:     durationpb.New(registrationRefresh),
+						RegistrationExpiry:      durationpb.New(registrationExpiry),
+						MinResponsesToAggregate: faultyNodes + 1,
+					},
+				},
+			},
 		})
 	}
 

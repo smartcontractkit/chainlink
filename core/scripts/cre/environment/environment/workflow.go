@@ -23,11 +23,8 @@ import (
 )
 
 const (
-	DefaultArtifactsDir        = "/home/chainlink/workflows"
-	DefaultWorkflowNodePattern = "workflow-node"
-
 	// Might change if deployment sequence changes or if different config file than 'configs/workflow-don.toml' is used
-	DefaultWorkflowRegistryAddress     = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+	DefaultWorkflowRegistryAddress     = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
 	DefaultCapabilitiesRegistryAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
 
 	DefaultWorkflowOwnerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
@@ -171,8 +168,8 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowFilePathFlag, "wasm-file-path", "w", "", "Path to a base64-encoded workflow WASM file")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
-	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", DefaultArtifactsDir, "Path to the target directory in the Docker container")
-	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", DefaultWorkflowNodePattern, "Pattern to match the container name")
+	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
+	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", creworkflow.DefaultWorkflowNodePattern, "Pattern to match the container name")
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
@@ -208,12 +205,12 @@ func compileDeployWorkflowCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:    "compile-deploy",
-		Short:  "DEPRECATED: Use 'cre local workflow deploy --compile' instead",
-		Long:   `DEPRECATED: Use 'cre local workflow deploy --compile' instead`,
+		Short:  "DEPRECATED: Use 'go run . env workflow deploy --compile' instead",
+		Long:   `DEPRECATED: Use 'go run . env workflow deploy --compile' instead`,
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
-			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'cre local workflow deploy --compile' instead\033[0m\n")
+			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'go run . env workflow deploy --compile' instead\033[0m\n")
 			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
 
 			initDxTracker()
@@ -243,8 +240,8 @@ func compileDeployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "./examples/workflows/v2/cron/main.go", "Path to the workflow file")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
-	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", DefaultArtifactsDir, "Path to the target directory in the Docker container")
-	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", DefaultWorkflowNodePattern, "Pattern to match the container name")
+	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
+	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", creworkflow.DefaultWorkflowNodePattern, "Pattern to match the container name")
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
@@ -383,7 +380,7 @@ func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, err
 }
 
 func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
-	copyErr := creworkflow.CopyArtifactToDockerContainers(wasmWorkflowFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+	copyErr := creworkflow.CopyArtifactsToDockerContainers(wasmWorkflowFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
 	}
@@ -412,7 +409,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 			return errors.Wrap(configPathAbsErr, "failed to get absolute path of the config file")
 		}
 
-		configCopyErr := creworkflow.CopyArtifactToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+		configCopyErr := creworkflow.CopyArtifactsToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
 		if configCopyErr != nil {
 			return errors.Wrap(configCopyErr, "❌ failed to copy config file to Docker container")
 		}
@@ -439,7 +436,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 		fmt.Printf("\n✅ Encrypted workflow secrets file prepared\n\n")
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
-		secretsCopyErr := creworkflow.CopyArtifactToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
+		secretsCopyErr := creworkflow.CopyArtifactsToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
 		if secretsCopyErr != nil {
 			return errors.Wrap(secretsCopyErr, "❌ failed to copy encrypted secrets file to Docker container")
 		}
