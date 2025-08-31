@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -270,9 +269,13 @@ func NewApp(s *Shell) *cli.App {
 					FileMaxAgeDays: int(s.Config.Log().File().MaxAgeDays()),
 					FileMaxBackups: int(s.Config.Log().File().MaxBackups()),
 					SentryEnabled:  s.Config.Sentry().DSN() != "",
-					// early initialization of the logger with Otel core
-					AdditionalCores: []zapcore.Core{logger.NewOtelCore()},
 				}
+
+				// early initialization of the logger with Otel core
+				if cfg.Telemetry().LogStreamingEnabled() {
+					lggrCfg.AdditionalCores = append(lggrCfg.AdditionalCores, logger.NewOtelCore())
+				}
+
 				l, closeFn := lggrCfg.New()
 
 				s.Logger = l
