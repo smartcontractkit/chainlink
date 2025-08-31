@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	capabilitytypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
+	capabilitytypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	mock "github.com/stretchr/testify/mock"
 

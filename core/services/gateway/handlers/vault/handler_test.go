@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
-	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -116,7 +116,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		requestID := "1"
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     requestID,
-			Method: vaultcap.MethodSecretsCreate,
+			Method: vaulttypes.MethodSecretsCreate,
 			Params: (*json.RawMessage)(&params),
 		}
 
@@ -177,7 +177,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		requestID := "1"
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     requestID,
-			Method: vaultcap.MethodSecretsDelete,
+			Method: vaulttypes.MethodSecretsDelete,
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
@@ -195,7 +195,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestId,
 			Result: (*json.RawMessage)(&resultBytes),
-			Method: vaultcap.MethodSecretsDelete,
+			Method: vaulttypes.MethodSecretsDelete,
 		}
 		resultBytes, err = json.Marshal(responseData)
 		require.NoError(t, err)
@@ -234,7 +234,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     requestID,
-			Method: vaultcap.MethodSecretsList,
+			Method: vaulttypes.MethodSecretsList,
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
@@ -253,7 +253,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestId,
 			Result: (*json.RawMessage)(&resultBytes),
-			Method: vaultcap.MethodSecretsList,
+			Method: vaulttypes.MethodSecretsList,
 		}
 		resultBytes, err = json.Marshal(responseData)
 		require.NoError(t, err)
@@ -294,14 +294,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     requestID,
-			Method: vaultcap.MethodSecretsList,
+			Method: vaulttypes.MethodSecretsList,
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
 		expectedRequestId := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestId,
-			Method: vaultcap.MethodSecretsList,
+			Method: vaulttypes.MethodSecretsList,
 			Error: &jsonrpc.WireError{
 				Code:    -32603,
 				Message: "quorum unobtainable",
@@ -364,7 +364,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		emptyParamsRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "3",
-			Method: vaultcap.MethodSecretsCreate,
+			Method: vaulttypes.MethodSecretsCreate,
 			Params: &json.RawMessage{},
 		}
 
@@ -394,7 +394,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		invalidParams := json.RawMessage(`{"request_id": "empty_value_field"}`)
 		invalidParamsRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "4",
-			Method: vaultcap.MethodSecretsCreate,
+			Method: vaulttypes.MethodSecretsCreate,
 			Params: &invalidParams,
 		}
 
@@ -437,7 +437,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		require.NoError(t, err2)
 		jsonRequest := jsonrpc.Request[json.RawMessage]{
 			ID:     "4",
-			Method: vaultcap.MethodSecretsCreate,
+			Method: vaulttypes.MethodSecretsCreate,
 			Params: (*json.RawMessage)(&params),
 		}
 

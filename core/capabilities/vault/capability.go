@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
@@ -27,7 +27,7 @@ type Capability struct {
 	lggr              logger.Logger
 	clock             clockwork.Clock
 	expiresAfter      time.Duration
-	handler           *requests.Handler[*capabilitytypes.Request, *capabilitytypes.Response]
+	handler           *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	requestAuthorizer RequestAuthorizer
 }
 
@@ -60,7 +60,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("capability does not support v1 requests")
 	}
 
-	if request.Method != capabilitytypes.MethodSecretsGet {
+	if request.Method != vaulttypes.MethodSecretsGet {
 		return capabilities.CapabilityResponse{}, errors.New("unsupported method: can only call GetSecrets via capability interface")
 	}
 
@@ -111,14 +111,14 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}, nil
 }
 
-func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*capabilitytypes.Response, error) {
+func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
 	err := s.validateRequest(request.RequestId, request.EncryptedSecrets, nil)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request, capabilitytypes.MethodSecretsCreate)
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsCreate)
 	if !authorized || err != nil {
 		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
 		return nil, errors.New("request not authorized: " + err.Error())
@@ -137,14 +137,14 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*capabilitytypes.Response, error) {
+func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
 	err := s.validateRequest(request.RequestId, request.EncryptedSecrets, nil)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request, capabilitytypes.MethodSecretsUpdate)
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsUpdate)
 	if !authorized || err != nil {
 		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
 		return nil, errors.New("request not authorized: " + err.Error())
@@ -163,7 +163,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*capabilitytypes.Response, error) {
+func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
 	err := s.validateRequest(request.RequestId, nil, request.Ids)
 	if err != nil {
@@ -171,7 +171,7 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		return nil, err
 	}
 
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request, capabilitytypes.MethodSecretsDelete)
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsDelete)
 	if !authorized || err != nil {
 		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
 		return nil, errors.New("request not authorized: " + err.Error())
@@ -190,20 +190,20 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*capabilitytypes.Response, error) {
+func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
 	if len(request.Requests) == 0 {
 		return nil, errors.New("no GetSecret request specified in request")
 	}
-	if len(request.Requests) >= capabilitytypes.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", capabilitytypes.MaxBatchSize)
+	if len(request.Requests) >= vaulttypes.MaxBatchSize {
+		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize)
 	}
 
 	// No auth needed, as this method is not exposed externally
 	return s.handleRequest(ctx, requestID, request)
 }
 
-func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*capabilitytypes.Response, error) {
+func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
 	err := s.validateRequest(request.RequestId, nil, nil)
 	if err != nil {
@@ -216,7 +216,7 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 		return nil, err
 	}
 
-	authorized, owner, err := s.isAuthorizedRequest(ctx, request, capabilitytypes.MethodSecretsList)
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsList)
 	if !authorized || err != nil {
 		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
 		return nil, errors.New("request not authorized: " + err.Error())
@@ -234,9 +234,9 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*capabilitytypes.Response, error) {
-	respCh := make(chan *capabilitytypes.Response, 1)
-	s.handler.SendRequest(ctx, &capabilitytypes.Request{
+func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
+	respCh := make(chan *vaulttypes.Response, 1)
+	s.handler.SendRequest(ctx, &vaulttypes.Request{
 		Payload:      request,
 		ResponseChan: respCh,
 
@@ -276,8 +276,8 @@ func (s *Capability) validateRequest(id string, encryptedSecrets []*vaultcommon.
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
-	if len(encryptedSecrets) >= capabilitytypes.MaxBatchSize || len(ids) >= capabilitytypes.MaxBatchSize {
-		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(capabilitytypes.MaxBatchSize))
+	if len(encryptedSecrets) >= vaulttypes.MaxBatchSize || len(ids) >= vaulttypes.MaxBatchSize {
+		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
 	}
 	uniqueIDs := map[string]bool{}
 	for idx, req := range encryptedSecrets {
@@ -289,12 +289,12 @@ func (s *Capability) validateRequest(id string, encryptedSecrets []*vaultcommon.
 			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
-		_, ok := uniqueIDs[capabilitytypes.KeyFor(req.Id)]
+		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
 		if ok {
 			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
 
-		uniqueIDs[capabilitytypes.KeyFor(req.Id)] = true
+		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
 	}
 	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-155): encryptedSecrets should be encrypted by the right public key
 	for idx, id := range ids {
@@ -302,12 +302,12 @@ func (s *Capability) validateRequest(id string, encryptedSecrets []*vaultcommon.
 			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
 		}
 
-		_, ok := uniqueIDs[capabilitytypes.KeyFor(id)]
+		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
 		if ok {
 			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + id.String())
 		}
 
-		uniqueIDs[capabilitytypes.KeyFor(id)] = true
+		uniqueIDs[vaulttypes.KeyFor(id)] = true
 	}
 	return nil
 }
@@ -316,7 +316,7 @@ func NewCapability(
 	lggr logger.Logger,
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
-	handler *requests.Handler[*capabilitytypes.Request, *capabilitytypes.Response],
+	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	requestAuthorizer RequestAuthorizer,
 ) *Capability {
 	return &Capability{

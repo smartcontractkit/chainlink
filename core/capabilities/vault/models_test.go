@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 func Test_ValidateSignatures_Valid(t *testing.T) {
@@ -19,7 +19,7 @@ func Test_ValidateSignatures_Valid(t *testing.T) {
 	require.NoError(t, err)
 
 	payload := []byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`)
-	resp := capabilitytypes.SignedOCRResponse{
+	resp := vaulttypes.SignedOCRResponse{
 		Payload: payload,
 		Context: ctx,
 		Signatures: [][]byte{
@@ -34,7 +34,7 @@ func Test_ValidateSignatures_Valid(t *testing.T) {
 		common.HexToAddress("0xefd5bdb6c3256f04489a6ca32654d547297f48b9"),
 	}
 
-	err = capabilitytypes.ValidateSignatures(&resp, allowedAddr, 1)
+	err = vaulttypes.ValidateSignatures(&resp, allowedAddr, 1)
 	require.NoError(t, err)
 }
 
@@ -44,7 +44,7 @@ func Test_ValidateSignatures_InsufficientSignatures(t *testing.T) {
 	sig1, err := hex.DecodeString("d1067844e2849b404d903730c4cae19f090d53a578a1e8dc16ecbdc0285c1f186599108abbe0073b78bc148a6504907474ed3a6881df917e6d142cff70acfb5900")
 	require.NoError(t, err)
 	payload := []byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`)
-	resp := capabilitytypes.SignedOCRResponse{
+	resp := vaulttypes.SignedOCRResponse{
 		Payload: payload,
 		Context: ctx,
 		Signatures: [][]byte{
@@ -58,7 +58,7 @@ func Test_ValidateSignatures_InsufficientSignatures(t *testing.T) {
 		common.HexToAddress("0xefd5bdb6c3256f04489a6ca32654d547297f48b9"),
 	}
 
-	err = capabilitytypes.ValidateSignatures(&resp, allowedAddr, 2)
+	err = vaulttypes.ValidateSignatures(&resp, allowedAddr, 2)
 	require.ErrorContains(t, err, "not enough signatures: expected min 2, got 1")
 }
 
@@ -68,7 +68,7 @@ func Test_ValidateSignatures_DoesntCountDuplicates(t *testing.T) {
 	sig1, err := hex.DecodeString("d1067844e2849b404d903730c4cae19f090d53a578a1e8dc16ecbdc0285c1f186599108abbe0073b78bc148a6504907474ed3a6881df917e6d142cff70acfb5900")
 	require.NoError(t, err)
 	payload := []byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`)
-	resp := capabilitytypes.SignedOCRResponse{
+	resp := vaulttypes.SignedOCRResponse{
 		Payload: payload,
 		Context: ctx,
 		Signatures: [][]byte{
@@ -83,7 +83,7 @@ func Test_ValidateSignatures_DoesntCountDuplicates(t *testing.T) {
 		common.HexToAddress("0xefd5bdb6c3256f04489a6ca32654d547297f48b9"),
 	}
 
-	err = capabilitytypes.ValidateSignatures(&resp, allowedAddr, 2)
+	err = vaulttypes.ValidateSignatures(&resp, allowedAddr, 2)
 	require.ErrorContains(t, err, "only 1 valid signatures, need at least 2")
 }
 
@@ -95,7 +95,7 @@ func Test_ValidateSignatures_InvalidSignature(t *testing.T) {
 	sig2, err := hex.DecodeString("c7517c188d297093a6f602046fad7feafe19454ee9dc269b19c8e6c01268037d1f7b423eeecbc495dd2d9a65e106bc3eab849ddfd74a10cbd4ad50c7d953bd4b01")
 	require.NoError(t, err)
 	payload := []byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`)
-	resp := capabilitytypes.SignedOCRResponse{
+	resp := vaulttypes.SignedOCRResponse{
 		Payload: payload,
 		Context: ctx,
 		Signatures: [][]byte{
@@ -110,6 +110,6 @@ func Test_ValidateSignatures_InvalidSignature(t *testing.T) {
 		common.HexToAddress("0xefd5bdb6c3256f04489a6ca32654d547297f48b9"),
 	}
 
-	err = capabilitytypes.ValidateSignatures(&resp, allowedAddr, 2)
+	err = vaulttypes.ValidateSignatures(&resp, allowedAddr, 2)
 	require.ErrorContains(t, err, "only 0 valid signatures, need at least 2")
 }

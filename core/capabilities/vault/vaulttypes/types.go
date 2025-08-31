@@ -1,4 +1,4 @@
-package capabilitytypes
+package vaulttypes
 
 import (
 	"context"

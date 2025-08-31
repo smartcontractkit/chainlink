@@ -13,7 +13,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	syncerv2mocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 )
@@ -31,7 +31,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: capabilitytypes.MethodSecretsCreate,
+		Method: vaulttypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&params),
 	}
 	require.NoError(t, err)
@@ -48,7 +48,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: capabilitytypes.MethodSecretsCreate,
+		Method: vaulttypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
 
@@ -69,7 +69,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: capabilitytypes.MethodSecretsUpdate,
+		Method: vaulttypes.MethodSecretsUpdate,
 		Params: (*json.RawMessage)(&params),
 	}
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: capabilitytypes.MethodSecretsUpdate,
+		Method: vaulttypes.MethodSecretsUpdate,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: capabilitytypes.MethodSecretsDelete,
+		Method: vaulttypes.MethodSecretsDelete,
 		Params: (*json.RawMessage)(&params),
 	}
 	require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: capabilitytypes.MethodSecretsDelete,
+		Method: vaulttypes.MethodSecretsDelete,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
 	require.NoError(t, err)
@@ -129,7 +129,7 @@ func TestRequestAuthorizer_ListSecrets(t *testing.T) {
 		Namespace: "b",
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: capabilitytypes.MethodSecretsList,
+		Method: vaulttypes.MethodSecretsList,
 		Params: (*json.RawMessage)(&params),
 	}
 	require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestRequestAuthorizer_ListSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: capabilitytypes.MethodSecretsList,
+		Method: vaulttypes.MethodSecretsList,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
 	require.NoError(t, err)

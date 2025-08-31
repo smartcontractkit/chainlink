@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -209,7 +209,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return capabilitytypes.Methods
+	return vaulttypes.Methods
 }
 
 func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ chan<- gwhandlers.UserCallbackPayload) error {
@@ -244,15 +244,15 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	h.activeRequests[req.ID] = ar
 	h.mu.Unlock()
 	switch req.Method {
-	case capabilitytypes.MethodSecretsCreate:
+	case vaulttypes.MethodSecretsCreate:
 		return h.handleSecretsCreate(ctx, ar)
-	case capabilitytypes.MethodSecretsGet:
+	case vaulttypes.MethodSecretsGet:
 		return h.handleSecretsGet(ctx, ar)
-	case capabilitytypes.MethodSecretsUpdate:
+	case vaulttypes.MethodSecretsUpdate:
 		return h.handleSecretsUpdate(ctx, ar)
-	case capabilitytypes.MethodSecretsDelete:
+	case vaulttypes.MethodSecretsDelete:
 		return h.handleSecretsDelete(ctx, ar)
-	case capabilitytypes.MethodSecretsList:
+	case vaulttypes.MethodSecretsList:
 		return h.handleSecretsList(ctx, ar)
 	default:
 		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method)))
@@ -348,8 +348,8 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	if len(createSecretsRequest.EncryptedSecrets) == 0 {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have at least 1 request")))
 	}
-	if len(createSecretsRequest.EncryptedSecrets) >= capabilitytypes.MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(capabilitytypes.MaxBatchSize))))
+	if len(createSecretsRequest.EncryptedSecrets) >= vaulttypes.MaxBatchSize {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(vaulttypes.MaxBatchSize))))
 	}
 	for index, secret := range createSecretsRequest.EncryptedSecrets {
 		if secret.Id.Key == "" || secret.EncryptedValue == "" || secret.Id.Owner == "" {
@@ -384,8 +384,8 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	if len(updateSecretsRequest.EncryptedSecrets) == 0 {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have least 1 request")))
 	}
-	if len(updateSecretsRequest.EncryptedSecrets) >= capabilitytypes.MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(capabilitytypes.MaxBatchSize))))
+	if len(updateSecretsRequest.EncryptedSecrets) >= vaulttypes.MaxBatchSize {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(vaulttypes.MaxBatchSize))))
 	}
 
 	for index, secret := range updateSecretsRequest.EncryptedSecrets {
@@ -421,8 +421,8 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	if len(deleteSecretsRequest.Ids) == 0 {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have least 1 request")))
 	}
-	if len(deleteSecretsRequest.Ids) >= capabilitytypes.MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(capabilitytypes.MaxBatchSize))))
+	if len(deleteSecretsRequest.Ids) >= vaulttypes.MaxBatchSize {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(vaulttypes.MaxBatchSize))))
 	}
 
 	for index, id := range deleteSecretsRequest.Ids {
@@ -453,8 +453,8 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 	if len(secretsGetRequest.Requests) == 0 {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have least 1 request")))
 	}
-	if len(secretsGetRequest.Requests) >= capabilitytypes.MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(capabilitytypes.MaxBatchSize))))
+	if len(secretsGetRequest.Requests) >= vaulttypes.MaxBatchSize {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(vaulttypes.MaxBatchSize))))
 	}
 	for index, request := range secretsGetRequest.Requests {
 		if request.Id.Key == "" || request.Id.Owner == "" {

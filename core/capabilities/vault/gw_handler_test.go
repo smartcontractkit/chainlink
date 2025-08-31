@@ -14,8 +14,8 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	core_mocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
-	vaulttypesmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	vaulttypesmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -37,14 +37,14 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
 					return len(req.EncryptedSecrets) == 1 &&
 						req.EncryptedSecrets[0].Id.Key == "test-secret"
-				})).Return(&capabilitytypes.Response{ID: "test-secret"}, nil)
+				})).Return(&vaulttypes.Response{ID: "test-secret"}, nil)
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error == nil
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: capabilitytypes.MethodSecretsCreate,
+				Method: vaulttypes.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
@@ -75,7 +75,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: capabilitytypes.MethodSecretsCreate,
+				Method: vaulttypes.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
@@ -118,7 +118,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: capabilitytypes.MethodSecretsCreate,
+				Method: vaulttypes.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					raw := json.RawMessage([]byte(`{invalid json`))
@@ -135,14 +135,14 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 						req.Ids[0].Key == "Foo" &&
 						req.Ids[0].Namespace == "Bar" &&
 						req.Ids[0].Owner == "Owner"
-				})).Return(&capabilitytypes.Response{ID: "test-secret"}, nil)
+				})).Return(&vaulttypes.Response{ID: "test-secret"}, nil)
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error == nil
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: capabilitytypes.MethodSecretsDelete,
+				Method: vaulttypes.MethodSecretsDelete,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.DeleteSecretsRequest{
