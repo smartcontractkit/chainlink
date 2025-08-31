@@ -57,13 +57,13 @@ type gatewaySender interface {
 
 type GatewayHandler struct {
 	capRegistry    core.CapabilitiesRegistry
-	secretsService types.SecretsService
+	secretsService capabilitytypes.SecretsService
 	gatewaySender  gatewaySender
 	lggr           logger.Logger
 	metrics        *metrics
 }
 
-func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService types.SecretsService, gwsender gatewaySender, lggr logger.Logger) (*GatewayHandler, error) {
+func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService capabilitytypes.SecretsService, gwsender gatewaySender, lggr logger.Logger) (*GatewayHandler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -95,15 +95,15 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
-	case types.MethodSecretsCreate:
+	case capabilitytypes.MethodSecretsCreate:
 		response = h.handleSecretsCreate(ctx, gatewayID, req)
-	case types.MethodSecretsGet:
+	case capabilitytypes.MethodSecretsGet:
 		response = h.handleSecretsGet(ctx, gatewayID, req)
-	case types.MethodSecretsUpdate:
+	case capabilitytypes.MethodSecretsUpdate:
 		response = h.handleSecretsUpdate(ctx, gatewayID, req)
-	case types.MethodSecretsDelete:
+	case capabilitytypes.MethodSecretsDelete:
 		response = h.handleSecretsDelete(ctx, gatewayID, req)
-	case types.MethodSecretsList:
+	case capabilitytypes.MethodSecretsList:
 		response = h.handleSecretsList(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
@@ -294,7 +294,7 @@ func (h *GatewayHandler) getEncryptionKeys(ctx context.Context) ([]string, error
 	return encryptionKeys, nil
 }
 
-func toJSONResponse(vaultCapResponse *types.Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
+func toJSONResponse(vaultCapResponse *capabilitytypes.Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
 	vaultResponseBytes, err := vaultCapResponse.ToJSONRPCResult()
 	if err != nil {
 		return nil, errors.New("failed to marshal vault capability response: " + err.Error())

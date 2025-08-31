@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -469,6 +468,10 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 						ChainSpecificName: GetWorkflowsByDONMethodName,
 						ReadType:          evmtypes.Method,
 					},
+					GetAllowlistedRequestsMethodName: {
+						ChainSpecificName: GetAllowlistedRequestsMethodName,
+						ReadType:          evmtypes.Method,
+					},
 				},
 			},
 		},
@@ -514,9 +517,9 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 
 	for _, family := range don.Families {
 		params := GetWorkflowListByDONParams{
-			DonFamily: utils.Keccak256Fixed([]byte(family)),
-			Start:     0,
-			Limit:     MaxResultsPerQuery,
+			DonFamily: family,
+			Start:     big.NewInt(0),
+			Limit:     big.NewInt(int64(MaxResultsPerQuery)),
 		}
 
 		for {
@@ -552,7 +555,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 			}
 
 			// otherwise, increment the start parameter and continue to fetch more workflows
-			params.Start += uint64(len(workflows.List))
+			params.Start.Add(params.Start, big.NewInt(int64(len(workflows.List))))
 		}
 	}
 
@@ -581,7 +584,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 	var allAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 	params := GetAllowlistedRequestsParams{
 		Start: big.NewInt(0),
-		Limit: big.NewInt(0),
+		Limit: big.NewInt(int64(MaxResultsPerQuery)),
 	}
 
 	for {
@@ -595,7 +598,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 		// The delay in detecting allowlisted requests will directly affect user experience.
 		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Unconfirmed, params, &results)
 		if err != nil {
-			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, &types.Head{Height: "0"}, fmt.Errorf("failed to get lastest value with head data %w", err)
+			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
 		}
 
 		for _, request := range results.Requests {

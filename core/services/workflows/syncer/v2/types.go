@@ -53,9 +53,9 @@ type WorkflowMetadataView struct {
 }
 
 type GetWorkflowListByDONParams struct {
-	DonFamily [32]byte
-	Start     uint64
-	Limit     uint64
+	DonFamily string
+	Start     *big.Int
+	Limit     *big.Int
 }
 
 type GetWorkflowListByDONReturnVal struct {

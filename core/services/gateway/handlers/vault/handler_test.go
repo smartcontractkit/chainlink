@@ -113,9 +113,9 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		h, callbackCh, don := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		requestId := "1"
+		requestID := "1"
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
-			ID:     requestId,
+			ID:     requestID,
 			Method: vaultcap.MethodSecretsCreate,
 			Params: (*json.RawMessage)(&params),
 		}
@@ -130,7 +130,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestId := owner + "::" + requestId
+		expectedRequestId := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestId,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -174,9 +174,9 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		reqDataBytes, err := json.Marshal(reqData)
 		require.NoError(t, err)
-		requestId := "1"
+		requestID := "1"
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
-			ID:     requestId,
+			ID:     requestID,
 			Method: vaultcap.MethodSecretsDelete,
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
@@ -191,7 +191,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestId := owner + "::" + requestId
+		expectedRequestId := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestId,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -224,16 +224,16 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		h, callbackCh, don := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		requestId := "1"
+		requestID := "1"
 		reqData := &vaultcommon.ListSecretIdentifiersRequest{
-			RequestId: requestId,
+			RequestId: requestID,
 			Owner:     owner,
 		}
 		reqDataBytes, err := json.Marshal(reqData)
 		require.NoError(t, err)
 
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
-			ID:     requestId,
+			ID:     requestID,
 			Method: vaultcap.MethodSecretsList,
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
@@ -249,7 +249,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err := json.Marshal(responseData)
 		require.NoError(t, err)
-		expectedRequestId := owner + "::" + requestId
+		expectedRequestId := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestId,
 			Result: (*json.RawMessage)(&resultBytes),
@@ -284,21 +284,21 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		requestId := "1"
+		requestID := "1"
 		reqData := &vaultcommon.ListSecretIdentifiersRequest{
-			RequestId: requestId,
+			RequestId: requestID,
 			Owner:     owner,
 		}
 		reqDataBytes, err := json.Marshal(reqData)
 		require.NoError(t, err)
 
 		validJSONRequest := jsonrpc.Request[json.RawMessage]{
-			ID:     requestId,
+			ID:     requestID,
 			Method: vaultcap.MethodSecretsList,
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
-		expectedRequestId := owner + "::" + requestId
+		expectedRequestId := owner + "::" + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestId,
 			Method: vaultcap.MethodSecretsList,

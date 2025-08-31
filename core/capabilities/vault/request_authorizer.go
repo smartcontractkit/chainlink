@@ -82,7 +82,7 @@ func (r *requestAuthorizer) fetchAllowlistedItem(allowListedRequests []workflow_
 func (r *requestAuthorizer) digestForRequest(req jsonrpc.Request[json.RawMessage]) ([32]byte, error) {
 	var seed any
 	switch req.Method {
-	case types.MethodSecretsCreate:
+	case capabilitytypes.MethodSecretsCreate:
 		var createSecretsRequests vaultcommon.CreateSecretsRequest
 		if err := json.Unmarshal(*req.Params, &createSecretsRequests); err != nil {
 			return [32]byte{}, errors.New("error unmarshalling create secrets request: " + err.Error())
@@ -90,7 +90,7 @@ func (r *requestAuthorizer) digestForRequest(req jsonrpc.Request[json.RawMessage
 		seed = vaultcommon.CreateSecretsRequest{
 			EncryptedSecrets: createSecretsRequests.EncryptedSecrets,
 		}
-	case types.MethodSecretsUpdate:
+	case capabilitytypes.MethodSecretsUpdate:
 		var updateSecretsRequests vaultcommon.UpdateSecretsRequest
 		if err := json.Unmarshal(*req.Params, &updateSecretsRequests); err != nil {
 			return [32]byte{}, errors.New("error unmarshalling update secrets request: " + err.Error())
@@ -98,7 +98,7 @@ func (r *requestAuthorizer) digestForRequest(req jsonrpc.Request[json.RawMessage
 		seed = vaultcommon.UpdateSecretsRequest{
 			EncryptedSecrets: updateSecretsRequests.EncryptedSecrets,
 		}
-	case types.MethodSecretsList:
+	case capabilitytypes.MethodSecretsList:
 		var listSecretsRequests vaultcommon.ListSecretIdentifiersRequest
 		if err := json.Unmarshal(*req.Params, &listSecretsRequests); err != nil {
 			return [32]byte{}, errors.New("error unmarshalling list secrets request: " + err.Error())
@@ -107,7 +107,7 @@ func (r *requestAuthorizer) digestForRequest(req jsonrpc.Request[json.RawMessage
 			Owner:     listSecretsRequests.Owner,
 			Namespace: listSecretsRequests.Namespace,
 		}
-	case types.MethodSecretsDelete:
+	case capabilitytypes.MethodSecretsDelete:
 		var deleteSecretsRequests vaultcommon.DeleteSecretsRequest
 		if err := json.Unmarshal(*req.Params, &deleteSecretsRequests); err != nil {
 			return [32]byte{}, errors.New("error unmarshalling delete secrets request: " + err.Error())

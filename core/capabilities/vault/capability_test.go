@@ -27,8 +27,8 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
-	store := requests.NewStore[*types.Request]()
-	handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, clock, expiry)
+	store := requests.NewStore[*capabilitytypes.Request]()
+	handler := requests.NewHandler[*capabilitytypes.Request, *capabilitytypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
 	servicetest.Run(t, capability)
@@ -89,7 +89,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 				reqs := store.GetByIDs([]string{requestID})
 				if len(reqs) == 1 {
 					req := reqs[0]
-					req.SendResponse(t.Context(), &types.Response{
+					req.SendResponse(t.Context(), &capabilitytypes.Response{
 						ID:      requestID,
 						Payload: data,
 					})
@@ -122,8 +122,8 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
-	store := requests.NewStore[*types.Request]()
-	handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, clock, expiry)
+	store := requests.NewStore[*capabilitytypes.Request]()
+	handler := requests.NewHandler[*capabilitytypes.Request, *capabilitytypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
 	servicetest.Run(t, capability)
@@ -183,7 +183,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 				reqs := store.GetByIDs([]string{requestID})
 				if len(reqs) == 1 {
 					req := reqs[0]
-					req.SendResponse(t.Context(), &types.Response{
+					req.SendResponse(t.Context(), &capabilitytypes.Response{
 						ID:      requestID,
 						Payload: data,
 					})
@@ -216,8 +216,8 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
-	store := requests.NewStore[*types.Request]()
-	handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, clock, expiry)
+	store := requests.NewStore[*capabilitytypes.Request]()
+	handler := requests.NewHandler[*capabilitytypes.Request, *capabilitytypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
 	servicetest.Run(t, capability)
@@ -259,7 +259,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 				reqs := store.GetByIDs([]string{requestID})
 				if len(reqs) == 1 {
 					req := reqs[0]
-					req.SendResponse(t.Context(), &types.Response{
+					req.SendResponse(t.Context(), &capabilitytypes.Response{
 						ID:      requestID,
 						Payload: []byte("invalid data"),
 					})
@@ -288,8 +288,8 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	fakeClock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
-	store := requests.NewStore[*types.Request]()
-	handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, fakeClock, expiry)
+	store := requests.NewStore[*capabilitytypes.Request]()
+	handler := requests.NewHandler[*capabilitytypes.Request, *capabilitytypes.Response](lggr, store, fakeClock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer)
 	servicetest.Run(t, capability)
@@ -364,17 +364,17 @@ func TestCapability_CRUD(t *testing.T) {
 	testCases := []struct {
 		name     string
 		error    string
-		response *types.Response
-		call     func(t *testing.T, capability *Capability) (*types.Response, error)
+		response *capabilitytypes.Response
+		call     func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error)
 	}{
 		{
 			name: "CreateSecrets",
-			response: &types.Response{
+			response: &capabilitytypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -389,12 +389,12 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets",
-			response: &types.Response{
+			response: &capabilitytypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -409,13 +409,13 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets_BatchTooBig",
-			response: &types.Response{
+			response: &capabilitytypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
 			error: "request batch size exceeds maximum of 10",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -470,13 +470,13 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets_EmptyRequestID",
-			response: &types.Response{
+			response: &capabilitytypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
 			error: "request ID must not be empty",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: "",
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -491,13 +491,13 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets_InvalidSecretID",
-			response: &types.Response{
+			response: &capabilitytypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
 			error: "secret ID must have both key and owner set",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -516,13 +516,13 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets_InvalidRequests_DuplicateIDs",
-			response: &types.Response{
+			response: &capabilitytypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
 			error: "duplicate secret ID found",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -551,7 +551,7 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "DeleteSecrets_Invalid_BatchTooBig",
 			response: nil,
 			error:    "request batch size exceeds maximum of 10",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
 					Ids: []*vault.SecretIdentifier{
@@ -619,7 +619,7 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "DeleteSecrets_Invalid_RequestIDMissing",
 			response: nil,
 			error:    "request ID must not be empty",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: "",
 				}
@@ -628,12 +628,12 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "DeleteSecrets",
-			response: &types.Response{
+			response: &capabilitytypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
 					Ids: []*vault.SecretIdentifier{
@@ -650,7 +650,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:  "DeleteSecrets_Invalid_Duplicates",
 			error: "duplicate secret ID found",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
 					Ids: []*vault.SecretIdentifier{
@@ -673,7 +673,7 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "ListSecretIdentifiers_Invalid_OwnerMissing",
 			response: nil,
 			error:    "owner must not be empty",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
 					Owner:     "",
@@ -685,7 +685,7 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "ListSecretIdentifiers_Invalid_RequestIDMissing",
 			response: nil,
 			error:    "request ID must not be empty",
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: "",
 					Owner:     "owner",
@@ -695,12 +695,12 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "ListSecretIdentifiers",
-			response: &types.Response{
+			response: &capabilitytypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
+			call: func(t *testing.T, capability *Capability) (*capabilitytypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
 					Owner:     owner,
@@ -715,8 +715,8 @@ func TestCapability_CRUD(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			clock := clockwork.NewFakeClock()
 			expiry := 10 * time.Second
-			store := requests.NewStore[*types.Request]()
-			handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, clock, expiry)
+			store := requests.NewStore[*capabilitytypes.Request]()
+			handler := requests.NewHandler[*capabilitytypes.Request, *capabilitytypes.Response](lggr, store, clock, expiry)
 			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
 			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)

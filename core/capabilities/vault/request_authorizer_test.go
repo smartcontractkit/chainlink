@@ -31,7 +31,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: types.MethodSecretsCreate,
+		Method: capabilitytypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&params),
 	}
 	require.NoError(t, err)
@@ -48,7 +48,7 @@ func TestRequestAuthorizer_CreateSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: types.MethodSecretsCreate,
+		Method: capabilitytypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
 
@@ -69,7 +69,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: types.MethodSecretsUpdate,
+		Method: capabilitytypes.MethodSecretsUpdate,
 		Params: (*json.RawMessage)(&params),
 	}
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestRequestAuthorizer_UpdateSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: types.MethodSecretsUpdate,
+		Method: capabilitytypes.MethodSecretsUpdate,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 		},
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: types.MethodSecretsDelete,
+		Method: capabilitytypes.MethodSecretsDelete,
 		Params: (*json.RawMessage)(&params),
 	}
 	require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestRequestAuthorizer_DeleteSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: types.MethodSecretsDelete,
+		Method: capabilitytypes.MethodSecretsDelete,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
 	require.NoError(t, err)
@@ -129,7 +129,7 @@ func TestRequestAuthorizer_ListSecrets(t *testing.T) {
 		Namespace: "b",
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: types.MethodSecretsList,
+		Method: capabilitytypes.MethodSecretsList,
 		Params: (*json.RawMessage)(&params),
 	}
 	require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestRequestAuthorizer_ListSecrets(t *testing.T) {
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
-		Method: types.MethodSecretsList,
+		Method: capabilitytypes.MethodSecretsList,
 		Params: (*json.RawMessage)(&notAllowedParams),
 	}
 	require.NoError(t, err)
@@ -164,12 +164,12 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	// Happy path
 	digest, err := auth.digestForRequest(allowlistedRequest)
 	require.NoError(t, err)
-	expiry := uint64(time.Now().UTC().Unix() + 100)
+	expiry := uint64(time.Now().UTC().Unix() + 100) //nolint:gosec // it is a safe conversion
 	allowlisted := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
 		{
 			RequestDigest:   digest,
 			Owner:           owner,
-			ExpiryTimestamp: uint32(expiry),
+			ExpiryTimestamp: uint32(expiry), //nolint:gosec // it is a safe conversion
 		},
 	}
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted)
@@ -184,7 +184,7 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	require.ErrorContains(t, err, "already authorized previously")
 
 	// Expired request
-	allowlisted[0].ExpiryTimestamp = uint32(time.Now().UTC().Unix() - 1)
+	allowlisted[0].ExpiryTimestamp = uint32(time.Now().UTC().Unix() - 1) //nolint:gosec // it is a safe conversion
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted)
 	isAuthorized, _, err = auth.AuthorizeRequest(context.Background(), allowlistedRequest)
 	require.False(t, isAuthorized)
