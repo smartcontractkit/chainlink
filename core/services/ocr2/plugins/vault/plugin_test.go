@@ -17,7 +17,7 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

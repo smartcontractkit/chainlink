@@ -12,8 +12,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
 )
 
 type baseAggregator struct {

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/mock"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -18,19 +18,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	syncerv2mocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 )
 
 func TestCapability_CapabilityCall(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
-	store := requests.NewStore[*Request]()
-	handler := requests.NewHandler[*Request, *Response](lggr, store, clock, expiry)
-	wfRegistrySyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, wfRegistrySyncer)
+	store := requests.NewStore[*types.Request]()
+	handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, clock, expiry)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -89,7 +89,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 				reqs := store.GetByIDs([]string{requestID})
 				if len(reqs) == 1 {
 					req := reqs[0]
-					req.SendResponse(t.Context(), &Response{
+					req.SendResponse(t.Context(), &types.Response{
 						ID:      requestID,
 						Payload: data,
 					})
@@ -122,10 +122,10 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
-	store := requests.NewStore[*Request]()
-	handler := requests.NewHandler[*Request, *Response](lggr, store, clock, expiry)
-	wfRegistrySyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, wfRegistrySyncer)
+	store := requests.NewStore[*types.Request]()
+	handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, clock, expiry)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -183,7 +183,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 				reqs := store.GetByIDs([]string{requestID})
 				if len(reqs) == 1 {
 					req := reqs[0]
-					req.SendResponse(t.Context(), &Response{
+					req.SendResponse(t.Context(), &types.Response{
 						ID:      requestID,
 						Payload: data,
 					})
@@ -216,10 +216,10 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
-	store := requests.NewStore[*Request]()
-	handler := requests.NewHandler[*Request, *Response](lggr, store, clock, expiry)
-	wfRegistrySyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, wfRegistrySyncer)
+	store := requests.NewStore[*types.Request]()
+	handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, clock, expiry)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -259,7 +259,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 				reqs := store.GetByIDs([]string{requestID})
 				if len(reqs) == 1 {
 					req := reqs[0]
-					req.SendResponse(t.Context(), &Response{
+					req.SendResponse(t.Context(), &types.Response{
 						ID:      requestID,
 						Payload: []byte("invalid data"),
 					})
@@ -288,10 +288,10 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	fakeClock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
-	store := requests.NewStore[*Request]()
-	handler := requests.NewHandler[*Request, *Response](lggr, store, fakeClock, expiry)
-	wfRegistrySyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
-	capability := NewCapability(lggr, fakeClock, expiry, handler, wfRegistrySyncer)
+	store := requests.NewStore[*types.Request]()
+	handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, fakeClock, expiry)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -353,8 +353,8 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 }
 
 func TestCapability_CRUD(t *testing.T) {
-	requestID := "test-request-id"
 	owner := "test-owner"
+	requestID := owner + "::" + "test-request-id"
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
 		Namespace: "Bar",
@@ -364,17 +364,17 @@ func TestCapability_CRUD(t *testing.T) {
 	testCases := []struct {
 		name     string
 		error    string
-		response *Response
-		call     func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error)
+		response *types.Response
+		call     func(t *testing.T, capability *Capability) (*types.Response, error)
 	}{
 		{
 			name: "CreateSecrets",
-			response: &Response{
+			response: &types.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -384,26 +384,17 @@ func TestCapability_CRUD(t *testing.T) {
 						},
 					},
 				}
-
-				allowedRequests := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
-					{
-						RequestDigest:   [32]byte{},
-						Owner:           common.Address{},
-						ExpiryTimestamp: uint32(time.Now().Add(1 * time.Hour).Unix()),
-					},
-				}
-				wfRegistrySyncer.On("GetAllowlistedRequests", t.Context()).Return(allowedRequests, nil).Once()
 				return capability.CreateSecrets(t.Context(), req)
 			},
 		},
 		{
 			name: "UpdateSecrets",
-			response: &Response{
+			response: &types.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -418,13 +409,13 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets_BatchTooBig",
-			response: &Response{
+			response: &types.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
 			error: "request batch size exceeds maximum of 10",
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -479,13 +470,13 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets_EmptyRequestID",
-			response: &Response{
+			response: &types.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
 			error: "request ID must not be empty",
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: "",
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -500,13 +491,13 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets_InvalidSecretID",
-			response: &Response{
+			response: &types.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
 			error: "secret ID must have both key and owner set",
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -525,13 +516,13 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "UpdateSecrets_InvalidRequests_DuplicateIDs",
-			response: &Response{
+			response: &types.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
 			error: "duplicate secret ID found",
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
 					EncryptedSecrets: []*vault.EncryptedSecret{
@@ -560,7 +551,7 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "DeleteSecrets_Invalid_BatchTooBig",
 			response: nil,
 			error:    "request batch size exceeds maximum of 10",
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
 					Ids: []*vault.SecretIdentifier{
@@ -628,7 +619,7 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "DeleteSecrets_Invalid_RequestIDMissing",
 			response: nil,
 			error:    "request ID must not be empty",
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: "",
 				}
@@ -637,12 +628,12 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "DeleteSecrets",
-			response: &Response{
+			response: &types.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
 					Ids: []*vault.SecretIdentifier{
@@ -659,7 +650,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:  "DeleteSecrets_Invalid_Duplicates",
 			error: "duplicate secret ID found",
-			call: func(t *testing.T, capability *Capability, wfRegistrySyncer syncerv2mocks.WorkflowRegistrySyncer) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
 					Ids: []*vault.SecretIdentifier{
@@ -682,7 +673,7 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "ListSecretIdentifiers_Invalid_OwnerMissing",
 			response: nil,
 			error:    "owner must not be empty",
-			call: func(t *testing.T, capability *Capability) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
 					Owner:     "",
@@ -694,7 +685,7 @@ func TestCapability_CRUD(t *testing.T) {
 			name:     "ListSecretIdentifiers_Invalid_RequestIDMissing",
 			response: nil,
 			error:    "request ID must not be empty",
-			call: func(t *testing.T, capability *Capability) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: "",
 					Owner:     "owner",
@@ -704,12 +695,12 @@ func TestCapability_CRUD(t *testing.T) {
 		},
 		{
 			name: "ListSecretIdentifiers",
-			response: &Response{
+			response: &types.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			call: func(t *testing.T, capability *Capability) (*Response, error) {
+			call: func(t *testing.T, capability *Capability) (*types.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
 					Owner:     owner,
@@ -724,10 +715,11 @@ func TestCapability_CRUD(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			clock := clockwork.NewFakeClock()
 			expiry := 10 * time.Second
-			store := requests.NewStore[*Request]()
-			handler := requests.NewHandler[*Request, *Response](lggr, store, clock, expiry)
-			wfRegistrySyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
-			capability := NewCapability(lggr, clock, expiry, handler, wfRegistrySyncer)
+			store := requests.NewStore[*types.Request]()
+			handler := requests.NewHandler[*types.Request, *types.Response](lggr, store, clock, expiry)
+			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
+			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
 			servicetest.Run(t, capability)
 
 			wait := func() {}
@@ -753,13 +745,13 @@ func TestCapability_CRUD(t *testing.T) {
 				wait = wg.Wait
 			}
 
-			resp, err := tc.call(t, capability, *wfRegistrySyncer)
-			wait()
+			resp, err := tc.call(t, capability)
 
 			if tc.error != "" {
 				assert.ErrorContains(t, err, tc.error)
 			} else {
 				require.NoError(t, err)
+				wait()
 				assert.Equal(t, tc.response, resp)
 			}
 		})

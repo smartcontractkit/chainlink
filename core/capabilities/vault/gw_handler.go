@@ -16,6 +16,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -56,13 +57,13 @@ type gatewaySender interface {
 
 type GatewayHandler struct {
 	capRegistry    core.CapabilitiesRegistry
-	secretsService SecretsService
+	secretsService types.SecretsService
 	gatewaySender  gatewaySender
 	lggr           logger.Logger
 	metrics        *metrics
 }
 
-func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService SecretsService, gwsender gatewaySender, lggr logger.Logger) (*GatewayHandler, error) {
+func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService types.SecretsService, gwsender gatewaySender, lggr logger.Logger) (*GatewayHandler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -94,15 +95,15 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
-	case MethodSecretsCreate:
+	case types.MethodSecretsCreate:
 		response = h.handleSecretsCreate(ctx, gatewayID, req)
-	case MethodSecretsGet:
+	case types.MethodSecretsGet:
 		response = h.handleSecretsGet(ctx, gatewayID, req)
-	case MethodSecretsUpdate:
+	case types.MethodSecretsUpdate:
 		response = h.handleSecretsUpdate(ctx, gatewayID, req)
-	case MethodSecretsDelete:
+	case types.MethodSecretsDelete:
 		response = h.handleSecretsDelete(ctx, gatewayID, req)
-	case MethodSecretsList:
+	case types.MethodSecretsList:
 		response = h.handleSecretsList(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
@@ -293,7 +294,7 @@ func (h *GatewayHandler) getEncryptionKeys(ctx context.Context) ([]string, error
 	return encryptionKeys, nil
 }
 
-func toJSONResponse(vaultCapResponse *Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
+func toJSONResponse(vaultCapResponse *types.Response, method string) (*jsonrpc.Response[json.RawMessage], error) {
 	vaultResponseBytes, err := vaultCapResponse.ToJSONRPCResult()
 	if err != nil {
 		return nil, errors.New("failed to marshal vault capability response: " + err.Error())

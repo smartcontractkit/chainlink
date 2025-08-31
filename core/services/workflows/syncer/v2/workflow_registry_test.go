@@ -825,10 +825,10 @@ type mockContractReader struct {
 }
 
 func (m *mockContractReader) GetLatestValueWithHeadData(
-	ctx context.Context,
-	readIdentifier string,
-	confidenceLevel primitives.ConfidenceLevel,
-	params interface{},
+	_ context.Context,
+	_ string,
+	_ primitives.ConfidenceLevel,
+	_ interface{},
 	result interface{},
 ) (*types.Head, error) {
 	// Simulate returning allowlisted requests

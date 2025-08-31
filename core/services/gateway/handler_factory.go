@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -17,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
-
 )
 
 const (
@@ -29,11 +29,11 @@ const (
 )
 
 type handlerFactory struct {
-	legacyChains         legacyevm.LegacyChainContainer
-	ds                   sqlutil.DataSource
-	lggr                 logger.Logger
-	httpClient           network.HTTPClient
-	capabilitiesRegistry core.CapabilitiesRegistry
+	legacyChains           legacyevm.LegacyChainContainer
+	ds                     sqlutil.DataSource
+	lggr                   logger.Logger
+	httpClient             network.HTTPClient
+	capabilitiesRegistry   core.CapabilitiesRegistry
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 }
 
@@ -61,7 +61,8 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 	case HTTPCapabilityType:
 		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	case VaultHandlerType:
-		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr)
+		requestAuthorizer := vaultcap.NewRequestAuthorizer(hf.lggr, hf.workflowRegistrySyncer)
+		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

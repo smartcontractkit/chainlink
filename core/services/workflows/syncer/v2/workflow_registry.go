@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -291,7 +290,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 				// whether an existing pendingEvent exists.
 				// We do this regardless of whether we have an event to handle or not, since this ensures
 				// we correctly handle the state of pending events in the following situation:
-				// - we registered an active workflow but it failed to process successfully
+				// - we registered an active workflow, but it failed to process successfully
 				// - we then paused the workflow; this should clear the pending event
 				signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature != signature {
@@ -534,7 +533,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 			for _, wfMeta := range workflows.List {
 				// TODO: https://smartcontract-it.atlassian.net/browse/CAPPL-1021 load balance across workflow nodes in DON Family
 				allWorkflows = append(allWorkflows, WorkflowMetadataView{
-					WorkflowID:   wftypes.WorkflowID(wfMeta.WorkflowId),
+					WorkflowID:   wfMeta.WorkflowId,
 					Owner:        wfMeta.Owner.Bytes(),
 					CreatedAt:    wfMeta.CreatedAt,
 					Status:       wfMeta.Status,
@@ -564,7 +563,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 	return allWorkflows, headAtLastRead, nil
 }
 
-func (w *workflowRegistry) GetAllowlistedRequests(ctx context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
+func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
 	w.allowListedMu.RLock()
 	defer w.allowListedMu.RUnlock()
 	return w.allowListedRequests

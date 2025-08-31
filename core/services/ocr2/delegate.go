@@ -34,6 +34,7 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/types"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
@@ -689,11 +690,11 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
 	}
 
-	requestStore := requests.NewStore[*vaultcap.Request]()
+	requestStore := requests.NewStore[*types2.Request]()
 	clock := clockwork.NewRealClock()
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
-	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, syncer)
+	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer))
 	srvs = append(srvs, vaultCapability)
 
 	err = capabilitiesRegistry.Add(ctx, vaultCapability)
@@ -710,7 +711,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, handler)
 
-	if gwerr := gwconnector.AddHandler(ctx, vaultcap.Methods, handler); gwerr != nil {
+	if gwerr := gwconnector.AddHandler(ctx, types2.Methods, handler); gwerr != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", gwerr)
 	}
 
