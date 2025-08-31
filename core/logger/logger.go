@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	otelzap "github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
+	otellogglobal "go.opentelemetry.io/otel/log/global"
 
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -319,10 +319,12 @@ func newDiskCore(diskLogLevel zap.AtomicLevel, local Config) (zapcore.Core, erro
 	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }
 
-// Should be used when beholder client and global providers are set
 func NewOtelCore() zapcore.Core {
+	// note: until beholder.SetGlobalOtelProviders() is not called
+	// the core uses no-op provider and logger
+	loggerProvider := otellogglobal.GetLoggerProvider()
 	otelZapCore := otelzap.NewCore(
-		beholder.GetLogger(),
+		loggerProvider.Logger("beholder"),
 	)
 
 	return otelZapCore
