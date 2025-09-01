@@ -50,7 +50,7 @@ func (o *orm) ReadResultPackage(ctx context.Context, iid dkgocrtypes.InstanceID)
 	var seqNr uint64
 	var reportWithResultPackage []byte
 	var signatures pq.ByteaArray
-	var signerOracleIDs pq.Int64Array
+	var signerOracleIDs []byte
 
 	query := `SELECT config_digest, seq_nr, report_with_result_package, signatures, signer_oracle_ids FROM dkg_results WHERE instance_id = $1;`
 	row := o.ds.QueryRowxContext(ctx, query, iid)
@@ -92,10 +92,10 @@ func (o *orm) WriteResultPackage(ctx context.Context,
 	}
 
 	signatures := make(pq.ByteaArray, len(value.Signatures))
-	signerOracleIDs := make(pq.Int64Array, len(value.Signatures))
+	signerOracleIDs := make([]byte, len(value.Signatures))
 	for i, sig := range value.Signatures {
 		signatures[i] = sig.Signature
-		signerOracleIDs[i] = int64(sig.Signer)
+		signerOracleIDs[i] = byte(sig.Signer)
 	}
 
 	query := `
