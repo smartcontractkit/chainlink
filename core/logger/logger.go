@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 
 	"github.com/fatih/color"
+	otellogglobal "go.opentelemetry.io/otel/log/global"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	otelzap "github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
-	otellogglobal "go.opentelemetry.io/otel/log/global"
 
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"

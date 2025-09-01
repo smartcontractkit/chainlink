@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -24,12 +25,12 @@ func TestStderrWriter(t *testing.T) {
 
 	// Test Write
 	n, err := sw.Write([]byte("Hello, World!"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 13, n, "Expected 13 bytes written")
 
 	// Test Close
 	err = sw.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestConfig_New_WithAdditionalCores(t *testing.T) {
@@ -45,7 +46,11 @@ func TestConfig_New_WithAdditionalCores(t *testing.T) {
 	}
 
 	logger, closeFn := config.New()
-	defer closeFn()
+	defer func() {
+		if err := closeFn(); err != nil {
+			t.Errorf("Failed to close logger: %v", err)
+		}
+	}()
 
 	// Log messages at different levels
 	logger.Info("info message")
@@ -70,7 +75,11 @@ func TestConfig_New_WithoutAdditionalCores(t *testing.T) {
 	}
 
 	logger, closeFn := config.New()
-	defer closeFn()
+	defer func() {
+		if err := closeFn(); err != nil {
+			t.Errorf("Failed to close logger: %v", err)
+		}
+	}()
 
 	// Should work normally without additional cores
 	assert.NotNil(t, logger)
