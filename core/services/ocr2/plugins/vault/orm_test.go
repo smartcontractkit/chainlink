@@ -11,11 +11,11 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, dkgocrtypes.ResultPackageDatabase) {
