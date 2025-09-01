@@ -23,6 +23,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
@@ -39,7 +40,7 @@ func setupORM(t *testing.T) (*sqlx.DB, dkgocrtypes.ResultPackageDatabase) {
 
 func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -176,7 +177,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 
 func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -245,7 +246,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 
 	for _, tc := range tcs {
 		lggr := logger.TestLogger(t)
-		store := requests.NewStore[*vaultcap.Request]()
+		store := requests.NewStore[*vaulttypes.Request]()
 		maxIDLen := 256
 		if tc.maxIDLen > 0 {
 			maxIDLen = tc.maxIDLen
@@ -277,7 +278,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 				},
 			},
 		}
-		err := store.Add(&vaultcap.Request{Payload: p})
+		err := store.Add(&vaulttypes.Request{Payload: p})
 		require.NoError(t, err)
 		data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 		require.NoError(t, err)
@@ -304,7 +305,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 
 func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -360,7 +361,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 			},
 		},
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	seqNr := uint64(1)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
@@ -385,7 +386,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 
 func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -418,7 +419,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 			},
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -444,7 +445,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 
 func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -484,7 +485,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 			},
 		},
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	seqNr := uint64(1)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
@@ -520,7 +521,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 
 func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -566,7 +567,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 			},
 		},
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	seqNr := uint64(1)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
@@ -594,7 +595,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 
 func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -645,7 +646,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 			},
 		},
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	seqNr := uint64(1)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
@@ -735,7 +736,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 
 	for _, tc := range tcs {
 		lggr := logger.TestLogger(t)
-		store := requests.NewStore[*vaultcap.Request]()
+		store := requests.NewStore[*vaulttypes.Request]()
 		maxIDLen := 256
 		if tc.maxIDLen > 0 {
 			maxIDLen = tc.maxIDLen
@@ -767,7 +768,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 				},
 			},
 		}
-		err := store.Add(&vaultcap.Request{Payload: p})
+		err := store.Add(&vaulttypes.Request{Payload: p})
 		require.NoError(t, err)
 		data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 		require.NoError(t, err)
@@ -794,7 +795,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 
 func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -831,7 +832,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 			},
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -861,7 +862,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 
 func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -974,7 +975,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -1008,7 +1009,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 			},
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -1034,7 +1035,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -1069,7 +1070,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 			},
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -1095,7 +1096,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 
 func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	// Wrong key
 	_, wrongPublicKey, _, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -1141,7 +1142,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 			},
 		},
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -1167,7 +1168,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 
 func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1255,7 +1256,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 
 func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1337,7 +1338,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 
 func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1378,7 +1379,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 			},
 		},
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -1415,7 +1416,7 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 	}
 	for _, ob := range observations {
 		o := &vaultcommon.Observation{
-			Id: vaultcap.KeyFor(ob.id),
+			Id: vaulttypes.KeyFor(ob.id),
 		}
 		switch tr := ob.req.(type) {
 		case *vaultcommon.GetSecretsRequest:
@@ -1479,7 +1480,7 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 
 func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1551,7 +1552,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 
 func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1638,7 +1639,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 
 func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1719,7 +1720,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 
 func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1796,7 +1797,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -1938,7 +1939,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 
 func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -2056,7 +2057,7 @@ func TestPlugin_Reports(t *testing.T) {
 		},
 	}
 	expectedOutcome1 := &vaultcommon.Outcome{
-		Id:          vaultcap.KeyFor(id),
+		Id:          vaulttypes.KeyFor(id),
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 		Request: &vaultcommon.Outcome_CreateSecretsRequest{
 			CreateSecretsRequest: req,
@@ -2087,7 +2088,7 @@ func TestPlugin_Reports(t *testing.T) {
 		},
 	}
 	expectedOutcome2 := &vaultcommon.Outcome{
-		Id:          vaultcap.KeyFor(id2),
+		Id:          vaulttypes.KeyFor(id2),
 		RequestType: vaultcommon.RequestType_GET_SECRETS,
 		Request: &vaultcommon.Outcome_GetSecretsRequest{
 			GetSecretsRequest: req2,
@@ -2107,7 +2108,7 @@ func TestPlugin_Reports(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -2139,7 +2140,7 @@ func TestPlugin_Reports(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaultcap.KeyFor(id),
+		Id:          vaulttypes.KeyFor(id),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
@@ -2152,7 +2153,7 @@ func TestPlugin_Reports(t *testing.T) {
 	info2, err := extractReportInfo(o2.ReportWithInfo)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaultcap.KeyFor(id2),
+		Id:          vaulttypes.KeyFor(id2),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_PROTOBUF,
 		RequestType: vaultcommon.RequestType_GET_SECRETS,
 	}, info2))
@@ -2202,7 +2203,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 
 	for _, tc := range tcs {
 		lggr := logger.TestLogger(t)
-		store := requests.NewStore[*vaultcap.Request]()
+		store := requests.NewStore[*vaulttypes.Request]()
 		maxIDLen := 256
 		if tc.maxIDLen > 0 {
 			maxIDLen = tc.maxIDLen
@@ -2234,7 +2235,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 				},
 			},
 		}
-		err := store.Add(&vaultcap.Request{Payload: p})
+		err := store.Add(&vaulttypes.Request{Payload: p})
 		require.NoError(t, err)
 		data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 		require.NoError(t, err)
@@ -2261,7 +2262,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 
 func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -2298,7 +2299,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *t
 			},
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -2328,7 +2329,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *t
 
 func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -2362,7 +2363,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T)
 			},
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -2388,7 +2389,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T)
 
 func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -2423,7 +2424,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 			},
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -2449,7 +2450,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 
 func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWithWrongPublicKey(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	// Wrong key
 	_, wrongPublicKey, _, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -2495,7 +2496,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 			},
 		},
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -2521,7 +2522,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 
 func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -2615,7 +2616,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 
 func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -2648,7 +2649,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 	require.NoError(t, err)
 	kv := &kv{
 		m: map[string]response{
-			keyPrefix + vaultcap.KeyFor(id): {
+			keyPrefix + vaulttypes.KeyFor(id): {
 				data: d,
 			},
 		},
@@ -2741,7 +2742,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vaultcommon.Outcome{
-		Id:          vaultcap.KeyFor(id),
+		Id:          vaulttypes.KeyFor(id),
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 		Request: &vaultcommon.Outcome_UpdateSecretsRequest{
 			UpdateSecretsRequest: req,
@@ -2761,7 +2762,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -2793,7 +2794,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaultcap.KeyFor(id),
+		Id:          vaulttypes.KeyFor(id),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 	}, info1))
@@ -2805,7 +2806,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 
 func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -2846,7 +2847,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 			metadataPrefix + "foo": response{
 				data: mdb,
 			},
-			keyPrefix + vaultcap.KeyFor(id): response{
+			keyPrefix + vaulttypes.KeyFor(id): response{
 				data: ssb,
 			},
 		},
@@ -2857,7 +2858,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 			id,
 		},
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -2881,7 +2882,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 
 func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -2912,7 +2913,7 @@ func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 			id,
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -2936,7 +2937,7 @@ func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 
 func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -2968,7 +2969,7 @@ func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.
 			id,
 		},
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -2996,7 +2997,7 @@ func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.
 
 func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -3043,7 +3044,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 			metadataPrefix + "foo": response{
 				data: mdb,
 			},
-			keyPrefix + vaultcap.KeyFor(id): response{
+			keyPrefix + vaulttypes.KeyFor(id): response{
 				data: ssb,
 			},
 		},
@@ -3104,7 +3105,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 
 func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -3219,7 +3220,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vaultcommon.Outcome{
-		Id:          vaultcap.KeyFor(id),
+		Id:          vaulttypes.KeyFor(id),
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 		Request: &vaultcommon.Outcome_DeleteSecretsRequest{
 			DeleteSecretsRequest: req,
@@ -3239,7 +3240,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -3271,7 +3272,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaultcap.KeyFor(id),
+		Id:          vaulttypes.KeyFor(id),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 	}, info1))
@@ -3283,7 +3284,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 
 func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -3307,7 +3308,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 		RequestId: "request-id",
 		Owner:     "",
 	}
-	err := store.Add(&vaultcap.Request{Payload: p})
+	err := store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -3330,7 +3331,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 
 func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -3380,7 +3381,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 		RequestId: "request-id",
 		Owner:     "foo",
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -3423,7 +3424,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 
 func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
 		store: store,
@@ -3474,7 +3475,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 		Owner:     "foo",
 		Namespace: "main",
 	}
-	err = store.Add(&vaultcap.Request{Payload: p})
+	err = store.Add(&vaulttypes.Request{Payload: p})
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, nil)
 	require.NoError(t, err)
@@ -3526,7 +3527,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vaultcommon.Outcome{
-		Id:          vaultcap.KeyFor(id),
+		Id:          vaulttypes.KeyFor(id),
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 		Request: &vaultcommon.Outcome_ListSecretIdentifiersRequest{
 			ListSecretIdentifiersRequest: req,
@@ -3546,7 +3547,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
@@ -3578,7 +3579,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaultcap.KeyFor(id),
+		Id:          vaulttypes.KeyFor(id),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))
@@ -3590,7 +3591,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 
 func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{

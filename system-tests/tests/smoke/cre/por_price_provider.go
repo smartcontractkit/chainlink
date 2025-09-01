@@ -191,6 +191,7 @@ func cleanFeedID(feedID string) string {
 }
 
 func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, feedIDs []string) (PriceProvider, error) {
+	testLogger.Info().Msg("Creating a new fake price provider...")
 	cleanFeedIDs := make([]string, 0, len(feedIDs))
 	// workflow is sending feedIDs with 0x prefix and 32 bytes
 	for _, feedID := range feedIDs {
@@ -227,6 +228,7 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey 
 		return nil, errors.Wrap(err, "failed to set up fake data provider")
 	}
 
+	testLogger.Info().Msgf("Fake price provider successfully set up.")
 	return &FakePriceProvider{
 		testLogger:     testLogger,
 		expectedPrices: expectedPrices,

@@ -306,14 +306,13 @@ func fetchAndRegisterProtosCmd() *cobra.Command {
 		Short: "Fetch and register protos",
 		Long:  `Fetch and register protos`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Use default values if not provided
 			if schemaURL == "" {
-				return errors.New("red-panda-schema-registry-url cannot be empty")
+				schemaURL = "http://localhost:" + chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT
 			}
 
 			if len(protoConfigs) == 0 {
-				framework.L.Warn().Msg("no proto configs provided, skipping proto registration")
-
-				return nil
+				protoConfigs = []string{"./proto-configs/default.toml"}
 			}
 
 			return parseConfigsAndRegisterProtos(cmd.Context(), protoConfigs, schemaURL)
@@ -321,7 +320,5 @@ func fetchAndRegisterProtosCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&schemaURL, "red-panda-schema-registry-url", "r", "http://localhost:"+chipingressset.DEFAULT_RED_PANDA_SCHEMA_REGISTRY_PORT, "Red Panda Schema Registry URL")
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
-	_ = cmd.MarkFlagRequired("red-panda-schema-registry-url")
-	_ = cmd.MarkFlagRequired("with-proto-configs")
 	return cmd
 }

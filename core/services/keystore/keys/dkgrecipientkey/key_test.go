@@ -61,7 +61,7 @@ func TestRaw(t *testing.T) {
 
 	raw := key.Raw()
 	assert.NotNil(t, raw)
-	
+
 	// Raw should contain some data
 	rawBytes := internal.Bytes(raw)
 	assert.NotEmpty(t, rawBytes)
