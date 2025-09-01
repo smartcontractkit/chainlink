@@ -30,6 +30,10 @@ type SolanaLooppSigner struct {
 
 var _ core.Keystore = &SolanaLooppSigner{}
 
+func (lk *SolanaLooppSigner) Decrypt(ctx context.Context, id string, ciphertext []byte) ([]byte, error) {
+	return nil, nil
+}
+
 func (s *SolanaLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()
 	if err != nil {

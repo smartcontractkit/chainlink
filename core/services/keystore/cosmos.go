@@ -154,6 +154,10 @@ type CosmosLoopSigner struct {
 
 var _ core.Keystore = &CosmosLoopSigner{}
 
+func (lk *CosmosLoopSigner) Decrypt(ctx context.Context, id string, ciphertext []byte) ([]byte, error) {
+	return nil, nil
+}
+
 func (lk *CosmosLoopSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
 	k, err := lk.Get(id)
 	if err != nil {

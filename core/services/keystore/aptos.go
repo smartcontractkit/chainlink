@@ -169,6 +169,10 @@ type AptosLooppSigner struct {
 
 var _ loop.Keystore = &AptosLooppSigner{}
 
+func (lk *AptosLooppSigner) Decrypt(ctx context.Context, id string, ciphertext []byte) ([]byte, error) {
+	return nil, nil
+}
+
 // Returns a list of Aptos Public Keys
 func (s *AptosLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()

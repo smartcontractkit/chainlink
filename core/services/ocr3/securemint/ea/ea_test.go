@@ -36,13 +36,14 @@ func Test_GetPayload(t *testing.T) {
 	config := &sm_config.SecureMintConfig{
 		Token:          "eth",
 		Reserves:       "platform",
-		ChainSelectors: []uint64{5009297550715157269},
+		ChainSelectors: []string{"5009297550715157269"},
 	}
 	job := job.Job{}
 	spec := pipeline.Spec{}
 	executedRun := &pipeline.Run{}
 
-	ea := NewExternalAdapter(config, runner, job, spec, saver, lggr)
+	ea, err := NewExternalAdapter(config, runner, job, spec, saver, lggr)
+	require.NoError(t, err)
 
 	results := pipeline.TaskRunResults{
 		{

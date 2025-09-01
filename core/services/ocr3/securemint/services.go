@@ -2,7 +2,6 @@ package securemint
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync/atomic"
 
@@ -23,6 +22,7 @@ import (
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
+	sm_plugin_loopp "github.com/smartcontractkit/tmp-sm-plugin-loopp/v2/smplugin"
 )
 
 var _ JobConfig = (*smJobConfig)(nil)
@@ -147,8 +147,29 @@ func NewSecureMintServices(ctx context.Context,
 
 	// Create the reporting plugin factory
 	if cmdName := env.SecureMintPlugin.Cmd.Get(); cmdName != "" {
-		abort()
-		return nil, errors.New("LOOPP for securemint plugin not implemented yet")
+		lggr.Infof("Configuration indicates loopp usage for secure mint")
+
+		// use unique logger names so we can use it to register a loop
+		secureMintLggr := lggr.Named("SecureMint").Named(spec.ContractID).Named(spec.GetID())
+		envVars, err2 := plugins.ParseEnvFile(env.SecureMintPlugin.Env.Get())
+		if err2 != nil {
+			err = fmt.Errorf("failed to parse secure mint env file: %w", err2)
+			abort()
+			return
+		}
+		cmdFn, telem, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
+			ID:  secureMintLggr.Name(),
+			Cmd: cmdName,
+			Env: envVars,
+		})
+		if err2 != nil {
+			err = fmt.Errorf("failed to register loop: %w", err2)
+			abort()
+			return
+		}
+		secureMint := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn) // TODO(gg): add more params
+		argsNoPlugin.ReportingPluginFactory = secureMint
+		srvs = append(srvs, secureMint)
 	}
 
 	ea, err := sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr)

@@ -50,6 +50,10 @@ type Eth interface {
 
 var _ loop.Keystore = &EthSigner{}
 
+func (lk *EthSigner) Decrypt(ctx context.Context, id string, ciphertext []byte) ([]byte, error) {
+	return nil, nil
+}
+
 type EthSigner struct {
 	Eth
 	core.UnimplementedKeystore

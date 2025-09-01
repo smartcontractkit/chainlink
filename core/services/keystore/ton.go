@@ -168,6 +168,10 @@ type TONLooppSigner struct {
 
 var _ core.Keystore = &TONLooppSigner{}
 
+func (lk *TONLooppSigner) Decrypt(ctx context.Context, id string, ciphertext []byte) ([]byte, error) {
+	return nil, nil
+}
+
 // Returns a list of TON Public Keys
 func (s *TONLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()

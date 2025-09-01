@@ -173,6 +173,10 @@ type TronLOOPSigner struct {
 
 var _ core.Keystore = &TronLOOPSigner{}
 
+func (lk *TronLOOPSigner) Decrypt(ctx context.Context, id string, ciphertext []byte) ([]byte, error) {
+	return nil, nil
+}
+
 func (lk *TronLOOPSigner) Accounts(ctx context.Context) ([]string, error) {
 	keys, err := lk.GetAll()
 	if err != nil {

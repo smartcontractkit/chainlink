@@ -28,6 +28,10 @@ type CSA interface {
 
 var _ core.Keystore = &CSASigner{}
 
+func (lk *CSASigner) Decrypt(ctx context.Context, id string, ciphertext []byte) ([]byte, error) {
+	return nil, nil
+}
+
 type CSASigner struct {
 	CSA
 	core.UnimplementedKeystore
