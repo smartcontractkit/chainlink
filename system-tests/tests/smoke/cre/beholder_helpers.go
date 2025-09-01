@@ -53,12 +53,13 @@ func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
 	return nil
 }
 
-func subscribeToBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger, envDirectory string,
+func subscribeToBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger,
+	testEnv *TestEnvironment,
 	messageTypes map[string]func() proto.Message) (<-chan proto.Message, <-chan error) {
-	bErr := startBeholderStackIfIsNotRunning(DefaultBeholderStackCacheFile, envDirectory)
+	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.BeholderConfigPath, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, bErr, "failed to start Beholder")
 
-	chipConfig, chipErr := loadBeholderStackCache()
+	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.BeholderConfigPath)
 	require.NoError(t, chipErr, "failed to load chip ingress cache")
 	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
 	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
@@ -80,7 +81,7 @@ func listenForKafkaMessages(
 	brokerAddress string,
 	topic string,
 	messageTypes map[string]func() proto.Message, // ce_type -> protobuf factory function
-	messageChan chan<- proto.Message, // channel to send deserialized messages
+	messageChan chan<- proto.Message,             // channel to send deserialized messages
 	errChan chan<- error,
 ) {
 	logger.Info().Str("broker", brokerAddress).Str("topic", topic).Msg("Starting Kafka listener")

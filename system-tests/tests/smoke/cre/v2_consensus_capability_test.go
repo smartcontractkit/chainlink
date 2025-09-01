@@ -32,7 +32,7 @@ func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
 		},
 	}
 
-	beholderMsgChan, beholderErrChan := subscribeToBeholderMessages(ctxWithTimeout, t, testLogger, DefaultEnvironmentDir, beholderMessageTypes)
+	beholderMsgChan, beholderErrChan := subscribeToBeholderMessages(ctxWithTimeout, t, testLogger, testEnv, beholderMessageTypes)
 
 	compileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
 
