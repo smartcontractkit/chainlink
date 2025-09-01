@@ -22,7 +22,6 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -111,7 +110,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	store := requests.NewStore[*vaultcap.Request]()
+	store := requests.NewStore[*vaulttypes.Request]()
 
 	// Simulate DKG for a single recipient.
 	dkgrecipientKey, err := dkgrecipientkey.New()
