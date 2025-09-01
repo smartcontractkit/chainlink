@@ -35,7 +35,7 @@ func onTrigger(cfg None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
 	mathPromise := cre.RunInNodeMode(cfg, runtime, fetchData, cre.ConsensusMedianAggregation[int]())
 	offchainValue, err := mathPromise.Await()
 	if err != nil {
-		runtime.Logger().Info("Consensus error", "error", err)
+		runtime.Logger().Warn("Consensus error", "error", err)
 		return "", err
 	}
 	runtime.Logger().Info("Successfully fetched offchain value and reached consensus", "result", offchainValue)

@@ -215,7 +215,10 @@ func compileAndDeployWorkflow(t *testing.T, testEnv *TestEnvironment, testLogger
 	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, &None{}, workflowFileLocation)
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String()) //lint:ignore SA1019 ignoring deprecation warning for this usage
+	//lint:ignore SA1019 ignoring deprecation warning for this usage
+	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //lint:ignore SA1019 ignoring deprecation warning for this usage
+		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
 
 	t.Cleanup(func() {
