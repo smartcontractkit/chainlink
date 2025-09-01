@@ -41,6 +41,8 @@ var (
 	defaultMaxResponseBytes   = uint32(26.4 * utils.KB)
 	defaultMaxRequestDuration = 60 * time.Second
 	defaultTimeout            = 5 * time.Second
+	HTTPSendError             = errors.New("failed to send HTTP request")
+	HTTPReadError             = errors.New("failed to read HTTP response body")
 )
 
 func (c *HTTPClientConfig) ApplyDefaults() {
@@ -146,7 +148,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	resp, err := c.client.Do(r)
 	if err != nil {
 		c.lggr.Errorw("failed to send HTTP request", "url", req.URL, "err", err)
-		return nil, err
+		return nil, HTTPSendError
 	}
 	defer resp.Body.Close()
 
@@ -157,7 +159,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		c.lggr.Errorw("failed to read HTTP response body", "url", req.URL, "err", err)
-		return nil, err
+		return nil, HTTPReadError
 	}
 	headers := make(map[string]string)
 	for k, v := range resp.Header {

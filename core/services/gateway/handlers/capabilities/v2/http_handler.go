@@ -212,18 +212,24 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 		l.Debug("Sending request to client")
 		start := time.Now()
 		resp, err := h.httpClient.Send(ctx, httpReq)
+		externalEndpointLatency := time.Since(start)
+
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
+			isExternalEndpointError := errors.Is(err, network.HTTPSendError) || errors.Is(err, network.HTTPReadError)
 			return gateway_common.OutboundHTTPResponse{
-				ErrorMessage: err.Error(),
+				ErrorMessage:            err.Error(),
+				IsExternalEndpointError: isExternalEndpointError,
+				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
 		h.metrics.Action.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
 		h.metrics.Action.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
-			StatusCode: resp.StatusCode,
-			Headers:    resp.Headers,
-			Body:       resp.Body,
+			StatusCode:              resp.StatusCode,
+			Headers:                 resp.Headers,
+			Body:                    resp.Body,
+			ExternalEndpointLatency: externalEndpointLatency,
 		}
 	}
 }
