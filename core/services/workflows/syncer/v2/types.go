@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"math/big"
 
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -33,6 +34,11 @@ type Config struct {
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
 type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
 
+type GetAllowlistedRequestsParams struct {
+	Start *big.Int
+	Limit *big.Int
+}
+
 type WorkflowMetadataView struct {
 	WorkflowID   types.WorkflowID
 	Owner        []byte
@@ -47,9 +53,9 @@ type WorkflowMetadataView struct {
 }
 
 type GetWorkflowListByDONParams struct {
-	DonFamily [32]byte
-	Start     uint64
-	Limit     uint64
+	DonFamily string
+	Start     *big.Int
+	Limit     *big.Int
 }
 
 type GetWorkflowListByDONReturnVal struct {

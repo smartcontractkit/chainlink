@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 func makeNodes(t *testing.T, signers []string) []capabilities.Node {
@@ -45,7 +45,7 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 	require.NoError(t, err)
 
 	rm := json.RawMessage([]byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`))
-	sor := vault.SignedOCRResponse{
+	sor := vaulttypes.SignedOCRResponse{
 		Payload: rm,
 		Context: ctx,
 		Signatures: [][]byte{
@@ -59,7 +59,7 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 	currResp := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vault.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Result:  (*json.RawMessage)(&rawResp),
 	}
 	ar := &activeRequest{
@@ -87,7 +87,7 @@ func newMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
 	require.NoError(t, err)
 
 	rm := json.RawMessage([]byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`))
-	sor := vault.SignedOCRResponse{
+	sor := vaulttypes.SignedOCRResponse{
 		Payload: rm,
 		Context: ctx,
 		Signatures: [][]byte{
@@ -101,7 +101,7 @@ func newMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vault.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Result:  (*json.RawMessage)(&rawResp),
 	}
 }
@@ -121,7 +121,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 	currResp := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vault.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Result:  (*json.RawMessage)(nil),
 		Error: &jsonrpc.WireError{
 			Code:    123,
@@ -186,7 +186,7 @@ func TestAggregator_InsufficientResponses(t *testing.T) {
 	currResp := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vault.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Result:  &rm,
 	}
 	ar := &activeRequest{
@@ -214,21 +214,21 @@ func TestAggregator_QuorumUnobtainable(t *testing.T) {
 	resp1 := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vault.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Result:  &rm1,
 	}
 	rm2 := json.RawMessage([]byte(`{"foo": "bar"}`))
 	resp2 := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vault.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Result:  &rm2,
 	}
 	rm3 := json.RawMessage([]byte(`{"baz": "qux"}`))
 	resp3 := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vault.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Result:  &rm3,
 	}
 	ar := &activeRequest{

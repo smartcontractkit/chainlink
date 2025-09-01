@@ -19,12 +19,11 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
 
 func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
@@ -70,7 +69,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 	secretsCreateRequest := jsonrpc.Request[vaultcommon.CreateSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
-		Method:  vault.MethodSecretsCreate,
+		Method:  vaulttypes.MethodSecretsCreate,
 		Params: &vaultcommon.CreateSecretsRequest{
 			RequestId: uniqueRequestID,
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
@@ -90,7 +89,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 
 	httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vault.SignedOCRResponse]
+	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
 	err = json.Unmarshal(httpResponseBody, &jsonResponse)
 	require.NoError(t, err, "failed to unmarshal getResponse")
 	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
@@ -98,7 +97,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 		require.Empty(t, jsonResponse.Error.Error())
 	}
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, vault.MethodSecretsCreate, jsonResponse.Method)
+	require.Equal(t, vaulttypes.MethodSecretsCreate, jsonResponse.Method)
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
@@ -128,7 +127,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 	secretsUpdateRequest := jsonrpc.Request[vaultcommon.UpdateSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
-		Method:  vault.MethodSecretsUpdate,
+		Method:  vaulttypes.MethodSecretsUpdate,
 		Params: &vaultcommon.UpdateSecretsRequest{
 			RequestId: uniqueRequestID,
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
@@ -154,7 +153,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 
 	httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vault.SignedOCRResponse]
+	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
 	err = json.Unmarshal(httpResponseBody, &jsonResponse)
 	require.NoError(t, err, "failed to unmarshal getResponse")
 	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
@@ -163,7 +162,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 	}
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, vault.MethodSecretsUpdate, jsonResponse.Method)
+	require.Equal(t, vaulttypes.MethodSecretsUpdate, jsonResponse.Method)
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
@@ -192,7 +191,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 	framework.L.Info().Msg("Getting secret...")
 	secretsGetRequest := jsonrpc.Request[vaultcommon.GetSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
-		Method:  vault.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Params: &vaultcommon.GetSecretsRequest{
 			Requests: []*vaultcommon.SecretRequest{
 				{
@@ -217,7 +216,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 		require.Empty(t, jsonResponse.Error.Error())
 	}
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, vault.MethodSecretsGet, jsonResponse.Method)
+	require.Equal(t, vaulttypes.MethodSecretsGet, jsonResponse.Method)
 
 	/*
 	 * The json unmarshaling is not compatible with the proto oneof in vaultcommon.SecretResponse

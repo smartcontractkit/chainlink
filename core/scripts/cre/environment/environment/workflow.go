@@ -380,7 +380,7 @@ func compileWorkflow(workflowFilePathFlag, workflowNameFlag string) (string, err
 }
 
 func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddressFlag, capabilitiesRegistryAddressFlag, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, rpcURLFlag string, donIDFlag uint32, deleteWorkflowFile bool) error {
-	copyErr := creworkflow.CopyArtifactsToDockerContainers(wasmWorkflowFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+	copyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, wasmWorkflowFilePathFlag)
 	if copyErr != nil {
 		return errors.Wrap(copyErr, "❌ failed to copy workflow to Docker container")
 	}
@@ -409,7 +409,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 			return errors.Wrap(configPathAbsErr, "failed to get absolute path of the config file")
 		}
 
-		configCopyErr := creworkflow.CopyArtifactsToDockerContainers(configFilePathFlag, containerNamePatternFlag, containerTargetDirFlag)
+		configCopyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, configFilePathFlag)
 		if configCopyErr != nil {
 			return errors.Wrap(configCopyErr, "❌ failed to copy config file to Docker container")
 		}
@@ -436,7 +436,7 @@ func deployWorkflow(ctx context.Context, wasmWorkflowFilePathFlag, workflowNameF
 		fmt.Printf("\n✅ Encrypted workflow secrets file prepared\n\n")
 
 		fmt.Printf("\n⚙️ Copying encrypted secrets file to Docker container\n")
-		secretsCopyErr := creworkflow.CopyArtifactsToDockerContainers(secretPathAbs, containerNamePatternFlag, containerTargetDirFlag)
+		secretsCopyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, secretPathAbs)
 		if secretsCopyErr != nil {
 			return errors.Wrap(secretsCopyErr, "❌ failed to copy encrypted secrets file to Docker container")
 		}

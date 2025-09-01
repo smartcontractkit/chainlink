@@ -37,11 +37,15 @@ type WorkflowTestConfig struct {
 	WorkflowName         string
 	WorkflowFileLocation string
 	FeedIDs              []string
-	Timeout              time.Duration
 }
 
 func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 	testLogger := framework.L
+	// AuthorizationKeySecretName := "AUTH_KEY"
+	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
+	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
+	// It is needed for FakePriceProvider
+	AuthorizationKey := "" // required by FakePriceProvider
 	PoRWorkflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 	blockchainOutputs := testEnv.WrappedBlockchainOutputs
 	homeChainSelector := blockchainOutputs[0].ChainSelector
@@ -51,7 +55,6 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		WorkflowName:         baseWorkflowName,
 		WorkflowFileLocation: PoRWorkflowFileLocation,
 		FeedIDs:              feedIDs,
-		Timeout:              DefaultVerificationTimeout,
 	}
 
 	writeableChains := getWritableChainsFromSavedEnvironmentState(t, testEnv)
@@ -92,7 +95,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		crecontracts.MergeAllDataStores(fullCldEnvOutput, dfOutput, rbOutput)
 
 		testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
-		forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String())
+		forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
 
 		uniqueWorkflowName := baseWorkflowTestConfig.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4] // e.g. 'por-workflow-1337-5f37_config'
@@ -130,7 +133,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 
 		testLogger.Info().Msgf("Registering PoR workflow on chain %d (%d)", chainID, chainSelector)
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-			fullCldEnvOutput.Environment.ExistingAddresses,
+			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 			homeChainSelector, // it should live only on one chain, it is not deployed to all chains
 			keystone_changeset.WorkflowRegistry.String(),
 		)
@@ -236,7 +239,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
 
 			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-				testEnv.FullCldEnvOutput.Environment.ExistingAddresses,
+				testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 				bcOutput.ChainSelector,
 				df_changeset.DataFeedsCache.String(),
 			)
@@ -250,6 +253,8 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 			}
 
 			startTime := time.Now()
+			waitFor := 5 * time.Minute
+			tick := 5 * time.Second
 			require.Eventually(t, func() bool {
 				elapsed := time.Since(startTime).Round(time.Second)
 				price, err := dataFeedsCacheInstance.GetLatestAnswer(bcOutput.SethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
@@ -260,7 +265,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 
 				// if there are no more prices to be found, we can stop waiting
 				return !priceProvider.NextPrice(feedID, price, elapsed)
-			}, config.Timeout, DefaultValidationInterval, "feed %s did not update, timeout after: %s", feedID, config.Timeout)
+			}, waitFor, tick, "feed %s did not update, timeout after: %s", feedID, waitFor.String())
 
 			expected := priceProvider.ExpectedPrices(feedID)
 			actual := priceProvider.ActualPrices(feedID)

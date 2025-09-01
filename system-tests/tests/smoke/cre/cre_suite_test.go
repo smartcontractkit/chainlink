@@ -2,21 +2,6 @@ package cre
 
 import (
 	"testing"
-	"time"
-)
-
-// TODO: Where to move these constants? Is it appropriate place for keeping defaults here?
-const (
-	AuthorizationKeySecretName = "AUTH_KEY"
-	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
-	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
-	// It is needed for FakePriceProvider
-	AuthorizationKey = ""
-
-	// Test configuration constants
-	DefaultVerificationTimeout = 5 * time.Minute
-	DefaultRetryInterval       = 2 * time.Second
-	DefaultValidationInterval  = 10 * time.Second
 )
 
 /*

@@ -560,6 +560,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				keyStore.Eth(),
 				opts.DS,
 				opts.CapabilitiesRegistry,
+				creServices.workflowRegistrySyncer,
 				globalLogger),
 			job.Stream: streams.NewDelegate(
 				globalLogger,
@@ -672,6 +673,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				DonTimeStore:                   opts.DonTimeStore,
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
+				WorkflowRegistrySyncer:         creServices.workflowRegistrySyncer,
 			},
 			ocr2DelegateConfig,
 		)
@@ -862,6 +864,8 @@ type CREServices struct {
 
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
+
+	workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
 }
 
 func newCREServices(
@@ -926,6 +930,7 @@ func newCREServices(
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
+	var workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
 	if capCfg.Peering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
 		if opts.CapabilitiesDispatcher == nil {
@@ -1193,6 +1198,7 @@ func newCREServices(
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		externalPeerWrapper:     externalPeerWrapper,
 		srvs:                    srvcs,
+		workflowRegistrySyncer:  workflowRegistrySyncer,
 	}, nil
 }
 
