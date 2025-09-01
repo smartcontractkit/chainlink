@@ -21,9 +21,7 @@ import (
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
-	t.Skip("Skipping test for now, re-enable after fixing chainlink-ton db setup in integration tests")
 	// Setup 2 chains (EVM and Ton) and a single lane.
-	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
 
 	t.Logf("Environment: %+v", e.Env)
