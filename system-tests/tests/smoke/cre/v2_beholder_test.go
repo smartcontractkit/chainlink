@@ -40,7 +40,7 @@ func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 
 	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, &None{}, workflowFileLocation)
 
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
 
 	t.Cleanup(func() {
