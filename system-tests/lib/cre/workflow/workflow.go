@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -38,7 +39,7 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	var configData []byte
 	var configErr error
 	configURLToUse := ""
-	if configURL != nil {
+	if configURL != nil && *configURL != "" {
 		configData, configErr = libnet.Download(ctx, *configURL)
 		if configErr != nil {
 			return "", errors.Wrap(configErr, "failed to download workflow config")
@@ -52,7 +53,7 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client, workflowRegistry
 	}
 
 	secretsURLToUse := ""
-	if secretsURL != nil {
+	if secretsURL != nil && *secretsURL != "" {
 		if artifactsDirInContainer != nil {
 			secretsURLToUse = fmt.Sprintf("file://%s/%s", *artifactsDirInContainer, filepath.Base(*secretsURL))
 		} else {
@@ -154,6 +155,20 @@ func DeleteWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAd
 		return errors.Wrap(deleteErr, "failed to delete workflow named "+workflowName)
 	}
 
+	return nil
+}
+
+func RemoveWorkflowArtifactsFromLocalEnv(workflowArtifactsLocations ...string) error {
+	for _, artifactLocation := range workflowArtifactsLocations {
+		if artifactLocation == "" {
+			continue
+		}
+
+		err := os.Remove(artifactLocation)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to remove workflow artifact located at %s: %s", artifactLocation, err.Error()))
+		}
+	}
 	return nil
 }
 
