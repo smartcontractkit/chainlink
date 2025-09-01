@@ -39,6 +39,7 @@ func loadBeholderStackCache() (*config.ChipIngressConfig, error) {
 func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
 	split := strings.Split(stateFile, ",")
 	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
+		framework.L.Info().Msg("Beholder has not been found. Starting Beholder...")
 		cmd := exec.Command("go", "run", ".", "env", "beholder", "start")
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
@@ -48,7 +49,7 @@ func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
 			return errors.Wrap(cmdErr, "failed to start Beholder")
 		}
 	}
-
+	framework.L.Info().Msg("Beholder is running.")
 	return nil
 }
 
