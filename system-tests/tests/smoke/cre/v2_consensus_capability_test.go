@@ -34,7 +34,7 @@ func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
 
 	beholderMsgChan, beholderErrChan := subscribeToBeholderMessages(ctxWithTimeout, t, testLogger, testEnv, beholderMessageTypes)
 
-	compileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
+	compileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
 
 	expectedUserLog := "Successfully fetched"
 	var receivedResults []string

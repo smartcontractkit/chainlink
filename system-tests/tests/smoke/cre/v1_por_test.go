@@ -26,11 +26,9 @@ import (
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
-
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 )
 
 type WorkflowTestConfig struct {
@@ -48,7 +46,6 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 	AuthorizationKey := "" // required by FakePriceProvider
 	PoRWorkflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 	blockchainOutputs := testEnv.WrappedBlockchainOutputs
-	homeChainSelector := blockchainOutputs[0].ChainSelector
 	baseWorkflowName := "por-workflow"
 	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}
 	baseWorkflowTestConfig := &WorkflowTestConfig{
@@ -129,32 +126,8 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 			},
 		}
 		workflowFileLocation := baseWorkflowTestConfig.WorkflowFileLocation
-		compressedWorkflowWasmPath, workflowConfigFilePath := createWorkflowArtifacts(t, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
 
-		testLogger.Info().Msgf("Registering PoR workflow on chain %d (%d)", chainID, chainSelector)
-		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-			fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-			homeChainSelector, // it should live only on one chain, it is not deployed to all chains
-			keystone_changeset.WorkflowRegistry.String(),
-		)
-		require.NoError(t, workflowRegistryErr, "failed to find Workflow Registry address.")
-		testLogger.Info().Msgf("Workflow Registry contract found at chain selector %d at %s", homeChainSelector, workflowRegistryAddress)
-
-		workflowRegConfig := &WorkflowRegistrationConfig{
-			WorkflowName:         uniqueWorkflowName,
-			WorkflowLocation:     workflowFileLocation,
-			ConfigFilePath:       workflowConfigFilePath,
-			CompressedWasmPath:   compressedWorkflowWasmPath,
-			WorkflowRegistryAddr: workflowRegistryAddress,
-			DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
-			ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
-		}
-		registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
-
-		// AFTER TEST
-		t.Cleanup(func() {
-			deleteWorkflows(t, uniqueWorkflowName, workflowConfigFilePath, compressedWorkflowWasmPath, blockchainOutputs, workflowRegistryAddress)
-		})
+		compileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
 	}
 	/*
 		START THE VALIDATION PHASE

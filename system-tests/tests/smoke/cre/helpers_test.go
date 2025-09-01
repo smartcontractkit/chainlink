@@ -209,10 +209,10 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFile
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 }
 
-func compileAndDeployWorkflow(t *testing.T, testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string, workflowFileLocation string) {
+func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) {
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 
-	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, &None{}, workflowFileLocation)
+	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, workflowConfig, workflowFileLocation)
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
