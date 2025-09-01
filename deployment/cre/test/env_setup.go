@@ -236,7 +236,9 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 
 	for i := 0; i < donCfg.N; i++ {
 		labels := map[string]string{
-			"don": donCfg.Name,
+			"don-" + donCfg.Name: donCfg.Name,
+			"environment":        "test",
+			"product":            "cre",
 		}
 		if donCfg.Labels != nil {
 			for k, v := range donCfg.Labels {
