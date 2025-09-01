@@ -19,7 +19,6 @@ ADD go.mod go.sum ./
 COPY ./plugins/scripts/setup_git_auth.sh /tmp/
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN /tmp/setup_git_auth.sh
 
-COPY modules/ ./modules/
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 COPY . .
