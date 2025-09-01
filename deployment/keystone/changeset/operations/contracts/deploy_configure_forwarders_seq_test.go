@@ -69,7 +69,7 @@ func doDeployConfigureForwardersSeq(t *testing.T, useMcms bool) {
 	registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	require.Equal(t, registrySel, te.RegistrySelector)
 	input := contracts.DeployConfigureForwardersSeqInput{
-		ForwaderDeploymentChains: map[uint64]contracts.ForwarderDeploymentOps{
+		ForwarderDeploymentChains: map[uint64]contracts.ForwarderDeploymentOps{
 			registrySel: {
 				WfDons: []contracts.ConfigureKeystoneDON{
 					{
