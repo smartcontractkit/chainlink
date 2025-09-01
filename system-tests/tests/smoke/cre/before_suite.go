@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -25,8 +24,6 @@ import (
 // TestConfig holds common test specific configurations related to the test execution
 // These configurations are not meant to impact the actual test logic
 type TestConfig struct {
-	VerificationTimeout     time.Duration
-	RetryInterval           time.Duration
 	EnvironmentConfigPath   string
 	EnvironmentDirPath      string
 	EnvironmentArtifactPath string
@@ -68,8 +65,6 @@ func getDefaultTestConfig(t *testing.T) *TestConfig {
 	t.Helper()
 
 	return &TestConfig{
-		VerificationTimeout:     5 * time.Minute,
-		RetryInterval:           5 * time.Second,
 		EnvironmentDirPath:      "../../../../core/scripts/cre/environment",
 		EnvironmentConfigPath:   "../../../../core/scripts/cre/environment/configs/workflow-don.toml",
 		EnvironmentArtifactPath: "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json",
@@ -91,6 +86,7 @@ func getEnvironmentArtifact(t *testing.T) environment.EnvArtifact {
 	var envArtifact environment.EnvArtifact
 	artFile, err := os.ReadFile(os.Getenv("ENV_ARTIFACT_PATH"))
 	require.NoError(t, err, "failed to read artifact file")
+
 	err = json.Unmarshal(artFile, &envArtifact)
 	require.NoError(t, err, "failed to unmarshal artifact file")
 	return envArtifact

@@ -253,8 +253,8 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 			}
 
 			startTime := time.Now()
-			waitFor := testEnv.TestConfig.VerificationTimeout
-			tick := testEnv.TestConfig.RetryInterval
+			waitFor := 5 * time.Minute
+			tick := 5 * time.Second
 			require.Eventually(t, func() bool {
 				elapsed := time.Since(startTime).Round(time.Second)
 				price, err := dataFeedsCacheInstance.GetLatestAnswer(bcOutput.SethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
