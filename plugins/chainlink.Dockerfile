@@ -13,7 +13,12 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
-RUN mkdir -p modules
+
+# RUN mkdir -p modules
+# COPY modules/ ./modules/
+COPY ./plugins/scripts/setup_git_auth.sh /tmp/
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN /tmp/setup_git_auth.sh
+
 COPY modules/ ./modules/
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
@@ -42,10 +47,10 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     GOBIN=/go/bin make install-loopinstall && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi && \
     if [ "${CL_INSTALL_TESTING_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
     fi
 
 # Copy any shared libraries.
@@ -71,9 +76,9 @@ RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl 
 
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
-  && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
-  && apt-get update && apt-get install -y postgresql-client-16 \
-  && rm -rf /var/lib/apt/lists/*
+    && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y postgresql-client-16 \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
 USER ${CHAINLINK_USER}
