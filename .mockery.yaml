@@ -21,6 +21,12 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/bridges:
     interfaces:
       ORM:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/vault:
+    interfaces:
+      RequestAuthorizer:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes:
+    interfaces:
+      SecretsService:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types:
     interfaces:
       CCIPOracle:
@@ -418,6 +424,7 @@ packages:
     interfaces:
       ORM:
       WorkflowClient:
+      WorkflowRegistrySyncer:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering:
     interfaces:
       BillingClient:

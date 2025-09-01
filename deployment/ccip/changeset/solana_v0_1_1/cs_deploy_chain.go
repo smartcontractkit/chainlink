@@ -107,8 +107,7 @@ type UpgradeConfig struct {
 	NewTimelockVersion             *semver.Version
 	// Offramp is redeployed with the existing deployer key while the other programs are upgraded in place
 	NewOffRampVersion *semver.Version
-	// SpillAddress and UpgradeAuthority must be set
-	SpillAddress     solana.PublicKey
+	// UpgradeAuthority must be set
 	UpgradeAuthority solana.PublicKey
 	// MCMS config must be set for upgrades and offramp redeploys (to configure the fee quoter after redeploy)
 	MCMS *proposalutils.TimelockConfig
@@ -117,9 +116,6 @@ type UpgradeConfig struct {
 func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) error {
 	if cfg.NewFeeQuoterVersion == nil && cfg.NewRouterVersion == nil && cfg.NewOffRampVersion == nil {
 		return nil
-	}
-	if cfg.SpillAddress.IsZero() {
-		return errors.New("spill address must be set for fee quoter and router upgrades")
 	}
 	if cfg.UpgradeAuthority.IsZero() {
 		return errors.New("upgrade authority must be set for fee quoter and router upgrades")
@@ -950,7 +946,7 @@ func generateUpgradeTxns(
 		&e,
 		programID,
 		bufferProgram,
-		config.UpgradeConfig.SpillAddress,
+		chain.DeployerKey.PublicKey(),
 		config.UpgradeConfig.UpgradeAuthority,
 	)
 	if err != nil {
@@ -959,7 +955,7 @@ func generateUpgradeTxns(
 	closeIxn, err := generateCloseBufferIxn(
 		&e,
 		bufferProgram,
-		config.UpgradeConfig.SpillAddress,
+		chain.DeployerKey.PublicKey(),
 		config.UpgradeConfig.UpgradeAuthority,
 	)
 	if err != nil {
@@ -1099,10 +1095,14 @@ func generateCloseBufferIxn(
 	recipient solana.PublicKey,
 	upgradeAuthority solana.PublicKey,
 ) (solana.Instruction, error) {
+	// Derive the program data address
+	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{bufferAddress.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(bufferAddress, true, false),
 		solana.NewAccountMeta(recipient, true, false),
 		solana.NewAccountMeta(upgradeAuthority, false, true),
+		solana.NewAccountMeta(programDataAccount, true, false),
 	}
 
 	instruction := solana.NewInstruction(
@@ -1155,13 +1155,50 @@ func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID so
 type CloseBuffersConfig struct {
 	ChainSelector uint64
 	Buffers       []string
+	MCMS          *proposalutils.TimelockConfig
 }
 
 func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
-	for _, buffer := range cfg.Buffers {
-		if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
+	txns := make([]mcmsTypes.Transaction, 0)
+	authority := e.BlockChains.SolanaChains()[cfg.ChainSelector].DeployerKey.PublicKey()
+	if cfg.MCMS != nil {
+		timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
 		}
+		authority = timelockSignerPDA
+	}
+	for _, buffer := range cfg.Buffers {
+		closeIxn, err := generateCloseBufferIxn(
+			&e,
+			solana.MustPublicKeyFromBase58(buffer),
+			e.BlockChains.SolanaChains()[cfg.ChainSelector].DeployerKey.PublicKey(), // always redeem to the deployer key
+			authority,
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate close buffer instruction: %w", err)
+		}
+		if cfg.MCMS == nil {
+			if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{closeIxn}); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			}
+		} else {
+			closeTx, err := BuildMCMSTxn(closeIxn, solana.BPFLoaderUpgradeableProgramID.String(), shared.BPFUpgradeable)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create close transaction: %w", err)
+			}
+			txns = append(txns, *closeTx)
+		}
+	}
+	if len(txns) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to close existing programs", cfg.MCMS.MinDelay, txns)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
 	}
 	return cldf.ChangesetOutput{}, nil
 }

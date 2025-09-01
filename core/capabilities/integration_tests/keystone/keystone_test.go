@@ -17,10 +17,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	data_feeds_cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	fwd "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
@@ -168,8 +168,8 @@ func trackErrorsOnForwarder(t *testing.T, forwarder *fwd.KeystoneForwarder, dfCa
 func trackInvalidPermissionEventsOnDFCache(t *testing.T, dataFeedsCache *data_feeds_cache.DataFeedsCache) {
 	t.Helper()
 
-	invalidPermissionEvents := make(chan *data_feeds_cache.DataFeedsCacheInvalidUpdatePermission, 1000)
-	invalidPermissionSub, err := dataFeedsCache.WatchInvalidUpdatePermission(nil, invalidPermissionEvents, nil)
+	invalidUpdatePermissionEvents := make(chan *data_feeds_cache.DataFeedsCacheInvalidUpdatePermission, 1000)
+	invalidUpdatePermissionSub, err := dataFeedsCache.WatchInvalidUpdatePermission(nil, invalidUpdatePermissionEvents, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -186,11 +186,11 @@ func trackInvalidPermissionEventsOnDFCache(t *testing.T, dataFeedsCache *data_fe
 			select {
 			case <-ctx.Done():
 				return
-			case err := <-invalidPermissionSub.Err():
+			case err := <-invalidUpdatePermissionSub.Err():
 				assert.NoError(t, err)
 				return
-			case evt := <-invalidPermissionEvents:
-				t.Logf("DF Cache received invalid permission event: %+v", evt)
+			case evt := <-invalidUpdatePermissionEvents:
+				t.Logf("DF Cache received invalid update permission event: %+v", evt)
 			}
 		}
 	}()

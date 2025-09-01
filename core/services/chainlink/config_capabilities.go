@@ -183,6 +183,10 @@ func (c *workflowStorage) TLSEnabled() bool {
 	return *c.c.TLSEnabled
 }
 
+func (c *workflowStorage) ArtifactStorageHost() string {
+	return *c.c.ArtifactStorageHost
+}
+
 type gatewayConnector struct {
 	c toml.GatewayConnector
 }

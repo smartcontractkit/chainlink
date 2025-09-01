@@ -23,10 +23,24 @@
   image = "localhost:5001/job-distributor:0.12.7"
 
 [[nodesets]]
-  http_port_range_start = 10100
-  name = "workflow"
   nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
   override_mode = "all"
+  http_port_range_start = 10100
+
+  # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
+  bootstrap_node_index = 0
+  # added for visiblity, required always, when don_types include "gateway"
+  gateway_node_index = -1
+
+  env_vars = { CL_EVM_CMD = "" }
+
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault"]
+
+  [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+    read-contract = ["1337"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -41,6 +55,3 @@
       Level = 'debug'
       JSONConsole = true
       """
-
-      [nodesets.node_specs.node.env_vars]
-        CL_EVM_CMD = ""

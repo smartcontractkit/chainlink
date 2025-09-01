@@ -84,6 +84,7 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 	signer := mocks.NewSigner(t)
+	signer.EXPECT().Initialize().Return(nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
 	dispatcher, err := remote.NewDispatcher(testConfig{
@@ -114,7 +115,8 @@ func TestDispatcher_Receive(t *testing.T) {
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 	signer := mocks.NewSigner(t)
-	signer.On("Sign", mock.Anything).Return(nil, errors.New("not implemented"))
+	signer.EXPECT().Initialize().Return(nil)
+	signer.EXPECT().Sign(mock.Anything).Return(nil, errors.New("not implemented"))
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
 	dispatcher, err := remote.NewDispatcher(testConfig{
@@ -172,7 +174,8 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 	signer := mocks.NewSigner(t)
-	signer.On("Sign", mock.Anything).Return([]byte{}, nil)
+	signer.EXPECT().Initialize().Return(nil)
+	signer.EXPECT().Sign(mock.Anything).Return([]byte{1, 2, 3}, nil)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
 
 	dispatcher, err := remote.NewDispatcher(testConfig{

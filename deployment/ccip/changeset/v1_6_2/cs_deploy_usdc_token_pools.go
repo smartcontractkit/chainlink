@@ -165,10 +165,11 @@ func deployUSDCTokenPoolContractsLogic(env cldf.Environment, c DeployUSDCTokenPo
 		case shared.HybridLockReleaseUSDCTokenPool:
 			deployErr = deployHybridLockReleaseUSDCTokenPool(env.Logger, chain, newAddresses, poolConfig, chainState, router.Address())
 		default:
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy %s on %s: %w", poolConfig.PoolType, chain, err)
+			return cldf.ChangesetOutput{},
+				fmt.Errorf("failed to deploy %s on %s: unknown pool type", poolConfig.PoolType, chain)
 		}
 		if deployErr != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy USDC token pool on %s: %w", chain, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy USDC token pool on %s: %w", chain, deployErr)
 		}
 	}
 

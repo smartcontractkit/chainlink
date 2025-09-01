@@ -16,7 +16,9 @@ func (t *TelemetryServiceMock) Send(ctx context.Context, network string, chainID
 	return nil
 }
 
-type KVStoreMock struct{}
+type KVStoreMock struct {
+	core.UnimplementedKeystore
+}
 
 func (k *KVStoreMock) Store(ctx context.Context, key string, val []byte) error {
 	return nil
@@ -28,7 +30,9 @@ func (k *KVStoreMock) PruneExpiredEntries(ctx context.Context, maxAge time.Durat
 	return 0, nil
 }
 
-type KeystoreMock struct{}
+type KeystoreMock struct {
+	core.UnimplementedKeystore
+}
 
 func (k *KeystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
 	return nil, nil
