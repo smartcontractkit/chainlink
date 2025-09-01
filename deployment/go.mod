@@ -7,7 +7,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250827140128-db51db1d1316
+require github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250831015441-42e63aeb318b
 
 require (
 	dario.cat/mergo v1.0.2
@@ -47,9 +47,9 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.8.1
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250829201010-23f1c63ba3f1
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250829201010-23f1c63ba3f1
-	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250829201010-23f1c63ba3f1
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250901161206-788ef6dfae14
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250901161206-788ef6dfae14
+	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250901161206-788ef6dfae14
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250707144819-babe0ec4e358
 	github.com/smartcontractkit/mcms v0.21.1
