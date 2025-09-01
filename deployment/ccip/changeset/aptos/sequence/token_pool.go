@@ -1,12 +1,15 @@
 package sequence
 
 import (
+	"bytes"
 	"fmt"
+	"slices"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -169,56 +172,96 @@ var ConnectTokenPoolSequence = operations.NewSequence(
 func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in ConnectTokenPoolSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
-	// Re-organize remote pool variables into contract input format
-	var remoteChainSelectors []uint64
-	var remotePoolAddresses [][][]byte
-	var remoteTokenAddresses [][]byte
-	var outboundIsEnableds []bool
-	var outboundCapacities []uint64
-	var outboundRates []uint64
-	var inboundIsEnableds []bool
-	var inboundCapacities []uint64
-	var inboundRates []uint64
-
-	for remoteSel, remotePool := range in.RemotePools {
-		remoteChainSelectors = append(remoteChainSelectors, remoteSel)
-		remotePoolAddresses = append(remotePoolAddresses, [][]byte{remotePool.RemotePoolAddress})
-		remoteTokenAddresses = append(remoteTokenAddresses, remotePool.RemoteTokenAddress)
-		outboundIsEnableds = append(outboundIsEnableds, remotePool.OutboundIsEnabled)
-		outboundCapacities = append(outboundCapacities, remotePool.OutboundCapacity)
-		outboundRates = append(outboundRates, remotePool.OutboundRate)
-		inboundIsEnableds = append(inboundIsEnableds, remotePool.InboundIsEnabled)
-		inboundCapacities = append(inboundCapacities, remotePool.InboundCapacity)
-		inboundRates = append(inboundRates, remotePool.InboundRate)
-	}
-
-	// Apply chain updates
+	// Chain updates
 	applyChainUpdatesInput := operation.ApplyChainUpdatesInput{
-		RemoteChainSelectorsToRemove: in.RemotePoolsToRemove,
-		RemoteChainSelectorsToAdd:    remoteChainSelectors,
-		RemotePoolAddresses:          remotePoolAddresses,
-		RemoteTokenAddresses:         remoteTokenAddresses,
 		TokenPoolAddress:             in.TokenPoolAddress,
+		RemoteChainSelectorsToRemove: in.RemotePoolsToRemove,
+		RemoteChainSelectorsToAdd:    nil,
+		RemotePoolAddresses:          nil,
+		RemoteTokenAddresses:         nil,
 	}
-	applyChainUpdatesReport, err := operations.ExecuteOperation(b, operation.ApplyChainUpdatesOp, deps, applyChainUpdatesInput)
+
+	// Remote Pool Adds
+	addRemotePoolsInput := operation.AddRemotePoolsInput{
+		TokenPoolAddress:     in.TokenPoolAddress,
+		RemoteChainSelectors: nil,
+		RemotePoolAddresses:  nil,
+	}
+
+	// Update rate limits
+	setChainRLConfigsInput := operation.SetChainRLConfigsInput{
+		TokenPoolAddress:     in.TokenPoolAddress,
+		RemoteChainSelectors: nil,
+		OutboundIsEnableds:   nil,
+		OutboundCapacities:   nil,
+		OutboundRates:        nil,
+		InboundIsEnableds:    nil,
+		InboundCapacities:    nil,
+		InboundRates:         nil,
+	}
+
+	tokenPool := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+	supportedChains, err := tokenPool.ManagedTokenPool().GetSupportedChains(nil)
 	if err != nil {
-		return mcmstypes.BatchOperation{}, err
+		b.Logger.Debugf("failed to get supported chains from token pool %s, likely because it isn't deployed yet: %v", in.TokenPoolAddress.StringLong(), err)
 	}
-	txs = append(txs, applyChainUpdatesReport.Output)
+	for remoteSel, remotePool := range in.RemotePools {
+		// Always apply rate limits
+		setChainRLConfigsInput.RemoteChainSelectors = append(setChainRLConfigsInput.RemoteChainSelectors, remoteSel)
+		setChainRLConfigsInput.OutboundIsEnableds = append(setChainRLConfigsInput.OutboundIsEnableds, remotePool.OutboundIsEnabled)
+		setChainRLConfigsInput.OutboundCapacities = append(setChainRLConfigsInput.OutboundCapacities, remotePool.OutboundCapacity)
+		setChainRLConfigsInput.OutboundRates = append(setChainRLConfigsInput.OutboundRates, remotePool.OutboundRate)
+		setChainRLConfigsInput.InboundIsEnableds = append(setChainRLConfigsInput.InboundIsEnableds, remotePool.InboundIsEnabled)
+		setChainRLConfigsInput.InboundCapacities = append(setChainRLConfigsInput.InboundCapacities, remotePool.InboundCapacity)
+		setChainRLConfigsInput.InboundRates = append(setChainRLConfigsInput.InboundRates, remotePool.InboundRate)
+
+		isSupportedChain := slices.Contains(supportedChains, remoteSel)
+		if !isSupportedChain {
+			// Only add the remote chain if it isn't supported yet
+			applyChainUpdatesInput.RemoteChainSelectorsToAdd = append(applyChainUpdatesInput.RemoteChainSelectorsToAdd, remoteSel)
+			applyChainUpdatesInput.RemotePoolAddresses = append(applyChainUpdatesInput.RemotePoolAddresses, [][]byte{remotePool.RemotePoolAddress})
+			applyChainUpdatesInput.RemoteTokenAddresses = append(applyChainUpdatesInput.RemoteTokenAddresses, remotePool.RemoteTokenAddress)
+		} else {
+			// If the chain is supported, check if there's an updated remote pool that hasn't been configured yet
+			configuredRemotePools, err := tokenPool.ManagedTokenPool().GetRemotePools(nil, remoteSel)
+			if err != nil {
+				return mcmstypes.BatchOperation{}, fmt.Errorf("failed to get remote pools from token pool for selector %d: %w", remoteSel, err)
+			}
+			isRemotePoolSupported := false
+			for _, configuredRemotePool := range configuredRemotePools {
+				if bytes.Equal(configuredRemotePool, remotePool.RemotePoolAddress) {
+					isRemotePoolSupported = true
+					break
+				}
+			}
+			if !isRemotePoolSupported {
+				addRemotePoolsInput.RemoteChainSelectors = append(addRemotePoolsInput.RemoteChainSelectors, remoteSel)
+				addRemotePoolsInput.RemotePoolAddresses = append(addRemotePoolsInput.RemotePoolAddresses, remotePool.RemotePoolAddress)
+			}
+		}
+	}
+
+	// Apply chain updates if there are any
+	if (len(applyChainUpdatesInput.RemoteChainSelectorsToAdd) + len(applyChainUpdatesInput.RemoteChainSelectorsToRemove)) > 0 {
+		applyChainUpdatesReport, err := operations.ExecuteOperation(b, operation.ApplyChainUpdatesOp, deps, applyChainUpdatesInput)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, err
+		}
+		txs = append(txs, applyChainUpdatesReport.Output)
+	}
+
+	// Add remote pools if there are any to apply
+	if len(addRemotePoolsInput.RemoteChainSelectors) > 0 {
+		addRemotePoolsReport, err := operations.ExecuteOperation(b, operation.AddRemotePoolsOp, deps, addRemotePoolsInput)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, err
+		}
+		txs = append(txs, addRemotePoolsReport.Output...)
+	}
 
 	// Set chain rate limiter configs
-	if len(remoteChainSelectors) > 0 {
-		setChainRateLimiterInput := operation.SetChainRLConfigsInput{
-			RemoteChainSelectors: remoteChainSelectors,
-			OutboundIsEnableds:   outboundIsEnableds,
-			OutboundCapacities:   outboundCapacities,
-			OutboundRates:        outboundRates,
-			InboundIsEnableds:    inboundIsEnableds,
-			InboundCapacities:    inboundCapacities,
-			InboundRates:         inboundRates,
-			TokenPoolAddress:     in.TokenPoolAddress,
-		}
-		setChainRateLimiterReport, err := operations.ExecuteOperation(b, operation.SetChainRateLimiterConfigsOp, deps, setChainRateLimiterInput)
+	if len(setChainRLConfigsInput.RemoteChainSelectors) > 0 {
+		setChainRateLimiterReport, err := operations.ExecuteOperation(b, operation.SetChainRateLimiterConfigsOp, deps, setChainRLConfigsInput)
 		if err != nil {
 			return mcmstypes.BatchOperation{}, err
 		}
