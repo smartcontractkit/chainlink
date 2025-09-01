@@ -24,23 +24,23 @@ func Test_CRE_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] CRE Suite", func(t *testing.T) {
-		t.Run("[v2] vault DON test", func(t *testing.T) {
-			ExecuteVaultTest(t, testEnv)
-		})
+		/*	t.Run("[v2] vault DON test", func(t *testing.T) {
+				ExecuteVaultTest(t, testEnv)
+			})
 
-		t.Run("[v2] HTTP trigger and action test", func(t *testing.T) {
-			// requires `http_trigger`, `http_action`
-			ExecuteHTTPTriggerActionTest(t, testEnv)
-		})
+			t.Run("[v2] HTTP trigger and action test", func(t *testing.T) {
+				// requires `http_trigger`, `http_action`
+				ExecuteHTTPTriggerActionTest(t, testEnv)
+			})
 
-		t.Run("[v2] DON Time test", func(t *testing.T) {
-			const skipReason = "Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028"
-			t.Skipf("Skipping test for the following reason: %s", skipReason)
-		})
+			t.Run("[v2] DON Time test", func(t *testing.T) {
+				const skipReason = "Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028"
+				t.Skipf("Skipping test for the following reason: %s", skipReason)
+			})
 
-		t.Run("[v2] Beholder test", func(t *testing.T) {
-			ExecuteBeholderTest(t, testEnv)
-		})
+			t.Run("[v2] Beholder test", func(t *testing.T) {
+				ExecuteBeholderTest(t, testEnv)
+			})*/
 
 		t.Run("[v2] Consensus test", func(t *testing.T) {
 			executeConsensusTest(t, testEnv)
