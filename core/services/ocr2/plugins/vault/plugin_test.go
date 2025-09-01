@@ -5,8 +5,13 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+	"github.com/smartcontractkit/smdkg/dkgocr/tdh2shim"
+	"github.com/smartcontractkit/smdkg/dummydkg"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/nacl/box"
@@ -18,8 +23,19 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 )
+
+func setupORM(t *testing.T) (*sqlx.DB, dkgocrtypes.ResultPackageDatabase) {
+	t.Helper()
+
+	db := pgtest.NewSqlxDB(t)
+	orm := NewVaultORM(db)
+
+	return db, orm
+}
 
 func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -28,7 +44,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
-	rpf, err := NewReportingPluginFactory(lggr, store, pk, shares[0])
+	rpf, err := NewReportingPluginFactory(lggr, store, nil, nil, pk, shares[0])
 	require.NoError(t, err)
 
 	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{}, nil)
@@ -90,6 +106,72 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, 2, info.Limits.MaxReportCount)
 	assert.Equal(t, 2, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
 	assert.Equal(t, 2, info.Limits.MaxBlobPayloadLength)
+}
+
+func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaultcap.Request]()
+
+	// Simulate DKG for a single recipient.
+	dkgrecipientKey, err := dkgrecipientkey.New()
+	require.NoError(t, err)
+	instanceID := dkgocrtypes.InstanceID("instanceID")
+	pkg, err := dummydkg.NewResultPackage(dkgocrtypes.InstanceID(instanceID), dkgocrtypes.ReportingPluginConfig{
+		DealerPublicKeys:    []dkgocrtypes.P256ParticipantPublicKey{dkgrecipientKey.PublicKey()},
+		RecipientPublicKeys: []dkgocrtypes.P256ParticipantPublicKey{dkgrecipientKey.PublicKey()},
+		T:                   1,
+	}, rand.Reader)
+	require.NoError(t, err)
+	expectedTDH2MasterPublicKey, err := tdh2shim.TDH2PublicKeyFromDKGResult(pkg)
+	require.NoError(t, err)
+	expectedKeyShare, err := tdh2shim.TDH2PrivateShareFromDKGResult(pkg, dkgrecipientKey)
+	require.NoError(t, err)
+
+	_, orm := setupORM(t)
+	pkgBin, err := pkg.MarshalBinary()
+	require.NoError(t, err)
+	orm.WriteResultPackage(t.Context(), instanceID, dkgocrtypes.ResultPackageDatabaseValue{
+		ConfigDigest:            [32]byte{0x1, 0x2, 0x3, 0x4},
+		SeqNr:                   1,
+		ReportWithResultPackage: pkgBin,
+		Signatures: []types.AttributedOnchainSignature{
+			{
+				Signature: []byte{0x5, 0x6, 0x7, 0x8},
+				Signer:    1,
+			},
+		},
+	})
+
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, nil, nil)
+	require.NoError(t, err)
+
+	instanceIDString := string(instanceID)
+	rpCfg := vaultcommon.ReportingPluginConfig{
+		DKGInstanceID: &instanceIDString,
+	}
+	cfgBytes, err := proto.Marshal(&rpCfg)
+	require.NoError(t, err)
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgBytes}, nil)
+	require.NoError(t, err)
+
+	typedRP := rp.(*ReportingPlugin)
+	assert.Equal(t, 20, typedRP.cfg.BatchSize)
+
+	pkBytes, err := typedRP.cfg.PublicKey.Marshal()
+	require.NoError(t, err)
+	pk := &tdh2.PublicKey{}
+	err = pk.Unmarshal(pkBytes)
+	require.NoError(t, err)
+	assert.True(t, pk.Equal(expectedTDH2MasterPublicKey))
+
+	ksBytes, err := typedRP.cfg.PrivateKeyShare.Marshal()
+	require.NoError(t, err)
+	ks := &tdh2.PrivateShare{}
+	err = ks.Unmarshal(ksBytes)
+	require.NoError(t, err)
+	assert.Equal(t, ks, expectedKeyShare)
+
+	assert.Equal(t, "VaultReportingPlugin", info.Name)
 }
 
 func TestPlugin_Observation_NothingInBatch(t *testing.T) {

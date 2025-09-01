@@ -84,7 +84,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250825135846-84f0d5167f8f
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250805210128-7f8a0f403c3a
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250804184440-c0506474fc44
-	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250827130112-75577ebd4ed4
+	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250829144336-9c716461da86
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-evm v0.3.2
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3
@@ -405,3 +405,5 @@ require (
 )
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250528121202-292529af39df
+
+replace github.com/smartcontractkit/smdkg => ../smdkg
