@@ -2,13 +2,13 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
-  docker_cmd_params = ["-b", "5"]
+
 
 [[blockchains]]
   type = "anvil"
   chain_id = "2337"
   port = "8546"
-  docker_cmd_params = ["-b", "5"]
+
 
 [jd]
   # change to your version
