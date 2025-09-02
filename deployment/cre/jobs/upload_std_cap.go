@@ -15,14 +15,14 @@ import (
 var _ cldf.ChangeSetV2[UploadStandardCapabilityJobInput] = UploadStandardCapabilityJob{}
 
 type UploadStandardCapabilityJobInput struct {
-	JobName string `json:"jobName" yaml:"jobName"`
+	JobName string `json:"job_name" yaml:"job_name"`
 	Command string `json:"command" yaml:"command"`
 	Config  string `json:"config" yaml:"config"`
 
-	ExternalJobID string            `json:"externalJobID" yaml:"externalJobID"` // Optional
-	OracleFactory pkg.OracleFactory `json:"oracleFactory" yaml:"oracleFactory"` // Optional
+	ExternalJobID string            `json:"external_job_id" yaml:"external_job_id"` // Optional
+	OracleFactory pkg.OracleFactory `json:"oracle_factory" yaml:"oracle_factory"`   // Optional
 
-	TargetDON *offchain.DONFilter `json:"targetDON" yaml:"targetDON"`
+	TargetDON *offchain.DONFilter `json:"target_don" yaml:"target_don"`
 }
 
 type UploadStandardCapabilityJob struct{}
