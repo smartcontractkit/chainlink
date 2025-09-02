@@ -92,7 +92,7 @@ type SetupInput struct {
 	Capabilities              []cre.InstallableCapability
 
 	// Deprecated: use Capabilities []cre.InstallableCapability instead
-	ConfigFactoryFunctions []cre.NodeConfigFn
+	ConfigFactoryFunctions []cre.NodeConfigTransformerFn
 	// Deprecated: use Capabilities []cre.InstallableCapability instead
 	JobSpecFactoryFunctions []cre.JobSpecFn
 	// Deprecated: use Capabilities []cre.InstallableCapability instead

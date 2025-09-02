@@ -9,7 +9,7 @@ import (
 type Capability struct {
 	flag                         cre.CapabilityFlag
 	jobSpecFn                    cre.JobSpecFn
-	nodeConfigFn                 cre.NodeConfigFn
+	nodeConfigFn                 cre.NodeConfigTransformerFn
 	gatewayJobHandlerConfigFn    cre.GatewayHandlerConfigFn
 	capabilityRegistryV1ConfigFn cre.CapabilityRegistryConfigFn
 	validateFn                   func(*Capability) error
@@ -23,7 +23,7 @@ func (c *Capability) JobSpecFn() cre.JobSpecFn {
 	return c.jobSpecFn
 }
 
-func (c *Capability) NodeConfigFn() cre.NodeConfigFn {
+func (c *Capability) NodeConfigTransformerFn() cre.NodeConfigTransformerFn {
 	return c.nodeConfigFn
 }
 
@@ -43,7 +43,7 @@ func WithJobSpecFn(jobSpecFn cre.JobSpecFn) Option {
 	}
 }
 
-func WithNodeConfigFn(nodeConfigFn cre.NodeConfigFn) Option {
+func WithNodeConfigTransformerFn(nodeConfigFn cre.NodeConfigTransformerFn) Option {
 	return func(c *Capability) {
 		c.nodeConfigFn = nodeConfigFn
 	}

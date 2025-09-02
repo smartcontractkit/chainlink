@@ -420,7 +420,7 @@ type Incoming struct {
 	ExternalPort int    `toml:"external_port" json:"external_port"`
 }
 
-type NodeConfigFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
+type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs NodeIndexToConfigOverride) (NodeIndexToConfigOverride, error)
 
 type (
 	HandlerTypeToConfig    = map[string]string
@@ -1032,9 +1032,9 @@ type InstallableCapability interface {
 	// Exceptions include capabilities that are configured via the node config, like write-evm, aptos, tron or solana.
 	JobSpecFn() JobSpecFn
 
-	// NodeConfigFn returns a function to generate node-level configuration,
-	// or nil if no node-specific config is needed. Most capabilities don't need this.
-	NodeConfigFn() NodeConfigFn
+	// NodeConfigTransformerFn returns a function to modify node-level configuration,
+	// or nil if node config modification is not needed. Most capabilities don't need this.
+	NodeConfigTransformerFn() NodeConfigTransformerFn
 
 	// GatewayJobHandlerConfigFn returns a function to configure gateway handlers in the gateway jobspec,
 	// or nil if no gateway handler configuration is required for this capability. Only capabilities
