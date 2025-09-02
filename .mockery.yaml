@@ -136,6 +136,8 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector:
     interfaces:
       GatewayConnector:
+        config:
+          mockname: "Base{{ .InterfaceName }}"
       GatewayConnectorHandler:
       Signer:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers:
