@@ -212,7 +212,7 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFile
 func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) {
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 
-	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, workflowConfig, workflowFileLocation)
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowConfig, workflowFileLocation)
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
@@ -222,12 +222,13 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvir
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
 
 	t.Cleanup(func() {
-		deleteWorkflows(t, workflowName, "", compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
+		deleteWorkflows(t, workflowName, workflowConfigPath, compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
 	})
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:         workflowName,
 		WorkflowLocation:     workflowFileLocation,
+		ConfigFilePath:       workflowConfigPath,
 		CompressedWasmPath:   compressedWorkflowWasmPath,
 		WorkflowRegistryAddr: workflowRegistryAddress,
 		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
