@@ -189,3 +189,33 @@ func setChainRateLimiterConfigs(b operations.Bundle, deps AptosDeps, in SetChain
 
 	return utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
 }
+
+type AddRemotePoolsInput struct {
+	TokenPoolAddress     aptos.AccountAddress
+	RemoteChainSelectors []uint64
+	RemotePoolAddresses  [][]byte
+}
+
+var AddRemotePoolsOp = operations.NewOperation(
+	"add-remote-pools-op",
+	Version1_0_0,
+	"Adds new remote pools to an Aptos token pool",
+	addRemotePools,
+)
+
+func addRemotePools(b operations.Bundle, deps AptosDeps, in AddRemotePoolsInput) ([]types.Transaction, error) {
+	txs := make([]types.Transaction, len(in.RemoteChainSelectors))
+	poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+	for i, selector := range in.RemoteChainSelectors {
+		moduleInfo, function, _, args, err := poolBind.ManagedTokenPool().Encoder().AddRemotePool(selector, in.RemotePoolAddresses[i])
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode AddRemotePools for remote selector %d: %w", selector, err)
+		}
+		tx, err := utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
+		if err != nil {
+			return nil, err
+		}
+		txs[i] = tx
+	}
+	return txs, nil
+}

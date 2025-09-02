@@ -17,9 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-const DefaultBeholderStackCacheFile = "../../../../core/scripts/cre/environment/configs/chip-ingress-cache.toml"
-
-func loadBeholderStackCache() (*config.ChipIngressConfig, error) {
+func loadBeholderStackCache(beholderConfigPath string) (*config.ChipIngressConfig, error) {
 	originalCtfConfigs := os.Getenv("CTF_CONFIGS")
 	defer func() {
 		setErr := os.Setenv("CTF_CONFIGS", originalCtfConfigs)
@@ -28,7 +26,7 @@ func loadBeholderStackCache() (*config.ChipIngressConfig, error) {
 		}
 	}()
 
-	setErr := os.Setenv("CTF_CONFIGS", DefaultBeholderStackCacheFile)
+	setErr := os.Setenv("CTF_CONFIGS", beholderConfigPath)
 	if setErr != nil {
 		return nil, errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
 	}
@@ -39,6 +37,7 @@ func loadBeholderStackCache() (*config.ChipIngressConfig, error) {
 func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
 	split := strings.Split(stateFile, ",")
 	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
+		framework.L.Info().Msg("Beholder has not been found. Starting Beholder...")
 		cmd := exec.Command("go", "run", ".", "env", "beholder", "start")
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
@@ -48,7 +47,7 @@ func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
 			return errors.Wrap(cmdErr, "failed to start Beholder")
 		}
 	}
-
+	framework.L.Info().Msg("Beholder is running.")
 	return nil
 }
 

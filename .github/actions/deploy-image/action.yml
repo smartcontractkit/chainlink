@@ -29,6 +29,10 @@ inputs:
     description: "Base branch for pull request"
     required: false
     default: "main"
+  pr-close-enabled:
+    description: "Optionally close previous PRs."
+    required: false
+    default: "false"
   pr-labels:
     description: "Labels to apply to pull request"
     required: false
@@ -39,9 +43,7 @@ inputs:
     default: "true"
   products:
     description: "Products to deploy (multiline string)"
-    required: false
-    default: |
-      cre
+    required: true
   aws-role-duration-seconds:
     description: "AWS role duration in seconds"
     required: false
@@ -79,4 +81,5 @@ runs:
           --field "pr-base-branch=${PR_BASE_BRANCH}" \
           --field "pr-labels=${PR_LABELS}" \
           --field "pr-draft=${PR_DRAFT}" \
+          --field "pr-close-enabled=${{ inputs.pr-close-enabled }}" \
           --field "products=${PRODUCTS}"
