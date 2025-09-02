@@ -3,6 +3,7 @@ package jobs_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -49,7 +50,9 @@ func TestUploadStandardCapabilityJob_Apply(t *testing.T) {
 
 	out, err := jobs.UploadStandardCapabilityJob{}.Apply(*env, input)
 	require.NoError(t, err)
-	require.Len(t, out.Reports, 1)
+	assert.Len(t, out.Reports, 1)
 
-	//env.Offchain.ListJobs(t.Context(), )
+	reqs, err := testEnv.TestJD.ListProposedJobRequests()
+	require.NoError(t, err)
+	assert.Len(t, reqs, 4)
 }

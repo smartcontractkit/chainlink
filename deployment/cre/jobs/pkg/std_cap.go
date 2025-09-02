@@ -28,7 +28,7 @@ type StandardCapabilityJob struct {
 	OracleFactory OracleFactory
 }
 
-func (s StandardCapabilityJob) Validate() error {
+func (s *StandardCapabilityJob) Validate() error {
 	if s.JobName == "" {
 		return errors.New(ErrorEmptyJobName)
 	}
@@ -36,7 +36,7 @@ func (s StandardCapabilityJob) Validate() error {
 	return nil
 }
 
-func (s StandardCapabilityJob) Resolve() (string, error) {
+func (s *StandardCapabilityJob) Resolve() (string, error) {
 	if s.ExternalJobID == "" {
 		// We expect there to only be 1 instance of a standard capability per node
 		// This is because adding duplicate capabilities to the registry will typically fail due to an ID clash.

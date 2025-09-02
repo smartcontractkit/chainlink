@@ -15,7 +15,7 @@ import (
 // labels used in JD to identify nodes and jobs
 const (
 	ProductLabel              = "cre"
-	P2pIdLabel                = "p2p_id"
+	P2pIDLabel                = "p2p_id"
 	WorkflowOwnerAddressLabel = "workflow_owner"
 	WorkflowNameLabel         = "workflow_name"
 	GatewayNameLabel          = "gateway_name"
@@ -87,7 +87,7 @@ func FetchNodesFromJD(ctx context.Context, jd cldf_offchain.Client, filter *DONF
 
 func GetP2pLabel(labels []*jdtypesv1.Label) string {
 	for _, label := range labels {
-		if label.GetKey() == P2pIdLabel {
+		if label.GetKey() == P2pIDLabel {
 			return label.GetValue()
 		}
 	}

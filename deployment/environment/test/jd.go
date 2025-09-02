@@ -32,7 +32,6 @@ type JDNodeService struct {
 
 func NewJDService(nodes []deployment.Node) *JDNodeService {
 	return &JDNodeService{
-		//store: wrapAll(nodes),
 		store: newStore(nodes),
 	}
 }
@@ -192,6 +191,20 @@ func (s *JDNodeService) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequ
 	s.store.addProposedJob(in)
 
 	return &jobv1.ProposeJobResponse{}, nil
+}
+
+func (s *JDNodeService) ListProposedJobRequests() ([]*jobv1.ProposeJobRequest, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var out []*jobv1.ProposeJobRequest
+	for _, reqs := range s.store.nodeIDToProposedJobs {
+		for _, req := range reqs {
+			out = append(out, req)
+		}
+	}
+
+	return out, nil
 }
 
 func newWrapperFromUpdate(req *nodev1.UpdateNodeRequest) (*wrappedNode, error) {

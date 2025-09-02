@@ -25,14 +25,14 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 
 	jobSpecs := map[string][]string{}
 	for _, node := range nodes {
-		p2pId := offchain.GetP2pLabel(node.GetLabels())
+		p2pID := offchain.GetP2pLabel(node.GetLabels())
 
-		e.Logger.Debugw("Proposing job", logLabels(req, node))
+		e.Logger.Debugw("Proposing job", logLabels(req, node)...)
 		req := offchain.ProposeJobRequest{
 			Job:            req.Spec,
 			Domain:         offchain.ProductLabel,
 			Environment:    req.TargetDON.EnvLabel,
-			NodeLabels:     map[string]string{offchain.P2pIdLabel: p2pId},
+			NodeLabels:     map[string]string{offchain.P2pIDLabel: p2pID},
 			JobLabels:      req.JobLabels,
 			OffchainClient: e.Offchain,
 			Lggr:           e.Logger,
@@ -49,15 +49,15 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 }
 
 func logLabels(req ProposeJobRequest, node *nodeapiv1.Node) []any {
-	p2pId := offchain.GetP2pLabel(node.GetLabels())
+	p2pID := offchain.GetP2pLabel(node.GetLabels())
 
 	labels := []any{
 		"nodeName",
 		node.Name,
-		"nodeId",
+		"nodeID",
 		node.Id,
-		"p2pId",
-		p2pId,
+		"p2pID",
+		p2pID,
 		"target DON",
 		req.TargetDON.DONName,
 	}
