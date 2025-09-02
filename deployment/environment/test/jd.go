@@ -199,9 +199,7 @@ func (s *JDNodeService) ListProposedJobRequests() ([]*jobv1.ProposeJobRequest, e
 
 	var out []*jobv1.ProposeJobRequest
 	for _, reqs := range s.store.nodeIDToProposedJobs {
-		for _, req := range reqs {
-			out = append(out, req)
-		}
+		out = append(out, reqs...)
 	}
 
 	return out, nil
