@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,7 +31,8 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -125,7 +127,8 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -219,7 +222,8 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -291,7 +295,8 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -719,7 +724,8 @@ func TestCapability_CRUD(t *testing.T) {
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
-			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
+			reg := coreCapabilities.NewRegistry(lggr)
+			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg)
 			servicetest.Run(t, capability)
 
 			wait := func() {}
@@ -756,4 +762,26 @@ func TestCapability_CRUD(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCapability_Lifecycle(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, "owner", nil).Maybe()
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg)
+
+	require.NoError(t, capability.Start(t.Context()))
+
+	_, err := reg.GetExecutable(t.Context(), vault.CapabilityID)
+	require.NoError(t, err)
+
+	require.NoError(t, capability.Close())
+
+	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
+	require.ErrorContains(t, err, "capability not found with id vault@1.0.0")
 }

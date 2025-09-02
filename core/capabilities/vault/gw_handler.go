@@ -51,38 +51,46 @@ func newMetrics() (*metrics, error) {
 	}, nil
 }
 
-type gatewaySender interface {
+type gatewayConnector interface {
 	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error
+	AddHandler(ctx context.Context, methods []string, handler core.GatewayConnectorHandler) error
+	RemoveHandler(ctx context.Context, methods []string) error
 }
 
 type GatewayHandler struct {
-	capRegistry    core.CapabilitiesRegistry
-	secretsService vaulttypes.SecretsService
-	gatewaySender  gatewaySender
-	lggr           logger.Logger
-	metrics        *metrics
+	capRegistry      core.CapabilitiesRegistry
+	secretsService   vaulttypes.SecretsService
+	gatewayConnector gatewayConnector
+	lggr             logger.Logger
+	metrics          *metrics
 }
 
-func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, gwsender gatewaySender, lggr logger.Logger) (*GatewayHandler, error) {
+func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, gwsender gatewayConnector, lggr logger.Logger) (*GatewayHandler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
 	return &GatewayHandler{
-		capRegistry:    capabilitiesRegistry,
-		secretsService: secretsService,
-		gatewaySender:  gwsender,
-		lggr:           lggr.Named(HandlerName),
-		metrics:        metrics,
+		capRegistry:      capabilitiesRegistry,
+		secretsService:   secretsService,
+		gatewayConnector: gwsender,
+		lggr:             lggr.Named(HandlerName),
+		metrics:          metrics,
 	}, nil
 }
 
 func (h *GatewayHandler) Start(ctx context.Context) error {
+	if gwerr := h.gatewayConnector.AddHandler(ctx, vaulttypes.Methods, h); gwerr != nil {
+		return fmt.Errorf("failed to add vault handler to connector: %w", gwerr)
+	}
 	return nil
 }
 
 func (h *GatewayHandler) Close() error {
+	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), vaulttypes.Methods); gwerr != nil {
+		return fmt.Errorf("failed to remove vault handler from connector: %v", gwerr)
+	}
 	return nil
 }
 
@@ -109,7 +117,7 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
 
-	if err = h.gatewaySender.SendToGateway(ctx, gatewayID, response); err != nil {
+	if err = h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
 		h.lggr.Errorf("Failed to send message to gateway %s: %v", gatewayID, err)
 		return err
 	}

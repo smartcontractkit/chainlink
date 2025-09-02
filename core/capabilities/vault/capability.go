@@ -18,24 +18,40 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
 type Capability struct {
-	lggr              logger.Logger
-	clock             clockwork.Clock
-	expiresAfter      time.Duration
-	handler           *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	requestAuthorizer RequestAuthorizer
+	lggr                 logger.Logger
+	clock                clockwork.Clock
+	expiresAfter         time.Duration
+	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
+	requestAuthorizer    RequestAuthorizer
+	capabilitiesRegistry core.CapabilitiesRegistry
 }
 
 func (s *Capability) Start(ctx context.Context) error {
-	return s.handler.Start(ctx)
+	if err := s.handler.Start(ctx); err != nil {
+		return fmt.Errorf("error starting vault DON request handler: %w", err)
+	}
+
+	err := s.capabilitiesRegistry.Add(ctx, s)
+	if err != nil {
+		return fmt.Errorf("error registering vault capability: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Capability) Close() error {
+	err := s.capabilitiesRegistry.Remove(context.Background(), vaultcommon.CapabilityID)
+	if err != nil {
+		return fmt.Errorf("error unregistering vault capability: %v", err)
+	}
+
 	return s.handler.Close()
 }
 
@@ -367,12 +383,14 @@ func NewCapability(
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	requestAuthorizer RequestAuthorizer,
+	capabilitiesRegistry core.CapabilitiesRegistry,
 ) *Capability {
 	return &Capability{
-		lggr:              logger.Named(lggr, "VaultCapability"),
-		clock:             clock,
-		expiresAfter:      expiresAfter,
-		handler:           handler,
-		requestAuthorizer: requestAuthorizer,
+		lggr:                 logger.Named(lggr, "VaultCapability"),
+		clock:                clock,
+		expiresAfter:         expiresAfter,
+		handler:              handler,
+		requestAuthorizer:    requestAuthorizer,
+		capabilitiesRegistry: capabilitiesRegistry,
 	}
 }
