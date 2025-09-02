@@ -12,16 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
-	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evm_types "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
-	sm_plugin "github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	sm_plugin_loopp "github.com/smartcontractkit/tmp-sm-plugin-loopp/v2/smplugin"
 )
 
@@ -146,59 +143,63 @@ func NewSecureMintServices(ctx context.Context,
 	}
 
 	// Create the reporting plugin factory
-	if cmdName := env.SecureMintPlugin.Cmd.Get(); cmdName != "" {
-		lggr.Infof("Configuration indicates loopp usage for secure mint")
+	cmdName := env.SecureMintPlugin.Cmd.Get()
 
-		// use unique logger names so we can use it to register a loop
-		secureMintLggr := lggr.Named("SecureMint").Named(spec.ContractID).Named(spec.GetID())
-		envVars, err2 := plugins.ParseEnvFile(env.SecureMintPlugin.Env.Get())
-		if err2 != nil {
-			err = fmt.Errorf("failed to parse secure mint env file: %w", err2)
-			abort()
-			return
-		}
-		cmdFn, telem, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
-			ID:  secureMintLggr.Name(),
-			Cmd: cmdName,
-			Env: envVars,
-		})
-		if err2 != nil {
-			err = fmt.Errorf("failed to register loop: %w", err2)
-			abort()
-			return
-		}
-		secureMint := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn) // TODO(gg): add more params
-		argsNoPlugin.ReportingPluginFactory = secureMint
-		srvs = append(srvs, secureMint)
+	if cmdName == "" {
+		abort()
+		return nil, fmt.Errorf("secure mint plugin loop is not configured, non-loopp mode is not supported for secure mint")
 	}
+	lggr.Infof("Configuration indicates loopp usage for secure mint")
 
-	ea, err := sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create secure mint external adapter: %w", err)
+	// use unique logger names so we can use it to register a loop
+	secureMintLggr := lggr.Named("SecureMint").Named(spec.ContractID).Named(spec.GetID())
+	envVars, err2 := plugins.ParseEnvFile(env.SecureMintPlugin.Env.Get())
+	if err2 != nil {
+		err = fmt.Errorf("failed to parse secure mint env file: %w", err2)
+		abort()
+		return
 	}
+	cmdFn, telem, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
+		ID:  secureMintLggr.Name(),
+		Cmd: cmdName,
+		Env: envVars,
+	})
+	if err2 != nil {
+		err = fmt.Errorf("failed to register loop: %w", err2)
+		abort()
+		return
+	}
+	secureMint := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn) // TODO(gg): add more params
+	argsNoPlugin.ReportingPluginFactory = secureMint                             // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
+	srvs = append(srvs, secureMint)
 
-	// Create the original SecureMint plugin factory
-	smPluginFactory := &sm_plugin.PorReportingPluginFactory{
-		Logger:          argsNoPlugin.Logger,
-		ExternalAdapter: ea,
-		ContractReader:  newStubContractReader(argsNoPlugin.ContractConfigTracker), // since we don't write to chain yet, we mock the contract reader which returns the most recent config digest from the config contract
-		ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
-	}
+	// ea, err := sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create secure mint external adapter: %w", err)
+	// }
+
+	// // Create the original SecureMint plugin factory
+	// smPluginFactory := &sm_plugin.PorReportingPluginFactory{
+	// 	Logger:          argsNoPlugin.Logger,
+	// 	ExternalAdapter: ea,
+	// 	ContractReader:  newStubContractReader(argsNoPlugin.ContractConfigTracker), // since we don't write to chain yet, we mock the contract reader which returns the most recent config digest from the config contract
+	// 	ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
+	// }
 
 	// Get relay ID for chain identification
-	rid, err := spec.RelayID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relay ID: %w", err)
-	}
+	// rid, err := spec.RelayID()
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to get relay ID: %w", err)
+	// }
 
 	// Wrap the factory with prometheus metrics monitoring
-	argsNoPlugin.ReportingPluginFactory = promwrapper.NewReportingPluginFactory(
-		smPluginFactory,
-		lggr,
-		"evm",
-		rid.ChainID,
-		"secure-mint",
-	)
+	// argsNoPlugin.ReportingPluginFactory = promwrapper.NewReportingPluginFactory(
+	// 	smPluginFactory,
+	// 	lggr,
+	// 	"evm",
+	// 	rid.ChainID,
+	// 	"secure-mint",
+	// )
 
 	// Create the oracle
 	var oracle libocr.Oracle
