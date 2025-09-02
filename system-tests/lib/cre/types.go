@@ -150,6 +150,10 @@ type (
 	DonsToJobSpecs = map[uint64]DonJobs
 )
 
+const (
+	CapabilityLabelKey = "capability"
+)
+
 type (
 	NodeIndexToConfigOverride  = map[int]string
 	NodeIndexToSecretsOverride = map[int]string

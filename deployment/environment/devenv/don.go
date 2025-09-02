@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -580,15 +581,7 @@ func value[T any](v *T) T {
 	return *v
 }
 
-var MatchAll = func(jobSpec string) bool {
-	return true
-}
-
-// MatchFn matches job specs by string content.
-// Takes a string instead of the full job proposal to avoid internal package type dependencies.
-type MatchFn func(jobSpec string) bool
-
-func (n *Node) CancelProposals(ctx context.Context, matchFn MatchFn) ([]string, error) {
+func (n *Node) CancelProposalsByExternalJobID(ctx context.Context, externalJobIDs []string) ([]string, error) {
 	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
 	if err != nil {
 		return nil, err
@@ -599,9 +592,10 @@ func (n *Node) CancelProposals(ctx context.Context, matchFn MatchFn) ([]string, 
 
 	proposalIDs := []string{}
 	for _, jp := range jd.JobProposals {
-		if !matchFn(jp.LatestSpec.Definition) {
+		if !slices.Contains(externalJobIDs, jp.ExternalJobID) {
 			continue
 		}
+
 		proposalIDs = append(proposalIDs, jp.Id)
 		spec, err := n.gqlClient.CancelJobProposalSpec(ctx, jp.Id)
 		if err != nil {

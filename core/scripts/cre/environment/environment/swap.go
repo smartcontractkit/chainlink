@@ -7,7 +7,6 @@ import (
 	"net/http"
 	net "net/url"
 	"os"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -18,10 +17,13 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
+	jdjob "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	ptypes "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -131,17 +133,6 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return errors.Wrap(loadErr, "failed to load environment")
 	}
 
-	// matches only the jobspecs that are related to the capability
-	var jobNameContainsCapability = func(jobSpec string) bool {
-		r := regexp.MustCompile(`name\s+=\s+"(.*)"`)
-		matches := r.FindStringSubmatch(jobSpec)
-		if len(matches) < 2 {
-			return false
-		}
-
-		return strings.Contains(matches[1], capabilityFlag)
-	}
-
 	// cancel jobs for nodes that have the capability
 	// donId -> nodeId -> proposalIDs
 	donIdxToNodeIDToProposalIDs := map[int]map[string][]string{}
@@ -151,8 +142,30 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		}
 		donIdxToNodeIDToProposalIDs[idx] = map[string][]string{}
 		for _, node := range nodeSet.DON.Nodes {
+			// get all jobs that have a label named "capability" with value equal to capability name
+			jobResp, jobErr := fullCldEnvOutput.Environment.Offchain.ListJobs(ctx, &jdjob.ListJobsRequest{
+				Filter: &jdjob.ListJobsRequest_Filter{
+					Selectors: []*ptypes.Selector{{
+						Key:   cre.CapabilityLabelKey,
+						Op:    *ptypes.SelectorOp_EQ.Enum(),
+						Value: &capabilityFlag,
+					}},
+					NodeIds: []string{node.NodeID},
+				},
+			})
+
+			if jobErr != nil {
+				return errors.Wrapf(jobErr, "failed to list jobs for node %s", node.Name)
+			}
+
+			externalJobIDs := []string{}
+			for _, job := range jobResp.Jobs {
+				// uuid is equal to external job ID
+				externalJobIDs = append(externalJobIDs, job.GetUuid())
+			}
+
 			framework.L.Info().Msgf("Cancelling matching job proposals for node %s", node.Name)
-			proposalIDs, cancelErr := node.CancelProposals(ctx, jobNameContainsCapability)
+			proposalIDs, cancelErr := node.CancelProposalsByExternalJobID(ctx, externalJobIDs)
 			if cancelErr != nil {
 				return errors.Wrapf(cancelErr, "failed to cancel job proposals for node %s", node.Name)
 			}
@@ -173,7 +186,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 			return errors.Wrapf(dirErr, "failed to get default capabilities directory for infra type %s", config.Infra.Type)
 		}
 
-		copyErr := creworkflow.CopyArtifactToDockerContainers(binaryPath, pattern, capDir)
+		copyErr := creworkflow.CopyArtifactsToDockerContainers(capDir, pattern, binaryPath)
 		if copyErr != nil {
 			return errors.Wrapf(copyErr, "failed to copy %s capability binary to Docker containers with pattern %s", binaryPath, pattern)
 		}
@@ -243,7 +256,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return errors.Wrap(loadErr, "failed to load environment")
 	}
 
-	// approve the job proposal again, so that the job is restarted with the new binary
+	// approve the job proposals again, so that the jobs are restarted with the new binary
 	for donIdx, nodeIDToProposalIDs := range donIdxToNodeIDToProposalIDs {
 		for _, node := range fullCldEnvOutput.DonTopology.DonsWithMetadata[donIdx].DON.Nodes {
 			proposalIDs, ok := nodeIDToProposalIDs[node.NodeID]
