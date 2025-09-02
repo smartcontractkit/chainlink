@@ -28,23 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
 func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
-	HTTPWorkflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go"
 	var testLogger = framework.L
-
-	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
-	testEnv.Logger.Info().Msg("Starting HTTP trigger and action test...")
 
 	publicKeyAddr, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
 	require.NoError(t, newKeysErr, "failed to generate new public key")
@@ -58,24 +48,7 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 		URL:           fakeServer.BaseURLHost,
 	}
 
-	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.FullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
-	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
-	compressedWorkflowWasmPath, httpConfigFilePath := createWorkflowArtifacts(t, testLogger, uniqueWorkflowName, workflowDON.Name, &httpWorkflowConfig, HTTPWorkflowFileLocation)
-
-	testLogger.Info().Msg("Registering HTTP workflow")
-	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-	require.NoError(t, err, "failed to find workflow registry address for chain %d", homeChainSelector)
-
-	regConfig := &WorkflowRegistrationConfig{
-		WorkflowName:         uniqueWorkflowName,
-		WorkflowLocation:     HTTPWorkflowFileLocation,
-		ConfigFilePath:       httpConfigFilePath,
-		CompressedWasmPath:   compressedWorkflowWasmPath,
-		WorkflowRegistryAddr: workflowRegistryAddress,
-		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
-		ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
-	}
-	registerWorkflow(t.Context(), t, regConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testEnv.Logger)
+	compileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &httpWorkflowConfig, "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go")
 
 	testEnv.Logger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
@@ -94,11 +67,6 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	validateHTTPWorkflowRequest(t, testEnv)
 
 	testEnv.Logger.Info().Msg("HTTP trigger and action test completed successfully")
-
-	// AFTER TEST
-	t.Cleanup(func() {
-		deleteWorkflows(t, uniqueWorkflowName, httpConfigFilePath, compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
-	})
 }
 
 // executeHTTPTriggerRequest executes an HTTP trigger request and waits for successful response
