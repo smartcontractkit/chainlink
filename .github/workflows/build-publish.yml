@@ -213,6 +213,7 @@ jobs:
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
           oci-repository-url: ${{ format('{0}/chainlink/chainlink', env.ECR_HOSTNAME) }}
+          pr-close-enabled: false
           products: |
             df1.0
             automation-mainnet
