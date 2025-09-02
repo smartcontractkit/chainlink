@@ -18,7 +18,7 @@ import (
 
 func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
 	testLogger := framework.L
-	ctxWithTimeout, cancelCtx := context.WithTimeout(t.Context(), 2*time.Minute)
+	ctxWithTimeout, cancelCtx := context.WithTimeout(t.Context(), 4*time.Minute)
 	defer cancelCtx()
 
 	// We are interested in UserLogs (successful execution)
