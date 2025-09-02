@@ -169,8 +169,16 @@ func NewSecureMintServices(ctx context.Context,
 		abort()
 		return
 	}
-	secureMint := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn) // TODO(gg): add more params
-	argsNoPlugin.ReportingPluginFactory = secureMint                             // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
+	pluginConfig := coretypes.ReportingPluginServiceConfig{
+		PluginName:    sm_plugin_loopp.PluginSecureMintName,
+		Command:       cmdName,
+		ProviderType:  "TODOproviderType",
+		TelemetryType: "TODOtelemetryType",
+		PluginConfig:  string(jb.OCR2OracleSpec.PluginConfig.Bytes()), // TODO(gg): is this correct?
+	}
+
+	secureMint := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn, pluginConfig) // TODO(gg): add more params
+	argsNoPlugin.ReportingPluginFactory = secureMint                                           // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
 	srvs = append(srvs, secureMint)
 
 	// ea, err := sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr)
