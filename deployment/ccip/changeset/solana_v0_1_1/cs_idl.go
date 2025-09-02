@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"os"
 	"path/filepath"
 	"strings"
@@ -495,7 +496,7 @@ func setAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, progra
 // Discriminator to invoke IDL operations
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
-// Number ids of the operations:
+// Number ids of the operations: copied from https://github.com/solana-foundation/anchor/blob/v0.29.0/lang/src/idl.rs#L36
 const (
 	IdlInstructionCreate       int = iota // One time initializer for creating the program's idl account.
 	IdlInstructionCreateBuffer            // Creates a new IDL account buffer. Can be called several times.
@@ -515,104 +516,16 @@ func SetAuthorityIDLByMCMs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutpu
 	chainState := state.SolChains[c.ChainSelector]
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 
-	// set idl authority
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	newAuthority := e.BlockChains.SolanaChains()[c.ChainSelector].DeployerKey.PublicKey()
-	if c.Router {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.Router, deployment.RouterProgramName, newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
-	if c.FeeQuoter {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.FeeQuoter, deployment.FeeQuoterProgramName, newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
-	if c.OffRamp {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.OffRamp, deployment.OffRampProgramName, newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
-	if c.RMNRemote {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.RMNRemote, deployment.RMNRemoteProgramName, newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
-	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		setAuthorityTx, err := setAuthorityIDLIx(e, tokenPool, deployment.BurnMintTokenPoolProgramName, newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
-	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		setAuthorityTx, err := setAuthorityIDLIx(e, tokenPool, deployment.LockReleaseTokenPoolProgramName, newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
-	if c.CCTPTokenPool {
-		setAuthorityTx, err := setAuthorityIDLIx(e, chainState.CCTPTokenPool, deployment.CCTPTokenPoolProgramName, newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	programs, err := getAffectedPrograms(e, c, chainState, chain)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
-	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+		return cldf.ChangesetOutput{}, err
 	}
 
-	if c.AccessController {
-		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.AccessControllerProgram, types.AccessControllerProgram.String(), newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
-	if c.Timelock {
-		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.TimelockProgram, types.RBACTimelockProgram.String(), newAuthority, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-		if setAuthorityTx != nil {
-			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
-		}
-	}
-	if c.MCM {
-		setAuthorityTx, err := setAuthorityIDLIx(e, mcmState.McmProgram, types.ManyChainMultisigProgram.String(), newAuthority, c)
+	for programID, programName := range programs {
+		setAuthorityTx, err := setAuthorityIDLIx(e, programID, programName, newAuthority, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -621,19 +534,7 @@ func SetAuthorityIDLByMCMs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutpu
 		}
 	}
 
-	if len(mcmsTxs) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, c.ChainSelector, "proposal to upgrade CCIP contracts", c.MCMS.MinDelay, mcmsTxs)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{}, nil
+	return generateProposalIfMCMS(e, c, mcmsTxs)
 }
 
 // changeset to upgrade idl for a program via timelock
@@ -650,102 +551,14 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	chainState := state.SolChains[c.ChainSelector]
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
-	if c.Router {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
-	if c.FeeQuoter {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
-	if c.OffRamp {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
-	if c.RMNRemote {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
-	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
-	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
-	if c.CCTPTokenPool {
-		tokenPool := chainState.GetActiveTokenPool(shared.CCTPTokenPool, shared.CLLMetadata)
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, tokenPool.String(), deployment.CCTPTokenPoolProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	programs, err := getAffectedPrograms(e, c, chainState, chain)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
-	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+		return cldf.ChangesetOutput{}, err
 	}
 
-	if c.AccessController {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
-	if c.Timelock {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
-	}
-	if c.MCM {
-		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName, c)
+	for programID, programName := range programs {
+		upgradeTx, err := upgradeIDLIx(e, chain.ProgramsPath, programID.String(), programName, c)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
 		}
@@ -754,19 +567,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	if len(mcmsTxs) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, c.ChainSelector, "proposal to upgrade CCIP contracts", c.MCMS.MinDelay, mcmsTxs)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{}, nil
+	return generateProposalIfMCMS(e, c, mcmsTxs)
 }
 
 // changeset to close idl account for a program - this is needed when the idl increased so much in size that it no longer fits in the account
@@ -780,110 +581,72 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	chainState := state.SolChains[c.ChainSelector]
 
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
-	if c.Router {
-		upgradeTx, err := closeIdlInstruction(e, chainState.Router, deployment.RouterProgramName, c)
+
+	programs, err := getAffectedPrograms(e, c, chainState, chain)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	for programID, programName := range programs {
+		closeIdlIx, err := closeIdlInstruction(e, programID, programName, c)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating close IDL tx: %w", err)
 		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
+		if closeIdlIx != nil {
+			mcmsTxs = append(mcmsTxs, *closeIdlIx)
 		}
+	}
+
+	return generateProposalIfMCMS(e, c, mcmsTxs)
+}
+
+func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastateview.CCIPChainState, chain cldfsolana.Chain) (map[solana.PublicKey]string, error) {
+	programs := make(map[solana.PublicKey]string)
+	if c.Router {
+		programs[chainState.Router] = deployment.RouterProgramName
 	}
 	if c.FeeQuoter {
-		upgradeTx, err := closeIdlInstruction(e, chainState.FeeQuoter, deployment.FeeQuoterProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[chainState.FeeQuoter] = deployment.FeeQuoterProgramName
 	}
 	if c.OffRamp {
-		upgradeTx, err := closeIdlInstruction(e, chainState.OffRamp, deployment.OffRampProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[chainState.OffRamp] = deployment.OffRampProgramName
 	}
 	if c.RMNRemote {
-		upgradeTx, err := closeIdlInstruction(e, chainState.RMNRemote, deployment.RMNRemoteProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[chainState.RMNRemote] = deployment.RMNRemoteProgramName
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		upgradeTx, err := closeIdlInstruction(e, tokenPool, deployment.BurnMintTokenPoolProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[tokenPool] = deployment.BurnMintTokenPoolProgramName
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		upgradeTx, err := closeIdlInstruction(e, tokenPool, deployment.LockReleaseTokenPoolProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[tokenPool] = deployment.LockReleaseTokenPoolProgramName
 	}
 	if c.CCTPTokenPool {
 		tokenPool := chainState.GetActiveTokenPool(shared.CCTPTokenPool, shared.CLLMetadata)
-		upgradeTx, err := closeIdlInstruction(e, tokenPool, deployment.CCTPTokenPoolProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[tokenPool] = deployment.CCTPTokenPoolProgramName
 	}
-
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+		return nil, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
 	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+		return nil, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
-
 	if c.AccessController {
-		upgradeTx, err := closeIdlInstruction(e, mcmState.AccessControllerProgram, deployment.AccessControllerProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[mcmState.AccessControllerProgram] = deployment.AccessControllerProgramName
 	}
 	if c.Timelock {
-		upgradeTx, err := closeIdlInstruction(e, mcmState.TimelockProgram, deployment.TimelockProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[mcmState.TimelockProgram] = deployment.TimelockProgramName
 	}
 	if c.MCM {
-		upgradeTx, err := closeIdlInstruction(e, mcmState.McmProgram, deployment.McmProgramName, c)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating upgrade tx: %w", err)
-		}
-		if upgradeTx != nil {
-			mcmsTxs = append(mcmsTxs, *upgradeTx)
-		}
+		programs[mcmState.McmProgram] = deployment.McmProgramName
 	}
+	return programs, nil
+}
 
+func generateProposalIfMCMS(e cldf.Environment, c IDLConfig, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxns(
 			e, c.ChainSelector, "proposal to upgrade CCIP contracts", c.MCMS.MinDelay, mcmsTxs)
@@ -925,7 +688,7 @@ func calculateAuthority(e cldf.Environment, c IDLConfig) (solana.PublicKey, erro
 	return authority, err
 }
 
-func buildTxWithCorrectSigner(e cldf.Environment, programID string, programName string, c IDLConfig, instruction solana.GenericInstruction) (*mcmsTypes.Transaction, error) {
+func getTxIfMCMSExecuteIfNot(e cldf.Environment, programID string, programName string, c IDLConfig, instruction solana.GenericInstruction) (*mcmsTypes.Transaction, error) {
 	if c.MCMS != nil {
 		upgradeTx, err := BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
 		if err != nil {
@@ -941,9 +704,9 @@ func buildTxWithCorrectSigner(e cldf.Environment, programID string, programName 
 
 // generate set buffer ix using solana-go sdk
 func setBufferIdlInstruction(e cldf.Environment, programID, buffer, authority solana.PublicKey) (solana.GenericInstruction, error) {
-	accounts, instruction, err2 := getAccountsFoSetBufferIdlInstruction(e, programID, buffer, authority)
-	if err2 != nil {
-		return instruction, err2
+	accounts, instruction, err := getAccountsFoSetBufferIdlInstruction(e, programID, buffer, authority)
+	if err != nil {
+		return instruction, err
 	}
 	return buildIdlInstruction(programID, accounts, IdlInstructionSetBuffer, []byte{})
 }
@@ -1015,7 +778,7 @@ func closeIdlInstruction(e cldf.Environment, programID solana.PublicKey, program
 	if err != nil {
 		return nil, fmt.Errorf("error closing IDL account ix: %w", err)
 	}
-	return buildTxWithCorrectSigner(e, programID.String(), programName, c, instruction)
+	return getTxIfMCMSExecuteIfNot(e, programID.String(), programName, c, instruction)
 }
 
 func getAccountsForCloseIdlInstruction(e cldf.Environment, programID solana.PublicKey, authority solana.PublicKey, spillAddress solana.PublicKey) (solana.AccountMetaSlice, error) {
@@ -1042,7 +805,7 @@ func setAuthorityIDLIx(e cldf.Environment, programID solana.PublicKey, programNa
 	if err != nil {
 		return nil, fmt.Errorf("error setting authority IDL ix: %w", err)
 	}
-	return buildTxWithCorrectSigner(e, programID.String(), programName, c, instruction)
+	return getTxIfMCMSExecuteIfNot(e, programID.String(), programName, c, instruction)
 }
 
 func getAccountsForSetAuthorityIdlInstruction(e cldf.Environment, programID solana.PublicKey, authority solana.PublicKey) (solana.AccountMetaSlice, error) {
