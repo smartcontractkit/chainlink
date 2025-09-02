@@ -180,7 +180,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 
 	// copy the binary to the Docker containers that have the capability
 	for donIdx := range donIdxToNodeIDToProposalIDs {
-		pattern := fullCldEnvOutput.DonTopology.DonsWithMetadata[donIdx].Name + "-node"
+		pattern := ns.NodeNamePrefix(fullCldEnvOutput.DonTopology.DonsWithMetadata[donIdx].Name)
 		capDir, dirErr := crecapabilities.DefaultContainerDirectory(config.Infra.Type)
 		if dirErr != nil {
 			return errors.Wrapf(dirErr, "failed to get default capabilities directory for infra type %s", config.Infra.Type)

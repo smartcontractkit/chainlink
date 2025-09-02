@@ -17,7 +17,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -38,7 +40,9 @@ func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
 	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
 
-	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, &None{}, workflowFileLocation)
+	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.FullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
+	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
+	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, workflowDON.Name, &None{}, workflowFileLocation)
 
 	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)

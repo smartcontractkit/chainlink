@@ -28,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
@@ -129,7 +130,9 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 			},
 		}
 		workflowFileLocation := baseWorkflowTestConfig.WorkflowFileLocation
-		compressedWorkflowWasmPath, workflowConfigFilePath := createWorkflowArtifacts(t, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
+		workflowDON, donErr := flags.OneDonMetadataWithFlag(fullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
+		require.NoError(t, donErr, "failed to get find workflow DON in the topology")
+		compressedWorkflowWasmPath, workflowConfigFilePath := createWorkflowArtifacts(t, testLogger, uniqueWorkflowName, workflowDON.Name, &workflowConfig, workflowFileLocation)
 
 		testLogger.Info().Msgf("Registering PoR workflow on chain %d (%d)", chainID, chainSelector)
 		workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(

@@ -524,6 +524,14 @@ type DonTopology struct {
 	GatewayConnectorOutput  *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
 }
 
+func (t *DonTopology) ToDonMetadata() []*DonMetadata {
+	metadata := []*DonMetadata{}
+	for _, don := range t.DonsWithMetadata {
+		metadata = append(metadata, don.DonMetadata)
+	}
+	return metadata
+}
+
 type CapabilitiesAwareNodeSet struct {
 	*ns.Input
 	Capabilities         []string          `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)

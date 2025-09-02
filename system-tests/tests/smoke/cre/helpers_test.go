@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -102,7 +103,7 @@ It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName, workflowDONName string, workflowConfig *T, workflowFileLocation string) (string, string) {
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
@@ -112,7 +113,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
-	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, creworkflow.DefaultWorkflowNodePattern, compressedWorkflowWasmPath, workflowConfigFilePath)
+	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(workflowDONName), compressedWorkflowWasmPath, workflowConfigFilePath)
 	require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
 	testLogger.Info().Msg("Workflow artifacts successfully copied to the Docker containers.")
 

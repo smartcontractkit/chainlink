@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -28,11 +30,14 @@ type Config struct {
 	Fake              *fake.Input                     `toml:"fake" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
+
+	mu     sync.Mutex
+	loaded bool
 }
 
 // Validate performs validation checks on the configuration, ensuring all required fields
 // are present and all referenced capabilities are known to the system.
-func (c Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
+func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 	if c.JD.CSAEncryptionKey == "" {
 		return errors.New("jd.csa_encryption_key must be provided")
 	}
@@ -79,11 +84,20 @@ func validateContractVersions(cv map[string]string) error {
 	return nil
 }
 
+// var envConfigOnce sync.Once
+
 func (c *Config) Load() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.loaded {
+		return nil
+	}
+
 	// Load and validate test configuration
-	in, err := framework.Load[Config](nil)
-	if err != nil {
-		return errors.Wrap(err, "failed to load environment configuration")
+	in, loadErr := framework.Load[Config](nil)
+	if loadErr != nil {
+		return errors.Wrap(loadErr, "failed to load environment configuration")
 	}
 
 	for _, nodeSet := range in.NodeSets {
@@ -96,7 +110,8 @@ func (c *Config) Load() error {
 		}
 	}
 
-	*c = *in
+	copyExportedFields(c, in)
+	c.loaded = true
 
 	return nil
 }
@@ -173,6 +188,9 @@ func ResolveCapabilityConfigForDON(
 type ChipIngressConfig struct {
 	ChipIngress *chipingressset.Input `toml:"chip_ingress"`
 	Kafka       *KafkaConfig          `toml:"kafka"`
+
+	mu     sync.Mutex
+	loaded bool
 }
 
 type KafkaConfig struct {
@@ -180,16 +198,40 @@ type KafkaConfig struct {
 }
 
 func (c *ChipIngressConfig) Load() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.loaded {
+		return nil
+	}
+
 	in, err := framework.Load[ChipIngressConfig](nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to load chip ingress config")
 	}
 
-	*c = *in
+	copyExportedFields(c, in)
+	c.loaded = true
 
 	return nil
 }
 
 func (c *ChipIngressConfig) Store() error {
 	return framework.Store(c)
+}
+
+// copyExportedFields copies all exported fields from src to dst (same concrete type).
+// Unexported fields (like once/mu/loaded) are skipped automatically.
+func copyExportedFields(dst, src any) {
+	dv := reflect.ValueOf(dst).Elem()
+	sv := reflect.ValueOf(src).Elem()
+	dt := dv.Type()
+
+	for i := 0; i < dt.NumField(); i++ {
+		f := dt.Field(i)
+		if f.PkgPath != "" { // unexported
+			continue
+		}
+		dv.Field(i).Set(sv.Field(i))
+	}
 }

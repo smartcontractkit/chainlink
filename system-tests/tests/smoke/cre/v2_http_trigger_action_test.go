@@ -32,7 +32,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
@@ -56,7 +58,9 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 		URL:           fakeServer.BaseURLHost,
 	}
 
-	compressedWorkflowWasmPath, httpConfigFilePath := createWorkflowArtifacts(t, testLogger, uniqueWorkflowName, &httpWorkflowConfig, HTTPWorkflowFileLocation)
+	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.FullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
+	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
+	compressedWorkflowWasmPath, httpConfigFilePath := createWorkflowArtifacts(t, testLogger, uniqueWorkflowName, workflowDON.Name, &httpWorkflowConfig, HTTPWorkflowFileLocation)
 
 	testLogger.Info().Msg("Registering HTTP workflow")
 	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
