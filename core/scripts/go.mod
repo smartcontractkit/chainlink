@@ -19,8 +19,8 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250827140128-db51db1d1316
-	github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250827140128-db51db1d1316
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250831041730-9b6914fe99ed
+	github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250831015441-42e63aeb318b
 )
 
 require (
@@ -487,9 +487,9 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250829201010-23f1c63ba3f1 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250829201010-23f1c63ba3f1 // indirect
-	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250829201010-23f1c63ba3f1 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250903121828-5b7de5c2e94c // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250903121828-5b7de5c2e94c // indirect
+	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250903121828-5b7de5c2e94c // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250818141131-0b979c98bab0 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect

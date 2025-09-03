@@ -4,7 +4,7 @@ go 1.24.5
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250827140128-db51db1d1316
+require github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250831015441-42e63aeb318b
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -42,7 +42,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250827140128-db51db1d1316
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250831041730-9b6914fe99ed
 	github.com/smartcontractkit/crib-sdk v0.4.0
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b
 	go.uber.org/ratelimit v0.3.1
@@ -454,9 +454,9 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250822025801-598d3d86f873 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250829201010-23f1c63ba3f1 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250829201010-23f1c63ba3f1 // indirect
-	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250829201010-23f1c63ba3f1 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250903121828-5b7de5c2e94c // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250903121828-5b7de5c2e94c // indirect
+	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250903121828-5b7de5c2e94c // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
