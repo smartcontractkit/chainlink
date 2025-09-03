@@ -260,20 +260,18 @@ func NewApp(s *Shell) *cli.App {
 					return err
 				}
 
-				lggrCfg := logger.Config{
-					LogLevel:       s.Config.Log().Level(),
-					Dir:            s.Config.Log().File().Dir(),
-					JsonConsole:    s.Config.Log().JSONConsole(),
-					UnixTS:         s.Config.Log().UnixTimestamps(),
-					FileMaxSizeMB:  int(logFileMaxSizeMB),
-					FileMaxAgeDays: int(s.Config.Log().File().MaxAgeDays()),
-					FileMaxBackups: int(s.Config.Log().File().MaxBackups()),
-					SentryEnabled:  s.Config.Sentry().DSN() != "",
-				}
+				//TODO: Initialize beholder and dependencies here
 
-				// early initialization of the logger with Otel core
-				if cfg.Telemetry().LogStreamingEnabled() {
-					lggrCfg.TelemetryStreamingEnabled = true
+				lggrCfg := logger.Config{
+					LogLevel:                  s.Config.Log().Level(),
+					Dir:                       s.Config.Log().File().Dir(),
+					JsonConsole:               s.Config.Log().JSONConsole(),
+					UnixTS:                    s.Config.Log().UnixTimestamps(),
+					FileMaxSizeMB:             int(logFileMaxSizeMB),
+					FileMaxAgeDays:            int(s.Config.Log().File().MaxAgeDays()),
+					FileMaxBackups:            int(s.Config.Log().File().MaxBackups()),
+					SentryEnabled:             s.Config.Sentry().DSN() != "",
+					TelemetryStreamingEnabled: cfg.Telemetry().LogStreamingEnabled(),
 				}
 
 				l, closeFn := lggrCfg.New()
