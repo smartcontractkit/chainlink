@@ -28,6 +28,7 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
@@ -58,6 +59,7 @@ type ReportingPluginConfig struct {
 	// Sourced from the job spec
 	PublicKey       *tdh2easy.PublicKey
 	PrivateKeyShare *tdh2easy.PrivateShare
+	LazyPublicKey   *vaultcap.LazyPublicKey
 
 	// Sourced from the offchain config
 	BatchSize                         int
@@ -75,6 +77,7 @@ func NewReportingPluginFactory(
 	recipientKey *dkgrecipientkey.Key,
 	publicKey *tdh2easy.PublicKey,
 	privateKeyShare *tdh2easy.PrivateShare,
+	lazyPublicKey *vaultcap.LazyPublicKey,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
 		if publicKey == nil {
@@ -90,6 +93,7 @@ func NewReportingPluginFactory(
 	cfg := &ReportingPluginConfig{
 		PublicKey:       publicKey,
 		PrivateKeyShare: privateKeyShare,
+		LazyPublicKey:   lazyPublicKey,
 	}
 	return &ReportingPluginFactory{
 		lggr:         lggr.Named("VaultReportingPluginFactory"),
@@ -198,6 +202,8 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not convert to tdh2easy private key share: %w", err)
 		}
 	}
+
+	r.cfg.LazyPublicKey.Set(publicKey)
 
 	cfg := &ReportingPluginConfig{
 		PublicKey:                         publicKey,
