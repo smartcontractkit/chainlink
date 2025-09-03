@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -341,20 +340,10 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
-	createSecretsRequest.RequestId = ar.req.ID
-	if createSecretsRequest.RequestId == "" {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request_id cannot be empty")))
-	}
-	if len(createSecretsRequest.EncryptedSecrets) == 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have at least 1 request")))
-	}
-	if len(createSecretsRequest.EncryptedSecrets) >= vaulttypes.MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(vaulttypes.MaxBatchSize))))
-	}
-	for index, secret := range createSecretsRequest.EncryptedSecrets {
-		if secret.Id.Key == "" || secret.EncryptedValue == "" || secret.Id.Owner == "" {
-			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id key, owner and EncryptedValue cannot be empty on index "+strconv.Itoa(index))))
-		}
+	err := vaultcap.ValidateCreateSecretsRequest(createSecretsRequest)
+	if err != nil {
+		l.Warnw("failed to validate create secrets request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err)))
 	}
 
 	reqBytes, err := json.Marshal(createSecretsRequest)
@@ -378,21 +367,10 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 
 	updateSecretsRequest.RequestId = ar.req.ID
 
-	if updateSecretsRequest.RequestId == "" {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request_id cannot be empty")))
-	}
-	if len(updateSecretsRequest.EncryptedSecrets) == 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have least 1 request")))
-	}
-	if len(updateSecretsRequest.EncryptedSecrets) >= vaulttypes.MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(vaulttypes.MaxBatchSize))))
-	}
-
-	for index, secret := range updateSecretsRequest.EncryptedSecrets {
-		if secret.Id.Key == "" || secret.Id.Owner == "" {
-			l.Debugw("invalid request parameters: secret id and owner cannot be empty")
-			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id key and owner cannot be empty on index "+strconv.Itoa(index))))
-		}
+	vaultcapErr := vaultcap.ValidateUpdateSecretsRequest(updateSecretsRequest)
+	if vaultcapErr != nil {
+		l.Warnw("failed to validate update secrets request", "error", vaultcapErr)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultcapErr)))
 	}
 
 	reqBytes, err := json.Marshal(updateSecretsRequest)
@@ -415,21 +393,10 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 
 	deleteSecretsRequest.RequestId = ar.req.ID
 
-	if deleteSecretsRequest.RequestId == "" {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request_id cannot be empty")))
-	}
-	if len(deleteSecretsRequest.Ids) == 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have least 1 request")))
-	}
-	if len(deleteSecretsRequest.Ids) >= vaulttypes.MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(vaulttypes.MaxBatchSize))))
-	}
-
-	for index, id := range deleteSecretsRequest.Ids {
-		if id.Key == "" || id.Owner == "" {
-			l.Debugw("invalid request parameters: secret id and owner cannot be empty")
-			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id key and owner cannot be empty on index "+strconv.Itoa(index))))
-		}
+	err := vaultcap.ValidateDeleteSecretsRequest(deleteSecretsRequest)
+	if err != nil {
+		l.Warnw("failed to validate delete secrets request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err)))
 	}
 
 	reqBytes, err := json.Marshal(deleteSecretsRequest)
@@ -450,17 +417,10 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
-	if len(secretsGetRequest.Requests) == 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("must have least 1 request")))
-	}
-	if len(secretsGetRequest.Requests) >= vaulttypes.MaxBatchSize {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("request batch size exceeds maximum of "+strconv.Itoa(vaulttypes.MaxBatchSize))))
-	}
-	for index, request := range secretsGetRequest.Requests {
-		if request.Id.Key == "" || request.Id.Owner == "" {
-			l.Debugw("invalid request parameters: secret id and owner cannot be empty")
-			return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id key and owner cannot be empty on index "+strconv.Itoa(index))))
-		}
+	err := vaultcap.ValidateGetSecretsRequest(secretsGetRequest)
+	if err != nil {
+		l.Warnw("failed to validate get secrets request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err)))
 	}
 
 	return h.fanOutToVaultNodes(ctx, l, ar)
@@ -475,6 +435,12 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	}
 
 	req.RequestId = ar.req.ID
+
+	err := vaultcap.ValidateListSecretIdentifiersRequest(req)
+	if err != nil {
+		l.Warnw("failed to validate list secret identifiers request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err)))
+	}
 
 	reqBytes, err := json.Marshal(req)
 	if err != nil {

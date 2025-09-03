@@ -188,14 +188,7 @@ jobs:
             }}
           docker-image-digest: ${{ steps.docker-outputs.outputs.digest }}
 
-  run-core-soak-on-release:
-    needs: docker-core
-    uses: smartcontractkit/chainlink/.github/workflows/on-demand-ocr-soak-test.yml@e8fa774450995fd45442a2e8e778f3a7eefc7af9 # 2025-08-08
-    with:
-      chainlink_version: ${{ github.ref_name }}
-      team: CRE
-
-  deploy:
+  deploy-core:
     needs: [checks, docker-core]
     permissions:
       contents: read
@@ -212,6 +205,8 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          oci-repository-url: ${{ format('{0}/chainlink/chainlink', env.ECR_HOSTNAME) }}
+          pr-close-enabled: false
           products: |
             df1.0
             automation-mainnet
