@@ -2,21 +2,6 @@ package cre
 
 import (
 	"testing"
-	"time"
-)
-
-// TODO: Where to move these constants? Is it appropriate place for keeping defaults here?
-const (
-	AuthorizationKeySecretName = "AUTH_KEY"
-	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
-	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
-	// It is needed for FakePriceProvider
-	AuthorizationKey = ""
-
-	// Test configuration constants
-	DefaultVerificationTimeout = 5 * time.Minute
-	DefaultRetryInterval       = 2 * time.Second
-	DefaultValidationInterval  = 10 * time.Second
 )
 
 /*
@@ -55,5 +40,19 @@ func Test_CRE_Suite(t *testing.T) {
 		t.Run("[v2] Beholder test", func(t *testing.T) {
 			ExecuteBeholderTest(t, testEnv)
 		})
+
+		t.Run("[v2] Consensus test", func(t *testing.T) {
+			executeConsensusTest(t, testEnv)
+		})
+	})
+}
+
+func Test_withV2Registries(t *testing.T) {
+	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
+		const skipReason = "Integrate v2 registry contracts in local CRE/test setup - https://smartcontract-it.atlassian.net/browse/CRE-635"
+		t.Skipf("Skipping test for the following reason: %s", skipReason)
+		flags := []string{"--with-contracts-version", "v2"}
+		testEnv := SetupTestEnvironment(t, flags...)
+		ExecutePoRTest(t, testEnv)
 	})
 }

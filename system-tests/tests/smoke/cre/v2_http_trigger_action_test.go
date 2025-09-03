@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -58,7 +59,7 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	compressedWorkflowWasmPath, httpConfigFilePath := createWorkflowArtifacts(t, testLogger, uniqueWorkflowName, &httpWorkflowConfig, HTTPWorkflowFileLocation)
 
 	testLogger.Info().Msg("Registering HTTP workflow")
-	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddress, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 	require.NoError(t, err, "failed to find workflow registry address for chain %d", homeChainSelector)
 
 	regConfig := &WorkflowRegistrationConfig{
@@ -101,6 +102,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 	var finalResponse jsonrpc.Response[json.RawMessage]
 	var triggerRequest jsonrpc.Request[json.RawMessage]
 
+	tick := 5 * time.Second
 	require.Eventually(t, func() bool {
 		triggerRequest = createHTTPTriggerRequestWithKey(t, workflowName, workflowOwnerAddress, singingKey)
 		triggerRequestBody, err := json.Marshal(triggerRequest)
@@ -154,7 +156,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 
 		testEnv.Logger.Info().Msg("Successfully received 200 OK response from gateway")
 		return true
-	}, tests.WaitTimeout(t), DefaultRetryInterval, "gateway should respond with 200 OK and valid response once workflow is loaded (ensure the workflow is loaded)")
+	}, tests.WaitTimeout(t), tick, "gateway should respond with 200 OK and valid response once workflow is loaded (ensure the workflow is loaded)")
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, finalResponse.Version, "expected JSON-RPC version %s, got %s", jsonrpc.JsonRpcVersion, finalResponse.Version)
 	require.Equal(t, triggerRequest.ID, finalResponse.ID, "expected response ID %s, got %s", triggerRequest.ID, finalResponse.ID)
@@ -163,10 +165,11 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 
 // validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
 func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment) {
+	tick := 5 * time.Second
 	require.Eventually(t, func() bool {
 		records, err := fake.R.Get("POST", "/orders")
 		return err == nil && len(records) > 0
-	}, tests.WaitTimeout(t), DefaultRetryInterval, "workflow should have made at least one HTTP request to mock server")
+	}, tests.WaitTimeout(t), tick, "workflow should have made at least one HTTP request to mock server")
 
 	records, err := fake.R.Get("POST", "/orders")
 	require.NoError(t, err, "failed to get recorded requests")

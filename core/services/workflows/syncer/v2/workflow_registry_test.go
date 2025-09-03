@@ -7,10 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -762,4 +765,79 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Empty(t, events)
 		require.Empty(t, pendingEvents)
 	})
+}
+
+func Test_GetAllowlistedRequests(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+	workflowDonNotifier := capabilities.NewDonNotifier()
+	er := NewEngineRegistry()
+
+	// Mock allowlisted requests
+	expectedRequests := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
+		{
+			RequestDigest:   [32]byte{1, 2, 3},
+			Owner:           common.Address{4, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			ExpiryTimestamp: 123456789,
+		},
+		{
+			RequestDigest:   [32]byte{7, 8, 9},
+			Owner:           common.Address{10, 11, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			ExpiryTimestamp: 987654321,
+		},
+	}
+
+	// Mock contract reader to return expectedRequests
+	mockContractReader := &mockContractReader{
+		allowlistedRequests: expectedRequests,
+	}
+
+	wr, err := NewWorkflowRegistry(
+		lggr,
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return mockContractReader, nil
+		},
+		"",
+		Config{
+			QueryCount:   20,
+			SyncStrategy: SyncStrategyReconciliation,
+		},
+		&eventHandler{},
+		workflowDonNotifier,
+		er,
+	)
+	require.NoError(t, err)
+
+	// Simulate syncAllowlistedRequests updating the field
+	wr.allowListedMu.Lock()
+	wr.allowListedRequests = expectedRequests
+	wr.allowListedMu.Unlock()
+
+	// Test GetAllowlistedRequests returns the correct data
+	got := wr.GetAllowlistedRequests(ctx)
+	require.Equal(t, expectedRequests, got)
+}
+
+// Mock contract reader implementation
+type mockContractReader struct {
+	types.ContractReader
+	allowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+}
+
+func (m *mockContractReader) GetLatestValueWithHeadData(
+	_ context.Context,
+	_ string,
+	_ primitives.ConfidenceLevel,
+	_ interface{},
+	result interface{},
+) (*types.Head, error) {
+	// Simulate returning allowlisted requests
+	if res, ok := result.(*struct {
+		Requests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+		err      error
+	}); ok {
+		res.Requests = m.allowlistedRequests
+		return &types.Head{Height: "123"}, nil
+	}
+	return &types.Head{Height: "0"}, nil
 }
