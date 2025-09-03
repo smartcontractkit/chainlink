@@ -49,21 +49,16 @@ func (c Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 		}
 	}
 
-	if err := validateContractVersions(envDependencies.GetContractVersions()); err != nil {
+	if err := validateContractVersions(envDependencies); err != nil {
 		return fmt.Errorf("failed to validate initial contract set: %w", err)
 	}
 
 	return nil
 }
 
-// TODO(CRE-741): support contracts other than major version 1
-func validateContractVersions(cv map[string]string) error {
-	supportedSet := map[string]string{
-		keystone_changeset.OCR3Capability.String():       "1.0.0",
-		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
-		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
-		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
-	}
+func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) error {
+	supportedSet := GetDefaultContractSet(envDependencies.GetCLIFlags().WithV2Registries())
+	cv := envDependencies.GetContractVersions()
 	for k, v := range supportedSet {
 		version, ok := cv[k]
 		if !ok {
@@ -71,10 +66,26 @@ func validateContractVersions(cv map[string]string) error {
 		}
 
 		if version != v {
-			return fmt.Errorf("unsupported version %s for contract %s configured for deployment", v, k)
+			return fmt.Errorf("requested version %s for contract %s yet expected %s", version, k, v)
 		}
 	}
 	return nil
+}
+
+func GetDefaultContractSet(withV2Registries bool) map[string]string {
+	supportedSet := map[string]string{
+		keystone_changeset.OCR3Capability.String():       "1.0.0",
+		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
+		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
+		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
+	}
+
+	if withV2Registries {
+		supportedSet[keystone_changeset.WorkflowRegistry.String()] = "2.0.0"
+		supportedSet[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
+	}
+
+	return supportedSet
 }
 
 // ResolveCapabilityForChain merges defaults with chain override for a capability on a given chain.

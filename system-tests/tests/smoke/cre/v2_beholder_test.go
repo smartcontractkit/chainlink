@@ -13,18 +13,12 @@ import (
 	common_events "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflow_events "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
-	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
 func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 	testLogger := framework.L
 	timeout := 2 * time.Minute
-	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
 	workflowName := "cronbeholder"
 
@@ -38,24 +32,7 @@ func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
 	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
 
-	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, &None{}, workflowFileLocation)
-
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
-
-	t.Cleanup(func() {
-		deleteWorkflows(t, workflowName, "", compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
-	})
-
-	workflowRegConfig := &WorkflowRegistrationConfig{
-		WorkflowName:         workflowName,
-		WorkflowLocation:     workflowFileLocation,
-		CompressedWasmPath:   compressedWorkflowWasmPath,
-		WorkflowRegistryAddr: workflowRegistryAddress,
-		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
-		ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
-	}
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
+	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &None{}, workflowFileLocation)
 
 	listenerCtx, cancelListener := context.WithTimeout(t.Context(), 2*time.Minute)
 	t.Cleanup(func() {

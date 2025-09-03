@@ -111,9 +111,50 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}, nil
 }
 
+func ValidateCreateSecretsRequest(request *vaultcommon.CreateSecretsRequest) error {
+	return validateWriteRequest(request.RequestId, request.EncryptedSecrets)
+}
+
+func validateWriteRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+	if id == "" {
+		return errors.New("request ID must not be empty")
+	}
+	if len(encryptedSecrets) >= vaulttypes.MaxBatchSize {
+		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
+	}
+	if len(encryptedSecrets) == 0 {
+		return errors.New("request batch must contain at least 1 item")
+	}
+
+	uniqueIDs := map[string]bool{}
+	for idx, req := range encryptedSecrets {
+		if req.Id == nil {
+			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
+		}
+
+		if req.Id.Key == "" || req.Id.Owner == "" {
+			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		}
+
+		if req.EncryptedValue == "" {
+			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		}
+
+		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
+		if ok {
+			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
+		}
+
+		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
+	}
+
+	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-155): encryptedSecrets should be encrypted by the right public key
+	return nil
+}
+
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := s.validateRequest(request.RequestId, request.EncryptedSecrets, nil)
+	err := ValidateCreateSecretsRequest(request)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
@@ -137,9 +178,13 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
+func ValidateUpdateSecretsRequest(request *vaultcommon.UpdateSecretsRequest) error {
+	return validateWriteRequest(request.RequestId, request.EncryptedSecrets)
+}
+
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := s.validateRequest(request.RequestId, request.EncryptedSecrets, nil)
+	err := ValidateUpdateSecretsRequest(request)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
@@ -163,9 +208,33 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
+func ValidateDeleteSecretsRequest(request *vaultcommon.DeleteSecretsRequest) error {
+	if request.RequestId == "" {
+		return errors.New("request ID must not be empty")
+	}
+	if len(request.Ids) >= vaulttypes.MaxBatchSize {
+		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
+	}
+
+	uniqueIDs := map[string]bool{}
+	for idx, id := range request.Ids {
+		if id.Key == "" || id.Owner == "" {
+			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
+		}
+
+		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
+		if ok {
+			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + id.String())
+		}
+
+		uniqueIDs[vaulttypes.KeyFor(id)] = true
+	}
+	return nil
+}
+
 func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := s.validateRequest(request.RequestId, nil, request.Ids)
+	err := ValidateDeleteSecretsRequest(request)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
@@ -190,28 +259,48 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
+func ValidateGetSecretsRequest(request *vaultcommon.GetSecretsRequest) error {
 	if len(request.Requests) == 0 {
-		return nil, errors.New("no GetSecret request specified in request")
+		return errors.New("no GetSecret request specified in request")
 	}
 	if len(request.Requests) >= vaulttypes.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize)
+		return fmt.Errorf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize)
+	}
+
+	for idx, req := range request.Requests {
+		if req.Id.Key == "" || req.Id.Owner == "" {
+			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
+		}
+	}
+
+	return nil
+}
+
+func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
+	s.lggr.Infof("Received Request: %s", request.String())
+	if err := ValidateGetSecretsRequest(request); err != nil {
+		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		return nil, err
 	}
 
 	// No auth needed, as this method is not exposed externally
 	return s.handleRequest(ctx, requestID, request)
 }
 
-func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
-	err := s.validateRequest(request.RequestId, nil, nil)
-	if err != nil {
-		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
-		return nil, err
+func ValidateListSecretIdentifiersRequest(request *vaultcommon.ListSecretIdentifiersRequest) error {
+	if request.RequestId == "" {
+		return errors.New("request ID must not be empty")
 	}
 	if request.Owner == "" {
-		err = errors.New("owner must not be empty")
+		return errors.New("owner must not be empty")
+	}
+	return nil
+}
+
+func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
+	s.lggr.Infof("Received Request: %s", request.String())
+	err := ValidateListSecretIdentifiersRequest(request)
+	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
@@ -270,46 +359,6 @@ func (s *Capability) isAuthorizedRequest(ctx context.Context, request any, metho
 		Params:  &params,
 	}
 	return s.requestAuthorizer.AuthorizeRequest(ctx, jsonRequest)
-}
-
-func (s *Capability) validateRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSecret, ids []*vaultcommon.SecretIdentifier) error {
-	if id == "" {
-		return errors.New("request ID must not be empty")
-	}
-	if len(encryptedSecrets) >= vaulttypes.MaxBatchSize || len(ids) >= vaulttypes.MaxBatchSize {
-		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
-	}
-	uniqueIDs := map[string]bool{}
-	for idx, req := range encryptedSecrets {
-		if req.Id == nil {
-			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
-		}
-
-		if req.Id.Key == "" || req.Id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
-		}
-
-		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
-		if ok {
-			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
-		}
-
-		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
-	}
-	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-155): encryptedSecrets should be encrypted by the right public key
-	for idx, id := range ids {
-		if id.Key == "" || id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
-		}
-
-		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
-		if ok {
-			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + id.String())
-		}
-
-		uniqueIDs[vaulttypes.KeyFor(id)] = true
-	}
-	return nil
 }
 
 func NewCapability(

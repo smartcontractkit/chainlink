@@ -406,7 +406,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, invalidParamsRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, "invalid params error: must have at least 1 request", secretsResponse.Error.Message, "Error message should match")
+			assert.Equal(t, "invalid params error: failed to validate create secrets request: request batch must contain at least 1 item", secretsResponse.Error.Message, "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
@@ -449,7 +449,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, jsonRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, "invalid params error: secret id key, owner and EncryptedValue cannot be empty on index 0", secretsResponse.Error.Message, "Error message should match")
+			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request: secret ID must have both key and owner", "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 

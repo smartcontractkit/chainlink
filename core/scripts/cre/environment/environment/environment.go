@@ -286,14 +286,11 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
-			contractVersionOverrides := make(map[string]string, 0)
-			if withContractsVersion == "v2" {
-				contractVersionOverrides[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
-				contractVersionOverrides[keystone_changeset.WorkflowRegistry.String()] = "2.0.0"
-			}
+			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
 				flags.NewDefaultCapabilityFlagsProvider(),
-				cre.NewContractVersionsProvider(contractVersionOverrides),
+				cre.NewContractVersionsProvider(envconfig.GetDefaultContractSet(withV2Registries)),
+				cre.NewCLIFlagsProvider(withV2Registries),
 			)
 
 			if err := in.Validate(envDependencies); err != nil {
@@ -390,7 +387,20 @@ func startCmd() *cobra.Command {
 					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 					output.BlockchainOutput[0].ChainSelector,
 					keystone_changeset.WorkflowRegistry.String())
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
+
+				var workflowDonID uint32
+				for idx, don := range output.DonTopology.DonsWithMetadata {
+					if flags.HasFlag(don.Flags, cre.WorkflowDON) {
+						workflowDonID = libc.MustSafeUint32(idx + 1)
+						break
+					}
+				}
+
+				if workflowDonID == 0 {
+					return errors.New("no workflow DON found")
+				}
+
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}

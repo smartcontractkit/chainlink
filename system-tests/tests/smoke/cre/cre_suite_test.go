@@ -41,5 +41,19 @@ func Test_CRE_Suite(t *testing.T) {
 		t.Run("[v2] Beholder test", func(t *testing.T) {
 			ExecuteBeholderTest(t, testEnv)
 		})
+
+		t.Run("[v2] Consensus test", func(t *testing.T) {
+			executeConsensusTest(t, testEnv)
+		})
+	})
+}
+
+func Test_withV2Registries(t *testing.T) {
+	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
+		const skipReason = "Integrate v2 registry contracts in local CRE/test setup - https://smartcontract-it.atlassian.net/browse/CRE-635"
+		t.Skipf("Skipping test for the following reason: %s", skipReason)
+		flags := []string{"--with-contracts-version", "v2"}
+		testEnv := SetupTestEnvironment(t, flags...)
+		ExecutePoRTest(t, testEnv)
 	})
 }

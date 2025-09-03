@@ -41,11 +41,11 @@ type TestEnvironment struct {
 }
 
 // setupTestEnvironment initializes the common test environment
-func SetupTestEnvironment(t *testing.T) *TestEnvironment {
+func SetupTestEnvironment(t *testing.T, flags ...string) *TestEnvironment {
 	t.Helper()
 
 	defaultTestConfig := getDefaultTestConfig(t)
-	createEnvironment(t, defaultTestConfig)
+	createEnvironment(t, defaultTestConfig, flags...)
 	in := getEnvironmentConfig(t)
 	envArtifact := getEnvironmentArtifact(t)
 	fullCldEnvOutput, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
@@ -92,13 +92,13 @@ func getEnvironmentArtifact(t *testing.T) environment.EnvArtifact {
 	return envArtifact
 }
 
-func createEnvironment(t *testing.T, testConfig *TestConfig) {
+func createEnvironment(t *testing.T, testConfig *TestConfig, flags ...string) {
 	t.Helper()
 
 	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath, testConfig.EnvironmentArtifactPath)
 	require.NoError(t, confErr, "failed to set configuration")
 
-	createErr := createEnvironmentIfNotExists(testConfig.EnvironmentDirPath)
+	createErr := createEnvironmentIfNotExists(testConfig.EnvironmentDirPath, flags...)
 	require.NoError(t, createErr, "failed to create environment")
 
 	// transform the config file to the cache file, so that we can use the cached environment
@@ -127,7 +127,7 @@ func setConfigurationIfMissing(configName, envArtifactPath string) error {
 	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
 }
 
-func createEnvironmentIfNotExists(environmentDir string) error {
+func createEnvironmentIfNotExists(environmentDir string, flags ...string) error {
 	cachedConfigFile, cacheErr := ctfConfigToCacheFile()
 	if cacheErr != nil {
 		return errors.Wrap(cacheErr, "failed to get cached config file")
@@ -135,7 +135,11 @@ func createEnvironmentIfNotExists(environmentDir string) error {
 
 	if _, err := os.Stat(cachedConfigFile); os.IsNotExist(err) {
 		framework.L.Info().Str("cached_config_file", cachedConfigFile).Msg("Cached config file does not exist, starting environment...")
-		cmd := exec.Command("go", "run", ".", "env", "start")
+
+		args := []string{"run", ".", "env", "start"}
+		args = append(args, flags...)
+
+		cmd := exec.Command("go", args...)
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
