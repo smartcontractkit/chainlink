@@ -1,21 +1,32 @@
 package config
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"maps"
+	"math/big"
 	"slices"
-	"text/template"
+	"strings"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/libocr/commontypes"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -23,259 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-type bootstrapConfigTemplateData struct {
-	OCRPeeringData              cre.OCRPeeringData
-	CapabilitiesPeeringData     cre.CapabilitiesPeeringData
-	RegistryChainID             uint64
-	CapabilitiesRegistryAddress string
-	EVMChains                   []*evmChain
-}
-
-const bootstrapConfigTemplate = `
-[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-DatabaseTimeout = '1s'
-ContractPollInterval = '1s'
-
-[P2P.V2]
-Enabled = true
-ListenAddresses = ['0.0.0.0:{{.OCRPeeringData.Port}}']
-# bootstrap node in the DON always points to itself as the OCR peering bootstrapper
-DefaultBootstrappers = ['{{.OCRPeeringData.OCRBootstraperPeerID}}@localhost:{{.OCRPeeringData.Port}}']
-
-# support multiple chains, even though bootstrap node only needs to be connected to the registry chain
-{{range .EVMChains}}
-[[EVM]]
-ChainID = '{{.ChainID}}'
-AutoCreateKey = false
-
-[[EVM.Nodes]]
-Name = '{{.Name}}'
-WSURL = '{{.WSRPC}}'
-HTTPURL = '{{.HTTPRPC}}'
-{{end}}
-
-# we assume that this bootstrap node is also the capabilities peering bootstrapper
-[Capabilities.Peering.V2]
-Enabled = true
-ListenAddresses = ['0.0.0.0:{{.CapabilitiesPeeringData.Port}}']
-DefaultBootstrappers = ['{{.CapabilitiesPeeringData.GlobalBootstraperPeerID}}@localhost:{{.CapabilitiesPeeringData.Port}}']
-
-# Capabilities registry address, required for do2don p2p mesh to work and for capabilities discovery
-# Required even, when all capabilities are local to DON in a single DON scenario
-[Capabilities.ExternalRegistry]
-Address = '{{.CapabilitiesRegistryAddress}}'
-NetworkID = 'evm'
-ChainID = '{{.RegistryChainID}}'
-`
-
-// GatewayData represents a single gateway configuration
-type gatewayData struct {
-	ID  string
-	URL string
-}
-
-type workerConfigTemplateData struct {
-	OCRPeeringData          cre.OCRPeeringData
-	CapabilitiesPeeringData cre.CapabilitiesPeeringData
-	RegistryChainID         uint64
-
-	NodeETHAddress              string
-	CapabilitiesRegistryAddress string
-	WorkflowRegistryAddress     string
-
-	EVMChains   []*evmChain
-	SolanaChain *solanaChain
-
-	DonID    string
-	Gateways []gatewayData
-
-	// Template control flags
-	IncludeSolanaChain      bool
-	IncludeWorkflowRegistry bool // required by workers in the workflow DON only
-	IncludeGatewayConnector bool // required by workers in the workflow DON and if DON has certain capabilities
-}
-
-const workerConfigTemplate = `
-[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-DatabaseTimeout = '1s'
-ContractPollInterval = '1s'
-
-[P2P.V2]
-Enabled = true
-ListenAddresses = ['0.0.0.0:{{.OCRPeeringData.Port}}']
-DefaultBootstrappers = ['{{.OCRPeeringData.OCRBootstraperPeerID}}@{{.OCRPeeringData.OCRBootstraperHost}}:{{.OCRPeeringData.Port}}']
-
-[Capabilities.Peering.V2]
-Enabled = true
-ListenAddresses = ['0.0.0.0:{{.CapabilitiesPeeringData.Port}}']
-DefaultBootstrappers = ['{{.CapabilitiesPeeringData.GlobalBootstraperPeerID}}@{{.CapabilitiesPeeringData.GlobalBootstraperHost}}:{{.CapabilitiesPeeringData.Port}}']
-
-{{range .EVMChains}}
-[[EVM]]
-ChainID = '{{.ChainID}}'
-AutoCreateKey = false
-# reduce workflow registry sync time to minimum to speed up tests & local environment
-FinalityDepth = 1
-LogPollInterval = '5s'
-
-[[EVM.Nodes]]
-Name = '{{.Name}}'
-WSURL = '{{.WSRPC}}'
-HTTPURL = '{{.HTTPRPC}}'
-{{end}}
-
-{{if .IncludeSolanaChain}}
-[[Solana]]
-ChainID = '{{.SolanaChain.ChainID}}'
-Enabled = true
-
-[[Solana.Nodes]]
-Name = '{{.SolanaChain.Name}}'
-URL = '{{.SolanaChain.NodeURL}}'
-{{end}}
-
-# Capabilities registry address, required for do2don p2p mesh to work and for capabilities discovery
-# Required even, when all capabilities are local to DON in a single DON scenario
-[Capabilities.ExternalRegistry]
-Address = '{{.CapabilitiesRegistryAddress}}'
-NetworkID = 'evm'
-ChainID = '{{.RegistryChainID}}'
-
-{{if .IncludeWorkflowRegistry}}
-[Capabilities.WorkflowRegistry]
-Address = "{{.WorkflowRegistryAddress}}"
-NetworkID = "evm"
-ChainID = "{{.RegistryChainID}}"
-# there are two strategies for syncing workflow registry:
-# - reconciliation: poll the contract for events
-# - event: watch events on the contract
-# SyncStrategy = "reconciliation"
-{{end}}
-
-{{ if.IncludeGatewayConnector}}
-[Capabilities.GatewayConnector]
-DonID = "{{.DonID}}"
-ChainIDForNodeKey = "{{.RegistryChainID}}"
-NodeAddress = "{{.NodeETHAddress}}"
-{{range .Gateways}}
-[[Capabilities.GatewayConnector.Gateways]]
-Id = "{{.ID}}"
-URL = "{{.URL}}"
-{{end}}
-{{end}}
-`
-
-func generateBootstrapNodeConfig(
-	ocrPeeringData cre.OCRPeeringData,
-	capabilitiesPeeringData cre.CapabilitiesPeeringData,
-	commonInputs *commonInputs,
-) (string, error) {
-	tmpl, err := template.New("bootstrapConfigTemplate").Parse(bootstrapConfigTemplate)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse bootstrap node config template: %v", err)
-	}
-
-	data := bootstrapConfigTemplateData{
-		OCRPeeringData:              ocrPeeringData,
-		CapabilitiesPeeringData:     capabilitiesPeeringData,
-		RegistryChainID:             commonInputs.registryChainID,
-		CapabilitiesRegistryAddress: commonInputs.capabilitiesRegistryAddress.Hex(),
-		EVMChains:                   commonInputs.evmChains,
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		panic(fmt.Sprintf("failed to execute bootstrap EVM template: %v", err))
-	}
-
-	rendered := buf.String()
-	if err := don.ValidateTemplateSubstitution(rendered, "bootstrapConfigTemplate"); err != nil {
-		return "", fmt.Errorf("failed to validate template substitution")
-	}
-
-	return rendered, nil
-}
-
-func generateWorkerNodeConfig(
-	ocrPeeringData cre.OCRPeeringData,
-	capabilitiesPeeringData cre.CapabilitiesPeeringData,
-	commonInputs *commonInputs,
-	gatewayConfigurations []*cre.GatewayConfiguration,
-	donName string,
-	donFlags []string,
-	nodeLabels []*cre.Label,
-) (string, error) {
-	tmpl, err := template.New("workerNodeConfig").Parse(workerConfigTemplate)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse worker config template: %w", err)
-	}
-
-	//find node's ETH address on the registry chain
-	var nodeEthAddr string
-	expectedAddressKey := node.AddressKeyFromSelector(commonInputs.registryChainSelector)
-	for _, label := range nodeLabels {
-		if label.Key == expectedAddressKey {
-			nodeEthAddr = label.Value
-			break
-		}
-	}
-
-	if nodeEthAddr == "" {
-		return "", errors.Errorf("no ETH address found for node for chain %d", commonInputs.registryChainID)
-	}
-
-	// convert Gateway configurations to structure expected by the template
-	gateways := make([]gatewayData, len(gatewayConfigurations))
-	for i, gatewayConnectorData := range gatewayConfigurations {
-		gatewayURL := fmt.Sprintf("ws://%s:%d%s",
-			gatewayConnectorData.Outgoing.Host,
-			gatewayConnectorData.Outgoing.Port,
-			gatewayConnectorData.Outgoing.Path)
-
-		gateways[i] = gatewayData{
-			ID:  gatewayConnectorData.AuthGatewayID,
-			URL: gatewayURL,
-		}
-	}
-
-	data := workerConfigTemplateData{
-		OCRPeeringData:              ocrPeeringData,
-		CapabilitiesPeeringData:     capabilitiesPeeringData,
-		CapabilitiesRegistryAddress: commonInputs.capabilitiesRegistryAddress.Hex(),
-		WorkflowRegistryAddress:     commonInputs.workflowRegistryAddress.Hex(),
-		NodeETHAddress:              nodeEthAddr,
-		DonID:                       donName,
-		RegistryChainID:             commonInputs.registryChainID,
-		EVMChains:                   commonInputs.evmChains,
-		SolanaChain:                 commonInputs.solanaChain,
-		Gateways:                    gateways,
-		IncludeSolanaChain:          commonInputs.solanaChain != nil,
-		IncludeWorkflowRegistry:     flags.HasFlag(donFlags, cre.WorkflowDON), // include Workflow Registry configuration only for worker nodes in the Workflow DON
-		IncludeGatewayConnector:     flags.HasFlag(donFlags, cre.WorkflowDON) || don.NodeNeedsAnyGateway(donFlags),
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute worker config template: %w", err)
-	}
-
-	rendered := buf.String()
-	if err := don.ValidateTemplateSubstitution(rendered, "workerConfigTemplate"); err != nil {
-		return "", fmt.Errorf("failed to validate template substitution")
-	}
-
-	return rendered, nil
-}
-
-func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
+func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
 
 	if err := input.Validate(); err != nil {
@@ -288,38 +47,71 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigTran
 	}
 
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
+		var roles []string
 		nodeType, typeErr := node.FindLabelValue(nodeMetadata, node.NodeTypeKey)
 		if typeErr != nil {
 			return nil, errors.Wrap(typeErr, "failed to find node type")
 		}
 
-		var nodeConfig string
-		var configErr error
-		switch nodeType {
-		case cre.BootstrapNode:
-			nodeConfig, configErr = generateBootstrapNodeConfig(input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs)
-		case cre.WorkerNode:
-			nodeConfig, configErr = generateWorkerNodeConfig(input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs, input.GatewayConnectorOutput.Configurations, input.DonMetadata.Name, input.DonMetadata.Flags, nodeMetadata.Labels)
-		default:
-			return nil, fmt.Errorf("unsupported node type found for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
+		roles = append(roles, nodeType)
+
+		if slices.Contains(roles, cre.BootstrapNode) && slices.Contains(roles, cre.WorkerNode) {
+			return nil, fmt.Errorf("node at index %d in DON %s cannot be both a bootstrap node and a worker node", nodeIdx, input.DonMetadata.Name)
 		}
 
-		if configErr != nil {
-			return nil, errors.Wrapf(configErr, "failed to generate node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
+		if node.HasLabel(nodeMetadata, node.ExtraRolesKey) {
+			extraRoles, extraErr := node.FindLabelValue(nodeMetadata, node.ExtraRolesKey)
+			if extraErr != nil {
+				return nil, errors.Wrap(extraErr, "failed to check for extra roles")
+			}
+
+			roles = append(roles, strings.Split(extraRoles, ",")...)
 		}
 
-		configOverrides[nodeIdx] = nodeConfig
+		nodeConfig := defaultNodeConfigGenerator()
+		for _, role := range roles {
+			switch role {
+			case cre.BootstrapNode:
+				var cErr error
+				nodeConfig, cErr = addBootstrapNodeConfig(nodeConfig, input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs)
+				if cErr != nil {
+					return nil, errors.Wrapf(cErr, "failed to add bootstrap node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
+				}
+			case cre.WorkerNode:
+				var cErr error
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs, input.GatewayConnectorOutput.Configurations, input.DonMetadata.Name, input.DonMetadata.Flags, nodeMetadata.Labels)
+				if cErr != nil {
+					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
+				}
+			case cre.GatewayNode:
+				var cErr error
+				nodeConfig, cErr = addGatewayNodeConfig(nodeConfig, commonInputs)
+				if cErr != nil {
+					return nil, errors.Wrapf(cErr, "failed to add gateway node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
+				}
+			default:
+				supportedRoles := []string{cre.BootstrapNode, cre.WorkerNode, cre.GatewayNode}
+				return nil, fmt.Errorf("unsupported node type %s found for node at index %d in DON %s. Supported roles: %s", nodeType, nodeIdx, input.DonMetadata.Name, strings.Join(supportedRoles, ", "))
+			}
+		}
+
+		marshalledConfig, mErr := toml.Marshal(nodeConfig)
+		if mErr != nil {
+			return nil, errors.Wrapf(mErr, "failed to marshal node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
+		}
+
+		configOverrides[nodeIdx] = string(marshalledConfig)
 	}
 
 	// execute capability-provided functions that transform the node config (currently: write-evm, write-solana)
 	// these functions must return whole node configs after transforming them, instead of just returning configuration parts
 	// that need to be merged into the existing config
-	for _, configFn := range nodeConfigFns {
-		if configFn == nil {
+	for _, transformer := range nodeConfigTransformers {
+		if transformer == nil {
 			continue
 		}
 
-		modifiedConfigs, err := configFn(input, configOverrides)
+		modifiedConfigs, err := transformer(input, configOverrides)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate nodeset configs")
 		}
@@ -328,6 +120,245 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigTran
 	}
 
 	return configOverrides, nil
+}
+
+func defaultNodeConfigGenerator() corechainlink.Config {
+	return corechainlink.Config{
+		Core: coretoml.Core{
+			Feature: coretoml.Feature{
+				LogPoller: ptr.Ptr(true),
+			},
+			Log: coretoml.Log{
+				JSONConsole: ptr.Ptr(true),
+				Level:       ptr.Ptr(coretoml.LogLevel(zapcore.DebugLevel)),
+			},
+			OCR2: coretoml.OCR2{
+				Enabled:              ptr.Ptr(true),
+				DatabaseTimeout:      commonconfig.MustNewDuration(1 * time.Second),
+				ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
+			},
+		},
+	}
+}
+
+func addBootstrapNodeConfig(
+	existingConfig corechainlink.Config,
+	ocrPeeringData cre.OCRPeeringData,
+	capabilitiesPeeringData cre.CapabilitiesPeeringData,
+	commonInputs *commonInputs,
+) (corechainlink.Config, error) {
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + fmt.Sprint(ocrPeeringData.Port)})
+	if ocrBErr != nil {
+		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
+	existingConfig.P2P = coretoml.P2P{
+		V2: coretoml.P2PV2{
+			Enabled:              ptr.Ptr(true),
+			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + fmt.Sprint(ocrPeeringData.Port)}),
+			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
+		},
+	}
+
+	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{"localhost:" + fmt.Sprint(capabilitiesPeeringData.Port)})
+	if capabilitiesBErr != nil {
+		return existingConfig, errors.Wrap(capabilitiesBErr, "failed to create capabilities peering bootstrapper locator")
+	}
+
+	existingConfig.Capabilities = coretoml.Capabilities{
+		Peering: coretoml.P2P{
+			V2: coretoml.P2PV2{
+				Enabled:              ptr.Ptr(true),
+				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + fmt.Sprint(capabilitiesPeeringData.Port)}),
+				DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*capabilitiesBootstrapperLocator}),
+			},
+		},
+	}
+
+	for _, evmChain := range commonInputs.evmChains {
+		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
+			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+			Chain: evmconfigtoml.Chain{
+				AutoCreateKey: ptr.Ptr(false),
+			},
+			Nodes: []*evmconfigtoml.Node{
+				{
+					Name:    ptr.Ptr(evmChain.Name),
+					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
+					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
+				},
+			},
+		})
+	}
+
+	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+		Address:   ptr.Ptr(commonInputs.capabilitiesRegistryAddress.Hex()),
+		NetworkID: ptr.Ptr("evm"),
+		ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+	}
+
+	return existingConfig, nil
+}
+
+func addWorkerNodeConfig(
+	existingConfig corechainlink.Config,
+	ocrPeeringData cre.OCRPeeringData,
+	capabilitiesPeeringData cre.CapabilitiesPeeringData,
+	commonInputs *commonInputs,
+	gatewayConfigurations []*cre.GatewayConfiguration,
+	donName string,
+	donFlags []string,
+	nodeLabels []*cre.Label,
+) (corechainlink.Config, error) {
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + fmt.Sprint(ocrPeeringData.Port)})
+	if ocrBErr != nil {
+		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
+	}
+
+	existingConfig.P2P = coretoml.P2P{
+		V2: coretoml.P2PV2{
+			Enabled:              ptr.Ptr(true),
+			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + fmt.Sprint(ocrPeeringData.Port)}),
+			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
+		},
+	}
+
+	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{capabilitiesPeeringData.GlobalBootstraperHost + ":" + fmt.Sprint(capabilitiesPeeringData.Port)})
+	if capabilitiesBErr != nil {
+		return existingConfig, errors.Wrap(capabilitiesBErr, "failed to create capabilities peering bootstrapper locator")
+	}
+
+	existingConfig.Capabilities = coretoml.Capabilities{
+		Peering: coretoml.P2P{
+			V2: coretoml.P2PV2{
+				Enabled:              ptr.Ptr(true),
+				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + fmt.Sprint(capabilitiesPeeringData.Port)}),
+				DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*capabilitiesBootstrapperLocator}),
+			},
+		},
+	}
+
+	for _, evmChain := range commonInputs.evmChains {
+		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
+			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+			Chain: evmconfigtoml.Chain{
+				AutoCreateKey: ptr.Ptr(false),
+			},
+			Nodes: []*evmconfigtoml.Node{
+				{
+					Name:    ptr.Ptr(evmChain.Name),
+					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
+					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
+				},
+			},
+		})
+	}
+
+	if commonInputs.solanaChain != nil {
+		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
+			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
+			Enabled: ptr.Ptr(true),
+			Nodes: solcfg.Nodes{
+				{
+					Name: ptr.Ptr(commonInputs.solanaChain.Name),
+					URL:  commonconfig.MustParseURL(commonInputs.solanaChain.NodeURL),
+				},
+			},
+		})
+	}
+
+	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+		Address:   ptr.Ptr(commonInputs.capabilitiesRegistryAddress.Hex()),
+		NetworkID: ptr.Ptr("evm"),
+		ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+	}
+
+	if flags.HasFlag(donFlags, cre.WorkflowDON) {
+		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
+			Address:   ptr.Ptr(commonInputs.workflowRegistryAddress.Hex()),
+			NetworkID: ptr.Ptr("evm"),
+			ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+		}
+	}
+
+	if flags.HasFlag(donFlags, cre.WorkflowDON) || don.NodeNeedsAnyGateway(donFlags) {
+		//find node's ETH address on the registry chain
+		var nodeEthAddr string
+		expectedAddressKey := node.AddressKeyFromSelector(commonInputs.registryChainSelector)
+		for _, label := range nodeLabels {
+			if label.Key == expectedAddressKey {
+				nodeEthAddr = label.Value
+				break
+			}
+		}
+
+		if nodeEthAddr == "" {
+			return existingConfig, errors.Errorf("no ETH address found for node for chain %d", commonInputs.registryChainID)
+		}
+
+		gateways := []coretoml.ConnectorGateway{}
+		for _, gateway := range gatewayConfigurations {
+			gateways = append(gateways, coretoml.ConnectorGateway{
+				ID: ptr.Ptr(gateway.AuthGatewayID),
+				URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
+					gateway.Outgoing.Host,
+					gateway.Outgoing.Port,
+					gateway.Outgoing.Path)),
+			})
+		}
+
+		existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
+			DonID:             ptr.Ptr(donName),
+			ChainIDForNodeKey: ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+			NodeAddress:       ptr.Ptr(nodeEthAddr),
+			Gateways:          gateways,
+		}
+	}
+
+	return existingConfig, nil
+}
+
+func addGatewayNodeConfig(
+	existingConfig corechainlink.Config,
+	commonInputs *commonInputs,
+) (corechainlink.Config, error) {
+OUTER:
+	for _, evmChain := range commonInputs.evmChains {
+		// add only unconfigured chains, since other roles might have already added some chains
+		for _, existingEVM := range existingConfig.EVM {
+			if existingEVM.ChainID.Cmp(chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID)))) == 0 {
+				continue OUTER
+			}
+		}
+
+		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
+			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+			Chain: evmconfigtoml.Chain{
+				AutoCreateKey: ptr.Ptr(false),
+			},
+			Nodes: []*evmconfigtoml.Node{
+				{
+					Name:    ptr.Ptr(evmChain.Name),
+					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
+					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
+				},
+			},
+		})
+	}
+
+	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
+		Address:   ptr.Ptr(commonInputs.capabilitiesRegistryAddress.Hex()),
+		NetworkID: ptr.Ptr("evm"),
+		ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+	}
+
+	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
+		Address:   ptr.Ptr(commonInputs.workflowRegistryAddress.Hex()),
+		NetworkID: ptr.Ptr("evm"),
+		ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+	}
+
+	return existingConfig, nil
 }
 
 type commonInputs struct {
