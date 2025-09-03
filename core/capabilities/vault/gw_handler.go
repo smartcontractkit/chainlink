@@ -133,13 +133,6 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 
 	vaultCapRequest.RequestId = req.ID
 
-	encryptionKeys, err := h.getEncryptionKeys(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
-	}
-	for _, reqItem := range vaultCapRequest.EncryptedSecrets {
-		reqItem.EncryptionKeys = encryptionKeys
-	}
 	vaultCapResponse, err := h.secretsService.CreateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
