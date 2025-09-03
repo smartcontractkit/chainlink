@@ -4,19 +4,13 @@ import (
 	"context"
 	"fmt"
 	"maps"
-<<<<<<< HEAD
 	"math/big"
-=======
->>>>>>> develop
 	"slices"
 	"strings"
 	"time"
 
-<<<<<<< HEAD
-	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
-=======
->>>>>>> develop
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
@@ -28,19 +22,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-<<<<<<< HEAD
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-=======
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
->>>>>>> develop
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -48,13 +37,6 @@ import (
 func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
 
-<<<<<<< HEAD
-=======
-	return &cre.WrappedNodeOutput{Output: nodeset, NodeSetName: nodeInput.Name, Capabilities: nodeInput.ComputedCapabilities}, nil
-}
-
-func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
->>>>>>> develop
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
@@ -489,59 +471,4 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	}
 
 	return solChain, nil
-}
-
-func findEVMChains(input cre.GenerateConfigsInput) []*EVMChain {
-	evmChains := make([]*EVMChain, 0)
-	for chainSelector, bcOut := range input.BlockchainOutput {
-		if bcOut.SolChain != nil {
-			continue
-		}
-
-		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-		// TODO: review if we really need this SupportedChains functionality
-		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, bcOut.ChainID) {
-			continue
-		}
-
-		evmChains = append(evmChains, &EVMChain{
-			Name:    fmt.Sprintf("node-%d", chainSelector),
-			ChainID: bcOut.ChainID,
-			HTTPRPC: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			WSRPC:   bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-		})
-	}
-	return evmChains
-}
-
-func findOneSolanaChain(input cre.GenerateConfigsInput) (*SolanaChain, error) {
-	var solanaChain *SolanaChain
-	chainsFound := 0
-
-	for _, bcOut := range input.BlockchainOutput {
-		if bcOut.SolChain == nil {
-			continue
-		}
-
-		chainsFound++
-		if chainsFound > 1 {
-			return nil, errors.New("multiple Solana chains found, expected only one")
-		}
-
-		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
-		chainID, err := bcOut.SolClient.GetGenesisHash(ctx)
-		if err != nil {
-			cancelFn()
-			return nil, errors.Wrap(err, "failed to get chainID for Solana")
-		}
-		cancelFn()
-
-		solanaChain = &SolanaChain{
-			Name:    fmt.Sprintf("node-%d", bcOut.SolChain.ChainSelector),
-			ChainID: chainID.String(),
-			NodeURL: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-		}
-	}
-
-	return solanaChain, nil
 }
