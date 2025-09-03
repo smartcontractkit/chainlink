@@ -188,7 +188,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 
 	// Create chain accessors
-	chainAccessors, err := i.createChainAccessors(ctx, extendedReaders, chainWriters, pluginServices)
+	chainAccessors, contractTransmitters, err := i.createChainAccessors(ctx, extendedReaders, chainWriters, pluginServices, offrampAddrStr, pluginType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain accessors: %w", err)
 	}
@@ -230,6 +230,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		destChainID,
 		pluginServices.PluginConfig,
 		offrampAddrStr,
+		contractTransmitters,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
@@ -297,6 +298,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	destChainID string,
 	pluginConfig ccipcommon.PluginConfig,
 	offrampAddrStr string,
+	existingContractTransmitterMap map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte],
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
@@ -342,7 +344,36 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			destChainID,
 			"CCIPCommit",
 		)
-		if destChainWriter == nil {
+
+		// there're three cases:
+		//	1. contract transmitter is provided by the CCIP provider
+		//  2. CCIP doesn't provides contract transmitter, we use CT factory with CW to create one
+		//  3. Contract transmitter not supported, use noop transmitter
+		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
+		if exist {
+			// case 1
+			i.lggr.Infow("contracts transmitter provided from CCIP provider",
+				"destChainID", destChainID,
+				"destChainSelector", config.Config.ChainSelector)
+			transmitter = ct
+		} else if destChainWriter != nil {
+			// case 2
+			if len(destFromAccounts) == 0 {
+				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
+			}
+			transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
+				i.lggr.
+					Named("CCIPCommitTransmitter").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
+				destChainWriter,
+				ocrtypes.Account(destFromAccounts[0]),
+				offrampAddrStr,
+				consts.MethodCommit,
+				pluginConfig.PriceOnlyCommitFn,
+			)
+		} else {
+			// case 3
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
@@ -358,21 +389,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
 				i.p2pID.PeerID().String(),
 				transmitAccount,
-			)
-		} else {
-			if len(destFromAccounts) == 0 {
-				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
-			}
-			transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
-				i.lggr.
-					Named("CCIPCommitTransmitter").
-					Named(destRelayID.String()).
-					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
-				destChainWriter,
-				ocrtypes.Account(destFromAccounts[0]),
-				offrampAddrStr,
-				consts.MethodCommit,
-				pluginConfig.PriceOnlyCommitFn,
 			)
 		}
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
@@ -403,7 +419,29 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			"CCIPExec",
 		)
 
-		if destChainWriter == nil {
+		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
+		if exist {
+			// case 1
+			i.lggr.Infow("contracts transmitter provided from CCIP provider",
+				"destChainID", destChainID,
+				"destChainSelector", config.Config.ChainSelector)
+			transmitter = ct
+		} else if destChainWriter != nil {
+			// case 2
+			if len(destFromAccounts) == 0 {
+				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
+			}
+			transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
+				i.lggr.
+					Named("CCIPExecTransmitter").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
+				destChainWriter,
+				ocrtypes.Account(destFromAccounts[0]),
+				offrampAddrStr,
+			)
+		} else {
+			// case 3
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
@@ -421,19 +459,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				i.p2pID.PeerID().String(),
 				transmitAccount,
 			)
-		} else {
-			if len(destFromAccounts) == 0 {
-				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
-			}
-			transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
-				i.lggr.
-					Named("CCIPExecTransmitter").
-					Named(destRelayID.String()).
-					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
-				destChainWriter,
-				ocrtypes.Account(destFromAccounts[0]),
-				offrampAddrStr,
-			)
 		}
 	} else {
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
@@ -446,17 +471,24 @@ func (i *pluginOracleCreator) createChainAccessors(
 	extendedReaders map[cciptypes.ChainSelector]contractreader.Extended,
 	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
 	pluginServices ccipcommon.PluginServices,
-) (map[cciptypes.ChainSelector]cciptypes.ChainAccessor, error) {
+	offrampAddrStr string,
+	pluginType cctypes.PluginType,
+) (map[cciptypes.ChainSelector]cciptypes.ChainAccessor, map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte], error) {
 	chainAccessors := make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
+	contractTransmitters := make(map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte])
 	for relayID, relayer := range i.relayers {
 		chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(relayID.ChainID, relayID.Network)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get chain selector from relay ID %s and family %s: %w", relayID.ChainID, relayID.Network, err)
+			return nil, nil, fmt.Errorf("failed to get chain selector from relay ID %s and family %s: %w", relayID.ChainID, relayID.Network, err)
 		}
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		// check if CCIP provider exist, otherwise create default chain accessor
 		var ca cciptypes.ChainAccessor
-		provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{}) // TODO: pass CR/CW config here
+		var ct ocr3types.ContractTransmitter[[]byte]
+		provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{
+			OffRampAddress: offrampAddrStr,
+			PluginType:     uint32(pluginType),
+		}) // TODO: pass CR/CW config here
 		if err != nil || provider == nil {
 			// use default chain accessor if cr and cw exist
 			if extendedReaders[chainSelector] != nil && chainWriters[chainSelector] != nil {
@@ -469,18 +501,20 @@ func (i *pluginOracleCreator) createChainAccessors(
 				)
 
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 			} else {
-				return nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
+				return nil, nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
 			}
 		} else {
 			ca = provider.ChainAccessor()
+			ct = provider.ContractTransmitter()
 		}
 
 		chainAccessors[chainSelector] = ca
+		contractTransmitters[chainSelector] = ct
 	}
-	return chainAccessors, nil
+	return chainAccessors, contractTransmitters, nil
 }
 
 func (i *pluginOracleCreator) getTransmitterFromPublicConfig(publicConfig ocr3confighelper.PublicConfig) (ocrtypes.Account, error) {
