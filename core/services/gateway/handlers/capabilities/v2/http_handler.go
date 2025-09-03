@@ -163,6 +163,15 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 		return fmt.Errorf("received response with empty request ID from node %s", nodeAddr)
 	}
 	h.lggr.Debugw("handling incoming node message", "requestID", resp.ID, "nodeAddr", nodeAddr)
+	nodeAllow, globalAllow := h.nodeRateLimiter.AllowVerbose(nodeAddr)
+	if !nodeAllow {
+		h.metrics.Common.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
+		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
+	}
+	if !globalAllow {
+		h.metrics.Common.IncrementGlobalThrottled(ctx, h.lggr)
+		return errors.New("global rate limit exceeded")
+	}
 	// Node messages follow the format "<methodName>/<workflowID>/<uuid>" or
 	// "<methodName>/<workflowID>/<workflowExecutionID>/<uuid>". Messages are routed
 	// based on the method in the ID.
@@ -267,15 +276,6 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	err := json.Unmarshal(*resp.Result, &req)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal HTTP request from node %s: %w", nodeAddr, err)
-	}
-	workflowOwnerAllow, globalAllow := h.nodeRateLimiter.AllowVerbose(nodeAddr)
-	if !workflowOwnerAllow {
-		h.metrics.Action.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
-		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
-	}
-	if !globalAllow {
-		h.metrics.Action.IncrementGlobalThrottled(ctx, h.lggr)
-		return errors.New("global rate limit exceeded")
 	}
 	workflowID := extractWorkflowIDFromRequestPath(requestID)
 	timeout := time.Duration(req.TimeoutMs) * time.Millisecond

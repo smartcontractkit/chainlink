@@ -73,6 +73,7 @@ func onTrigger(env *sdk.Environment[Config], runtime sdk.Runtime, trigger *http.
 				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
+				TimeoutMs: 5000,
 			}
 
 			resp, err := client.SendRequest(nodeRuntime, req).Await()
