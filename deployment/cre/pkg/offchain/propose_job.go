@@ -14,6 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
+// ProposeJobRequest contains parameters for proposing a job to nodes in JD.
+// Jobs are always proposed to nodes filtered at least by domain and environment.
+// Additional node labels can be provided to further filter nodes.
 type ProposeJobRequest struct {
 	Job         string // toml
 	Domain      string
