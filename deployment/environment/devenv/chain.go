@@ -21,23 +21,19 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"golang.org/x/sync/errgroup"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
-
 	aptosCrypto "github.com/aptos-labs/aptos-go-sdk/crypto"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_client "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-
+	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 const (
@@ -357,10 +353,7 @@ func (c *ChainConfig) SetAptosDeployerKey(keyString *string) error {
 		return errors.New("no Aptos private key provided")
 	}
 
-	keyStr := *keyString
-	if strings.HasPrefix(keyStr, "0x") {
-		keyStr = keyStr[2:]
-	}
+	keyStr := strings.TrimPrefix(*keyString, "0x")
 
 	deployerKey := &aptosCrypto.Ed25519PrivateKey{}
 	err := deployerKey.FromHex(keyStr)
