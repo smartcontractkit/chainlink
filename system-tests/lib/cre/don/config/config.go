@@ -141,6 +141,8 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigTran
 	}
 
 	// execute capability-provided functions that transform the node config (currently: write-evm, write-solana)
+	// these functions must return whole node configs after transforming them, instead of just returning configuration parts
+	// that need to be merged into the existing config
 	for _, configFn := range nodeConfigFns {
 		if configFn == nil {
 			continue
