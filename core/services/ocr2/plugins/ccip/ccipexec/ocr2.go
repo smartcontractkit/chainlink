@@ -111,6 +111,11 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 		return nil, ccip.ErrChainIsNotHealthy
 	}
 
+	offRampAddress, err := r.offRampReader.Address(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// Ensure that the source price registry is synchronized with the onRamp.
 	if err := r.ensurePriceRegistrySynchronization(ctx); err != nil {
 		return nil, fmt.Errorf("ensuring price registry synchronization: %w", err)
@@ -139,6 +144,8 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 	}
 	executableObservations = executableObservations[:capped]
 	r.metricsCollector.NumberOfMessagesProcessed(ccip.Observation, len(executableObservations))
+	r.metricsCollector.SequenceNumber(ccip.Observation, executableObservations[len(executableObservations)-1].SeqNr, string(offRampAddress))
+	r.metricsCollector.ExecLatestRoundId(string(offRampAddress), uint64(timestamp.Round))
 	lggr.Infow("Observation", "executableMessages", executableObservations)
 	// Note can be empty
 	return ccip.NewExecutionObservation(executableObservations).Marshal()
@@ -446,7 +453,7 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 
 // Assumes non-empty report. Messages to execute can span more than one report, but are assumed to be in order of increasing
 // sequence number.
-func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.Logger, observedMessages []ccip.ObservedMessage) ([]byte, error) {
+func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.Logger, observedMessages []ccip.ObservedMessage, timestamp types.ReportTimestamp) ([]byte, error) {
 	if err := validateSeqNumbers(ctx, r.commitStoreReader, observedMessages); err != nil {
 		return nil, err
 	}
@@ -457,6 +464,11 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 	lggr.Infow("Building execution report", "observations", observedMessages, "merkleRoot", hexutil.Encode(commitReport.MerkleRoot[:]), "report", commitReport)
 
 	sendReqsInRoot, _, tree, err := getProofData(ctx, r.onRampReader, commitReport.Interval)
+	if err != nil {
+		return nil, err
+	}
+
+	offRampAddress, err := r.offRampReader.Address(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +515,8 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 	}
 	if len(execReport.Messages) > 0 {
 		r.metricsCollector.NumberOfMessagesProcessed(ccip.Report, len(execReport.Messages))
-		r.metricsCollector.SequenceNumber(ccip.Report, execReport.Messages[len(execReport.Messages)-1].SequenceNumber)
+		r.metricsCollector.SequenceNumber(ccip.Report, execReport.Messages[len(execReport.Messages)-1].SequenceNumber, string(offRampAddress))
+		r.metricsCollector.ExecLatestRoundId(string(offRampAddress), uint64(timestamp.Round))
 	}
 	return encodedReport, nil
 }
@@ -545,7 +558,7 @@ func (r *ExecutionReportingPlugin) Report(ctx context.Context, timestamp types.R
 		return false, nil, nil
 	}
 
-	report, err := r.buildReport(ctx, lggr, observedMessages)
+	report, err := r.buildReport(ctx, lggr, observedMessages, timestamp)
 	if err != nil {
 		return false, nil, err
 	}
@@ -639,9 +652,6 @@ func (r *ExecutionReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Conte
 	// Else just assume in flight
 	if err = r.inflightReports.add(lggr, execReport.Messages); err != nil {
 		return false, err
-	}
-	if len(execReport.Messages) > 0 {
-		r.metricsCollector.SequenceNumber(ccip.ShouldAccept, execReport.Messages[len(execReport.Messages)-1].SequenceNumber)
 	}
 	lggr.Info("Accepting finalized report")
 	return true, nil

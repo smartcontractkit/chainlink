@@ -139,7 +139,10 @@ func NewCommitServices(
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.CommitPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.CommitPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ccip.CommitPluginLabel)
-	metricsCollector := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, sourceChainID, destChainID)
+	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, sourceChainID, destChainID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plugin metrics collector: %w", err)
+	}
 
 	chainHealthCheck := cache.NewObservedChainHealthCheck(
 		cache.NewChainHealthcheck(

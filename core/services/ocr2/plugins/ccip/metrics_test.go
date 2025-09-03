@@ -14,19 +14,19 @@ const (
 
 func Test_SequenceNumbers(t *testing.T) {
 	t.Parallel()
-	collector := NewPluginMetricsCollector("test", sourceChainId, destChainId)
+	collector, _ := NewPluginMetricsCollector("test", sourceChainId, destChainId)
 
-	collector.SequenceNumber(Report, 10)
-	assert.Equal(t, float64(10), testutil.ToFloat64(sequenceNumberCounter.WithLabelValues("test", "1337", "2337", "report")))
+	collector.SequenceNumber(Report, 10, "0xabc")
+	assert.Equal(t, float64(10), testutil.ToFloat64(maxSequenceNumber.WithLabelValues("test", "1337", "2337", "report", "0xabc")))
 
-	collector.SequenceNumber(Report, 0)
-	assert.Equal(t, float64(10), testutil.ToFloat64(sequenceNumberCounter.WithLabelValues("test", "1337", "2337", "report")))
+	collector.SequenceNumber(Report, 0, "0xabc")
+	assert.Equal(t, float64(10), testutil.ToFloat64(maxSequenceNumber.WithLabelValues("test", "1337", "2337", "report", "0xabc")))
 }
 
 func Test_NumberOfMessages(t *testing.T) {
 	t.Parallel()
-	collector := NewPluginMetricsCollector("test", sourceChainId, destChainId)
-	collector2 := NewPluginMetricsCollector("test2", destChainId, sourceChainId)
+	collector, _ := NewPluginMetricsCollector("test", sourceChainId, destChainId)
+	collector2, _ := NewPluginMetricsCollector("test2", destChainId, sourceChainId)
 
 	collector.NumberOfMessagesBasedOnInterval(Observation, 1, 10)
 	assert.Equal(t, float64(10), testutil.ToFloat64(messagesProcessed.WithLabelValues("test", "1337", "2337", "observation")))
@@ -40,7 +40,7 @@ func Test_NumberOfMessages(t *testing.T) {
 
 func Test_UnexpiredCommitRoots(t *testing.T) {
 	t.Parallel()
-	collector := NewPluginMetricsCollector("test", sourceChainId, destChainId)
+	collector, _ := NewPluginMetricsCollector("test", sourceChainId, destChainId)
 
 	collector.UnexpiredCommitRoots(10)
 	assert.Equal(t, float64(10), testutil.ToFloat64(unexpiredCommitRoots.WithLabelValues("test", "1337", "2337")))

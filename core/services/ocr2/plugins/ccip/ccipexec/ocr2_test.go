@@ -477,7 +477,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 		ctx, observations[0].SeqNr, observations[len(observations)-1].SeqNr, false).Return(sendReqs, nil)
 	p.onRampReader = sourceReader
 
-	execReport, err := p.buildReport(ctx, p.lggr, observations)
+	execReport, err := p.buildReport(ctx, p.lggr, observations, ocrtypes.ReportTimestamp{})
 	assert.NoError(t, err)
 	assert.LessOrEqual(t, len(execReport), MaxExecutionReportLength, "built execution report length")
 }

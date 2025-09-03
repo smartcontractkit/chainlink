@@ -142,7 +142,10 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, srcChainID, ccip.ExecPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, dstChainID, ccip.ExecPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, dstChainID, ccip.ExecPluginLabel)
-	metricsCollector := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, srcChainID, dstChainID)
+	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, srcChainID, dstChainID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plugin metrics collector: %w", err)
+	}
 
 	tokenPoolBatchedReader, err := dstProvider.NewTokenPoolBatchedReader(ctx, offRampAddress, srcChainSelector)
 	if err != nil {
