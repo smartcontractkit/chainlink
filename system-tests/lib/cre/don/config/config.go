@@ -6,6 +6,7 @@ import (
 	"maps"
 	"math/big"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,12 +16,13 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/commontypes"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/smartcontractkit/libocr/commontypes"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -147,7 +149,7 @@ func addBootstrapNodeConfig(
 	capabilitiesPeeringData cre.CapabilitiesPeeringData,
 	commonInputs *commonInputs,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + fmt.Sprint(ocrPeeringData.Port)})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -155,12 +157,12 @@ func addBootstrapNodeConfig(
 	existingConfig.P2P = coretoml.P2P{
 		V2: coretoml.P2PV2{
 			Enabled:              ptr.Ptr(true),
-			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + fmt.Sprint(ocrPeeringData.Port)}),
+			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
 			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 		},
 	}
 
-	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{"localhost:" + fmt.Sprint(capabilitiesPeeringData.Port)})
+	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{"localhost:" + strconv.Itoa(capabilitiesPeeringData.Port)})
 	if capabilitiesBErr != nil {
 		return existingConfig, errors.Wrap(capabilitiesBErr, "failed to create capabilities peering bootstrapper locator")
 	}
@@ -169,7 +171,7 @@ func addBootstrapNodeConfig(
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
 				Enabled:              ptr.Ptr(true),
-				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + fmt.Sprint(capabilitiesPeeringData.Port)}),
+				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(capabilitiesPeeringData.Port)}),
 				DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*capabilitiesBootstrapperLocator}),
 			},
 		},
@@ -194,7 +196,7 @@ func addBootstrapNodeConfig(
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
 		Address:   ptr.Ptr(commonInputs.capabilitiesRegistryAddress.Hex()),
 		NetworkID: ptr.Ptr("evm"),
-		ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+		ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
 	}
 
 	return existingConfig, nil
@@ -210,7 +212,7 @@ func addWorkerNodeConfig(
 	donFlags []string,
 	nodeLabels []*cre.Label,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + fmt.Sprint(ocrPeeringData.Port)})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -218,12 +220,12 @@ func addWorkerNodeConfig(
 	existingConfig.P2P = coretoml.P2P{
 		V2: coretoml.P2PV2{
 			Enabled:              ptr.Ptr(true),
-			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + fmt.Sprint(ocrPeeringData.Port)}),
+			ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(ocrPeeringData.Port)}),
 			DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*ocrBoostrapperLocator}),
 		},
 	}
 
-	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{capabilitiesPeeringData.GlobalBootstraperHost + ":" + fmt.Sprint(capabilitiesPeeringData.Port)})
+	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{capabilitiesPeeringData.GlobalBootstraperHost + ":" + strconv.Itoa(capabilitiesPeeringData.Port)})
 	if capabilitiesBErr != nil {
 		return existingConfig, errors.Wrap(capabilitiesBErr, "failed to create capabilities peering bootstrapper locator")
 	}
@@ -232,7 +234,7 @@ func addWorkerNodeConfig(
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
 				Enabled:              ptr.Ptr(true),
-				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + fmt.Sprint(capabilitiesPeeringData.Port)}),
+				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(capabilitiesPeeringData.Port)}),
 				DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*capabilitiesBootstrapperLocator}),
 			},
 		},
@@ -270,19 +272,19 @@ func addWorkerNodeConfig(
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
 		Address:   ptr.Ptr(commonInputs.capabilitiesRegistryAddress.Hex()),
 		NetworkID: ptr.Ptr("evm"),
-		ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+		ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
 	}
 
 	if flags.HasFlag(donFlags, cre.WorkflowDON) {
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 			Address:   ptr.Ptr(commonInputs.workflowRegistryAddress.Hex()),
 			NetworkID: ptr.Ptr("evm"),
-			ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+			ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
 		}
 	}
 
 	if flags.HasFlag(donFlags, cre.WorkflowDON) || don.NodeNeedsAnyGateway(donFlags) {
-		//find node's ETH address on the registry chain
+		// find node's ETH address on the registry chain
 		var nodeEthAddr string
 		expectedAddressKey := node.AddressKeyFromSelector(commonInputs.registryChainSelector)
 		for _, label := range nodeLabels {
@@ -309,7 +311,7 @@ func addWorkerNodeConfig(
 
 		existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
 			DonID:             ptr.Ptr(donName),
-			ChainIDForNodeKey: ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+			ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
 			NodeAddress:       ptr.Ptr(nodeEthAddr),
 			Gateways:          gateways,
 		}
@@ -349,13 +351,13 @@ OUTER:
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
 		Address:   ptr.Ptr(commonInputs.capabilitiesRegistryAddress.Hex()),
 		NetworkID: ptr.Ptr("evm"),
-		ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+		ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
 	}
 
 	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
 		Address:   ptr.Ptr(commonInputs.workflowRegistryAddress.Hex()),
 		NetworkID: ptr.Ptr("evm"),
-		ChainID:   ptr.Ptr(fmt.Sprint(commonInputs.registryChainID)),
+		ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
 	}
 
 	return existingConfig, nil
