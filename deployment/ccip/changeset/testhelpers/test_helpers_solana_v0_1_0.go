@@ -1074,6 +1074,7 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 func AddLane(
 	t *testing.T,
 	e *DeployedEnv,
+	state stateview.CCIPOnChainState,
 	from, to uint64,
 	isTestRouter bool,
 	gasPrices map[uint64]*big.Int,
@@ -1103,7 +1104,7 @@ func AddLane(
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
 	case chainsel.FamilyTon:
-		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, from, to, fromFamily, toFamily, gasPrices))
+		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, state, from, to, fromFamily, toFamily, gasPrices))
 	}
 
 	switch toFamily {
@@ -1114,7 +1115,7 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, from, to, fromFamily, toFamily, gasPrices))
+		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, state, from, to, fromFamily, toFamily, gasPrices))
 	}
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
@@ -1477,6 +1478,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	err = AddLane(
 		t,
 		e,
+		state,
 		from, to,
 		isTestRouter,
 		gasPrices,
@@ -1514,6 +1516,7 @@ func AddLaneWithEnforceOutOfOrder(t *testing.T, e *DeployedEnv, state stateview.
 	AddLane(
 		t,
 		e,
+		state,
 		from, to,
 		isTestRouter,
 		gasPrices,

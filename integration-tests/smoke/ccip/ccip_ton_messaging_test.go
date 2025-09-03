@@ -3,7 +3,7 @@ package ccip
 import (
 	"encoding/base64"
 	"math/big"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
@@ -33,7 +33,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 
 	// make evm chains sorted for deterministic test results
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
-	sort.Slice(evmChainSelectors, func(i, j int) bool { return evmChainSelectors[i] < evmChainSelectors[j] })
+	slices.Sort(evmChainSelectors)
 
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := allTonChainSelectors[0]
@@ -51,7 +51,6 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
 	require.NoError(t, err)
 
-	// Should fail, we don't have Fee Quoter support yet for TON chain
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
@@ -98,8 +97,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	_ = out
 }
 
-func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
-	t.Skip("Skipping the test temporarily - fix required")
+func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
@@ -112,6 +110,7 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	_ = state
 
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
+	slices.Sort(evmChainSelectors)
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := evmChainSelectors[0]
 	destChain := allTonChainSelectors[0]
@@ -139,9 +138,8 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	expected := tlb.MustFromTON("1000")
 	require.GreaterOrEqual(t, acc.State.Balance.Compare(&expected), 0)
 
-	// Should fail, we don't have Fee Quoter support yet for TON chain
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.Error(t, err, "Expected failure when configuring EVM->TON lane")
+	require.NoError(t, err)
 
 	var (
 		nonce  uint64
@@ -159,7 +157,6 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	)
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		t.Skip("Skipping test for now, as it requires a deployed contracts on TON chain")
 		ccipChainState := state.TonChains[destChain]
 		receiver := ccipChainState.ReceiverAddress
 		receiverBase64Bytes, err := base64.RawURLEncoding.DecodeString(receiver.String())

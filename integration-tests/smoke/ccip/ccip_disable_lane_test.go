@@ -128,7 +128,7 @@ func TestDisableLane(t *testing.T) {
 
 	// re-enable all the disabled lanes
 	for _, pair := range pairs {
-		testhelpers.AddLane(t, &tenv, pair.SourceChainSelector, pair.DestChainSelector, false,
+		testhelpers.AddLane(t, &tenv, state, pair.SourceChainSelector, pair.DestChainSelector, false,
 			map[uint64]*big.Int{
 				pair.DestChainSelector: testhelpers.DefaultGasPrice,
 			},
