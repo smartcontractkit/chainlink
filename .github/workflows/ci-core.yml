@@ -313,7 +313,7 @@ jobs:
 
       - name: Run branch-out-upload
         if: ${{ matrix.type.should-run == 'true' && matrix.type.use-trunk == 'true' && !cancelled() }}
-        uses: smartcontractkit/.github/actions/branch-out-upload@feat/junit-test-processing
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
           junit-file-path: './junit.xml'
           trunk-org-slug: chainlink
