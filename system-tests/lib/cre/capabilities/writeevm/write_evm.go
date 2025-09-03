@@ -82,7 +82,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 		return nil, errors.New("node set input is nil")
 	}
 
-	if input.NodeSet.ChainCapabilities == nil {
+	if input.NodeSet.ChainCapabilities == nil || input.NodeSet.ChainCapabilities[flag] == nil {
 		return existingConfigs, nil
 	}
 
