@@ -271,7 +271,7 @@ func NewApp(s *Shell) *cli.App {
 					FileMaxAgeDays:            int(s.Config.Log().File().MaxAgeDays()),
 					FileMaxBackups:            int(s.Config.Log().File().MaxBackups()),
 					SentryEnabled:             s.Config.Sentry().DSN() != "",
-					TelemetryStreamingEnabled: cfg.Telemetry().LogStreamingEnabled(),
+					TelemetryStreamingEnabled: s.Config.Telemetry().LogStreamingEnabled(),
 				}
 
 				l, closeFn := lggrCfg.New()
