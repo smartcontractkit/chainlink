@@ -222,7 +222,6 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 		start := time.Now()
 		resp, err := h.httpClient.Send(ctx, httpReq)
 		externalEndpointLatency := time.Since(start)
-
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
 			isExternalEndpointError := errors.Is(err, network.HTTPSendError) || errors.Is(err, network.HTTPReadError)

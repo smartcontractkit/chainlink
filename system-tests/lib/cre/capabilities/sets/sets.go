@@ -49,7 +49,7 @@ func NewDefaultSet(homeChainID uint64, extraAllowedPorts []int, extraAllowedIPs 
 	}
 	capabilities = append(capabilities, c2)
 
-	evm, evmErr := evmcapability.New()
+	evm, evmErr := evmcapability.New(homeChainID)
 	if evmErr != nil {
 		return nil, errors.Wrap(evmErr, "failed to create evm capability")
 	}

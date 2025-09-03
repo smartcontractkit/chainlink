@@ -1,4 +1,4 @@
-package vault
+package vaulttypes
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 var DefaultNamespace = "main"
 
 const (
-	// Note: additional methods should be reflected
+	// MethodSecretsCreate Note: additional methods should be reflected
 	// in the `Methods` list below.
 	MethodSecretsCreate = "vault.secrets.create"
 	MethodSecretsGet    = "vault.secrets.get"
