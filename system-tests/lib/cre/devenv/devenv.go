@@ -60,9 +60,9 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 
 		// if DON has no capabilities we don't need to create chain configs (e.g. for gateway nodes)
 		// we indicate to `devenv.NewEnvironment` that it should skip chain creation by passing an empty chain config
-		if len(nodeOutput.Capabilities) == 0 {
-			chains = []devenv.ChainConfig{}
-		}
+		// if len(nodeOutput.Capabilities) == 0 {
+		// 	chains = []devenv.ChainConfig{}
+		// }
 
 		jdConfig := devenv.JDConfig{
 			GRPC:     input.JdOutput.ExternalGRPCUrl,

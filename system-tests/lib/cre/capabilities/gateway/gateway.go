@@ -2,21 +2,16 @@ package gateway
 
 import (
 	"maps"
-	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -27,7 +22,7 @@ const flag = cre.GatewayDON
 func New(extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) (*capabilities.Capability, error) {
 	return capabilities.New(
 		flag,
-		capabilities.WithNodeConfigTransformerFn(generateConfig),
+		// capabilities.WithNodeConfigTransformerFn(generateConfig),
 		capabilities.WithJobSpecFn(jobSpec(extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR)),
 	)
 }
@@ -133,74 +128,74 @@ func jobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 	}
 }
 
-func generateConfig(input cre.GenerateConfigsInput, configOverrides cre.NodeIndexToConfigOverride) (cre.NodeIndexToConfigOverride, error) {
-	if input.GatewayConnectorOutput == nil || len(input.GatewayConnectorOutput.Configurations) == 0 {
-		return configOverrides, errors.New("gateway connector output or configurations are empty")
-	}
+// func generateConfig(input cre.GenerateConfigsInput, configOverrides cre.NodeIndexToConfigOverride) (cre.NodeIndexToConfigOverride, error) {
+// 	if input.GatewayConnectorOutput == nil || len(input.GatewayConnectorOutput.Configurations) == 0 {
+// 		return configOverrides, errors.New("gateway connector output or configurations are empty")
+// 	}
 
-	// find worker nodes
-	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to find worker nodes")
-	}
+// 	// find worker nodes
+// 	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "failed to find worker nodes")
+// 	}
 
-	homeChainID, homeErr := chainselectors.ChainIdFromSelector(input.HomeChainSelector)
-	if homeErr != nil {
-		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
-	}
+// 	homeChainID, homeErr := chainselectors.ChainIdFromSelector(input.HomeChainSelector)
+// 	if homeErr != nil {
+// 		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
+// 	}
 
-	workflowRegistryAddress, workErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	if workErr != nil {
-		return nil, errors.Wrap(workErr, "failed to find WorkflowRegistry address")
-	}
+// 	workflowRegistryAddress, workErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
+// 	if workErr != nil {
+// 		return nil, errors.Wrap(workErr, "failed to find WorkflowRegistry address")
+// 	}
 
-	for i := range workflowNodeSet {
-		var nodeIndex int
-		for _, label := range workflowNodeSet[i].Labels {
-			if label.Key == node.IndexKey {
-				nodeIndex, err = strconv.Atoi(label.Value)
-				if err != nil {
-					return nil, errors.Wrap(err, "failed to convert node index to int")
-				}
-			}
-		}
+// 	for i := range workflowNodeSet {
+// 		var nodeIndex int
+// 		for _, label := range workflowNodeSet[i].Labels {
+// 			if label.Key == node.IndexKey {
+// 				nodeIndex, err = strconv.Atoi(label.Value)
+// 				if err != nil {
+// 					return nil, errors.Wrap(err, "failed to convert node index to int")
+// 				}
+// 			}
+// 		}
 
-		// we need to configure workflow registry
-		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
-			configOverrides[nodeIndex] += config.WorkerWorkflowRegistry(
-				workflowRegistryAddress, homeChainID)
-		}
+// 		// we need to configure workflow registry
+// 		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
+// 			configOverrides[nodeIndex] += config.WorkerWorkflowRegistry(
+// 				workflowRegistryAddress, homeChainID)
+// 		}
 
-		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
-		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector.
-		// gateway is also required by various capabilities
-		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsAnyGateway(input.Flags) {
-			var nodeEthAddr common.Address
-			expectedAddressKey := node.AddressKeyFromSelector(input.HomeChainSelector)
-			for _, label := range workflowNodeSet[i].Labels {
-				if label.Key == expectedAddressKey {
-					if label.Value == "" {
-						return nil, errors.Errorf("%s label value is empty", expectedAddressKey)
-					}
-					nodeEthAddr = common.HexToAddress(label.Value)
-					break
-				}
-			}
+// 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
+// 		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector.
+// 		// gateway is also required by various capabilities
+// 		if flags.HasFlag(input.Flags, cre.WorkflowDON) || don.NodeNeedsAnyGateway(input.Flags) {
+// 			var nodeEthAddr common.Address
+// 			expectedAddressKey := node.AddressKeyFromSelector(input.HomeChainSelector)
+// 			for _, label := range workflowNodeSet[i].Labels {
+// 				if label.Key == expectedAddressKey {
+// 					if label.Value == "" {
+// 						return nil, errors.Errorf("%s label value is empty", expectedAddressKey)
+// 					}
+// 					nodeEthAddr = common.HexToAddress(label.Value)
+// 					break
+// 				}
+// 			}
 
-			gatewayConfigurations := input.GatewayConnectorOutput.Configurations
+// 			gatewayConfigurations := input.GatewayConnectorOutput.Configurations
 
-			if len(gatewayConfigurations) == 0 {
-				return nil, errors.New("no gateway connector configurations found")
-			}
+// 			if len(gatewayConfigurations) == 0 {
+// 				return nil, errors.New("no gateway connector configurations found")
+// 			}
 
-			configOverrides[nodeIndex] += config.WorkerGateway(
-				nodeEthAddr,
-				homeChainID,
-				input.DonMetadata.Name,
-				gatewayConfigurations,
-			)
-		}
-	}
+// 			configOverrides[nodeIndex] += config.WorkerGateway(
+// 				nodeEthAddr,
+// 				homeChainID,
+// 				input.DonMetadata.Name,
+// 				gatewayConfigurations,
+// 			)
+// 		}
+// 	}
 
-	return configOverrides, nil
-}
+// 	return configOverrides, nil
+// }
