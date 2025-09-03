@@ -58,6 +58,5 @@ func init() {
 
 	contractsCmd.AddCommand(DeployPermissionlessFeedsConsumerCmd)
 	contractsCmd.AddCommand(DeployBalanceReaderCmd)
-
 	ExamplesCmd.AddCommand(contractsCmd)
 }
