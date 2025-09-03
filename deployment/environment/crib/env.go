@@ -26,7 +26,7 @@ func NewDevspaceEnvFromStateDir(lggr logger.Logger, envStateDir string) CRIBEnv 
 	}
 }
 
-func (c CRIBEnv) GetConfig(evmKey string, solKey string) (DeployOutput, error) {
+func (c CRIBEnv) GetConfig(evmKey string, solKey string, aptosKey string) (DeployOutput, error) {
 	reader := NewOutputReader(c.cribEnvStateDirPath)
 	nodesDetails, err := reader.ReadNodesDetails()
 	if err != nil {
@@ -47,6 +47,14 @@ func (c CRIBEnv) GetConfig(evmKey string, solKey string) (DeployOutput, error) {
 
 		if strings.EqualFold(chain.ChainType, string(chaintype.Solana)) {
 			err := chain.SetSolDeployerKey(&solKey)
+			if err != nil {
+				return DeployOutput{}, err
+			}
+			chainConfigs[i] = chain
+		}
+
+		if strings.EqualFold(chain.ChainType, string(chaintype.Aptos)) {
+			err := chain.SetAptosDeployerKey(&aptosKey)
 			if err != nil {
 				return DeployOutput{}, err
 			}
