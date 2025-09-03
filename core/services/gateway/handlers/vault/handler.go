@@ -339,7 +339,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	if err := json.Unmarshal(*ar.req.Params, &createSecretsRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
-
+	createSecretsRequest.RequestId = ar.req.ID
 	err := vaultcap.ValidateCreateSecretsRequest(createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
@@ -366,7 +366,6 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	}
 
 	updateSecretsRequest.RequestId = ar.req.ID
-
 	vaultcapErr := vaultcap.ValidateUpdateSecretsRequest(updateSecretsRequest)
 	if vaultcapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultcapErr)
@@ -392,7 +391,6 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	}
 
 	deleteSecretsRequest.RequestId = ar.req.ID
-
 	err := vaultcap.ValidateDeleteSecretsRequest(deleteSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate delete secrets request", "error", err)
@@ -416,7 +414,6 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
-
 	err := vaultcap.ValidateGetSecretsRequest(secretsGetRequest)
 	if err != nil {
 		l.Warnw("failed to validate get secrets request", "error", err)
@@ -435,7 +432,6 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	}
 
 	req.RequestId = ar.req.ID
-
 	err := vaultcap.ValidateListSecretIdentifiersRequest(req)
 	if err != nil {
 		l.Warnw("failed to validate list secret identifiers request", "error", err)

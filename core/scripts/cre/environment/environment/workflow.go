@@ -165,7 +165,7 @@ func deployWorkflowCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&workflowFilePathFlag, "wasm-file-path", "w", "", "Path to a base64-encoded workflow WASM file")
+	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "", "Path to a base64-encoded workflow WASM file or to a Go file that contains the workflow (if --compile flag is used)")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
@@ -176,11 +176,15 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
 	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", DefaultCapabilitiesRegistryAddress, "Capabilities registry address")
 	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
-	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
+	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
 	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Delete the workflow file after deployment")
 	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compile the workflow before deploying it")
 
-	if err := cmd.MarkFlagRequired("wasm-file-path"); err != nil {
+	if err := cmd.MarkFlagRequired("workflow-file-path"); err != nil {
+		panic(err)
+	}
+
+	if err := cmd.MarkFlagRequired("name"); err != nil {
 		panic(err)
 	}
 
@@ -237,18 +241,22 @@ func compileDeployWorkflowCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "./examples/workflows/v2/cron/main.go", "Path to the workflow file")
+	cmd.Flags().StringVarP(&workflowFilePathFlag, "workflow-file-path", "w", "./examples/workflows/v2/cron/main.go", "Path to the Go file that contains the workflow")
 	cmd.Flags().StringVarP(&configFilePathFlag, "config-file-path", "c", "", "Path to the config file")
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the secrets file")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
 	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "o", creworkflow.DefaultWorkflowNodePattern, "Pattern to match the container name")
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
+	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
 	cmd.Flags().StringVarP(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "b", DefaultCapabilitiesRegistryAddress, "Capabilities registry address")
 	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "DON ID")
-	cmd.Flags().StringVarP(&workflowNameFlag, "workflow-name", "n", "exampleworkflow", "Workflow name")
+	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
+
+	if err := cmd.MarkFlagRequired("name"); err != nil {
+		panic(err)
+	}
 
 	return cmd
 }
@@ -309,9 +317,13 @@ func deleteWorkflowCmd() *cobra.Command {
 
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
+	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
-	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "exampleworkflow", "Workflow name")
+	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
+
+	if err := cmd.MarkFlagRequired("name"); err != nil {
+		panic(err)
+	}
 
 	return cmd
 }
@@ -360,7 +372,7 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 
 	cmd.Flags().Uint64VarP(&chainIDFlag, "chain-id", "i", 1337, "Chain ID")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
+	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", DefaultWorkflowRegistryAddress, "Workflow registry address")
 
 	return cmd

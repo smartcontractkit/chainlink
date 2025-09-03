@@ -178,6 +178,10 @@ type (
 	DonsToJobSpecs = map[uint64]DonJobs
 )
 
+const (
+	CapabilityLabelKey = "capability"
+)
+
 type (
 	NodeIndexToConfigOverride  = map[int]string
 	NodeIndexToSecretsOverride = map[int]string
@@ -416,8 +420,6 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	return nil
 }
 
-const VaultGatewayDonID = "vault"
-
 type GatewayConnectorDons struct {
 	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
 	ID                  string   `toml:"id" json:"id"`
@@ -448,7 +450,7 @@ type Incoming struct {
 	ExternalPort int    `toml:"external_port" json:"external_port"`
 }
 
-type NodeConfigFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
+type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs NodeIndexToConfigOverride) (NodeIndexToConfigOverride, error)
 
 type (
 	HandlerTypeToConfig    = map[string]string
@@ -548,6 +550,14 @@ type DonTopology struct {
 	OCRPeeringData          OCRPeeringData          `toml:"ocr_peering_data" json:"ocr_peering_data"`
 	DonsWithMetadata        []*DonWithMetadata      `toml:"dons_with_metadata" json:"dons_with_metadata"`
 	GatewayConnectorOutput  *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
+}
+
+func (t *DonTopology) ToDonMetadata() []*DonMetadata {
+	metadata := []*DonMetadata{}
+	for _, don := range t.DonsWithMetadata {
+		metadata = append(metadata, don.DonMetadata)
+	}
+	return metadata
 }
 
 type CapabilitiesAwareNodeSet struct {
@@ -1060,9 +1070,9 @@ type InstallableCapability interface {
 	// Exceptions include capabilities that are configured via the node config, like write-evm, aptos, tron or solana.
 	JobSpecFn() JobSpecFn
 
-	// NodeConfigFn returns a function to generate node-level configuration,
-	// or nil if no node-specific config is needed. Most capabilities don't need this.
-	NodeConfigFn() NodeConfigFn
+	// NodeConfigTransformerFn returns a function to modify node-level configuration,
+	// or nil if node config modification is not needed. Most capabilities don't need this.
+	NodeConfigTransformerFn() NodeConfigTransformerFn
 
 	// GatewayJobHandlerConfigFn returns a function to configure gateway handlers in the gateway jobspec,
 	// or nil if no gateway handler configuration is required for this capability. Only capabilities
@@ -1072,4 +1082,9 @@ type InstallableCapability interface {
 	// CapabilityRegistryV1ConfigFn returns a function to generate capability registry
 	// configuration for the v1 registry format
 	CapabilityRegistryV1ConfigFn() CapabilityRegistryConfigFn
+}
+
+type PersistentConfig interface {
+	Load() error
+	Store() error
 }

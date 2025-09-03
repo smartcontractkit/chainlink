@@ -53,7 +53,8 @@ func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
 				if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
 					require.FailNowf(t, "Workflow Engine initialization failed: %s", typedMsg.Msg)
 				} else {
-					testLogger.Info().Msgf("Received BaseMessage from Beholder: %s", typedMsg.Msg)
+					// if set to Info level it creates a lot of noise
+					testLogger.Debug().Msgf("Received BaseMessage from Beholder: %s", typedMsg.Msg)
 				}
 			case *workflowevents.UserLogs:
 				testLogger.Info().Msg("🎉 Received UserLogs message in test")
