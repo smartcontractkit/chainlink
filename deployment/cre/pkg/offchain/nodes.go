@@ -25,11 +25,11 @@ const (
 // Source for a set of JD filters to apply when fetching a DON.
 // Should uniquely identify a set of nodes in JD which belong to a single DON.
 type DONFilter struct {
-	DONName      string `json:"don_name" yaml:"don_name"`
-	EnvLabel     string `json:"env_label" yaml:"env_label"`
-	ProductLabel string `json:"product_label" yaml:"product_label"`
-	Zone         string `json:"zone" yaml:"zone"`
-	Size         int    `json:"size" yaml:"size"`
+	DONName      string            `json:"don_name" yaml:"don_name"`
+	EnvLabel     string            `json:"env_label" yaml:"env_label"`
+	ProductLabel string            `json:"product_label" yaml:"product_label"`
+	ExtraLabels  map[string]string `json:"extra_labels" yaml:"extra_labels"`
+	Size         int               `json:"size" yaml:"size"`
 }
 
 func (f *DONFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
@@ -51,11 +51,11 @@ func (f *DONFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 			},
 		},
 	}
-	if f.Zone != "" {
+	for k, v := range f.ExtraLabels {
 		filters.Selectors = append(filters.Selectors, &jdtypesv1.Selector{
-			Key:   "zone",
+			Key:   k,
 			Op:    jdtypesv1.SelectorOp_EQ,
-			Value: &f.Zone,
+			Value: &v,
 		})
 	}
 
