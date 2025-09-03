@@ -42,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
@@ -85,6 +84,7 @@ func init() {
 	EnvironmentCmd.AddCommand(stopCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
+	EnvironmentCmd.AddCommand(swapCmds())
 
 	rootPath, rootPathErr := os.Getwd()
 	if rootPathErr != nil {
@@ -256,6 +256,11 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(pkErr, "failed to set default private key")
 			}
 
+			cleanUpErr := removeAllEnvironmentStateFiles()
+			if cleanUpErr != nil {
+				return errors.Wrap(cleanUpErr, "failed to clean up environment state files")
+			}
+
 			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
 			setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 			if setErr != nil {
@@ -263,22 +268,9 @@ func startCmd() *cobra.Command {
 			}
 
 			cmdContext := cmd.Context()
-			// Load and validate test configuration
-			in, err := framework.Load[envconfig.Config](nil)
-			if err != nil {
-				return errors.Wrap(err, "failed to load test configuration")
-			}
-
-			// TODO since UnmarshalTOML is not supported by the TOML library we use :head_exploding:
-			// we need to parse chain capabilities manually, but we need to handle it properly, maybe by adding hooks to Load()?
-			for _, nodeSet := range in.NodeSets {
-				if err := nodeSet.ParseChainCapabilities(); err != nil {
-					return errors.Wrap(err, "failed to parse chain capabilities")
-				}
-
-				if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
-					return errors.Wrap(err, "failed to validate chain capabilities")
-				}
+			in := &envconfig.Config{}
+			if err := in.Load(); err != nil {
+				return errors.Wrap(err, "failed to load environment configuration")
 			}
 
 			// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
@@ -447,8 +439,61 @@ func storeArtifacts(in *envconfig.Config) error {
 	return saveArtifactPaths()
 }
 
-func storeCTFConfigs[ConfigType any](config *ConfigType) error {
-	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file (which we added as the first one, so that other configs can override it)
+func storeCTFConfigs(config cre.PersistentConfig) error {
+	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file
+	// which we add, when environment starts, as the first one (that way it can be overridden by other configs)
+	previousCtfConfigs := os.Getenv("CTF_CONFIGS")
+	defer func() {
+		setErr := os.Setenv("CTF_CONFIGS", previousCtfConfigs)
+		if setErr != nil {
+			framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
+		}
+	}()
+
+	// remove cache file, if it exists
+	ctfConfigFileName := addCachePrefix(findCtfConfigFile())
+	if _, err := os.Stat(ctfConfigFileName); err == nil {
+		removeErr := os.Remove(ctfConfigFileName)
+		if removeErr != nil {
+			return errors.Wrap(removeErr, "failed to remove cached config file")
+		}
+	}
+
+	// just in case remove "-cache.toml" suffix, because if it's present in the env var name
+	// config won't be saved as the CTF logic assumes it already exists
+	setErr := os.Setenv("CTF_CONFIGS", removeCachePrefix(ctfConfigFileName))
+	if setErr != nil {
+		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+	}
+
+	storeErr := config.Store()
+	if storeErr != nil {
+		return errors.Wrap(storeErr, "failed to store environment cached config")
+	}
+
+	return nil
+}
+
+func addCachePrefix(configFile string) string {
+	if !strings.HasSuffix(configFile, "-cache.toml") {
+		return strings.ReplaceAll(configFile, ".toml", "-cache.toml")
+	}
+	return configFile
+}
+
+func removeCachePrefix(configFile string) string {
+	if strings.HasSuffix(configFile, "-cache.toml") {
+		return strings.ReplaceAll(configFile, "-cache.toml", ".toml")
+	}
+	return configFile
+}
+
+type artifactPaths struct {
+	EnvArtifact string `json:"env_artifact"`
+	EnvConfig   string `json:"env_config"`
+}
+
+func findCtfConfigFile() string {
 	ctfConfigs := os.Getenv("CTF_CONFIGS")
 	defer func() {
 		setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
@@ -457,29 +502,16 @@ func storeCTFConfigs[ConfigType any](config *ConfigType) error {
 		}
 	}()
 
+	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file
+	// which we add, when environment starts, as adding it as the first one, allows other configs to override it if needed
 	splitConfigs := strings.Split(ctfConfigs, ",")
 	if len(splitConfigs) > 1 {
 		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
 			splitConfigs = splitConfigs[1:]
 		}
-
-		setErr := os.Setenv("CTF_CONFIGS", strings.Join(splitConfigs, ","))
-		if setErr != nil {
-			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-		}
 	}
 
-	storeErr := framework.Store(config)
-	if storeErr != nil {
-		return errors.Wrap(storeErr, "failed to store environment cached config")
-	}
-
-	return nil
-}
-
-type artifactPaths struct {
-	EnvArtifact string `json:"env_artifact"`
-	EnvConfig   string `json:"env_config"`
+	return splitConfigs[0]
 }
 
 func saveArtifactPaths() error {
@@ -488,28 +520,8 @@ func saveArtifactPaths() error {
 		return artifactAbsPathErr
 	}
 
-	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file (which we added as the first one, so that other configs can override it)
-	ctfConfigs := os.Getenv("CTF_CONFIGS")
-	defer func() {
-		setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
-		if setErr != nil {
-			framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
-		}
-	}()
-
-	splitConfigs := strings.Split(ctfConfigs, ",")
-	if len(splitConfigs) > 1 {
-		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
-			splitConfigs = splitConfigs[1:]
-		}
-
-		setErr := os.Setenv("CTF_CONFIGS", strings.Join(splitConfigs, ","))
-		if setErr != nil {
-			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-		}
-	}
-
-	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(splitConfigs[0])
+	ctfConfigFile := removeCachePrefix(findCtfConfigFile())
+	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(ctfConfigFile)
 	if ctfConfigsAbsPathErr != nil {
 		return ctfConfigsAbsPathErr
 	}
@@ -577,7 +589,6 @@ func stopCmd() *cobra.Command {
 				return errors.Wrap(stopBeholderErr, "failed to stop beholder")
 			}
 
-			// TODO we don't have CTF_CONFIGS set at this point
 			var shouldRemove shouldRemove
 			if allFlag {
 				shouldRemove = removeAll
@@ -585,15 +596,17 @@ func stopCmd() *cobra.Command {
 				shouldRemove = removeCurrentCtfConfigs
 			}
 
-			removeCacheErr := removeCacheFiles(shouldRemove)
+			removeCacheErr := removeCtfConfigsCacheFiles(shouldRemove)
 			if removeCacheErr != nil {
 				framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
 			}
 
-			if removeDirErr := os.RemoveAll("env_artifact"); removeDirErr != nil {
-				framework.L.Warn().Msgf("failed to remove env_artifact folder: %s\n", removeDirErr)
-			} else {
-				framework.L.Debug().Msg("Removed env_artifact folder")
+			if removeDirErr := os.RemoveAll(creenv.ArtifactDirName); removeDirErr != nil {
+				framework.L.Warn().Msgf("failed to remove %s folder: %s\n", creenv.ArtifactDirName, removeDirErr)
+			}
+
+			if removeDirErr := os.RemoveAll(defaultArtifactsPathFile); removeDirErr != nil {
+				framework.L.Warn().Msgf("failed to remove %s file: %s\n", defaultArtifactsPathFile, removeDirErr)
 			}
 
 			fmt.Println("Environment stopped successfully")
@@ -888,7 +901,7 @@ var removeCurrentCtfConfigs = func(file string) bool {
 	ctfConfigs := os.Getenv("CTF_CONFIGS")
 	if ctfConfigs != "" {
 		for config := range strings.SplitSeq(ctfConfigs, ",") {
-			if strings.Contains(file, strings.ReplaceAll(config, ".toml", "-cache.toml")) {
+			if strings.Contains(file, addCachePrefix(config)) {
 				return true
 			}
 		}
@@ -913,7 +926,20 @@ var removeCurrentCtfConfigs = func(file string) bool {
 	return false
 }
 
-func removeCacheFiles(shouldRemove shouldRemove) error {
+func removeAllEnvironmentStateFiles() error {
+	removeCacheErr := removeCtfConfigsCacheFiles(removeAll)
+	if removeCacheErr != nil {
+		return errors.Wrap(removeCacheErr, "failed to remove cache files")
+	}
+
+	if removeDirErr := os.RemoveAll(creenv.ArtifactDirName); removeDirErr != nil {
+		return errors.Wrap(removeDirErr, "failed to remove env_artifact folder")
+	}
+
+	return os.RemoveAll(defaultArtifactsPathFile)
+}
+
+func removeCtfConfigsCacheFiles(shouldRemove shouldRemove) error {
 	framework.L.Info().Msg("Removing environment state files")
 
 	cacheConfigPattern := "configs/*-cache.toml"

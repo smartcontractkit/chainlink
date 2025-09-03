@@ -59,7 +59,7 @@ func CopyArtifactsToDockerContainers(containerTargetDir string, containerNamePat
 }
 
 func copyArtifactToDockerContainers(filePath string, containerNamePattern string, targetDir string) error {
-	fmt.Printf("Copying file '%s' to Docker containers.\n", filePath)
+	framework.L.Info().Msgf("Copying file '%s' to Docker containers", filePath)
 	containerNames, containerNamesErr := findAllDockerContainerNames(containerNamePattern)
 	if containerNamesErr != nil {
 		return errors.Wrap(containerNamesErr, "failed to find Docker containers")

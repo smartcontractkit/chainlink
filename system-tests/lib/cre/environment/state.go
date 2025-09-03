@@ -168,7 +168,7 @@ func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {
 		if setErr != nil {
 			return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
 		}
-		framework.L.Info().Msgf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
+		framework.L.Info().Msgf("Set PRIVATE_KEY environment variable to default value: %s", os.Getenv("PRIVATE_KEY"))
 	}
 
 	return nil
@@ -180,7 +180,7 @@ func SetDefaultSolanaPrivateKeyIfEmpty(key solana.PrivateKey) error {
 		if setErr != nil {
 			return fmt.Errorf("failed to set SOLANA_PRIVATE_KEY environment variable: %w", setErr)
 		}
-		framework.L.Info().Msgf("Set SOLANA_PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
+		framework.L.Info().Msgf("Set SOLANA_PRIVATE_KEY environment variable to default value: %s", os.Getenv("PRIVATE_KEY"))
 	}
 
 	return nil

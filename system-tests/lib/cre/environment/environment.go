@@ -347,11 +347,13 @@ func SetupTestEnvironment(
 
 	evmOCR3CommonAddresses := make(map[uint64]common.Address)
 	if evmOCR3AddrFlag {
-		for chainID, selector := range chainsWithEVMCapability {
-			qualifier := ks_contracts_op.GetCapabilityContractIdentifier(uint64(chainID))
-			evmOCR3Addr := mustGetAddress(memoryDatastore, uint64(selector), keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], qualifier)
-			testLogger.Info().Msgf("Deployed EVM OCR3 contract on chainID: %d, selector: %d, at: %s", chainID, selector, evmOCR3Addr)
-			evmOCR3CommonAddresses[uint64(selector)] = common.HexToAddress(evmOCR3Addr)
+		for chainID := range chainsWithEVMCapability {
+			qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
+			// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
+			// because that violates a DB constraint for offchain reporting jobs
+			evmOCR3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
+			testLogger.Info().Msgf("Deployed EVM OCR3 contract on chainID: %d, selector: %d, at: %s", chainID, homeChainSelector, evmOCR3Addr)
+			evmOCR3CommonAddresses[homeChainSelector] = common.HexToAddress(evmOCR3Addr)
 		}
 	}
 	var consensusV2OCR3CommonAddr common.Address

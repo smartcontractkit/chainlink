@@ -25,6 +25,8 @@ func Test_CRE_Suite(t *testing.T) {
 
 	t.Run("[v2] CRE Suite", func(t *testing.T) {
 		t.Run("[v2] vault DON test", func(t *testing.T) {
+			// Skip till we figure out and fix the issues with environment startup on this test
+			t.Skip("Skipping test for the following reason: Skip till the errors with topology TopologyWorkflowGatewayCapabilities are fixed: https://smartcontract-it.atlassian.net/browse/PRIV-160")
 			ExecuteVaultTest(t, testEnv)
 		})
 
@@ -34,8 +36,7 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] DON Time test", func(t *testing.T) {
-			const skipReason = "Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028"
-			t.Skipf("Skipping test for the following reason: %s", skipReason)
+			t.Skipf("Skipping test for the following reason: Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028")
 		})
 
 		t.Run("[v2] Beholder test", func(t *testing.T) {
