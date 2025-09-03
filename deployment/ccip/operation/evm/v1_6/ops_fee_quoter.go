@@ -15,6 +15,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	latest_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -50,6 +51,9 @@ var (
 		cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0),
 		opsutil.VMDeployers[DeployFeeQInput]{
 			DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, input DeployFeeQInput) (common.Address, *types.Transaction, error) {
+				// TEMP: Use latest fee quoter to support TON
+				fee_quoter.FeeQuoterBin = latest_fee_quoter.FeeQuoterBin
+
 				addr, tx, _, err := fee_quoter.DeployFeeQuoter(opts, backend,
 					fee_quoter.FeeQuoterStaticConfig{
 						MaxFeeJuelsPerMsg:            input.Params.MaxFeeJuelsPerMsg,
