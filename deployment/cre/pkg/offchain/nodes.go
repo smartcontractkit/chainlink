@@ -28,7 +28,7 @@ type DONFilter struct {
 	DONName      string `json:"don_name" yaml:"don_name"`
 	EnvLabel     string `json:"env_label" yaml:"env_label"`
 	ProductLabel string `json:"product_label" yaml:"product_label"`
-	Zone         Zone   `json:"zone" yaml:"zone"`
+	Zone         string `json:"zone" yaml:"zone"`
 	Size         int    `json:"size" yaml:"size"`
 }
 
@@ -51,8 +51,12 @@ func (f *DONFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 			},
 		},
 	}
-	if zf := ZoneSelector(f.Zone); zf != nil {
-		filters.Selectors = append(filters.Selectors, zf)
+	if f.Zone != "" {
+		filters.Selectors = append(filters.Selectors, &jdtypesv1.Selector{
+			Key:   "zone",
+			Op:    jdtypesv1.SelectorOp_EQ,
+			Value: &f.Zone,
+		})
 	}
 
 	return filters
