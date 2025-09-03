@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -42,7 +43,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 
 	framework.L.Info().Msgf("Sleeping 1 minute to allow the Vault DON to start...")
 	// TODO: Remove this sleep https://smartcontract-it.atlassian.net/browse/PRIV-154
-	// time.Sleep(1 * time.Minute)
+	time.Sleep(1 * time.Minute)
 	testLogger.Info().Msgf("Sleep over. Executing test now...")
 
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
