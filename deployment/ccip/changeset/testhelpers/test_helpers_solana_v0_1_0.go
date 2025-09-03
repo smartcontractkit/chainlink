@@ -35,6 +35,7 @@ import (
 	module_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
 	aptos_router "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
@@ -1703,7 +1704,8 @@ func DeployTransferableTokenAptos(
 				TokenCodeObjAddress:                 aptos.AccountAddress{}, // Will be deployed
 				TokenPoolAddress:                    aptos.AccountAddress{}, // Will be deployed
 				PoolType:                            shared.AptosManagedTokenPoolType,
-				TokenTransferFeeByRemoteChainConfig: nil, // TODO - not needed?
+				TokenType:                           "managed", // Specify managed token type
+				TokenTransferFeeByRemoteChainConfig: nil,       // TODO - not needed?
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {
 						TokenAddress:     evmToken.Address(),
@@ -1761,6 +1763,102 @@ func DeployTransferableTokenAptos(
 	err = grantMintBurnPermissions(lggr, e.BlockChains.EVMChains()[evmChainSel], evmToken, evmDeployerKey, evmPool.Address())
 	require.NoError(t, err)
 
+	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
+}
+
+func DeployRegulatedTransferableTokenAptos(
+	t *testing.T,
+	lggr logger.Logger,
+	e cldf.Environment,
+	evmChainSel,
+	aptosChainSel uint64,
+	tokenName string,
+	mintAmount *config.TokenMint,
+) (
+	*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_token_pool.BurnMintTokenPool,
+	aptos.AccountAddress,
+	regulated_token_pool.RegulatedTokenPool,
+	error,
+) {
+	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
+	require.NoError(t, err)
+	require.Equal(t, chainsel.FamilyEVM, selectorFamily)
+	selectorFamily, err = chainsel.GetSelectorFamily(aptosChainSel)
+	require.NoError(t, err)
+	require.Equal(t, chainsel.FamilyAptos, selectorFamily)
+	// EVM
+	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, tokenName)
+	require.NoError(t, err)
+	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
+	require.NoError(t, err)
+	// Aptos
+	e, err = commoncs.Apply(t, e,
+		commoncs.Configure(aptoscs.AddTokenPool{},
+			config.AddTokenPoolConfig{
+				ChainSelector:                       aptosChainSel,
+				TokenAddress:                        aptos.AccountAddress{},             // Will be deployed
+				TokenCodeObjAddress:                 aptos.AccountAddress{},             // Will be deployed
+				TokenPoolAddress:                    aptos.AccountAddress{},             // Will be deployed
+				PoolType:                            shared.AptosRegulatedTokenPoolType, // Use regulated token pool type
+				TokenType:                           "regulated",                        // Specify regulated token type
+				TokenTransferFeeByRemoteChainConfig: nil,                                // TODO - not needed?
+				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
+					evmChainSel: {
+						TokenAddress:     evmToken.Address(),
+						TokenPoolAddress: evmPool.Address(),
+						RateLimiterConfig: config.RateLimiterConfig{
+							RemoteChainSelector: evmChainSel,
+							OutboundIsEnabled:   false,
+							OutboundCapacity:    0,
+							OutboundRate:        0,
+							InboundIsEnabled:    false,
+							InboundCapacity:     0,
+							InboundRate:         0,
+						},
+					},
+				},
+				TokenParams: config.TokenParams{
+					Name:     tokenName,
+					Symbol:   "TKN", // Regulated Token
+					Decimals: 8,
+				},
+				TokenMint: mintAmount,
+				MCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay: time.Second, // TODO
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
+	require.NoError(t, err)
+	tokenMetadataAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    "TKN", // Regulated Token symbol
+			Version: deployment.Version1_6_0,
+			Labels:  nil,
+		},
+		aptosAddresses,
+	)
+	lggr.Debugf("Deployed Regulated Token on Aptos: %v", tokenMetadataAddress.StringLong())
+	tokenPoolAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.AptosRegulatedTokenPoolType,
+			Version: deployment.Version1_6_0,
+			Labels:  cldf.NewLabelSet(tokenMetadataAddress.StringLong()),
+		},
+		aptosAddresses,
+	)
+	aptosTokenPool := regulated_token_pool.Bind(tokenPoolAddress, e.BlockChains.AptosChains()[aptosChainSel].Client)
+	lggr.Debugf("Deployed Regulated Token Pool for %v to %v", tokenMetadataAddress.StringLong(), tokenPoolAddress.StringLong())
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployerKey, aptosChainSel, tokenMetadataAddress[:], tokenPoolAddress[:])
+	require.NoError(t, err)
+	err = grantMintBurnPermissions(lggr, e.BlockChains.EVMChains()[evmChainSel], evmToken, evmDeployerKey, evmPool.Address())
+	require.NoError(t, err)
 	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
 }
 

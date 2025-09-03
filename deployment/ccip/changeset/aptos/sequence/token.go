@@ -17,6 +17,7 @@ type DeployTokenSeqInput struct {
 	MCMSAddress aptos.AccountAddress
 	TokenParams config.TokenParams
 	TokenMint   *config.TokenMint
+	TokenType   string // "managed" or "regulated"
 }
 
 type DeployTokenSeqOutput struct {
@@ -51,6 +52,7 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		Name:        in.TokenParams.Name,
 		Symbol:      string(in.TokenParams.Symbol),
 		MCMSAddress: in.MCMSAddress,
+		TokenType:   in.TokenType,
 	}
 	deployTReport, err := operations.ExecuteOperation(b, operation.DeployTokenOp, deps, deployTInput)
 	if err != nil {
@@ -62,6 +64,7 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	deployTokenRegistrarIn := operation.DeployTokenRegistrarInput{
 		TokenCodeObjectAddress: deployTReport.Output.TokenCodeObjectAddress,
 		MCMSAddress:            in.MCMSAddress,
+		TokenType:              in.TokenType,
 	}
 	deployRegReport, err := operations.ExecuteOperation(b, operation.DeployTokenMCMSRegistrarOp, deps, deployTokenRegistrarIn)
 	if err != nil {
@@ -78,6 +81,7 @@ func deployAptosTokenSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		Decimals:               in.TokenParams.Decimals,
 		Icon:                   in.TokenParams.Icon,
 		Project:                in.TokenParams.Project,
+		TokenType:              in.TokenType,
 	}
 	initTokenReport, err := operations.ExecuteOperation(b, operation.InitializeTokenOp, deps, initTokenInput)
 	if err != nil {

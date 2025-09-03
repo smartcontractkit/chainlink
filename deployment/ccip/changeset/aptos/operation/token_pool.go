@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
@@ -107,6 +108,16 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			aptosState.MCMSAddress,
 			in.TokenPoolObjAddress,
 			in.TokenAddress,
+			true,
+		)
+	case shared.AptosRegulatedTokenPoolType:
+		payload, err = regulated_token_pool.Compile(
+			in.TokenPoolObjAddress,
+			aptosState.CCIPAddress,
+			aptosState.MCMSAddress,
+			in.TokenPoolObjAddress,
+			in.TokenCodeObjAddress,
+			deps.AptosChain.DeployerSigner.AccountAddress(), // Use deployer as admin
 			true,
 		)
 	default:

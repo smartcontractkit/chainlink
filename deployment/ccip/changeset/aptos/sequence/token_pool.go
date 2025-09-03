@@ -10,6 +10,7 @@ import (
 
 	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -114,9 +115,15 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 
 	// 7 - Grant BnM permission to the token pool
 	// TODO: BnM Pool should also have this
-	if in.PoolType == shared.AptosManagedTokenPoolType {
-		// Get the token pool state address
-		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
+	if in.PoolType == shared.AptosManagedTokenPoolType || in.PoolType == shared.AptosRegulatedTokenPoolType {
+		// Get the token pool state address with correct seed based on pool type
+		var seedBytes []byte
+		if in.PoolType == shared.AptosRegulatedTokenPoolType {
+			seedBytes = []byte("CcipRegulatedTokenPool") // Seed for regulated token pool
+		} else {
+			seedBytes = []byte("CcipManagedTokenPool") // Seed for managed token pool
+		}
+		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount(seedBytes)
 		gmReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedMintersOp, deps, operation.ApplyAllowedMintersInput{
 			TokenCodeObjectAddress: in.TokenCodeObjAddress,
 			MintersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
@@ -154,6 +161,7 @@ type ConnectTokenPoolSeqInput struct {
 	RemotePoolsToRemove                 []uint64 // To re-set a pool also add its address on the removing list
 	TokenAddress                        aptos.AccountAddress
 	TokenTransferFeeByRemoteChainConfig map[uint64]fee_quoter.TokenTransferFeeConfig
+	PoolType                            cldf.ContractType // Add pool type to determine which binding to use
 }
 
 type RemotePool struct {
@@ -200,8 +208,15 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		InboundRates:         nil,
 	}
 
-	tokenPool := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
-	supportedChains, err := tokenPool.ManagedTokenPool().GetSupportedChains(nil)
+	var supportedChains []uint64
+	var err error
+	if in.PoolType == shared.AptosRegulatedTokenPoolType {
+		regulatedTokenPool := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		supportedChains, err = regulatedTokenPool.RegulatedTokenPool().GetSupportedChains(nil)
+	} else {
+		managedTokenPool := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		supportedChains, err = managedTokenPool.ManagedTokenPool().GetSupportedChains(nil)
+	}
 	if err != nil {
 		b.Logger.Debugf("failed to get supported chains from token pool %s, likely because it isn't deployed yet: %v", in.TokenPoolAddress.StringLong(), err)
 	}
@@ -223,7 +238,15 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 			applyChainUpdatesInput.RemoteTokenAddresses = append(applyChainUpdatesInput.RemoteTokenAddresses, remotePool.RemoteTokenAddress)
 		} else {
 			// If the chain is supported, check if there's an updated remote pool that hasn't been configured yet
-			configuredRemotePools, err := tokenPool.ManagedTokenPool().GetRemotePools(nil, remoteSel)
+			var configuredRemotePools [][]byte
+			var err error
+			if in.PoolType == shared.AptosRegulatedTokenPoolType {
+				regulatedTokenPool := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+				configuredRemotePools, err = regulatedTokenPool.RegulatedTokenPool().GetRemotePools(nil, remoteSel)
+			} else {
+				managedTokenPool := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+				configuredRemotePools, err = managedTokenPool.ManagedTokenPool().GetRemotePools(nil, remoteSel)
+			}
 			if err != nil {
 				return mcmstypes.BatchOperation{}, fmt.Errorf("failed to get remote pools from token pool for selector %d: %w", remoteSel, err)
 			}
