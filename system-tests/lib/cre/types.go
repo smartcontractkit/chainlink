@@ -416,8 +416,6 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	return nil
 }
 
-const VaultGatewayDonID = "vault"
-
 type GatewayConnectorDons struct {
 	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
 	ID                  string   `toml:"id" json:"id"`
