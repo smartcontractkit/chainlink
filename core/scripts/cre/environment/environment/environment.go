@@ -286,14 +286,11 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
-			contractVersionOverrides := make(map[string]string, 0)
-			if withContractsVersion == "v2" {
-				contractVersionOverrides[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
-				contractVersionOverrides[keystone_changeset.WorkflowRegistry.String()] = "2.0.0"
-			}
+			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
 				flags.NewDefaultCapabilityFlagsProvider(),
-				cre.NewContractVersionsProvider(contractVersionOverrides),
+				cre.NewContractVersionsProvider(envconfig.GetDefaultContractSet(withV2Registries)),
+				cre.NewCLIFlagsProvider(withV2Registries),
 			)
 
 			if err := in.Validate(envDependencies); err != nil {
