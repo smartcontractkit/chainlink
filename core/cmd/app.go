@@ -273,7 +273,7 @@ func NewApp(s *Shell) *cli.App {
 
 				// early initialization of the logger with Otel core
 				if cfg.Telemetry().LogStreamingEnabled() {
-					lggrCfg.AdditionalCores = append(lggrCfg.AdditionalCores, logger.NewOtelCore())
+					lggrCfg.TelemetryStreamingEnabled = true
 				}
 
 				l, closeFn := lggrCfg.New()

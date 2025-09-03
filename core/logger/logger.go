@@ -171,10 +171,8 @@ type Config struct {
 	diskPollConfig       zapDiskPollConfig
 	// This is for tests only
 	testDiskLogLvlChan chan zapcore.Level
-
-	// Additional cores to combine with the default core
-	// Useful for adding OtelZap core to export logs to Loki through Beholder
-	AdditionalCores []zapcore.Core
+	// Enables telemetry streaming and adding otel core
+	TelemetryStreamingEnabled bool
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -195,9 +193,9 @@ func (c *Config) New() (Logger, func() error) {
 		err         error
 	)
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, c.AdditionalCores...)
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, c.TelemetryStreamingEnabled)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c, c.AdditionalCores...)
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c, c.TelemetryStreamingEnabled)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -247,12 +245,18 @@ func newZapConfigBase() zap.Config {
 	return cfg
 }
 
-func newDefaultLogger(zcfg zap.Config, unixTS bool, cores ...zapcore.Core) (Logger, func() error, error) {
+func newDefaultLogger(zcfg zap.Config, unixTS bool, telemetryStreamingEnabled bool) (Logger, func() error, error) {
 	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	var cores []zapcore.Core
 	cores = append(cores, defaultCore)
+
+	if telemetryStreamingEnabled {
+		cores = append(cores, newOtelCore())
+	}
 
 	core := zapcore.NewTee(cores...)
 	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)
@@ -319,7 +323,7 @@ func newDiskCore(diskLogLevel zap.AtomicLevel, local Config) (zapcore.Core, erro
 	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }
 
-func NewOtelCore() zapcore.Core {
+func newOtelCore() zapcore.Core {
 	// note: until beholder.SetGlobalOtelProviders() is not called
 	// the core uses no-op provider and logger
 	loggerProvider := otellogglobal.GetLoggerProvider()
