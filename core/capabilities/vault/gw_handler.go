@@ -90,6 +90,10 @@ func (h *GatewayHandler) ID(ctx context.Context) (string, error) {
 	return HandlerName, nil
 }
 
+func (h *GatewayHandler) Methods() []string {
+	return vaulttypes.GetSupportedMethods(h.lggr)
+}
+
 func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
 	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "req", req, "requestID", req.ID)
 

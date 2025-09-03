@@ -209,7 +209,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return vaulttypes.Methods
+	return vaulttypes.GetSupportedMethods(h.lggr)
 }
 
 func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ chan<- gwhandlers.UserCallbackPayload) error {
