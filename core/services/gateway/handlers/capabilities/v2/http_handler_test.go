@@ -482,23 +482,23 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.Equal(t, expectedResp.Body, response.Body)
 		require.Empty(t, response.ErrorMessage)
 		require.False(t, response.IsExternalEndpointError)
-		require.True(t, response.ExternalEndpointLatency > 0)
+		require.Positive(t, response.ExternalEndpointLatency)
 	})
 
 	t.Run("HTTP send error sets IsExternalEndpointError to true", func(t *testing.T) {
 		handler := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
-		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, network.HTTPSendError)
+		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, network.ErrHTTPSend)
 
 		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
 
 		response := callback()
 
 		require.NotEmpty(t, response.ErrorMessage, "Error message should not be empty")
-		require.Equal(t, network.HTTPSendError.Error(), response.ErrorMessage)
+		require.Equal(t, network.ErrHTTPSend.Error(), response.ErrorMessage)
 		require.True(t, response.IsExternalEndpointError)
-		require.True(t, response.ExternalEndpointLatency > 0)
+		require.Positive(t, response.ExternalEndpointLatency)
 		require.Equal(t, 0, response.StatusCode)
 		require.Nil(t, response.Headers)
 		require.Nil(t, response.Body)
@@ -517,7 +517,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.NotEmpty(t, response.ErrorMessage, "Error message should not be empty")
 		require.Equal(t, network.HTTPReadError.Error(), response.ErrorMessage)
 		require.True(t, response.IsExternalEndpointError)
-		require.True(t, response.ExternalEndpointLatency > 0)
+		require.Positive(t, response.ExternalEndpointLatency)
 		require.Equal(t, 0, response.StatusCode)
 		require.Nil(t, response.Headers)
 		require.Nil(t, response.Body)
@@ -537,7 +537,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.NotEmpty(t, response.ErrorMessage, "Error message should not be empty")
 		require.Equal(t, genericError.Error(), response.ErrorMessage)
 		require.False(t, response.IsExternalEndpointError)
-		require.True(t, response.ExternalEndpointLatency > 0)
+		require.Positive(t, response.ExternalEndpointLatency)
 		require.Equal(t, 0, response.StatusCode)
 		require.Nil(t, response.Headers)
 		require.Nil(t, response.Body)
