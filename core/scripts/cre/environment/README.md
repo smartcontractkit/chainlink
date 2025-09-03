@@ -50,8 +50,9 @@ Slack: #topic-local-dev-environments
     - [Important Notes](#important-notes-1)
     - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
 7. [Binary Location and Naming](#binary-location-and-naming)
-8. [Telemetry Configuration](#telemetry-configuration)
-9. [Troubleshooting](#troubleshooting)
+8. [Hot swapping](#hot-swapping)
+9. [Telemetry Configuration](#telemetry-configuration)
+10. [Troubleshooting](#troubleshooting)
 
 # Using the CLI
 
@@ -1206,6 +1207,79 @@ core/scripts/cre/environment/
 ```
 
 To check expected filenames, refer to the `binary_path` field in `capability_defaults.toml` for each capability.
+
+---
+
+## Hot swapping
+
+### Chainlink nodes' Docker image
+
+Swap the Docker images of all Chainlink nodes in the environment without completely restarting the environment. If the environment is configured to build Docker images from source, images will be rebuilt if changes are detected.
+
+**Usage:**
+```bash
+go run . env swap nodes [flags]
+```
+
+**Key flags:**
+- `-f, --force`: Force removal of Docker containers (default: `true`). Set to `false` for graceful shutdown
+- `-w, --wait-time`: Time to wait for container removal after failed restart (default: `2m`)
+
+**Example:**
+```bash
+# Force restart all nodes (faster)
+go run . env swap n
+
+# Graceful restart with longer wait time
+go run . env swap n --force=false --wait-time=5m
+```
+
+### Capability binary
+
+Swap individual capability binaries in running Chainlink nodes without restarting the entire environment. This targets only the DONs that have the specified capability enabled.
+
+**Usage:**
+```bash
+go run . env swap capability [flags]
+```
+
+**Key flags:**
+- `-n, --name`: Name of the capability to swap (required)
+- `-b, --binary`: Path to the new binary on the host machine (required)
+- `-f, --force`: Force container restart (default: `true`)
+
+**Example:**
+```bash
+go run . env swap c --name cron --binary ./new-cron-binary
+```
+
+**Supported capabilities for hot swapping:**
+Run `go run . env swap capability --name unsupported-cap` to see the current list of swappable capabilities.
+
+### Automated Hot Swapping with fswatch
+
+For development workflows, you can automate capability hot swapping using `fswatch` to monitor file changes:
+
+**Install fswatch:**
+```bash
+brew install fswatch
+```
+
+**Example usage:**
+```bash
+# Monitor cron capability source directory and auto-rebuild + hot swap
+# (from within your capability source directory)
+fswatch -o . | xargs -n1 sh -c '
+  export PATH="$HOME/.asdf/shims:$PATH" &&
+  GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o /tmp/cron &&
+  cd /path/to/chainlink/core/scripts/cre/environment &&
+  go run . env swap c --name cron --binary /tmp/cron
+'
+```
+
+**⚠️ Important:** Pay attention to the binary output location in the build command. In the example above, the binary is compiled to `/tmp/cron` (outside the source directory). If you compile to the current directory (`.`), it would trigger an infinite loop as `fswatch` would detect the newly created binary as a change.
+
+**⚠️ Important:** If you are using ASDF it is crucial to add `export PATH="$HOME/.asdf/shims:$PATH"` to avoid using system's Go binary and resulting download of all `go.mod` dependencies (both for the capability and the whole local CRE).
 
 ---
 

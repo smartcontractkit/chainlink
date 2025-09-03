@@ -121,10 +121,13 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 		}
 
 		if input.DeployEVMOCR3 {
-			for chainID, selector := range input.EVMChainIDs {
+			for chainID := range input.EVMChainIDs {
 				// EVM cap OCR3 Contract
-				qualifier := GetCapabilityContractIdentifier(uint64(chainID))
-				evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: uint64(selector), Qualifier: qualifier})
+				qualifier := CapabilityContractIdentifier(uint64(chainID))
+				// deploy OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
+				// because that violates a DB constraint for offchain reporting jobs
+				// this can be removed once https://smartcontract-it.atlassian.net/browse/PRODCRE-804 is done and we can deploy OCR3 contract for each EVM chain on that chain
+				evmOCR3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: qualifier})
 				if err != nil {
 					return DeployKeystoneContractsSequenceOutput{}, err
 				}
@@ -153,6 +156,6 @@ var DeployKeystoneContractsSequence = operations.NewSequence[DeployKeystoneContr
 	},
 )
 
-func GetCapabilityContractIdentifier(chainID uint64) string {
+func CapabilityContractIdentifier(chainID uint64) string {
 	return fmt.Sprintf("capability_evm_%d", chainID)
 }

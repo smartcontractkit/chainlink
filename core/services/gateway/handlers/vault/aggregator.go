@@ -12,8 +12,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 type baseAggregator struct {
@@ -99,7 +98,7 @@ func (a *baseAggregator) sha(resp *jsonrpc.Response[json.RawMessage]) (string, e
 		return resp.Digest()
 	}
 
-	r := &vaultcap.SignedOCRResponse{}
+	r := &vaulttypes.SignedOCRResponse{}
 	err := json.Unmarshal(*resp.Result, r)
 	if err != nil {
 		return "", err
@@ -137,7 +136,7 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 		return nil, errors.New("response result is nil: cannot validate signatures")
 	}
 
-	r := &vaultcap.SignedOCRResponse{}
+	r := &vaulttypes.SignedOCRResponse{}
 	err := json.Unmarshal(*resp.Result, r)
 	if err != nil {
 		return nil, err
@@ -148,7 +147,7 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 		signers = append(signers, common.BytesToAddress(n.Signer[0:20]))
 	}
 
-	err = vaultcap.ValidateSignatures(r, signers, int(don.F+1))
+	err = vaulttypes.ValidateSignatures(r, signers, int(don.F+1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate signatures: %w", err)
 	}

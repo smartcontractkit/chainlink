@@ -33,4 +33,4 @@ target_path = "./binaries"
 repository = "https://github.com/smartcontractkit/capabilities"
 branch = "main"
 build_command = "pnpm install && ./nx run-many -t build"
-artifacts_dir = "./bin/amd64"
+artifacts_dirs = ["./bin/amd64", "./chain_capabilities/bin/amd64"]

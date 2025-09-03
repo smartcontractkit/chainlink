@@ -33,10 +33,15 @@ const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}",
 const registrationRefresh = 20 * time.Second
 const registrationExpiry = 60 * time.Second
 
-func New() (*capabilities.Capability, error) {
+func New(registryChainID uint64) (*capabilities.Capability, error) {
+	registryChainSelector, err := chainselectors.SelectorFromChainId(registryChainID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get selector from registry chainID: %d", registryChainID)
+	}
+
 	return capabilities.New(
 		flag,
-		capabilities.WithJobSpecFn(jobSpec),
+		capabilities.WithJobSpecFn(jobSpecWithRegistryChainSelector(registryChainSelector)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
 	)
 }
@@ -98,63 +103,78 @@ func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, node
 	}
 }
 
-func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
-	var generateJobSpec = func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
-		cs, ok := chainselectors.EvmChainIdToChainSelector()[chainID]
-		if !ok {
-			return "", fmt.Errorf("chain selector not found for chainID: %d", chainID)
+func jobSpecWithRegistryChainSelector(registryChainSelector uint64) cre.JobSpecFn {
+	return func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
+		var generateJobSpec = func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
+			cs, ok := chainselectors.EvmChainIdToChainSelector()[chainID]
+			if !ok {
+				return "", fmt.Errorf("chain selector not found for chainID: %d", chainID)
+			}
+
+			creForwarderKey := datastore.NewAddressRefKey(
+				cs,
+				datastore.ContractType(keystone_changeset.KeystoneForwarder.String()),
+				semver.MustParse("1.0.0"),
+				"",
+			)
+			creForwarderAddress, err := input.CldEnvironment.DataStore.Addresses().Get(creForwarderKey)
+			if err != nil {
+				return "", errors.Wrap(err, "failed to get CRE Forwarder address")
+			}
+
+			logger.Debug().Msgf("Found CRE Forwarder contract on chain %d at %s", chainID, creForwarderAddress.Address)
+
+			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
+
+			templateData, aErr := don.ApplyRuntimeValues(mergedConfig, runtimeFallbacks)
+			if aErr != nil {
+				return "", errors.Wrap(aErr, "failed to apply runtime values")
+			}
+
+			tmpl, err := template.New("evmConfig").Parse(configTemplate)
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to parse %s config template", flag)
+			}
+
+			var configBuffer bytes.Buffer
+			if err := tmpl.Execute(&configBuffer, templateData); err != nil {
+				return "", errors.Wrapf(err, "failed to execute %s config template", flag)
+			}
+
+			configStr := configBuffer.String()
+
+			if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
+				return "", errors.Wrapf(err, "%s template validation failed", flag)
+			}
+
+			return configStr, nil
 		}
 
-		creForwarderKey := datastore.NewAddressRefKey(
-			cs,
-			datastore.ContractType(keystone_changeset.KeystoneForwarder.String()),
-			semver.MustParse("1.0.0"),
-			"",
+		var dataStoreOCR3ContractKeyProvider = func(contractName string, _ uint64) datastore.AddressRefKey {
+			return datastore.NewAddressRefKey(
+				// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
+				// because that violates a DB constraint for offchain reporting jobs
+				// this can be removed once https://smartcontract-it.atlassian.net/browse/PRODCRE-804 is done and we can deploy OCR3 contract for each EVM chain on that chain
+				registryChainSelector,
+				datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+				semver.MustParse("1.0.0"),
+				contractName,
+			)
+		}
+
+		return ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
+			input.DonTopology,
+			input.CldEnvironment.DataStore,
+			input.CapabilitiesAwareNodeSets,
+			input.InfraInput,
+			flag,
+			contracts.CapabilityContractIdentifier,
+			dataStoreOCR3ContractKeyProvider,
+			chainlevel.CapabilityEnabler,
+			chainlevel.EnabledChainsProvider,
+			generateJobSpec,
+			chainlevel.ConfigMerger,
+			input.CapabilityConfigs,
 		)
-		creForwarderAddress, err := input.CldEnvironment.DataStore.Addresses().Get(creForwarderKey)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to get CRE Forwarder address")
-		}
-
-		logger.Debug().Msgf("Found CRE Forwarder contract on chain %d at %s", chainID, creForwarderAddress.Address)
-
-		runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
-
-		templateData, aErr := don.ApplyRuntimeValues(mergedConfig, runtimeFallbacks)
-		if aErr != nil {
-			return "", errors.Wrap(aErr, "failed to apply runtime values")
-		}
-
-		tmpl, err := template.New("evmConfig").Parse(configTemplate)
-		if err != nil {
-			return "", errors.Wrapf(err, "failed to parse %s config template", flag)
-		}
-
-		var configBuffer bytes.Buffer
-		if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-			return "", errors.Wrapf(err, "failed to execute %s config template", flag)
-		}
-
-		configStr := configBuffer.String()
-
-		if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
-			return "", errors.Wrapf(err, "%s template validation failed", flag)
-		}
-
-		return configStr, nil
 	}
-
-	return ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
-		input.DonTopology,
-		input.CldEnvironment.DataStore,
-		input.CapabilitiesAwareNodeSets,
-		input.InfraInput,
-		flag,
-		contracts.GetCapabilityContractIdentifier,
-		chainlevel.CapabilityEnabler,
-		chainlevel.EnabledChainsProvider,
-		generateJobSpec,
-		chainlevel.ConfigMerger,
-		input.CapabilityConfigs,
-	)
 }
