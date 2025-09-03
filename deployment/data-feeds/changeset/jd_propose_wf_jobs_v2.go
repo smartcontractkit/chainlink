@@ -35,7 +35,7 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 
 	domain := getDomain(c.Domain)
 
-	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", c.NodeFilter.Zone, chainInfo.ChainName+".json")
 	feedState, _ := readFeedStateFile(feedStatePath)
 
 	// Only get feeds that are part of the workflow
@@ -143,13 +143,29 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 		return fmt.Errorf("failed to get consensus encoder abi: %w", err)
 	}
 
+	if c.NodeFilter == nil {
+		return errors.New("missing node filter")
+	}
+
+	if c.NodeFilter.DONID == 0 {
+		return errors.New("missing DON ID in node filter")
+	}
+
+	if c.NodeFilter.EnvLabel == "" {
+		return errors.New("missing environment label in node filter")
+	}
+
+	if c.NodeFilter.Zone != "zone-a" && c.NodeFilter.Zone != "zone-b" {
+		return errors.New("missing or invalid zone in node filter")
+	}
+
 	domain := getDomain(c.Domain)
 	chainInfo, err := cldf_chain_utils.ChainInfo(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}
 
-	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", c.NodeFilter.Zone, chainInfo.ChainName+".json")
 
 	feedState, err := readFeedStateFile(feedStatePath)
 	if err != nil {
@@ -173,22 +189,6 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), c.ChainSelector, &c.CacheLabel)
 	if cacheAddress == "" {
 		return errors.New("failed to get data feeds cache address")
-	}
-
-	if c.NodeFilter == nil {
-		return errors.New("missing node filter")
-	}
-
-	if c.NodeFilter.DONID == 0 {
-		return errors.New("missing DON ID in node filter")
-	}
-
-	if c.NodeFilter.EnvLabel == "" {
-		return errors.New("missing environment label in node filter")
-	}
-
-	if c.NodeFilter.Zone != "zone-a" && c.NodeFilter.Zone != "zone-b" {
-		return errors.New("missing or invalid zone in node filter")
 	}
 
 	return nil

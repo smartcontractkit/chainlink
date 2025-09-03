@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -387,43 +387,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 			require.NoError(t, err, "must get node info")
 			mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
-			newChain := v1_6.NewChainDefinition{
-				ChainDefinition: v1_6.ChainDefinition{
-					ConnectionConfig: v1_6.ConnectionConfig{
-						RMNVerificationDisabled: true,
-						AllowListEnabled:        false,
-					},
-					Selector:                 newChainSelector,
-					GasPrice:                 big.NewInt(1e17),
-					TokenPrices:              map[common.Address]*big.Int{},
-					FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
-				},
-				ChainContractParams: ccipseq.ChainContractParams{
-					FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
-					OffRampParams:   ccipops.DefaultOffRampParams(),
-				},
-				ExistingContracts: commoncs.ExistingContractsConfig{
-					ExistingContracts: []commoncs.Contract{
-						{
-							Address:        linkAddress.Hex(),
-							TypeAndVersion: cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
-							ChainSelector:  newChainSelector,
-						},
-					},
-				},
-				ConfigOnHome: v1_6.ChainConfig{
-					Readers: nodeInfo.NonBootstraps().PeerIDs(),
-					FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3), // #nosec G115 - Overflow is not a concern in this test scenario
-					EncodableChainConfig: chainconfig.ChainConfig{
-						GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-						DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
-						OptimisticConfirmations: globals.OptimisticConfirmations,
-					},
-				},
-				CommitOCRParams: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, deployedEnvironment.FeedChainSel, nil, nil),
-				ExecOCRParams:   v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
-				// RMNRemoteConfig:   &v1_6.RMNRemoteConfig{...}, // TODO: Enable?
-			}
+			newChain := newChainConfigHelper(newChainSelector, deployedEnvironment.FeedChainSel, linkAddress, &nodeInfo, len(nodeInfo.NonBootstraps().PeerIDs()))
 
 			if test.ErrStr != "" {
 				newChain.ExecOCRParams.ExecuteOffChainConfig.MultipleReportsEnabled = true
@@ -625,4 +589,111 @@ func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
 		}
 		require.True(t, linkTokenStillExists, "should still have Link Token in address book")
 	})
+}
+
+func TestValidateTransmitterAddresses(t *testing.T) {
+	t.Parallel()
+	t.Run("should fail if the number of transmitter address is less than 3f+1", func(t *testing.T) {
+		// Test the core validation logic from ValidateTransmitters method
+		// fChain := uint8(1)
+		// requiredTransmitters := 3*int(fChain) + 1
+		chainIDs := []uint64{
+			chain_selectors.ETHEREUM_TESTNET_SEPOLIA.EvmChainID,
+			chain_selectors.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.EvmChainID,
+			chain_selectors.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.EvmChainID,
+		}
+		deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
+			testCfg.ChainIDs = chainIDs
+			testCfg.Nodes = 4
+		})
+		e := deployedEnvironment.Env
+		nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+		require.NoError(t, err, "must get node info")
+
+		// deploy donIDClaimer
+		e, err = commonchangeset.Apply(t, e,
+			commonchangeset.Configure(
+				v1_6.DeployDonIDClaimerChangeset,
+				v1_6.DeployDonIDClaimerConfig{},
+			))
+		require.NoError(t, err, "must deploy donIDClaimer contract")
+
+		remoteChains := make([]v1_6.ChainDefinition, 1)
+		// test
+		remoteChains[0] = v1_6.ChainDefinition{
+			ConnectionConfig: v1_6.ConnectionConfig{
+				RMNVerificationDisabled: true,
+				AllowListEnabled:        false,
+			},
+			Selector:                 chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+			GasPrice:                 big.NewInt(1e17),
+			TokenPrices:              map[common.Address]*big.Int{},
+			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+		}
+
+		mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+		donIDOffSet := uint32(0)
+		state, err := stateview.LoadOnchainState(e)
+		require.NoError(t, err, "must load onchain state")
+		linkAddress := state.Chains[chain_selectors.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.Selector].LinkToken.Address()
+		e, err = commonchangeset.Apply(t, e,
+			commonchangeset.Configure(
+				v1_6.AddCandidatesForNewChainChangeset,
+				v1_6.AddCandidatesForNewChainConfig{
+					HomeChainSelector:    deployedEnvironment.HomeChainSel,
+					FeedChainSelector:    deployedEnvironment.FeedChainSel,
+					NewChain:             newChainConfigHelper(chain_selectors.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.Selector, deployedEnvironment.FeedChainSel, linkAddress, &nodeInfo, 6),
+					RemoteChains:         remoteChains,
+					MCMSDeploymentConfig: &mcmsDeploymentCfg,
+					MCMSConfig: &proposalutils.TimelockConfig{
+						MinDelay:   0 * time.Second,
+						MCMSAction: mcmstypes.TimelockActionSchedule,
+					},
+					DonIDOffSet: &donIDOffSet,
+				},
+			),
+		)
+
+		require.ErrorContains(t, err, "is less than 3 * fChain + 1")
+	})
+}
+
+func newChainConfigHelper(newChainSel, feedChainSel uint64, linkTokenAddr common.Address, nodeInfo *deployment.Nodes, noOfPeers int) v1_6.NewChainDefinition {
+	return v1_6.NewChainDefinition{
+		ChainDefinition: v1_6.ChainDefinition{
+			ConnectionConfig: v1_6.ConnectionConfig{
+				RMNVerificationDisabled: true,
+				AllowListEnabled:        false,
+			},
+			Selector:                 newChainSel,
+			GasPrice:                 big.NewInt(1e17),
+			TokenPrices:              map[common.Address]*big.Int{},
+			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+		},
+		ChainContractParams: ccipseq.ChainContractParams{
+			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
+			OffRampParams:   ccipops.DefaultOffRampParams(),
+		},
+		ExistingContracts: commoncs.ExistingContractsConfig{
+			ExistingContracts: []commoncs.Contract{
+				{
+					Address:        linkTokenAddr.Hex(),
+					TypeAndVersion: cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
+					ChainSelector:  newChainSel,
+				},
+			},
+		},
+		ConfigOnHome: v1_6.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			FChain:  uint8(noOfPeers / 3), // #nosec G115 - Overflow is not a concern in this test scenario
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    ccipocr3common.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  ccipocr3common.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
+			},
+		},
+		CommitOCRParams: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, feedChainSel, nil, nil),
+		ExecOCRParams:   v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
+		// RMNRemoteConfig:   &v1_6.RMNRemoteConfig{...}, // TODO: Enable?
+	}
 }
