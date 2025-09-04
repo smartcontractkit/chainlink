@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
+	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evm_types "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -144,7 +145,6 @@ func NewSecureMintServices(ctx context.Context,
 
 	// Create the reporting plugin factory
 	cmdName := env.SecureMintPlugin.Cmd.Get()
-
 	if cmdName == "" {
 		abort()
 		return nil, fmt.Errorf("secure mint plugin loop is not configured, non-loopp mode is not supported for secure mint")
@@ -169,22 +169,15 @@ func NewSecureMintServices(ctx context.Context,
 		abort()
 		return
 	}
-	pluginConfig := coretypes.ReportingPluginServiceConfig{
-		PluginName:    sm_plugin_loopp.PluginSecureMintName,
-		Command:       cmdName,
-		ProviderType:  "TODOproviderType",
-		TelemetryType: "TODOtelemetryType",
-		PluginConfig:  string(jb.OCR2OracleSpec.PluginConfig.Bytes()), // TODO(gg): is this correct?
+
+	ea, err := sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secure mint external adapter: %w", err)
 	}
 
-	secureMint := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn, pluginConfig) // TODO(gg): add more params
-	argsNoPlugin.ReportingPluginFactory = secureMint                                           // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
+	secureMint := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn, ea) // TODO(gg): add more params
+	argsNoPlugin.ReportingPluginFactory = secureMint                                 // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
 	srvs = append(srvs, secureMint)
-
-	// ea, err := sm_ea.NewExternalAdapter(secureMintPluginConfig, pipelineRunner, jb, *jb.PipelineSpec, runSaver, lggr)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to create secure mint external adapter: %w", err)
-	// }
 
 	// // Create the original SecureMint plugin factory
 	// smPluginFactory := &sm_plugin.PorReportingPluginFactory{
