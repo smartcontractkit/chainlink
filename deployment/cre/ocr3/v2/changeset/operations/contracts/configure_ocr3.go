@@ -26,15 +26,14 @@ import (
 type ConfigureOCR3Deps struct {
 	Env                  *cldf.Environment
 	WriteGeneratedConfig io.Writer
-	//Registry             *capabilities_registry_v2.CapabilitiesRegistry
 }
 
 type ConfigureOCR3Input struct {
-	ContractAddress  *common.Address
-	RegistryChainSel uint64
-	DONs             ConfigureCREDON
-	Config           *ocr3.OracleConfig
-	DryRun           bool
+	ContractAddress *common.Address
+	ChainSelector   uint64
+	DON             ConfigureCREDON
+	Config          *ocr3.OracleConfig
+	DryRun          bool
 
 	MCMSConfig *ocr3.MCMSConfig
 }
@@ -56,9 +55,9 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 			return ConfigureOCR3OpOutput{}, errors.New("ContractAddress is required")
 		}
 
-		chain, ok := deps.Env.BlockChains.EVMChains()[input.RegistryChainSel]
+		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
-			return ConfigureOCR3OpOutput{}, fmt.Errorf("chain %d not found in environment", input.RegistryChainSel)
+			return ConfigureOCR3OpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
 		}
 
 		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
@@ -67,8 +66,8 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 		}
 
 		resp, err := ocr3.ConfigureOCR3ContractFromJD(deps.Env, ocr3.ConfigureOCR3Config{
-			ChainSel:   input.RegistryChainSel,
-			NodeIDs:    input.DONs.NodeIDs,
+			ChainSel:   input.ChainSelector,
+			NodeIDs:    input.DON.NodeIDs,
 			OCR3Config: input.Config,
 			Contract:   contract.Contract,
 			DryRun:     input.DryRun,
@@ -104,18 +103,18 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 			}
 
 			timelocksPerChain := map[uint64]string{
-				input.RegistryChainSel: contract.McmsContracts.Timelock.Address().Hex(),
+				input.ChainSelector: contract.McmsContracts.Timelock.Address().Hex(),
 			}
 			proposerMCMSes := map[uint64]string{
-				input.RegistryChainSel: contract.McmsContracts.ProposerMcm.Address().Hex(),
+				input.ChainSelector: contract.McmsContracts.ProposerMcm.Address().Hex(),
 			}
 
-			inspector, err := proposalutils.McmsInspectorForChain(*deps.Env, input.RegistryChainSel)
+			inspector, err := proposalutils.McmsInspectorForChain(*deps.Env, input.ChainSelector)
 			if err != nil {
 				return ConfigureOCR3OpOutput{}, err
 			}
 			inspectorPerChain := map[uint64]sdk.Inspector{
-				input.RegistryChainSel: inspector,
+				input.ChainSelector: inspector,
 			}
 			proposal, err := proposalutils.BuildProposalFromBatchesV2(
 				*deps.Env,
