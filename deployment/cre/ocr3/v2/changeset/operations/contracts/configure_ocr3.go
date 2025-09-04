@@ -17,7 +17,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
-	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -27,13 +26,13 @@ import (
 type ConfigureOCR3Deps struct {
 	Env                  *cldf.Environment
 	WriteGeneratedConfig io.Writer
-	Registry             *capabilities_registry_v2.CapabilitiesRegistry
+	//Registry             *capabilities_registry_v2.CapabilitiesRegistry
 }
 
 type ConfigureOCR3Input struct {
 	ContractAddress  *common.Address
 	RegistryChainSel uint64
-	DONs             []ConfigureCREDON
+	DONs             ConfigureCREDON
 	Config           *ocr3.OracleConfig
 	DryRun           bool
 
@@ -57,27 +56,6 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 			return ConfigureOCR3OpOutput{}, errors.New("ContractAddress is required")
 		}
 
-		var nodeIDs []string
-		for _, don := range input.DONs {
-			donConfig := RegisteredDonConfig{
-				NodeIDs:          don.NodeIDs,
-				Name:             don.Name,
-				RegistryChainSel: input.RegistryChainSel,
-				Registry:         deps.Registry,
-			}
-			d, err := newRegisteredDon(*deps.Env, donConfig)
-			if err != nil {
-				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", don.Name, err)
-			}
-
-			// We double-check that the DON accepts workflows...
-			if d.Info.AcceptsWorkflows {
-				for _, node := range d.Nodes {
-					nodeIDs = append(nodeIDs, node.NodeID)
-				}
-			}
-		}
-
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.RegistryChainSel]
 		if !ok {
 			return ConfigureOCR3OpOutput{}, fmt.Errorf("chain %d not found in environment", input.RegistryChainSel)
@@ -90,7 +68,7 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 
 		resp, err := ocr3.ConfigureOCR3ContractFromJD(deps.Env, ocr3.ConfigureOCR3Config{
 			ChainSel:   input.RegistryChainSel,
-			NodeIDs:    nodeIDs,
+			NodeIDs:    input.DONs.NodeIDs,
 			OCR3Config: input.Config,
 			Contract:   contract.Contract,
 			DryRun:     input.DryRun,

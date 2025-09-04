@@ -12,17 +12,15 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 type ConfigureOCR3OpDeps struct {
 	Env                  *cldf.Environment
 	WriteGeneratedConfig io.Writer
-	Registry             *capabilities_registry.CapabilitiesRegistry
+	//Registry             *capabilities_registry.CapabilitiesRegistry
 }
 
 type ConfigureOCR3OpInput struct {
@@ -51,26 +49,29 @@ var ConfigureOCR3Op = operations.NewOperation[ConfigureOCR3OpInput, ConfigureOCR
 		if input.ContractAddress == nil {
 			return ConfigureOCR3OpOutput{}, errors.New("ContractAddress is required")
 		}
+		/*
+			donConfig := internal.RegisteredDonConfig{
+				NodeIDs:          input.DON.NodeIDs,
+				Name:             input.DON.Name,
+				RegistryChainSel: input.RegistryChainSel,
+				Registry:         deps.Registry,
+			}
+			d, err := internal.NewRegisteredDon(*deps.Env, donConfig)
+			if err != nil {
+				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", input.DON.Name, err)
+			}
 
-		donConfig := internal.RegisteredDonConfig{
-			NodeIDs:          input.DON.NodeIDs,
-			Name:             input.DON.Name,
-			RegistryChainSel: input.RegistryChainSel,
-			Registry:         deps.Registry,
-		}
-		d, err := internal.NewRegisteredDon(*deps.Env, donConfig)
-		if err != nil {
-			return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", input.DON.Name, err)
-		}
-
-		nodeIDs := make([]string, 0, len(d.Nodes))
-		for _, node := range d.Nodes {
-			nodeIDs = append(nodeIDs, node.NodeID)
-		}
-
+			nodeIDs := make([]string, 0, len(d.Nodes))
+			for _, node := range d.Nodes {
+				nodeIDs = append(nodeIDs, node.NodeID)
+			}
+		*/
+		deps.Env.Logger.Infow("Configuring OCR3 contract with DON",
+			"nodes", input.DON.NodeIDs,
+			"dryRun", input.DryRun)
 		resp, err := changeset.ConfigureOCR3Contract(*deps.Env, changeset.ConfigureOCR3Config{
 			ChainSel:             input.RegistryChainSel,
-			NodeIDs:              nodeIDs,
+			NodeIDs:              input.DON.NodeIDs,
 			Address:              input.ContractAddress,
 			OCR3Config:           input.Config,
 			DryRun:               input.DryRun,
@@ -84,3 +85,5 @@ var ConfigureOCR3Op = operations.NewOperation[ConfigureOCR3OpInput, ConfigureOCR
 		return ConfigureOCR3OpOutput{MCMSTimelockProposals: resp.MCMSTimelockProposals}, nil
 	},
 )
+
+//

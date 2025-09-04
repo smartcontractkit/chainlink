@@ -296,8 +296,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      input.CldEnv,
-			Registry: capReg.Contract,
+			Env: input.CldEnv,
+			//		Registry: capReg.Contract,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress:  input.OCR3Address,
@@ -316,8 +316,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      input.CldEnv,
-			Registry: capReg.Contract,
+			Env: input.CldEnv,
+			//	Registry: capReg.Contract,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress:  input.DONTimeAddress,
@@ -341,8 +341,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureOCR3Op,
 			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
+				Env: input.CldEnv,
+				//	Registry: capReg.Contract,
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
 				ContractAddress:  input.VaultOCR3Address,
@@ -369,8 +369,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 				input.CldEnv.OperationsBundle,
 				ks_contracts_op.ConfigureOCR3Op,
 				ks_contracts_op.ConfigureOCR3OpDeps{
-					Env:      input.CldEnv,
-					Registry: capReg.Contract,
+					Env: input.CldEnv,
+					//		Registry: capReg.Contract,
 				},
 				ks_contracts_op.ConfigureOCR3OpInput{
 					ContractAddress:  &evmOCR3Address,
@@ -395,8 +395,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureOCR3Op,
 			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
+				Env: input.CldEnv,
+				//	Registry: capReg.Contract,
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
 				ContractAddress:  input.ConsensusV2OCR3Address,

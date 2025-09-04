@@ -27,7 +27,7 @@ type DeployOCR3Input struct {
 	RegistryChainSel uint64
 	Qualifier        string
 
-	DONs         []contracts.ConfigureCREDON
+	DON          contracts.ConfigureCREDON
 	OracleConfig *ocr3.OracleConfig
 	DryRun       bool
 
@@ -65,25 +65,19 @@ var DeployOCR3 = operations.NewSequence(
 		// Update the environment datastore to include the newly deployed OCR3 contract
 		deps.Env.DataStore = ocr3DeploymentReport.Output.Datastore
 
-		// Step 2: Get the capabilities registry contract
-		capabilitiesRegistry, err := getCapabilitiesRegistryContract(deps, input)
-		if err != nil {
-			return DeployOCR3Output{}, fmt.Errorf("failed to get capabilities registry: %w", err)
-		}
-
 		// Step 3: Configure OCR3 Contract with DONs
-		deps.Env.Logger.Infow("Configuring OCR3 contract with DONs",
-			"numDONs", len(input.DONs),
+		deps.Env.Logger.Infow("Configuring OCR3 contract with DON",
+			"nodes", input.DON.NodeIDs,
 			"dryRun", input.DryRun)
 
 		_, err = operations.ExecuteOperation(b, contracts.ConfigureOCR3, contracts.ConfigureOCR3Deps{
 			Env:                  deps.Env,
 			WriteGeneratedConfig: deps.WriteGeneratedConfig,
-			Registry:             capabilitiesRegistry,
+			//	Registry:             capabilitiesRegistry,
 		}, contracts.ConfigureOCR3Input{
 			ContractAddress:  &ocr3ContractAddress,
 			RegistryChainSel: input.RegistryChainSel,
-			DONs:             input.DONs,
+			DONs:             input.DON,
 			Config:           input.OracleConfig,
 			DryRun:           input.DryRun,
 			MCMSConfig:       input.MCMSConfig,
