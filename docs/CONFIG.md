@@ -18211,6 +18211,61 @@ FinalizedBlockOffset = 0 # Default
 ```
 FinalizedBlockOffset is the offset from the finalized block to use for finality tags.
 
+## Solana.Workflow
+```toml
+[Solana.Workflow]
+AcceptanceTimeout = '45s' # Default
+PollPeriod = '3s' # Default
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
+GasLimitDefault = 300_000 # Default
+TxAcceptanceState = 3 # Default
+```
+
+
+### AcceptanceTimeout
+```toml
+AcceptanceTimeout = '45s' # Default
+```
+AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+
+### PollPeriod
+```toml
+PollPeriod = '3s' # Default
+```
+PollPeriod is the default poll period for checking transmission state
+
+### ForwarderAddress
+```toml
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+```
+ForwarderAddress is the keystone forwarder program address on chain.
+
+### ForwarderState
+```toml
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+```
+ForwarderState is the keystone forwarder program state account on chain.
+
+### FromAddress
+```toml
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
+```
+FromAddress is Address of the transmitter key to use for workflow writes.
+
+### GasLimitDefault
+```toml
+GasLimitDefault = 300_000 # Default
+```
+GasLimitDefault is the default gas limit for workflow transactions.
+
+### TxAcceptanceState
+```toml
+TxAcceptanceState = 3 # Default
+```
+TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+
 ## Solana.Nodes
 ```toml
 [[Solana.Nodes]]
