@@ -14,11 +14,20 @@ import (
 
 var _ cldf.ChangeSetV2[ProposeJobSpecInput] = ProposeJobSpec{}
 
-type JobSpecTemplate string
+type JobSpecTemplate int64
 
 const (
-	Cron JobSpecTemplate = "cron"
+	Cron JobSpecTemplate = iota
 )
+
+func (jt JobSpecTemplate) String() string {
+	switch jt {
+	case Cron:
+		return "cron"
+	default:
+		return "unknown"
+	}
+}
 
 type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`

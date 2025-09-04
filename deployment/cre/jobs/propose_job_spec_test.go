@@ -60,7 +60,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
 				Domain:      "cre",
-				Template:    "invalid-template",
+				Template:    1,
 				Inputs:      types.JobSpecInput{},
 			},
 			expectError: true,
