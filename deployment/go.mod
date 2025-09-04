@@ -7,7 +7,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250831015441-42e63aeb318b
+require github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250904145132-641151f8b334
 
 require (
 	dario.cat/mergo v1.0.2
@@ -37,7 +37,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250903115155-a68d8c28ae1d
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250805210128-7f8a0f403c3a
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250805210128-7f8a0f403c3a
-	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250903181106-6a3e47672959
+	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250904170026-2674110962ca
 	github.com/smartcontractkit/chainlink-deployments-framework v0.25.0
 	github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
@@ -47,9 +47,9 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.8.1
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250903121828-5b7de5c2e94c
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250903121828-5b7de5c2e94c
-	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250903121828-5b7de5c2e94c
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250904172855-40023151d8f6
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250904172855-40023151d8f6
+	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250904172855-40023151d8f6
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250707144819-babe0ec4e358
 	github.com/smartcontractkit/mcms v0.21.1
