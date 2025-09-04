@@ -1,4 +1,4 @@
-package vault_test
+package vault
 
 import (
 	"testing"
@@ -15,14 +15,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, dkgocrtypes.ResultPackageDatabase) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := vault.NewVaultORM(db)
+	orm := NewVaultORM(db)
 
 	return db, orm
 }
