@@ -2294,6 +2294,7 @@ func (cfg UpdateWrappedNativeOnRouterConfig) Validate(e cldf.Environment) error 
 			return fmt.Errorf("wrapped native address provided in the config is already set to %s for chain %d", wrappedNativeAddr.Hex(), chainSel)
 		}
 	}
+
 	return nil
 }
 
@@ -2312,6 +2313,7 @@ func UpdateWrappedNativeOnRouterChangeset(e cldf.Environment, cfg UpdateWrappedN
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(state),
 	)
+
 	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call UpdateWrappedNativeAddressOnRouterOp on Router")
 }
 
@@ -2326,6 +2328,7 @@ func (cfg UpdateWrappedNativeOnRouterConfig) ToSequenceInput(state stateview.CCI
 			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
 	}
+
 	return ccipseqs.RouterUpdateWrappedNativeSequenceInput{
 		UpdatesByChain: input,
 	}
