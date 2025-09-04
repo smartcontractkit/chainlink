@@ -22,7 +22,7 @@ func TestDeployOCR3(t *testing.T) {
 	changesetOutput, err := DeployOCR3{}.Apply(*env.Env, DeployOCR3Input{
 		ChainSelector: env.RegistrySelector,
 		Qualifier:     "test-ocr3",
-		Don: contracts.ConfigureCREDON{
+		Don: contracts.DonNodeSet{
 			Name:    "test-don",      // This should match the DON created in SetupEnvV2
 			NodeIDs: env.Env.NodeIDs, // Use all available node IDs
 		},

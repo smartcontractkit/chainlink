@@ -17,12 +17,12 @@ import (
 var _ cldf.ChangeSetV2[DeployOCR3Input] = DeployOCR3{}
 
 type DeployOCR3Input struct {
-	ChainSelector uint64                    `json:"chainSelector" yaml:"chainSelector"`
-	Qualifier     string                    `json:"qualifier" yaml:"qualifier"`
-	Don           contracts.ConfigureCREDON `json:"dons" yaml:"dons"`
-	OracleConfig  *ocr3.OracleConfig        `json:"oracleConfig" yaml:"oracleConfig"`
-	DryRun        bool                      `json:"dryRun" yaml:"dryRun"`
-	MCMSConfig    *ocr3.MCMSConfig          `json:"mcmsConfig" yaml:"mcmsConfig"`
+	ChainSelector uint64               `json:"chainSelector" yaml:"chainSelector"`
+	Qualifier     string               `json:"qualifier" yaml:"qualifier"`
+	Don           contracts.DonNodeSet `json:"dons" yaml:"dons"`
+	OracleConfig  *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
+	DryRun        bool                 `json:"dryRun" yaml:"dryRun"`
+	MCMSConfig    *ocr3.MCMSConfig     `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type DeployOCR3Deps struct {

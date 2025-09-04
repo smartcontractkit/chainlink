@@ -23,7 +23,7 @@ type DeployOCR3Input struct {
 	ChainSelector uint64
 	Qualifier     string
 
-	DON          contracts.ConfigureCREDON
+	DON          contracts.DonNodeSet
 	OracleConfig *ocr3.OracleConfig
 	DryRun       bool
 

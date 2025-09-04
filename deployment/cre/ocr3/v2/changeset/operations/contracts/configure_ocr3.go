@@ -31,7 +31,7 @@ type ConfigureOCR3Deps struct {
 type ConfigureOCR3Input struct {
 	ContractAddress *common.Address
 	ChainSelector   uint64
-	DON             ConfigureCREDON
+	DON             DonNodeSet
 	Config          *ocr3.OracleConfig
 	DryRun          bool
 
