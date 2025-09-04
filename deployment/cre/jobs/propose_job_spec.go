@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
-var _ cldf.ChangeSetV2[DistributeJobSpecInput] = DistributeJobSpec{}
+var _ cldf.ChangeSetV2[ProposeJobSpecInput] = ProposeJobSpec{}
 
 type JobSpecTemplate string
 
@@ -20,7 +20,7 @@ const (
 	Cron JobSpecTemplate = "cron"
 )
 
-type DistributeJobSpecInput struct {
+type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
 
@@ -35,9 +35,9 @@ type DistributeJobSpecInput struct {
 	Inputs types.JobSpecInput `json:"inputs" yaml:"inputs"`
 }
 
-type DistributeJobSpec struct{}
+type ProposeJobSpec struct{}
 
-func (u DistributeJobSpec) VerifyPreconditions(e cldf.Environment, config DistributeJobSpecInput) error {
+func (u ProposeJobSpec) VerifyPreconditions(e cldf.Environment, config ProposeJobSpecInput) error {
 	if config.Environment == "" {
 		return errors.New("environment is required")
 	}
@@ -59,7 +59,7 @@ func (u DistributeJobSpec) VerifyPreconditions(e cldf.Environment, config Distri
 	return nil
 }
 
-func (u DistributeJobSpec) Apply(e cldf.Environment, input DistributeJobSpecInput) (cldf.ChangesetOutput, error) {
+func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
 	var report operations.Report[any, any]
 	switch input.Template {
 	case Cron: // This will hold all standard capabilities jobs as we add support for them.
@@ -70,15 +70,15 @@ func (u DistributeJobSpec) Apply(e cldf.Environment, input DistributeJobSpecInpu
 
 		r, rErr := operations.ExecuteOperation(
 			e.OperationsBundle,
-			operations2.UploadStandardCapabilityJob,
-			operations2.UploadStandardCapabilityJobDeps{Env: e},
-			operations2.UploadStandardCapabilityJobInput{
+			operations2.ProposeStandardCapabilityJob,
+			operations2.ProposeStandardCapabilityJobDeps{Env: e},
+			operations2.ProposeStandardCapabilityJobInput{
 				Job:       job,
 				TargetDON: input.TargetDON,
 			},
 		)
 		if rErr != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to distribute standard capability job: %w", rErr)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose standard capability job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()

@@ -15,19 +15,19 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestDistributeJobSpec_VerifyPreconditions(t *testing.T) {
-	j := jobs.DistributeJobSpec{}
+func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
+	j := jobs.ProposeJobSpec{}
 	var env cldf.Environment
 
 	testCases := []struct {
 		name        string
-		input       jobs.DistributeJobSpecInput
+		input       jobs.ProposeJobSpecInput
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name: "valid cron job",
-			input: jobs.DistributeJobSpecInput{
+			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
 				Domain:      "cre",
 				Template:    jobs.Cron,
@@ -37,7 +37,7 @@ func TestDistributeJobSpec_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "missing environment",
-			input: jobs.DistributeJobSpecInput{
+			input: jobs.ProposeJobSpecInput{
 				Domain:   "cre",
 				Template: jobs.Cron,
 				Inputs:   types.JobSpecInput{},
@@ -47,7 +47,7 @@ func TestDistributeJobSpec_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "missing domain",
-			input: jobs.DistributeJobSpecInput{
+			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
 				Template:    jobs.Cron,
 				Inputs:      types.JobSpecInput{},
@@ -57,7 +57,7 @@ func TestDistributeJobSpec_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "unsupported template",
-			input: jobs.DistributeJobSpecInput{
+			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
 				Domain:      "cre",
 				Template:    "invalid-template",
@@ -68,7 +68,7 @@ func TestDistributeJobSpec_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "missing inputs",
-			input: jobs.DistributeJobSpecInput{
+			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
 				Domain:      "cre",
 				Template:    jobs.Cron,
@@ -92,12 +92,12 @@ func TestDistributeJobSpec_VerifyPreconditions(t *testing.T) {
 	}
 }
 
-func TestDistributeJobSpec_Apply(t *testing.T) {
+func TestProposeJobSpec_Apply(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
 	t.Run("successful cron job distribution", func(t *testing.T) {
-		input := jobs.DistributeJobSpecInput{
+		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
@@ -118,7 +118,7 @@ func TestDistributeJobSpec_Apply(t *testing.T) {
 			},
 		}
 
-		out, err := jobs.DistributeJobSpec{}.Apply(*env, input)
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
@@ -137,7 +137,7 @@ func TestDistributeJobSpec_Apply(t *testing.T) {
 	})
 
 	t.Run("failed cron job distribution due to bad input", func(t *testing.T) {
-		input := jobs.DistributeJobSpecInput{
+		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
@@ -158,7 +158,7 @@ func TestDistributeJobSpec_Apply(t *testing.T) {
 			},
 		}
 
-		_, err := jobs.DistributeJobSpec{}.Apply(*env, input)
+		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
 		assert.Contains(t, err.Error(), "command is required and must be a string")

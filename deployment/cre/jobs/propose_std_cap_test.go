@@ -13,31 +13,31 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-func TestUploadStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
-	j := jobs.UploadStandardCapabilityJob{}
+func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
+	j := jobs.ProposeStandardCapabilityJob{}
 	var env cldf.Environment
 
 	// missing job name
-	err := j.VerifyPreconditions(env, jobs.UploadStandardCapabilityJobInput{Command: "run", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
+	err := j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{Command: "run", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
 	require.Error(t, err)
 	// missing command
-	err = j.VerifyPreconditions(env, jobs.UploadStandardCapabilityJobInput{JobName: "name", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
+	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{JobName: "name", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
 	require.Error(t, err)
 	// missing target DON
-	err = j.VerifyPreconditions(env, jobs.UploadStandardCapabilityJobInput{JobName: "name", Command: "run"})
+	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{JobName: "name", Command: "run"})
 	require.Error(t, err)
 	// valid
-	err = j.VerifyPreconditions(env, jobs.UploadStandardCapabilityJobInput{JobName: "name", Command: "run", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
+	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{JobName: "name", Command: "run", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
 	require.NoError(t, err)
 }
 
-func TestUploadStandardCapabilityJob_Apply(t *testing.T) {
+func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 
 	// Build minimal environment
 	env := testEnv.Env
 
-	input := jobs.UploadStandardCapabilityJobInput{
+	input := jobs.ProposeStandardCapabilityJobInput{
 		JobName: "cron-cap-job",
 		Command: "cron",
 		TargetDON: &offchain.DONFilter{
@@ -48,7 +48,7 @@ func TestUploadStandardCapabilityJob_Apply(t *testing.T) {
 		},
 	}
 
-	out, err := jobs.UploadStandardCapabilityJob{}.Apply(*env, input)
+	out, err := jobs.ProposeStandardCapabilityJob{}.Apply(*env, input)
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
 

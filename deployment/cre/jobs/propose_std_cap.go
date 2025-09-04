@@ -12,9 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
-var _ cldf.ChangeSetV2[UploadStandardCapabilityJobInput] = UploadStandardCapabilityJob{}
+var _ cldf.ChangeSetV2[ProposeStandardCapabilityJobInput] = ProposeStandardCapabilityJob{}
 
-type UploadStandardCapabilityJobInput struct {
+type ProposeStandardCapabilityJobInput struct {
 	JobName string `json:"job_name" yaml:"job_name"`
 	Command string `json:"command" yaml:"command"`
 	Config  string `json:"config" yaml:"config"`
@@ -25,9 +25,9 @@ type UploadStandardCapabilityJobInput struct {
 	TargetDON *offchain.DONFilter `json:"target_don" yaml:"target_don"`
 }
 
-type UploadStandardCapabilityJob struct{}
+type ProposeStandardCapabilityJob struct{}
 
-func (u UploadStandardCapabilityJob) VerifyPreconditions(e cldf.Environment, config UploadStandardCapabilityJobInput) error {
+func (u ProposeStandardCapabilityJob) VerifyPreconditions(e cldf.Environment, config ProposeStandardCapabilityJobInput) error {
 	if config.JobName == "" {
 		return errors.New("jobName is required")
 	}
@@ -40,12 +40,12 @@ func (u UploadStandardCapabilityJob) VerifyPreconditions(e cldf.Environment, con
 	return nil
 }
 
-func (u UploadStandardCapabilityJob) Apply(e cldf.Environment, input UploadStandardCapabilityJobInput) (cldf.ChangesetOutput, error) {
+func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeStandardCapabilityJobInput) (cldf.ChangesetOutput, error) {
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
-		operations2.UploadStandardCapabilityJob,
-		operations2.UploadStandardCapabilityJobDeps{Env: e},
-		operations2.UploadStandardCapabilityJobInput{
+		operations2.ProposeStandardCapabilityJob,
+		operations2.ProposeStandardCapabilityJobDeps{Env: e},
+		operations2.ProposeStandardCapabilityJobInput{
 			Job: pkg.StandardCapabilityJob{
 				JobName:       input.JobName,
 				Command:       input.Command,
@@ -57,7 +57,7 @@ func (u UploadStandardCapabilityJob) Apply(e cldf.Environment, input UploadStand
 		},
 	)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to upload standard capability job: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose standard capability job: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
