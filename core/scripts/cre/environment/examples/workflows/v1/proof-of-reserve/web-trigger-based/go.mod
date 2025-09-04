@@ -5,7 +5,7 @@ go 1.24.5
 toolchain go1.24.7
 
 require (
-	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250904163948-75b4a9fb17ee
+	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250904211430-0bc8c4723c1d
 	github.com/smartcontractkit/chainlink/v2 v2.22.1-por-beta.5.0.20250409140717-74e9650abd95
 	gopkg.in/yaml.v3 v3.0.1
 )
