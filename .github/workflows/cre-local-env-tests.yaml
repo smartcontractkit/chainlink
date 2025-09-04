@@ -187,6 +187,18 @@ jobs:
           go run main.go env workflow run-por-example
           # no need to delete it as that command does it automatically
 
+      - name: List environment state files
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env state list
+
+      - name: Purge environment state files
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env state purge
+
       - name: Track local env startup success rate
         # track only scheduled runs to exclude failures in PRs or manual runs
         if: always() && github.event_name == 'schedule'
