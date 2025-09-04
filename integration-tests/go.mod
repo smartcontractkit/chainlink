@@ -494,7 +494,6 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250820135304-632bebc0e802 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.15 // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250904183752-4ea5c19ee886 // indirect
-	github.com/smartcontractkit/chainlink-ton/integration-tests v0.0.0-20250904183752-4ea5c19ee886 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
