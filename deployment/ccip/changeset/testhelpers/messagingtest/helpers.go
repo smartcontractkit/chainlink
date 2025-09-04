@@ -310,7 +310,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			latestNonce := getLatestNonce(tc)
 			// Check if Nonce is non-nil before comparing. Nonce check only makes sense if it was explicitly provided.
 			if tc.Nonce != nil {
-				require.Equal(tc.T, *tc.Nonce, latestNonce)
+				require.Equal(tc.T, *tc.Nonce+1, latestNonce)
 				out.Nonce = latestNonce
 				tc.T.Logf("confirmed nonce bump for sender %x, expected %d, got latestNonce %d", tc.Sender, *tc.Nonce+1, latestNonce)
 			} else {

@@ -72,7 +72,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	)
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		t.Skip("Skipping test for now, re-enable after fixing chainlink-ton db setup in integration tests")
+		t.Skip("Skipping test for now, re-enable after supporting compiled contract fetching setup in integration tests")
 		receiver := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), 32)
 		require.NoError(t, err)
 
