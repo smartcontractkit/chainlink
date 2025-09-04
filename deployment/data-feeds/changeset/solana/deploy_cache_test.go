@@ -19,6 +19,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -53,11 +54,11 @@ func TestDeployCache(t *testing.T) {
 				ChainSel:  solSel,
 				Qualifier: testQualifier,
 				Version:   "1.0.0",
-				//		BuildConfig: &helpers.BuildSolanaConfig{
-				//			GitCommitSha:   "e4f6a7a32fc2afd7191f6e5daa62b4d19828e954",
-				//			DestinationDir: getProgramsPath(),
-				//			LocalBuild:     helpers.LocalBuildConfig{BuildLocally: true, CreateDestinationDir: true},
-				//		},
+				BuildConfig: &helpers.BuildSolanaConfig{
+					GitCommitSha:   "3305b4d55b5469e110133e5a36e5600aadf436fb",
+					DestinationDir: getProgramsPath(),
+					LocalBuild:     helpers.LocalBuildConfig{BuildLocally: true, CreateDestinationDir: true},
+				},
 				FeedAdmins:         []solana.PublicKey{chain.DeployerKey.PublicKey()},
 				ForwarderProgramID: forwarderProgramID,
 			},
