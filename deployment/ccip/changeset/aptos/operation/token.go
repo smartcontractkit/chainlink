@@ -250,6 +250,12 @@ type ApplyAllowedMintersInput struct {
 	MintersToRemove        []aptos.AccountAddress
 }
 
+type GrantRoleInput struct {
+	TokenCodeObjectAddress aptos.AccountAddress
+	RoleNumber             byte
+	Account                aptos.AccountAddress
+}
+
 // GrantMinterPermissionsOp operation to grant minter permissions
 var ApplyAllowedMintersOp = operations.NewOperation(
 	"apply-allowed-minters-op",
@@ -258,12 +264,31 @@ var ApplyAllowedMintersOp = operations.NewOperation(
 	applyAllowedMinters,
 )
 
+// For regulated tokens
+var GrantRoleOp = operations.NewOperation(
+	"grant-role-op",
+	Version1_0_0,
+	"Grants a role to the given addresses",
+	grantRole,
+)
+
 func applyAllowedMinters(b operations.Bundle, deps AptosDeps, in ApplyAllowedMintersInput) (types.Transaction, error) {
 	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 
 	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ApplyAllowedMinterUpdates(in.MintersToRemove, in.MintersToAdd)
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedMinterUpdates: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
+}
+
+func grantRole(b operations.Bundle, deps AptosDeps, in GrantRoleInput) (types.Transaction, error) {
+	tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := tokenContract.RegulatedToken().Encoder().GrantRole(in.RoleNumber, in.Account)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode GrantRole: %w", err)
 	}
 
 	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
