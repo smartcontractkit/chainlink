@@ -83,6 +83,7 @@ func init() {
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
 	EnvironmentCmd.AddCommand(swapCmds())
+	EnvironmentCmd.AddCommand(stateCmd())
 
 	rootPath, rootPathErr := os.Getwd()
 	if rootPathErr != nil {
@@ -814,4 +815,153 @@ func assertNoCommandLineArgs(args []string) error {
 		return errors.New("command line arguments are not supported. Please use flags to parameterise the command")
 	}
 	return nil
+}
+
+func stateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:              "state",
+		Short:            "State commands",
+		Long:             `Commands to manage and view the state of the environment`,
+		PersistentPreRun: globalPreRunFunc,
+	}
+
+	cmd.AddCommand(listCmd())
+	cmd.AddCommand(purgeStateCmd())
+	return cmd
+}
+
+func listCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all state files in the environment",
+		Long:  `List all state files in the environment`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			envStateFilenames, sErr := allEnvironmentStateFiles()
+			if sErr != nil {
+				return errors.Wrap(sErr, "failed to get environment state files")
+			}
+
+			fmt.Println()
+			fmt.Println("Environment state files:")
+			for _, file := range envStateFilenames {
+				fmt.Println("- " + file)
+			}
+			if len(envStateFilenames) == 0 {
+				fmt.Println("- no state files found")
+			}
+
+			fmt.Println()
+			fmt.Println("Cache folders:")
+			cacheDirs, cErr := allCacheFolders()
+			if cErr != nil {
+				return errors.Wrap(cErr, "failed to get cache folders")
+			}
+			for _, dir := range cacheDirs {
+				fmt.Println("- " + dir)
+			}
+
+			fmt.Println()
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func purgeStateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "purge",
+		Short: "Purge all state and cache files in the environment",
+		Long:  `Purge all state and cache files in the environment`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Print()
+			remErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
+			if remErr != nil {
+				return errors.Wrap(remErr, "failed to remove environment state files")
+			}
+
+			fmt.Println()
+			fmt.Println("Removing cache folders:")
+			cacheDirs, cErr := allCacheFolders()
+			if cErr != nil {
+				return errors.Wrap(cErr, "failed to get cache folders")
+			}
+
+			for _, dir := range cacheDirs {
+				rErr := os.RemoveAll(dir)
+				if rErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to remove cache folder %s: %s\n", dir, rErr)
+				} else {
+					fmt.Printf("\n- removed cache folder: %s\n", dir)
+				}
+			}
+
+			if len(cacheDirs) == 0 {
+				fmt.Println("- no cache folders found")
+			}
+
+			fmt.Println()
+			fmt.Println("Purge completed successfully")
+			fmt.Println()
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func allCacheFolders() ([]string, error) {
+	// TODO get this path from Beholder in the CTF
+	knownCacheDirRoots := []string{"~/.local/share/beholder"}
+
+	cacheDirs := []string{}
+	for _, root := range knownCacheDirRoots {
+		rootPath := strings.ReplaceAll(root, "~", os.Getenv("HOME"))
+		entries, err := os.ReadDir(rootPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, errors.Wrapf(err, "failed to read cache directory root: %s", rootPath)
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				cacheDirs = append(cacheDirs, filepath.Join(rootPath, entry.Name()))
+			}
+		}
+	}
+
+	return cacheDirs, nil
+}
+
+func allEnvironmentStateFiles() ([]string, error) {
+	stateDirAbs, absErr := filepath.Abs(filepath.Join(relativePathToRepoRoot, envconfig.StateDirname))
+	if absErr != nil {
+		return nil, errors.Wrap(absErr, "failed to get absolute path for state directory")
+	}
+
+	if _, statErr := os.Stat(stateDirAbs); os.IsNotExist(statErr) {
+		return nil, nil
+	}
+
+	files, err := os.ReadDir(stateDirAbs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read state directory")
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no state files found in %s", stateDirAbs)
+	}
+
+	stateFiles := []string{}
+	for _, file := range files {
+		if !file.IsDir() {
+			stateFiles = append(stateFiles, filepath.Join(stateDirAbs, file.Name()))
+		}
+	}
+
+	return stateFiles, nil
 }
