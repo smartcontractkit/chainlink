@@ -94,7 +94,7 @@ func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue) {
 	c.values[id] = item{value: value, createdAt: time.Now()}
 }
 
-func (c *Cache) Get(id llotypes.StreamID) llo.StreamValue {
+func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -102,16 +102,16 @@ func (c *Cache) Get(id llotypes.StreamID) llo.StreamValue {
 	item, ok := c.values[id]
 	if !ok {
 		promCacheMissCount.WithLabelValues(label, "notFound").Inc()
-		return nil
+		return nil, false
 	}
 
 	if time.Since(item.createdAt) >= c.maxAge {
 		promCacheMissCount.WithLabelValues(label, "maxAge").Inc()
-		return nil
+		return nil, false
 	}
 
 	promCacheHitCount.WithLabelValues(label).Inc()
-	return item.value
+	return item.value, true
 }
 
 func (c *Cache) cleanup() {
