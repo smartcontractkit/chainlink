@@ -1093,8 +1093,8 @@ WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 	if len(results) == 0 {
 		return 0, nil
 	}
-	// Sqlx scans into int64 types irrespectively of the underlying db type; id is serial4, which is 4 bytes.
-	return int32(results[0]), nil //nolint:gosec
+	//nolint:gosec // Sqlx scans into int64 types irrespectively of the underlying db type; id is serial4, which is 4 bytes.
+	return int32(results[0]), nil
 }
 
 func (o *orm) findJob(ctx context.Context, jb *Job, col string, arg interface{}) error {
