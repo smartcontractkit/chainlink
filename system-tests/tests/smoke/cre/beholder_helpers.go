@@ -6,20 +6,20 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-const DefaultBeholderStackCacheFile = "../../../../core/scripts/cre/environment/configs/chip-ingress-cache.toml"
-
-func loadBeholderStackCache() (*config.ChipIngressConfig, error) {
+func loadBeholderStackCache(beholderConfigPath string) (*config.ChipIngressConfig, error) {
 	originalCtfConfigs := os.Getenv("CTF_CONFIGS")
 	defer func() {
 		setErr := os.Setenv("CTF_CONFIGS", originalCtfConfigs)
@@ -28,7 +28,7 @@ func loadBeholderStackCache() (*config.ChipIngressConfig, error) {
 		}
 	}()
 
-	setErr := os.Setenv("CTF_CONFIGS", DefaultBeholderStackCacheFile)
+	setErr := os.Setenv("CTF_CONFIGS", beholderConfigPath)
 	if setErr != nil {
 		return nil, errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
 	}
@@ -51,6 +51,28 @@ func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
 	}
 	framework.L.Info().Msg("Beholder is running.")
 	return nil
+}
+
+func subscribeToBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger,
+	testEnv *TestEnvironment,
+	messageTypes map[string]func() proto.Message) (<-chan proto.Message, <-chan error) {
+	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.BeholderConfigPath, testEnv.TestConfig.EnvironmentDirPath)
+	require.NoError(t, bErr, "failed to start Beholder")
+
+	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.BeholderConfigPath)
+	require.NoError(t, chipErr, "failed to load chip ingress cache")
+	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
+	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
+
+	kafkaErrChan := make(chan error, 1)
+	messageChan := make(chan proto.Message, 10)
+
+	// Start listening for messages in the background
+	go func() {
+		listenForKafkaMessages(ctx, testLogger, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, chipConfig.Kafka.Topics[0], messageTypes, messageChan, kafkaErrChan)
+	}()
+
+	return messageChan, kafkaErrChan
 }
 
 func listenForKafkaMessages(

@@ -26,37 +26,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 )
-
-// Generic WorkflowConfig interface for creation of different workflow configurations
-// Register your workflow configuration types here
-type WorkflowConfig interface {
-	None | portypes.WorkflowConfig | HTTPWorkflowConfig
-}
-
-// None represents an empty workflow configuration
-// It is used to satisfy the workflowConfigFactory, avoiding workflow config creation
-type None struct{}
-
-// WorkflowRegistrationConfig holds configuration for workflow registration
-type WorkflowRegistrationConfig struct {
-	WorkflowName         string
-	WorkflowLocation     string
-	ConfigFilePath       string
-	CompressedWasmPath   string
-	SecretsURL           string
-	WorkflowRegistryAddr common.Address
-	DonID                uint64
-	ContainerTargetDir   string
-}
 
 /////////////////////////
 // ENVIRONMENT HELPERS //
@@ -92,6 +72,28 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 // WORKFLOW-RELATED HELPERS //
 //////////////////////////////
 
+// Generic WorkflowConfig interface for creation of different workflow configurations
+// Register your workflow configuration types here
+type WorkflowConfig interface {
+	None | portypes.WorkflowConfig | HTTPWorkflowConfig
+}
+
+// None represents an empty workflow configuration
+// It is used to satisfy the workflowConfigFactory, avoiding workflow config creation
+type None struct{}
+
+// WorkflowRegistrationConfig holds configuration for workflow registration
+type WorkflowRegistrationConfig struct {
+	WorkflowName         string
+	WorkflowLocation     string
+	ConfigFilePath       string
+	CompressedWasmPath   string
+	SecretsURL           string
+	WorkflowRegistryAddr common.Address
+	DonID                uint64
+	ContainerTargetDir   string
+}
+
 /*
 Creates the necessary workflow artifacts based on WorkflowConfig:
  1. Configuration for a workflow (or no config if typed nil is passed for workflowConfig);
@@ -102,7 +104,7 @@ It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName, workflowDONName string, workflowConfig *T, workflowFileLocation string) (string, string) {
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
@@ -112,7 +114,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
-	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, creworkflow.DefaultWorkflowNodePattern, compressedWorkflowWasmPath, workflowConfigFilePath)
+	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(workflowDONName), compressedWorkflowWasmPath, workflowConfigFilePath)
 	require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
 	testLogger.Info().Msg("Workflow artifacts successfully copied to the Docker containers.")
 
@@ -192,6 +194,9 @@ func registerWorkflow(ctx context.Context, t *testing.T, workflowConfig *Workflo
 Deletes workflows from:
  1. Local environment
  2. Workflow Registry
+
+Recommendation:
+Use it at the end of your test to `t.Cleanup()` the env after test run
 */
 func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFilePath string, compressedWorkflowWasmPath string, blockchainOutputs []*cre.WrappedBlockchainOutput, workflowRegistryAddress common.Address) {
 	t.Helper()
@@ -203,4 +208,34 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFile
 
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
+}
+
+func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) {
+	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
+
+	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.FullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
+	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDON.Name, workflowConfig, workflowFileLocation)
+
+	// Ignoring the deprecation warning as the suggest solution is not working in CI
+	//lint:ignore SA1019 ignoring deprecation warning for this usage
+	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //lint:ignore SA1019 ignoring deprecation warning for this usage
+		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
+
+	t.Cleanup(func() {
+		deleteWorkflows(t, workflowName, workflowConfigPath, compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
+	})
+
+	workflowRegConfig := &WorkflowRegistrationConfig{
+		WorkflowName:         workflowName,
+		WorkflowLocation:     workflowFileLocation,
+		ConfigFilePath:       workflowConfigPath,
+		CompressedWasmPath:   compressedWorkflowWasmPath,
+		WorkflowRegistryAddr: workflowRegistryAddress,
+		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+		ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
+	}
+	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
 }

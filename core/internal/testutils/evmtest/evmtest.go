@@ -120,12 +120,19 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore
 	return lggr, testopts.KeyStore, opts
 }
 
+const NullClientChainID = evmclient.NullClientChainID
+
 // Deprecated, this is a replacement function for tests for now removed default evmChainID logic
 func MustGetDefaultChainID(t testing.TB, evmCfgs configtoml.EVMConfigs) *big.Int {
 	if len(evmCfgs) == 0 {
 		t.Fatalf("at least one evm chain config must be defined")
 	}
-	return evmCfgs[0].ChainID.ToInt()
+	chainID := evmCfgs[0].ChainID.ToInt()
+	if chainID.Uint64() == 0 {
+		chainID = big.NewInt(NullClientChainID)
+		t.Logf("Overriding zero chain ID with %d. Update this test to use a valid chain ID.", NullClientChainID)
+	}
+	return chainID
 }
 
 // Deprecated, this is a replacement function for tests for now removed default chain logic

@@ -3,11 +3,10 @@ package dkgrecipientkey
 import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-	"github.com/smartcontractkit/smdkg/dummydkg"
+	"github.com/smartcontractkit/smdkg/p256keyring"
 )
 
 var _ internal.Key = &Key{}
@@ -19,11 +18,11 @@ type Key struct {
 }
 
 func New() (Key, error) {
-	keyRing, err := dummydkg.NewP256Keyring(cryptorand.Reader)
+	keyRing, err := p256keyring.New(cryptorand.Reader)
 	if err != nil {
 		return Key{}, err
 	}
-	rawBytes, err := json.Marshal(keyRing)
+	rawBytes, err := keyRing.MarshalBinary()
 	if err != nil {
 		return Key{}, err
 	}
@@ -48,9 +47,14 @@ func (k Key) ECDH(publicKey dkgocrtypes.P256ParticipantPublicKey) (dkgocrtypes.P
 }
 
 func KeyFor(raw internal.Raw) Key {
-	panic("not implemented")
+	keyRing := &p256keyring.P256Keyring{}
+	err := keyRing.UnmarshalBinary(internal.Bytes(raw))
+	if err != nil {
+		panic(err)
+	}
+	return Key{raw: raw, keyRing: keyRing}
 }
 
 func (k Key) Raw() internal.Raw {
-	panic("not implemented")
+	return k.raw
 }

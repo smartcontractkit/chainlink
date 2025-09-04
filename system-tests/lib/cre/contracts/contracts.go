@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -411,7 +412,7 @@ func MustFindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint6
 
 // MergeAllDataStores merges all DataStores (after contracts deployments)
 func MergeAllDataStores(fullCldEnvOutput *cre.FullCLDEnvironmentOutput, changesetOutputs ...cldf.ChangesetOutput) {
-	fmt.Print("Merging DataStores (after contracts deployments)...")
+	framework.L.Info().Msg("Merging DataStores (after contracts deployments)...")
 	minChangesetsCap := 2
 	if len(changesetOutputs) < minChangesetsCap {
 		panic(fmt.Errorf("DataStores merging failed: at least %d changesets required", minChangesetsCap))

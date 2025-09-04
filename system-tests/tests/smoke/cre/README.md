@@ -580,19 +580,11 @@ containerTargetDir := "/home/chainlink/workflows"
 
 // Copy compiled workflow binary
 workflowCopyErr := creworkflow.CopyArtifactsToDockerContainers(
-    compressedWorkflowWasmPath,
-    "workflow-node",
     containerTargetDir,
+    "workflow-node",
+    compressedWorkflowWasmPath, workflowConfigFilePath
 )
 require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
-
-// Copy configuration file
-configCopyErr := creworkflow.CopyArtifactsToDockerContainers(
-    workflowConfigFilePath,
-    "workflow-node",
-    containerTargetDir,
-)
-require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
 ```
 
 #### Container Discovery

@@ -16,6 +16,7 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 require (
 	dario.cat/mergo v1.0.2
+	github.com/BurntSushi/toml v1.4.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/andybalholm/brotli v1.1.1
 	github.com/cockroachdb/errors v1.11.3
@@ -30,14 +31,14 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/smartcontractkit/chain-selectors v1.0.67
-	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250828173926-fcae05ee4a0b
+	github.com/smartcontractkit/chainlink-common v0.9.4
 	github.com/smartcontractkit/chainlink-deployments-framework v0.25.0
-	github.com/smartcontractkit/chainlink-evm v0.3.2
+	github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250819150450-95ef563f6e6d
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.12
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.12
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.17
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.13
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
@@ -62,14 +63,15 @@ require (
 	cosmossdk.io/math v1.4.0 // indirect
 	cosmossdk.io/store v1.1.1 // indirect
 	cosmossdk.io/x/tx v0.13.7 // indirect
+	filippo.io/bigmod v0.1.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/nistec v0.0.3 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
-	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e // indirect
 	github.com/DefangLabs/secret-detector v0.0.0-20250403165618-22662109213e // indirect
 	github.com/Khan/genqlient v0.7.0 // indirect
@@ -459,7 +461,7 @@ require (
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250707144819-babe0ec4e358 // indirect
 	github.com/smartcontractkit/mcms v0.21.1 // indirect
-	github.com/smartcontractkit/smdkg v0.0.0-20250826121537-7c56be4a57c7 // indirect
+	github.com/smartcontractkit/smdkg v0.0.0-20250903155928-e3aafa244d2c // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect

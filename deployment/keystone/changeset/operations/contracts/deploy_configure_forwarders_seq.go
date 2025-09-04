@@ -49,7 +49,7 @@ type ForwarderDeploymentOps struct {
 
 type DeployConfigureForwardersSeqInput struct {
 	// chains to deploy forwarders to
-	ForwaderDeploymentChains map[uint64]ForwarderDeploymentOps
+	ForwarderDeploymentChains map[uint64]ForwarderDeploymentOps
 	// capabilities registry chain selector
 	RegistryChainSel uint64
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
@@ -82,7 +82,7 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 		evmChain := deps.Env.BlockChains.EVMChains()
 		donMapCache := make(map[string]internal.RegisteredDon) // cache for registered dons
 		// 1. forwarder deployment, forwarder configuration and ownership transfer to timelock if MCMS is used
-		for target, ops := range input.ForwaderDeploymentChains {
+		for target, ops := range input.ForwarderDeploymentChains {
 			allChainAddresses := deps.Env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(target))
 			var timelockAddr common.Address
 			var proposerAddr common.Address
@@ -104,7 +104,7 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 
 			// 1.1 deploy forwarder
 			lggr.Infof("Deploying Keystone Forwarder for chain selector %d", target)
-			forwarderAddress, err := deployForwarderOp(b, deps, input, target, ab, as)
+			forwarderAddress, err := deployForwarderOp(b, deps, target, ops.Qualifier, ab, as)
 			if err != nil {
 				return DeployConfigureForwardersSeqOutput{
 					AddressBook: ab,
@@ -214,13 +214,13 @@ func resolveChainDons(
 func deployForwarderOp(
 	b operations.Bundle,
 	deps DeployConfigureForwardersSeqDeps,
-	input DeployConfigureForwardersSeqInput,
 	target uint64,
+	qualifier string,
 	ab cldf.AddressBook,
 	as *datastore.MemoryDataStore,
 ) (common.Address, error) {
 	deployForwarderDep := DeployForwarderOpDeps{Env: deps.Env}
-	deployForwarderInput := DeployForwarderOpInput{ChainSelector: target}
+	deployForwarderInput := DeployForwarderOpInput{ChainSelector: target, Qualifier: qualifier}
 	deployForwarderReport, err := operations.ExecuteOperation(b, DeployKeystoneForwarderOp, deployForwarderDep, deployForwarderInput)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to deploy Keystone Forwarder for target %d: %w", target, err)
