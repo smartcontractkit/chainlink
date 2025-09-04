@@ -460,21 +460,22 @@ func (i *pluginOracleCreator) createChainAccessors(
 		provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
 		if err != nil || provider == nil {
 			// use default chain accessor if cr and cw exist
-			if extendedReaders[chainSelector] != nil && chainWriters[chainSelector] != nil {
-				ca, err = chainaccessor.NewDefaultAccessor(
-					i.lggr,
-					chainSelector,
-					extendedReaders[chainSelector],
-					chainWriters[chainSelector],
-					pluginServices.AddrCodec,
-				)
-
-				if err != nil {
-					return nil, err
-				}
-			} else {
+			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
 				return nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
 			}
+
+			ca, err = chainaccessor.NewDefaultAccessor(
+				i.lggr,
+				chainSelector,
+				extendedReaders[chainSelector],
+				chainWriters[chainSelector],
+				pluginServices.AddrCodec,
+			)
+
+			if err != nil {
+				return nil, err
+			}
+
 		} else {
 			ca = provider.ChainAccessor()
 		}
