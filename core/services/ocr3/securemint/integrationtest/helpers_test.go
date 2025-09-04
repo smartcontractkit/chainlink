@@ -252,8 +252,8 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 	initialResponse := sm_ea.Response{
 		Mintables: map[string]sm_ea.MintableInfo{},
 		LatestBlocks: map[string]uint64{
-			"8953668971247136127": 5, // "bitcoin-testnet-rootstock"
-			"729797994450396300":  5, // "telos-evm-testnet"
+			"8953668971247136127": 40, // "bitcoin-testnet-rootstock"
+			"729797994450396300":  5,  // "telos-evm-testnet"
 		},
 		ReserveInfo: sm_ea.ReserveInfo{
 			ReserveAmount: "1000",
@@ -266,7 +266,7 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 	fullResponse := sm_ea.Response{
 		Mintables: map[string]sm_ea.MintableInfo{
 			"8953668971247136127": { // "bitcoin-testnet-rootstock"
-				Block:    uint64(5),
+				Block:    uint64(40),
 				Mintable: "10",
 			},
 			"729797994450396300": { // "telos-evm-testnet"
@@ -275,8 +275,8 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 			},
 		},
 		LatestBlocks: map[string]uint64{
-			"8953668971247136127": 8, // "bitcoin-testnet-rootstock"
-			"729797994450396300":  7, // "telos-evm-testnet"
+			"8953668971247136127": 42, // "bitcoin-testnet-rootstock"
+			"729797994450396300":  7,  // "telos-evm-testnet"
 		},
 		ReserveInfo: sm_ea.ReserveInfo{
 			ReserveAmount: "500",
