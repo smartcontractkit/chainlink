@@ -200,7 +200,11 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	h.mu.RUnlock()
 
 	for _, er := range expiredRequests {
-		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting any response")))
+		var nodeResponses string
+		for nodeKey, nodeResponse := range er.responses {
+			nodeResponses += fmt.Sprintf("%s ---::: %v               ", nodeKey, nodeResponse)
+		}
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting quorum of responses from nodes. Available responses: "+nodeResponses)))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "request_id", er.req.ID, "error", err)
 		}
@@ -293,12 +297,12 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 	resp, err := h.aggregator.Aggregate(ctx, l, ar, resp)
 	switch {
-	case errors.Is(err, errQuorumUnobtainable):
+	case errors.Is(err, errInsufficientResponsesForQuorum):
+		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
+		return nil
+	case err != nil:
 		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err))
-	case err != nil:
-		l.Debugw("error aggregating responses, waiting for other nodes...", "error", err)
-		return nil
 	}
 
 	return h.sendSuccessResponse(ctx, l, ar, resp)
@@ -340,6 +344,11 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 	createSecretsRequest.RequestId = ar.req.ID
+	for _, secretItem := range createSecretsRequest.EncryptedSecrets {
+		if secretItem.Id.Namespace == "" {
+			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
+		}
+	}
 	err := vaultcap.ValidateCreateSecretsRequest(createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
@@ -366,6 +375,11 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	}
 
 	updateSecretsRequest.RequestId = ar.req.ID
+	for _, secretItem := range updateSecretsRequest.EncryptedSecrets {
+		if secretItem.Id.Namespace == "" {
+			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
+		}
+	}
 	vaultcapErr := vaultcap.ValidateUpdateSecretsRequest(updateSecretsRequest)
 	if vaultcapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultcapErr)
@@ -391,6 +405,11 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	}
 
 	deleteSecretsRequest.RequestId = ar.req.ID
+	for _, id := range deleteSecretsRequest.Ids {
+		if id.Namespace == "" {
+			id.Namespace = vaulttypes.DefaultNamespace
+		}
+	}
 	err := vaultcap.ValidateDeleteSecretsRequest(deleteSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate delete secrets request", "error", err)
@@ -414,6 +433,11 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
+	for _, getRequest := range secretsGetRequest.Requests {
+		if getRequest.Id.Namespace == "" {
+			getRequest.Id.Namespace = vaulttypes.DefaultNamespace
+		}
+	}
 	err := vaultcap.ValidateGetSecretsRequest(secretsGetRequest)
 	if err != nil {
 		l.Warnw("failed to validate get secrets request", "error", err)
@@ -432,6 +456,9 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	}
 
 	req.RequestId = ar.req.ID
+	if req.Namespace == "" {
+		req.Namespace = vaulttypes.DefaultNamespace
+	}
 	err := vaultcap.ValidateListSecretIdentifiersRequest(req)
 	if err != nil {
 		l.Warnw("failed to validate list secret identifiers request", "error", err)

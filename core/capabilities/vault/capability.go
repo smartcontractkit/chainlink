@@ -132,8 +132,8 @@ func validateWriteRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSe
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
 
-		if req.Id.Key == "" || req.Id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		if req.Id.Key == "" || req.Id.Owner == "" || req.Id.Namespace == "" {
+			return errors.New("secret ID must have key, owner and namespace set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
 		if req.EncryptedValue == "" {

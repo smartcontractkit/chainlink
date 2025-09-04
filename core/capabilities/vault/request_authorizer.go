@@ -34,7 +34,7 @@ type requestAuthorizer struct {
 
 func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error) {
 	forceDevMode := true
-	if !build.IsProd() || forceDevMode {
+	if !build.IsDev() || forceDevMode {
 		r.lggr.Warnw("bypassing RequestAuthorizer since it is not a production build", "build-mode", build.Mode())
 		// returning owner as Owner1, since that's used in vault e2e tests.
 		return true, "Owner1", nil

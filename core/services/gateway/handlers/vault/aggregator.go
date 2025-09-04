@@ -61,6 +61,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeReq
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
 	if len(ar.responses) < requiredQuorum {
+		l.Infow("received response but still not enough for quorum", "requestID", ar.req.ID, "responses", len(ar.responses), "requiredQuorum", requiredQuorum)
 		return nil, errInsufficientResponsesForQuorum
 	}
 
@@ -69,7 +70,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeReq
 	for _, r := range ar.responses {
 		sha, err := a.sha(r)
 		if err != nil {
-			l.Errorw("failed to compute digest of response during quorum validation, skipping...", "error", err)
+			l.Errorw("failed to compute digest of response during quorum validation, skipping...", "requestID", r.ID, "error", err)
 			continue
 		}
 		shaToCount[sha]++
@@ -134,6 +135,11 @@ func (a *baseAggregator) sha(resp *jsonrpc.Response[json.RawMessage]) (string, e
 func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []capabilities.Node, resp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if resp.Result == nil {
 		return nil, errors.New("response result is nil: cannot validate signatures")
+	}
+
+	if resp.Method == vaulttypes.MethodSecretsGet {
+		// SecretsGet responses are not signed.
+		return resp, errors.New("cannot validate signatures for Get requests")
 	}
 
 	r := &vaulttypes.SignedOCRResponse{}
