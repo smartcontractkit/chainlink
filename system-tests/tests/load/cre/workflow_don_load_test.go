@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -130,6 +131,7 @@ func setupLoadTestEnvironment(
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
+		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.GetDefaultContractSet(false)).GetContractVersions(),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
