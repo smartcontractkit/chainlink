@@ -187,7 +187,8 @@ func (s *server) spawnTransmitLoop(stopCh services.StopChan, wg *sync.WaitGroup,
 			if t == nil {
 				// queue was closed
 				return false
-			} else if t.Report.Info.ReportFormat == llotypes.ReportFormatCapabilityTrigger {
+			}
+			if t.Report.Info.ReportFormat == llotypes.ReportFormatCapabilityTrigger {
 				// `capability_trigger` reports are Data Feeds product specific and aren't sent to the Mercury servers
 				s.pm.AsyncDelete(t.Hash())
 				return true
