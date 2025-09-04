@@ -508,14 +508,14 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		handler := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
-		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, network.HTTPReadError)
+		mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, network.ErrHTTPRead)
 
 		callback := handler.createHTTPRequestCallback(ctx, requestID, httpReq, outboundReq)
 
 		response := callback()
 
 		require.NotEmpty(t, response.ErrorMessage, "Error message should not be empty")
-		require.Equal(t, network.HTTPReadError.Error(), response.ErrorMessage)
+		require.Equal(t, network.ErrHTTPRead.Error(), response.ErrorMessage)
 		require.True(t, response.IsExternalEndpointError)
 		require.Positive(t, response.ExternalEndpointLatency)
 		require.Equal(t, 0, response.StatusCode)
