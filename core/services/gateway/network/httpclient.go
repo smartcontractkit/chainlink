@@ -131,7 +131,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		to = c.config.maxRequestDuration
 	}
 
-	c.lggr.Debugw("sending HTTP request with timeout", "url", req.URL, "request timeout", to)
+	c.lggr.Debugw("sending HTTP request with timeout", "request timeout", to)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
@@ -167,7 +167,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		// joining them to a single string in case array size is greater than 1
 		headers[k] = strings.Join(v, ",")
 	}
-	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode, "url", req.URL, "headers", headers)
+	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode)
 
 	return &HTTPResponse{
 		Headers:    headers,
