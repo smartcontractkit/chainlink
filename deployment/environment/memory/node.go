@@ -680,9 +680,8 @@ func CreateKeys(t *testing.T,
 		require.NoError(t, err)
 		require.Len(t, tonkeys, 1)
 		transmitter := tonkeys[0]
-		for chainSelector, tonChain := range tonchains {
+		for chainSelector := range tonchains {
 			transmitters[chainSelector] = transmitter.AddressBase64()
-			fundTonAccount(t, tonChain.Wallet, transmitter.PubkeyToAddress(), "1000")
 		}
 	}
 
