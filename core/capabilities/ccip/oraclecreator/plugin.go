@@ -458,7 +458,6 @@ func (i *pluginOracleCreator) createChainAccessors(
 		// check if CCIP provider exist, otherwise create default chain accessor
 		var ca cciptypes.ChainAccessor
 		i.lggr.Infow("about to call NewCCIPProvider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network)
-		// create a context with timeout to avoid hanging
 		provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
 		i.lggr.Infow("finished calling NewCCIPProvider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network, "err", err, "providerNil", provider == nil)
 		if err != nil || provider == nil {

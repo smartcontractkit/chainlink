@@ -141,7 +141,7 @@ func (b *BindingsRegistry) Bind(ctx context.Context, reg Registrar, bindings []c
 	}
 
 	return nil
-}pl
+}
 
 func (b *BindingsRegistry) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
 	b.mu.RLock()
