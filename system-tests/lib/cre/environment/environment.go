@@ -989,6 +989,7 @@ func getAllFilters(ctx context.Context, logger logger.Logger, chainID *big.Int, 
 	return orm.LoadFilters(ctx)
 }
 
+// TODO CRE-803 use a sequence that deploys and configures OCR3 contract
 func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, error) {
 	ocr3DeployReport, err := operations.ExecuteSequence(
 		env.OperationsBundle,

@@ -27,7 +27,7 @@ type DeployOCR3ContractSequenceOutput struct {
 }
 
 // DeployOCR3ContractsSequence is a sequence that deploys the OCR3 contract.
-// TODO dedup with sequence in ocr3/v2/changeset/sequences/deploy_ocr3.go
+// TODO dedup with sequence in ocr3/v2/changeset/sequences/deploy_ocr3.go CRE-803
 var DeployOCR3ContractsSequence = operations.NewSequence[DeployOCR3ContractSequenceInput, DeployOCR3ContractSequenceOutput, DeployOCR3ContractSequenceDeps](
 	"deploy-ocr3-contracts-seq",
 	semver.MustParse("1.0.0"),
