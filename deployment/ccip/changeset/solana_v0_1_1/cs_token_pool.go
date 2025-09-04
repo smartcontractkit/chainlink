@@ -2725,7 +2725,6 @@ type RateLimitAdminConfig struct {
 	NewRateLimitAdmin solana.PublicKey
 }
 
-// CONFIGURE TOKEN POOL ALLOW LIST
 type SetRateLimitAdminConfig struct {
 	SolChainSelector      uint64
 	RateLimitAdminConfigs []RateLimitAdminConfig
@@ -2792,7 +2791,6 @@ func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.Ch
 		)
 		switch rateLimitAdminConfig.PoolType {
 		case shared.BurnMintTokenPool:
-			poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 			solBurnMintTokenPool.SetProgramID(tokenPool)
 			ix, err = solBurnMintTokenPool.NewSetRateLimitAdminInstruction(
 				tokenPubKey,
@@ -2804,7 +2802,6 @@ func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.Ch
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
 		case shared.LockReleaseTokenPool:
-			poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
 			ix, err = solLockReleaseTokenPool.NewSetRateLimitAdminInstruction(
 				tokenPubKey,
