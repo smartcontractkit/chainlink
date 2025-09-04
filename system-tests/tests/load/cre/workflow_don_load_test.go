@@ -131,7 +131,7 @@ func setupLoadTestEnvironment(
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
-		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.GetDefaultContractSet(false)).GetContractVersions(),
+		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
