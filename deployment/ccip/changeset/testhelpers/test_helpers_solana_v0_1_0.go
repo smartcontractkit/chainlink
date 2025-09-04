@@ -25,10 +25,11 @@ import (
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"

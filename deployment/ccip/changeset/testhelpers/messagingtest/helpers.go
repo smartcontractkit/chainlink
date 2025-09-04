@@ -10,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/tvm/cell"
+
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
