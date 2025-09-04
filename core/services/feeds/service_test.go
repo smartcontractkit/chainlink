@@ -82,7 +82,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name              = "%s"
 externalJobID       = "%s"
-evmChainID 		   = 0
+evmChainID 		   = "%s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
@@ -888,7 +888,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		idOCR1                   = int64(2)
 		remoteUUIDOCR1           = uuid.New()
 		ocr1NameAndExternalJobID = uuid.New()
-		ocr1Spec                 = fmt.Sprintf(OCR1TestSpecTemplate, ocr1NameAndExternalJobID, ocr1NameAndExternalJobID)
+		ocr1Spec                 = fmt.Sprintf(OCR1TestSpecTemplate, ocr1NameAndExternalJobID, ocr1NameAndExternalJobID, testutils.FixtureChainID.String())
 		argsOCR1                 = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDOCR1,

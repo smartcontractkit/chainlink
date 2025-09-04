@@ -119,7 +119,7 @@ func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 			defer wg.Done()
 
 			body, err := json.Marshal(web.CreateJobRequest{
-				TOML: fmt.Sprintf(testspecs.DirectRequestSpecNoExternalJobID, i),
+				TOML: fmt.Sprintf(testspecs.DirectRequestSpecNoExternalJobID, i, cltest.FixtureChainID.String()),
 			})
 			require.NoError(t, err)
 
@@ -170,6 +170,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 					DS1BridgeName:      b1,
 					DS2BridgeName:      b2,
 					Name:               nameAndExternalJobID,
+					EVMChainID:         cltest.FixtureChainID.String(),
 				}).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
@@ -207,10 +208,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
                                   name                        = "%s"
                                   contractAddress             = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
                                   fromAddress                 = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-                                  evmChainID                  = 0
+                                  evmChainID                  = "%s"
                                   minIncomingConfigurations   = 1
                                   externalJobID               = "%s"
-                             `, nameAndExternalJobID, nameAndExternalJobID)
+                             `, nameAndExternalJobID, cltest.FixtureChainID.String(), nameAndExternalJobID)
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
@@ -317,7 +318,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "directrequest-with-requesters-and-min-contract-payment",
 			tomlTemplate: func(nameAndExternalJobID string) string {
-				return fmt.Sprintf(testspecs.DirectRequestSpecWithRequestersAndMinContractPaymentTemplate, nameAndExternalJobID, nameAndExternalJobID)
+				return fmt.Sprintf(testspecs.DirectRequestSpecWithRequestersAndMinContractPaymentTemplate, nameAndExternalJobID, nameAndExternalJobID, cltest.FixtureChainID.String())
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -342,7 +343,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "fluxmonitor",
 			tomlTemplate: func(nameAndExternalJobID string) string {
-				return fmt.Sprintf(testspecs.FluxMonitorSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
+				return fmt.Sprintf(testspecs.FluxMonitorSpecTemplate, nameAndExternalJobID, nameAndExternalJobID, cltest.FixtureChainID.String())
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
@@ -370,7 +371,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "vrf",
 			tomlTemplate: func(_ string) string {
-				return testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pks[0].PublicKey.String()}).Toml()
+				return testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+					PublicKey:  pks[0].PublicKey.String(),
+					EVMChainID: cltest.FixtureChainID.String(),
+				}).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -657,6 +661,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 		DS1BridgeName: bridge.Name.String(),
 		DS2BridgeName: bridge2.Name.String(),
 		Name:          "old OCR job",
+		EVMChainID:    cltest.FixtureChainID.String(),
 	})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
@@ -683,6 +688,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 		DS2BridgeName:      bridge.Name.String(),
 		Name:               "updated OCR job",
 		TransmitterAddress: app.Keys[0].Address.Hex(),
+		EVMChainID:         cltest.FixtureChainID.String(),
 	})
 	require.NoError(t, err)
 	body, _ := json.Marshal(web.UpdateJobRequest{
@@ -721,6 +727,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 		DS1BridgeName: bridge.Name.String(),
 		DS2BridgeName: bridge2.Name.String(),
 		Name:          "old OCR job",
+		EVMChainID:    cltest.FixtureChainID.String(),
 	})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
@@ -738,6 +745,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 		DS2BridgeName:      bridge.Name.String(),
 		Name:               "updated OCR job",
 		TransmitterAddress: app.Keys[0].EIP55Address.String(),
+		EVMChainID:         cltest.FixtureChainID.String(),
 	})
 	require.NoError(t, err)
 	body, _ := json.Marshal(web.UpdateJobRequest{
@@ -846,7 +854,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	drSpec := fmt.Sprintf(`
 		type                = "directrequest"
 		schemaVersion       = 1
-		evmChainID          = "0"
+		evmChainID          = "%s"
 		name                = "example eth request event spec"
 		contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
 		externalJobID       = "%s"
@@ -857,7 +865,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 		    ds1_multiply [type=multiply times=100];
 		    ds1 -> ds1_parse -> ds1_multiply;
 		"""
-		`, uuid.New())
+		`, cltest.FixtureChainID.String(), uuid.New())
 
 	erejb, err := directrequest.ValidatedDirectRequestSpec(drSpec)
 	require.NoError(t, err)
