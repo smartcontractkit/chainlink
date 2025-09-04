@@ -122,7 +122,7 @@ func NewCommitServices(
 	}
 	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(sourceChainID))
 	if !ok {
-		return nil, fmt.Errorf("failed to get source chain by evm ID %d", destChainID)
+		return nil, fmt.Errorf("failed to get source chain by evm ID %d", sourceChainID)
 	}
 	dstChain, ok2 := chainselectors.ChainByEvmChainID(uint64(destChainID))
 	if !ok2 {
@@ -139,7 +139,7 @@ func NewCommitServices(
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.CommitPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.CommitPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ccip.CommitPluginLabel)
-	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, sourceChainID, destChainID)
+	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, sourceChainID, destChainID, srcChain.Name, dstChain.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugin metrics collector: %w", err)
 	}
