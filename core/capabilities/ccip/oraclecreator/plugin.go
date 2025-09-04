@@ -457,7 +457,10 @@ func (i *pluginOracleCreator) createChainAccessors(
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		// check if CCIP provider exist, otherwise create default chain accessor
 		var ca cciptypes.ChainAccessor
+		i.lggr.Infow("about to call NewCCIPProvider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network)
+		// create a context with timeout to avoid hanging
 		provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
+		i.lggr.Infow("finished calling NewCCIPProvider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network, "err", err, "providerNil", provider == nil)
 		if err != nil || provider == nil {
 			// use default chain accessor if cr and cw exist
 			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
@@ -475,6 +478,9 @@ func (i *pluginOracleCreator) createChainAccessors(
 			}
 		} else {
 			ca = provider.ChainAccessor()
+			if ca == nil {
+				i.lggr.Errorw("CCIPProvider returned a nil ChainAccessor for a non-nil provider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network)
+			}
 		}
 		chainAccessors[chainSelector] = ca
 	}
