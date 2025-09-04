@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
@@ -146,6 +148,13 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		})
 	}
 
+	var mcmsConfig *ocr3.MCMSConfig
+	if useMCMS {
+		mcmsConfig = &ocr3.MCMSConfig{
+			MinDuration: 10 * time.Second,
+		}
+	}
+
 	configCapRegChangeset := changeset2.ConfigureCapabilitiesRegistry{}
 	changes := []changeset.ConfiguredChangeSet{
 		changeset.Configure(
@@ -153,7 +162,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 			changeset2.ConfigureCapabilitiesRegistryInput{
 				ChainSelector:               registryChainSel,
 				CapabilitiesRegistryAddress: registryAddrs[0].Address,
-				UseMCMS:                     useMCMS,
+				MCMSConfig:                  mcmsConfig,
 				Nops: []changeset2.CapabilitiesRegistryNodeOperator{
 					{
 						Name:  "Operator 1",

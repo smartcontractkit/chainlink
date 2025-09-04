@@ -261,7 +261,7 @@ var (
 						feeQuoterAddress = report.Output.Address
 						newAddresses[feeQuoterAddress.Hex()] = report.Output.TypeAndVersion
 					} else {
-						feeQuoterAddress = chainAddresses.FeeAggregatorAddress
+						feeQuoterAddress = chainAddresses.FeeQuoterAddress
 					}
 					// Deploy OnRamp if not already deployed
 					if chainAddresses.OnRampAddress == (common.Address{}) {

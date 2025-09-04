@@ -2,13 +2,13 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
-  docker_cmd_params = ["-b", "5"]
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [[blockchains]]
   type = "anvil"
   chain_id = "2337"
   port = "8546"
-  docker_cmd_params = ["-b", "5"]
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
@@ -46,7 +46,7 @@
 
   env_vars = { CL_EVM_CMD = "" }
 
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus"]
 
    [nodesets.chain_capabilities]
     write-evm = ["1337", "2337"]

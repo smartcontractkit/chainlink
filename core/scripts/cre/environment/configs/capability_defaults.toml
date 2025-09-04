@@ -1,3 +1,10 @@
+[capability_configs.consensus]
+  binary_path = "./binaries/consensus"
+
+# Global config for consensus is optional - uses empty config by default
+[capability_configs.consensus.config]
+#   CustomField = "value"  # Add custom fields if needed
+
 [capability_configs.cron]
   binary_path = "./binaries/cron"
 

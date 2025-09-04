@@ -17,7 +17,7 @@ import (
 )
 
 func NewHead() evmtypes.Head {
-	return evmtypes.Head{Number: 42, EVMChainID: ubig.NewI(0)}
+	return evmtypes.Head{Number: 42, EVMChainID: ubig.New(testutils.FixtureChainID)}
 }
 
 func Test_HeadReporterService(t *testing.T) {
