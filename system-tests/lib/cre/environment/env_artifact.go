@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,6 +70,67 @@ type DONCapabilityArtifact struct {
 
 type DONCapabilityConfig struct {
 	*capabilitiespb.CapabilityConfig
+}
+
+func (c *DONCapabilityConfig) UnmarshalJSON(data []byte) error {
+	if c.CapabilityConfig == nil {
+		c.CapabilityConfig = &capabilitiespb.CapabilityConfig{}
+	}
+
+	type Alias DONCapabilityConfig
+	var aux struct {
+		// allow standard JSON unmarshalling of all fields except RemoteConfig
+		*Alias
+
+		// use a map to hold any nested shape: RemoteTriggerConfig/RemoteTargetConfig/RemoteExecutableConfig
+		RemoteConfig map[string]json.RawMessage `json:"RemoteConfig,omitempty"`
+	}
+
+	aux.Alias = (*Alias)(c)
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if aux.RemoteConfig == nil {
+		// nothing else to do, no remote config to parse
+		return nil
+	}
+
+	switch {
+	case aux.RemoteConfig["RemoteTriggerConfig"] != nil:
+		var rt capabilitiespb.RemoteTriggerConfig
+		if err := json.Unmarshal(aux.RemoteConfig["RemoteTriggerConfig"], &rt); err != nil {
+			return err
+		}
+		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &rt,
+		}
+	case aux.RemoteConfig["RemoteTargetConfig"] != nil:
+		var tgt capabilitiespb.RemoteTargetConfig
+		if err := json.Unmarshal(aux.RemoteConfig["RemoteTargetConfig"], &tgt); err != nil {
+			return err
+		}
+		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+			RemoteTargetConfig: &tgt,
+		}
+	case aux.RemoteConfig["RemoteExecutableConfig"] != nil:
+		var ex capabilitiespb.RemoteExecutableConfig
+		if err := json.Unmarshal(aux.RemoteConfig["RemoteExecutableConfig"], &ex); err != nil {
+			return err
+		}
+		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteExecutableConfig{
+			RemoteExecutableConfig: &ex,
+		}
+	default:
+		keys := make([]string, 0, len(aux.RemoteConfig))
+		for k := range aux.RemoteConfig {
+			keys = append(keys, k)
+		}
+		return fmt.Errorf("unknown remote config type in capability config, keys: %v", keys)
+	}
+
+	return nil
 }
 
 type BootstrapNodeArtifact struct {
