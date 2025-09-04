@@ -384,42 +384,6 @@ func SetupTestEnvironment(
 			return nil, fmt.Errorf("failed to deploy Consensus V2 OCR3 contract %w", seqErr)
 		}
 	}
-
-	// deploy the various ocr contracts
-	// TODO move this deeper into the stack when we have all the p2p ids and can deploy and configure in one sequence
-	// deploy OCR3 contract
-	// we deploy OCR3 contract with a qualifier, so that we can distinguish it from other OCR3 contracts (Vault, EVM, ConsensusV2)
-	// TODO track the qualifiers in vars/consts rather than raw strings
-	_, seqErr = deployOCR3Contract("capability_ocr3", homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
-	if seqErr != nil {
-		return nil, fmt.Errorf("failed to deploy OCR3 contract %w", seqErr)
-	}
-	// deploy DONTime contract
-	_, seqErr = deployOCR3Contract("DONTime", homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
-	if seqErr != nil {
-		return nil, fmt.Errorf("failed to deploy DONTime contract %w", seqErr)
-	}
-	if vaultOCR3AddrFlag {
-		_, seqErr = deployOCR3Contract("capability_vault", homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
-		if seqErr != nil {
-			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", seqErr)
-		}
-	}
-	if evmOCR3AddrFlag {
-		for chainID, selector := range chainsWithEVMCapability {
-			qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
-			_, seqErr = deployOCR3Contract(qualifier, uint64(selector), allChainsCLDEnvironment, memoryDatastore)
-			if seqErr != nil {
-				return nil, fmt.Errorf("failed to deploy EVM OCR3 contract for chainID %d, selector %d: %w", chainID, selector, seqErr)
-			}
-		}
-	}
-	if consensusV2AddrFlag {
-		_, seqErr = deployOCR3Contract("capability_consensus", homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
-		if seqErr != nil {
-			return nil, fmt.Errorf("failed to deploy Consensus V2 OCR3 contract %w", seqErr)
-		}
-	}
 	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
 
 	ocr3Addr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], "capability_ocr3")
