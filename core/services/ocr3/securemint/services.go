@@ -179,14 +179,6 @@ func NewSecureMintServices(ctx context.Context,
 	argsNoPlugin.ReportingPluginFactory = secureMint                                 // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
 	srvs = append(srvs, secureMint)
 
-	// // Create the original SecureMint plugin factory
-	// smPluginFactory := &sm_plugin.PorReportingPluginFactory{
-	// 	Logger:          argsNoPlugin.Logger,
-	// 	ExternalAdapter: ea,
-	// 	ContractReader:  newStubContractReader(argsNoPlugin.ContractConfigTracker), // since we don't write to chain yet, we mock the contract reader which returns the most recent config digest from the config contract
-	// 	ReportMarshaler: sm_plugin.NewMockReportMarshaler(),
-	// }
-
 	// Get relay ID for chain identification
 	// rid, err := spec.RelayID()
 	// if err != nil {
