@@ -2313,7 +2313,7 @@ func TransferMultiple(
 			seqNr, ok := expectedSeqNums[pairId]
 			if ok {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
-					cciptypes.SeqNum(seqNr.Start()), cciptypes.SeqNum(msg.SequenceNumber),
+					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			} else {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(

@@ -7,14 +7,15 @@ import (
 	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tlb"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_ton_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton/provider"
 	"github.com/smartcontractkit/chainlink-ton/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/stretchr/testify/require"
-	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tlb"
 )
 
 func getTestTonChainSelectors() []uint64 {
