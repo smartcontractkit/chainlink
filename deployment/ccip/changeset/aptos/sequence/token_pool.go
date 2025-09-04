@@ -120,27 +120,47 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 		var seedBytes []byte
 		if in.PoolType == shared.AptosRegulatedTokenPoolType {
 			seedBytes = []byte("CcipRegulatedTokenPool") // Seed for regulated token pool
+			tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount(seedBytes)
+			gmReport, err := operations.ExecuteOperation(b, operation.GrantRoleOp, deps, operation.GrantRoleInput{
+				TokenCodeObjectAddress: in.TokenCodeObjAddress,
+				RoleNumber:             byte(4), // 4 is the minter role
+				Account:                tokenPoolStateAddress,
+			})
+			if err != nil {
+				return DeployTokenPoolSeqOutput{}, err
+			}
+			txs = append(txs, gmReport.Output)
+
+			gbReport, err := operations.ExecuteOperation(b, operation.GrantRoleOp, deps, operation.GrantRoleInput{
+				TokenCodeObjectAddress: in.TokenCodeObjAddress,
+				RoleNumber:             byte(5), // 5 is the burner role
+				Account:                tokenPoolStateAddress,
+			})
+			if err != nil {
+				return DeployTokenPoolSeqOutput{}, err
+			}
+			txs = append(txs, gbReport.Output)
 		} else {
 			seedBytes = []byte("CcipManagedTokenPool") // Seed for managed token pool
-		}
-		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount(seedBytes)
-		gmReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedMintersOp, deps, operation.ApplyAllowedMintersInput{
-			TokenCodeObjectAddress: in.TokenCodeObjAddress,
-			MintersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
-		})
-		if err != nil {
-			return DeployTokenPoolSeqOutput{}, err
-		}
-		txs = append(txs, gmReport.Output)
+			tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount(seedBytes)
+			gmReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedMintersOp, deps, operation.ApplyAllowedMintersInput{
+				TokenCodeObjectAddress: in.TokenCodeObjAddress,
+				MintersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
+			})
+			if err != nil {
+				return DeployTokenPoolSeqOutput{}, err
+			}
+			txs = append(txs, gmReport.Output)
 
-		gbReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedBurnersOp, deps, operation.ApplyAllowedBurnersInput{
-			TokenCodeObjectAddress: in.TokenCodeObjAddress,
-			BurnersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
-		})
-		if err != nil {
-			return DeployTokenPoolSeqOutput{}, err
+			gbReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedBurnersOp, deps, operation.ApplyAllowedBurnersInput{
+				TokenCodeObjectAddress: in.TokenCodeObjAddress,
+				BurnersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
+			})
+			if err != nil {
+				return DeployTokenPoolSeqOutput{}, err
+			}
+			txs = append(txs, gbReport.Output)
 		}
-		txs = append(txs, gbReport.Output)
 
 		mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
 			ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
