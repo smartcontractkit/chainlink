@@ -1826,6 +1826,7 @@ type CreConfig struct {
 	Streams              *StreamsConfig         `toml:",omitempty"`
 	WorkflowFetcher      *WorkflowFetcherConfig `toml:",omitempty"`
 	UseLocalTimeProvider *bool                  `toml:",omitempty"`
+	EnableDKGRecipient   *bool                  `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files

@@ -27,6 +27,7 @@ type AppConfig interface {
 	AptosEnabled() bool
 	TronEnabled() bool
 	TONEnabled() bool
+	DKGRecipientEnabled() bool
 
 	Validate() error
 	ValidateDB() error

@@ -524,9 +524,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return errors.Wrap(err2, "failed to ensure workflow key")
 	}
 
-	err2 = app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
-	if err2 != nil {
-		return errors.Wrap(err2, "failed to ensure dkg recipient key")
+	if s.Config.DKGRecipientEnabled() {
+		err2 := app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure dkg recipient key")
+		}
 	}
 
 	err2 = app.GetKeyStore().CSA().EnsureKey(rootCtx)

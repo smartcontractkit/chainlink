@@ -369,6 +369,13 @@ func (g *generalConfig) TONEnabled() bool {
 	return false
 }
 
+func (g *generalConfig) DKGRecipientEnabled() bool {
+	if g.c.CRE.EnableDKGRecipient == nil {
+		return false
+	}
+	return *g.c.CRE.EnableDKGRecipient
+}
+
 func (g *generalConfig) WebServer() config.WebServer {
 	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }
