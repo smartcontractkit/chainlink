@@ -356,7 +356,6 @@ func createReportHash(dataID [16]byte, sender solana.PublicKey, owner [20]byte, 
 		owner[:],
 		name[:],
 	}, nil)
-	fmt.Printf("cld dataID:%x authority:%v wfOwner:%x wfName:%x", dataID[:], sender.String(), owner[:], name[:])
 	return sha256.Sum256(buf)
 }
 

@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	_ "embed"
-	"fmt"
 	"math"
 	"math/big"
 	"net"
@@ -1420,8 +1419,6 @@ ReaperMaxAge = '678h0m0s'
 		t.Run(tt.name, func(t *testing.T) {
 			s, err := tt.config.TOMLString()
 			require.NoError(t, err)
-			fmt.Println("exp:", tt.name, "\n", tt.exp)
-			fmt.Println("actual:\n", s)
 			assert.Equal(t, tt.exp, s, diff.Diff(tt.exp, s))
 
 			var got Config
