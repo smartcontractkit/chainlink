@@ -997,8 +997,8 @@ func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment
 			Env: env,
 		},
 		ks_contracts_op.DeployOCR3ContractSequenceInput{
-			RegistryChainSelector: selector,
-			Qualifier:             qualifier,
+			ChainSelector: selector,
+			Qualifier:     qualifier,
 		},
 	)
 	if err != nil {
