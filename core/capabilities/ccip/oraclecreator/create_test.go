@@ -112,6 +112,7 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 		"1",
 		ccipcommon.PluginConfig{},
 		"",
+		/* ccipTransmitter */ nil,
 	)
 
 	require.Error(t, err, "expected error when peer wrapper not started")
@@ -195,6 +196,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 				destChainID,
 				pluginCfg,
 				offrampAddrStr,
+				nil, // ccipTransmitter is nil for this test
 			)
 
 			require.NoError(t, err)

@@ -172,24 +172,60 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 
 	i.lggr.Infow("offramp address", "offrampAddrStr", config.Config.OfframpAddress, "selector", config.Config.ChainSelector)
-	contractReaders, extendedReaders, chainWriters, err := i.createReadersAndWriters(
-		ctx,
-		pluginServices.ChainRW,
-		destChainID,
-		pluginType,
-		config,
-		publicConfig,
-		destChainFamily,
-		offrampAddrStr,
-	)
+
+	// Step 1: Try to create CCIPProviders first (preferred approach)
+	ccipProviders, err := i.createCCIPProviders(ctx, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
+		return nil, fmt.Errorf("failed to create CCIPProviders: %w", err)
 	}
 
-	// Create chain accessors
-	chainAccessors, err := i.createChainAccessors(extendedReaders, chainWriters, pluginServices)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chain accessors: %w", err)
+	// Step 2: Extract ChainAccessors from CCIPProviders if available
+	var chainAccessors map[cciptypes.ChainSelector]cciptypes.ChainAccessor
+	if len(ccipProviders) > 0 {
+		chainAccessors = i.createChainAccessorsFromProviders(ccipProviders)
+		i.lggr.Infow("Successfully created ChainAccessors from CCIPProviders",
+			"count", len(chainAccessors))
+	} else {
+		chainAccessors = make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
+	}
+
+	// Step 3: Fallback to creating contract readers/writers for missing chains
+	var contractReaders map[cciptypes.ChainSelector]types.ContractReader
+	var extendedReaders map[cciptypes.ChainSelector]contractreader.Extended
+	var chainWriters map[cciptypes.ChainSelector]types.ContractWriter
+
+	needsFallback := len(chainAccessors) < len(i.relayers)
+	if needsFallback {
+		i.lggr.Infow("Some chains missing from CCIPProviders, creating fallback readers/writers",
+			"providersCount", len(ccipProviders), "relayersCount", len(i.relayers))
+
+		contractReaders, extendedReaders, chainWriters, err = i.createReadersAndWriters(
+			ctx,
+			pluginServices.ChainRW,
+			destChainID,
+			pluginType,
+			config,
+			publicConfig,
+			destChainFamily,
+			offrampAddrStr,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create fallback readers and writers: %w", err)
+		}
+
+		// Create ChainAccessors from fallback readers/writers for missing chains
+		fallbackAccessors, err := i.createChainAccessors(extendedReaders, chainWriters, pluginServices)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create fallback chain accessors: %w", err)
+		}
+
+		// Merge the two maps, prioritizing CCIPProvider-based accessors
+		for selector, accessor := range fallbackAccessors {
+			if _, exists := chainAccessors[selector]; !exists {
+				chainAccessors[selector] = accessor
+				i.lggr.Infow("Added fallback ChainAccessor", "chainSelector", selector)
+			}
+		}
 	}
 
 	// build the onchain keyring. it will be the signing key for the destination chain family.
@@ -199,16 +235,23 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 	onchainKeyring := ocrimpls.NewOnchainKeyring[[]byte](keybundle, i.lggr)
 
-	// build the contract transmitter
+	// Step 4: Create transmitter, preferring CCIPProvider approach
+	var ccipTransmitter ocr3types.ContractTransmitter[[]byte]
+	ccipTransmitter = i.createTransmitterFromProvider(ccipProviders, config.Config.ChainSelector)
+
+	// Build the contract transmitter (fallback approach)
 	// assume that we are using the first account in the keybundle as the from account.
-	destChainWriter, ok := chainWriters[config.Config.ChainSelector]
-	if !ok {
+	var destChainWriter types.ContractWriter
+	if chainWriters != nil {
+		destChainWriter, _ = chainWriters[config.Config.ChainSelector]
+	}
+	if destChainWriter == nil && ccipTransmitter == nil {
 		i.lggr.Infow("no chain writer found for dest chain, will create nil transmitter",
 			"destChainID", destChainID,
 			"destChainSelector", config.Config.ChainSelector)
 	}
 	destFromAccounts, ok := i.transmitters[destRelayID]
-	if !ok {
+	if !ok && ccipTransmitter == nil {
 		i.lggr.Infow("no transmitters found for dest chain, will create nil transmitter",
 			"destChainID", destChainID,
 			"destChainSelector", config.Config.ChainSelector)
@@ -229,6 +272,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		destChainID,
 		pluginServices.PluginConfig,
 		offrampAddrStr,
+		ccipTransmitter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
@@ -272,13 +316,31 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, err
 	}
 
-	closers := make([]io.Closer, 0, len(extendedReaders)+len(chainWriters))
-	for _, cr := range contractReaders {
-		closers = append(closers, cr)
+	// Update the closer logic to handle both CCIPProviders and traditional readers/writers
+	closers := make([]io.Closer, 0)
+
+	// Add CCIPProvider closers
+	for _, provider := range ccipProviders {
+		if closer, ok := provider.(io.Closer); ok {
+			closers = append(closers, closer)
+		}
 	}
-	for _, cw := range chainWriters {
-		closers = append(closers, cw)
+
+	// Add traditional closers for fallback chains (only if they were created)
+	if contractReaders != nil {
+		for _, cr := range contractReaders {
+			closers = append(closers, cr)
+		}
 	}
+	if chainWriters != nil {
+		for _, cw := range chainWriters {
+			closers = append(closers, cw)
+		}
+	}
+
+	i.lggr.Infow("Created oracle with closers", "ccipProviders", len(ccipProviders),
+		"totalClosers", len(closers))
+
 	return newWrappedOracle(oracle, closers), nil
 }
 
@@ -296,6 +358,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	destChainID string,
 	pluginConfig ccipcommon.PluginConfig,
 	offrampAddrStr string,
+	ccipTransmitter ocr3types.ContractTransmitter[[]byte], // New parameter for CCIPProvider transmitter
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
@@ -341,7 +404,14 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			destChainID,
 			"CCIPCommit",
 		)
-		if destChainWriter == nil {
+
+		// Use CCIPProvider transmitter if available, otherwise fallback to traditional approach
+		if ccipTransmitter != nil {
+			i.lggr.Infow("Using transmitter from CCIPProvider for commit plugin",
+				"destChainID", destChainID,
+				"destChainSelector", config.Config.ChainSelector)
+			transmitter = ccipTransmitter
+		} else if destChainWriter == nil {
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
@@ -402,7 +472,13 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			"CCIPExec",
 		)
 
-		if destChainWriter == nil {
+		// Use CCIPProvider transmitter if available, otherwise fallback to traditional approach
+		if ccipTransmitter != nil {
+			i.lggr.Infow("Using transmitter from CCIPProvider for exec plugin",
+				"destChainID", destChainID,
+				"destChainSelector", config.Config.ChainSelector)
+			transmitter = ccipTransmitter
+		} else if destChainWriter == nil {
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
@@ -438,6 +514,80 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
 	return factory, transmitter, nil
+}
+
+// createCCIPProviders attempts to create CCIPProviders for all available relayers.
+// This is the preferred method for getting ChainAccessors and ContractTransmitters.
+// Returns a map of successful providers and logs warnings for failures (doesn't fail completely).
+func (i *pluginOracleCreator) createCCIPProviders(
+	ctx context.Context,
+	config cctypes.OCR3ConfigWithMeta,
+) (map[cciptypes.ChainSelector]types.CCIPProvider, error) {
+	ccipProviders := make(map[cciptypes.ChainSelector]types.CCIPProvider)
+
+	for relayID, relayer := range i.relayers {
+		chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(relayID.ChainID, relayID.Network)
+		if err != nil {
+			i.lggr.Warnw("Failed to get chain details for CCIPProvider",
+				"relayID", relayID, "error", err)
+			continue // Don't fail completely, fallback will handle this
+		}
+
+		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
+
+		// Attempt to create CCIPProvider
+		ccipProvider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{
+			ExternalJobID:        i.externalJobID,
+			ContractReaderConfig: nil, // Let the provider determine config
+			ChainWriterConfig:    nil, // Let the provider determine config
+		})
+
+		if err != nil {
+			i.lggr.Warnw("Failed to create CCIPProvider, will use fallback",
+				"chainSelector", chainSelector, "relayID", relayID, "error", err)
+			continue // Continue to try other chains
+		}
+
+		ccipProviders[chainSelector] = ccipProvider
+		i.lggr.Infow("Successfully created CCIPProvider",
+			"chainSelector", chainSelector, "relayID", relayID)
+	}
+
+	i.lggr.Infow("CCIPProvider creation complete",
+		"successfulProviders", len(ccipProviders), "totalRelayers", len(i.relayers))
+
+	return ccipProviders, nil
+}
+
+// createChainAccessorsFromProviders extracts ChainAccessors from CCIPProviders.
+// This is the preferred method when CCIPProviders are available.
+func (i *pluginOracleCreator) createChainAccessorsFromProviders(
+	ccipProviders map[cciptypes.ChainSelector]types.CCIPProvider,
+) map[cciptypes.ChainSelector]cciptypes.ChainAccessor {
+	chainAccessors := make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
+
+	for chainSelector, provider := range ccipProviders {
+		chainAccessor := provider.ChainAccessor()
+		chainAccessors[chainSelector] = chainAccessor
+		i.lggr.Infow("Extracted ChainAccessor from CCIPProvider",
+			"chainSelector", chainSelector)
+	}
+
+	return chainAccessors
+}
+
+// createTransmitterFromProvider extracts ContractTransmitter from CCIPProvider for the destination chain.
+// Returns the transmitter if available, nil otherwise.
+func (i *pluginOracleCreator) createTransmitterFromProvider(
+	ccipProviders map[cciptypes.ChainSelector]types.CCIPProvider,
+	destChainSelector cciptypes.ChainSelector,
+) ocr3types.ContractTransmitter[[]byte] {
+	if ccipProvider, exists := ccipProviders[destChainSelector]; exists {
+		transmitter := ccipProvider.ContractTransmitter()
+		i.lggr.Infow("Using transmitter from CCIPProvider", "chainSelector", destChainSelector)
+		return transmitter
+	}
+	return nil
 }
 
 func (i *pluginOracleCreator) createChainAccessors(
