@@ -1,8 +1,9 @@
-package types
+package types_test
 
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,7 +16,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	jobName := "test-job"
 
 	t.Run("successful conversion", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"externalJobID": "123",
@@ -50,7 +51,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("missing command", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"config":        "param=value",
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
@@ -61,7 +62,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("invalid command type", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"command":       123,
 			"config":        "param=value",
 			"externalJobID": "123",
@@ -73,7 +74,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"command":       "run",
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
@@ -84,7 +85,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("invalid config type", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"command":       "run",
 			"config":        123,
 			"externalJobID": "123",
@@ -96,7 +97,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("missing externalJobID", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"oracleFactory": pkg.OracleFactory{},
@@ -107,7 +108,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("invalid externalJobID type", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"externalJobID": 123,
@@ -119,7 +120,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("missing oracleFactory", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"externalJobID": "123",
@@ -130,7 +131,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("invalid oracleFactory type", func(t *testing.T) {
-		input := JobSpecInput{
+		input := types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"externalJobID": "123",
