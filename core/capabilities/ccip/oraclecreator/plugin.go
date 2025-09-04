@@ -465,7 +465,6 @@ func (i *pluginOracleCreator) createChainAccessors(
 			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
 				return nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
 			}
-
 			ca, err = chainaccessor.NewDefaultAccessor(
 				i.lggr,
 				chainSelector,
@@ -473,15 +472,12 @@ func (i *pluginOracleCreator) createChainAccessors(
 				chainWriters[chainSelector],
 				pluginServices.AddrCodec,
 			)
-
 			if err != nil {
 				return nil, err
 			}
-
 		} else {
 			ca = provider.ChainAccessor()
 		}
-
 		chainAccessors[chainSelector] = ca
 	}
 	return chainAccessors, nil
