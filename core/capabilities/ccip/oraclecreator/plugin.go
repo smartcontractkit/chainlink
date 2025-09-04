@@ -350,7 +350,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		//  2. CCIP doesn't provides contract transmitter, we use CT factory with CW to create one
 		//  3. Contract transmitter not supported, use noop transmitter
 		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
-		if exist {
+		if exist && ct != nil {
 			// case 1
 			i.lggr.Infow("contracts transmitter provided from CCIP provider",
 				"destChainID", destChainID,
@@ -420,7 +420,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		)
 
 		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
-		if exist {
+		if exist && ct != nil {
 			// case 1
 			i.lggr.Infow("contracts transmitter provided from CCIP provider",
 				"destChainID", destChainID,
