@@ -29,7 +29,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	}
 
 	chains := make([]cldf_chain.BlockChain, 0, numChains)
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		selector := testTonChainSelectors[i]
 
 		c, err := cldf_ton_provider.NewCTFChainProvider(t, selector,
@@ -47,7 +47,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 
 		t.Log("In generate ton chains, Deployer: ", tonChain.WalletAddress.String())
 		// memory environment doesn't block on funding so changesets can execute before the env is fully ready, manually call fund so we block here
-		utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{tlb.MustFromTON("1000")})
+		utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{tlb.MustFromTON("100000")})
 	}
 
 	return chains
