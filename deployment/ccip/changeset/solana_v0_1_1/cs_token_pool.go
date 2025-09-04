@@ -2717,3 +2717,138 @@ func ExtendTokenPoolLookupTable(e cldf.Environment, cfg ExtendTokenPoolLookupTab
 
 	return cldf.ChangesetOutput{}, nil
 }
+
+type RateLimitAdminConfig struct {
+	SolTokenPubKey    string
+	PoolType          cldf.ContractType
+	Metadata          string
+	NewRateLimitAdmin solana.PublicKey
+}
+
+type SetRateLimitAdminConfig struct {
+	SolChainSelector      uint64
+	RateLimitAdminConfigs []RateLimitAdminConfig
+	MCMS                  *proposalutils.TimelockConfig
+}
+
+func (cfg SetRateLimitAdminConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	for _, rateLimitAdminConfig := range cfg.RateLimitAdminConfigs {
+		tokenPubKey := solana.MustPublicKeyFromBase58(rateLimitAdminConfig.SolTokenPubKey)
+		tokenPool := chainState.GetActiveTokenPool(rateLimitAdminConfig.PoolType, rateLimitAdminConfig.Metadata)
+		if rateLimitAdminConfig.PoolType == "" {
+			return errors.New("pool type must be defined")
+		}
+		chain := e.BlockChains.SolanaChains()[cfg.SolChainSelector]
+		if err := chainState.CommonValidation(e, cfg.SolChainSelector, tokenPubKey); err != nil {
+			return err
+		}
+		if err := chainState.ValidatePoolDeployment(&e, rateLimitAdminConfig.PoolType, cfg.SolChainSelector, tokenPubKey, true, rateLimitAdminConfig.Metadata); err != nil {
+			return err
+		}
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
+		programData := solTestTokenPool.State{}
+		if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &programData); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chainState := state.SolChains[cfg.SolChainSelector]
+	if err := cfg.Validate(e, chainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	mcmsTxs := []mcmsTypes.Transaction{}
+
+	for _, rateLimitAdminConfig := range cfg.RateLimitAdminConfigs {
+		chain := e.BlockChains.SolanaChains()[cfg.SolChainSelector]
+		tokenPubKey := solana.MustPublicKeyFromBase58(rateLimitAdminConfig.SolTokenPubKey)
+
+		var ix solana.Instruction
+		tokenPool := chainState.GetActiveTokenPool(rateLimitAdminConfig.PoolType, rateLimitAdminConfig.Metadata)
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
+		tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
+			&e,
+			chain,
+			chainState,
+			rateLimitAdminConfig.PoolType,
+			tokenPubKey,
+			rateLimitAdminConfig.Metadata,
+		)
+		authority := GetAuthorityForIxn(
+			&e,
+			chain,
+			chainState,
+			rateLimitAdminConfig.PoolType,
+			tokenPubKey,
+			rateLimitAdminConfig.Metadata,
+		)
+		switch rateLimitAdminConfig.PoolType {
+		case shared.BurnMintTokenPool:
+			solBurnMintTokenPool.SetProgramID(tokenPool)
+			ix, err = solBurnMintTokenPool.NewSetRateLimitAdminInstruction(
+				tokenPubKey,
+				rateLimitAdminConfig.NewRateLimitAdmin,
+				poolConfigPDA,
+				authority,
+			).ValidateAndBuild()
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+		case shared.LockReleaseTokenPool:
+			solLockReleaseTokenPool.SetProgramID(tokenPool)
+			ix, err = solLockReleaseTokenPool.NewSetRateLimitAdminInstruction(
+				tokenPubKey,
+				rateLimitAdminConfig.NewRateLimitAdmin,
+				poolConfigPDA,
+				authority,
+			).ValidateAndBuild()
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+		case shared.CCTPTokenPool:
+			cctp_token_pool.SetProgramID(tokenPool)
+			ix, err = cctp_token_pool.NewSetRateLimitAdminInstruction(
+				tokenPubKey,
+				rateLimitAdminConfig.NewRateLimitAdmin,
+				poolConfigPDA,
+				authority,
+			).ValidateAndBuild()
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+		default:
+			return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", rateLimitAdminConfig.PoolType)
+		}
+		if tokenPoolUsingMcms {
+			tx, err := BuildMCMSTxn(ix, tokenPool.String(), rateLimitAdminConfig.PoolType)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			mcmsTxs = append(mcmsTxs, *tx)
+		} else {
+			if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			}
+		}
+	}
+
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.SolChainSelector, "proposal to SetRateLimitAdmin in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
