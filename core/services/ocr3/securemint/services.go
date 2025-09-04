@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
-	sm_plugin_loopp "github.com/smartcontractkit/tmp-sm-plugin-loopp/v2/smplugin"
+	sm_plugin_loopp "github.com/smartcontractkit/tmp-sm-plugin-loopp/v2/pkg2"
 )
 
 var _ JobConfig = (*smJobConfig)(nil)
