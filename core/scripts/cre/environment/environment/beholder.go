@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -111,13 +112,22 @@ func stopBeholder() error {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 	}
 
-	// remove only Beholder-related cache files
-	removeCacheErr := removeCtfConfigsCacheFiles(removeCurrentCtfConfigs)
+	removeCacheErr := removeBeholderStateFiles(relativePathToRepoRoot)
 	if removeCacheErr != nil {
 		framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
 	}
 
 	return framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+}
+
+func removeBeholderStateFiles(relativePathToRepoRoot string) error {
+	path := filepath.Join(relativePathToRepoRoot, envconfig.StateDirname, envconfig.ChipIngressStateFilename)
+	absPath, absErr := filepath.Abs(path)
+	if absErr != nil {
+		return errors.Wrap(absErr, "error getting absolute path for chip ingress state file")
+	}
+
+	return os.Remove(absPath)
 }
 
 var protoRegistrationErrMsg = "proto registration failed"
@@ -212,7 +222,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	fmt.Println()
 	fmt.Print("To terminate Beholder stack execute: `go run . env beholder stop`\n\n")
 
-	return storeCTFConfigs(in)
+	return in.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
 }
 
 func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []string, schemaRegistryExternalURL string) error {

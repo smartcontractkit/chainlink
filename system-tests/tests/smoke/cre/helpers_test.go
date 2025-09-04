@@ -202,7 +202,7 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFile
 	t.Helper()
 
 	var testLogger = framework.L
-	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.\n", uniqueWorkflowName)
+	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.", uniqueWorkflowName)
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 

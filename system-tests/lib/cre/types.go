@@ -1085,6 +1085,6 @@ type InstallableCapability interface {
 }
 
 type PersistentConfig interface {
-	Load() error
-	Store() error
+	Load(absPath string) error
+	Store(absPath string) error
 }

@@ -80,8 +80,8 @@ type SetupOutput struct {
 type SetupInput struct {
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	BlockchainsInput          []blockchain.Input
-	JdInput                   jd.Input
-	InfraInput                infra.Input
+	JdInput                   *jd.Input
+	InfraInput                *infra.Input
 	ContractVersions          map[string]string
 	OCR3Config                *keystone_changeset.OracleConfig
 	DONTimeConfig             *keystone_changeset.OracleConfig
@@ -124,9 +124,9 @@ func SetupTestEnvironment(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	singleFileLogger logger.Logger,
-	input SetupInput,
+	input *SetupInput,
 ) (*SetupOutput, error) {
-	topologyErr := libdon.ValidateTopology(input.CapabilitiesAwareNodeSets, input.InfraInput)
+	topologyErr := libdon.ValidateTopology(input.CapabilitiesAwareNodeSets, *input.InfraInput)
 	if topologyErr != nil {
 		return nil, pkgerrors.Wrap(topologyErr, "failed to validate topology")
 	}
@@ -136,7 +136,7 @@ func SetupTestEnvironment(
 	var nixShell *libnix.Shell
 	if input.InfraInput.Type == infra.CRIB {
 		startNixShellInput := &cre.StartNixShellInput{
-			InfraInput:     &input.InfraInput,
+			InfraInput:     input.InfraInput,
 			CribConfigsDir: cribConfigsDir,
 			PurgeNamespace: true,
 		}
@@ -147,7 +147,7 @@ func SetupTestEnvironment(
 			return nil, pkgerrors.Wrap(nixErr, "failed to start nix shell")
 		}
 		// In CRIB v2 we no longer rely on devspace to create a namespace so we need to do it before deploying
-		err := crib.Bootstrap(&input.InfraInput)
+		err := crib.Bootstrap(input.InfraInput)
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to create namespace")
 		}
@@ -175,7 +175,7 @@ func SetupTestEnvironment(
 	}
 
 	bi := BlockchainsInput{
-		infra:    &input.InfraInput,
+		infra:    input.InfraInput,
 		nixShell: nixShell,
 	}
 	bi.blockchainsInput = append(bi.blockchainsInput, input.BlockchainsInput...)
@@ -402,7 +402,7 @@ func SetupTestEnvironment(
 	topology, updatedNodeSets, topoErr := BuildTopology(
 		homeChainSelector,
 		input.CapabilitiesAwareNodeSets,
-		input.InfraInput,
+		*input.InfraInput,
 		evmChainIDs,
 		solChainIDs,
 		bcOuts,
@@ -508,11 +508,11 @@ func SetupTestEnvironment(
 
 	jdOutput, nodeSetOutput, jobsSeqErr := SetupJobs(
 		testLogger,
-		input.JdInput,
+		*input.JdInput,
 		nixShell,
 		homeChainOutput.BlockchainOutput,
 		topology,
-		input.InfraInput,
+		*input.InfraInput,
 		updatedNodeSets,
 	)
 	if jobsSeqErr != nil {
@@ -568,7 +568,7 @@ func SetupTestEnvironment(
 		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		FullCLDEnvOutput:          fullCldOutput,
 		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
-		InfraInput:                &input.InfraInput,
+		InfraInput:                input.InfraInput,
 		CapabilitiesConfigs:       input.CapabilityConfigs,
 		Capabilities:              input.Capabilities,
 	}
@@ -740,25 +740,6 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", stageGen.Elapsed().Seconds())))
-
-	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Writing bootstrapping data into disk (address book, data store, etc...)")))
-
-	artifactPath, artifactErr := DumpArtifact(
-		memoryDatastore.AddressRefStore,
-		allChainsCLDEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		*jdOutput,
-		*fullCldOutput.DonTopology,
-		fullCldOutput.Environment.Offchain,
-		capabilitiesContractFactoryFunctions,
-		input.CapabilitiesAwareNodeSets,
-	)
-	if artifactErr != nil {
-		testLogger.Error().Err(artifactErr).Msg("failed to generate artifact")
-		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Failed to write bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
-	} else {
-		testLogger.Info().Msgf("Environment artifact saved to %s", artifactPath)
-		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Wrote bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
-	}
 
 	// block on background stages
 	backgroundStagesWaitGroup.Wait()
