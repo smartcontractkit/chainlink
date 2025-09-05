@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
@@ -167,11 +168,12 @@ type Shell struct {
 	secretsFiles     []string
 	secretsFileIsSet bool
 
+	LDB      pg.LockedDB
 	DS       sqlutil.DataSource
 	KeyStore keystore.Master
 
-	RootCtx       context.Context
-	CancelRootCtx context.CancelFunc
+	RootCtx       context.Context    // initialized in Before
+	CancelRootCtx context.CancelFunc // called in After
 }
 
 func (s *Shell) errorOut(err error) cli.ExitCoder {

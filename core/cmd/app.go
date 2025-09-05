@@ -265,17 +265,13 @@ func NewApp(s *Shell) *cli.App {
 				lggr := s.Logger
 
 				ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+				s.LDB = ldb
 
 				// Try opening DB connection and acquiring DB locks at once
 				if err := ldb.Open(rootCtx); err != nil {
 					// If not successful, we know neither locks nor connection remains opened
 					return s.errorOut(errors.Wrap(err, "opening db"))
 				}
-				defer func() {
-					if err := ldb.Close(); err != nil {
-						lggr.Error("Error closing db", "err", err)
-					}
-				}()
 				// From now on, DB locks and DB connection will be released on every return.
 				// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
@@ -328,6 +324,20 @@ func NewApp(s *Shell) *cli.App {
 
 				s.Logger = l
 				s.CloseLogger = closeFn
+
+				return nil
+			},
+			After: func(c *cli.Context) error {
+				if s.CancelRootCtx != nil {
+					s.CancelRootCtx()
+				}
+
+				if s.LDB != nil {
+					if err := s.LDB.Close(); err != nil {
+						s.Logger.Error("Error closing db", "err", err)
+					}
+					s.LDB = nil
+				}
 
 				return nil
 			},
