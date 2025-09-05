@@ -18221,8 +18221,8 @@ ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
 GasLimitDefault = 300_000 # Default
 TxAcceptanceState = 3 # Default
-Local = true # Example
-Enabled = true # Example
+Local = false # Default
+Enabled = false # Default
 ```
 
 
@@ -18270,15 +18270,15 @@ TxAcceptanceState is the default acceptance state for writer DON tranmissions.
 
 ### Local
 ```toml
-Local = true # Example
+Local = false # Default
 ```
 Local defines if relayer runs against local devnet
 
 ### Enabled
 ```toml
-Enabled = true # Example
+Enabled = false # Default
 ```
-Enabled defines if solana write target should be initialized
+Enabled defines if solana capabilities should be initialized
 
 ## Solana.Nodes
 ```toml

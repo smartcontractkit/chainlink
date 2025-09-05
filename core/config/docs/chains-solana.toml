@@ -111,9 +111,9 @@ GasLimitDefault = 300_000 # Default
 # TxAcceptanceState is the default acceptance state for writer DON tranmissions.
 TxAcceptanceState = 3 # Default
 # Local defines if relayer runs against local devnet
-Local = true # Example
-# Enabled defines if solana write target should be initialized
-Enabled = true # Example
+Local = false # Default
+# Enabled defines if solana capabilities should be initialized
+Enabled = false # Default
 
 [[Solana.Nodes]]
 # Name is a unique (per-chain) identifier for this node.
