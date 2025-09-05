@@ -33,6 +33,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 		JobName: "name",
 		Command: "run",
 	})
+	require.Error(t, err)
 	// missing DON Filters
 	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{JobName: "name", Command: "run", DONName: "test-don"})
 	require.Error(t, err)

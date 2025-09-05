@@ -3,11 +3,11 @@ package types_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 )
 
 func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
