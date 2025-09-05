@@ -93,7 +93,7 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 					}
 
 					fundingAmount := libc.MustSafeInt64(requiredFundingPerChain[bcOut.ChainSelector])
-					fundingAmount = fundingAmount + (fundingAmount / 10) // add 10% to cover gas fees
+					fundingAmount += (fundingAmount / 10) // add 10% to cover gas fees
 
 					_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
 						ToAddress:  *publicAddress,
@@ -157,6 +157,7 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, *FundCLNodesOpOu
 	func(b operations.Bundle, deps FundCLNodesOpDeps, input FundCLNodesOpInput) (*FundCLNodesOpOutput, error) {
 		ctx := b.GetContext()
 		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
+			deps.TestLogger.Info().Msgf("Funding nodes for DON %s", metaDon.Name)
 			for _, bcOut := range deps.BlockchainOutputs {
 				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) {
 					continue
@@ -186,6 +187,8 @@ var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, *FundCLNodesOpOu
 					}
 				}
 			}
+
+			deps.TestLogger.Info().Msgf("Funded nodes for DON %s", metaDon.Name)
 		}
 
 		return &FundCLNodesOpOutput{}, nil
