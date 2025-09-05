@@ -16,8 +16,6 @@ import (
 	cldf_ton_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton/provider"
 	"github.com/smartcontractkit/chainlink-ton/deployment/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
-	"github.com/xssnick/tonutils-go/ton/wallet"
 )
 
 func getTestTonChainSelectors() []uint64 {
@@ -113,12 +111,4 @@ func createTonChainConfig(chainID string, chain cldf_ton.Chain) chainlink.RawCon
 	}
 
 	return chainConfig
-}
-
-func fundTonAccount(t *testing.T, funder *wallet.Wallet, to *address.Address, amount string) {
-	msg, err := funder.BuildTransfer(to, tlb.MustFromTON(amount), false, "")
-	require.NoError(t, err)
-	_, _, txerr := funder.SendManyWaitTransaction(t.Context(), []*wallet.Message{msg})
-	require.NoError(t, txerr, "airdrop transaction failed")
-	// TODO: we could block on confirmation but nodes take a while to run, so it'll be confirmed by then
 }
