@@ -1822,11 +1822,14 @@ func DeployRegulatedTransferableTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to grant mint role to deployer: %v", data.VmStatus)
 
-	tx, err = token.RegulatedToken().Mint(opts, mintAmount.To, mintAmount.Amount)
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to mint %d token to %s: %v", mintAmount.Amount, mintAmount.To, data.VmStatus)
+	if mintAmount != nil {
+		lggr.Infof("Minting %v tokens to %v...", mintAmount.Amount, mintAmount.To)
+		tx, err = token.RegulatedToken().Mint(opts, mintAmount.To, mintAmount.Amount)
+		require.NoError(t, err)
+		data, err = client.WaitForTransaction(tx.Hash)
+		require.NoError(t, err)
+		require.True(t, data.Success, "failed to mint %d token to %s: %v", mintAmount.Amount, mintAmount.To, data.VmStatus)
+	}
 
 	tokenMetadata, err := token.RegulatedToken().TokenMetadata(nil)
 	require.NoError(t, err)
