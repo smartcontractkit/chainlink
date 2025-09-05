@@ -18272,13 +18272,14 @@ TxAcceptanceState is the default acceptance state for writer DON tranmissions.
 ```toml
 Local = false # Default
 ```
-Local defines if relayer runs against local devnet
+Local determines whether Relayer runs against a local devnet
 
 ### Enabled
 ```toml
 Enabled = false # Default
 ```
-Enabled defines if solana capabilities should be initialized
+Enabled enables this section. When true, Relayer applies these parameters to its capabilities
+When false, this section is ignored.
 
 ## Solana.Nodes
 ```toml
