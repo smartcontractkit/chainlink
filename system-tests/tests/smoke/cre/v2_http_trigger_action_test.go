@@ -34,7 +34,7 @@ import (
 )
 
 func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
-	var testLogger = framework.L
+	testLogger := framework.L
 
 	publicKeyAddr, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
 	require.NoError(t, newKeysErr, "failed to generate new public key")
@@ -169,7 +169,7 @@ type HTTPWorkflowConfig struct {
 }
 
 func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) (string, error) {
-	var testLogger = framework.L
+	testLogger := framework.L
 	mockServerURL := cfg.URL
 	parsedURL, urlErr := url.Parse(mockServerURL)
 	if urlErr != nil {
@@ -190,7 +190,7 @@ func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) 
 	configFileName := fmt.Sprintf("test_http_workflow_config_%s.json", workflowName)
 	configPath := filepath.Join(os.TempDir(), configFileName)
 
-	writeErr := os.WriteFile(configPath, configBytes, 0644) //nolint:gosec // this is a test file
+	writeErr := os.WriteFile(configPath, configBytes, 0o644) //nolint:gosec // this is a test file
 	if writeErr != nil {
 		return "", errors.Wrap(writeErr, "failed to write HTTP workflow config file")
 	}
