@@ -76,11 +76,17 @@ func NewReportingPluginFactory(
 	publicKey *tdh2easy.PublicKey,
 	privateKeyShare *tdh2easy.PrivateShare,
 ) (*ReportingPluginFactory, error) {
-	if db == nil && publicKey == nil {
-		return nil, errors.New("public key and result package db cannot be nil")
-	}
-	if db == nil && privateKeyShare == nil {
-		return nil, errors.New("private key share and result package db cannot both be nil")
+	if db == nil {
+		if publicKey == nil {
+			return nil, errors.New("public key and result package db cannot be nil")
+		}
+		if privateKeyShare == nil {
+			return nil, errors.New("private key share and result package db cannot both be nil")
+		}
+	} else {
+		if recipientKey == nil {
+			return nil, errors.New("DKG recipient key cannot be nil when using result package db")
+		}
 	}
 
 	cfg := &ReportingPluginConfig{
