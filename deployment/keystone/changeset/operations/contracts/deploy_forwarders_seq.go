@@ -20,8 +20,10 @@ type DeployKeystoneForwardersInput struct {
 }
 
 type DeployKeystoneForwardersOutput struct {
-	Addresses   datastore.AddressRefStore
+	Addresses datastore.AddressRefStore
+	// TODO: CRE-742 remove AddressBook
 	AddressBook cldf.AddressBook // The address book containing the deployed Keystone Forwarders
+	Datastore   datastore.DataStore
 }
 
 var DeployKeystoneForwardersSequence = operations.NewSequence[DeployKeystoneForwardersInput, DeployKeystoneForwardersOutput, DeployKeystoneForwardersSequenceDeps](
@@ -60,6 +62,6 @@ var DeployKeystoneForwardersSequence = operations.NewSequence[DeployKeystoneForw
 		if err := contractErrGroup.Wait(); err != nil {
 			return DeployKeystoneForwardersOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to deploy Keystone contracts: %w", err)
 		}
-		return DeployKeystoneForwardersOutput{AddressBook: ab, Addresses: as.Addresses()}, nil
+		return DeployKeystoneForwardersOutput{AddressBook: ab, Addresses: as.Addresses(), Datastore: as.Seal()}, nil
 	},
 )

@@ -602,23 +602,81 @@ func TestSetTokenAuthority(t *testing.T) {
 	state, err := stateview.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 	linkTokenAddress := state.SolChains[solChain].LinkToken
-	tokenAdmin, err := solana.NewRandomPrivateKey()
+	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &tenv.Env, solChain, true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			Router: true,
+		})
+	timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(tenv.Env, solChain)
 	require.NoError(t, err)
+	mcmsConfig := &proposalutils.TimelockConfig{
+		MinDelay: 1 * time.Second,
+	}
+	newAdmin := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
+	// transfer to timelock
 	_, _, err = commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
 			ccipChangesetSolana.SetTokenAuthorityConfig{
 				ChainSelector: solChain,
+				MCMS:          mcmsConfig,
 				TokenAuthorityConfigs: []ccipChangesetSolana.TokenAuthorityConfig{
 					{
 						AuthorityType: solToken.AuthorityMintTokens,
 						TokenPubkey:   linkTokenAddress,
-						NewAuthority:  tokenAdmin.PublicKey(),
+						NewAuthority:  timelockSignerPDA,
 					},
 					{
 						AuthorityType: solToken.AuthorityFreezeAccount,
 						TokenPubkey:   linkTokenAddress,
-						NewAuthority:  tokenAdmin.PublicKey(),
+						NewAuthority:  timelockSignerPDA,
+					},
+				},
+			},
+		),
+	},
+	)
+	require.NoError(t, err)
+	// transfer back
+	_, _, err = commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
+			ccipChangesetSolana.SetTokenAuthorityConfig{
+				ChainSelector: solChain,
+				MCMS:          mcmsConfig,
+				TokenAuthorityConfigs: []ccipChangesetSolana.TokenAuthorityConfig{
+					{
+						AuthorityType: solToken.AuthorityMintTokens,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  newAdmin,
+					},
+					{
+						AuthorityType: solToken.AuthorityFreezeAccount,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  newAdmin,
+					},
+				},
+			},
+		),
+	},
+	)
+	require.NoError(t, err)
+	// transfer back again
+	_, _, err = commonchangeset.ApplyChangesets(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
+			ccipChangesetSolana.SetTokenAuthorityConfig{
+				ChainSelector: solChain,
+				MCMS:          mcmsConfig,
+				TokenAuthorityConfigs: []ccipChangesetSolana.TokenAuthorityConfig{
+					{
+						AuthorityType: solToken.AuthorityMintTokens,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  timelockSignerPDA,
+					},
+					{
+						AuthorityType: solToken.AuthorityFreezeAccount,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  timelockSignerPDA,
 					},
 				},
 			},

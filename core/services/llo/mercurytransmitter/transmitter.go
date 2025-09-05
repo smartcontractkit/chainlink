@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
 )
 
 const (
@@ -268,6 +269,7 @@ func (mt *transmitter) Transmit(
 				err = fmt.Errorf("failed to add transmission to commit channel: %w", ctx.Err())
 			}
 		}
+		observation.GetCache(digest).SetLastTransmissionSeqNr(seqNr)
 	})
 
 	if !ok {
