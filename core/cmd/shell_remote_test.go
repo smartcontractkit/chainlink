@@ -141,7 +141,7 @@ func TestShell_ReplayBlocks(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.ErrorContains(t, client.ReplayFromBlock(c), "chain id does not match any local chains")
 
-	require.NoError(t, set.Set("chain-id", "0"))
+	require.NoError(t, set.Set("chain-id", testutils.FixtureChainID.String()))
 	c = cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ReplayFromBlock(c))
 

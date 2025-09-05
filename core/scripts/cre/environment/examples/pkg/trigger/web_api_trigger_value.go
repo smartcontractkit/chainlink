@@ -104,13 +104,15 @@ func WebAPITriggerValue(gatewayURL, donID, privateKey string, timeout time.Durat
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("expected status code %d, got %d", http.StatusOK, resp.StatusCode)
-		}
-
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			return errors.Wrap(readErr, "error reading response body")
+		}
+
+		fmt.Printf("Response body: %s\n", string(body))
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("expected status code %d, got %d", http.StatusOK, resp.StatusCode)
 		}
 
 		var payloadMap map[string]any

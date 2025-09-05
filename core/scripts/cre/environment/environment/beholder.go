@@ -109,7 +109,8 @@ func stopBeholder() error {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 	}
 
-	removeCacheErr := removeCacheFiles(removeCurrentCtfConfigs)
+	// remove only Beholder-related cache files
+	removeCacheErr := removeCtfConfigsCacheFiles(removeCurrentCtfConfigs)
 	if removeCacheErr != nil {
 		framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
 	}
@@ -155,6 +156,8 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	stageGen := creenv.NewStageGen(3, "STAGE")
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Chip Ingress stack")))
 
+	// we want to restore previous configs, because Beholder might be started within the context of a different command,
+	// which is also using CTF_CONFIGS environment variable to load or later store configs
 	previousCTFConfig := os.Getenv("CTF_CONFIGS")
 	defer func() {
 		setErr := os.Setenv("CTF_CONFIGS", previousCTFConfig)

@@ -368,6 +368,10 @@ RestURL = 'streams.url'
 [CRE.WorkflowFetcher]
 URL = 'https://workflow.fetcher.url'
 
+[CRE.Linking]
+URL = ''
+TLSEnabled = true
+
 [Billing]
 URL = 'localhost:4319'
 TLSEnabled = true

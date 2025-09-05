@@ -126,7 +126,6 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 			},
 		}
 		workflowFileLocation := baseWorkflowTestConfig.WorkflowFileLocation
-
 		compileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
 	}
 	/*
