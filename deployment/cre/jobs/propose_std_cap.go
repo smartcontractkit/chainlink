@@ -9,12 +9,12 @@ import (
 
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 var _ cldf.ChangeSetV2[ProposeStandardCapabilityJobInput] = ProposeStandardCapabilityJob{}
 
 type ProposeStandardCapabilityJobInput struct {
+	DONName string `json:"don_name" yaml:"don_name"`
 	JobName string `json:"job_name" yaml:"job_name"`
 	Command string `json:"command" yaml:"command"`
 	Config  string `json:"config" yaml:"config"`
@@ -22,20 +22,24 @@ type ProposeStandardCapabilityJobInput struct {
 	ExternalJobID string            `json:"external_job_id" yaml:"external_job_id"` // Optional
 	OracleFactory pkg.OracleFactory `json:"oracle_factory" yaml:"oracle_factory"`   // Optional
 
-	TargetDON *offchain.DONFilter `json:"target_don" yaml:"target_don"`
+	DONFilters  []operations2.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
+	ExtraLabels map[string]string             `json:"extra_labels,omitempty" yaml:"extra_labels,omitempty"`
 }
 
 type ProposeStandardCapabilityJob struct{}
 
-func (u ProposeStandardCapabilityJob) VerifyPreconditions(e cldf.Environment, config ProposeStandardCapabilityJobInput) error {
+func (u ProposeStandardCapabilityJob) VerifyPreconditions(_ cldf.Environment, config ProposeStandardCapabilityJobInput) error {
 	if config.JobName == "" {
 		return errors.New("jobName is required")
 	}
 	if config.Command == "" {
 		return errors.New("command is required")
 	}
-	if config.TargetDON == nil {
-		return errors.New("targetDON is required")
+	if config.DONName == "" {
+		return errors.New("don_name is required")
+	}
+	if len(config.DONFilters) == 0 {
+		return errors.New("DONFilters is required")
 	}
 	return nil
 }
@@ -46,6 +50,7 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 		operations2.ProposeStandardCapabilityJob,
 		operations2.ProposeStandardCapabilityJobDeps{Env: e},
 		operations2.ProposeStandardCapabilityJobInput{
+			DONName: input.DONName,
 			Job: pkg.StandardCapabilityJob{
 				JobName:       input.JobName,
 				Command:       input.Command,
@@ -53,7 +58,8 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 				ExternalJobID: input.ExternalJobID,
 				OracleFactory: input.OracleFactory,
 			},
-			TargetDON: input.TargetDON,
+			DONFilters:  input.DONFilters,
+			ExtraLabels: input.ExtraLabels,
 		},
 	)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
@@ -18,16 +19,34 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 	var env cldf.Environment
 
 	// missing job name
-	err := j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{Command: "run", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
+	err := j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{
+		Command: "run",
+	})
 	require.Error(t, err)
 	// missing command
-	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{JobName: "name", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
+	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{
+		JobName: "name",
+	})
 	require.Error(t, err)
-	// missing target DON
-	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{JobName: "name", Command: "run"})
+	// missing DON name
+	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{
+		JobName: "name",
+		Command: "run",
+	})
+	// missing DON Filters
+	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{JobName: "name", Command: "run", DONName: "test-don"})
 	require.Error(t, err)
 	// valid
-	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{JobName: "name", Command: "run", TargetDON: &offchain.DONFilter{DONName: "d", EnvLabel: "e", ProductLabel: offchain.ProductLabel, Size: 1}})
+	err = j.VerifyPreconditions(env, jobs.ProposeStandardCapabilityJobInput{
+		JobName: "name",
+		Command: "run",
+		DONName: "test-don",
+		DONFilters: []operations.TargetDONFilter{
+			{Key: "don-name", Value: "d", Op: "EXISTS"},
+			{Key: "environment", Value: "e", Op: "EQ"},
+			{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+		},
+	})
 	require.NoError(t, err)
 }
 
@@ -40,11 +59,11 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 	input := jobs.ProposeStandardCapabilityJobInput{
 		JobName: "cron-cap-job",
 		Command: "cron",
-		TargetDON: &offchain.DONFilter{
-			DONName:      test.DONName,
-			EnvLabel:     "test",
-			ProductLabel: offchain.ProductLabel,
-			Size:         4,
+		DONName: "test-don",
+		DONFilters: []operations.TargetDONFilter{
+			{Key: "don" + test.DONName, Op: "EXISTS"},
+			{Key: "environment", Value: "test", Op: "EQ"},
+			{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 		},
 	}
 

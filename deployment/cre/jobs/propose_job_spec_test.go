@@ -9,6 +9,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -29,9 +30,16 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			name: "valid cron job",
 			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
+				JobName:     "cron-test",
 				Domain:      "cre",
-				Template:    jobs.Cron,
-				Inputs:      types.JobSpecInput{},
+				DONName:     "test-don",
+				DONFilters: []operations.TargetDONFilter{
+					{Key: "don-name", Value: "d", Op: "EXISTS"},
+					{Key: "environment", Value: "e", Op: "EQ"},
+					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+				},
+				Template: jobs.Cron,
+				Inputs:   types.JobSpecInput{},
 			},
 			expectError: false,
 		},
@@ -56,12 +64,59 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			errorMsg:    "domain is required",
 		},
 		{
-			name: "unsupported template",
+			name: "missing don name",
 			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
 				Domain:      "cre",
 				Template:    1,
 				Inputs:      types.JobSpecInput{},
+			},
+			expectError: true,
+			errorMsg:    "don_name is required",
+		},
+		{
+			name: "missing don filters",
+			input: jobs.ProposeJobSpecInput{
+				Environment: "test",
+				Domain:      "cre",
+				DONName:     "test-don",
+				Template:    1,
+				Inputs:      types.JobSpecInput{},
+			},
+			expectError: true,
+			errorMsg:    "don_filters is required",
+		},
+		{
+			name: "missing job name",
+			input: jobs.ProposeJobSpecInput{
+				Environment: "test",
+				Domain:      "cre",
+				DONName:     "test-don",
+				DONFilters: []operations.TargetDONFilter{
+					{Key: "don-name", Value: "d", Op: "EXISTS"},
+					{Key: "environment", Value: "e", Op: "EQ"},
+					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+				},
+				Template: 1,
+				Inputs:   types.JobSpecInput{},
+			},
+			expectError: true,
+			errorMsg:    "job_name is required",
+		},
+		{
+			name: "unsupported template",
+			input: jobs.ProposeJobSpecInput{
+				Environment: "test",
+				Domain:      "cre",
+				DONName:     "test-don",
+				JobName:     "cron-test",
+				DONFilters: []operations.TargetDONFilter{
+					{Key: "don-name", Value: "d", Op: "EXISTS"},
+					{Key: "environment", Value: "e", Op: "EQ"},
+					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+				},
+				Template: 1,
+				Inputs:   types.JobSpecInput{},
 			},
 			expectError: true,
 			errorMsg:    "unsupported template",
@@ -71,8 +126,15 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
 				Domain:      "cre",
-				Template:    jobs.Cron,
-				Inputs:      nil,
+				DONName:     "test-don",
+				JobName:     "cron-test",
+				DONFilters: []operations.TargetDONFilter{
+					{Key: "don-name", Value: "d", Op: "EXISTS"},
+					{Key: "environment", Value: "e", Op: "EQ"},
+					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+				},
+				Template: jobs.Cron,
+				Inputs:   nil,
 			},
 			expectError: true,
 			errorMsg:    "inputs are required",
@@ -101,12 +163,12 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			Environment: "test",
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
+			DONName:     test.DONName,
 			Template:    jobs.Cron,
-			TargetDON: &offchain.DONFilter{
-				DONName:      test.DONName,
-				EnvLabel:     "test",
-				ProductLabel: offchain.ProductLabel,
-				Size:         4,
+			DONFilters: []operations.TargetDONFilter{
+				{Key: "don-" + test.DONName, Value: "d", Op: "EXISTS"},
+				{Key: "environment", Value: "test", Op: "EQ"},
+				{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 			},
 			Inputs: types.JobSpecInput{
 				"command":       "cron",
@@ -142,11 +204,10 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			Template:    jobs.Cron,
-			TargetDON: &offchain.DONFilter{
-				DONName:      test.DONName,
-				EnvLabel:     "test",
-				ProductLabel: offchain.ProductLabel,
-				Size:         4,
+			DONFilters: []operations.TargetDONFilter{
+				{Key: "don" + test.DONName, Op: "EXISTS"},
+				{Key: "environment", Value: "test", Op: "EQ"},
+				{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 			},
 			Inputs: types.JobSpecInput{
 				// Missing "command"

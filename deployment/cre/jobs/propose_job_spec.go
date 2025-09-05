@@ -9,7 +9,6 @@ import (
 
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 var _ cldf.ChangeSetV2[ProposeJobSpecInput] = ProposeJobSpec{}
@@ -33,10 +32,12 @@ type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
 
-	TargetDON *offchain.DONFilter `json:"target_don" yaml:"target_don"`
+	DONName    string                        `json:"don_name" yaml:"don_name"`
+	DONFilters []operations2.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
 
-	JobName  string          `json:"job_name" yaml:"job_name"`
-	Template JobSpecTemplate `json:"template" yaml:"template"`
+	JobName     string            `json:"job_name" yaml:"job_name"`
+	Template    JobSpecTemplate   `json:"template" yaml:"template"`
+	ExtraLabels map[string]string `json:"extra_labels,omitempty" yaml:"extra_labels,omitempty"`
 
 	// Inputs is a map of input variables to be used in the job spec template.
 	// These will vary based on the template used, and will be validated differently
@@ -55,6 +56,18 @@ func (u ProposeJobSpec) VerifyPreconditions(e cldf.Environment, config ProposeJo
 		return errors.New("domain is required")
 	}
 
+	if config.DONName == "" {
+		return errors.New("don_name is required")
+	}
+
+	if len(config.DONFilters) == 0 {
+		return errors.New("don_filters is required")
+	}
+
+	if config.JobName == "" {
+		return errors.New("job_name is required")
+	}
+
 	switch config.Template {
 	case Cron:
 	default:
@@ -69,6 +82,7 @@ func (u ProposeJobSpec) VerifyPreconditions(e cldf.Environment, config ProposeJo
 }
 
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
+	e.Logger.Debugw("environment", "name", e.Name)
 	var report operations.Report[any, any]
 	switch input.Template {
 	case Cron: // This will hold all standard capabilities jobs as we add support for them.
@@ -82,8 +96,10 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			operations2.ProposeStandardCapabilityJob,
 			operations2.ProposeStandardCapabilityJobDeps{Env: e},
 			operations2.ProposeStandardCapabilityJobInput{
-				Job:       job,
-				TargetDON: input.TargetDON,
+				Job:         job,
+				DONName:     input.DONName,
+				DONFilters:  input.DONFilters,
+				ExtraLabels: input.ExtraLabels,
 			},
 		)
 		if rErr != nil {

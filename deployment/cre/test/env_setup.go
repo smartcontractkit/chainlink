@@ -273,7 +273,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 
 	jd := envtest.NewJDService(nodes)
 	env := cldf.NewEnvironment(
-		"view only nodes",
+		"test",
 		logger.Test(t),
 		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore().Seal(),

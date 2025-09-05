@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -17,9 +18,25 @@ type ProposeStandardCapabilityJobDeps struct {
 }
 
 type ProposeStandardCapabilityJobInput struct {
+	DONName     string
 	Job         pkg.StandardCapabilityJob
-	TargetDON   *offchain.DONFilter
+	DONFilters  []TargetDONFilter
 	ExtraLabels map[string]string
+}
+
+type TargetDONFilter struct {
+	Key   string
+	Value string
+	Op    string
+}
+
+var FilterOps = map[string]ptypes.SelectorOp{
+	"EQ":         ptypes.SelectorOp_EQ,
+	"NOT_EQ":     ptypes.SelectorOp_NOT_EQ,
+	"IN":         ptypes.SelectorOp_IN,
+	"NOT_IN":     ptypes.SelectorOp_NOT_IN,
+	"EXISTS":     ptypes.SelectorOp_EXIST,
+	"NOT_EXISTS": ptypes.SelectorOp_NOT_EXIST,
 }
 
 type ProposeStandardCapabilityJobOutput struct {
@@ -47,10 +64,26 @@ var ProposeStandardCapabilityJob = operations.NewOperation[ProposeStandardCapabi
 			jobLabels[k] = v
 		}
 
+		filter := &node.ListNodesRequest_Filter{
+			Selectors: make([]*ptypes.Selector, 0),
+		}
+		for _, f := range input.DONFilters {
+			op, ok := FilterOps[f.Op]
+			if !ok {
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("invalid filter op: %s", f.Key)
+			}
+			filter.Selectors = append(filter.Selectors, &ptypes.Selector{
+				Op:    op,
+				Key:   f.Key,
+				Value: &f.Value,
+			})
+		}
+
 		specs, err := pkg.ProposeJob(b.GetContext(), deps.Env, pkg.ProposeJobRequest{
 			Spec:      spec,
+			DONName:   input.DONName,
+			Env:       deps.Env.Name,
 			JobLabels: jobLabels,
-			TargetDON: input.TargetDON,
 		})
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose job: %w", err)
