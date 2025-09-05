@@ -29,7 +29,7 @@ func TestValidateMessage(t *testing.T) {
 
 	// valid
 	p2pMsg := encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
-	body, err := remote.ValidateMessage(p2pMsg, peerID2)
+	body, err := remote.ValidateMessage(&p2pMsg, peerID2)
 	require.NoError(t, err)
 	require.Equal(t, peerID1[:], body.Sender)
 	require.Equal(t, payload1, string(body.Payload))
@@ -37,12 +37,12 @@ func TestValidateMessage(t *testing.T) {
 	// invalid sender
 	p2pMsg = encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
 	p2pMsg.Sender = peerID2
-	_, err = remote.ValidateMessage(p2pMsg, peerID2)
+	_, err = remote.ValidateMessage(&p2pMsg, peerID2)
 	require.Error(t, err)
 
 	// invalid receiver
 	p2pMsg = encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
-	_, err = remote.ValidateMessage(p2pMsg, peerID1)
+	_, err = remote.ValidateMessage(&p2pMsg, peerID1)
 	require.Error(t, err)
 }
 
