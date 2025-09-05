@@ -600,51 +600,6 @@ func (_c *GeneralConfig_CosmosEnabled_Call) RunAndReturn(run func() bool) *Gener
 	return _c
 }
 
-// DKGRecipientEnabled provides a mock function with no fields
-func (_m *GeneralConfig) DKGRecipientEnabled() bool {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for DKGRecipientEnabled")
-	}
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// GeneralConfig_DKGRecipientEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DKGRecipientEnabled'
-type GeneralConfig_DKGRecipientEnabled_Call struct {
-	*mock.Call
-}
-
-// DKGRecipientEnabled is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) DKGRecipientEnabled() *GeneralConfig_DKGRecipientEnabled_Call {
-	return &GeneralConfig_DKGRecipientEnabled_Call{Call: _e.mock.On("DKGRecipientEnabled")}
-}
-
-func (_c *GeneralConfig_DKGRecipientEnabled_Call) Run(run func()) *GeneralConfig_DKGRecipientEnabled_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_DKGRecipientEnabled_Call) Return(_a0 bool) *GeneralConfig_DKGRecipientEnabled_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_DKGRecipientEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_DKGRecipientEnabled_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Database provides a mock function with no fields
 func (_m *GeneralConfig) Database() config.Database {
 	ret := _m.Called()
