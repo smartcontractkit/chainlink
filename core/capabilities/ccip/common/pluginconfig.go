@@ -20,20 +20,20 @@ type PluginConfig struct {
 	RMNCrypto                  cciptypes.RMNCrypto
 	ContractTransmitterFactory cctypes.ContractTransmitterFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
-	PriceOnlyCommitFn      string
-	ChainRW                ChainRWProvider
-	AddressCodec           ChainSpecificAddressCodec
-	ExtraDataCodec         SourceChainExtraDataCodec
-	ChainAccessorSupported bool
+	PriceOnlyCommitFn     string
+	ChainRW               ChainRWProvider
+	AddressCodec          ChainSpecificAddressCodec
+	ExtraDataCodec        SourceChainExtraDataCodec
+	CCIPProviderSupported bool
 }
 
 // PluginServices aggregates services for a specific chain family.
 type PluginServices struct {
-	PluginConfig           PluginConfig
-	AddrCodec              AddressCodec
-	ExtraDataCodec         ccipocr3.ExtraDataCodec
-	ChainRW                MultiChainRW
-	ChainAccessorSupported map[string]bool
+	PluginConfig          PluginConfig
+	AddrCodec             AddressCodec
+	ExtraDataCodec        ccipocr3.ExtraDataCodec
+	ChainRW               MultiChainRW
+	CCIPProviderSupported map[string]bool
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
@@ -59,11 +59,11 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
-	chainAccessorSupported := make(map[string]bool)
+	CCIPProviderSupported := make(map[string]bool)
 
 	for family, initFunc := range registeredFactories {
 		config := initFunc(lggr, pluginServices.ExtraDataCodec)
-		chainAccessorSupported[family] = config.ChainAccessorSupported
+		CCIPProviderSupported[family] = config.CCIPProviderSupported
 		if config.AddressCodec != nil {
 			addressCodecMap[family] = config.AddressCodec
 		}
@@ -80,6 +80,6 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
-	pluginServices.ChainAccessorSupported = chainAccessorSupported
+	pluginServices.CCIPProviderSupported = CCIPProviderSupported
 	return pluginServices, nil
 }
