@@ -167,11 +167,11 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 // Connect Token Pool sequence input
 type ConnectTokenPoolSeqInput struct {
 	TokenPoolAddress                    aptos.AccountAddress
+	TokenPoolType                       cldf.ContractType // Add pool type to determine which binding to use
 	RemotePools                         map[uint64]RemotePool
 	RemotePoolsToRemove                 []uint64 // To re-set a pool also add its address on the removing list
 	TokenAddress                        aptos.AccountAddress
 	TokenTransferFeeByRemoteChainConfig map[uint64]fee_quoter.TokenTransferFeeConfig
-	PoolType                            cldf.ContractType // Add pool type to determine which binding to use
 }
 
 type RemotePool struct {
@@ -193,6 +193,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	// Chain updates
 	applyChainUpdatesInput := operation.ApplyChainUpdatesInput{
 		TokenPoolAddress:             in.TokenPoolAddress,
+		TokenPoolType:                in.TokenPoolType,
 		RemoteChainSelectorsToRemove: in.RemotePoolsToRemove,
 		RemoteChainSelectorsToAdd:    nil,
 		RemotePoolAddresses:          nil,
@@ -202,6 +203,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	// Remote Pool Adds
 	addRemotePoolsInput := operation.AddRemotePoolsInput{
 		TokenPoolAddress:     in.TokenPoolAddress,
+		TokenPoolType:        in.TokenPoolType,
 		RemoteChainSelectors: nil,
 		RemotePoolAddresses:  nil,
 	}
@@ -209,6 +211,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	// Update rate limits
 	setChainRLConfigsInput := operation.SetChainRLConfigsInput{
 		TokenPoolAddress:     in.TokenPoolAddress,
+		TokenPoolType:        in.TokenPoolType,
 		RemoteChainSelectors: nil,
 		OutboundIsEnableds:   nil,
 		OutboundCapacities:   nil,
@@ -220,7 +223,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 
 	var supportedChains []uint64
 	var err error
-	if in.PoolType == shared.AptosRegulatedTokenPoolType {
+	if in.TokenPoolType == shared.AptosRegulatedTokenPoolType {
 		regulatedTokenPool := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 		supportedChains, err = regulatedTokenPool.RegulatedTokenPool().GetSupportedChains(nil)
 	} else {
@@ -250,7 +253,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 			// If the chain is supported, check if there's an updated remote pool that hasn't been configured yet
 			var configuredRemotePools [][]byte
 			var err error
-			if in.PoolType == shared.AptosRegulatedTokenPoolType {
+			if in.TokenPoolType == shared.AptosRegulatedTokenPoolType {
 				regulatedTokenPool := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 				configuredRemotePools, err = regulatedTokenPool.RegulatedTokenPool().GetRemotePools(nil, remoteSel)
 			} else {

@@ -6,6 +6,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
@@ -121,7 +122,7 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			true,
 		)
 	default:
-		return nil, fmt.Errorf("invalid token pool type: %s", in.PoolType)
+		return nil, fmt.Errorf("unsupported token pool type for DeployTokenPoolModuleOp: %s", in.PoolType.String())
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile token pool: %w", err)
@@ -135,11 +136,12 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 }
 
 type ApplyChainUpdatesInput struct {
+	TokenPoolAddress             aptos.AccountAddress
+	TokenPoolType                cldf.ContractType
 	RemoteChainSelectorsToRemove []uint64
 	RemoteChainSelectorsToAdd    []uint64
 	RemotePoolAddresses          [][][]byte
 	RemoteTokenAddresses         [][]byte
-	TokenPoolAddress             aptos.AccountAddress
 }
 
 // ApplyChainUpdatesOp ...
@@ -151,13 +153,34 @@ var ApplyChainUpdatesOp = operations.NewOperation(
 )
 
 func applyChainUpdates(b operations.Bundle, deps AptosDeps, in ApplyChainUpdatesInput) (types.Transaction, error) {
-	poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
-	moduleInfo, function, _, args, err := poolBind.ManagedTokenPool().Encoder().ApplyChainUpdates(
-		in.RemoteChainSelectorsToRemove,
-		in.RemoteChainSelectorsToAdd,
-		in.RemotePoolAddresses,
-		in.RemoteTokenAddresses,
+	var (
+		moduleInfo bind.ModuleInformation
+		function   string
+		args       [][]byte
+		err        error
 	)
+
+	switch in.TokenPoolType {
+	case shared.AptosManagedTokenPoolType:
+		poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.ManagedTokenPool().Encoder().ApplyChainUpdates(
+			in.RemoteChainSelectorsToRemove,
+			in.RemoteChainSelectorsToAdd,
+			in.RemotePoolAddresses,
+			in.RemoteTokenAddresses,
+		)
+	case shared.AptosRegulatedTokenPoolType:
+		poolBind := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.RegulatedTokenPool().Encoder().ApplyChainUpdates(
+			in.RemoteChainSelectorsToRemove,
+			in.RemoteChainSelectorsToAdd,
+			in.RemotePoolAddresses,
+			in.RemoteTokenAddresses,
+		)
+	default:
+		return types.Transaction{}, fmt.Errorf("unsupported token pool type for ApplyChainUpdatesOp: %v", in.TokenPoolType.String())
+	}
+
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode ApplyChainUpdates for chains: %w", err)
 	}
@@ -166,6 +189,8 @@ func applyChainUpdates(b operations.Bundle, deps AptosDeps, in ApplyChainUpdates
 }
 
 type SetChainRLConfigsInput struct {
+	TokenPoolAddress     aptos.AccountAddress
+	TokenPoolType        cldf.ContractType
 	RemoteChainSelectors []uint64
 	OutboundIsEnableds   []bool
 	OutboundCapacities   []uint64
@@ -173,7 +198,6 @@ type SetChainRLConfigsInput struct {
 	InboundIsEnableds    []bool
 	InboundCapacities    []uint64
 	InboundRates         []uint64
-	TokenPoolAddress     aptos.AccountAddress
 }
 
 var SetChainRateLimiterConfigsOp = operations.NewOperation(
@@ -184,16 +208,39 @@ var SetChainRateLimiterConfigsOp = operations.NewOperation(
 )
 
 func setChainRateLimiterConfigs(b operations.Bundle, deps AptosDeps, in SetChainRLConfigsInput) (types.Transaction, error) {
-	poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
-	moduleInfo, function, _, args, err := poolBind.ManagedTokenPool().Encoder().SetChainRateLimiterConfigs(
-		in.RemoteChainSelectors,
-		in.OutboundIsEnableds,
-		in.OutboundCapacities,
-		in.OutboundRates,
-		in.InboundIsEnableds,
-		in.InboundCapacities,
-		in.InboundRates,
+	var (
+		moduleInfo bind.ModuleInformation
+		function   string
+		args       [][]byte
+		err        error
 	)
+
+	switch in.TokenPoolType {
+	case shared.AptosManagedTokenPoolType:
+		poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.ManagedTokenPool().Encoder().SetChainRateLimiterConfigs(
+			in.RemoteChainSelectors,
+			in.OutboundIsEnableds,
+			in.OutboundCapacities,
+			in.OutboundRates,
+			in.InboundIsEnableds,
+			in.InboundCapacities,
+			in.InboundRates,
+		)
+	case shared.AptosRegulatedTokenPoolType:
+		poolBind := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.RegulatedTokenPool().Encoder().SetChainRateLimiterConfigs(
+			in.RemoteChainSelectors,
+			in.OutboundIsEnableds,
+			in.OutboundCapacities,
+			in.OutboundRates,
+			in.InboundIsEnableds,
+			in.InboundCapacities,
+			in.InboundRates,
+		)
+	default:
+		return types.Transaction{}, fmt.Errorf("unsupported token pool type for SetChainRateLimiterConfigsOp: %v", in.TokenPoolType.String())
+	}
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode SetChainRateLimiterConfigs for chains: %w", err)
 	}
@@ -203,6 +250,7 @@ func setChainRateLimiterConfigs(b operations.Bundle, deps AptosDeps, in SetChain
 
 type AddRemotePoolsInput struct {
 	TokenPoolAddress     aptos.AccountAddress
+	TokenPoolType        cldf.ContractType
 	RemoteChainSelectors []uint64
 	RemotePoolAddresses  [][]byte
 }
@@ -216,17 +264,37 @@ var AddRemotePoolsOp = operations.NewOperation(
 
 func addRemotePools(b operations.Bundle, deps AptosDeps, in AddRemotePoolsInput) ([]types.Transaction, error) {
 	txs := make([]types.Transaction, len(in.RemoteChainSelectors))
-	poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
-	for i, selector := range in.RemoteChainSelectors {
-		moduleInfo, function, _, args, err := poolBind.ManagedTokenPool().Encoder().AddRemotePool(selector, in.RemotePoolAddresses[i])
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode AddRemotePools for remote selector %d: %w", selector, err)
+
+	switch in.TokenPoolType {
+	case shared.AptosManagedTokenPoolType:
+		poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		for i, selector := range in.RemoteChainSelectors {
+			moduleInfo, function, _, args, err := poolBind.ManagedTokenPool().Encoder().AddRemotePool(selector, in.RemotePoolAddresses[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode AddRemotePools for remote selector %d: %w", selector, err)
+			}
+			tx, err := utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
+			if err != nil {
+				return nil, err
+			}
+			txs[i] = tx
 		}
-		tx, err := utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
-		if err != nil {
-			return nil, err
+	case shared.AptosRegulatedTokenPoolType:
+		poolBind := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		for i, selector := range in.RemoteChainSelectors {
+			moduleInfo, function, _, args, err := poolBind.RegulatedTokenPool().Encoder().AddRemotePool(selector, in.RemotePoolAddresses[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode AddRemotePools for remote selector %d: %w", selector, err)
+			}
+			tx, err := utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
+			if err != nil {
+				return nil, err
+			}
+			txs[i] = tx
 		}
-		txs[i] = tx
+	default:
+		return nil, fmt.Errorf("unsupported token pool type for AddRemotePoolsOp: %v", in.TokenPoolType.String())
 	}
+
 	return txs, nil
 }
