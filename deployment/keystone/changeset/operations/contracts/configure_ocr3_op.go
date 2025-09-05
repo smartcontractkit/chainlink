@@ -28,7 +28,7 @@ type ConfigureOCR3OpDeps struct {
 type ConfigureOCR3OpInput struct {
 	ContractAddress  *common.Address
 	RegistryChainSel uint64
-	DONs             []ConfigureKeystoneDON
+	DON              ConfigureKeystoneDON
 	Config           *ocr3.OracleConfig
 	DryRun           bool
 
@@ -52,25 +52,20 @@ var ConfigureOCR3Op = operations.NewOperation[ConfigureOCR3OpInput, ConfigureOCR
 			return ConfigureOCR3OpOutput{}, errors.New("ContractAddress is required")
 		}
 
-		var nodeIDs []string
-		for _, don := range input.DONs {
-			donConfig := internal.RegisteredDonConfig{
-				NodeIDs:          don.NodeIDs,
-				Name:             don.Name,
-				RegistryChainSel: input.RegistryChainSel,
-				Registry:         deps.Registry,
-			}
-			d, err := internal.NewRegisteredDon(*deps.Env, donConfig)
-			if err != nil {
-				return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", don.Name, err)
-			}
+		donConfig := internal.RegisteredDonConfig{
+			NodeIDs:          input.DON.NodeIDs,
+			Name:             input.DON.Name,
+			RegistryChainSel: input.RegistryChainSel,
+			Registry:         deps.Registry,
+		}
+		d, err := internal.NewRegisteredDon(*deps.Env, donConfig)
+		if err != nil {
+			return ConfigureOCR3OpOutput{}, fmt.Errorf("configure-ocr3-op failed: failed to create registered DON %s: %w", input.DON.Name, err)
+		}
 
-			// We double-check that the DON accepts workflows...
-			if d.Info.AcceptsWorkflows {
-				for _, node := range d.Nodes {
-					nodeIDs = append(nodeIDs, node.NodeID)
-				}
-			}
+		nodeIDs := make([]string, 0, len(d.Nodes))
+		for _, node := range d.Nodes {
+			nodeIDs = append(nodeIDs, node.NodeID)
 		}
 
 		resp, err := changeset.ConfigureOCR3Contract(*deps.Env, changeset.ConfigureOCR3Config{

@@ -8,8 +8,12 @@ import (
 To execute tests locally start the local CRE first:
 Inside `core/scripts/cre/environment` directory
  1. Ensure the necessary capabilities (i.e. readcontract, http-trigger, http-action) are listed in the environment configuration
- 2. Run: `go run . env start && ctf obs up && ctf bs up` to start env + observability + blockscout.
- 3. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run ^Test_CRE_Suite$`.
+ 2. Identify the appropriate topology that you want to test
+ 3. Stop and clear any existing environment: `go run . env stop -a`
+ 4. Run: `go run . env start -t <topology> && ./bin/ctf obs up` to start env + observability
+ 5. Optionally run blockscout `./bin/ctf bs up`
+ 6. Execute the tests in `system-tests/tests/smoke/cre` with CTF_CONFIG set to the corresponding topology file:
+    `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
 func Test_CRE_Suite(t *testing.T) {
 	testEnv := SetupTestEnvironment(t)

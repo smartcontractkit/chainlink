@@ -380,7 +380,7 @@ type ConfigureKeystoneInput struct {
 	NodeSets      []*CapabilitiesAwareNodeSet
 
 	OCR3Config  keystone_changeset.OracleConfig
-	OCR3Address *common.Address
+	OCR3Address *common.Address // v1 consensus contract address
 
 	DONTimeConfig  keystone_changeset.OracleConfig
 	DONTimeAddress *common.Address
@@ -389,9 +389,9 @@ type ConfigureKeystoneInput struct {
 	VaultOCR3Address *common.Address
 
 	EVMOCR3Config    keystone_changeset.OracleConfig
-	EVMOCR3Addresses *map[uint64]common.Address
+	EVMOCR3Addresses *map[uint64]common.Address // chain selector to address map
 
-	ConsensusV2OCR3Config  keystone_changeset.OracleConfig
+	ConsensusV2OCR3Config  keystone_changeset.OracleConfig // v2 consensus contract config
 	ConsensusV2OCR3Address *common.Address
 
 	CapabilitiesRegistryAddress *common.Address
@@ -494,6 +494,15 @@ func (g *GenerateConfigsInput) Validate() error {
 	if addrErr != nil {
 		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
 	}
+	_, dsErr := g.Datastore.Addresses().Fetch()
+	if dsErr != nil {
+		return fmt.Errorf("failed to get addresses from datastore: %w", dsErr)
+	}
+	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.HomeChainSelector))
+	if len(h) == 0 {
+		return fmt.Errorf("no addresses found for home chain %d in datastore", g.HomeChainSelector)
+	}
+	// TODO check for required registry contracts by type and version
 	return nil
 }
 
@@ -513,6 +522,11 @@ type DonMetadata struct {
 	ID              uint64          `toml:"id" json:"id"`
 	Name            string          `toml:"name" json:"name"`
 	SupportedChains []uint64        `toml:"supported_chains" json:"supported_chains"` // chain IDs that the DON supports, empty means all chains
+}
+
+func (m *DonMetadata) RequiresOCR() bool {
+	return slices.Contains(m.Flags, ConsensusCapability) || slices.Contains(m.Flags, ConsensusCapabilityV2) ||
+		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability)
 }
 
 type Label struct {

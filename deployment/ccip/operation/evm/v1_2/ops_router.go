@@ -79,4 +79,16 @@ var (
 			return router.ApplyRampUpdates(opts, input.OnRampUpdates, input.OffRampRemoves, input.OffRampAdds)
 		},
 	)
+
+	UpdateWrappedNativeAddressOnRouterOp = opsutil.NewEVMCallOperation(
+		"UpdateWrappedNativeAddressOnRouterOp",
+		semver.MustParse("1.0.0"),
+		"Updates Wrapped Native token address on Router contract for a chain",
+		router.RouterABI,
+		shared.Router,
+		router.NewRouter,
+		func(router *router.Router, opts *bind.TransactOpts, wrappedNativeAddress common.Address) (*types.Transaction, error) {
+			return router.SetWrappedNative(opts, wrappedNativeAddress)
+		},
+	)
 )
