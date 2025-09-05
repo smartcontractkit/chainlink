@@ -27,8 +27,8 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_evm_client "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
@@ -48,20 +48,20 @@ type CribRPCs struct {
 
 // ChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.
 type ChainConfig struct {
-	ChainID             string                   // chain id as per EIP-155
-	ChainName           string                   // name of the chain populated from chainselector repo
-	ChainType           string                   // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
-	PreferredURLScheme  cldf.URLSchemePreference // preferred url scheme for the chain
-	WSRPCs              []CribRPCs               // websocket rpcs to connect to the chain
-	HTTPRPCs            []CribRPCs               // http rpcs to connect to the chain
-	DeployerKey         *bind.TransactOpts       // key to deploy and configure contracts on the chain
+	ChainID             string                              // chain id as per EIP-155
+	ChainName           string                              // name of the chain populated from chainselector repo
+	ChainType           string                              // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
+	PreferredURLScheme  cldf_evm_client.URLSchemePreference // preferred url scheme for the chain
+	WSRPCs              []CribRPCs                          // websocket rpcs to connect to the chain
+	HTTPRPCs            []CribRPCs                          // http rpcs to connect to the chain
+	DeployerKey         *bind.TransactOpts                  // key to deploy and configure contracts on the chain
 	IsZkSyncVM          bool
 	ClientZkSyncVM      *clients.Client
 	DeployerKeyZkSyncVM *accounts.Wallet
 	SolDeployerKey      solana.PrivateKey
-	SolArtifactDir      string                      // directory of pre-built solana artifacts, if any
-	Users               []*bind.TransactOpts        // map of addresses to their transact opts to interact with the chain as users
-	MultiClientOpts     []func(c *cldf.MultiClient) // options to configure the multi client
+	SolArtifactDir      string                                 // directory of pre-built solana artifacts, if any
+	Users               []*bind.TransactOpts                   // map of addresses to their transact opts to interact with the chain as users
+	MultiClientOpts     []func(c *cldf_evm_client.MultiClient) // options to configure the multi client
 }
 
 func (c *ChainConfig) SetUsers(pvtkeys []string) error {
@@ -131,11 +131,11 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 	return nil
 }
 
-func (c *ChainConfig) ToRPCs() []cldf.RPC {
-	var rpcs []cldf.RPC
+func (c *ChainConfig) ToRPCs() []cldf_evm_client.RPC {
+	var rpcs []cldf_evm_client.RPC
 	// assuming that the length of WSRPCs and HTTPRPCs is always the same
 	for i, rpc := range c.WSRPCs {
-		rpcs = append(rpcs, cldf.RPC{
+		rpcs = append(rpcs, cldf_evm_client.RPC{
 			Name:               fmt.Sprintf("%s-%d", c.ChainName, i),
 			WSURL:              rpc.External,
 			HTTPURL:            c.HTTPRPCs[i].External, // copying the corresponding HTTP RPC
@@ -158,14 +158,14 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 				return fmt.Errorf("failed to get selector from chain id %s: %w", chainCfg.ChainID, err)
 			}
 
-			rpcConf := cldf.RPCConfig{
+			rpcConf := cldf_evm_client.RPCConfig{
 				ChainSelector: chainDetails.ChainSelector,
 				RPCs:          chainCfg.ToRPCs(),
 			}
 
 			switch chainCfg.ChainType {
 			case EVMChainType:
-				ec, err := cldf.NewMultiClient(logger, rpcConf, chainCfg.MultiClientOpts...)
+				ec, err := cldf_evm_client.NewMultiClient(logger, rpcConf, chainCfg.MultiClientOpts...)
 				if err != nil {
 					return fmt.Errorf("failed to create multi client: %w", err)
 				}

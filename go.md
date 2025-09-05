@@ -102,6 +102,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
+	chainlink/v2 --> smdkg
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-protos/cre/go
@@ -116,6 +117,9 @@ flowchart LR
 	click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
 	libocr
 	click libocr href "https://github.com/smartcontractkit/libocr"
+	smdkg --> libocr
+	smdkg --> tdh2/go/tdh2
+	click smdkg href "https://github.com/smartcontractkit/smdkg"
 	tdh2/go/ocr2/decryptionplugin --> libocr
 	tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 	click tdh2/go/ocr2/decryptionplugin href "https://github.com/smartcontractkit/tdh2"
@@ -241,7 +245,6 @@ flowchart LR
 	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
-	chainlink-deployments-framework --> chainlink-evm/gethwrappers
 	chainlink-deployments-framework --> chainlink-protos/chainlink-catalog
 	chainlink-deployments-framework --> chainlink-protos/job-distributor
 	chainlink-deployments-framework --> chainlink-testing-framework/seth
@@ -352,6 +355,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
+	chainlink/v2 --> smdkg
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-common/pkg/workflows/sdk/v2/pb
@@ -373,6 +377,9 @@ flowchart LR
 	mcms --> chainlink-ccip/chains/solana
 	mcms --> chainlink-testing-framework/framework
 	click mcms href "https://github.com/smartcontractkit/mcms"
+	smdkg --> libocr
+	smdkg --> tdh2/go/tdh2
+	click smdkg href "https://github.com/smartcontractkit/smdkg"
 	tdh2/go/ocr2/decryptionplugin --> libocr
 	tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 	click tdh2/go/ocr2/decryptionplugin href "https://github.com/smartcontractkit/tdh2"

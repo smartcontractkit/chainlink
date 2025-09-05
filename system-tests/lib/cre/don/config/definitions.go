@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
+// BootstrapEVM creates TOML-literal for the EVM section of the node configuration for a bootstrap node
 func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitiesRegistryAddress common.Address, chains []*EVMChain) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
@@ -57,6 +58,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitie
 	)
 }
 
+// BoostrapDon2DonPeering creates TOML-literal for the Capabilities Peering section of the node configuration for a bootstrap node
 func BoostrapDon2DonPeering(peeringData cre.CapabilitiesPeeringData) string {
 	return fmt.Sprintf(`
 	[Capabilities.Peering.V2]
@@ -78,6 +80,8 @@ type EVMChain struct {
 	WSRPC   string
 }
 
+// WorkerEVM creates TOML-literal for the EVM section of the node configuration for a non-bootstrap node
+// TODO: decomposition into p2p, capabilities, evm, workflow, ...
 func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringData cre.OCRPeeringData, capabilitiesPeeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*EVMChain) (string, error) {
 	evmChainsConfig := ""
 	for _, chain := range chains {
@@ -148,6 +152,7 @@ type SolanaChain struct {
 	NodeURL string
 }
 
+// WorkerSolana creates TOML-literal for the Solana section of the node configuration for a non-bootstrap node
 func WorkerSolana(chain *SolanaChain) string {
 	if chain == nil {
 		return ""

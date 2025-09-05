@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 )
@@ -70,7 +72,7 @@ func TestNewCache(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cache := NewCache(tt.maxAge, tt.cleanupInterval)
+			cache := NewCache(ocr2types.ConfigDigest{}, tt.maxAge, tt.cleanupInterval)
 			require.NotNil(t, cache)
 			assert.Equal(t, tt.maxAge, cache.maxAge)
 			assert.Equal(t, tt.cleanupInterval, cache.cleanupInterval)
@@ -85,29 +87,50 @@ func TestCache_Add_Get(t *testing.T) {
 		name      string
 		streamID  llotypes.StreamID
 		value     llo.StreamValue
+		seqNr     uint64
 		maxAge    time.Duration
 		wantValue llo.StreamValue
+		wantFound bool
 		beforeGet func(cache *Cache)
 	}{
 		{
 			name:      "get existing value",
 			streamID:  1,
 			value:     &mockStreamValue{value: []byte{42}},
+			seqNr:     10,
 			maxAge:    time.Second,
 			wantValue: &mockStreamValue{value: []byte{42}},
+			wantFound: true,
 		},
 		{
 			name:      "get non-existent value",
 			streamID:  1,
+			value:     &mockStreamValue{value: []byte{42}},
+			seqNr:     10,
 			maxAge:    time.Second,
 			wantValue: nil,
+			wantFound: false,
+		},
+		{
+			name:      "get expired by sequence number",
+			streamID:  1,
+			value:     &mockStreamValue{value: []byte{42}},
+			seqNr:     5,
+			maxAge:    time.Second,
+			wantValue: nil,
+			wantFound: false,
+			beforeGet: func(cache *Cache) {
+				cache.SetLastTransmissionSeqNr(10)
+			},
 		},
 		{
 			name:      "get expired by age",
 			streamID:  1,
 			value:     &mockStreamValue{value: []byte{42}},
+			seqNr:     10,
 			maxAge:    time.Nanosecond * 100,
 			wantValue: nil,
+			wantFound: false,
 			beforeGet: func(_ *Cache) {
 				time.Sleep(time.Millisecond)
 			},
@@ -116,33 +139,40 @@ func TestCache_Add_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cache := NewCache(tt.maxAge, 0)
+			cache := NewCache(ocr2types.ConfigDigest{}, tt.maxAge, 0)
 
-			cache.Add(tt.streamID, tt.value)
+			if tt.wantFound {
+				cache.Add(tt.streamID, tt.value, tt.seqNr)
+			}
 
 			if tt.beforeGet != nil {
 				tt.beforeGet(cache)
 			}
 
-			assert.Equal(t, tt.wantValue, cache.Get(tt.streamID))
+			gotValue, gotFound := cache.Get(tt.streamID)
+			assert.Equal(t, tt.wantFound, gotFound)
+			if tt.wantFound {
+				assert.Equal(t, tt.wantValue, gotValue)
+			}
 		})
 	}
 }
 
 func TestCache_Cleanup(t *testing.T) {
-	cache := NewCache(time.Nanosecond*100, time.Millisecond)
+	cache := NewCache(ocr2types.ConfigDigest{}, time.Nanosecond*100, time.Millisecond)
 	streamID := llotypes.StreamID(1)
 	value := &mockStreamValue{value: []byte{42}}
 
-	cache.Add(streamID, value)
+	cache.Add(streamID, value, 10)
 	time.Sleep(time.Millisecond * 2)
 
-	gotValue := cache.Get(streamID)
+	gotValue, gotFound := cache.Get(streamID)
+	assert.False(t, gotFound)
 	assert.Nil(t, gotValue)
 }
 
 func TestCache_ConcurrentAccess(t *testing.T) {
-	cache := NewCache(time.Second, 0)
+	cache := NewCache(ocr2types.ConfigDigest{}, time.Second, 0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
 
@@ -155,7 +185,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			for j := uint32(0); j < numOperations; j++ {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}})
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, 1)
 			}
 		}(i)
 	}
@@ -165,13 +195,15 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 	for i := uint32(0); i < numGoroutines; i++ {
 		for j := uint32(0); j < numOperations; j++ {
 			streamID := i*numOperations + j
-			assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, cache.Get(streamID))
+			value, found := cache.Get(streamID)
+			assert.True(t, found)
+			assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, value)
 		}
 	}
 }
 
 func TestCache_ConcurrentReadWrite(t *testing.T) {
-	cache := NewCache(time.Second, 0)
+	cache := NewCache(ocr2types.ConfigDigest{}, time.Second, 0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
 
@@ -184,7 +216,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 			defer wg.Done()
 			for j := uint32(0); j < numOperations; j++ {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}})
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, uint64(j))
 			}
 		}(i)
 	}
@@ -204,7 +236,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 }
 
 func TestCache_ConcurrentAddGet(t *testing.T) {
-	cache := NewCache(time.Second, 0)
+	cache := NewCache(ocr2types.ConfigDigest{}, time.Second, 0)
 	const numGoroutines = 10
 	const numOperations = uint32(1000)
 
@@ -217,7 +249,7 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
 			defer wg.Done()
 			for j := uint32(0); j < numOperations; j++ {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}})
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, 1)
 			}
 		}(i)
 	}
