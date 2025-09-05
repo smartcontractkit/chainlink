@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -20,6 +21,7 @@ import (
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -33,6 +35,7 @@ import (
 )
 
 type donConfig struct {
+	id uint32 // the DON id as registered in the capabilities registry
 	keystone_changeset.DonCapabilities
 	flags []cre.CapabilityFlag
 }
@@ -50,6 +53,15 @@ func (d *donConfig) keystoneDonConfig() ks_contracts_op.ConfigureKeystoneDON {
 		don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
 	}
 	return don
+}
+
+// todo: real type
+func (d *donConfig) p2pIDs() []string {
+	out := make([]string, 0)
+	for _, nop := range d.Nops {
+		out = append(out, nop.Nodes...)
+	}
+	return out
 }
 
 type dons struct {
@@ -195,6 +207,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 
 		dons.c[donName] = donConfig{
+			id:              uint32(donMetadata.ID),
 			DonCapabilities: c,
 			flags:           donMetadata.Flags,
 		}
@@ -217,6 +230,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		return errors.Wrap(err, "failed to configure capabilities registry")
 	}
 
+	// TODO support both v1 and v2 registries
 	capReg, err := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
 		input.CldEnv.DataStore.Addresses(),
 		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
@@ -268,26 +282,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 	}
 
-	// configure EVM forwarders only if we have some
-	if len(evmChainsWithForwarders) > 0 {
-		_, err = operations.ExecuteSequence(
-			input.CldEnv.OperationsBundle,
-			ks_contracts_op.ConfigureForwardersSeq,
-			ks_contracts_op.ConfigureForwardersSeqDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
-			},
-			ks_contracts_op.ConfigureForwardersSeqInput{
-				RegistryChainSel: input.ChainSelector,
-				DONs:             dons.donNodesets(),
-				Chains:           evmChainsWithForwarders,
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "failed to configure forwarders")
-		}
-	}
-
 	consensusV1DON, err := dons.shouldBeOneDon(cre.ConsensusCapability)
 	if err != nil {
 		return fmt.Errorf("failed to get consensus v1 DON: %w", err)
@@ -308,6 +302,25 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to configure OCR3 contract")
+	}
+
+	// configure EVM forwarders only if we have some
+	if len(evmChainsWithForwarders) > 0 {
+		forwarderCfg, err := newDonConfigurationV1(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg.Contract)
+		if err != nil {
+			return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
+		}
+		_, err = operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			forwarder.ConfigureForwardersSeq,
+			forwarder.ConfigureForwardersSeqDeps{
+				Env: input.CldEnv,
+			},
+			forwarder.ConfigureForwardersSeqInput{
+				DON:    forwarderCfg,
+				Chains: evmChainsWithForwarders,
+			},
+		)
 	}
 
 	// don time happens to be the same as consensus v1 DON, but it doesn't have to be
@@ -403,6 +416,25 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		)
 		if err != nil {
 			return errors.Wrap(err, "failed to configure Consensus OCR3 contract")
+		}
+
+		// configure EVM forwarders only if we have some
+		if len(evmChainsWithForwarders) > 0 {
+			forwarderCfg, err := newDonConfigurationV1(v2ConsensusDON.Name, v2ConsensusDON.id, input.CldEnv, capReg.Contract)
+			if err != nil {
+				return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
+			}
+			_, err = operations.ExecuteSequence(
+				input.CldEnv.OperationsBundle,
+				forwarder.ConfigureForwardersSeq,
+				forwarder.ConfigureForwardersSeqDeps{
+					Env: input.CldEnv,
+				},
+				forwarder.ConfigureForwardersSeqInput{
+					DON:    forwarderCfg,
+					Chains: evmChainsWithForwarders,
+				},
+			)
 		}
 	}
 	return nil
@@ -633,4 +665,48 @@ func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64,
 	testLogger.Info().Msgf("Read Balances contract found on chain %d at address %s", chainSelector, readBalancesAddress)
 
 	return readBalancesAddress, rbOutput, nil
+}
+
+func newDonConfigurationV1(name string, donID uint32, env *cldf.Environment, capReg *kcr.CapabilitiesRegistry) (forwarder.DonConfiguration, error) {
+	if capReg == nil {
+		return forwarder.DonConfiguration{}, errors.New("nil capabilities registry contract")
+	}
+	d, err := capReg.GetDON(nil, donID)
+	if err != nil {
+		return forwarder.DonConfiguration{}, fmt.Errorf("failed to get don info for id %d: %w", donID, err)
+	}
+
+	return forwarder.DonConfiguration{
+		Name:    name,
+		ID:      donID,
+		F:       d.F,
+		Version: d.ConfigCount,
+		NodeIDs: bytesToSliceOfString(d.NodeP2PIds),
+	}, nil
+}
+
+func newDonConfigurationV2(name string, donID uint32, env *cldf.Environment, capReg *capabilities_registry_v2.CapabilitiesRegistry) (forwarder.DonConfiguration, error) {
+	if capReg == nil {
+		return forwarder.DonConfiguration{}, errors.New("nil capabilities registry contract")
+	}
+	d, err := capReg.GetDON(nil, donID)
+	if err != nil {
+		return forwarder.DonConfiguration{}, fmt.Errorf("failed to get don info for name %s: %w", name, err)
+	}
+
+	return forwarder.DonConfiguration{
+		Name:    name,
+		ID:      d.Id,
+		F:       d.F,
+		Version: d.ConfigCount,
+		NodeIDs: bytesToSliceOfString(d.NodeP2PIds),
+	}, nil
+}
+
+func bytesToSliceOfString(b [][32]byte) []string {
+	out := make([]string, len(b))
+	for i, v := range b {
+		out[i] = string(v[:])
+	}
+	return out
 }
