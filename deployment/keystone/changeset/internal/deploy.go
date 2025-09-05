@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
@@ -970,6 +971,25 @@ func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInf
 		}
 	}
 	return len(found) == len(p2pIdsToDon)
+}
+
+type ForwarderConfig struct {
+	DonID         uint32           // the DON id as registered in the capabilities registry. Is an id corresponding to a DON that run consensus capability
+	F             uint8            // the F value for the DON
+	ConfigVersion uint32           // the config version for the DON
+	Signers       []common.Address // the onchain public keys of the nodes in the DON corresponding to DonID
+}
+
+func (f ForwarderConfig) RegisteredDon() RegisteredDon {
+	return RegisteredDon{
+		Info: DonInfo{
+			Id:               f.DonID,
+			F:                f.F,
+			ConfigCount:      f.ConfigVersion,
+			AcceptsWorkflows: true,
+		},
+		Signers: func(_ chainsel.ChainFamily) []common.Address { return f.Signers },
+	}
 }
 
 // ConfigureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
