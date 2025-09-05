@@ -460,7 +460,7 @@ func (i *pluginOracleCreator) createChainAccessors(
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		// check if CCIP provider exist, otherwise create default chain accessor
 		var ca cciptypes.ChainAccessor
-		chainAccessorSupported, ok := pluginServices.ChainAccessorSupported[relayID.Network]
+		chainAccessorSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
 		if !chainAccessorSupported || !ok {
 			// use default chain accessor if cr and cw exist
 			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
