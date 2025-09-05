@@ -461,7 +461,7 @@ func (i *pluginOracleCreator) createChainAccessors(
 		i.lggr.Infow("about to call NewCCIPProvider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network)
 		provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
 		i.lggr.Infow("finished calling NewCCIPProvider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network, "err", err, "providerNil", provider == nil)
-		if err != nil || provider == nil {
+		if err != nil || provider == nil || relayID.Network == "aptos" {
 			// use default chain accessor if cr and cw exist
 			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
 				return nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
