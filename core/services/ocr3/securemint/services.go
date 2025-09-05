@@ -175,9 +175,9 @@ func NewSecureMintServices(ctx context.Context,
 		return nil, fmt.Errorf("failed to create secure mint external adapter: %w", err)
 	}
 
-	secureMint := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn, ea) // TODO(gg): add more params
-	argsNoPlugin.ReportingPluginFactory = secureMint                                 // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
-	srvs = append(srvs, secureMint)
+	secureMintPluginFactory := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn, ea)
+	argsNoPlugin.ReportingPluginFactory = secureMintPluginFactory // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
+	srvs = append(srvs, secureMintPluginFactory)
 
 	// Get relay ID for chain identification
 	// rid, err := spec.RelayID()
