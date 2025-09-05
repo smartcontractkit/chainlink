@@ -1869,6 +1869,12 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 	}
 
+	if f.EnableDKGRecipient != nil {
+		if c.EnableDKGRecipient == nil {
+			c.EnableDKGRecipient = f.EnableDKGRecipient
+		}
+	}
+
 	if f.Linking != nil {
 		if c.Linking == nil {
 			c.Linking = &LinkingConfig{}

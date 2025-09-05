@@ -29,6 +29,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.False(t, config.SolanaEnabled())
 	assert.False(t, config.StarkNetEnabled())
 	assert.False(t, config.TronEnabled())
+	assert.False(t, config.DKGRecipientEnabled())
 	assert.False(t, config.JobPipeline().ExternalInitiatorsEnabled())
 	assert.Equal(t, 15*time.Minute, config.WebServer().SessionTimeout().Duration())
 }

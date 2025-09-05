@@ -402,6 +402,7 @@ PerOwner = 200
 
 [CRE]
 UseLocalTimeProvider = true
+EnableDKGRecipient = false
 
 [CRE.Streams]
 WsURL = ''

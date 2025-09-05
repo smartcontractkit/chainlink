@@ -867,3 +867,4 @@ IgnoreJoblessBridges = false # Default
 [CRE]
 # UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
 UseLocalTimeProvider = true # Default
+EnableDKGRecipient = false # Default

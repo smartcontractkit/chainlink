@@ -2435,6 +2435,7 @@ IgnoreJoblessBridges skips bridges that have no associated jobs.
 ```toml
 [CRE]
 UseLocalTimeProvider = true # Default
+EnableDKGRecipient = false # Default
 ```
 
 
@@ -2443,6 +2444,13 @@ UseLocalTimeProvider = true # Default
 UseLocalTimeProvider = true # Default
 ```
 UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
+
+### EnableDKGRecipient
+```toml
+EnableDKGRecipient = false # Default
+```
+EnableDKGRecipient should be set true if the DON is running a capability that consumes a DKG result.
+
 
 ## EVM
 EVM defaults depend on ChainID:
