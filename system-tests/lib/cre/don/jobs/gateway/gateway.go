@@ -25,8 +25,9 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
 		// if we don't have a gateway connector outputs, we don't need to create any job specs
-		// GatewayConnectorOutput is added by `system-tests/lib/cre/don/don.go`.BuildTopology() function, which checks if any DON
-		// requires a gateway based on its capability.
+		// GatewayConnectorOutput is added by `system-tests/lib/cre/don/don.go`.BuildTopology() function, which builds gateway configuration
+		// based on DON flags (cre.GatewayDON) and `gateway_node_index` and adds it to the topology.
+		// `system-tests/lib/cre/don/don.go`.ValidateTopology() makes sure that if any DON needs gateway connector, there is at least one nodeSet with a gateway node.
 		if input.DonTopology.GatewayConnectorOutput == nil || len(input.DonTopology.GatewayConnectorOutput.Configurations) == 0 {
 			return donToJobSpecs, nil
 		}

@@ -39,7 +39,6 @@
   override_mode = "each"
   http_port_range_start = 10100
 
-
   bootstrap_node_index = 0 # added for visibility, index of the node in the nodeset that will act as a bootstrap
   gateway_node_index = 0 # added for visibility, required when don_types include "gateway"
   env_vars = { CL_EVM_CMD = "" }
