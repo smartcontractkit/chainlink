@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -13,9 +14,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -254,14 +258,60 @@ func NewApp(s *Shell) *cli.App {
 					}
 				}
 
+				rootCtx, cancelRootCtx := context.WithCancel(context.Background())
+				s.RootCtx = rootCtx
+				s.CancelRootCtx = cancelRootCtx
+
+				lggr := s.Logger
+
+				ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+
+				// Try opening DB connection and acquiring DB locks at once
+				if err := ldb.Open(rootCtx); err != nil {
+					// If not successful, we know neither locks nor connection remains opened
+					return s.errorOut(errors.Wrap(err, "opening db"))
+				}
+				defer func() {
+					if err := ldb.Close(); err != nil {
+						lggr.Error("Error closing db", "err", err)
+					}
+				}()
+				// From now on, DB locks and DB connection will be released on every return.
+				// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
+
+				db := ldb.DB()
+
+				err = handleNodeVersioning(rootCtx, db, lggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
+				if err != nil {
+					return err
+				}
+
+				ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
+				keyStore := keystore.New(ds, utils.GetScryptParams(cfg), lggr.Infof)
+
+				s.DS = ds
+				s.KeyStore = keyStore
+
+				err = s.KeyStoreAuthenticator.Authenticate(rootCtx, keyStore, cfg.Password())
+				if err != nil {
+					return errors.Wrap(err, "error authenticating keystore")
+				}
+
+				beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(rootCtx, keyStore.CSA())
+				if err != nil {
+					return errors.Wrap(err, "failed to build Beholder auth")
+				}
+
+				// Initialize globals with beholder and telemetry
+				initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
+
 				// Swap out the logger, replacing the old one.
 				err = s.CloseLogger()
 				if err != nil {
 					return err
 				}
 
-				//TODO: Initialize beholder and dependencies here
-
+				// Configure a new logger with otel
 				lggrCfg := logger.Config{
 					LogLevel:            s.Config.Log().Level(),
 					Dir:                 s.Config.Log().File().Dir(),

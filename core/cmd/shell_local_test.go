@@ -40,6 +40,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	keystoreMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -95,10 +97,19 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
-			keyStore := cltest.NewKeyStore(t, db)
+
+			// Use mock keystores to avoid database dependencies
+			keyStoreMaster := keystoreMocks.NewMaster(t)
+			ethKeystore := keystoreMocks.NewEth(t)
+			csaKeystore := keystoreMocks.NewCSA(t)
+
+			// Setup the mock keystore master to return the submocks
+			keyStoreMaster.On("Eth").Return(ethKeystore).Maybe()
+			keyStoreMaster.On("CSA").Return(csaKeystore).Maybe()
+
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
-			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore.Eth(), &keystore.CSASigner{CSA: keyStore.CSA()})
+			testRelayers := genTestEVMRelayers(t, cfg, db, ethKeystore, &keystore.CSASigner{CSA: csaKeystore})
 
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
@@ -107,7 +118,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			app := mocks.NewApplication(t)
 			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
 			app.On("BasicAdminUsersORM").Return(authProviderORM).Maybe()
-			app.On("GetKeyStore").Return(keyStore).Maybe()
+			app.On("GetKeyStore").Return(keyStoreMaster).Maybe()
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
@@ -117,14 +128,15 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
-			cltest.MustInsertRandomKey(t, keyStore.Eth())
+			// Mock the key insertion instead of calling the real function
+			ethKeystore.On("GetAll", mock.Anything).Return([]ethkey.KeyV2{}, nil).Maybe()
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 
 			client := cmd.Shell{
 				Config:                 cfg,
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
-				AppFactory:             cltest.InstanceAppFactoryWithKeystoreMock{App: app},
+				AppFactory:             cltest.InstanceAppFactory{App: app},
 				Logger:                 logger.TestLogger(t),
 			}
 

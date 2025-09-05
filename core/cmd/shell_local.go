@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -322,11 +321,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return fmt.Errorf("failed to create root directory %q: %w", s.Config.RootDir(), err)
 	}
 
-	cfg := s.Config
-	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
-
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received
-	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
+	rootCtx := s.RootCtx
+	cancelRootCtx := s.CancelRootCtx
 
 	// cleanExit is used to skip "fail fast" routine
 	cleanExit := make(chan struct{})
@@ -338,43 +335,35 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}()
 
-	go shutdown.HandleShutdown(func(sig string) {
-		lggr.Infof("Shutting down due to %s signal received...", sig)
+	// TODO: handling shutdown
 
-		shutdownStartTime = time.Now()
-		cancelRootCtx()
+	// go shutdown.HandleShutdown(func(sig string) {
+	// 	lggr.Infof("Shutting down due to %s signal received...", sig)
 
-		select {
-		case <-cleanExit:
-			return
-		case <-time.After(s.Config.ShutdownGracePeriod()):
-		}
+	// 	shutdownStartTime = time.Now()
+	// 	cancelRootCtx()
 
-		lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", s.Config.ShutdownGracePeriod())
-		// LockedDB.Close() will release DB locks and close DB connection
-		// Executing this explicitly because defers are not executed in case of os.Exit()
-		if err := ldb.Close(); err != nil {
-			lggr.Criticalf("Failed to close LockedDB: %v", err)
-		}
-		lggr.Debug("Closed DB")
-		if err := s.CloseLogger(); err != nil {
-			log.Printf("Failed to close Logger: %v", err)
-		}
+	// 	select {
+	// 	case <-cleanExit:
+	// 		return
+	// 	case <-time.After(s.Config.ShutdownGracePeriod()):
+	// 	}
 
-		os.Exit(-1)
-	})
+	// 	lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", s.Config.ShutdownGracePeriod())
+	// 	// LockedDB.Close() will release DB locks and close DB connection
+	// 	// Executing this explicitly because defers are not executed in case of os.Exit()
+	// 	if err := ldb.Close(); err != nil {
+	// 		lggr.Criticalf("Failed to close LockedDB: %v", err)
+	// 	}
+	// 	lggr.Debug("Closed DB")
+	// 	if err := s.CloseLogger(); err != nil {
+	// 		log.Printf("Failed to close Logger: %v", err)
+	// 	}
 
-	// Try opening DB connection and acquiring DB locks at once
-	if err := ldb.Open(rootCtx); err != nil {
-		// If not successful, we know neither locks nor connection remains opened
-		return s.errorOut(errors.Wrap(err, "opening db"))
-	}
-	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
+	// 	os.Exit(-1)
+	// })
 
-	// From now on, DB locks and DB connection will be released on every return.
-	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
-
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -642,7 +631,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
-	ctx := s.ctx()
+	ctx := s.RootCtx
 	beginningNonce := c.Int64("beginningNonce")
 	endingNonce := c.Int64("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
@@ -671,13 +660,8 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
-	db, err := pg.OpenUnlockedDB(ctx, s.Config.AppID(), s.Config.Database())
-	if err != nil {
-		return s.errorOut(errors.Wrap(err, "opening DB"))
-	}
-	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, db, s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -1044,36 +1028,13 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RemoveBlocks"))
-	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
-	ctx, cancel := context.WithCancel(context.Background())
-	go shutdown.HandleShutdown(func(sig string) {
-		cancel()
-		lggr.Info("received signal to stop - closing the database and releasing lock")
 
-		if cErr := ldb.Close(); cErr != nil {
-			lggr.Criticalf("Failed to close LockedDB: %v", cErr)
-		}
-
-		if cErr := s.CloseLogger(); cErr != nil {
-			log.Printf("Failed to close Logger: %v", cErr)
-		}
-	})
-
-	if err = ldb.Open(ctx); err != nil {
-		// If not successful, we know neither locks nor connection remains opened
-		return s.errorOut(errors.Wrap(err, "opening db"))
-	}
-	defer lggr.ErrorIfFn(ldb.Close, "Error closing db")
-
-	// From now on, DB locks and DB connection will be released on every return.
-	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
-
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(s.RootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	err = app.DeleteLogPollerDataAfter(ctx, chainID, start)
+	err = app.DeleteLogPollerDataAfter(s.RootCtx, chainID, start)
 	if err != nil {
 		return s.errorOut(err)
 	}

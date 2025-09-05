@@ -59,7 +59,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -167,6 +166,12 @@ type Shell struct {
 	configFilesIsSet bool
 	secretsFiles     []string
 	secretsFileIsSet bool
+
+	DS       sqlutil.DataSource
+	KeyStore keystore.Master
+
+	RootCtx       context.Context
+	CancelRootCtx context.CancelFunc
 }
 
 func (s *Shell) errorOut(err error) cli.ExitCoder {
@@ -190,40 +195,17 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (app chainlink.Application, err error) {
 	err = migrate.SetMigrationENVVars(cfg.EVMConfigs())
 	if err != nil {
 		return nil, err
-	}
-
-	err = handleNodeVersioning(ctx, db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
-	if err != nil {
-		return nil, err
-	}
-
-	ds := sqlutil.WrapDataSource(db, appLggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
-	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), appLggr.Infof)
-
-	err = keyStoreAuthenticator.Authenticate(ctx, keyStore, cfg.Password())
-	if err != nil {
-		return nil, errors.Wrap(err, "error authenticating keystore")
-	}
-
-	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(ctx, keyStore.CSA())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to build Beholder auth")
-	}
-
-	err = initGlobals(cfg.Prometheus(), cfg.Tracing(), cfg.Telemetry(), appLggr, csaPubKeyHex, beholderAuthHeaders)
-	if err != nil {
-		appLggr.Errorf("Failed to initialize globals: %v", err)
 	}
 
 	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
