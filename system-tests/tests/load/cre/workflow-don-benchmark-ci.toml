@@ -84,7 +84,7 @@ CL_EVM_CMD=""
 # ----- CAPABILITIES NODES CONFIGURATION -----
 # Setup for a 3-node Capabilities cluster with individual configurations
 [[nodesets]]
-nodes = 3
+nodes = 4
 override_mode = "each"          # Apply different configuration to each node
 http_port_range_start = 10200   # Starting port for HTTP endpoints
 name = "capabilities"
