@@ -585,7 +585,6 @@ FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
 ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
 GasLimitDefault = 0
 TxAcceptanceState = 3
-Enabled = true
 Local = true
 
 [Solana.MultiNode]

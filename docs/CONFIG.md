@@ -18242,7 +18242,6 @@ FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
 GasLimitDefault = 300_000 # Default
 TxAcceptanceState = 3 # Default
 Local = false # Default
-Enabled = false # Default
 ```
 
 
@@ -18293,13 +18292,6 @@ TxAcceptanceState is the default acceptance state for writer DON tranmissions.
 Local = false # Default
 ```
 Local determines whether Relayer runs against a local devnet
-
-### Enabled
-```toml
-Enabled = false # Default
-```
-Enabled enables this section. When true, Relayer applies these parameters to its capabilities
-When false, this section is ignored.
 
 ## Solana.Nodes
 ```toml

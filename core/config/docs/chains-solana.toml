@@ -112,9 +112,6 @@ GasLimitDefault = 300_000 # Default
 TxAcceptanceState = 3 # Default
 # Local determines whether Relayer runs against a local devnet
 Local = false # Default
-# Enabled enables this section. When true, Relayer applies these parameters to its capabilities
-# When false, this section is ignored.
-Enabled = false # Default
 
 [[Solana.Nodes]]
 # Name is a unique (per-chain) identifier for this node.
