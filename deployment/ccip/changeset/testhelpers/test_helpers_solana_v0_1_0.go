@@ -1802,6 +1802,7 @@ func DeployRegulatedTransferableTokenAptos(
 	client := e.BlockChains.AptosChains()[aptosChainSel].Client
 	opts := &aptosBind.TransactOpts{Signer: signer}
 	tokenAddress, tx, token, err := regulated_token.DeployToObject(signer, client)
+	require.NoError(t, err)
 	data, err := client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to deploy regulated token: %v", data.VmStatus)
