@@ -15,18 +15,23 @@ func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapab
 	}
 
 	config, ok := j["config"].(string)
-	if !ok || config == "" {
-		return pkg.StandardCapabilityJob{}, errors.New("config is required and must be a string")
+	if ok && config == "" {
+		return pkg.StandardCapabilityJob{}, errors.New("config cannot be an empty string")
 	}
 
 	externalJobID, ok := j["externalJobID"].(string)
-	if !ok || externalJobID == "" {
-		return pkg.StandardCapabilityJob{}, errors.New("externalJobID is required and must be a string")
+	if ok && externalJobID == "" {
+		return pkg.StandardCapabilityJob{}, errors.New("externalJobID cannot be an empty string")
 	}
 
-	oracleFactory, ok := j["oracleFactory"].(pkg.OracleFactory)
-	if !ok {
-		return pkg.StandardCapabilityJob{}, errors.New("oracleFactory is required and must be of type OracleFactory")
+	// oracleFactory is optional; only validate type if provided.
+	var oracleFactory pkg.OracleFactory
+	if rawOF, exists := j["oracleFactory"]; exists {
+		castOF, ok := rawOF.(pkg.OracleFactory)
+		if !ok {
+			return pkg.StandardCapabilityJob{}, errors.New("oracleFactory must be of type OracleFactory")
+		}
+		oracleFactory = castOF
 	}
 
 	return pkg.StandardCapabilityJob{

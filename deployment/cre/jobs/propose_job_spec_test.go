@@ -38,7 +38,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 					{Key: "environment", Value: "e", Op: "EQ"},
 					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 				},
-				Template: jobs.Cron,
+				Template: job_types.Cron,
 				Inputs:   job_types.JobSpecInput{},
 			},
 			expectError: false,
@@ -47,7 +47,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			name: "missing environment",
 			input: jobs.ProposeJobSpecInput{
 				Domain:   "cre",
-				Template: jobs.Cron,
+				Template: job_types.Cron,
 				Inputs:   job_types.JobSpecInput{},
 			},
 			expectError: true,
@@ -57,7 +57,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			name: "missing domain",
 			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
-				Template:    jobs.Cron,
+				Template:    job_types.Cron,
 				Inputs:      job_types.JobSpecInput{},
 			},
 			expectError: true,
@@ -133,7 +133,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 					{Key: "environment", Value: "e", Op: "EQ"},
 					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 				},
-				Template: jobs.Cron,
+				Template: job_types.Cron,
 				Inputs:   nil,
 			},
 			expectError: true,
@@ -164,7 +164,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			DONName:     test.DONName,
-			Template:    jobs.Cron,
+			Template:    job_types.Cron,
 			DONFilters: []operations.TargetDONFilter{
 				{Key: "don-" + test.DONName, Value: "d", Op: "EXISTS"},
 				{Key: "environment", Value: "test", Op: "EQ"},
@@ -203,7 +203,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			Environment: "test",
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
-			Template:    jobs.Cron,
+			Template:    job_types.Cron,
 			DONFilters: []operations.TargetDONFilter{
 				{Key: "don" + test.DONName, Op: "EXISTS"},
 				{Key: "environment", Value: "test", Op: "EQ"},

@@ -13,21 +13,6 @@ import (
 
 var _ cldf.ChangeSetV2[ProposeJobSpecInput] = ProposeJobSpec{}
 
-type JobSpecTemplate int64
-
-const (
-	Cron JobSpecTemplate = iota
-)
-
-func (jt JobSpecTemplate) String() string {
-	switch jt {
-	case Cron:
-		return "cron"
-	default:
-		return "unknown"
-	}
-}
-
 type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
@@ -35,9 +20,9 @@ type ProposeJobSpecInput struct {
 	DONName    string                        `json:"don_name" yaml:"don_name"`
 	DONFilters []operations2.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
 
-	JobName     string            `json:"job_name" yaml:"job_name"`
-	Template    JobSpecTemplate   `json:"template" yaml:"template"`
-	ExtraLabels map[string]string `json:"extra_labels,omitempty" yaml:"extra_labels,omitempty"`
+	JobName     string                    `json:"job_name" yaml:"job_name"`
+	Template    job_types.JobSpecTemplate `json:"template" yaml:"template"`
+	ExtraLabels map[string]string         `json:"extra_labels,omitempty" yaml:"extra_labels,omitempty"`
 
 	// Inputs is a map of input variables to be used in the job spec template.
 	// These will vary based on the template used, and will be validated differently
@@ -69,7 +54,7 @@ func (u ProposeJobSpec) VerifyPreconditions(e cldf.Environment, config ProposeJo
 	}
 
 	switch config.Template {
-	case Cron:
+	case job_types.Cron:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -85,7 +70,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	e.Logger.Debugw("environment", "name", e.Name)
 	var report operations.Report[any, any]
 	switch input.Template {
-	case Cron: // This will hold all standard capabilities jobs as we add support for them.
+	case job_types.Cron: // This will hold all standard capabilities jobs as we add support for them.
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)

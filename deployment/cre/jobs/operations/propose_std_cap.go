@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -66,7 +67,13 @@ var ProposeStandardCapabilityJob = operations.NewOperation[ProposeStandardCapabi
 		}
 
 		filter := &node.ListNodesRequest_Filter{
-			Selectors: make([]*ptypes.Selector, 0),
+			Selectors: []*ptypes.Selector{
+				{
+					Key:   "type",
+					Op:    ptypes.SelectorOp_EQ,
+					Value: pointer.To("plugin"),
+				},
+			},
 		}
 		for _, f := range input.DONFilters {
 			op, ok := FilterOps[f.Op]
@@ -85,6 +92,7 @@ var ProposeStandardCapabilityJob = operations.NewOperation[ProposeStandardCapabi
 			DONName:   input.DONName,
 			Env:       deps.Env.Name,
 			JobLabels: jobLabels,
+			DONFilter: filter,
 		})
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose job: %w", err)
