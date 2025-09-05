@@ -219,3 +219,19 @@ func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) 
 	}
 	return programID, nil
 }
+
+func generateProposalIfMCMS(e cldf.Environment, chainSelector uint64, minDelay time.Duration, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, chainSelector, "proposal to upgrade CCIP contracts", minDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
