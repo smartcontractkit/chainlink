@@ -54,7 +54,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds")
 	cmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
 	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract")
-	cmd.Flags().StringVarP(&gatewayDonIDFlag, "gateway-don-id", "a", "workflow", "DonID used in the gateway configuration")
+	cmd.Flags().StringVarP(&gatewayDonIDFlag, "gateway-don-id", "o", "workflow", "DonID used in the gateway configuration")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", DefaultWorkflowRegistryAddress, "Workflow registry address")
 
 	return cmd
@@ -169,7 +169,6 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	}()
 
 	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", rpcURL, workflowDonID)
-
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}

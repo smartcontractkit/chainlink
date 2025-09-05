@@ -2,6 +2,7 @@ package ocr_test
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -462,10 +463,10 @@ func TestOnChainContractAvailability(t *testing.T) {
 		c.OCR.ConfigLogValidation = testutils.Ptr(true)
 	})
 	legacyChain := cltest.NewLegacyChainsWithMockChain(t, client, cfg)
-	jobSpec := `
+	jobSpec := fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
-evmChainID		   = 0
+evmChainID		   = "%s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 isBootstrapPeer    = false
 observationSource = """
@@ -475,7 +476,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`
+`, testutils.FixtureChainID.String())
 
 	// Contract is not deployed
 	client.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, nil).Once()

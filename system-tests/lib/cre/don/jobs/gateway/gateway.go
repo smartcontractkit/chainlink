@@ -10,23 +10,13 @@ import (
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const flag = cre.GatewayDON
-
-func New(extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) (*capabilities.Capability, error) {
-	return capabilities.New(
-		flag,
-		capabilities.WithJobSpecFn(jobSpec(extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR)),
-	)
-}
-
-func jobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string) cre.JobSpecFn {
+func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string) cre.JobSpecFn {
 	return func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		if input.DonTopology == nil {
 			return nil, errors.New("topology is nil")
@@ -35,6 +25,9 @@ func jobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
 		// if we don't have a gateway connector outputs, we don't need to create any job specs
+		// GatewayConnectorOutput is added by `system-tests/lib/cre/don/don.go`.BuildTopology() function, which builds gateway configuration
+		// based on DON flags (cre.GatewayDON) and `gateway_node_index` and adds it to the topology.
+		// `system-tests/lib/cre/don/don.go`.ValidateTopology() makes sure that if any DON needs gateway connector, there is at least one nodeSet with a gateway node.
 		if input.DonTopology.GatewayConnectorOutput == nil || len(input.DonTopology.GatewayConnectorOutput.Configurations) == 0 {
 			return donToJobSpecs, nil
 		}

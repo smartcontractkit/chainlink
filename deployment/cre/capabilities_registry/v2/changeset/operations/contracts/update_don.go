@@ -8,18 +8,24 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 type UpdateDONDeps struct {
 	Env                  *cldf.Environment
 	CapabilitiesRegistry *capabilities_registry_v2.CapabilitiesRegistry
+	MCMSContracts        *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
 }
 
 type UpdateDONInput struct {
@@ -43,6 +49,8 @@ type UpdateDONInput struct {
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
 	Force bool
+
+	MCMSConfig *ocr3.MCMSConfig
 }
 
 func (r *UpdateDONInput) Validate() error {
@@ -54,7 +62,8 @@ func (r *UpdateDONInput) Validate() error {
 }
 
 type UpdateDONOutput struct {
-	DonInfo capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	DonInfo   capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	Proposals []mcmslib.TimelockProposal
 }
 
 // CapabilityConfig is a struct that holds a capability and its configuration
@@ -105,8 +114,6 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, fmt.Errorf("failed to compute configs: %w", err)
 		}
 
-		txOpts := chain.DeployerKey
-
 		f := input.F
 		if f == 0 {
 			f = don.F
@@ -119,32 +126,68 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			isPublic = don.IsPublic
 		}
 
-		tx, err := registry.UpdateDONByName(txOpts, don.Name, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
-			Name:                     don.Name,
-			Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
-			CapabilityConfigurations: cfgs,
-			IsPublic:                 isPublic,
-			F:                        f,
-			Config:                   don.Config,
+		strategy, err := strategies.CreateStrategy(
+			chain,
+			*deps.Env,
+			input.MCMSConfig,
+			deps.MCMSContracts,
+			deps.CapabilitiesRegistry.Address(),
+			UpdateDONDescription,
+		)
+		if err != nil {
+			return UpdateDONOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+		}
+
+		var resultDon capabilities_registry_v2.CapabilitiesRegistryDONInfo
+
+		// Execute the transaction using the strategy
+		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			tx, err := registry.UpdateDONByName(opts, input.DonName, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
+				Name:                     input.DonName,
+				Nodes:                    pkg.PeerIDsToBytes(input.P2PIDs),
+				CapabilityConfigurations: cfgs,
+				IsPublic:                 isPublic,
+				F:                        f,
+				Config:                   don.Config,
+			})
+			if err != nil {
+				err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+				return nil, fmt.Errorf("failed to call UpdateDONByName: %w", err)
+			}
+
+			// For direct execution, we can confirm and get the updated DON info
+			if input.MCMSConfig == nil {
+				// Confirm transaction
+				_, err = chain.Confirm(tx)
+				if err != nil {
+					return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
+				}
+
+				ctx := b.GetContext()
+				_, err = bind.WaitMined(ctx, chain.Client, tx)
+				if err != nil {
+					return nil, fmt.Errorf("failed to mine UpdateDON transaction %s: %w", tx.Hash().String(), err)
+				}
+
+				// Get the updated DON info
+				resultDon = don // For now, we return the original don info. In a real scenario, we might want to fetch the updated info.
+			}
+
+			return tx, nil
 		})
 		if err != nil {
-			err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
-			return UpdateDONOutput{}, fmt.Errorf("failed to call UpdateDON: %w", err)
+			return UpdateDONOutput{}, fmt.Errorf("failed to execute UpdateDON: %w", err)
 		}
 
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			return UpdateDONOutput{}, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
-		}
-
-		ctx := b.GetContext()
-		_, err = bind.WaitMined(ctx, chain.Client, tx)
-		if err != nil {
-			return UpdateDONOutput{}, fmt.Errorf("failed to mine UpdateDON confirm transaction %s: %w", tx.Hash().String(), err)
+		if input.MCMSConfig != nil {
+			deps.Env.Logger.Infof("Created MCMS proposal for UpdateDON '%s' on chain %d", input.DonName, input.ChainSelector)
+		} else {
+			deps.Env.Logger.Infof("Successfully updated DON '%s' on chain %d", input.DonName, input.ChainSelector)
 		}
 
 		return UpdateDONOutput{
-			DonInfo: don,
+			DonInfo:   resultDon,
+			Proposals: proposals,
 		}, nil
 	},
 )
