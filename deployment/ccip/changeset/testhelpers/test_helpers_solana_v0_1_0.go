@@ -1801,6 +1801,16 @@ func DeployRegulatedTransferableTokenAptos(
 	signer := e.BlockChains.AptosChains()[aptosChainSel].DeployerSigner
 	client := e.BlockChains.AptosChains()[aptosChainSel].Client
 	opts := &aptosBind.TransactOpts{Signer: signer}
+	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
+	require.NoError(t, err)
+	mcmsAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.AptosMCMSType,
+			Version: deployment.Version1_6_0,
+		},
+		aptosAddresses,
+	)
+	require.Falsef(t, (mcmsAddress == aptos.AccountAddress{}), "Aptos mcms address not found")
 
 	// Only admin can grant roles
 	adminAddress := signer.AccountAddress()
@@ -1809,6 +1819,12 @@ func DeployRegulatedTransferableTokenAptos(
 	data, err := client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to deploy regulated token: %v", data.VmStatus)
+
+	tx, _, err = regulated_token.DeployMCMSRegistrarToExistingObject(signer, client, tokenAddress, adminAddress, mcmsAddress, true)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to deploy regulated token MCMS registrar: %v", data.VmStatus)
 
 	tx, err = token.RegulatedToken().Initialize(opts, nil, tokenName, "TKN", 8, "", "")
 	require.NoError(t, err)
@@ -1876,7 +1892,7 @@ func DeployRegulatedTransferableTokenAptos(
 		),
 	)
 	require.NoError(t, err)
-	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
+	aptosAddresses, err = e.ExistingAddresses.AddressesForChain(aptosChainSel)
 	require.NoError(t, err)
 	tokenMetadataAddress := aptosstate.FindAptosAddress(
 		cldf.TypeAndVersion{
