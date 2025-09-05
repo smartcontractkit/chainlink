@@ -95,10 +95,10 @@ type capabilitiesConfig struct {
 }
 
 type capabilityRepository struct {
-	RepoURL      string `toml:"repository"`
-	Branch       string `toml:"branch"`
-	BuildCommand string `toml:"build_command"`
-	ArtifactsDir string `toml:"artifacts_dir"`
+	RepoURL       string   `toml:"repository"`
+	Branch        string   `toml:"branch"`
+	BuildCommand  string   `toml:"build_command"`
+	ArtifactsDirs []string `toml:"artifacts_dirs"`
 }
 
 var (
@@ -559,11 +559,13 @@ func buildCapabilityBinaries(ctx context.Context, capabilitiesConfig capabilitie
 			return fmt.Errorf("failed to create target directory: %w", err)
 		}
 
-		logger.Info().Msgf("Copying build artifacts from %s to %s", repo.ArtifactsDir, targetPath)
-		artifactsDir := filepath.Join(workingDir, repo.ArtifactsDir)
-		copyCmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("cp -r %s/* %s/", artifactsDir, targetPath)) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-		if err := copyCmd.Run(); err != nil {
-			return fmt.Errorf("failed to copy directory: %w", err)
+		for _, artifactDir := range repo.ArtifactsDirs {
+			logger.Info().Msgf("Copying build artifacts from %s to %s", artifactDir, targetPath)
+			artifactsDir := filepath.Join(workingDir, artifactDir)
+			copyCmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("cp -r %s/* %s/", artifactsDir, targetPath)) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+			if err := copyCmd.Run(); err != nil {
+				return fmt.Errorf("failed to copy directory: %w", err)
+			}
 		}
 
 		logger.Info().Msgf("✓ Build artifacts copied to %s", targetPath)

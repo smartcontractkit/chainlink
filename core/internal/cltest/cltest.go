@@ -38,6 +38,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 
@@ -410,15 +411,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	var evmFactoryConfigFn func(config *chainlink.EVMFactoryConfig)
 	// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
-	if cfg.EVMEnabled() {
+	if cfg.EVMEnabled() && env.EVMPlugin.Cmd.Get() == "" {
 		if ethClient == nil {
 			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
 		}
-		chainId := ethClient.ConfiguredChainID()
+		chainID := ethClient.ConfiguredChainID()
 		evmFactoryConfigFn = func(fc *chainlink.EVMFactoryConfig) {
 			fc.GenEthClient = func(_ *big.Int) evmclient.Client {
-				if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+				if chainID.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainID, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
 				}
 				return ethClient
 			}

@@ -365,7 +365,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 	}
 
-	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), relayChainInterops, opts.CREOpts, billingClient, storageClient, opts.DonTimeStore, opts.LimitsFactory)
+	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg.Capabilities(), cfg.Workflows(), cfg.CRE(), relayChainInterops, opts.CREOpts, billingClient, storageClient, opts.DonTimeStore, opts.LimitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
@@ -559,6 +559,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				legacyEVMChains,
 				keyStore.Eth(),
 				opts.DS,
+				opts.CapabilitiesRegistry,
+				creServices.workflowRegistrySyncer,
 				globalLogger),
 			job.Stream: streams.NewDelegate(
 				globalLogger,
@@ -671,6 +673,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				DonTimeStore:                   opts.DonTimeStore,
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.gatewayConnectorWrapper,
+				WorkflowRegistrySyncer:         creServices.workflowRegistrySyncer,
 			},
 			ocr2DelegateConfig,
 		)
@@ -861,6 +864,8 @@ type CREServices struct {
 
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
+
+	workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
 }
 
 func newCREServices(
@@ -870,6 +875,7 @@ func newCREServices(
 	keyStore creKeystore,
 	capCfg config.Capabilities,
 	wCfg config.Workflows,
+	creCfg config.CRE,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 	opts CREOpts,
 	billingClient metering.BillingClient,
@@ -925,6 +931,7 @@ func newCREServices(
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
+	var workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
 	if capCfg.Peering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
 		if opts.CapabilitiesDispatcher == nil {
@@ -1153,6 +1160,7 @@ func newCREServices(
 						key,
 						syncerV2.WithBillingClient(billingClient),
 						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
+						syncerV2.WithLinking(creCfg.Linking().URL(), creCfg.Linking().TLSEnabled()),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
@@ -1192,6 +1200,7 @@ func newCREServices(
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		externalPeerWrapper:     externalPeerWrapper,
 		srvs:                    srvcs,
+		workflowRegistrySyncer:  workflowRegistrySyncer,
 	}, nil
 }
 

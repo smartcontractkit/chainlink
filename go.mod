@@ -18,7 +18,7 @@ require (
 	github.com/dominikbraun/graph v0.23.0
 	github.com/doyensec/safeurl v0.2.1
 	github.com/esote/minmaxheap v1.0.0
-	github.com/ethereum/go-ethereum v1.15.3
+	github.com/ethereum/go-ethereum v1.16.2
 	github.com/fatih/color v1.18.0
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
 	github.com/fxamacker/cbor/v2 v2.7.0
@@ -67,7 +67,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.21.1
-	github.com/prometheus/client_golang v1.22.0
+	github.com/prometheus/client_golang v1.23.0
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.65.0
 	github.com/prometheus/prometheus v0.304.2
@@ -84,10 +84,10 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250825135846-84f0d5167f8f
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250805210128-7f8a0f403c3a
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250804184440-c0506474fc44
-	github.com/smartcontractkit/chainlink-common v0.9.4-0.20250827130112-75577ebd4ed4
+	github.com/smartcontractkit/chainlink-common v0.9.4
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
-	github.com/smartcontractkit/chainlink-evm v0.3.2
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3
+	github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250818175541-3389ac08a563
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250717121125-2350c82883e2
@@ -104,6 +104,7 @@ require (
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.5.1-0.20250818141131-0b979c98bab0
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250707144819-babe0ec4e358
+	github.com/smartcontractkit/smdkg v0.0.0-20250826121537-7c56be4a57c7
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
@@ -205,8 +206,8 @@ require (
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
+	github.com/crate-crypto/go-eth-kzg v1.3.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
-	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
 	github.com/danieljoos/wincred v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
@@ -215,9 +216,11 @@ require (
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
-	github.com/ethereum/c-kzg-4844 v1.0.3 // indirect
+	github.com/emicklei/dot v1.6.2 // indirect
+	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/expr-lang/expr v1.17.5 // indirect
+	github.com/ferranbt/fastssz v0.1.4 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
@@ -299,6 +302,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/miekg/dns v1.1.65 // indirect
+	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4 // indirect
@@ -321,7 +325,7 @@ require (
 	github.com/pion/transport/v3 v3.0.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/prometheus/procfs v0.16.0 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

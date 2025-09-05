@@ -99,8 +99,6 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
-      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
-      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
@@ -125,7 +123,6 @@ jobs:
       slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
       use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
       skip_image_build: true # in-memory tests do not require an image
-      extraArgs: ${{ '{"flakeguard_enable":"false","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -135,8 +132,6 @@ jobs:
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
-      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
-      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 

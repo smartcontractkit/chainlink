@@ -27,7 +27,7 @@ const flag = cre.GatewayDON
 func New(extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) (*capabilities.Capability, error) {
 	return capabilities.New(
 		flag,
-		capabilities.WithNodeConfigFn(generateConfig),
+		capabilities.WithNodeConfigTransformerFn(generateConfig),
 		capabilities.WithJobSpecFn(jobSpec(extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR)),
 	)
 }
@@ -133,9 +133,7 @@ func jobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 	}
 }
 
-func generateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride, error) {
-	configOverrides := make(cre.NodeIndexToConfigOverride)
-
+func generateConfig(input cre.GenerateConfigsInput, configOverrides cre.NodeIndexToConfigOverride) (cre.NodeIndexToConfigOverride, error) {
 	if input.GatewayConnectorOutput == nil || len(input.GatewayConnectorOutput.Configurations) == 0 {
 		return configOverrides, errors.New("gateway connector output or configurations are empty")
 	}
@@ -151,7 +149,7 @@ func generateConfig(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverri
 		return nil, errors.Wrap(homeErr, "failed to get home chain ID")
 	}
 
-	workflowRegistryAddress, workErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddress, _, workErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	if workErr != nil {
 		return nil, errors.Wrap(workErr, "failed to find WorkflowRegistry address")
 	}

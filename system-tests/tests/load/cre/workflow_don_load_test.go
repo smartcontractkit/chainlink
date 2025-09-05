@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -130,6 +131,7 @@ func setupLoadTestEnvironment(
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
+		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
@@ -140,7 +142,7 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(
+	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
 		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // will not migrate now
 		universalSetupOutput.BlockchainOutput[0].ChainSelector,
 		keystone_changeset.KeystoneForwarder.String(),
@@ -684,7 +686,8 @@ func (s *StreamsGun) createReport() (capabilities.OCRTriggerEvent, string, time.
 }
 
 func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
-	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle) (*capabilities.OCRTriggerEvent, string, error) {
+	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle,
+) (*capabilities.OCRTriggerEvent, string, error) {
 	values := make([]datastreamsllo.StreamValue, 0)
 
 	priceBytes, err := price.MarshalBinary()
@@ -758,7 +761,7 @@ func decodeTargetInput(inputs *values.Map) (evm.TargetRequest, error) {
 
 func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 	cacheDir := "cache/keys"
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -770,7 +773,7 @@ func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 		}
 
 		filename := fmt.Sprintf("%s/key_bundle_%d.json", cacheDir, i)
-		if err := os.WriteFile(filename, bytes, 0600); err != nil {
+		if err := os.WriteFile(filename, bytes, 0o600); err != nil {
 			return fmt.Errorf("failed to write key bundle %d to file: %w", i, err)
 		}
 	}
@@ -828,7 +831,7 @@ func NewFeedIDDF2(t *testing.T) ([32]byte, string) {
 
 func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 	cacheDir := "cache/feeds"
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -838,7 +841,7 @@ func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 		return fmt.Errorf("failed to marshal feed addresses: %w", err)
 	}
 
-	if err := os.WriteFile(filename, bytes, 0600); err != nil {
+	if err := os.WriteFile(filename, bytes, 0o600); err != nil {
 		return fmt.Errorf("failed to write feed addresses to file: %w", err)
 	}
 
@@ -918,7 +921,6 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
  `
 
 	tmpl, err := template.New("workflow").Parse(workflowTemplateLoad)
-
 	if err != nil {
 		panic(err)
 	}
@@ -934,7 +936,8 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
-		Spec:   renderedTemplate.String()}
+		Spec:   renderedTemplate.String(),
+	}
 }
 
 func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
@@ -954,7 +957,6 @@ func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *
  		{{- end }}
 			"""`
 	tmpl, err := template.New("mock-job").Parse(jobTemplate)
-
 	if err != nil {
 		panic(err)
 	}

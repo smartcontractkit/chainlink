@@ -1,12 +1,16 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
+	"sync"
 
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -26,11 +30,14 @@ type Config struct {
 	Fake              *fake.Input                     `toml:"fake" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
+
+	mu     sync.Mutex
+	loaded bool
 }
 
 // Validate performs validation checks on the configuration, ensuring all required fields
 // are present and all referenced capabilities are known to the system.
-func (c Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
+func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 	if c.JD.CSAEncryptionKey == "" {
 		return errors.New("jd.csa_encryption_key must be provided")
 	}
@@ -49,21 +56,16 @@ func (c Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 		}
 	}
 
-	if err := validateContractVersions(envDependencies.GetContractVersions()); err != nil {
+	if err := validateContractVersions(envDependencies); err != nil {
 		return fmt.Errorf("failed to validate initial contract set: %w", err)
 	}
 
 	return nil
 }
 
-// TODO(CRE-741): support contracts other than major version 1
-func validateContractVersions(cv map[string]string) error {
-	supportedSet := map[string]string{
-		keystone_changeset.OCR3Capability.String():       "1.0.0",
-		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
-		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
-		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
-	}
+func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) error {
+	supportedSet := DefaultContractSet(envDependencies.WithV2Registries())
+	cv := envDependencies.ContractVersions()
 	for k, v := range supportedSet {
 		version, ok := cv[k]
 		if !ok {
@@ -71,10 +73,69 @@ func validateContractVersions(cv map[string]string) error {
 		}
 
 		if version != v {
-			return fmt.Errorf("unsupported version %s for contract %s configured for deployment", v, k)
+			return fmt.Errorf("requested version %s for contract %s yet expected %s", version, k, v)
 		}
 	}
 	return nil
+}
+
+func DefaultContractSet(withV2Registries bool) map[string]string {
+	supportedSet := map[string]string{
+		keystone_changeset.OCR3Capability.String():       "1.0.0",
+		keystone_changeset.WorkflowRegistry.String():     "1.0.0",
+		keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
+		keystone_changeset.KeystoneForwarder.String():    "1.0.0",
+	}
+
+	if withV2Registries {
+		supportedSet[keystone_changeset.WorkflowRegistry.String()] = "2.0.0-dev"
+		supportedSet[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
+	}
+
+	return supportedSet
+}
+
+func (c *Config) Load() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.loaded {
+		return nil
+	}
+
+	// Load and validate test configuration
+	in, loadErr := framework.Load[Config](nil)
+	if loadErr != nil {
+		return errors.Wrap(loadErr, "failed to load environment configuration")
+	}
+
+	for _, nodeSet := range in.NodeSets {
+		if err := nodeSet.ParseChainCapabilities(); err != nil {
+			return errors.Wrap(err, "failed to parse chain capabilities")
+		}
+
+		if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
+			return errors.Wrap(err, "failed to validate chain capabilities")
+		}
+	}
+
+	copyExportedFields(c, in)
+	c.loaded = true
+
+	return nil
+}
+
+func (c *Config) Store() error {
+	// change override mode to "each" for all node sets, because config contains unique secrets for each node
+	// if we later load it with "all" mode, all nodes in the nodeset will have the same configuration as the first node
+	// and they will fail to start (because they will all have the same P2P keys)
+	for idx, nodeSet := range c.NodeSets {
+		if nodeSet.OverrideMode == "all" {
+			c.NodeSets[idx].OverrideMode = "each"
+		}
+	}
+
+	return framework.Store(c)
 }
 
 // ResolveCapabilityForChain merges defaults with chain override for a capability on a given chain.
@@ -136,8 +197,50 @@ func ResolveCapabilityConfigForDON(
 type ChipIngressConfig struct {
 	ChipIngress *chipingressset.Input `toml:"chip_ingress"`
 	Kafka       *KafkaConfig          `toml:"kafka"`
+
+	mu     sync.Mutex
+	loaded bool
 }
 
 type KafkaConfig struct {
 	Topics []string `toml:"topics"`
+}
+
+func (c *ChipIngressConfig) Load() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.loaded {
+		return nil
+	}
+
+	in, err := framework.Load[ChipIngressConfig](nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to load chip ingress config")
+	}
+
+	copyExportedFields(c, in)
+	c.loaded = true
+
+	return nil
+}
+
+func (c *ChipIngressConfig) Store() error {
+	return framework.Store(c)
+}
+
+// copyExportedFields copies all exported fields from src to dst (same concrete type).
+// Unexported fields (like once/mu/loaded) are skipped automatically.
+func copyExportedFields(dst, src any) {
+	dv := reflect.ValueOf(dst).Elem()
+	sv := reflect.ValueOf(src).Elem()
+	dt := dv.Type()
+
+	for i := 0; i < dt.NumField(); i++ {
+		f := dt.Field(i)
+		if f.PkgPath != "" { // unexported
+			continue
+		}
+		dv.Field(i).Set(sv.Field(i))
+	}
 }

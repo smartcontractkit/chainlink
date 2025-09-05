@@ -2,13 +2,13 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
-  docker_cmd_params = ["-b", "5"]
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [[blockchains]]
   type = "anvil"
   chain_id = "2337"
   port = "8546"
-  docker_cmd_params = ["-b", "5"]
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
@@ -46,12 +46,12 @@
 
   env_vars = { CL_EVM_CMD = "" }
 
-  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger"]
+  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus"]
 
   [nodesets.chain_capabilities]
     # we want to write only to the home chain, so that we can test whether remote write-evm-2337 capability of the 'capabilities DON' is used
     write-evm = ["1337"]
-    read-contract = ["1337", "2337"]
+    read-contract = ["1337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -84,7 +84,7 @@
       """
 
 [[nodesets]]
-  nodes = 2
+  nodes = 4
   name = "capabilities"
   don_types = ["capabilities"]
   override_mode = "all"
@@ -96,10 +96,11 @@
   bootstrap_node_index = -1
   gateway_node_index = -1
 
-  capabilities = ["web-api-target", "vault"]
+  capabilities = ["web-api-target","vault"]
 
   [nodesets.chain_capabilities]
-  write-evm = ["1337", "2337"]
+  write-evm = ["2337"]
+  read-contract = ["2337"]
 
   [nodesets.db]
     image = "postgres:12.0"

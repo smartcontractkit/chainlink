@@ -32,7 +32,7 @@ type DeployCapabilitiesRegistryOutput struct {
 
 // DeployCapabilitiesRegistry is an operation that deploys the V2 Capabilities Registry contract.
 // This atomic operation performs the single side effect of deploying and registering the contract.
-var DeployCapabilitiesRegistry = operations.NewOperation[DeployCapabilitiesRegistryInput, DeployCapabilitiesRegistryOutput, DeployCapabilitiesRegistryDeps](
+var DeployCapabilitiesRegistry = operations.NewOperation(
 	"deploy-capabilities-registry-v2-op",
 	semver.MustParse("1.0.0"),
 	"Deploy CapabilitiesRegistry V2 Contract",

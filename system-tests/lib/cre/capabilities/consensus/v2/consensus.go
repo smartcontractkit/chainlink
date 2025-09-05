@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"html/template"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -79,6 +81,15 @@ func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		return configBuffer.String(), nil
 	}
 
+	var dataStoreOCR3ContractKeyProvider = func(contractName string, chainSelector uint64) datastore.AddressRefKey {
+		return datastore.NewAddressRefKey(
+			chainSelector,
+			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+			semver.MustParse("1.0.0"),
+			contractName,
+		)
+	}
+
 	return ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
 		input.DonTopology,
 		input.CldEnvironment.DataStore,
@@ -88,6 +99,7 @@ func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		func(_ uint64) string {
 			return "capability_consensus"
 		},
+		dataStoreOCR3ContractKeyProvider,
 		donlevel.CapabilityEnabler,
 		donlevel.EnabledChainsProvider,
 		generateJobSpec,

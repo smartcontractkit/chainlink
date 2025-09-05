@@ -1,50 +1,20 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
-	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
-	"github.com/pkg/errors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 )
 
-const (
-	// Template for EVM workflow configuration
-	evmWorkflowConfigTemplate = `
-		[EVM.Workflow]
-		FromAddress = '{{.FromAddress}}'
-		ForwarderAddress = '{{.ForwarderAddress}}'
-		GasLimitDefault = {{.GasLimitDefault}}
-		TxAcceptanceState = {{.TxAcceptanceState}}
-		PollPeriod = '{{.PollPeriod}}'
-		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
+type AddressTypeVersion struct {
+	Address common.Address
+	cldf.TypeAndVersion
+}
 
-		[EVM.Transactions]
-		ForwardersEnabled = true
-`
-
-	solWorkflowConfigTemplate = `
-		Enabled = true
-		TxRetentionTimeout = '{{.TxRetentionTimeout}}'
-
-		[Solana.Workflow]
-		Enabled = true
-		ForwarderAddress = '{{.ForwarderAddress}}'
-		FromAddress      = '{{.FromAddress}}'
-		ForwarderState   = '{{.ForwarderState}}'
-		PollPeriod = '{{.PollPeriod}}'
-		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
-		TxAcceptanceState = {{.TxAcceptanceState}}
-		Local = {{.Local}}
-	`
-)
-
-func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitiesRegistryAddress common.Address, chains []*WorkerEVMInput) string {
+func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capRegistry AddressTypeVersion, chains []*EVMChain) string {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -63,6 +33,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitie
 			chain.HTTPRPC,
 		)
 	}
+
 	return fmt.Sprintf(`
 	[Feature]
 	LogPoller = true
@@ -85,14 +56,17 @@ func BootstrapEVM(donBootstrapNodePeerID string, homeChainID uint64, capabilitie
 	Address = '%s'
 	NetworkID = 'evm'
 	ChainID = '%d'
+	ContractVersion = '%s'
 `,
 		donBootstrapNodePeerID,
 		evmChainsConfig,
-		capabilitiesRegistryAddress,
+		capRegistry.Address,
 		homeChainID,
+		capRegistry.Version,
 	)
 }
 
+// BoostrapDon2DonPeering creates TOML-literal for the Capabilities Peering section of the node configuration for a bootstrap node
 func BoostrapDon2DonPeering(peeringData cre.CapabilitiesPeeringData) string {
 	return fmt.Sprintf(`
 	[Capabilities.Peering.V2]
@@ -107,19 +81,17 @@ func BoostrapDon2DonPeering(peeringData cre.CapabilitiesPeeringData) string {
 	)
 }
 
-type WorkerEVMInput struct {
-	Name             string
-	ChainID          uint64
-	ChainSelector    uint64
-	HTTPRPC          string
-	WSRPC            string
-	FromAddress      common.Address
-	ForwarderAddress string
-	WritesToEVM      bool
-	WorkflowConfig   map[string]any // Configuration for EVM.Workflow section
+type EVMChain struct {
+	Name    string
+	ChainID uint64
+	HTTPRPC string
+	WSRPC   string
 }
 
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringData cre.OCRPeeringData, capabilitiesPeeringData cre.CapabilitiesPeeringData, capabilitiesRegistryAddress common.Address, homeChainID uint64, chains []*WorkerEVMInput) (string, error) {
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringData cre.OCRPeeringData,
+	capabilitiesPeeringData cre.CapabilitiesPeeringData,
+	capRegistry AddressTypeVersion, homeChainID uint64, chains []*EVMChain,
+) (string, error) {
 	evmChainsConfig := ""
 	for _, chain := range chains {
 		evmChainsConfig += fmt.Sprintf(`
@@ -140,29 +112,6 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringDa
 			chain.WSRPC,
 			chain.HTTPRPC,
 		)
-
-		// won't move this to a separate factory function, because this bit needs to be added in the very specific part of the node config
-		// it can't be just concatenated to the config in any random place
-		if chain.WritesToEVM {
-			// Execute template with chain's workflow configuration
-			tmpl, err := template.New("evmWorkflowConfig").Parse(evmWorkflowConfigTemplate)
-			if err != nil {
-				return "", errors.Wrap(err, "failed to parse evm workflow config template")
-			}
-			var configBuffer bytes.Buffer
-			if executeErr := tmpl.Execute(&configBuffer, chain.WorkflowConfig); executeErr != nil {
-				return "", errors.Wrap(executeErr, "failed to execute evm workflow config template")
-			}
-
-			flag := cre.WriteEVMCapability
-			configStr := configBuffer.String()
-
-			if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
-				return "", errors.Wrapf(err, "%s template validation failed", flag)
-			}
-
-			evmChainsConfig += configStr
-		}
 	}
 
 	return fmt.Sprintf(`
@@ -191,6 +140,7 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringDa
 	Address = '%s'
 	NetworkID = 'evm'
 	ChainID = '%d'
+	ContractVersion = '%s'
 `,
 		ocrPeeringData.Port,
 		donBootstrapNodePeerID,
@@ -201,27 +151,25 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, ocrPeeringDa
 		capabilitiesPeeringData.GlobalBootstraperHost,
 		capabilitiesPeeringData.Port,
 		evmChainsConfig,
-		capabilitiesRegistryAddress,
+		capRegistry.Address,
 		homeChainID,
+		capRegistry.Version,
 	), nil
 }
 
-type WorkerSolanaInput struct {
-	Name             string
-	ChainID          string
-	ChainSelector    uint64
-	NodeURL          string
-	FromAddress      solana.PublicKey
-	ForwarderAddress string
-	ForwarderState   string
-	HasWrite         bool
-	WorkflowConfig   map[string]any // Configuration for Solana.Workflow section
+type SolanaChain struct {
+	Name    string
+	ChainID string
+	NodeURL string
 }
 
-func BootstrapSolana(chains []*WorkerSolanaInput) string {
-	var ret string
-	for _, chain := range chains {
-		ret += fmt.Sprintf(`
+// WorkerSolana creates TOML-literal for the Solana section of the node configuration for a non-bootstrap node
+func WorkerSolana(chain *SolanaChain) string {
+	if chain == nil {
+		return ""
+	}
+
+	return fmt.Sprintf(`
 		[[Solana]]
 		ChainID = '%s'
 		Enabled = true
@@ -230,50 +178,6 @@ func BootstrapSolana(chains []*WorkerSolanaInput) string {
 		Name = '%s'
 		URL = '%s'
 		`, chain.ChainID, chain.Name, chain.NodeURL)
-	}
-
-	return ret
-}
-
-func WorkerSolana(chains []*WorkerSolanaInput) (string, error) {
-	var ret string
-	for _, chain := range chains {
-		ret += fmt.Sprintf(`
-		[[Solana]]
-		ChainID = '%s'
-		`, chain.ChainID)
-
-		// won't move this to a separate factory function, because this bit needs to be added in the very specific part of the node config
-		// it can't be just concatenated to the config in any random place
-		if chain.HasWrite {
-			// Execute template with chain's workflow configuration
-			tmpl, err := template.New("solanaWorkflowConfig").Parse(solWorkflowConfigTemplate)
-			if err != nil {
-				return "", errors.Wrap(err, "failed to parse solana workflow config template")
-			}
-			var configBuffer bytes.Buffer
-			if executeErr := tmpl.Execute(&configBuffer, chain.WorkflowConfig); executeErr != nil {
-				return "", errors.Wrap(executeErr, "failed to execute solana workflow config template")
-			}
-
-			flag := cre.WriteSolanaCapability
-			configStr := configBuffer.String()
-
-			if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
-				return "", errors.Wrapf(err, "%s template validation failed", flag)
-			}
-
-			ret += configStr
-		}
-
-		ret += fmt.Sprintf(`
-		[[Solana.Nodes]]
-		Name = '%s'
-		URL = '%s'
-		`, chain.Name, chain.NodeURL)
-	}
-
-	return ret, nil
 }
 
 func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, homeChainID uint64) string {
