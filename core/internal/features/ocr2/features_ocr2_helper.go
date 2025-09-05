@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/ethereum/go-ethereum/node"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,6 +37,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
@@ -68,13 +70,26 @@ type Node struct {
 	KeyBundle            ocr2key.KeyBundle
 }
 
-func SetupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, common.Address, *ocr2aggregator.OCR2Aggregator) {
+func SetupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, common.Address, *ocr2aggregator.OCR2Aggregator, *toml.Node) {
 	owner := evmtestutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
 	genesisData := types.GenesisAlloc{owner.From: {Balance: sb}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
-	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(gasLimit))
+
+	httpPort := freeport.GetOne(t)
+	wsPort := freeport.GetOne(t)
+	host := "localhost"
+	nodeConfig := toml.Node{
+		Name:              ptr("simulated-node"),
+		WSURL:             ptr(commonconfig.URL{Scheme: "ws", Host: fmt.Sprintf("%s:%d", host, wsPort)}),
+		HTTPURL:           ptr(commonconfig.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, httpPort)}),
+		SendOnly:          nil,
+		Order:             ptr(int32(1)),
+		IsLoadBalancedRPC: ptr(false),
+	}
+
+	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(gasLimit), withRPCServer(host, httpPort, wsPort, []string{"eth", "net", "web3"}))
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
 	b.Commit()
@@ -105,7 +120,7 @@ func SetupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, c
 	_, err = linkContract.Transfer(owner, ocrContractAddress, big.NewInt(1000))
 	require.NoError(t, err)
 	b.Commit()
-	return owner, b, ocrContractAddress, ocrContract
+	return owner, b, ocrContractAddress, ocrContract, &nodeConfig
 }
 
 func SetupNodeOCR2(
@@ -115,6 +130,7 @@ func SetupNodeOCR2(
 	useForwarder bool,
 	b *simulated.Backend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
+	nodeConfig *toml.Node,
 ) *Node {
 	ctx := testutils.Context(t)
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
@@ -135,6 +151,7 @@ func SetupNodeOCR2(
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 		}
 
+		c.EVM[0].Nodes = toml.EVMNodes{nodeConfig}
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(5 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarder
 	})
@@ -205,11 +222,11 @@ func RunTestIntegrationOCR2(t *testing.T) {
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			owner, b, ocrContractAddress, ocrContract := SetupOCR2Contracts(t)
+			owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
 			lggr := logger.TestLogger(t)
 			bootstrapNodePort := freeport.GetOne(t)
-			bootstrapNode := SetupNodeOCR2(t, owner, bootstrapNodePort, false /* useForwarders */, b, nil)
+			bootstrapNode := SetupNodeOCR2(t, owner, bootstrapNodePort, false /* useForwarders */, b, nil, nodeConfig)
 
 			var (
 				oracles      []confighelper2.OracleIdentityExtra
@@ -222,7 +239,7 @@ func RunTestIntegrationOCR2(t *testing.T) {
 				node := SetupNodeOCR2(t, owner, ports[i], false /* useForwarders */, b, []commontypes.BootstrapperLocator{
 					// Supply the bootstrap IP and port as a V2 peer address
 					{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-				})
+				}, nodeConfig)
 
 				kbs = append(kbs, node.KeyBundle)
 				apps = append(apps, node.App)
@@ -710,3 +727,15 @@ func InitOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func withRPCServer(host string, httpPort, wsPort int, modules []string) func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+	return func(nodeConf *node.Config, ethConf *ethconfig.Config) {
+		nodeConf.HTTPHost = host
+		nodeConf.HTTPPort = httpPort
+		nodeConf.HTTPModules = modules
+
+		nodeConf.WSHost = host
+		nodeConf.WSPort = wsPort
+		nodeConf.WSModules = modules
+	}
+}
