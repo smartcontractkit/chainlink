@@ -2113,6 +2113,7 @@ type Dispatcher struct {
 	SupportedVersion   *int
 	ReceiverBufferSize *int
 	RateLimit          DispatcherRateLimit
+	SendToSharedPeer   *bool
 }
 
 func (d *Dispatcher) setFrom(f *Dispatcher) {
@@ -2124,6 +2125,10 @@ func (d *Dispatcher) setFrom(f *Dispatcher) {
 
 	if f.SupportedVersion != nil {
 		d.SupportedVersion = f.SupportedVersion
+	}
+
+	if f.SendToSharedPeer != nil {
+		d.SendToSharedPeer = f.SendToSharedPeer
 	}
 }
 
@@ -2194,9 +2199,60 @@ type ConnectorGateway struct {
 	URL *string
 }
 
+type SharedPeering struct {
+	Enabled       *bool
+	Bootstrappers *[]ocrcommontypes.BootstrapperLocator
+	StreamConfig  StreamConfig
+}
+
+func (c *SharedPeering) setFrom(f *SharedPeering) {
+	if f.Enabled != nil {
+		c.Enabled = f.Enabled
+	}
+	if f.Bootstrappers != nil {
+		c.Bootstrappers = f.Bootstrappers
+	}
+	c.StreamConfig.setFrom(&f.StreamConfig)
+}
+
+type StreamConfig struct {
+	IncomingMessageBufferSize  *int
+	OutgoingMessageBufferSize  *int
+	MaxMessageLenBytes         *int
+	MessageRateLimiterRate     *float64
+	MessageRateLimiterCapacity *uint32
+	BytesRateLimiterRate       *float64
+	BytesRateLimiterCapacity   *uint32
+}
+
+func (c *StreamConfig) setFrom(f *StreamConfig) {
+	if v := f.IncomingMessageBufferSize; v != nil {
+		c.IncomingMessageBufferSize = v
+	}
+	if v := f.OutgoingMessageBufferSize; v != nil {
+		c.OutgoingMessageBufferSize = v
+	}
+	if v := f.MaxMessageLenBytes; v != nil {
+		c.MaxMessageLenBytes = v
+	}
+	if v := f.MessageRateLimiterRate; v != nil {
+		c.MessageRateLimiterRate = v
+	}
+	if v := f.MessageRateLimiterCapacity; v != nil {
+		c.MessageRateLimiterCapacity = v
+	}
+	if v := f.BytesRateLimiterRate; v != nil {
+		c.BytesRateLimiterRate = v
+	}
+	if v := f.BytesRateLimiterCapacity; v != nil {
+		c.BytesRateLimiterCapacity = v
+	}
+}
+
 type Capabilities struct {
 	RateLimit        EngineExecutionRateLimit `toml:",omitempty"`
 	Peering          P2P                      `toml:",omitempty"`
+	SharedPeering    SharedPeering            `toml:",omitempty"`
 	Dispatcher       Dispatcher               `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry         `toml:",omitempty"`
 	WorkflowRegistry WorkflowRegistry         `toml:",omitempty"`
@@ -2206,6 +2262,7 @@ type Capabilities struct {
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.RateLimit.setFrom(&f.RateLimit)
 	c.Peering.setFrom(&f.Peering)
+	c.SharedPeering.setFrom(&f.SharedPeering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)
 	c.Dispatcher.setFrom(&f.Dispatcher)

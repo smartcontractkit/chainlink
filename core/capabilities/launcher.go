@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
@@ -50,6 +51,8 @@ type launcher struct {
 	registry            *Registry
 	subServices         []services.Service
 	workflowDonNotifier donNotifier
+	don2donSharedPeer   p2ptypes.SharedPeer
+	p2pStreamConfig     p2ptypes.StreamConfig
 }
 
 type donNotifier interface {
@@ -59,10 +62,26 @@ type donNotifier interface {
 func NewLauncher(
 	lggr logger.Logger,
 	peerWrapper p2ptypes.PeerWrapper,
+	don2donSharedPeer p2ptypes.SharedPeer,
+	streamConfig config.StreamConfig,
 	dispatcher remotetypes.Dispatcher,
 	registry *Registry,
 	workflowDonNotifier donNotifier,
 ) *launcher {
+	p2pStreamConfig := defaultStreamConfig
+	if streamConfig != nil {
+		p2pStreamConfig.IncomingMessageBufferSize = streamConfig.IncomingMessageBufferSize()
+		p2pStreamConfig.OutgoingMessageBufferSize = streamConfig.OutgoingMessageBufferSize()
+		p2pStreamConfig.MaxMessageLenBytes = streamConfig.MaxMessageLenBytes()
+		p2pStreamConfig.MessageRateLimiter = ragep2p.TokenBucketParams{
+			Rate:     streamConfig.MessageRateLimiterRate(),
+			Capacity: streamConfig.MessageRateLimiterCapacity(),
+		}
+		p2pStreamConfig.BytesRateLimiter = ragep2p.TokenBucketParams{
+			Rate:     streamConfig.BytesRateLimiterRate(),
+			Capacity: streamConfig.BytesRateLimiterCapacity(),
+		}
+	}
 	return &launcher{
 		lggr:                logger.Named(lggr, "CapabilitiesLauncher"),
 		peerWrapper:         peerWrapper,
@@ -70,6 +89,8 @@ func NewLauncher(
 		registry:            registry,
 		subServices:         []services.Service{},
 		workflowDonNotifier: workflowDonNotifier,
+		don2donSharedPeer:   don2donSharedPeer,
+		p2pStreamConfig:     p2pStreamConfig,
 	}
 }
 
@@ -159,8 +180,11 @@ func (w *launcher) publicDONs(
 
 func (w *launcher) allDONs(localRegistry *registrysyncer.LocalRegistry) []registrysyncer.DonID {
 	allDONIDs := make([]registrysyncer.DonID, 0)
-	for id := range localRegistry.IDsToDONs {
-		allDONIDs = append(allDONIDs, id)
+	for id, don := range localRegistry.IDsToDONs {
+		if len(don.Members) > 0 {
+			// only non-empty DONs
+			allDONIDs = append(allDONIDs, id)
+		}
 	}
 	slices.Sort(allDONIDs) // ensure deterministic order
 	return allDONIDs
@@ -190,6 +214,33 @@ func (w *launcher) HealthReport() map[string]error {
 
 func (w *launcher) Name() string {
 	return w.lggr.Name()
+}
+
+func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *registrysyncer.LocalRegistry) []p2ptypes.DonPair {
+	allDONIds := w.allDONs(localRegistry)
+	donPairs := []p2ptypes.DonPair{}
+	isBootstrap := w.don2donSharedPeer.IsBootstrap()
+	for i, idA := range allDONIds {
+		donA := localRegistry.IDsToDONs[idA]
+		nodeBelongsToA := slices.Contains(donA.Members, myID)
+		for _, idB := range allDONIds[i+1:] {
+			donB := localRegistry.IDsToDONs[idB]
+			pairAB := p2ptypes.DonPair{donA.DON, donB.DON}
+			if isBootstrap {
+				donPairs = append(donPairs, pairAB) // bootstrap adds all DON pairs
+				continue
+			}
+			nodeBelongsToB := slices.Contains(donB.Members, myID)
+			if !nodeBelongsToA && !nodeBelongsToB {
+				continue // skip if node doesn't belong to either DON
+			}
+			if donA.AcceptsWorkflows && len(donB.CapabilityConfigurations) > 0 || // add DON pair if A is workflow and B is capability
+				donB.AcceptsWorkflows && len(donA.CapabilityConfigurations) > 0 { // add DON pair if B is workflow and A is capability
+				donPairs = append(donPairs, pairAB)
+			}
+		}
+	}
+	return donPairs
 }
 
 func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
@@ -273,13 +324,21 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	}
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
-	peer := w.peerWrapper.GetPeer()
-	myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, peer.IsBootstrap(), localRegistry)
-	err := peer.UpdateConnections(myPeers)
-	if err != nil {
-		return fmt.Errorf("failed to update peer connections: %w", err)
+	if w.peerWrapper != nil {
+		peer := w.peerWrapper.GetPeer()
+		myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, peer.IsBootstrap(), localRegistry)
+		err := peer.UpdateConnections(myPeers)
+		if err != nil {
+			return fmt.Errorf("failed to update peer connections: %w", err)
+		}
 	}
-
+	if w.don2donSharedPeer != nil {
+		donPairs := w.donPairsToUpdate(myID, localRegistry)
+		err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, defaultStreamConfig)
+		if err != nil {
+			return fmt.Errorf("failed to update peer connections: %w", err)
+		}
+	}
 	return nil
 }
 
