@@ -1477,3 +1477,57 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateWrappedNativeOnRouterChangeset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{name: "MCMS enabled", mcmsEnabled: true},
+		{name: "MCMS disabled", mcmsEnabled: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.Get(t)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			state, err := stateview.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
+			chainSel := allChains[0]
+			router := state.Chains[chainSel].Router
+			require.NotNil(t, router)
+
+			oldWrappedNative, err := router.GetWrappedNative(&bind.CallOpts{Context: ctx})
+			require.NoError(t, err)
+
+			newWrappedNative := common.HexToAddress("0x1234567890123456789012345678901234567890")
+
+			if tc.mcmsEnabled {
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{chainSel}, true)
+			}
+
+			var mcmsConfig *proposalutils.TimelockConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &proposalutils.TimelockConfig{MinDelay: 0}
+			}
+
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateWrappedNativeOnRouterChangeset),
+					v1_6.UpdateWrappedNativeOnRouterConfig{
+						UpdatesByChain: map[uint64]common.Address{
+							chainSel: newWrappedNative,
+						},
+						MCMS: mcmsConfig,
+					},
+				),
+			)
+			require.NoError(t, err)
+
+			updatedWrappedNative, err := router.GetWrappedNative(&bind.CallOpts{Context: ctx})
+			require.NoError(t, err)
+			assert.Equal(t, newWrappedNative, updatedWrappedNative)
+			assert.NotEqual(t, oldWrappedNative, updatedWrappedNative)
+		})
+	}
+}

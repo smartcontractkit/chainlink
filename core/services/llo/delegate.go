@@ -207,9 +207,6 @@ func (d *delegate) Close() error {
 		for _, oracle := range d.oracles {
 			merr = errors.Join(merr, oracle.Close())
 		}
-		if closer, ok := d.ds.(Closer); ok {
-			merr = errors.Join(merr, closer.Close())
-		}
 		merr = errors.Join(merr, d.telem.Close())
 		return merr
 	})

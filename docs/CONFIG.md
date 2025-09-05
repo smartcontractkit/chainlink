@@ -2350,6 +2350,26 @@ URL = '' # Default
 ```
 URL is override URL for the workflow fetcher service.
 
+## CRE.Linking
+```toml
+[CRE.Linking]
+URL = "" # Default
+TLSEnabled = true # Default
+```
+
+
+### URL
+```toml
+URL = "" # Default
+```
+URL is the locator for the Chainlink linking service.
+
+### TLSEnabled
+```toml
+TLSEnabled = true # Default
+```
+TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+
 ## Billing
 ```toml
 [Billing]
