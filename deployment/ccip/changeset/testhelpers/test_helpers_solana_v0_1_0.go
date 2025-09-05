@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -1795,16 +1796,56 @@ func DeployRegulatedTransferableTokenAptos(
 	require.NoError(t, err)
 	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
 	require.NoError(t, err)
+
+	// Regulated token must be initialized via EOA, not mcms
+	signer := e.BlockChains.AptosChains()[aptosChainSel].DeployerSigner
+	client := e.BlockChains.AptosChains()[aptosChainSel].Client
+	opts := &aptosBind.TransactOpts{Signer: signer}
+	tokenAddress, tx, token, err := regulated_token.DeployToObject(signer, client)
+	data, err := client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to deploy regulated token: %v", data.VmStatus)
+
+	tx, err = token.RegulatedToken().Initialize(opts, nil, tokenName, "TKN", 8, "", "")
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to initialize regulated token: %v", data.VmStatus)
+
+	tx, err = token.RegulatedToken().GrantRole(opts, 4, signer.AccountAddress())
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to grant mint role to deployer: %v", data.VmStatus)
+
+	tx, err = token.RegulatedToken().Mint(opts, mintAmount.To, mintAmount.Amount)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to mint %d token to %s: %v", mintAmount.Amount, mintAmount.To, data.VmStatus)
+
+	tokenMetadata, err := token.RegulatedToken().TokenMetadata(nil)
+	require.NoError(t, err)
+
+	// Save addresses in address book
+	typeAndVersion := cldf.NewTypeAndVersion(shared.AptosRegulatedTokenType, deployment.Version1_6_0)
+	typeAndVersion.AddLabel("TKN")
+	err = e.ExistingAddresses.Save(aptosChainSel, tokenAddress.StringLong(), typeAndVersion)
+	require.NoError(t, err)
+	typeAndVersion = cldf.NewTypeAndVersion(cldf.ContractType("TKN"), deployment.Version1_6_0)
+	err = e.ExistingAddresses.Save(aptosChainSel, tokenMetadata.StringLong(), typeAndVersion)
+	require.NoError(t, err)
+
 	// Aptos
 	e, err = commoncs.Apply(t, e,
 		commoncs.Configure(aptoscs.AddTokenPool{},
 			config.AddTokenPoolConfig{
 				ChainSelector:                       aptosChainSel,
-				TokenAddress:                        aptos.AccountAddress{},             // Will be deployed
-				TokenCodeObjAddress:                 aptos.AccountAddress{},             // Will be deployed
+				TokenAddress:                        tokenMetadata,
+				TokenCodeObjAddress:                 tokenAddress,
 				TokenPoolAddress:                    aptos.AccountAddress{},             // Will be deployed
 				PoolType:                            shared.AptosRegulatedTokenPoolType, // Use regulated token pool type
-				TokenType:                           "regulated",                        // Specify regulated token type
+				TokenType:                           "regulated",                        // Specify regulated token type // TODO - remove
 				TokenTransferFeeByRemoteChainConfig: nil,                                // TODO - not needed?
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {
@@ -1821,12 +1862,6 @@ func DeployRegulatedTransferableTokenAptos(
 						},
 					},
 				},
-				TokenParams: config.TokenParams{
-					Name:     tokenName,
-					Symbol:   "TKN", // Regulated Token
-					Decimals: 8,
-				},
-				TokenMint: mintAmount,
 				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay: time.Second, // TODO
 				},

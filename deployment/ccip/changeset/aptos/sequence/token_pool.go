@@ -123,23 +123,13 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 			tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount(seedBytes)
 			gmReport, err := operations.ExecuteOperation(b, operation.GrantRoleOp, deps, operation.GrantRoleInput{
 				TokenCodeObjectAddress: in.TokenCodeObjAddress,
-				RoleNumber:             byte(4), // 4 is the minter role
+				RoleNumber:             6, // BRIDGE_MINTER_OR_BURNER_ROLE= 6;
 				Account:                tokenPoolStateAddress,
 			})
 			if err != nil {
 				return DeployTokenPoolSeqOutput{}, err
 			}
 			txs = append(txs, gmReport.Output)
-
-			gbReport, err := operations.ExecuteOperation(b, operation.GrantRoleOp, deps, operation.GrantRoleInput{
-				TokenCodeObjectAddress: in.TokenCodeObjAddress,
-				RoleNumber:             byte(5), // 5 is the burner role
-				Account:                tokenPoolStateAddress,
-			})
-			if err != nil {
-				return DeployTokenPoolSeqOutput{}, err
-			}
-			txs = append(txs, gbReport.Output)
 		} else {
 			seedBytes = []byte("CcipManagedTokenPool") // Seed for managed token pool
 			tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount(seedBytes)
