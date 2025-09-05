@@ -458,10 +458,8 @@ func (i *pluginOracleCreator) createChainAccessors(
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		// check if CCIP provider exist, otherwise create default chain accessor
 		var ca cciptypes.ChainAccessor
-		i.lggr.Infow("about to call NewCCIPProvider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network)
-		provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
-		i.lggr.Infow("finished calling NewCCIPProvider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network, "err", err, "providerNil", provider == nil)
-		if err != nil || provider == nil || relayID.Network == "aptos" {
+		chainAccessorSupported, ok := pluginServices.ChainAccessorSupported[relayID.Network]
+		if !chainAccessorSupported || !ok {
 			// use default chain accessor if cr and cw exist
 			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
 				return nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
@@ -474,13 +472,16 @@ func (i *pluginOracleCreator) createChainAccessors(
 				pluginServices.AddrCodec,
 			)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to create default chain accessor for relay ID %s: %w", relayID, err)
 			}
 		} else {
-			i.lggr.Infow("about to call ChainAccessor from CCIP provider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network)
+			provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
+			}
 			ca = provider.ChainAccessor()
-			i.lggr.Infow("Done calling ChainAccessor from CCIP provider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network, "caNil", ca == nil)
 		}
+
 		chainAccessors[chainSelector] = ca
 	}
 	return chainAccessors, nil
