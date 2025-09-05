@@ -464,11 +464,10 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 	return oracleConfig, nil
 }
 
-// TODO: CRE-742 use datastore
-func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, error) {
+func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, cldf.TypeAndVersion, error) {
 	addresses, err := addressBook.AddressesForChain(chainSelector)
 	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to get addresses for chain")
+		return common.Address{}, cldf.TypeAndVersion{}, errors.Wrap(err, "failed to get addresses for chain")
 	}
 
 	for addrStr, tv := range addresses {
@@ -476,15 +475,15 @@ func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, c
 			continue
 		}
 
-		return common.HexToAddress(addrStr), nil
+		return common.HexToAddress(addrStr), tv, nil
 	}
 
-	return common.Address{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
+	return common.Address{}, cldf.TypeAndVersion{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
 }
 
 // TODO: CRE-742 use datastore
 func MustFindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) common.Address {
-	addr, err := FindAddressesForChain(addressBook, chainSelector, contractName)
+	addr, _, err := FindAddressesForChain(addressBook, chainSelector, contractName)
 	if err != nil {
 		panic(fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector))
 	}
@@ -601,7 +600,7 @@ func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint6
 	}
 	testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
 
-	dataFeedsCacheAddress, dataFeedsCacheErr := FindAddressesForChain(
+	dataFeedsCacheAddress, _, dataFeedsCacheErr := FindAddressesForChain(
 		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		chainSelector,
 		df_changeset.DataFeedsCache.String(),
@@ -628,7 +627,7 @@ func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64,
 	}
 	testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
 
-	readBalancesAddress, readContractErr := FindAddressesForChain(
+	readBalancesAddress, _, readContractErr := FindAddressesForChain(
 		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		chainSelector,
 		keystone_changeset.BalanceReader.String(),
