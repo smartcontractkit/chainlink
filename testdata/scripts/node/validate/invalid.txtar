@@ -406,6 +406,10 @@ RestURL = ''
 [CRE.WorkflowFetcher]
 URL = ''
 
+[CRE.Linking]
+URL = ''
+TLSEnabled = true
+
 [Billing]
 URL = ''
 TLSEnabled = true

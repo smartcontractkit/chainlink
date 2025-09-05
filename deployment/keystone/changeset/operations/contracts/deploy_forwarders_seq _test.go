@@ -39,4 +39,5 @@ func Test_DeployForwardersSeq(t *testing.T) {
 	addrRefs, err := got.Output.Addresses.Fetch()
 	require.NoError(t, err)
 	require.Len(t, addrRefs, len(input.Targets))
+	require.NotEmpty(t, got.Output.Datastore)
 }

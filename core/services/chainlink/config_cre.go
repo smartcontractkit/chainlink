@@ -59,3 +59,34 @@ func (c *creConfig) UseLocalTimeProvider() bool {
 	}
 	return *c.c.UseLocalTimeProvider
 }
+
+type linkingConfig struct {
+	url        string
+	tlsEnabled bool
+}
+
+func (l *linkingConfig) URL() string {
+	return l.url
+}
+
+func (l *linkingConfig) TLSEnabled() bool {
+	return l.tlsEnabled
+}
+
+func (c *creConfig) Linking() config.CRELinking {
+	if c.c.Linking == nil {
+		return &linkingConfig{url: "", tlsEnabled: true} // default TLS enabled
+	}
+
+	url := ""
+	if c.c.Linking.URL != nil {
+		url = *c.c.Linking.URL
+	}
+
+	tlsEnabled := true // default
+	if c.c.Linking.TLSEnabled != nil {
+		tlsEnabled = *c.c.Linking.TLSEnabled
+	}
+
+	return &linkingConfig{url: url, tlsEnabled: tlsEnabled}
+}

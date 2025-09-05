@@ -45,3 +45,44 @@ var DeployOCR3Op = operations.NewOperation[DeployOCR3OpInput, DeployOCR3OpOutput
 		}, nil
 	},
 )
+
+type DeployOCR3ContractSequenceDeps struct {
+	Env *cldf.Environment
+}
+
+type DeployOCR3ContractSequenceInput struct {
+	RegistryChainSelector uint64
+	Qualifier             string // qualifier for the OCR3 contract deployment
+}
+
+type DeployOCR3ContractSequenceOutput struct {
+	// TODO: CRE-742 remove AddressBook
+	AddressBook cldf.AddressBook // Keeping the address store for backward compatibility, as not everything has been migrated to datastore
+	Datastore   datastore.DataStore
+}
+
+// DeployKeystoneContractsSequence is a sequence that deploys the Keystone contracts (OCR3, Capabilities Registry, Workflow Registry, Keystone Forwarder).
+var DeployOCR3ContractsSequence = operations.NewSequence[DeployOCR3ContractSequenceInput, DeployOCR3ContractSequenceOutput, DeployOCR3ContractSequenceDeps](
+	"deploy-registry-contracts-seq",
+	semver.MustParse("1.0.0"),
+	"Deploy registry Contracts (Capabilities Registry, Workflow Registry)",
+	func(b operations.Bundle, deps DeployOCR3ContractSequenceDeps, input DeployOCR3ContractSequenceInput) (output DeployOCR3ContractSequenceOutput, err error) {
+		ab := cldf.NewMemoryAddressBook()
+		as := datastore.NewMemoryDataStore()
+
+		// OCR3 Contract
+		ocr3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: input.Qualifier})
+		if err != nil {
+			return DeployOCR3ContractSequenceOutput{}, err
+		}
+		err = updateAddresses(as.Addresses(), ocr3DeployReport.Output.Addresses, ab, ocr3DeployReport.Output.AddressBook)
+		if err != nil {
+			return DeployOCR3ContractSequenceOutput{}, err
+		}
+		return DeployOCR3ContractSequenceOutput{
+			AddressBook: ab,
+			Datastore:   as.Seal(),
+		}, nil
+
+	},
+)
