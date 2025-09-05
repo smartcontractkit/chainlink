@@ -98,7 +98,7 @@ func setupLoadTestWriterEnvironment(
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
+	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
 
 	// DF cache start
@@ -114,7 +114,7 @@ func setupLoadTestWriterEnvironment(
 	mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
 	require.NoError(t, mergeErr, "failed to merge address book")
 
-	dfCacheAddress, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
+	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
 	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
 	// Config
 	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &cretypes.ConfigureDataFeedsCacheInput{
@@ -441,7 +441,7 @@ type testParams struct {
 func exportTestParams(params testParams) error {
 	// Create cache directory if it doesn't exist
 	cacheDir := filepath.Join(os.TempDir(), "cache")
-	if err := os.MkdirAll(cacheDir, 0600); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o600); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -464,7 +464,7 @@ func exportTestParams(params testParams) error {
 
 	// Write to file in cache directory
 	cacheFile := filepath.Join(cacheDir, "test_params.json")
-	if err := os.WriteFile(cacheFile, jsonData, 0600); err != nil {
+	if err := os.WriteFile(cacheFile, jsonData, 0o600); err != nil {
 		return fmt.Errorf("failed to write test params file: %w", err)
 	}
 
@@ -685,6 +685,7 @@ func (s *WriterGun) executeRequest(metadata *pb2.Metadata, encodedReport []byte,
 
 	return s.capProxy.Execute(context.TODO(), req)
 }
+
 func (s *WriterGun) createEVMEncoder() (consensustypes.Encoder, error) {
 	evmEncoderConfig := map[string]any{
 		"abi": "(bytes32 FeedID, uint32 Timestamp, uint224 Price)[] Reports",
@@ -768,6 +769,7 @@ func (s *WriterGun) createRequestInputs(encodedReport []byte, sigs [][]byte, rep
 
 	return inputBytes, configBytes, nil
 }
+
 func stringTo32Byte(input string) ([32]byte, error) {
 	var result [32]byte
 
@@ -804,13 +806,13 @@ func convertToHashedWorkflowName(input string) string {
 func saveClientURL(url string) error {
 	// Create cache directory if it doesn't exist
 	cacheDir := filepath.Join(os.TempDir(), "cache")
-	if err := os.MkdirAll(cacheDir, 0600); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o600); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	// Save URL to file
 	cacheFile := filepath.Join(cacheDir, "client_url.txt")
-	if err := os.WriteFile(cacheFile, []byte(url), 0600); err != nil {
+	if err := os.WriteFile(cacheFile, []byte(url), 0o600); err != nil {
 		return fmt.Errorf("failed to write client URL file: %w", err)
 	}
 

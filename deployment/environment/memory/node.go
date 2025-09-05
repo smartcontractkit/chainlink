@@ -659,7 +659,7 @@ func CreateKeys(t *testing.T,
 			transmitters[chainSelector] = transmitter.ID()
 			transmitterAccountAddress := aptos.AccountAddress{}
 			require.NoError(t, transmitterAccountAddress.ParseStringRelaxed(transmitter.Account()))
-			fundAptosAccount(t, aptosChain.DeployerSigner, transmitterAccountAddress, 100*1e8, aptosChain.Client)
+			FundAptosAccount(t, aptosChain.DeployerSigner, transmitterAccountAddress, 100*1e8, aptosChain.Client)
 		}
 	}
 

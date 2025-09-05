@@ -52,7 +52,7 @@ See an example in a test using PoR workflow.
 func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvironment) []uint64 {
 	t.Helper()
 
-	var testLogger = framework.L
+	testLogger := framework.L
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
@@ -219,7 +219,7 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvir
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+	workflowRegistryAddress, _, workflowRegistryErr := crecontracts.FindAddressesForChain(
 		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //lint:ignore SA1019 ignoring deprecation warning for this usage
 		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
