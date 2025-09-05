@@ -23,6 +23,7 @@ import (
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
+	t.Skip(" Skip the test for now, re-enable after supporting compiled contract fetching setup in integration tests")
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
 
 	t.Logf("Environment: %+v", e.Env)
