@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -284,7 +285,7 @@ func (s *Shell) RunNode(c *cli.Context) error {
 }
 
 func (s *Shell) runNode(c *cli.Context) error {
-	ctx := s.ctx()
+	ctx := s.RootCtx
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
@@ -335,33 +336,40 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}()
 
-	// TODO: handling shutdown
+	// Enforce closing after grace period
+	var forceOnce sync.Once
+	forceClose := func() {
+		forceOnce.Do(func() {
+			// Close DB hard if still open
+			if s.LDB != nil {
+				if err := s.LDB.Close(); err != nil {
+					lggr.Criticalf("Failed to close DB: %v", err)
+				}
+				s.LDB = nil
+			}
+			// Close logger if still open
+			if s.CloseLogger != nil {
+				_ = s.CloseLogger()
+			}
+			os.Exit(1)
+		})
+	}
 
-	// go shutdown.HandleShutdown(func(sig string) {
-	// 	lggr.Infof("Shutting down due to %s signal received...", sig)
+	// When root is cancelled, start the grace timer.
+	go func() {
+		<-rootCtx.Done()
+		lggr.Infof("Shutdown initiated (root context cancelled); beginning graceful shutdown...")
+		shutdownStartTime = time.Now()
 
-	// 	shutdownStartTime = time.Now()
-	// 	cancelRootCtx()
-
-	// 	select {
-	// 	case <-cleanExit:
-	// 		return
-	// 	case <-time.After(s.Config.ShutdownGracePeriod()):
-	// 	}
-
-	// 	lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", s.Config.ShutdownGracePeriod())
-	// 	// LockedDB.Close() will release DB locks and close DB connection
-	// 	// Executing this explicitly because defers are not executed in case of os.Exit()
-	// 	if err := ldb.Close(); err != nil {
-	// 		lggr.Criticalf("Failed to close LockedDB: %v", err)
-	// 	}
-	// 	lggr.Debug("Closed DB")
-	// 	if err := s.CloseLogger(); err != nil {
-	// 		log.Printf("Failed to close Logger: %v", err)
-	// 	}
-
-	// 	os.Exit(-1)
-	// })
+		select {
+		case <-cleanExit:
+			// Finished gracefully before the timer fired
+			return
+		case <-time.After(s.Config.ShutdownGracePeriod()):
+			lggr.Criticalf("Shutdown grace period of %v exceeded; forcing close...", s.Config.ShutdownGracePeriod())
+			forceClose()
+		}
+	}()
 
 	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {

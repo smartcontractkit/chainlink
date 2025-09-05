@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -261,6 +262,10 @@ func NewApp(s *Shell) *cli.App {
 				rootCtx, cancelRootCtx := context.WithCancel(context.Background())
 				s.RootCtx = rootCtx
 				s.CancelRootCtx = cancelRootCtx
+				go shutdown.HandleShutdown(func(sig string) {
+					s.Logger.Infof("Shutting down due to %s signal...", sig)
+					cancelRootCtx()
+				})
 
 				lggr := s.Logger
 
@@ -272,10 +277,9 @@ func NewApp(s *Shell) *cli.App {
 					// If not successful, we know neither locks nor connection remains opened
 					return s.errorOut(errors.Wrap(err, "opening db"))
 				}
+				db := ldb.DB()
 				// From now on, DB locks and DB connection will be released on every return.
 				// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
-
-				db := ldb.DB()
 
 				err = handleNodeVersioning(rootCtx, db, lggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 				if err != nil {
@@ -284,7 +288,6 @@ func NewApp(s *Shell) *cli.App {
 
 				ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
 				keyStore := keystore.New(ds, utils.GetScryptParams(cfg), lggr.Infof)
-
 				s.DS = ds
 				s.KeyStore = keyStore
 
