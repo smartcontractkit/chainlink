@@ -205,7 +205,7 @@ func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner s
 			WorkflowName:  workflowName,
 			WorkflowTag:   "TEMP_TAG",
 		},
-		Input: []byte(`{
+		Input: json.RawMessage(`{
 			"customer": "test-customer",
 			"size": "large",
 			"toppings": ["cheese", "pepperoni"],

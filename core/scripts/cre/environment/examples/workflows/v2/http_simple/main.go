@@ -5,8 +5,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	http "github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
@@ -26,15 +28,13 @@ func main() {
 	}).Run(RunSimpleHttpWorkflow)
 }
 
-func RunSimpleHttpWorkflow(wcx *sdk.Environment[Config]) (sdk.Workflow[Config], error) {
-	config := wcx.Config
-
+func RunSimpleHttpWorkflow(config Config, _ *slog.Logger, _ cre.SecretsProvider) (sdk.Workflow[Config], error) {
 	workflows := sdk.Workflow[Config]{
 		sdk.Handler(
 			http.Trigger(&http.Config{
 				AuthorizedKeys: []*http.AuthorizedKey{
 					{
-						Type:      http.KeyType_KEY_TYPE_ECDSA,
+						Type:      http.KeyType_KEY_TYPE_ECDSA_EVM,
 						PublicKey: config.AuthorizedKey,
 					},
 				},
@@ -51,25 +51,20 @@ type OrderResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
-func onTrigger(env *sdk.Environment[Config], runtime sdk.Runtime, trigger *http.Payload) (string, error) {
-	env.Logger.Info("Simple HTTP workflow triggered.")
+func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, error) {
+	logger := runtime.Logger()
+	logger.Info("Simple HTTP workflow triggered.")
 
-	inputMap := trigger.Input.AsMap()
-	env.Logger.Info("Processing order with inputs", "inputs", inputMap)
+	logger.Info("Processing order with inputs", "inputs", string(trigger.Input))
 
-	orderPromise := sdk.RunInNodeMode(env, runtime,
-		func(env *sdk.NodeEnvironment[Config], nodeRuntime sdk.NodeRuntime) (string, error) {
+	orderPromise := sdk.RunInNodeMode(cfg, runtime,
+		func(cfg Config, nodeRuntime sdk.NodeRuntime) (string, error) {
 			client := &http.Client{}
 
-			requestBody, err := json.Marshal(inputMap)
-			if err != nil {
-				return "", fmt.Errorf("failed to marshal order request: %w", err)
-			}
-
 			req := &http.Request{
-				Url:    env.Config.URL,
+				Url:    cfg.URL,
 				Method: "POST",
-				Body:   requestBody,
+				Body:   trigger.Input,
 				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
@@ -99,6 +94,6 @@ func onTrigger(env *sdk.Environment[Config], runtime sdk.Runtime, trigger *http.
 		return "", err
 	}
 
-	env.Logger.Info("Successfully processed order", "result", result)
+	logger.Info("Successfully processed order", "result", result)
 	return result, nil
 }

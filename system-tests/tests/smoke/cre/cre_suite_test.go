@@ -35,7 +35,6 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] HTTP trigger and action test", func(t *testing.T) {
-			// requires `http_trigger`, `http_action`
 			ExecuteHTTPTriggerActionTest(t, testEnv)
 		})
 
