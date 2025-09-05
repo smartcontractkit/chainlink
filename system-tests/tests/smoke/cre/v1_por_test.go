@@ -92,7 +92,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		crecontracts.MergeAllDataStores(fullCldEnvOutput, dfOutput, rbOutput)
 
 		testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
-		forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
 
 		uniqueWorkflowName := baseWorkflowTestConfig.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4] // e.g. 'por-workflow-1337-5f37_config'
@@ -166,7 +166,7 @@ func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.W
 		}
 	}
 
-	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
+	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
 		return "", errors.Wrap(err, "failed to write output file")
 	}
 
@@ -210,7 +210,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 			feedID := config.FeedIDs[idx]
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
 
-			dataFeedsCacheAddresses, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
+			dataFeedsCacheAddresses, _, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
 				testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 				bcOutput.ChainSelector,
 				df_changeset.DataFeedsCache.String(),

@@ -34,7 +34,7 @@ type FundCLNodesOpInput struct {
 type FundCLNodesOpOutput struct {
 }
 
-var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOutput, FundCLNodesOpDeps](
+var FundCLNodesOp = operations.NewOperation(
 	"fund-cl-nodes-op",
 	semver.MustParse("1.0.0"),
 	"Fund Chainlink Nodes",
