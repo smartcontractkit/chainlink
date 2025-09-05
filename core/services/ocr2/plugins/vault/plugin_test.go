@@ -105,7 +105,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	dkgrecipientKey, err := dkgrecipientkey.New()
 	require.NoError(t, err)
 	instanceID := dkgocrtypes.InstanceID("instanceID")
-	pkg, err := dummydkg.NewResultPackage(dkgocrtypes.InstanceID(instanceID), dkgocrtypes.ReportingPluginConfig{
+	pkg, err := dummydkg.NewResultPackage(instanceID, dkgocrtypes.ReportingPluginConfig{
 		DealerPublicKeys:    []dkgocrtypes.P256ParticipantPublicKey{dkgrecipientKey.PublicKey()},
 		RecipientPublicKeys: []dkgocrtypes.P256ParticipantPublicKey{dkgrecipientKey.PublicKey()},
 		T:                   1,
@@ -119,7 +119,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	_, orm := setupORM(t)
 	pkgBin, err := pkg.MarshalBinary()
 	require.NoError(t, err)
-	orm.WriteResultPackage(t.Context(), instanceID, dkgocrtypes.ResultPackageDatabaseValue{
+	require.NoError(t, orm.WriteResultPackage(t.Context(), instanceID, dkgocrtypes.ResultPackageDatabaseValue{
 		ConfigDigest:            [32]byte{0x1, 0x2, 0x3, 0x4},
 		SeqNr:                   1,
 		ReportWithResultPackage: pkgBin,
@@ -129,7 +129,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 				Signer:    1,
 			},
 		},
-	})
+	}))
 
 	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, nil, nil)
 	require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	ks := &tdh2.PrivateShare{}
 	err = ks.Unmarshal(ksBytes)
 	require.NoError(t, err)
-	assert.Equal(t, ks, expectedKeyShare)
+	assert.Equal(t, expectedKeyShare, ks)
 
 	assert.Equal(t, "VaultReportingPlugin", info.Name)
 }
