@@ -4,9 +4,10 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/smdkg/p256keyring"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 var _ internal.Key = &Key{}

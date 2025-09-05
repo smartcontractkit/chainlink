@@ -315,7 +315,7 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
 	}
-	var dkgRecipientIDs []string
+	dkgRecipientIDs := []string{}
 	for _, dkgRecipientKey := range kr.DKGRecipient {
 		dkgRecipientIDs = append(dkgRecipientIDs, dkgRecipientKey.ID())
 	}

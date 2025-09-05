@@ -116,7 +116,7 @@ func (ks *dkgRecipient) Import(ctx context.Context, keyJSON []byte, password str
 	if _, found := ks.keyRing.DKGRecipient[key.ID()]; found {
 		return dkgrecipientkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(ctx, key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
 func (ks *dkgRecipient) Export(id string, password string) ([]byte, error) {
