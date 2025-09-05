@@ -22,8 +22,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials/insecure"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -221,11 +219,6 @@ func SetupTestEnvironment(
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
 				evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
 			}
-		}
-		if bcOut.SolChain != nil {
-			// we expect that if we have solana, solana write capability is enabled
-			solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
-			continue
 		}
 	}
 
@@ -627,6 +620,19 @@ func SetupTestEnvironment(
 	// If the ConfigSet event is missed, OCR protocol will not start.
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Jobs created in %.2f seconds", stageGen.Elapsed().Seconds())))
 
+	preFundingOutput, prefundErr := operations.ExecuteOperation(fullCldOutput.Environment.OperationsBundle, PrepareCLNodesFundingOp, PrepareFundCLNodesOpDeps{
+		TestLogger:        testLogger,
+		Env:               fullCldOutput.Environment,
+		BlockchainOutputs: blockchainOutputs,
+		DonTopology:       fullCldOutput.DonTopology,
+	}, PrepareFundCLNodesOpInput{FundingPerChainFamilyForEachNode: map[string]uint64{
+		"evm":    10000000000000000, // 0.01 ETH
+		"solana": 50_000_000,        // 0.05 SOL
+	}})
+	if prefundErr != nil {
+		return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
+	}
+
 	// Fund nodes in the background, so that we can continue with the next stage
 	backgroundStagesWaitGroup.Add(1)
 	go func() {
@@ -644,10 +650,14 @@ func SetupTestEnvironment(
 		fmt.Print(libformat.PurpleText("---> [BACKGROUND 2/3] Funding Chainlink nodes\n\n"))
 
 		_, fundErr := operations.ExecuteOperation(fullCldOutput.Environment.OperationsBundle, FundCLNodesOp, FundCLNodesOpDeps{
+			TestLogger:        testLogger,
 			Env:               fullCldOutput.Environment,
 			BlockchainOutputs: blockchainOutputs,
 			DonTopology:       fullCldOutput.DonTopology,
-		}, FundCLNodesOpInput{FundAmount: 5000000000000000000})
+		}, FundCLNodesOpInput{
+			FundingAmountPerChainFamily: preFundingOutput.Output.FundingPerChainFamilyForEachNode,
+			PrivateKeyPerChainFamily:    preFundingOutput.Output.PrivateKeysPerChainFamily,
+		})
 		if fundErr != nil {
 			backgroundStagesCh <- backgroundStageResult{err: pkgerrors.Wrap(fundErr, "failed to fund CL nodes")}
 			return
@@ -855,41 +865,6 @@ func mergeJobSpecSlices(from, to cre.DonsToJobSpecs) {
 		}
 		to[fromDonID] = append(to[fromDonID], fromJobSpecs...)
 	}
-}
-
-type ConcurrentNonceMap struct {
-	mu             sync.Mutex
-	nonceByChainID map[uint64]uint64
-}
-
-func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*cre.WrappedBlockchainOutput) (*ConcurrentNonceMap, error) {
-	nonceByChainID := make(map[uint64]uint64)
-	for _, bcOut := range blockchainOutputs {
-		if bcOut.BlockchainOutput.Family == chainselectors.FamilyEVM {
-			var err error
-			ctxWithTimeout, cancel := context.WithTimeout(ctx, bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
-			nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctxWithTimeout, bcOut.SethClient.MustGetRootKeyAddress())
-			cancel()
-			if err != nil {
-				cancel()
-				return nil, pkgerrors.Wrapf(err, "failed to get nonce for chain %d", bcOut.ChainID)
-			}
-		}
-	}
-	return &ConcurrentNonceMap{nonceByChainID: nonceByChainID}, nil
-}
-
-func (c *ConcurrentNonceMap) Decrement(chainID uint64) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.nonceByChainID[chainID]--
-}
-
-func (c *ConcurrentNonceMap) Increment(chainID uint64) uint64 {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.nonceByChainID[chainID]++
-	return c.nonceByChainID[chainID]
 }
 
 // must match nubmer of events we track in core/services/workflows/syncer/handler.go
