@@ -47,6 +47,7 @@ var (
 const (
 	simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 	solTestKey      = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
+	aptosTestKey    = "0x906b8a983b434318ca67b7eff7300f91b02744c84f87d243d2fbc3e528414366"
 )
 
 func runSafely(ops ...func()) {
@@ -103,7 +104,11 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solTestKey)
+	cribDeployOutput, err := cribEnv.GetConfig(crib.DeployerKeys{
+		EVMKey:   simChainTestKey,
+		SolKey:   solTestKey,
+		AptosKey: aptosTestKey,
+	})
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
