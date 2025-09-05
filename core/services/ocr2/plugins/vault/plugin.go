@@ -83,10 +83,8 @@ func NewReportingPluginFactory(
 		if privateKeyShare == nil {
 			return nil, errors.New("private key share and result package db cannot both be nil")
 		}
-	} else {
-		if recipientKey == nil {
-			return nil, errors.New("DKG recipient key cannot be nil when using result package db")
-		}
+	} else if recipientKey == nil {
+		return nil, errors.New("DKG recipient key cannot be nil when using result package db")
 	}
 
 	cfg := &ReportingPluginConfig{

@@ -163,6 +163,27 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	assert.Equal(t, "VaultReportingPlugin", info.Name)
 }
 
+func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	_, orm := setupORM(t)
+	_, err = NewReportingPluginFactory(lggr, store, orm, nil, nil, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "DKG recipient key cannot be nil when using result package db")
+
+	_, err = NewReportingPluginFactory(lggr, store, nil, nil, nil, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "public key and result package db cannot be nil")
+
+	_, err = NewReportingPluginFactory(lggr, store, nil, nil, pk, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "private key share and result package db cannot both be nil")
+}
+
 func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
