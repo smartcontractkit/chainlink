@@ -435,6 +435,12 @@ func (t *nodeDispatcher) SetReceiver(capabilityID string, donID uint32, receiver
 }
 func (t *nodeDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
 
+func (t *nodeDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, methodName string, receiver remotetypes.Receiver) error {
+	return nil
+}
+func (t *nodeDispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, methodName string) {
+}
+
 type abstractTestCapability struct {
 }
 
