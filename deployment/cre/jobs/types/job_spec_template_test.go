@@ -49,10 +49,9 @@ func TestJobSpecTemplate_UnmarshalYAML(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("numeric legacy", func(t *testing.T) {
+	t.Run("invalid type", func(t *testing.T) {
 		var in jobs.ProposeJobSpecInput
 		yml := "environment: e\ndomain: d\ndon_name: don\ndon_filters: []\njob_name: j\ntemplate: 0\ninputs: {}\n"
-		require.NoError(t, yaml.Unmarshal([]byte(yml), &in))
-		require.Equal(t, job_types.Cron, in.Template)
+		require.Error(t, yaml.Unmarshal([]byte(yml), &in))
 	})
 }

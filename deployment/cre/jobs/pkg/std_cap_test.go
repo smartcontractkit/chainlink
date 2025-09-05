@@ -68,10 +68,11 @@ func TestStdCap_Resolve(t *testing.T) {
 		externalJobID string
 	}{
 		{
-			name:         "cron-capabilities",
-			expectedTOML: expectedCRONSpec,
-			command:      "cron",
-			config:       "",
+			name:          "cron-capabilities",
+			expectedTOML:  expectedCRONSpec,
+			command:       "cron",
+			config:        "",
+			externalJobID: "14d3a547-5e4d-5f22-bfd7-9940cc6cefe2",
 		},
 		{
 			name:         "compute-capabilities",
@@ -83,6 +84,7 @@ globalRPS = 20.0
 globalBurst = 30
 perSenderRPS = 1.0
 perSenderBurst = 5`,
+			externalJobID: "fe41c282-0393-5559-9e6c-4ce592b7f9ac",
 		},
 	}
 
