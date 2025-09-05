@@ -1801,7 +1801,10 @@ func DeployRegulatedTransferableTokenAptos(
 	signer := e.BlockChains.AptosChains()[aptosChainSel].DeployerSigner
 	client := e.BlockChains.AptosChains()[aptosChainSel].Client
 	opts := &aptosBind.TransactOpts{Signer: signer}
-	tokenAddress, tx, token, err := regulated_token.DeployToObject(signer, client)
+
+	// Only admin can grant roles
+	adminAddress := signer.AccountAddress()
+	tokenAddress, tx, token, err := regulated_token.DeployToObject(signer, client, adminAddress)
 	require.NoError(t, err)
 	data, err := client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
@@ -1813,7 +1816,7 @@ func DeployRegulatedTransferableTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to initialize regulated token: %v", data.VmStatus)
 
-	tx, err = token.RegulatedToken().GrantRole(opts, 4, signer.AccountAddress())
+	tx, err = token.RegulatedToken().GrantRole(opts, 4, adminAddress)
 	require.NoError(t, err)
 	data, err = client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
