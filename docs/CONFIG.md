@@ -2449,8 +2449,7 @@ UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not runnin
 ```toml
 EnableDKGRecipient = false # Default
 ```
-EnableDKGRecipient should be set true if the DON is running a capability that consumes a DKG result.
-
+EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
 
 ## EVM
 EVM defaults depend on ChainID:
