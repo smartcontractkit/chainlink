@@ -122,7 +122,6 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 			TokenParams: cfg.TokenParams,
 			MCMSAddress: state.AptosChains[cfg.ChainSelector].MCMSAddress,
 			TokenMint:   cfg.TokenMint,
-			TokenType:   cfg.TokenType,
 		}
 		deploySeq, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployAptosTokenSequence, deps, deployTokenIn)
 		if err != nil {
@@ -133,13 +132,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 		seqReports = append(seqReports, deploySeq.ExecutionReports...)
 		mcmsOperations = append(mcmsOperations, deploySeq.Output.MCMSOperations...)
 		// Save token object address in address book
-		var tokenTypeForAddressBook cldf.ContractType
-		if cfg.TokenType == "regulated" {
-			tokenTypeForAddressBook = shared.AptosRegulatedTokenType
-		} else {
-			tokenTypeForAddressBook = shared.AptosManagedTokenType
-		}
-		typeAndVersion := cldf.NewTypeAndVersion(tokenTypeForAddressBook, deployment.Version1_6_0)
+		typeAndVersion := cldf.NewTypeAndVersion(shared.AptosManagedTokenType, deployment.Version1_6_0)
 		typeAndVersion.AddLabel(string(cfg.TokenParams.Symbol))
 		err = deps.AB.Save(deps.AptosChain.Selector, deploySeq.Output.TokenCodeObjAddress.StringLong(), typeAndVersion)
 		if err != nil {

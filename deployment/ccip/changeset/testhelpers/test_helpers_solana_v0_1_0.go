@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
@@ -1705,8 +1706,7 @@ func DeployTransferableTokenAptos(
 				TokenCodeObjAddress:                 aptos.AccountAddress{}, // Will be deployed
 				TokenPoolAddress:                    aptos.AccountAddress{}, // Will be deployed
 				PoolType:                            shared.AptosManagedTokenPoolType,
-				TokenType:                           "managed", // Specify managed token type
-				TokenTransferFeeByRemoteChainConfig: nil,       // TODO - not needed?
+				TokenTransferFeeByRemoteChainConfig: nil, // TODO - not needed?
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {
 						TokenAddress:     evmToken.Address(),
@@ -1832,14 +1832,14 @@ func DeployRegulatedTransferableTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to initialize regulated token: %v", data.VmStatus)
 
-	tx, err = token.RegulatedToken().GrantRole(opts, 4, adminAddress)
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to grant mint role to deployer: %v", data.VmStatus)
-
 	if mintAmount != nil {
 		lggr.Infof("Minting %v tokens to %v...", mintAmount.Amount, mintAmount.To)
+		tx, err = token.RegulatedToken().GrantRole(opts, 4, adminAddress)
+		require.NoError(t, err)
+		data, err = client.WaitForTransaction(tx.Hash)
+		require.NoError(t, err)
+		require.True(t, data.Success, "failed to grant mint role to deployer: %v", data.VmStatus)
+
 		tx, err = token.RegulatedToken().Mint(opts, mintAmount.To, mintAmount.Amount)
 		require.NoError(t, err)
 		data, err = client.WaitForTransaction(tx.Hash)
@@ -1859,7 +1859,73 @@ func DeployRegulatedTransferableTokenAptos(
 	err = e.ExistingAddresses.Save(aptosChainSel, tokenMetadata.StringLong(), typeAndVersion)
 	require.NoError(t, err)
 
-	// Aptos
+	// Transfer ownership to mcms
+	mcmsContract := mcms.Bind(mcmsAddress, client)
+	tokenOwnerAddress, err := mcmsContract.MCMSRegistry().GetPreexistingCodeObjectOwnerAddress(nil, tokenAddress)
+	require.NoError(t, err)
+
+	tx, err = token.RegulatedToken().TransferOwnership(opts, tokenOwnerAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to propose ownership transfer to mcms %v: %v", tokenOwnerAddress, data.VmStatus)
+
+	tx, err = token.RegulatedToken().TransferAdmin(opts, tokenOwnerAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to propose admin transfer to mcms %v: %v", tokenOwnerAddress, data.VmStatus)
+
+	_, err = commoncs.Apply(t, e,
+		commoncs.Configure(aptoscs.AcceptTokenOwnership{},
+			config.AcceptTokenOwnershipInput{
+				ChainSelector: aptosChainSel,
+				Accepts: []config.AcceptInput{
+					{
+						TokenCodeObjectAddress: tokenAddress,
+						TokenType:              shared.AptosRegulatedTokenType,
+					},
+				},
+				MCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay: time.Second,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	tx, err = token.RegulatedToken().ExecuteOwnershipTransfer(opts, tokenOwnerAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to execute ownership transfer to mcms %v: %v", tokenOwnerAddress, data.VmStatus)
+
+	// Transfer admin role to mcms
+	tx, err = token.RegulatedToken().TransferAdmin(opts, tokenOwnerAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to propose admin transfer to mcms %v: %v", tokenOwnerAddress, data.VmStatus)
+
+	_, err = commoncs.Apply(t, e,
+		commoncs.Configure(aptoscs.AcceptTokenAdmin{},
+			config.AcceptTokenAdminInput{
+				ChainSelector: aptosChainSel,
+				Accepts: []config.AcceptInput{
+					{
+						TokenCodeObjectAddress: tokenAddress,
+						TokenType:              shared.AptosRegulatedTokenType,
+					},
+				},
+				MCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay: time.Second,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Deploy lane
 	e, err = commoncs.Apply(t, e,
 		commoncs.Configure(aptoscs.AddTokenPool{},
 			config.AddTokenPoolConfig{
@@ -1868,7 +1934,6 @@ func DeployRegulatedTransferableTokenAptos(
 				TokenCodeObjAddress:                 tokenAddress,
 				TokenPoolAddress:                    aptos.AccountAddress{},             // Will be deployed
 				PoolType:                            shared.AptosRegulatedTokenPoolType, // Use regulated token pool type
-				TokenType:                           "regulated",                        // Specify regulated token type // TODO - remove
 				TokenTransferFeeByRemoteChainConfig: nil,                                // TODO - not needed?
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {

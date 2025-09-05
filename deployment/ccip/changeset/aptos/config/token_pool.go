@@ -18,7 +18,6 @@ type AddTokenPoolConfig struct {
 	TokenCodeObjAddress                 aptos.AccountAddress // if empty, token will be deployed
 	TokenPoolAddress                    aptos.AccountAddress // if empty, token pool will be deployed
 	PoolType                            cldf.ContractType
-	TokenType                           string // "managed" or "regulated", defaults to "managed" if empty
 	TokenTransferFeeByRemoteChainConfig map[uint64]fee_quoter.TokenTransferFeeConfig
 	EVMRemoteConfigs                    map[uint64]EVMRemoteConfig
 	TokenParams                         TokenParams

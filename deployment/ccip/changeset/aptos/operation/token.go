@@ -5,29 +5,25 @@ import (
 	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-
 	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token_faucet"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
-
 	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token_faucet"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
 const managedTokenStateSeed = "managed_token::managed_token::token_state"
-const regulatedTokenStateSeed = "regulated_token::regulated_token::token_state"
 
 type DeployTokenInput struct {
 	Name        string
 	Symbol      string
 	MCMSAddress aptos.AccountAddress
-	TokenType   string // "managed" or "regulated"
 }
 
 type DeployTokenOutput struct {
@@ -41,7 +37,7 @@ type DeployTokenOutput struct {
 var DeployTokenOp = operations.NewOperation(
 	"deploy-token-op",
 	Version1_0_0,
-	"Deploy a managed/regulated token instance",
+	"Deploy a managed token instance",
 	deployToken,
 )
 
@@ -49,57 +45,34 @@ func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (Depl
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 
 	// Calculate token address
-	tokenSeed := fmt.Sprintf("%s::%s", in.Name, in.Symbol) // Use name and symbol as seed for uniqueness
-	tokenObjectAddress, err := mcmsContract.MCMSRegistry().GetNewCodeObjectAddress(nil, []byte(tokenSeed))
+	managedTokenSeed := fmt.Sprintf("%s::%s", in.Name, in.Symbol) // Use name and symbol as seed for uniqueness
+	managedTokenObjectAddress, err := mcmsContract.MCMSRegistry().GetNewCodeObjectAddress(nil, []byte(managedTokenSeed))
 	if err != nil {
 		return DeployTokenOutput{}, fmt.Errorf("failed to GetNewCodeObjectAddress: %w", err)
 	}
-	tokenOwnerAddress, err := mcmsContract.MCMSRegistry().GetNewCodeObjectOwnerAddress(nil, []byte(tokenSeed))
+	managedTokenOwnerAddress, err := mcmsContract.MCMSRegistry().GetNewCodeObjectOwnerAddress(nil, []byte(managedTokenSeed))
 	if err != nil {
 		return DeployTokenOutput{}, fmt.Errorf("failed to GetNewCodeObjectOwnerAddress: %w", err)
 	}
 
-	// Calculate token Metadata Address based on token type
-	var tokenStateSeed string
-	var tokenStateAddress aptos.AccountAddress
-	var tokenMetadataAddress aptos.AccountAddress
-
-	switch in.TokenType {
-	case "regulated":
-		tokenStateSeed = regulatedTokenStateSeed
-	default: // "managed" or empty defaults to managed
-		tokenStateSeed = managedTokenStateSeed
-	}
-
 	// Calculate token Metadata Address
-	tokenStateAddress = tokenObjectAddress.NamedObjectAddress([]byte(tokenStateSeed))
-	tokenMetadataAddress = tokenStateAddress.NamedObjectAddress([]byte(in.Symbol))
+	managedTokenStateAddress := managedTokenObjectAddress.NamedObjectAddress([]byte(managedTokenStateSeed))
+	managedTokenMetadataAddress := managedTokenStateAddress.NamedObjectAddress([]byte(in.Symbol))
 
 	// Compile and create deploy operation for the token
-	var tokenPayload compile.CompiledPackage
-	switch in.TokenType {
-	case "regulated":
-		// Use tokenOwnerAddress as admin for regulated tokens
-		tokenPayload, err = regulated_token.Compile(tokenObjectAddress, tokenOwnerAddress)
-		if err != nil {
-			return DeployTokenOutput{}, fmt.Errorf("failed to compile regulated_token package: %w", err)
-		}
-	default: // "managed" or empty defaults to managed
-		tokenPayload, err = managed_token.Compile(tokenObjectAddress)
-		if err != nil {
-			return DeployTokenOutput{}, fmt.Errorf("failed to compile managed_token package: %w", err)
-		}
-	}
-
-	ops, err := utils.CreateChunksAndStage(tokenPayload, mcmsContract, deps.AptosChain.Selector, tokenSeed, nil)
+	managedTokenPayload, err := managed_token.Compile(managedTokenObjectAddress)
 	if err != nil {
-		return DeployTokenOutput{}, fmt.Errorf("failed to create chunks for token deployment: %w", err)
+		return DeployTokenOutput{}, fmt.Errorf("failed to compile managed_token package: %w", err)
+	}
+	ops, err := utils.CreateChunksAndStage(managedTokenPayload, mcmsContract, deps.AptosChain.Selector, managedTokenSeed, nil)
+	if err != nil {
+		return DeployTokenOutput{}, fmt.Errorf("failed to create chunks for manage_token deployment: %w", err)
 	}
 
 	return DeployTokenOutput{
-		TokenCodeObjectAddress: tokenObjectAddress,
-		TokenAddress:           tokenMetadataAddress,
-		TokenOwnerAddress:      tokenOwnerAddress,
+		TokenCodeObjectAddress: managedTokenObjectAddress,
+		TokenAddress:           managedTokenMetadataAddress,
+		TokenOwnerAddress:      managedTokenOwnerAddress,
 		MCMSOps:                ops,
 	}, nil
 }
@@ -107,14 +80,13 @@ func deployToken(b operations.Bundle, deps AptosDeps, in DeployTokenInput) (Depl
 type DeployTokenRegistrarInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
 	MCMSAddress            aptos.AccountAddress
-	TokenType              string // "managed" or "regulated"
 }
 
 // DeployTokenMCMSRegistrarOp generates proposal to deploy a MCMS registrar on a token package
 var DeployTokenMCMSRegistrarOp = operations.NewOperation(
 	"deploy-token-mcms-registrar-op",
 	Version1_0_0,
-	"Deploy token MCMS registrar onto managed/regulated token code object",
+	"Deploy token MCMS registrar onto managed token code object",
 	deployTokenMCMSRegistrar,
 )
 
@@ -122,25 +94,13 @@ func deployTokenMCMSRegistrar(b operations.Bundle, deps AptosDeps, in DeployToke
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 
 	// Deploy MCMS Registrar
-	var mcmsRegistrarPayload compile.CompiledPackage
-	var err error
-
-	switch in.TokenType {
-	case "regulated":
-		mcmsRegistrarPayload, err = regulated_token.CompileMCMSRegistrar(in.TokenCodeObjectAddress, in.MCMSAddress, in.MCMSAddress, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile regulated token MCMS registrar: %w", err)
-		}
-	default: // "managed" or empty defaults to managed
-		mcmsRegistrarPayload, err = managed_token.CompileMCMSRegistrar(in.TokenCodeObjectAddress, in.MCMSAddress, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile managed token MCMS registrar: %w", err)
-		}
+	mcmsRegistrarPayload, err := managed_token.CompileMCMSRegistrar(in.TokenCodeObjectAddress, in.MCMSAddress, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile MCMS registrar: %w", err)
 	}
-
 	ops, err := utils.CreateChunksAndStage(mcmsRegistrarPayload, mcmsContract, deps.AptosChain.Selector, "", &in.TokenCodeObjectAddress)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create chunks for token registrar: %w", err)
+		return nil, fmt.Errorf("failed to create chunks for token pool: %w", err)
 	}
 
 	return ops, nil
@@ -154,7 +114,6 @@ type InitializeTokenInput struct {
 	Decimals               byte
 	Icon                   string
 	Project                string
-	TokenType              string // "managed" or "regulated"
 }
 
 // DeployTokenMCMSRegistrarOp generates proposal to deploy a MCMS registrar on a token package
@@ -166,44 +125,22 @@ var InitializeTokenOp = operations.NewOperation(
 )
 
 func initializeToken(b operations.Bundle, deps AptosDeps, in InitializeTokenInput) (types.Transaction, error) {
-	// Initialize token (managed or regulated)
+	// Initialize managed token
 	var maxSupply **big.Int
 	if in.MaxSupply != nil {
 		maxSupply = &in.MaxSupply
 	}
-
-	var moduleInfo bind.ModuleInformation
-	var function string
-	var args [][]byte
-	var err error
-
-	switch in.TokenType {
-	case "regulated":
-		boundRegulatedToken := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
-		moduleInfo, function, _, args, err = boundRegulatedToken.RegulatedToken().Encoder().Initialize(
-			maxSupply,
-			in.Name,
-			in.Symbol,
-			in.Decimals,
-			in.Icon,
-			in.Project,
-		)
-		if err != nil {
-			return types.Transaction{}, fmt.Errorf("failed to encode regulated token initialize function: %w", err)
-		}
-	default: // "managed" or empty defaults to managed
-		boundManagedToken := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
-		moduleInfo, function, _, args, err = boundManagedToken.ManagedToken().Encoder().Initialize(
-			maxSupply,
-			in.Name,
-			in.Symbol,
-			in.Decimals,
-			in.Icon,
-			in.Project,
-		)
-		if err != nil {
-			return types.Transaction{}, fmt.Errorf("failed to encode managed token initialize function: %w", err)
-		}
+	boundManagedToken := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+	moduleInfo, function, _, args, err := boundManagedToken.ManagedToken().Encoder().Initialize(
+		maxSupply,
+		in.Name,
+		in.Symbol,
+		in.Decimals,
+		in.Icon,
+		in.Project,
+	)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode initialize function: %w", err)
 	}
 
 	// Create MCMS tx
@@ -211,7 +148,6 @@ func initializeToken(b operations.Bundle, deps AptosDeps, in InitializeTokenInpu
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
 	}
-
 	return tx, nil
 }
 
@@ -245,15 +181,10 @@ func mintTokens(b operations.Bundle, deps AptosDeps, in MintTokensInput) (types.
 }
 
 type ApplyAllowedMintersInput struct {
+	// Must be of type managed_token
 	TokenCodeObjectAddress aptos.AccountAddress
 	MintersToAdd           []aptos.AccountAddress
 	MintersToRemove        []aptos.AccountAddress
-}
-
-type GrantRoleInput struct {
-	TokenCodeObjectAddress aptos.AccountAddress
-	RoleNumber             byte
-	Account                aptos.AccountAddress
 }
 
 // GrantMinterPermissionsOp operation to grant minter permissions
@@ -262,14 +193,6 @@ var ApplyAllowedMintersOp = operations.NewOperation(
 	Version1_0_0,
 	"Applies the given minters remove/add to the managed token",
 	applyAllowedMinters,
-)
-
-// For regulated tokens
-var GrantRoleOp = operations.NewOperation(
-	"grant-role-op",
-	Version1_0_0,
-	"Grants a role to the given addresses",
-	grantRole,
 )
 
 func applyAllowedMinters(b operations.Bundle, deps AptosDeps, in ApplyAllowedMintersInput) (types.Transaction, error) {
@@ -283,18 +206,8 @@ func applyAllowedMinters(b operations.Bundle, deps AptosDeps, in ApplyAllowedMin
 	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
 }
 
-func grantRole(b operations.Bundle, deps AptosDeps, in GrantRoleInput) (types.Transaction, error) {
-	tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
-
-	moduleInfo, function, _, args, err := tokenContract.RegulatedToken().Encoder().GrantRole(in.RoleNumber, in.Account)
-	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to encode GrantRole: %w", err)
-	}
-
-	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
-}
-
 type ApplyAllowedBurnersInput struct {
+	// Must be of type managed_token
 	TokenCodeObjectAddress aptos.AccountAddress
 	BurnersToAdd           []aptos.AccountAddress
 	BurnersToRemove        []aptos.AccountAddress
@@ -346,22 +259,60 @@ func deployTokenFaucet(b operations.Bundle, deps AptosDeps, in DeployTokenFaucet
 	return ops, nil
 }
 
+type GrantRoleInput struct {
+	// Must be of type regulated_token
+	TokenCodeObjectAddress aptos.AccountAddress
+	RoleNumber             uint8
+	Account                aptos.AccountAddress
+}
+
+// For regulated tokens
+var GrantRoleOp = operations.NewOperation(
+	"grant-role-op",
+	Version1_0_0,
+	"Grants the given role to the given account on the regulated token",
+	grantRole,
+)
+
+func grantRole(b operations.Bundle, deps AptosDeps, in GrantRoleInput) (types.Transaction, error) {
+	tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+
+	moduleInfo, function, _, args, err := tokenContract.RegulatedToken().Encoder().GrantRole(in.RoleNumber, in.Account)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode GrantRole: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
+}
+
 type TransferTokenOwnershipInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
 	To                     aptos.AccountAddress
+	TokenType              deployment.ContractType
 }
 
 var TransferTokenOwnershipOp = operations.NewOperation(
 	"transfer-token-ownership-op",
 	Version1_0_0,
-	"Initiates the ownership transfer of a managed token to a given address",
+	"Initiates the ownership transfer of a managed/regulated token to a given address",
 	transferTokenOwnership,
 )
 
 func transferTokenOwnership(b operations.Bundle, deps AptosDeps, in TransferTokenOwnershipInput) (types.Transaction, error) {
-	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
-
-	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().TransferOwnership(in.To)
+	var (
+		moduleInfo bind.ModuleInformation
+		function   string
+		args       [][]byte
+		err        error
+	)
+	switch in.TokenType {
+	case shared.AptosManagedTokenType:
+		tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenContract.ManagedToken().Encoder().TransferOwnership(in.To)
+	case shared.AptosRegulatedTokenType:
+		tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenContract.RegulatedToken().Encoder().TransferOwnership(in.To)
+	}
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode TransferOwnership: %w", err)
 	}
@@ -371,19 +322,31 @@ func transferTokenOwnership(b operations.Bundle, deps AptosDeps, in TransferToke
 
 type AcceptTokenOwnershipInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
+	TokenType              deployment.ContractType
 }
 
 var AcceptTokenOwnershipOp = operations.NewOperation(
 	"accept-token-ownership-op",
 	Version1_0_0,
-	"Accepts ownership of a managed token",
+	"Accepts ownership of a managed/regulated token",
 	acceptTokenOwnership,
 )
 
 func acceptTokenOwnership(b operations.Bundle, deps AptosDeps, in AcceptTokenOwnershipInput) (types.Transaction, error) {
-	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, nil)
-
-	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().AcceptOwnership()
+	var (
+		moduleInfo bind.ModuleInformation
+		function   string
+		args       [][]byte
+		err        error
+	)
+	switch in.TokenType {
+	case shared.AptosManagedTokenType:
+		tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenContract.ManagedToken().Encoder().AcceptOwnership()
+	case shared.AptosRegulatedTokenType:
+		tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenContract.RegulatedToken().Encoder().AcceptOwnership()
+	}
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
 	}
@@ -394,21 +357,78 @@ func acceptTokenOwnership(b operations.Bundle, deps AptosDeps, in AcceptTokenOwn
 type ExecuteTokenOwnershipTransferInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
 	To                     aptos.AccountAddress
+	TokenType              deployment.ContractType
 }
 
 var ExecuteTokenOwnershipTransferOp = operations.NewOperation(
 	"execute-token-ownership-transfer-op",
 	Version1_0_0,
-	"Executes the ownership transfer of a managed token, after ownership has been accepted by the receiver",
+	"Executes the ownership transfer of a managed/regulated token, after ownership has been accepted by the receiver",
 	executeTokenOwnershipTransfer,
 )
 
 func executeTokenOwnershipTransfer(b operations.Bundle, deps AptosDeps, in ExecuteTokenOwnershipTransferInput) (types.Transaction, error) {
-	tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, nil)
-
-	moduleInfo, function, _, args, err := tokenContract.ManagedToken().Encoder().ExecuteOwnershipTransfer(in.To)
+	var (
+		moduleInfo bind.ModuleInformation
+		function   string
+		args       [][]byte
+		err        error
+	)
+	switch in.TokenType {
+	case shared.AptosManagedTokenType:
+		tokenContract := managed_token.Bind(in.TokenCodeObjectAddress, nil)
+		moduleInfo, function, _, args, err = tokenContract.ManagedToken().Encoder().ExecuteOwnershipTransfer(in.To)
+	case shared.AptosRegulatedTokenType:
+		tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, nil)
+		moduleInfo, function, _, args, err = tokenContract.RegulatedToken().Encoder().ExecuteOwnershipTransfer(in.To)
+	}
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
+}
+
+type TransferTokenAdminInput struct {
+	// Must be of type regulated_token
+	TokenCodeObjectAddress aptos.AccountAddress
+	NewAdmin               aptos.AccountAddress
+}
+
+var TransferTokenAdminOp = operations.NewOperation(
+	"transfer-token-admin-op",
+	Version1_0_0,
+	"Transfers the admin of a regulated token to a new account",
+	transferAdmin,
+)
+
+func transferAdmin(b operations.Bundle, deps AptosDeps, in TransferTokenAdminInput) (types.Transaction, error) {
+	tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+	moduleInfo, function, _, args, err := tokenContract.RegulatedToken().Encoder().TransferAdmin(in.NewAdmin)
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode TransferAdmin: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
+}
+
+type AcceptTokenAdminInput struct {
+	// Must be of type regulated_token
+	TokenCodeObjectAddress aptos.AccountAddress
+}
+
+var AcceptTokenAdminOp = operations.NewOperation(
+	"accept-token-admin-op",
+	Version1_0_0,
+	"Accepts the admin role of a regulated token",
+	acceptTokenAdmin,
+)
+
+func acceptTokenAdmin(b operations.Bundle, deps AptosDeps, in AcceptTokenAdminInput) (types.Transaction, error) {
+	tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
+	moduleInfo, function, _, args, err := tokenContract.RegulatedToken().Encoder().AcceptAdmin()
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode AcceptAdmin: %w", err)
 	}
 
 	return utils.GenerateMCMSTx(in.TokenCodeObjectAddress, moduleInfo, function, args)
