@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
+const FilterKeyDONName = "don_name"
+
 type ProposeStandardCapabilityJobDeps struct {
 	Env cldf.Environment
 }
@@ -29,16 +31,6 @@ type ProposeStandardCapabilityJobInput struct {
 type TargetDONFilter struct {
 	Key   string
 	Value string
-	Op    string
-}
-
-var FilterOps = map[string]ptypes.SelectorOp{
-	"EQ":         ptypes.SelectorOp_EQ,
-	"NOT_EQ":     ptypes.SelectorOp_NOT_EQ,
-	"IN":         ptypes.SelectorOp_IN,
-	"NOT_IN":     ptypes.SelectorOp_NOT_IN,
-	"EXISTS":     ptypes.SelectorOp_EXIST,
-	"NOT_EXISTS": ptypes.SelectorOp_NOT_EXIST,
 }
 
 type ProposeStandardCapabilityJobOutput struct {
@@ -76,15 +68,19 @@ var ProposeStandardCapabilityJob = operations.NewOperation[ProposeStandardCapabi
 			},
 		}
 		for _, f := range input.DONFilters {
-			op, ok := FilterOps[f.Op]
-			if !ok {
-				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("invalid filter op: %s", f.Key)
+			// DON name is a key, so we just check for its existence instead of equality
+			if f.Key == FilterKeyDONName {
+				filter.Selectors = append(filter.Selectors, &ptypes.Selector{
+					Op:  ptypes.SelectorOp_EXIST,
+					Key: f.Value,
+				})
+			} else {
+				filter.Selectors = append(filter.Selectors, &ptypes.Selector{
+					Op:    ptypes.SelectorOp_EQ,
+					Key:   f.Key,
+					Value: &f.Value,
+				})
 			}
-			filter.Selectors = append(filter.Selectors, &ptypes.Selector{
-				Op:    op,
-				Key:   f.Key,
-				Value: &f.Value,
-			})
 		}
 
 		specs, err := pkg.ProposeJob(b.GetContext(), deps.Env, pkg.ProposeJobRequest{

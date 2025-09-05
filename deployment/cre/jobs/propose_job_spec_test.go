@@ -34,9 +34,9 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Domain:      "cre",
 				DONName:     "test-don",
 				DONFilters: []operations.TargetDONFilter{
-					{Key: "don-name", Value: "d", Op: "EXISTS"},
-					{Key: "environment", Value: "e", Op: "EQ"},
-					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+					{Key: operations.FilterKeyDONName, Value: "d"},
+					{Key: "environment", Value: "e"},
+					{Key: "product", Value: offchain.ProductLabel},
 				},
 				Template: job_types.Cron,
 				Inputs:   job_types.JobSpecInput{},
@@ -93,9 +93,9 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Domain:      "cre",
 				DONName:     "test-don",
 				DONFilters: []operations.TargetDONFilter{
-					{Key: "don-name", Value: "d", Op: "EXISTS"},
-					{Key: "environment", Value: "e", Op: "EQ"},
-					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+					{Key: operations.FilterKeyDONName, Value: "d"},
+					{Key: "environment", Value: "e"},
+					{Key: "product", Value: offchain.ProductLabel},
 				},
 				Template: 1,
 				Inputs:   job_types.JobSpecInput{},
@@ -111,9 +111,9 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				DONName:     "test-don",
 				JobName:     "cron-test",
 				DONFilters: []operations.TargetDONFilter{
-					{Key: "don-name", Value: "d", Op: "EXISTS"},
-					{Key: "environment", Value: "e", Op: "EQ"},
-					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+					{Key: operations.FilterKeyDONName, Value: "d"},
+					{Key: "environment", Value: "e"},
+					{Key: "product", Value: offchain.ProductLabel},
 				},
 				Template: 1,
 				Inputs:   job_types.JobSpecInput{},
@@ -129,9 +129,9 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				DONName:     "test-don",
 				JobName:     "cron-test",
 				DONFilters: []operations.TargetDONFilter{
-					{Key: "don-name", Value: "d", Op: "EXISTS"},
-					{Key: "environment", Value: "e", Op: "EQ"},
-					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+					{Key: operations.FilterKeyDONName, Value: "d"},
+					{Key: "environment", Value: "e"},
+					{Key: "product", Value: offchain.ProductLabel},
 				},
 				Template: job_types.Cron,
 				Inputs:   nil,
@@ -166,9 +166,9 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			DONName:     test.DONName,
 			Template:    job_types.Cron,
 			DONFilters: []operations.TargetDONFilter{
-				{Key: "don-" + test.DONName, Value: "d", Op: "EXISTS"},
-				{Key: "environment", Value: "test", Op: "EQ"},
-				{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+				{Key: operations.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
 				"command":       "cron",
@@ -205,9 +205,9 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "cron-cap-job",
 			Template:    job_types.Cron,
 			DONFilters: []operations.TargetDONFilter{
-				{Key: "don" + test.DONName, Op: "EXISTS"},
-				{Key: "environment", Value: "test", Op: "EQ"},
-				{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+				{Key: operations.FilterKeyDONName, Value: "don" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
 				// Missing "command"

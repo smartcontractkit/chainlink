@@ -43,9 +43,9 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 		Command: "run",
 		DONName: "test-don",
 		DONFilters: []operations.TargetDONFilter{
-			{Key: "don-name", Value: "d", Op: "EXISTS"},
-			{Key: "environment", Value: "e", Op: "EQ"},
-			{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+			{Key: operations.FilterKeyDONName, Value: "d"},
+			{Key: "environment", Value: "e"},
+			{Key: "product", Value: offchain.ProductLabel},
 		},
 	})
 	require.NoError(t, err)
@@ -62,9 +62,9 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 		Command: "cron",
 		DONName: "test-don",
 		DONFilters: []operations.TargetDONFilter{
-			{Key: "don" + test.DONName, Op: "EXISTS"},
-			{Key: "environment", Value: "test", Op: "EQ"},
-			{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
+			{Key: operations.FilterKeyDONName, Value: "don-" + test.DONName},
+			{Key: "environment", Value: "test"},
+			{Key: "product", Value: offchain.ProductLabel},
 		},
 	}
 

@@ -242,6 +242,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 			"don-" + donCfg.Name: donCfg.Name,
 			"environment":        "test",
 			"product":            "cre",
+			"type":               "plugin",
 		}
 		if donCfg.Labels != nil {
 			for k, v := range donCfg.Labels {
