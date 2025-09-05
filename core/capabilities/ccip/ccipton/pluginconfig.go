@@ -12,10 +12,11 @@ import (
 // InitializePluginConfig returns a pluginConfig for TON chains.
 func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		AddressCodec:       codec.NewAddressCodec(),
-		CommitPluginCodec:  codec.NewCommitPluginCodecV1(),
-		ExecutePluginCodec: codec.NewExecutePluginCodecV1(extraDataCodec),
-		ExtraDataCodec:     codec.NewExtraDataDecoder(),
+		AddressCodec:           codec.NewAddressCodec(),
+		CommitPluginCodec:      codec.NewCommitPluginCodecV1(),
+		ExecutePluginCodec:     codec.NewExecutePluginCodecV1(extraDataCodec),
+		ExtraDataCodec:         codec.NewExtraDataDecoder(),
+		ChainAccessorSupported: true,
 	}
 }
 
