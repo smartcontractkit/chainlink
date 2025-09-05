@@ -2,6 +2,7 @@ package job_types
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -29,7 +30,7 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 	case "cron":
 		return Cron, nil
 	case "", "unknown":
-		return 0, fmt.Errorf("job spec template cannot be empty")
+		return 0, errors.New("job spec template cannot be empty")
 	default:
 		return 0, fmt.Errorf("unsupported job spec template: %s", s)
 	}
