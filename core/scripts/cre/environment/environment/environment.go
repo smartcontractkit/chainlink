@@ -281,7 +281,7 @@ func startCmd() *cobra.Command {
 			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
 				flags.NewDefaultCapabilityFlagsProvider(),
-				cre.NewContractVersionsProvider(envconfig.GetDefaultContractSet(withV2Registries)),
+				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
 				cre.NewCLIFlagsProvider(withV2Registries),
 			)
 
@@ -675,7 +675,8 @@ func StartCLIEnvironment(
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets: in.NodeSets,
 		BlockchainsInput:          in.Blockchains,
-		ContractVersions:          env.GetContractVersions(),
+		ContractVersions:          env.ContractVersions(),
+		WithV2Registries:          env.WithV2Registries(),
 		JdInput:                   *in.JD,
 		InfraInput:                *in.Infra,
 		S3ProviderInput:           in.S3ProviderInput,

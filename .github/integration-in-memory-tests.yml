@@ -21,7 +21,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_fees_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -32,7 +32,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -43,7 +43,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -54,7 +54,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -65,7 +65,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -216,7 +216,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -237,7 +237,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -248,7 +248,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -260,7 +260,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -271,7 +271,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -302,7 +302,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -313,7 +313,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -324,7 +324,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -335,7 +335,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -396,7 +396,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -417,7 +417,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_topologies_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
@@ -428,7 +428,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_topologies_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests

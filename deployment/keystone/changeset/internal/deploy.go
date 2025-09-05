@@ -980,18 +980,6 @@ type ForwarderConfig struct {
 	Signers       []common.Address // the onchain public keys of the nodes in the DON corresponding to DonID
 }
 
-func (f ForwarderConfig) RegisteredDon() RegisteredDon {
-	return RegisteredDon{
-		Info: DonInfo{
-			Id:               f.DonID,
-			F:                f.F,
-			ConfigCount:      f.ConfigVersion,
-			AcceptsWorkflows: true,
-		},
-		Signers: func(_ chainsel.ChainFamily) []common.Address { return f.Signers },
-	}
-}
-
 // ConfigureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
 func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]mcmstypes.BatchOperation, error) {

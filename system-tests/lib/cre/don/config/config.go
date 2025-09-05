@@ -56,9 +56,14 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigTran
 	}
 
 	// find contract addresses
-	capabilitiesRegistryAddress, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
+	capabilitiesRegistryAddress, capRegTypeVersion, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
 	if capErr != nil {
 		return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
+	}
+
+	capRegistry := AddressTypeVersion{
+		Address:        capabilitiesRegistryAddress,
+		TypeAndVersion: capRegTypeVersion,
 	}
 
 	// find bootstrap node for the Don
@@ -106,7 +111,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigTran
 		}
 
 		// generate configuration for the bootstrap node
-		configOverrides[nodeIndex] = BootstrapEVM(donBootstrapNodePeerID, homeChainID, capabilitiesRegistryAddress, evmChains)
+		configOverrides[nodeIndex] = BootstrapEVM(donBootstrapNodePeerID, homeChainID, capRegistry, evmChains)
 		if flags.HasFlag(input.Flags, cre.WorkflowDON) {
 			configOverrides[nodeIndex] += BoostrapDon2DonPeering(input.CapabilitiesPeeringData)
 		}
@@ -133,7 +138,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigFns []cre.NodeConfigTran
 
 		// connect worker nodes to all the chains, add chain ID for registry (home chain)
 		var workerErr error
-		configOverrides[nodeIndex], workerErr = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.OCRPeeringData, input.CapabilitiesPeeringData, capabilitiesRegistryAddress, homeChainID, evmChains)
+		configOverrides[nodeIndex], workerErr = WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.OCRPeeringData, input.CapabilitiesPeeringData, capRegistry, homeChainID, evmChains)
 		if workerErr != nil {
 			return nil, errors.Wrap(workerErr, "failed to generate worker [EVM.Workflow] config")
 		}
