@@ -439,6 +439,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	} else {
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
+	i.lggr.Info("Finished creating factory and transmitter")
 	return factory, transmitter, nil
 }
 
@@ -476,10 +477,9 @@ func (i *pluginOracleCreator) createChainAccessors(
 				return nil, err
 			}
 		} else {
+			i.lggr.Infow("about to call ChainAccessor from CCIP provider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network)
 			ca = provider.ChainAccessor()
-			if ca == nil {
-				i.lggr.Errorw("CCIPProvider returned a nil ChainAccessor for a non-nil provider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network)
-			}
+			i.lggr.Infow("Done calling ChainAccessor from CCIP provider", "chainSelector", chainSelector, "chainID", relayID.ChainID, "network", relayID.Network, "caNil", ca == nil)
 		}
 		chainAccessors[chainSelector] = ca
 	}
