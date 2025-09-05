@@ -1529,6 +1529,7 @@ ContractVersion identifies semantic version of the CapabilitiesRegistry contract
 [Capabilities.Dispatcher]
 SupportedVersion = 1 # Default
 ReceiverBufferSize = 10000 # Default
+SendToSharedPeer = false # Default
 ```
 
 
@@ -1543,6 +1544,12 @@ SupportedVersion is the version of the version of message schema.
 ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
+
+### SendToSharedPeer
+```toml
+SendToSharedPeer = false # Default
+```
+SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
 
 ## Capabilities.Dispatcher.RateLimit
 ```toml
@@ -1744,6 +1751,81 @@ ID of the Gateway
 URL = 'wss://localhost:8081/node' # Example
 ```
 URL of the Gateway
+
+## Capabilities.SharedPeering
+```toml
+[Capabilities.SharedPeering]
+Enabled = false # Default
+Bootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled enabled SharedPeer
+
+### Bootstrappers
+```toml
+Bootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+```
+Bootstrappers overrides bootstrap nodes for SharedPeer peer groups. If empty, default bootstrappers from P2P.V2 will be used.
+
+## Capabilities.SharedPeering.StreamConfig
+```toml
+[Capabilities.SharedPeering.StreamConfig]
+IncomingMessageBufferSize = 500 # Default
+OutgoingMessageBufferSize = 500 # Default
+MaxMessageLenBytes = 500000 # Default
+MessageRateLimiterRate = 100.0 # Default
+MessageRateLimiterCapacity = 500 # Default
+BytesRateLimiterRate = 5000000.0 # Default
+BytesRateLimiterCapacity = 10000000 # Default
+```
+
+
+### IncomingMessageBufferSize
+```toml
+IncomingMessageBufferSize = 500 # Default
+```
+IncomingMessageBufferSize is the max number of enqueued incoming messages awaiting processing.
+
+### OutgoingMessageBufferSize
+```toml
+OutgoingMessageBufferSize = 500 # Default
+```
+OutgoingMessageBufferSize is the max number of outgoing messages.
+
+### MaxMessageLenBytes
+```toml
+MaxMessageLenBytes = 500000 # Default
+```
+MaxMessageLenBytes is the max size of a message in bytes.
+
+### MessageRateLimiterRate
+```toml
+MessageRateLimiterRate = 100.0 # Default
+```
+MessageRateLimiterRate is the max number of processed messages per second.
+
+### MessageRateLimiterCapacity
+```toml
+MessageRateLimiterCapacity = 500 # Default
+```
+MessageRateLimiterCapacity is the "burst" of the message rate limiter.
+
+### BytesRateLimiterRate
+```toml
+BytesRateLimiterRate = 5000000.0 # Default
+```
+BytesRateLimiterRate is the max size of precessed messages per second.
+
+### BytesRateLimiterCapacity
+```toml
+BytesRateLimiterCapacity = 10000000 # Default
+```
+BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 
 ## Keeper
 ```toml

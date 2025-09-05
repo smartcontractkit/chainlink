@@ -493,6 +493,22 @@ func TestConfig_Marshal(t *testing.T) {
 				ListenAddresses: &[]string{"foo", "bar"},
 			},
 		},
+		SharedPeering: toml.SharedPeering{
+			Enabled: ptr(false),
+			Bootstrappers: &[]ocrcommontypes.BootstrapperLocator{
+				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
+				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
+			},
+			StreamConfig: toml.StreamConfig{
+				IncomingMessageBufferSize:  ptr(500),
+				OutgoingMessageBufferSize:  ptr(500),
+				MaxMessageLenBytes:         ptr(500000),
+				MessageRateLimiterRate:     ptr(100.0),
+				MessageRateLimiterCapacity: ptr(uint32(500)),
+				BytesRateLimiterRate:       ptr(5000000.0),
+				BytesRateLimiterCapacity:   ptr(uint32(10000000)),
+			},
+		},
 		ExternalRegistry: toml.ExternalRegistry{
 			Address:         ptr(""),
 			ChainID:         ptr("1"),
@@ -523,6 +539,7 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderRPS:   ptr(10.0),
 				PerSenderBurst: ptr(50),
 			},
+			SendToSharedPeer: ptr(false),
 		},
 		GatewayConnector: toml.GatewayConnector{
 			ChainIDForNodeKey:         ptr("11155111"),
