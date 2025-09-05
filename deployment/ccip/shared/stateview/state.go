@@ -29,11 +29,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
 
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
