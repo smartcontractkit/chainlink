@@ -838,6 +838,12 @@ RestURL = "streams.url" # Example
 # URL is override URL for the workflow fetcher service. 
 URL = '' # Default
 
+[CRE.Linking]
+# URL is the locator for the Chainlink linking service.
+URL = "" # Default
+# TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+TLSEnabled = true # Default
+
 # Billing holds settings for connecting to the billing service.
 [Billing]
 # URL is the locator for the Chainlink billing service.

@@ -8,18 +8,21 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
+	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type AddCapabilitiesDeps struct {
-	Env *cldf.Environment
+	Env           *cldf.Environment
+	MCMSContracts *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig is not nil
 }
 
 type AddCapabilitiesInput struct {
@@ -33,6 +36,7 @@ type AddCapabilitiesInput struct {
 	Force bool
 
 	RegistryRef datastore.AddressRefKey
+	MCMSConfig  *ocr3.MCMSConfig
 }
 
 func (i *AddCapabilitiesInput) Validate() error {
@@ -49,6 +53,7 @@ type AddCapabilitiesOutput struct {
 	DonInfo           capabilities_registry_v2.CapabilitiesRegistryDONInfo
 	UpdatedNodes      []*capabilities_registry_v2.CapabilitiesRegistryNodeUpdated
 	AddedCapabilities []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured
+	Proposals         []mcmslib.TimelockProposal
 }
 
 var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabilitiesOutput, AddCapabilitiesDeps](
@@ -170,6 +175,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			DonInfo:           updateDonReport.Output.DonInfo,
 			UpdatedNodes:      updateNodesReport.Output.UpdatedNodes,
 			AddedCapabilities: regCapsReport.Output.Capabilities,
+			Proposals:         regCapsReport.Output.Proposals,
 		}, nil
 	},
 )

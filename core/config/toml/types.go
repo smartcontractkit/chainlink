@@ -1826,11 +1826,18 @@ type CreConfig struct {
 	Streams              *StreamsConfig         `toml:",omitempty"`
 	WorkflowFetcher      *WorkflowFetcherConfig `toml:",omitempty"`
 	UseLocalTimeProvider *bool                  `toml:",omitempty"`
+	Linking              *LinkingConfig         `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
 type WorkflowFetcherConfig struct {
 	URL *string `toml:",omitempty"`
+}
+
+// LinkingConfig holds the configuration for connecting to the CRE linking service
+type LinkingConfig struct {
+	URL        *string `toml:",omitempty"`
+	TLSEnabled *bool   `toml:",omitempty"`
 }
 
 func (c *CreConfig) setFrom(f *CreConfig) {
@@ -1860,6 +1867,18 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 			c.UseLocalTimeProvider = f.UseLocalTimeProvider
 		}
 	}
+
+	if f.Linking != nil {
+		if c.Linking == nil {
+			c.Linking = &LinkingConfig{}
+		}
+		if v := f.Linking.URL; v != nil {
+			c.Linking.URL = v
+		}
+		if v := f.Linking.TLSEnabled; v != nil {
+			c.Linking.TLSEnabled = v
+		}
+	}
 }
 
 func (w *WorkflowFetcherConfig) ValidateConfig() error {
@@ -1876,6 +1895,18 @@ func (w *WorkflowFetcherConfig) ValidateConfig() error {
 		return configutils.ErrInvalid{Name: "URL", Value: *w.URL, Msg: "scheme must be one of: file, http, https"}
 	}
 
+	return nil
+}
+
+func (l *LinkingConfig) ValidateConfig() error {
+	if l.URL == nil {
+		val := ""
+		l.URL = &val
+	}
+	if l.TLSEnabled == nil {
+		val := true
+		l.TLSEnabled = &val
+	}
 	return nil
 }
 

@@ -90,6 +90,14 @@ type DonCapabilities struct {
 	Capabilities []DONCapabilityWithConfig // every capability is hosted on each nop
 }
 
+func (v DonCapabilities) N() int {
+	out := 0
+	for _, n := range v.Nops {
+		out += len(n.Nodes)
+	}
+	return out
+}
+
 type DONCapabilityWithConfig struct {
 	Capability kcr.CapabilitiesRegistryCapability
 	Config     *capabilitiespb.CapabilityConfig

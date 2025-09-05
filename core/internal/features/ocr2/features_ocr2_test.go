@@ -48,11 +48,11 @@ func TestIntegration_OCR2(t *testing.T) {
 
 func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	t.Parallel()
-	owner, b, ocrContractAddress, ocrContract := SetupOCR2Contracts(t)
+	owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
 	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapNode := SetupNodeOCR2(t, owner, bootstrapNodePort, true /* useForwarders */, b, nil)
+	bootstrapNode := SetupNodeOCR2(t, owner, bootstrapNodePort, true /* useForwarders */, b, nil, nodeConfig)
 
 	var (
 		oracles            []confighelper2.OracleIdentityExtra
@@ -66,7 +66,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 		node := SetupNodeOCR2(t, owner, ports[i], true /* useForwarders */, b, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		})
+		}, nodeConfig)
 
 		// Effective transmitter should be a forwarder not an EOA.
 		require.NotEqual(t, node.EffectiveTransmitter, node.Transmitter)

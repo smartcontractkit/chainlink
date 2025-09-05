@@ -1,0 +1,9 @@
+{
+  "config": {
+    "RemoteConfig": null,
+    "restricted_keys": [
+      "key1",
+      "key2"
+    ]
+  }
+}
