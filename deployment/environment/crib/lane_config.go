@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 
-	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	ccipSolState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -501,25 +501,17 @@ func (lc *LaneConfiguration) isDestinationEnabledOnAptosRouter(env cldf.Environm
 	// Get the client from the environment
 	client := env.BlockChains.AptosChains()[aptosChainSelector].Client
 
-	// Bind to the router contract
-	boundRouter := ccip_router.Bind(chainState.CCIPAddress, client)
+	// Bind to the OnRamp contract
+	boundOnRamp := ccip_onramp.Bind(chainState.CCIPAddress, client)
 
-	// Get all configured destination chains from the router
-	destinationChainSelectors, err := boundRouter.Router().GetDestChains(nil)
+	// Use IsChainSupported directly for the specific destination
+	isSupported, err := boundOnRamp.Onramp().IsChainSupported(nil, destinationChain)
 	if err != nil {
-		// If we can't get the destination chains, assume it's not enabled
-		return false, fmt.Errorf("failed to get destination chains from Aptos router: %w", err)
+		// If we can't check support, assume it's not enabled
+		return false, fmt.Errorf("failed to check if destination chain is supported on Aptos onRamp: %w", err)
 	}
 
-	// Check if the destination chain is in the list of configured destinations
-	for _, configuredDest := range destinationChainSelectors {
-		if configuredDest == destinationChain {
-			return true, nil
-		}
-	}
-
-	// Destination chain not found in configured destinations
-	return false, nil
+	return isSupported, nil
 }
 
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination
