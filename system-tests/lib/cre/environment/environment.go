@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/alitto/pond/v2"
 	"github.com/ethereum/go-ethereum/common"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
 	pkgerrors "github.com/pkg/errors"
@@ -48,7 +49,6 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/worker"
 )
 
 const (
@@ -143,11 +143,11 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	stageGen := NewStageGen(7, "STAGE")
+	stageGen := NewStageGen(6, "STAGE")
 
 	var s3ProviderOutput *s3provider.Output
 	if input.S3ProviderInput != nil {
-		stageGen = NewStageGen(8, "STAGE")
+		stageGen = NewStageGen(7, "STAGE")
 		fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
 		var s3ProviderErr error
 		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
@@ -457,21 +457,23 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", stageGen.Elapsed().Seconds())))
 
-	backgroundWorker := worker.NewTypedBackgroundRunner()
-	workflowRegistrationResult := worker.Add(backgroundWorker, "Workflow Registry Configuration", func() (*cre.WorkflowRegistryOutput, error) {
-		workflowRegistryInput, inputErr := crecontracts.PrepareForWorkflowRegistryConfiguration(
+	wfPool := pond.NewResultPool[*cre.WorkflowRegistryOutput](1)
+	wfTask := wfPool.SubmitErr(func() (*cre.WorkflowRegistryOutput, error) {
+		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Starting Workflow Registry Contract Configuration\n\n"))
+		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Workflow Registry Contract Configuration\n\n"))
+
+		return crecontracts.ConfigureWorkflowRegistry(
 			ctx,
+			testLogger,
 			singleFileLogger,
-			allChainsCLDEnvironment,
-			topology.WorkflowDONID,
-			homeChainOutput.ChainSelector,
-			common.HexToAddress(wfRegAddr),
-			homeChainOutput.SethClient.MustGetRootKeyAddress(),
+			&cre.WorkflowRegistryInput{
+				ContractAddress: common.HexToAddress(wfRegAddr),
+				ChainSelector:   homeChainOutput.ChainSelector,
+				CldEnv:          allChainsCLDEnvironment,
+				AllowedDonIDs:   []uint64{topology.WorkflowDONID},
+				WorkflowOwners:  []common.Address{homeChainOutput.SethClient.MustGetRootKeyAddress()},
+			},
 		)
-		if inputErr != nil {
-			return nil, pkgerrors.Wrap(inputErr, "failed to prepare workflow registry configuration")
-		}
-		return crecontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
 	})
 
 	// JOB DISTRIBUTOR + JOBS (creation and distribution to nodes)
@@ -553,7 +555,11 @@ func SetupTestEnvironment(
 	// If the ConfigSet event is missed, OCR protocol will not start.
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Jobs created in %.2f seconds", stageGen.Elapsed().Seconds())))
 
-	worker.AddVoid(backgroundWorker, "Funding Chainlink nodes", func() error {
+	bkgErrPool := pond.NewPool(10)
+	fundNodesTaskErr := bkgErrPool.SubmitErr(func() error {
+		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Funding Chainlink nodes\n\n"))
+		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Funding Chainlink nodes\n\n"))
+
 		_, fundErr := operations.ExecuteOperation(fullCldOutput.Environment.OperationsBundle, FundCLNodesOp, FundCLNodesOpDeps{
 			Env:               fullCldOutput.Environment,
 			BlockchainOutputs: blockchainOutputs,
@@ -587,7 +593,11 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Log Poller started in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	// wait for log poller filters to be registered in the background, because we don't need it them at this stage yet
-	worker.AddVoid(backgroundWorker, "Waiting for all nodes to have expected LogPoller filters registered", func() error {
+
+	filterRegErr := bkgErrPool.SubmitErr(func() error {
+		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Waiting for all nodes to have expected LogPoller filters registered\n\n"))
+		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] All nodes have expected LogPoller filters registered\n\n"))
+
 		return crecontracts.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.InfraInput.Type, homeChainOutput.ChainID, fullCldOutput.DonTopology, updatedNodeSets)
 	})
 
@@ -679,12 +689,19 @@ func SetupTestEnvironment(
 		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Wrote bootstrapping data into disk in %.2f seconds", stageGen.Elapsed().Seconds())))
 	}
 
-	if err := backgroundWorker.Wait(); err != nil {
-		return nil, pkgerrors.Wrap(err, "background worker failed")
+	wfPool.StopAndWait()
+	workflowRegistryConfigurationOutput, wfRegistrationErr := wfTask.Wait()
+	if wfRegistrationErr != nil {
+		return nil, pkgerrors.Wrap(wfRegistrationErr, "failed to configure workflow registry")
 	}
 
-	// we ignore the error, because if that task would have failed, backgroundWorker.Wait() would have returned that error already
-	workflowRegistryConfigurationOutput, _ := workflowRegistrationResult.Get()
+	bkgErrPool.StopAndWait()
+	if err := fundNodesTaskErr.Wait(); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to fund chainlink nodes")
+	}
+	if err := filterRegErr.Wait(); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed while waiting for log poller filters to be registered")
+	}
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -47,86 +46,15 @@ func WaitForWorkflowRegistryFiltersRegistration(
 		return nil
 	}
 
-	hasGateway := false
-	for _, don := range topology.DonsWithMetadata {
-		if flags.HasFlag(don.Flags, cre.GatewayDON) {
-			hasGateway = true
-			break
-		}
-	}
-
-	if !hasGateway {
-		return nil
-	}
-
-	testLogger.Info().Msg("Waiting for all nodes to have expected LogPoller filters registered...")
 	return waitForAllNodesToHaveExpectedFiltersRegistered(singleFileLogger, testLogger, registryChainID, topology, nodeSetInput)
 }
 
-func PrepareForWorkflowRegistryConfiguration(
+func ConfigureWorkflowRegistry(
 	ctx context.Context,
+	testLogger zerolog.Logger,
 	singleFileLogger logger.Logger,
-	environment *cldf.Environment,
-	donID uint64,
-	registryChainSelector uint64,
-	workflowRegistryAddress common.Address,
-	workflowOwnerAddress common.Address,
-) (*cre.WorkflowRegistryInput, error) {
-	// we need to filter out all chains from the environment struct
-	// that do not have at least one contract deployed to avoid validation errors
-	// when configuring workflow registry contract :shrug: :shrug: :shrug:
-	allAddresses, addrErr := environment.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
-	if addrErr != nil {
-		return nil, errors.Wrap(addrErr, "failed to get addresses from address book")
-	}
-
-	chainsWithContracts := make(map[uint64]bool)
-	for chainSelector, addresses := range allAddresses {
-		chainsWithContracts[chainSelector] = len(addresses) > 0
-	}
-
-	addresses, addrErr1 := environment.DataStore.Addresses().Fetch()
-	if addrErr1 != nil {
-		return nil, errors.Wrap(addrErr1, "failed to get addresses from datastore")
-	}
-
-	for _, addr := range addresses {
-		chainsWithContracts[addr.ChainSelector] = true
-	}
-
-	nonEmptyBlockchains := make(map[uint64]cldf_chain.BlockChain, 0)
-	for chainSelector, chain := range environment.BlockChains.EVMChains() {
-		if chainsWithContracts[chain.Selector] {
-			nonEmptyBlockchains[chainSelector] = chain
-		}
-	}
-	for chainSelector, chain := range environment.BlockChains.SolanaChains() {
-		if chainsWithContracts[chain.Selector] {
-			nonEmptyBlockchains[chainSelector] = chain
-		}
-	}
-
-	nonEmptyChainsCLDEnvironment := &cldf.Environment{
-		Logger:            singleFileLogger,
-		ExistingAddresses: environment.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
-		GetContext: func() context.Context {
-			return ctx
-		},
-		DataStore:   environment.DataStore,
-		BlockChains: cldf_chain.NewBlockChains(nonEmptyBlockchains),
-	}
-	nonEmptyChainsCLDEnvironment.OperationsBundle = operations.NewBundle(nonEmptyChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
-
-	return &cre.WorkflowRegistryInput{
-		ContractAddress: workflowRegistryAddress,
-		ChainSelector:   registryChainSelector,
-		CldEnv:          nonEmptyChainsCLDEnvironment,
-		AllowedDonIDs:   []uint64{donID},
-		WorkflowOwners:  []common.Address{workflowOwnerAddress},
-	}, nil
-}
-
-func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *cre.WorkflowRegistryInput) (*cre.WorkflowRegistryOutput, error) {
+	input *cre.WorkflowRegistryInput,
+) (*cre.WorkflowRegistryOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -138,6 +66,51 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *cre.WorkflowReg
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
+	// we need to filter out all chains from the environment struct
+	// that do not have at least one contract deployed to avoid validation errors
+	// when configuring workflow registry contract :shrug: :shrug: :shrug:
+	allAddresses, addrErr := input.CldEnv.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+	if addrErr != nil {
+		return nil, errors.Wrap(addrErr, "failed to get addresses from address book")
+	}
+
+	chainsWithContracts := make(map[uint64]bool)
+	for chainSelector, addresses := range allAddresses {
+		chainsWithContracts[chainSelector] = len(addresses) > 0
+	}
+
+	addresses, addrErr1 := input.CldEnv.DataStore.Addresses().Fetch()
+	if addrErr1 != nil {
+		return nil, errors.Wrap(addrErr1, "failed to get addresses from datastore")
+	}
+
+	for _, addr := range addresses {
+		chainsWithContracts[addr.ChainSelector] = true
+	}
+
+	nonEmptyBlockchains := make(map[uint64]cldf_chain.BlockChain, 0)
+	for chainSelector, chain := range input.CldEnv.BlockChains.EVMChains() {
+		if chainsWithContracts[chain.Selector] {
+			nonEmptyBlockchains[chainSelector] = chain
+		}
+	}
+	for chainSelector, chain := range input.CldEnv.BlockChains.SolanaChains() {
+		if chainsWithContracts[chain.Selector] {
+			nonEmptyBlockchains[chainSelector] = chain
+		}
+	}
+
+	nonEmptyChainsCLDEnvironment := &cldf.Environment{
+		Logger:            singleFileLogger,
+		ExistingAddresses: input.CldEnv.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+		GetContext: func() context.Context {
+			return ctx
+		},
+		DataStore:   input.CldEnv.DataStore,
+		BlockChains: cldf_chain.NewBlockChains(nonEmptyBlockchains),
+	}
+	nonEmptyChainsCLDEnvironment.OperationsBundle = operations.NewBundle(nonEmptyChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
+
 	allowedDonIDs := make([]uint32, len(input.AllowedDonIDs))
 	for i, donID := range input.AllowedDonIDs {
 		allowedDonIDs[i] = libc.MustSafeUint32FromUint64(donID)
@@ -147,7 +120,7 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *cre.WorkflowReg
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigWorkflowRegistrySeq,
 		ks_contracts_op.ConfigWorkflowRegistrySeqDeps{
-			Env: input.CldEnv,
+			Env: nonEmptyChainsCLDEnvironment,
 		},
 		ks_contracts_op.ConfigWorkflowRegistrySeqInput{
 			ContractAddress:       input.ContractAddress,
