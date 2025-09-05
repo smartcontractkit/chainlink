@@ -60,6 +60,7 @@ type PluginMetricsCollector interface {
 type pluginMetricsCollector struct {
 	pluginName                         string
 	source, dest, sourceName, destName string
+	bhClient                           beholder.Client
 	unexpiredCommitRoots               metric.Int64Gauge
 	messagesProcessed                  metric.Int64Gauge
 	maxSequenceNumber                  metric.Int64Gauge
@@ -68,28 +69,28 @@ type pluginMetricsCollector struct {
 	execLatestRoundId                  metric.Int64Gauge
 }
 
-func NewPluginMetricsCollector(pluginLabel string, sourceChainId, destChainId int64, srcChainName string, destChainName string) (*pluginMetricsCollector, error) {
-	unexpiredCommitRoots, err := beholder.GetMeter().Int64Gauge("ccip_unexpired_commit_roots")
+func NewPluginMetricsCollector(pluginLabel string, bhClient beholder.Client, sourceChainId, destChainId int64, srcChainName string, destChainName string) (*pluginMetricsCollector, error) {
+	unexpiredCommitRoots, err := bhClient.Meter.Int64Gauge("ccip_unexpired_commit_roots")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_unexpired_commit_roots gauge: %w", err)
 	}
-	messagesProcessed, err := beholder.GetMeter().Int64Gauge("ccip_messages_processed")
+	messagesProcessed, err := bhClient.Meter.Int64Gauge("ccip_number_of_messages_processed")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_messages_processed gauge: %w", err)
 	}
-	maxSequenceNumber, err := beholder.GetMeter().Int64Gauge("ccip_max_sequence_number")
+	maxSequenceNumber, err := bhClient.Meter.Int64Gauge("ccip_max_sequence_number")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_max_sequence_number gauge: %w", err)
 	}
-	newReportingPluginErrorCounter, err := beholder.GetMeter().Int64Counter("ccip_new_reporting_plugin_error_counter")
+	newReportingPluginErrorCounter, err := bhClient.Meter.Int64Counter("ccip_new_reporting_plugin_error_counter")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_new_reporting_plugin_error_counter counter: %w", err)
 	}
-	commitLatestRoundId, err := beholder.GetMeter().Int64Gauge("ccip_commit_round_id")
+	commitLatestRoundId, err := bhClient.Meter.Int64Gauge("ccip_commit_round_id")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_commit_round_id gauge: %w", err)
 	}
-	execLatestRoundId, err := beholder.GetMeter().Int64Gauge("ccip_exec_round_id")
+	execLatestRoundId, err := bhClient.Meter.Int64Gauge("ccip_exec_round_id")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_exec_round_id gauge: %w", err)
 	}
@@ -100,6 +101,7 @@ func NewPluginMetricsCollector(pluginLabel string, sourceChainId, destChainId in
 		dest:                           strconv.FormatInt(destChainId, 10),
 		sourceName:                     srcChainName,
 		destName:                       destChainName,
+		bhClient:                       bhClient,
 		unexpiredCommitRoots:           unexpiredCommitRoots,
 		messagesProcessed:              messagesProcessed,
 		maxSequenceNumber:              maxSequenceNumber,

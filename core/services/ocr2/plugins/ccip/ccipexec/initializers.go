@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/Masterminds/semver/v3"
@@ -151,7 +152,9 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, srcChainID, ccip.ExecPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, dstChainID, ccip.ExecPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, dstChainID, ccip.ExecPluginLabel)
-	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, srcChainID, dstChainID, srcChain.Name, dstChain.Name)
+
+	bhClient := beholder.GetClient().ForPackage("ccip-ocr2-exec")
+	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, bhClient, srcChainID, dstChainID, srcChain.Name, dstChain.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugin metrics collector: %w", err)
 	}

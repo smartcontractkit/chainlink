@@ -17,6 +17,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -139,7 +140,9 @@ func NewCommitServices(
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.CommitPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.CommitPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ccip.CommitPluginLabel)
-	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, sourceChainID, destChainID, srcChain.Name, dstChain.Name)
+
+	bhClient := beholder.GetClient().ForPackage("ccip-ocr2-commit")
+	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, bhClient, sourceChainID, destChainID, srcChain.Name, dstChain.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugin metrics collector: %w", err)
 	}
