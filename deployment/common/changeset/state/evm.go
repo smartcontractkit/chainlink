@@ -127,10 +127,15 @@ func loadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qu
 	}
 
 	for _, addressRef := range addresses {
-		addressesChain[addressRef.Address] = cldf.TypeAndVersion{
+		tv := cldf.TypeAndVersion{
 			Type:    cldf.ContractType(addressRef.Type),
 			Version: *addressRef.Version,
 		}
+		// Preserve labels from DataStore
+		if !addressRef.Labels.IsEmpty() {
+			tv.Labels = cldf.NewLabelSet(addressRef.Labels.List()...)
+		}
+		addressesChain[addressRef.Address] = tv
 	}
 	return addressesChain, nil
 }

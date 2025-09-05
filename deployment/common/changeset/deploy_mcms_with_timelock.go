@@ -180,7 +180,7 @@ type GrantRoleInput struct {
 }
 
 func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateDataStore(e, maps.Keys(cfg.ExistingProposerByChain))
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
 }
 
 func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutput, error) {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateDataStore(e, maps.Keys(cfg.ExistingProposerByChain))
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

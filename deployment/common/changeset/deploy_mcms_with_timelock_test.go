@@ -16,6 +16,7 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -58,16 +59,33 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	)
 	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
-	mcmsState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	mcmsState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateDataStore(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 
 	// change the environment to remove proposer from the timelock, so that we can deploy new proposer
 	// and then grant the role to the new proposer
 	existingProposer := mcmsState[evmSelectors[0]].ProposerMcm
-	ab := cldf.NewMemoryAddressBook()
-	require.NoError(t, ab.Save(evmSelectors[0], existingProposer.Address().String(),
-		cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0)))
-	require.NoError(t, updatedEnv.ExistingAddresses.Remove(ab))
+
+	// remove from DataStore since deployment now uses DataStore
+	// Since DataStore is immutable, create a new one without the proposer
+	newDataStore := datastore.NewMemoryDataStore()
+	refs, err := updatedEnv.DataStore.Addresses().Fetch()
+	require.NoError(t, err)
+
+	// Copy all address refs except the proposer we want to remove
+	for _, ref := range refs {
+		// Skip the proposer we want to remove
+		if ref.ChainSelector == evmSelectors[0] &&
+			ref.Address == existingProposer.Address().String() &&
+			ref.Type == datastore.ContractType(commontypes.ProposerManyChainMultisig) {
+			continue
+		}
+		err := newDataStore.Addresses().Add(ref)
+		require.NoError(t, err)
+	}
+
+	// Replace the DataStore in the environment
+	updatedEnv.DataStore = newDataStore.Seal()
 
 	// change the deployer key, so that we can deploy proposer with a new key
 	// the new deployer key will not be admin of the timelock
@@ -79,7 +97,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	// now deploy MCMS again so that only the proposer is new
 	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, configuredChangeset)
 	require.NoError(t, err)
-	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockStateDataStore(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 
 	require.NotEqual(t, existingProposer.Address(), mcmsState[evmSelectors[0]].ProposerMcm.Address())
@@ -93,7 +111,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 		},
 	))
 	require.NoError(t, err)
-	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockStateDataStore(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 
 	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.BlockChains.EVMChains()[evmSelectors[0]].Client)
@@ -157,20 +175,38 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 		},
 	}
 
-	// set up some dummy address in env address book for callproxy, canceller and bypasser
+	// set up some dummy address in env datastore for callproxy, canceller and bypasser
 	// to simulate the case where they already exist
 	// this is to test that the changeset will not try to deploy them again
-	addrBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
+	err := ds.Merge(env.DataStore) // start with existing data
+	require.NoError(t, err)
+
 	callProxyAddress := utils.RandomAddress()
 	mcmsAddress := utils.RandomAddress()
 	mcmsType := cldf.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0)
 	// we use same address for bypasser and canceller
 	mcmsType.AddLabel(commontypes.BypasserRole.String())
 	mcmsType.AddLabel(commontypes.CancellerRole.String())
-	require.NoError(t, addrBook.Save(evmSelectors[0], callProxyAddress.String(),
-		cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)))
-	require.NoError(t, addrBook.Save(evmSelectors[0], mcmsAddress.String(), mcmsType))
-	require.NoError(t, env.ExistingAddresses.Merge(addrBook))
+
+	// Add CallProxy for first chain only
+	require.NoError(t, ds.AddressRefStore.Add(datastore.AddressRef{
+		ChainSelector: evmSelectors[0],
+		Address:       callProxyAddress.String(),
+		Type:          datastore.ContractType(commontypes.CallProxy),
+		Version:       &deployment.Version1_0_0,
+	}))
+
+	// Add MCMS contract with both bypasser and canceller labels for first chain only
+	require.NoError(t, ds.AddressRefStore.Add(datastore.AddressRef{
+		ChainSelector: evmSelectors[0],
+		Address:       mcmsAddress.String(),
+		Type:          datastore.ContractType(mcmsType.Type),
+		Version:       &mcmsType.Version,
+		Labels:        datastore.NewLabelSet(mcmsType.Labels.List()...),
+	}))
+	// replace the existing datastore
+	env.DataStore = ds.Seal()
 
 	configuredChangeset := commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
@@ -181,7 +217,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 
-	state, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	state, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateDataStore(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 	evmState0 := state[evmSelectors[0]]
 
@@ -324,7 +360,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	updatedEnv, err := commonchangeset.Apply(t, env, configuredChangeset)
 	require.NoError(t, err)
 
-	evmState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	evmState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateDataStore(updatedEnv, evmSelectors)
 	require.NoError(t, err)
 	solanaState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(updatedEnv, solanaSelectors)
 	require.NoError(t, err)
