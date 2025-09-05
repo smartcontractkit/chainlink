@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 )
 
 var _ cldf.ChangeSetV2[ProposeJobSpecInput] = ProposeJobSpec{}
@@ -42,7 +42,7 @@ type ProposeJobSpecInput struct {
 	// Inputs is a map of input variables to be used in the job spec template.
 	// These will vary based on the template used, and will be validated differently
 	// for each template type.
-	Inputs types.JobSpecInput `json:"inputs" yaml:"inputs"`
+	Inputs job_types.JobSpecInput `json:"inputs" yaml:"inputs"`
 }
 
 type ProposeJobSpec struct{}

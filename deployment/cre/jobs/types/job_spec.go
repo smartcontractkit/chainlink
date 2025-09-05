@@ -1,4 +1,4 @@
-package types
+package job_types
 
 import (
 	"errors"

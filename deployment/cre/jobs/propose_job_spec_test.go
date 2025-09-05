@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
@@ -39,7 +39,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 				},
 				Template: jobs.Cron,
-				Inputs:   types.JobSpecInput{},
+				Inputs:   job_types.JobSpecInput{},
 			},
 			expectError: false,
 		},
@@ -48,7 +48,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			input: jobs.ProposeJobSpecInput{
 				Domain:   "cre",
 				Template: jobs.Cron,
-				Inputs:   types.JobSpecInput{},
+				Inputs:   job_types.JobSpecInput{},
 			},
 			expectError: true,
 			errorMsg:    "environment is required",
@@ -58,7 +58,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
 				Template:    jobs.Cron,
-				Inputs:      types.JobSpecInput{},
+				Inputs:      job_types.JobSpecInput{},
 			},
 			expectError: true,
 			errorMsg:    "domain is required",
@@ -69,7 +69,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Environment: "test",
 				Domain:      "cre",
 				Template:    1,
-				Inputs:      types.JobSpecInput{},
+				Inputs:      job_types.JobSpecInput{},
 			},
 			expectError: true,
 			errorMsg:    "don_name is required",
@@ -81,7 +81,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Domain:      "cre",
 				DONName:     "test-don",
 				Template:    1,
-				Inputs:      types.JobSpecInput{},
+				Inputs:      job_types.JobSpecInput{},
 			},
 			expectError: true,
 			errorMsg:    "don_filters is required",
@@ -98,7 +98,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 				},
 				Template: 1,
-				Inputs:   types.JobSpecInput{},
+				Inputs:   job_types.JobSpecInput{},
 			},
 			expectError: true,
 			errorMsg:    "job_name is required",
@@ -116,7 +116,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 					{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 				},
 				Template: 1,
-				Inputs:   types.JobSpecInput{},
+				Inputs:   job_types.JobSpecInput{},
 			},
 			expectError: true,
 			errorMsg:    "unsupported template",
@@ -170,7 +170,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "environment", Value: "test", Op: "EQ"},
 				{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 			},
-			Inputs: types.JobSpecInput{
+			Inputs: job_types.JobSpecInput{
 				"command":       "cron",
 				"config":        "CRON_TZ=UTC * * * * *",
 				"externalJobID": "a-cron-job-id",
@@ -209,7 +209,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "environment", Value: "test", Op: "EQ"},
 				{Key: "product", Value: offchain.ProductLabel, Op: "EQ"},
 			},
-			Inputs: types.JobSpecInput{
+			Inputs: job_types.JobSpecInput{
 				// Missing "command"
 				"config":        "CRON_TZ=UTC * * * * *",
 				"externalJobID": "a-cron-job-id",

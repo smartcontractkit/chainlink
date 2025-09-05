@@ -1,4 +1,4 @@
-package types_test
+package job_types_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 )
 
 func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
@@ -16,7 +16,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	jobName := "test-job"
 
 	t.Run("successful conversion", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"externalJobID": "123",
@@ -51,7 +51,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("missing command", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"config":        "param=value",
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
@@ -62,7 +62,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("invalid command type", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"command":       123,
 			"config":        "param=value",
 			"externalJobID": "123",
@@ -74,7 +74,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("missing config", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"command":       "run",
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
@@ -85,7 +85,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("invalid config type", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"command":       "run",
 			"config":        123,
 			"externalJobID": "123",
@@ -97,7 +97,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("missing externalJobID", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"oracleFactory": pkg.OracleFactory{},
@@ -108,7 +108,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("invalid externalJobID type", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"externalJobID": 123,
@@ -120,7 +120,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("missing oracleFactory", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"externalJobID": "123",
@@ -131,7 +131,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 	})
 
 	t.Run("invalid oracleFactory type", func(t *testing.T) {
-		input := types.JobSpecInput{
+		input := job_types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
 			"externalJobID": "123",
