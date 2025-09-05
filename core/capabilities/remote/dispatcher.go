@@ -52,9 +52,12 @@ type dispatcherMetrics struct {
 	sharedPeerMsgsRcvdCounter   metric.Int64Counter
 }
 
+var _ types.Dispatcher = &dispatcher{}
+
 type key struct {
-	capID string
-	donID uint32
+	capID      string
+	donID      uint32
+	methodName string
 }
 
 var _ services.Service = &dispatcher{}
@@ -146,15 +149,21 @@ type receiver struct {
 	ch     chan *types.MessageBody
 }
 
+func (d *dispatcher) SetReceiverForMethod(capabilityID string, donID uint32, method string, rec types.Receiver) error {
+	return d.setReceiver(key{capabilityID, donID, method}, rec)
+}
+
 func (d *dispatcher) SetReceiver(capabilityID string, donID uint32, rec types.Receiver) error {
+	return d.setReceiver(key{capabilityID, donID, ""}, rec) // empty method name
+}
+
+func (d *dispatcher) setReceiver(k key, rec types.Receiver) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	k := key{capabilityID, donID}
 	_, ok := d.receivers[k]
 	if ok {
-		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", ErrReceiverExists, capabilityID, donID)
+		return fmt.Errorf("%w: receiver already exists for capability %s, donID %d, method %s", ErrReceiverExists, k.capID, k.donID, k.methodName)
 	}
-
 	receiverCh := make(chan *types.MessageBody, d.cfg.ReceiverBufferSize())
 
 	ctx, cancelCtx := d.stopCh.NewCtx()
@@ -177,19 +186,25 @@ func (d *dispatcher) SetReceiver(capabilityID string, donID uint32, rec types.Re
 		ch:     receiverCh,
 	}
 
-	d.lggr.Debugw("receiver set", "capabilityId", capabilityID, "donId", donID)
+	d.lggr.Debugw("receiver set", "capabilityId", k.capID, "donId", k.donID, "methodName", k.methodName)
 	return nil
 }
 
+func (d *dispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, method string) {
+	d.removeReceiver(key{capabilityID, donID, method})
+}
+
 func (d *dispatcher) RemoveReceiver(capabilityID string, donID uint32) {
+	d.removeReceiver(key{capabilityID, donID, ""}) // empty method name
+}
+
+func (d *dispatcher) removeReceiver(k key) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-
-	receiverKey := key{capabilityID, donID}
-	if receiver, ok := d.receivers[receiverKey]; ok {
+	if receiver, ok := d.receivers[k]; ok {
 		receiver.cancel()
-		delete(d.receivers, receiverKey)
-		d.lggr.Debugw("receiver removed", "capabilityId", capabilityID, "donId", donID)
+		delete(d.receivers, k)
+		d.lggr.Debugw("receiver removed", "capabilityId", k.capID, "donId", k.donID, "methodName", k.methodName)
 	}
 }
 
@@ -258,7 +273,8 @@ func (d *dispatcher) handleMessage(msg *p2ptypes.Message) {
 		d.tryRespondWithError(msg.Sender, body, types.Error_VALIDATION_FAILED)
 		return
 	}
-	k := key{body.CapabilityId, body.CapabilityDonId}
+	// CapabilityMethod will be empty for legacy "v1" messages
+	k := key{body.CapabilityId, body.CapabilityDonId, body.CapabilityMethod}
 	d.mu.RLock()
 	receiver, ok := d.receivers[k]
 	d.mu.RUnlock()
