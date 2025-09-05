@@ -171,8 +171,8 @@ type Config struct {
 	diskPollConfig       zapDiskPollConfig
 	// This is for tests only
 	testDiskLogLvlChan chan zapcore.Level
-	// Enables telemetry streaming and adding otel core
-	TelemetryStreamingEnabled bool
+	// Enables log streaming and adding otel core
+	LogStreamingEnabled bool
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -193,9 +193,9 @@ func (c *Config) New() (Logger, func() error) {
 		err         error
 	)
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, c.TelemetryStreamingEnabled)
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, c.LogStreamingEnabled)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c, c.TelemetryStreamingEnabled)
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c, c.LogStreamingEnabled)
 	}
 	if err != nil {
 		log.Fatal(err)

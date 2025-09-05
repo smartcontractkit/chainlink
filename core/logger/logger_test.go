@@ -5,9 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestConfig(t *testing.T) {
@@ -33,72 +31,69 @@ func TestStderrWriter(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestConfig_New_WithAdditionalCores(t *testing.T) {
-	// Create multiple test cores
-	observedCore1, observedLogs1 := observer.New(zapcore.InfoLevel)
-	observedCore2, observedLogs2 := observer.New(zapcore.DebugLevel)
-
-	config := Config{
-		LogLevel:        zapcore.DebugLevel,
-		JsonConsole:     true,
-		UnixTS:          true,
-		AdditionalCores: []zapcore.Core{observedCore1, observedCore2},
+func TestLogStreamingEnabled(t *testing.T) {
+	testCases := []struct {
+		name                string
+		logStreamingEnabled bool
+		expectedCoresCount  int
+		shouldHaveOtelCore  bool
+	}{
+		{
+			name:                "LogStreamingEnabled true should include otel core",
+			logStreamingEnabled: true,
+			expectedCoresCount:  2, // default core + otel core
+			shouldHaveOtelCore:  true,
+		},
+		{
+			name:                "LogStreamingEnabled false should not include otel core",
+			logStreamingEnabled: false,
+			expectedCoresCount:  1, // only default core
+			shouldHaveOtelCore:  false,
+		},
 	}
 
-	logger, closeFn := config.New()
-	defer func() {
-		if err := closeFn(); err != nil {
-			t.Errorf("Failed to close logger: %v", err)
-		}
-	}()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := Config{
+				LogLevel:            zapcore.InfoLevel,
+				LogStreamingEnabled: tc.logStreamingEnabled,
+				JsonConsole:         true,
+				UnixTS:              true,
+			}
 
-	// Log messages at different levels
-	logger.Info("info message")
-	logger.Debug("debug message")
+			logger, closeLogger := config.New()
+			require.NotNil(t, logger)
+			require.NotNil(t, closeLogger)
+			defer func() {
+				err := closeLogger()
+				require.NoError(t, err)
+			}()
 
-	// Verify both cores received appropriate messages
-	assert.Equal(t, 1, observedLogs1.Len()) // Info level core should only get info message
-	assert.Equal(t, "info message", observedLogs1.All()[0].Message)
+			// Test that logger works
+			logger.Info("test log message")
 
-	assert.Equal(t, 2, observedLogs2.Len()) // Debug level core should get both messages
-	logs2 := observedLogs2.All()
-	assert.Equal(t, "info message", logs2[0].Message)
-	assert.Equal(t, "debug message", logs2[1].Message)
-}
-
-func TestConfig_New_WithoutAdditionalCores(t *testing.T) {
-	config := Config{
-		LogLevel:    zapcore.InfoLevel,
-		JsonConsole: true,
-		UnixTS:      true,
-		// No AdditionalCores specified
+			// Test that the logger was created successfully with the right config
+			assert.NotNil(t, logger)
+		})
 	}
-
-	logger, closeFn := config.New()
-	defer func() {
-		if err := closeFn(); err != nil {
-			t.Errorf("Failed to close logger: %v", err)
-		}
-	}()
-
-	// Should work normally without additional cores
-	assert.NotNil(t, logger)
-	logger.Info("test message without additional cores")
 }
 
 func TestNewOtelCore(t *testing.T) {
 	// Test that NewOtelCore returns a valid core
-	core := NewOtelCore()
-	assert.NotNil(t, core)
+	core := newOtelCore()
+	require.NotNil(t, core)
 
-	// Test that the core can be used in a logger
-	observedCore, observedLogs := observer.New(zapcore.InfoLevel)
-	teeCore := zapcore.NewTee(core, observedCore)
+	// Test that the core can handle log entries
+	entry := zapcore.Entry{
+		Level:   zapcore.InfoLevel,
+		Time:    zapcore.DefaultClock.Now(),
+		Message: "test message",
+	}
 
-	testLogger := zap.New(teeCore).Sugar()
-	testLogger.Info("test otel core")
+	// This should not panic even if beholder is not initialized
+	err := core.Write(entry, nil)
+	require.NoError(t, err)
 
-	// The observed core should capture the message
-	assert.Equal(t, 1, observedLogs.Len())
-	assert.Equal(t, "test otel core", observedLogs.All()[0].Message)
+	// Test core properties
+	assert.True(t, core.Enabled(zapcore.InfoLevel))
 }

@@ -263,15 +263,15 @@ func NewApp(s *Shell) *cli.App {
 				//TODO: Initialize beholder and dependencies here
 
 				lggrCfg := logger.Config{
-					LogLevel:                  s.Config.Log().Level(),
-					Dir:                       s.Config.Log().File().Dir(),
-					JsonConsole:               s.Config.Log().JSONConsole(),
-					UnixTS:                    s.Config.Log().UnixTimestamps(),
-					FileMaxSizeMB:             int(logFileMaxSizeMB),
-					FileMaxAgeDays:            int(s.Config.Log().File().MaxAgeDays()),
-					FileMaxBackups:            int(s.Config.Log().File().MaxBackups()),
-					SentryEnabled:             s.Config.Sentry().DSN() != "",
-					TelemetryStreamingEnabled: s.Config.Telemetry().LogStreamingEnabled(),
+					LogLevel:            s.Config.Log().Level(),
+					Dir:                 s.Config.Log().File().Dir(),
+					JsonConsole:         s.Config.Log().JSONConsole(),
+					UnixTS:              s.Config.Log().UnixTimestamps(),
+					FileMaxSizeMB:       int(logFileMaxSizeMB),
+					FileMaxAgeDays:      int(s.Config.Log().File().MaxAgeDays()),
+					FileMaxBackups:      int(s.Config.Log().File().MaxBackups()),
+					SentryEnabled:       s.Config.Sentry().DSN() != "",
+					LogStreamingEnabled: s.Config.Telemetry().LogStreamingEnabled(),
 				}
 
 				l, closeFn := lggrCfg.New()
