@@ -109,7 +109,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 		DealerPublicKeys:    []dkgocrtypes.P256ParticipantPublicKey{dkgrecipientKey.PublicKey()},
 		RecipientPublicKeys: []dkgocrtypes.P256ParticipantPublicKey{dkgrecipientKey.PublicKey()},
 		T:                   1,
-	}, rand.Reader)
+	}, []dkgocrtypes.P256Keyring{dkgrecipientKey})
 	require.NoError(t, err)
 	expectedTDH2MasterPublicKey, err := tdh2shim.TDH2PublicKeyFromDKGResult(pkg)
 	require.NoError(t, err)

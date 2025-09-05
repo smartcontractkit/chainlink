@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/libocr/quorumhelper"
+	"github.com/smartcontractkit/smdkg/dkgocr"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/smdkg/dkgocr/tdh2shim"
-	"github.com/smartcontractkit/smdkg/dummydkg"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -170,13 +170,13 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		if err != nil {
 			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not read result package from db: %w", err)
 		}
-		rP := dummydkg.ResultPackage{} // TODO: we should be using a real ResultPackage.
+		rP := dkgocr.NewResultPackage()
 		err = rP.UnmarshalBinary(pack.ReportWithResultPackage)
 		if err != nil {
 			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not unmarshal result package: %w", err)
 		}
 
-		tdh2PubKey, err := tdh2shim.TDH2PublicKeyFromDKGResult(&rP)
+		tdh2PubKey, err := tdh2shim.TDH2PublicKeyFromDKGResult(rP)
 		if err != nil {
 			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not get tdh2 public key from DKG result: %w", err)
 		}
@@ -185,7 +185,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not convert to tdh2easy public key: %w", err)
 		}
 
-		tdh2PrivateKeyShare, err := tdh2shim.TDH2PrivateShareFromDKGResult(&rP, r.recipientKey)
+		tdh2PrivateKeyShare, err := tdh2shim.TDH2PrivateShareFromDKGResult(rP, r.recipientKey)
 		if err != nil {
 			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not get tdh2 private key share from DKG result: %w", err)
 		}
