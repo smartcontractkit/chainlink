@@ -303,11 +303,11 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 		fout, err3 := operations.ExecuteSequence(
 			input.CldEnv.OperationsBundle,
-			forwarder.ConfigureForwardersSeq,
-			forwarder.ConfigureForwardersSeqDeps{
+			forwarder.ConfigureSeq,
+			forwarder.ConfigureSeqDeps{
 				Env: input.CldEnv,
 			},
-			forwarder.ConfigureForwardersSeqInput{
+			forwarder.ConfigureSeqInput{
 				DON:    forwarderCfg,
 				Chains: evmChainsWithForwarders,
 			},
@@ -422,11 +422,11 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			}
 			fout, err := operations.ExecuteSequence(
 				input.CldEnv.OperationsBundle,
-				forwarder.ConfigureForwardersSeq,
-				forwarder.ConfigureForwardersSeqDeps{
+				forwarder.ConfigureSeq,
+				forwarder.ConfigureSeqDeps{
 					Env: input.CldEnv,
 				},
-				forwarder.ConfigureForwardersSeqInput{
+				forwarder.ConfigureSeqInput{
 					DON:    forwarderCfg,
 					Chains: evmChainsWithForwarders,
 				},
