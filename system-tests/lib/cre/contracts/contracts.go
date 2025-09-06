@@ -1,9 +1,7 @@
 package contracts
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -327,12 +325,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		if err != nil {
 			return errors.Wrap(err, "failed to configure forwarders")
 		}
+		// TODO pass this up the call stack to save in the env artifacts
 		framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
-		b, err := json.Marshal(fout.Output.Config)
-		if err != nil {
-			return errors.Wrap(err, "failed to marshal forwarder config")
-		}
-		os.WriteFile("forwarder_config-conv1.json", b, 0644) //nolint:gosec // this is a test artifact
 	}
 
 	// don time happens to be the same as consensus v1 DON, but it doesn't have to be
@@ -450,12 +444,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			if err != nil {
 				return errors.Wrap(err, "failed to configure forwarders")
 			}
+			// TODO pass this up the call stack to save in the env artifacts
 			framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
-			b, err := json.Marshal(fout.Output.Config)
-			if err != nil {
-				return errors.Wrap(err, "failed to marshal forwarder config")
-			}
-			os.WriteFile("forwarder_config-conv2.json", b, 0644) //nolint:gosec // this is a test artifact
 		}
 	}
 	return nil

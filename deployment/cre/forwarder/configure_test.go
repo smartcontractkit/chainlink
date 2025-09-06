@@ -40,12 +40,7 @@ func TestConfigureForwardersSeq(t *testing.T) {
 
 	// Create test DON configuration
 	// Using test nodes from the environment wrapper
-	testNodeIDs := []string{
-		"p2p_12D3KooWBCF1xt5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N",
-		"p2p_12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
-		"p2p_12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92E9orQ8suaJuKYa8g",
-		"p2p_12D3KooWH3uVF6wv47WnArKHk5p6cvgCJEb74UTmxztmQDc298wb",
-	}
+	testNodeIDs := env.NodeIDs
 
 	donConfig := forwarder.DonConfiguration{
 		Name:    "testDON",
