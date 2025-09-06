@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -54,15 +53,6 @@ func (d *donConfig) keystoneDonConfig() ks_contracts_op.ConfigureKeystoneDON {
 		don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
 	}
 	return don
-}
-
-// todo: real type
-func (d *donConfig) p2pIDs() []string {
-	out := make([]string, 0)
-	for _, nop := range d.Nops {
-		out = append(out, nop.Nodes...)
-	}
-	return out
 }
 
 type dons struct {
@@ -208,7 +198,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 
 		dons.c[donName] = donConfig{
-			id:              uint32(donMetadata.ID),
+			id:              uint32(donMetadata.ID), //nolint:gosec // G115
 			DonCapabilities: c,
 			flags:           donMetadata.Flags,
 		}
@@ -307,11 +297,11 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 
 	// configure EVM forwarders only if we have some
 	if len(evmChainsWithForwarders) > 0 {
-		forwarderCfg, err := newDonConfigurationV1(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg.Contract)
-		if err != nil {
-			return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
+		forwarderCfg, err2 := newDonConfigurationV1(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg.Contract)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to get DON configuration for forwarder configuration")
 		}
-		fout, err := operations.ExecuteSequence(
+		fout, err3 := operations.ExecuteSequence(
 			input.CldEnv.OperationsBundle,
 			forwarder.ConfigureForwardersSeq,
 			forwarder.ConfigureForwardersSeqDeps{
@@ -322,8 +312,8 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 				Chains: evmChainsWithForwarders,
 			},
 		)
-		if err != nil {
-			return errors.Wrap(err, "failed to configure forwarders")
+		if err3 != nil {
+			return errors.Wrap(err3, "failed to configure forwarders")
 		}
 		// TODO pass this up the call stack to save in the env artifacts
 		framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
@@ -696,27 +686,9 @@ func newDonConfigurationV1(name string, donID uint32, env *cldf.Environment, cap
 	}, nil
 }
 
-func newDonConfigurationV2(name string, donID uint32, env *cldf.Environment, capReg *capabilities_registry_v2.CapabilitiesRegistry) (forwarder.DonConfiguration, error) {
-	if capReg == nil {
-		return forwarder.DonConfiguration{}, errors.New("nil capabilities registry contract")
-	}
-	d, err := capReg.GetDON(nil, donID)
-	if err != nil {
-		return forwarder.DonConfiguration{}, fmt.Errorf("failed to get don info for name %s: %w", name, err)
-	}
-
-	return forwarder.DonConfiguration{
-		Name:    name,
-		ID:      d.Id,
-		F:       d.F,
-		Version: d.ConfigCount,
-		NodeIDs: p2pStrings(d.NodeP2PIds),
-	}, nil
-}
-
-func p2pIDs(rawIds [][32]byte) []p2pkey.PeerID {
-	var out []p2pkey.PeerID
-	for _, id := range rawIds {
+func p2pIDs(rawIDs [][32]byte) []p2pkey.PeerID {
+	out := make([]p2pkey.PeerID, 0, len(rawIDs))
+	for _, id := range rawIDs {
 		out = append(out, p2pkey.PeerID(id))
 	}
 	return out

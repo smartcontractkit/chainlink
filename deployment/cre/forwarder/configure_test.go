@@ -71,5 +71,4 @@ func TestConfigureForwardersSeq(t *testing.T) {
 	output, err := operations.ExecuteSequence(b2, forwarder.ConfigureForwardersSeq, deps2, input2)
 	require.NoError(t, err, "ConfigureForwardersSeq should execute successfully")
 	require.NotNil(t, output, "ConfigureForwardersSeq should return output")
-
 }

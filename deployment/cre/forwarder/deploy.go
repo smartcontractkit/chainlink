@@ -69,9 +69,7 @@ var DeploySequence = operations.NewSequence[DeploySequenceInput, DeploySequenceO
 		contractErrGroup := &errgroup.Group{}
 		for _, target := range input.Targets {
 			contractErrGroup.Go(func() error {
-				r, err := operations.ExecuteOperation(b, DeployOp, DeployOpDeps{
-					Env: deps.Env,
-				}, DeployOpInput{
+				r, err := operations.ExecuteOperation(b, DeployOp, DeployOpDeps(deps), DeployOpInput{
 					ChainSelector: target,
 					Qualifier:     input.Qualifier,
 				})
