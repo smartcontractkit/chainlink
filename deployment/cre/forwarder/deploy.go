@@ -1,6 +1,7 @@
 package forwarder
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -42,17 +43,19 @@ var DeployOp = operations.NewOperation[DeployOpInput, DeployOpOutput, DeployOpDe
 		if !ok {
 			return DeployOpOutput{}, fmt.Errorf("deploy-keystone-forwarder-op failed: chain selector %d not found in environment", input.ChainSelector)
 		}
-		addr, tv, err := deploy(chain.DeployerKey, chain)
+		addr, tv, err := deploy(b.GetContext(), chain.DeployerKey, chain)
 		if err != nil {
 			return DeployOpOutput{}, fmt.Errorf("deploy-keystone-forwarder-op failed: %w", err)
 		}
+		labels := tv.Labels.List()
+		labels = append(labels, input.Labels...)
 		r := datastore.AddressRef{
 			ChainSelector: input.ChainSelector,
 			Address:       addr.String(),
 			Type:          datastore.ContractType(tv.Type),
 			Version:       &tv.Version,
 			Qualifier:     input.Qualifier,
-			Labels:        datastore.NewLabelSet(input.Labels...),
+			Labels:        datastore.NewLabelSet(labels...),
 		}
 		ds := datastore.NewMemoryDataStore()
 		if err := ds.AddressRefStore.Add(r); err != nil {
@@ -71,7 +74,12 @@ var DeployOp = operations.NewOperation[DeployOpInput, DeployOpOutput, DeployOpDe
 	},
 )
 
-func deploy(auth *bind.TransactOpts, chain evm.Chain) (*common.Address, *cldf.TypeAndVersion, error) {
+const (
+	DeploymentBlockLabel = "deployment-block"
+	DeploymentHashLabel  = "deployment-hash"
+)
+
+func deploy(ctx context.Context, auth *bind.TransactOpts, chain evm.Chain) (*common.Address, *cldf.TypeAndVersion, error) {
 	forwarderAddr, tx, forwarder, err := forwarder.DeployKeystoneForwarder(
 		auth,
 		chain.Client)
@@ -91,6 +99,16 @@ func deploy(auth *bind.TransactOpts, chain evm.Chain) (*common.Address, *cldf.Ty
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
+	txHash := tx.Hash()
+	txReceipt, err := chain.Client.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get transaction receipt: %w", err)
+	}
+	hashLabel := fmt.Sprintf("%s: %s", DeploymentHashLabel, txHash.Hex())
+	blockLabel := fmt.Sprintf("%s: %s", DeploymentBlockLabel, txReceipt.BlockNumber.String())
+	tv.Labels.Add(blockLabel)
+	tv.Labels.Add(hashLabel)
+
 	return &forwarderAddr, &tv, nil
 }
 

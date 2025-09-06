@@ -72,6 +72,7 @@ func DeployForwarderV2(env cldf.Environment, req *DeployRequestV2) (cldf.Changes
 		tv := cldf.TypeAndVersion{
 			Type:    cldf.ContractType(report.Output.AddressRef.Type),
 			Version: *report.Output.AddressRef.Version,
+			Labels:  cldf.NewLabelSet(report.Output.AddressRef.Labels.List()...),
 		}
 		err = ab.Save(chain.Selector, report.Output.AddressRef.Address, tv)
 		if err != nil {
