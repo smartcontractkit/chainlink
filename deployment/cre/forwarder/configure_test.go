@@ -51,12 +51,12 @@ func TestConfigureForwardersSeq(t *testing.T) {
 	}
 
 	// Setup dependencies for ConfigureForwardersSeq
-	deps2 := forwarder.ConfigureForwardersSeqDeps{
+	deps2 := forwarder.ConfigureSeqDeps{
 		Env: env,
 	}
 
 	// Setup input for ConfigureForwardersSeq
-	input2 := forwarder.ConfigureForwardersSeqInput{
+	input2 := forwarder.ConfigureSeqInput{
 		DON: donConfig,
 		// Not using MCMS for this test
 		MCMSConfig: nil,
@@ -68,7 +68,7 @@ func TestConfigureForwardersSeq(t *testing.T) {
 	b2 := optest.NewBundle(t)
 
 	// Execute the ConfigureForwardersSeq operation
-	output, err := operations.ExecuteSequence(b2, forwarder.ConfigureForwardersSeq, deps2, input2)
+	output, err := operations.ExecuteSequence(b2, forwarder.ConfigureSeq, deps2, input2)
 	require.NoError(t, err, "ConfigureForwardersSeq should execute successfully")
 	require.NotNil(t, output, "ConfigureForwardersSeq should return output")
 }

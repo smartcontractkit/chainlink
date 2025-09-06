@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-type ConfigureForwardersSeqDeps struct {
+type ConfigureSeqDeps struct {
 	Env *cldf.Environment
 }
 
@@ -54,7 +54,7 @@ func (d DonConfiguration) ForwarderConfig(chainFamily string, c offchain.Client)
 	}, nil
 }
 
-type ConfigureForwardersSeqInput struct {
+type ConfigureSeqInput struct {
 	DON DonConfiguration // the DON to configuration for the forwarder to accept
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
@@ -63,33 +63,33 @@ type ConfigureForwardersSeqInput struct {
 	Chains map[uint64]struct{}
 }
 
-func (i ConfigureForwardersSeqInput) UseMCMS() bool {
+func (i ConfigureSeqInput) UseMCMS() bool {
 	return i.MCMSConfig != nil
 }
 
-type ConfigureForwardersSeqOutput struct {
+type ConfigureSeqOutput struct {
 	MCMSTimelockProposals []mcms.TimelockProposal
 	Config                Config
 }
 
-// ConfigureForwardersSeq is a sequence that configures Keystone Forwarder contracts for a given DON.
+// ConfigureSeq is a sequence that configures Keystone Forwarder contracts for a given DON.
 // TODO this is mostly copied from keystone/changeset/operations/contracts/configure_forwarders_seq.go
 // now that this is independent of the registry, we should be able to use this in the impl there while maintaining the existing api if needed
-var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput, ConfigureForwardersSeqOutput, ConfigureForwardersSeqDeps](
+var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput, ConfigureSeqDeps](
 	"configure-forwarders-seq",
 	semver.MustParse("1.0.0"),
 	"Configure Keystone Forwarders",
-	func(b operations.Bundle, deps ConfigureForwardersSeqDeps, input ConfigureForwardersSeqInput) (ConfigureForwardersSeqOutput, error) {
+	func(b operations.Bundle, deps ConfigureSeqDeps, input ConfigureSeqInput) (ConfigureSeqOutput, error) {
 		evmChain := deps.Env.BlockChains.EVMChains()
 		opPerChain := make(map[uint64]*mcmstypes.BatchOperation)
 		forwarderContracts := make(map[uint64]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 
 		cfg, err := input.DON.ForwarderConfig("evm", deps.Env.Offchain)
-		out := ConfigureForwardersSeqOutput{
+		out := ConfigureSeqOutput{
 			Config: cfg,
 		}
 		if err != nil {
-			return ConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to get forwarder config for DON %s: %w", input.DON.Name, err)
+			return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to get forwarder config for DON %s: %w", input.DON.Name, err)
 		}
 		for _, chain := range evmChain {
 			if _, shouldInclude := input.Chains[chain.Selector]; len(input.Chains) > 0 && !shouldInclude {
@@ -101,26 +101,26 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 				datastore.AddressRefByType(datastore.ContractType(changeset.KeystoneForwarder)),
 			)
 			if len(addressesRefs) == 0 {
-				return ConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d", chain.Selector)
+				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d", chain.Selector)
 			}
 
 			for _, addrRef := range addressesRefs {
 				contract, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](deps.Env.DataStore.Addresses(), chain, addrRef.Address)
 				if err != nil {
-					return ConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", chain.Selector, err)
+					return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", chain.Selector, err)
 				}
 
-				fwrReport, err := operations.ExecuteOperation(b, ConfigureForwarderOp, ConfigureForwarderOpDeps{
+				fwrReport, err := operations.ExecuteOperation(b, ConfigureOp, ConfigureOpDeps{
 					Env:      deps.Env,
 					Chain:    &chain,
 					Contract: contract.Contract,
 					Config:   cfg,
-				}, ConfigureForwarderOpInput{
+				}, ConfigureOpInput{
 					UseMCMS:       input.UseMCMS(),
 					ChainSelector: chain.Selector, // here to skip the check for the previous report, since unless inputs are different they are treated as the same and skipped
 				})
 				if err != nil {
-					return ConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", chain.Selector, err)
+					return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", chain.Selector, err)
 				}
 
 				opPerChain[chain.Selector] = fwrReport.Output.BatchOperation
@@ -177,36 +177,36 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 	},
 )
 
-type ConfigureForwarderOpDeps struct {
+type ConfigureOpDeps struct {
 	Env      *cldf.Environment
 	Chain    *evm.Chain
 	Contract *forwarder.KeystoneForwarder
 	Config   Config
 }
 
-type ConfigureForwarderOpInput struct {
+type ConfigureOpInput struct {
 	UseMCMS       bool
 	ChainSelector uint64
 }
 
-type ConfigureForwarderOpOutput struct {
+type ConfigureOpOutput struct {
 	BatchOperation *mcmstypes.BatchOperation // if using MCMS, the batch operation to propose the change
 
 	Forwarder common.Address
 	Config    Config
 }
 
-// ConfigureForwarderOp is an operation that configures a Keystone Forwarder contract.
-var ConfigureForwarderOp = operations.NewOperation[ConfigureForwarderOpInput, ConfigureForwarderOpOutput, ConfigureForwarderOpDeps](
+// ConfigureOp is an operation that configures a Keystone Forwarder contract.
+var ConfigureOp = operations.NewOperation[ConfigureOpInput, ConfigureOpOutput, ConfigureOpDeps](
 	"configure-forwarder-op",
 	semver.MustParse("1.0.0"),
 	"Configure Keystone Forwarder",
-	func(b operations.Bundle, deps ConfigureForwarderOpDeps, input ConfigureForwarderOpInput) (ConfigureForwarderOpOutput, error) {
+	func(b operations.Bundle, deps ConfigureOpDeps, input ConfigureOpInput) (ConfigureOpOutput, error) {
 		r, err := configureForwarder(b.Logger, *deps.Chain, deps.Contract, deps.Config, input.UseMCMS)
 		if err != nil {
-			return ConfigureForwarderOpOutput{}, fmt.Errorf("configure-forwarder-op failed: failed to configure forwarder for chain selector %d: %w", deps.Chain.Selector, err)
+			return ConfigureOpOutput{}, fmt.Errorf("configure-forwarder-op failed: failed to configure forwarder for chain selector %d: %w", deps.Chain.Selector, err)
 		}
-		return ConfigureForwarderOpOutput{BatchOperation: r.BatchOperation}, nil
+		return ConfigureOpOutput{BatchOperation: r.BatchOperation}, nil
 	},
 )
 

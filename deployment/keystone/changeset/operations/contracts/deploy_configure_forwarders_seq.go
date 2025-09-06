@@ -263,14 +263,27 @@ func configureForwarderOp(
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
 	}
-	_, err = operations.ExecuteOperation(b, ConfigureForwarderOp, ConfigureForwarderOpDeps{
-		Env:      deps.Env,
-		Chain:    &chain,
-		Contract: forwarderContract.Contract,
-		Dons:     chainDons,
-	}, ConfigureForwarderOpInput{UseMCMS: input.UseMCMS(), ChainSelector: target})
-	if err != nil {
-		return fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", target, err)
+	// configure forwarder for each wf don
+	for _, don := range chainDons {
+		if !don.Info.AcceptsWorkflows {
+			continue
+		}
+		cfg := creforwarder.Config{
+			DonID:         don.Info.Id,
+			F:             don.Info.F,
+			ConfigVersion: don.Info.ConfigCount,
+			Signers:       don.Signers("evm"),
+		}
+
+		_, err = operations.ExecuteOperation(b, creforwarder.ConfigureOp, creforwarder.ConfigureOpDeps{
+			Env:      deps.Env,
+			Chain:    &chain,
+			Contract: forwarderContract.Contract,
+			Config:   cfg,
+		}, creforwarder.ConfigureOpInput{UseMCMS: input.UseMCMS(), ChainSelector: target})
+		if err != nil {
+			return fmt.Errorf("configure-forwarders-seq failed for chain selector %d, donID: %d: %w", target, don.Info.Id, err)
+		}
 	}
 	return nil
 }
