@@ -878,6 +878,16 @@ func TestConfig_Marshal(t *testing.T) {
 				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true, Order: ptr(int32(2))},
 				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true, Order: ptr(int32(3))},
 			},
+			Workflow: &solcfg.WorkflowConfig{
+				AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 45),
+				FromAddress:       ptr("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e"),
+				ForwarderAddress:  ptr("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5"),
+				ForwarderState:    ptr("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5"),
+				TxAcceptanceState: ptr(commontypes.Finalized),
+				PollPeriod:        commoncfg.MustNewDuration(time.Second * 3),
+				Local:             true,
+				GasLimitDefault:   ptr(uint64(0)),
+			},
 		},
 	}
 	full.Mercury = toml.Mercury{
@@ -1355,6 +1365,16 @@ BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
+
+[Solana.Workflow]
+AcceptanceTimeout = '45s'
+PollPeriod = '3s'
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+GasLimitDefault = 0
+TxAcceptanceState = 3
+Local = true
 
 [Solana.MultiNode]
 Enabled = false

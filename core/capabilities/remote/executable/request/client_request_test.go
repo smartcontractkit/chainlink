@@ -752,6 +752,13 @@ func (t *clientRequestTestDispatcher) SetReceiver(capabilityID string, donID uin
 
 func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
 
+func (t *clientRequestTestDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, methodName string, receiver types.Receiver) error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, methodName string) {
+}
+
 func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs <- msgBody
 	return nil

@@ -296,15 +296,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      input.CldEnv,
-			Registry: capReg.Contract,
+			Env: input.CldEnv,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress:  input.OCR3Address,
-			RegistryChainSel: input.ChainSelector,
-			DON:              consensusV1DON.keystoneDonConfig(),
-			Config:           consensusV1DON.resolveOcr3Config(input.OCR3Config),
-			DryRun:           false,
+			ContractAddress: input.OCR3Address,
+			ChainSelector:   input.ChainSelector,
+			DON:             consensusV1DON.keystoneDonConfig(),
+			Config:          consensusV1DON.resolveOcr3Config(input.OCR3Config),
+			DryRun:          false,
 		},
 	)
 	if err != nil {
@@ -316,15 +315,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      input.CldEnv,
-			Registry: capReg.Contract,
+			Env: input.CldEnv,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress:  input.DONTimeAddress,
-			RegistryChainSel: input.ChainSelector,
-			DON:              consensusV1DON.keystoneDonConfig(),
-			Config:           consensusV1DON.resolveOcr3Config(input.DONTimeConfig),
-			DryRun:           false,
+			ContractAddress: input.DONTimeAddress,
+			ChainSelector:   input.ChainSelector,
+			DON:             consensusV1DON.keystoneDonConfig(),
+			Config:          consensusV1DON.resolveOcr3Config(input.DONTimeConfig),
+			DryRun:          false,
 		},
 	)
 	if err != nil {
@@ -341,15 +339,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureOCR3Op,
 			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
+				Env: input.CldEnv,
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress:  input.VaultOCR3Address,
-				RegistryChainSel: input.ChainSelector,
-				DON:              vaultDON.keystoneDonConfig(),
-				Config:           vaultDON.resolveOcr3Config(input.VaultOCR3Config),
-				DryRun:           false,
+				ContractAddress: input.VaultOCR3Address,
+				ChainSelector:   input.ChainSelector,
+				DON:             vaultDON.keystoneDonConfig(),
+				Config:          vaultDON.resolveOcr3Config(input.VaultOCR3Config),
+				DryRun:          false,
 			},
 		)
 		if err != nil {
@@ -369,15 +366,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 				input.CldEnv.OperationsBundle,
 				ks_contracts_op.ConfigureOCR3Op,
 				ks_contracts_op.ConfigureOCR3OpDeps{
-					Env:      input.CldEnv,
-					Registry: capReg.Contract,
+					Env: input.CldEnv,
 				},
 				ks_contracts_op.ConfigureOCR3OpInput{
-					ContractAddress:  &evmOCR3Address,
-					RegistryChainSel: chainSelector,
-					DON:              evmDON.keystoneDonConfig(),
-					Config:           evmDON.resolveOcr3Config(input.EVMOCR3Config),
-					DryRun:           false,
+					ContractAddress: &evmOCR3Address,
+					ChainSelector:   chainSelector,
+					DON:             evmDON.keystoneDonConfig(),
+					Config:          evmDON.resolveOcr3Config(input.EVMOCR3Config),
+					DryRun:          false,
 				},
 			)
 			if err != nil {
@@ -395,15 +391,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureOCR3Op,
 			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
+				Env: input.CldEnv,
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress:  input.ConsensusV2OCR3Address,
-				RegistryChainSel: input.ChainSelector,
-				DON:              v2ConsensusDON.keystoneDonConfig(),
-				Config:           v2ConsensusDON.resolveOcr3Config(input.ConsensusV2OCR3Config),
-				DryRun:           false,
+				ContractAddress: input.ConsensusV2OCR3Address,
+				ChainSelector:   input.ChainSelector,
+				DON:             v2ConsensusDON.keystoneDonConfig(),
+				Config:          v2ConsensusDON.resolveOcr3Config(input.ConsensusV2OCR3Config),
+				DryRun:          false,
 			},
 		)
 		if err != nil {

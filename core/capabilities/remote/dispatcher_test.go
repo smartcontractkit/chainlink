@@ -143,6 +143,58 @@ func TestDispatcher_Receive(t *testing.T) {
 	require.NoError(t, dispatcher.Close())
 }
 
+func TestDispatcher_ReceiveForMethod(t *testing.T) {
+	lggr := logger.Test(t)
+	ctx := testutils.Context(t)
+	privKey1, peerID1 := newKeyPair(t)
+	_, peerID2 := newKeyPair(t)
+
+	peer := mocks.NewPeer(t)
+	recvCh := make(chan p2ptypes.Message)
+	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
+	peer.On("ID", mock.Anything).Return(peerID2)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+	signer := mocks.NewSigner(t)
+	signer.EXPECT().Initialize().Return(nil)
+	signer.EXPECT().Sign(mock.Anything).Return(nil, errors.New("not implemented"))
+	registry := commonMocks.NewCapabilitiesRegistry(t)
+
+	dispatcher, err := remote.NewDispatcher(testConfig{
+		supportedVersion:   1,
+		receiverBufferSize: 10000,
+		rateLimit: testRateLimitConfig{
+			globalRPS:   800.0,
+			globalBurst: 100,
+			rps:         10.0,
+			burst:       50,
+		},
+	}, wrapper, nil, signer, registry, lggr)
+	require.NoError(t, err)
+	require.NoError(t, dispatcher.Start(ctx))
+
+	methodA, methodB := "methodA", "methodB"
+	rcvA, rcvB := newReceiver(), newReceiver()
+	require.NoError(t, dispatcher.SetReceiverForMethod(capID1, donID1, methodA, rcvA))
+	require.NoError(t, dispatcher.SetReceiverForMethod(capID1, donID1, methodB, rcvB))
+
+	// supported capability / methodA
+	recvCh <- encodeAndSignForMethod(t, privKey1, peerID1, peerID2, capID1, methodA, donID1, []byte(payload1))
+	// unknown capability
+	recvCh <- encodeAndSignForMethod(t, privKey1, peerID1, peerID2, capID2, methodA, donID1, []byte(payload1))
+	// supported capability / methodB
+	recvCh <- encodeAndSignForMethod(t, privKey1, peerID1, peerID2, capID1, methodB, donID1, []byte(payload2))
+
+	m := <-rcvA.ch
+	require.Equal(t, payload1, string(m.Payload))
+	m = <-rcvB.ch
+	require.Equal(t, payload2, string(m.Payload))
+
+	dispatcher.RemoveReceiverForMethod(capID1, donID1, methodA)
+	dispatcher.RemoveReceiverForMethod(capID1, donID1, methodB)
+	require.NoError(t, dispatcher.Close())
+}
+
 func TestDispatcher_RespondWithError(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
