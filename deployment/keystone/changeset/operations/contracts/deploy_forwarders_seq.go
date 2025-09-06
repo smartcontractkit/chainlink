@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 )
 
 type DeployKeystoneForwardersSequenceDeps struct {
@@ -26,7 +27,7 @@ type DeployKeystoneForwardersOutput struct {
 	Datastore   datastore.DataStore
 }
 
-var DeployKeystoneForwardersSequence = operations.NewSequence[DeployKeystoneForwardersInput, DeployKeystoneForwardersOutput, DeployKeystoneForwardersSequenceDeps](
+var DeployKeystoneForwardersSequence = operations.NewSequence(
 	"deploy-keystone-forwarders-seq",
 	semver.MustParse("1.0.0"),
 	"Deploy Keystone Forwarders",
@@ -36,7 +37,7 @@ var DeployKeystoneForwardersSequence = operations.NewSequence[DeployKeystoneForw
 		contractErrGroup := &errgroup.Group{}
 		for _, target := range input.Targets {
 			contractErrGroup.Go(func() error {
-				r, err := operations.ExecuteOperation(b, DeployKeystoneForwarderOp, DeployForwarderOpDeps(deps), DeployForwarderOpInput{
+				r, err := operations.ExecuteOperation(b, creforwarder.DeployOp, creforwarder.DeployOpDeps(deps), creforwarder.DeployOpInput{
 					ChainSelector: target,
 				})
 				if err != nil {
