@@ -6,15 +6,12 @@ import (
 	"maps"
 	"slices"
 
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -123,65 +120,94 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 		Name:             req.WFDonName,
 		RegistryChainSel: req.RegistryChainSel,
 	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create registered don: %w", err)
-	}
-	r, err := internal.ConfigureForwardContracts(&env, internal.ConfigureForwarderContractsRequest{
-		Dons:    []internal.RegisteredDon{*wfDon},
-		UseMCMS: req.UseMCMS(),
-		Chains:  req.Chains,
-	})
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
+	cfg := creforwarder.DonConfiguration{
+		Name: req.WFDonName,
+		ID:   wfDon.Info.Id,
+		F:    wfDon.Info.F,
+		// use the next config version since we are going to update the config
+		Version: wfDon.Info.ConfigCount,
+		NodeIDs: req.WFNodeIDs,
 	}
 
-	var out cldf.ChangesetOutput
-	if req.UseMCMS() {
-		if len(r.OpsPerChain) == 0 {
-			return out, errors.New("expected MCMS operation to be non-nil")
-		}
-		for chainSelector, op := range r.OpsPerChain {
-			fwrAddr, ok := r.ForwarderAddresses[chainSelector]
-			if !ok {
-				return out, fmt.Errorf("expected configured forwarder address for chain selector %d", chainSelector)
-			}
-			fwr, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.BlockChains.EVMChains()[chainSelector], fwrAddr.String())
-			if err != nil {
-				return out, fmt.Errorf("failed to get forwarder contract for chain selector %d: %w", chainSelector, err)
-			}
-			if fwr.McmsContracts == nil {
-				return out, fmt.Errorf("expected forwarder contract %s to be owned by MCMS for chain selector %d", fwrAddr.String(), chainSelector)
-			}
-			timelocksPerChain := map[uint64]string{
-				chainSelector: fwr.McmsContracts.Timelock.Address().Hex(),
-			}
-			proposerMCMSes := map[uint64]string{
-				chainSelector: fwr.McmsContracts.ProposerMcm.Address().Hex(),
-			}
-			inspector, err := proposalutils.McmsInspectorForChain(env, chainSelector)
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
-			inspectorPerChain := map[uint64]mcmssdk.Inspector{
-				chainSelector: inspector,
-			}
-
-			proposal, err := proposalutils.BuildProposalFromBatchesV2(
-				env,
-				timelocksPerChain,
-				proposerMCMSes,
-				inspectorPerChain,
-				[]mcmstypes.BatchOperation{op},
-				"proposal to set forwarder config",
-				proposalutils.TimelockConfig{
-					MinDelay: req.MCMSConfig.MinDuration,
-				},
-			)
-			if err != nil {
-				return out, fmt.Errorf("failed to build proposal: %w", err)
-			}
-			out.MCMSTimelockProposals = append(out.MCMSTimelockProposals, *proposal)
-		}
+	seqReport, err := operations.ExecuteSequence(
+		env.OperationsBundle,
+		creforwarder.ConfigureSeq,
+		creforwarder.ConfigureSeqDeps{Env: &env},
+		creforwarder.ConfigureSeqInput{
+			DON:        cfg,
+			MCMSConfig: &proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			Chains:     req.Chains,
+		},
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute configure forwarder sequence: %w", err)
 	}
-	return out, nil
+
+	return cldf.ChangesetOutput{
+		Reports:               seqReport.ExecutionReports,
+		MCMSTimelockProposals: seqReport.Output.MCMSTimelockProposals,
+	}, nil
+	/*
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create registered don: %w", err)
+		}
+		r, err := internal.ConfigureForwardContracts(&env, internal.ConfigureForwarderContractsRequest{
+			Dons:    []internal.RegisteredDon{*wfDon},
+			UseMCMS: req.UseMCMS(),
+			Chains:  req.Chains,
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
+		}
+
+		var out cldf.ChangesetOutput
+		if req.UseMCMS() {
+			if len(r.OpsPerChain) == 0 {
+				return out, errors.New("expected MCMS operation to be non-nil")
+			}
+			for chainSelector, op := range r.OpsPerChain {
+				fwrAddr, ok := r.ForwarderAddresses[chainSelector]
+				if !ok {
+					return out, fmt.Errorf("expected configured forwarder address for chain selector %d", chainSelector)
+				}
+				fwr, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.BlockChains.EVMChains()[chainSelector], fwrAddr.String())
+				if err != nil {
+					return out, fmt.Errorf("failed to get forwarder contract for chain selector %d: %w", chainSelector, err)
+				}
+				if fwr.McmsContracts == nil {
+					return out, fmt.Errorf("expected forwarder contract %s to be owned by MCMS for chain selector %d", fwrAddr.String(), chainSelector)
+				}
+				timelocksPerChain := map[uint64]string{
+					chainSelector: fwr.McmsContracts.Timelock.Address().Hex(),
+				}
+				proposerMCMSes := map[uint64]string{
+					chainSelector: fwr.McmsContracts.ProposerMcm.Address().Hex(),
+				}
+				inspector, err := proposalutils.McmsInspectorForChain(env, chainSelector)
+				if err != nil {
+					return cldf.ChangesetOutput{}, err
+				}
+				inspectorPerChain := map[uint64]mcmssdk.Inspector{
+					chainSelector: inspector,
+				}
+
+				proposal, err := proposalutils.BuildProposalFromBatchesV2(
+					env,
+					timelocksPerChain,
+					proposerMCMSes,
+					inspectorPerChain,
+					[]mcmstypes.BatchOperation{op},
+					"proposal to set forwarder config",
+					proposalutils.TimelockConfig{
+						MinDelay: req.MCMSConfig.MinDuration,
+					},
+				)
+				if err != nil {
+					return out, fmt.Errorf("failed to build proposal: %w", err)
+				}
+				out.MCMSTimelockProposals = append(out.MCMSTimelockProposals, *proposal)
+			}
+		}
+		return out, nil
+	*/
 }
