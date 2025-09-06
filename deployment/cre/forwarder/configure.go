@@ -69,6 +69,7 @@ func (i ConfigureForwardersSeqInput) UseMCMS() bool {
 
 type ConfigureForwardersSeqOutput struct {
 	MCMSTimelockProposals []mcms.TimelockProposal
+	Config                Config
 }
 
 // ConfigureForwardersSeq is a sequence that configures Keystone Forwarder contracts for a given DON.
@@ -84,6 +85,9 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 		forwarderContracts := make(map[uint64]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 
 		cfg, err := input.DON.ForwarderConfig("evm", deps.Env.Offchain)
+		out := ConfigureForwardersSeqOutput{
+			Config: cfg,
+		}
 		if err != nil {
 			return ConfigureForwardersSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: failed to get forwarder config for DON %s: %w", input.DON.Name, err)
 		}
@@ -124,7 +128,6 @@ var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput,
 			}
 		}
 
-		var out ConfigureForwardersSeqOutput
 		if input.UseMCMS() {
 			if len(opPerChain) == 0 {
 				return out, errors.New("configure-forwarders-seq failed: no operations generated for MCMS")
@@ -188,6 +191,9 @@ type ConfigureForwarderOpInput struct {
 
 type ConfigureForwarderOpOutput struct {
 	BatchOperation *mcmstypes.BatchOperation // if using MCMS, the batch operation to propose the change
+
+	Forwarder common.Address
+	Config    Config
 }
 
 // ConfigureForwarderOp is an operation that configures a Keystone Forwarder contract.
@@ -210,7 +216,7 @@ func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.
 	// load the nodes from the offchain client
 	nodes, err := deployment.NodeInfo(nodeIDs, c)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get node info: %w", err)
+		return nil, fmt.Errorf("failed to get node info for node IDs %v: %w", nodeIDs, err)
 	}
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].PeerID.String() < nodes[j].PeerID.String()

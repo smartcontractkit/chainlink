@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -45,6 +46,8 @@ func (i ConfigureForwardersSeqInput) UseMCMS() bool {
 
 type ConfigureForwardersSeqOutput struct {
 	MCMSTimelockProposals []mcms.TimelockProposal
+
+	Config creforwarder.Config
 }
 
 var ConfigureForwardersSeq = operations.NewSequence[ConfigureForwardersSeqInput, ConfigureForwardersSeqOutput, ConfigureForwardersSeqDeps](
@@ -172,6 +175,7 @@ type ConfigureForwarderOpInput struct {
 
 type ConfigureForwarderOpOutput struct {
 	BatchOperation mcmstypes.BatchOperation
+	Config         creforwarder.Config
 }
 
 var ConfigureForwarderOp = operations.NewOperation[ConfigureForwarderOpInput, ConfigureForwarderOpOutput, ConfigureForwarderOpDeps](
@@ -179,10 +183,16 @@ var ConfigureForwarderOp = operations.NewOperation[ConfigureForwarderOpInput, Co
 	semver.MustParse("1.0.0"),
 	"Configure Keystone Forwarder",
 	func(b operations.Bundle, deps ConfigureForwarderOpDeps, input ConfigureForwarderOpInput) (ConfigureForwarderOpOutput, error) {
-		ops, err := internal.ConfigureForwarder(b.Logger, *deps.Chain, deps.Contract, deps.Dons, input.UseMCMS)
+		r, err := internal.ConfigureForwarder(b.Logger, *deps.Chain, deps.Contract, deps.Dons, input.UseMCMS)
 		if err != nil {
 			return ConfigureForwarderOpOutput{}, fmt.Errorf("configure-forwarder-op failed: failed to configure forwarder for chain selector %d: %w", deps.Chain.Selector, err)
 		}
-		return ConfigureForwarderOpOutput{BatchOperation: ops[deps.Chain.Selector]}, nil
+		c := creforwarder.Config{
+			DonID:         r.Config.DonID,
+			F:             r.Config.F,
+			ConfigVersion: r.Config.ConfigVersion,
+			Signers:       r.Config.Signers,
+		}
+		return ConfigureForwarderOpOutput{BatchOperation: r.Ops[deps.Chain.Selector], Config: c}, nil
 	},
 )

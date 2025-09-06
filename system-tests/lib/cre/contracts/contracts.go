@@ -1,7 +1,9 @@
 package contracts
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +21,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -310,7 +313,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		if err != nil {
 			return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
 		}
-		_, err = operations.ExecuteSequence(
+		fout, err := operations.ExecuteSequence(
 			input.CldEnv.OperationsBundle,
 			forwarder.ConfigureForwardersSeq,
 			forwarder.ConfigureForwardersSeqDeps{
@@ -321,6 +324,15 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 				Chains: evmChainsWithForwarders,
 			},
 		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure forwarders")
+		}
+		framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
+		b, err := json.Marshal(fout.Output.Config)
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal forwarder config")
+		}
+		os.WriteFile("forwarder_config-conv1.json", b, 0644) //nolint:gosec // this is a test artifact
 	}
 
 	// don time happens to be the same as consensus v1 DON, but it doesn't have to be
@@ -424,7 +436,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			if err != nil {
 				return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
 			}
-			_, err = operations.ExecuteSequence(
+			fout, err := operations.ExecuteSequence(
 				input.CldEnv.OperationsBundle,
 				forwarder.ConfigureForwardersSeq,
 				forwarder.ConfigureForwardersSeqDeps{
@@ -435,6 +447,15 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 					Chains: evmChainsWithForwarders,
 				},
 			)
+			if err != nil {
+				return errors.Wrap(err, "failed to configure forwarders")
+			}
+			framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
+			b, err := json.Marshal(fout.Output.Config)
+			if err != nil {
+				return errors.Wrap(err, "failed to marshal forwarder config")
+			}
+			os.WriteFile("forwarder_config-conv2.json", b, 0644) //nolint:gosec // this is a test artifact
 		}
 	}
 	return nil
@@ -681,7 +702,7 @@ func newDonConfigurationV1(name string, donID uint32, env *cldf.Environment, cap
 		ID:      donID,
 		F:       d.F,
 		Version: d.ConfigCount,
-		NodeIDs: bytesToSliceOfString(d.NodeP2PIds),
+		NodeIDs: p2pStrings(d.NodeP2PIds),
 	}, nil
 }
 
@@ -699,14 +720,25 @@ func newDonConfigurationV2(name string, donID uint32, env *cldf.Environment, cap
 		ID:      d.Id,
 		F:       d.F,
 		Version: d.ConfigCount,
-		NodeIDs: bytesToSliceOfString(d.NodeP2PIds),
+		NodeIDs: p2pStrings(d.NodeP2PIds),
 	}, nil
 }
 
-func bytesToSliceOfString(b [][32]byte) []string {
-	out := make([]string, len(b))
-	for i, v := range b {
-		out[i] = string(v[:])
+func p2pIDs(rawIds [][32]byte) []p2pkey.PeerID {
+	var out []p2pkey.PeerID
+	for _, id := range rawIds {
+		out = append(out, p2pkey.PeerID(id))
+	}
+	return out
+}
+
+func p2pStrings(b [][32]byte) []string {
+	x := p2pIDs(b)
+	out := make([]string, 0, len(x))
+	for _, id := range x {
+		s := id.String()
+
+		out = append(out, s)
 	}
 	return out
 }
