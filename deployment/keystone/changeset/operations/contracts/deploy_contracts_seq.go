@@ -8,10 +8,15 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	cap_reg_v2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	wf_reg_v2 "github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 )
 
-type EVMChainID uint64
-type Selector uint64
+type (
+	EVMChainID uint64
+	Selector   uint64
+)
 
 // inputs and outputs have to be serializable, and must not contain sensitive data
 type DeployContractsSequenceDeps struct {
@@ -43,7 +48,7 @@ func updateAddresses(addr datastore.MutableAddressRefStore, as datastore.Address
 }
 
 // DeployRegistryContractsSequence is a sequence that deploys the the required registry contracts (Capabilities Registry, Workflow Registry).
-var DeployRegistryContractsSequence = operations.NewSequence[DeployRegistryContractsSequenceInput, DeployContractSequenceOutput, DeployContractsSequenceDeps](
+var DeployRegistryContractsSequence = operations.NewSequence(
 	// do not add optional contracts here (ocr, forwarder...), as this sequence is used to deploy the registry contracts that other sequences depend on
 	"deploy-registry-contracts-seq",
 	semver.MustParse("1.0.0"),
@@ -74,10 +79,116 @@ var DeployRegistryContractsSequence = operations.NewSequence[DeployRegistryContr
 			AddressBook: ab,
 			Datastore:   as.Seal(),
 		}, nil
+	},
+)
 
+// DeployV2RegistryContractsSequence is a sequence that deploys the the required registry contracts (Capabilities Registry, Workflow Registry).
+var DeployV2RegistryContractsSequence = operations.NewSequence(
+	// do not add optional contracts here (ocr, forwarder...), as this sequence is used to deploy the registry contracts that other sequences depend on
+	"deploy-v2-registry-contracts-seq",
+	semver.MustParse("1.0.0"),
+	"Deploy V2 registry Contracts (Capabilities Registry, Workflow Registry)",
+	func(b operations.Bundle, deps DeployContractsSequenceDeps, input DeployRegistryContractsSequenceInput) (output DeployContractSequenceOutput, err error) {
+		ab := deployment.NewMemoryAddressBook()
+		as := datastore.NewMemoryDataStore()
+
+		// Capabilities Registry contract
+		capabilitiesRegistryDeployReport, err := operations.ExecuteOperation(b, cap_reg_v2.DeployCapabilitiesRegistry, cap_reg_v2.DeployCapabilitiesRegistryDeps(deps), cap_reg_v2.DeployCapabilitiesRegistryInput{ChainSelector: input.RegistryChainSelector})
+		if err != nil {
+			return DeployContractSequenceOutput{}, err
+		}
+
+		v1Output, err := toV1Output(capabilitiesRegistryDeployReport.Output)
+		if err != nil {
+			return DeployContractSequenceOutput{}, err
+		}
+
+		if err = updateAddresses(as.Addresses(), v1Output.Addresses, ab, v1Output.AddressBook); err != nil {
+			return DeployContractSequenceOutput{}, err
+		}
+
+		// Workflow Registry contract
+		workflowRegistryDeployReport, err := operations.ExecuteOperation(b, wf_reg_v2.DeployWorkflowRegistryOp, wf_reg_v2.DeployWorkflowRegistryOpDeps(deps), wf_reg_v2.DeployWorkflowRegistryOpInput{ChainSelector: input.RegistryChainSelector})
+		if err != nil {
+			return DeployContractSequenceOutput{}, err
+		}
+
+		v1Output, err = toV1Output(workflowRegistryDeployReport.Output)
+		if err != nil {
+			return DeployContractSequenceOutput{}, err
+		}
+
+		err = updateAddresses(as.Addresses(), v1Output.Addresses, ab, v1Output.AddressBook)
+		if err != nil {
+			return DeployContractSequenceOutput{}, err
+		}
+		return DeployContractSequenceOutput{
+			AddressBook: ab,
+			Datastore:   as.Seal(),
+		}, nil
 	},
 )
 
 func CapabilityContractIdentifier(chainID uint64) string {
 	return fmt.Sprintf("capability_evm_%d", chainID)
+}
+
+type DeprecatedOutput struct {
+	Addresses   datastore.AddressRefStore
+	AddressBook deployment.AddressBook
+}
+
+// toV1Output transforms a v2 output to a common output format that uses the deprecated
+// address book.
+func toV1Output(in any) (DeprecatedOutput, error) {
+	ab := deployment.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
+	labels := deployment.NewLabelSet()
+	var r datastore.AddressRef
+
+	switch v := in.(type) {
+	case cap_reg_v2.DeployCapabilitiesRegistryOutput:
+		r = datastore.AddressRef{
+			ChainSelector: v.ChainSelector,
+			Address:       v.Address,
+			Type:          datastore.ContractType(v.Type),
+			Version:       semver.MustParse(v.Version),
+			Qualifier:     v.Qualifier,
+			Labels:        datastore.NewLabelSet(v.Labels...),
+		}
+		for _, l := range v.Labels {
+			labels.Add(l)
+		}
+	case wf_reg_v2.DeployWorkflowRegistryOpOutput:
+		r = datastore.AddressRef{
+			ChainSelector: v.ChainSelector,
+			Address:       v.Address,
+			Type:          datastore.ContractType(v.Type),
+			Version:       semver.MustParse(v.Version),
+			Qualifier:     v.Qualifier,
+			Labels:        datastore.NewLabelSet(v.Labels...),
+		}
+		for _, l := range v.Labels {
+			labels.Add(l)
+		}
+	default:
+		return DeprecatedOutput{}, fmt.Errorf("unsupported input type for transform: %T", in)
+	}
+
+	if err := ds.Addresses().Add(r); err != nil {
+		return DeprecatedOutput{}, fmt.Errorf("failed to add address ref: %w", err)
+	}
+
+	if err := ab.Save(r.ChainSelector, r.Address, deployment.TypeAndVersion{
+		Type:    deployment.ContractType(r.Type),
+		Version: *r.Version,
+		Labels:  labels,
+	}); err != nil {
+		return DeprecatedOutput{}, fmt.Errorf("failed to save address to address book: %w", err)
+	}
+
+	return DeprecatedOutput{
+		Addresses:   ds.Addresses(),
+		AddressBook: ab,
+	}, nil
 }

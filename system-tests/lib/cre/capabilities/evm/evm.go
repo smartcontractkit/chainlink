@@ -28,10 +28,12 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/chainlevel"
 )
 
-const flag = cre.EVMCapability
-const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}","logTriggerPollInterval":{{.LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}","receiverGasMinimum":{{.ReceiverGasMinimum}},"nodeAddress":"{{.NodeAddress}}"}'`
-const registrationRefresh = 20 * time.Second
-const registrationExpiry = 60 * time.Second
+const (
+	flag                = cre.EVMCapability
+	configTemplate      = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}","logTriggerPollInterval":{{.LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}","receiverGasMinimum":{{.ReceiverGasMinimum}},"nodeAddress":"{{.NodeAddress}}"}'`
+	registrationRefresh = 20 * time.Second
+	registrationExpiry  = 60 * time.Second
+)
 
 func New(registryChainID uint64) (*capabilities.Capability, error) {
 	registryChainSelector, err := chainselectors.SelectorFromChainId(registryChainID)
@@ -105,7 +107,7 @@ func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, node
 
 func jobSpecWithRegistryChainSelector(registryChainSelector uint64) cre.JobSpecFn {
 	return func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
-		var generateJobSpec = func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
+		generateJobSpec := func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
 			cs, ok := chainselectors.EvmChainIdToChainSelector()[chainID]
 			if !ok {
 				return "", fmt.Errorf("chain selector not found for chainID: %d", chainID)
@@ -150,7 +152,7 @@ func jobSpecWithRegistryChainSelector(registryChainSelector uint64) cre.JobSpecF
 			return configStr, nil
 		}
 
-		var dataStoreOCR3ContractKeyProvider = func(contractName string, _ uint64) datastore.AddressRefKey {
+		dataStoreOCR3ContractKeyProvider := func(contractName string, _ uint64) datastore.AddressRefKey {
 			return datastore.NewAddressRefKey(
 				// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
 				// because that violates a DB constraint for offchain reporting jobs

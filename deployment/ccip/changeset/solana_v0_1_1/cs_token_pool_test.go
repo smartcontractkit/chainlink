@@ -259,6 +259,27 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 					MCMS: mcmsConfig,
 				},
 			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetRateLimitAdmin),
+				ccipChangesetSolana.SetRateLimitAdminConfig{
+					SolChainSelector: solChain,
+					RateLimitAdminConfigs: []ccipChangesetSolana.RateLimitAdminConfig{
+						{
+							SolTokenPubKey:    tokenAddress.String(),
+							PoolType:          testCase.poolType,
+							Metadata:          tokenMetadata,
+							NewRateLimitAdmin: deployerKey,
+						},
+						{
+							SolTokenPubKey:    newTokenAddress2.String(),
+							PoolType:          testCase.poolType,
+							Metadata:          tokenMetadata,
+							NewRateLimitAdmin: deployerKey,
+						},
+					},
+					MCMS: mcmsConfig,
+				},
+			),
 		})
 		require.NoError(t, err)
 

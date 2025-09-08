@@ -8,42 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-)
-
-type DeployOCR3OpDeps struct {
-	Env *cldf.Environment
-}
-
-type DeployOCR3OpInput struct {
-	ChainSelector uint64
-	Qualifier     string
-}
-
-type DeployOCR3OpOutput struct {
-	Addresses   datastore.AddressRefStore
-	AddressBook cldf.AddressBook
-}
-
-// DeployOCR3Op is an operation that deploys the OCR3 contract.
-var DeployOCR3Op = operations.NewOperation[DeployOCR3OpInput, DeployOCR3OpOutput, DeployOCR3OpDeps](
-	"deploy-ocr3-op",
-	semver.MustParse("1.0.0"),
-	"Deploy OCR3 Contract",
-	func(b operations.Bundle, deps DeployOCR3OpDeps, input DeployOCR3OpInput) (DeployOCR3OpOutput, error) {
-		ocr3Output, err := changeset.DeployOCR3V2(*deps.Env, &changeset.DeployRequestV2{
-			ChainSel:  input.ChainSelector,
-			Qualifier: input.Qualifier,
-		})
-		if err != nil {
-			return DeployOCR3OpOutput{}, fmt.Errorf("DeployOCR3Op error: failed to deploy OCR3 contract: %w", err)
-		}
-
-		return DeployOCR3OpOutput{
-			Addresses: ocr3Output.DataStore.Addresses(), AddressBook: ocr3Output.AddressBook, //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
-		}, nil
-	},
+	contracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
 
 type DeployOCR3ContractSequenceDeps struct {
@@ -51,8 +16,8 @@ type DeployOCR3ContractSequenceDeps struct {
 }
 
 type DeployOCR3ContractSequenceInput struct {
-	RegistryChainSelector uint64
-	Qualifier             string // qualifier for the OCR3 contract deployment
+	ChainSelector uint64
+	Qualifier     string // qualifier for the OCR3 contract deployment
 }
 
 type DeployOCR3ContractSequenceOutput struct {
@@ -61,23 +26,24 @@ type DeployOCR3ContractSequenceOutput struct {
 	Datastore   datastore.DataStore
 }
 
-// DeployKeystoneContractsSequence is a sequence that deploys the Keystone contracts (OCR3, Capabilities Registry, Workflow Registry, Keystone Forwarder).
+// DeployOCR3ContractsSequence is a sequence that deploys the OCR3 contract.
+// TODO dedup with sequence in ocr3/v2/changeset/sequences/deploy_ocr3.go CRE-803
 var DeployOCR3ContractsSequence = operations.NewSequence[DeployOCR3ContractSequenceInput, DeployOCR3ContractSequenceOutput, DeployOCR3ContractSequenceDeps](
-	"deploy-registry-contracts-seq",
+	"deploy-ocr3-contracts-seq",
 	semver.MustParse("1.0.0"),
-	"Deploy registry Contracts (Capabilities Registry, Workflow Registry)",
+	"Deploy OCR3 Contracts",
 	func(b operations.Bundle, deps DeployOCR3ContractSequenceDeps, input DeployOCR3ContractSequenceInput) (output DeployOCR3ContractSequenceOutput, err error) {
 		ab := cldf.NewMemoryAddressBook()
 		as := datastore.NewMemoryDataStore()
 
 		// OCR3 Contract
-		ocr3DeployReport, err := operations.ExecuteOperation(b, DeployOCR3Op, DeployOCR3OpDeps(deps), DeployOCR3OpInput{ChainSelector: input.RegistryChainSelector, Qualifier: input.Qualifier})
+		ocr3DeployReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps(deps), contracts.DeployOCR3Input{ChainSelector: input.ChainSelector, Qualifier: input.Qualifier})
 		if err != nil {
-			return DeployOCR3ContractSequenceOutput{}, err
+			return DeployOCR3ContractSequenceOutput{}, fmt.Errorf("failed to execution operation DeployOCR3: %w", err)
 		}
-		err = updateAddresses(as.Addresses(), ocr3DeployReport.Output.Addresses, ab, ocr3DeployReport.Output.AddressBook)
+		err = updateAddresses(as.Addresses(), ocr3DeployReport.Output.Datastore.Addresses(), ab, ocr3DeployReport.Output.AddressBook)
 		if err != nil {
-			return DeployOCR3ContractSequenceOutput{}, err
+			return DeployOCR3ContractSequenceOutput{}, fmt.Errorf("failed to update addresses after OCR3 deployment: %w", err)
 		}
 		return DeployOCR3ContractSequenceOutput{
 			AddressBook: ab,
