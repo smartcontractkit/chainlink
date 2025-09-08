@@ -608,7 +608,7 @@ func StartCLIEnvironment(
 	artifactPath, artifactErr := creenv.DumpArtifact(
 		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
 		universalSetupOutput.CldEnvironment.DataStore.Addresses(),
-		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		universalSetupOutput.CldEnvironment.ExistingAddresses,
 		*in.JD.Out,
 		*universalSetupOutput.DonTopology,
 		universalSetupOutput.CldEnvironment.Offchain,
