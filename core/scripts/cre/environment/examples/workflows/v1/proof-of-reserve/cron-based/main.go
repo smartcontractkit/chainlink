@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common" //nolint:depguard
 	"gopkg.in/yaml.v3"
 
 	readcontractcap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/readcontract"
@@ -47,15 +46,10 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 	}
 
 	// Configure Read Contract capability
-	balanceReaderAddr := workflowConfig.BalanceReaderAddress
-	// You may put/read from any addresses with real values
-	// In this example, we are using the one with 0 balances
-	addresses := []common.Address{
-		common.HexToAddress(balanceReaderAddr),
-	}
-
 	chainFamily := workflowConfig.ChainFamily
 	chainID := workflowConfig.ChainID
+	balanceReaderAddr := workflowConfig.BalanceReaderAddress
+	addressesToRead := workflowConfig.BalanceReaderConfig.AddressesToRead
 	readcontractCapID := fmt.Sprintf("read-contract-%s-%s@1.0.0", chainFamily, chainID)
 	readcontractCapReaderConfig := `{"contracts":{"BalanceReader":{"contractABI":"[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"addresses\",\"type\":\"address[]\"}],\"name\":\"getNativeBalances\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]","contractPollingFilter":{"genericEventNames":null,"pollingFilter":{"topic2":null,"topic3":null,"topic4":null,"retention":"0s","maxLogsKept":0,"logsPerBlock":0}},"configs":{"getNativeBalances":"{  \"chainSpecificName\": \"getNativeBalances\"}"}}}}`
 	readcontractCapReadIdentifier := fmt.Sprintf("%s-%s-%s", balanceReaderAddr, "BalanceReader", "getNativeBalances")
@@ -69,7 +63,7 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 	readcontractCapActionInput := readcontractcap.ActionInput{
 		ConfidenceLevel: sdk.ConstantDefinition("unconfirmed"),
 		Params: sdk.ConstantDefinition(readcontractcap.InputParams{
-			"addresses": addresses,
+			"addresses": addressesToRead,
 		}),
 		StepDependency: sdk.ConstantDefinition(cron.Ref()),
 	}
@@ -110,24 +104,17 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 			if !ok {
 				return computeOutput{}, fmt.Errorf("cannot convert latest value to []*big.Int, got type %T", output.LatestValue)
 			}
-
-			runtime.Emitter().With(
-				"feedID", config.FeedID,
-			).Emit(fmt.Sprintf("Balances read, %s", config.FeedID))
+			runtime.Emitter().With("feedID", config.FeedID).Emit(fmt.Sprintf("Balances read, %s", config.FeedID))
 
 			totalBalance := &big.Int{}
-			for _, bal := range balances {
-				bi, ok := bal.(*big.Int)
+			for _, balance := range balances {
+				bi, ok := balance.(*big.Int)
 				if !ok {
 					return computeOutput{}, fmt.Errorf("cannot convert value to *big.Int, got %T", bi)
 				}
-
 				totalBalance = totalBalance.Add(totalBalance, bi)
 			}
-
-			runtime.Emitter().With(
-				"feedID", config.FeedID,
-			).Emit(fmt.Sprintf("Total Balances: %s", totalBalance.String()))
+			runtime.Emitter().With("feedID", config.FeedID).Emit(fmt.Sprintf("Total Balances: %s", totalBalance.String()))
 
 			fetchRequest := sdk.FetchRequest{
 				URL:       config.URL + "?feedID=" + config.FeedID,
@@ -151,27 +138,21 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 			if err != nil {
 				return computeOutput{}, err
 			}
-
-			runtime.Emitter().With(
-				"feedID", config.FeedID,
-			).Emit(fmt.Sprintf("TrueUSD price found: %.2f", resp.TotalTrust))
+			runtime.Emitter().With("feedID", config.FeedID).Emit(fmt.Sprintf("TrueUSD price found: %.2f", resp.TotalTrust))
 
 			if resp.Ripcord {
-				runtime.Emitter().With(
-					"feedID", config.FeedID,
-				).Emit(fmt.Sprintf("ripcord flag set for feed ID %s", config.FeedID))
+				runtime.Emitter().With("feedID", config.FeedID).Emit(fmt.Sprintf("ripcord flag set for feed ID %s", config.FeedID))
 				return computeOutput{}, sdk.BreakErr
 			}
 
-			// COMPUTE THE TOTAL (by adding the balances to the total value)
-			total := resp.TotalTrust + convertBigIntToFloat64(totalBalance)
-
-			runtime.Emitter().With(
-				"feedID", config.FeedID,
-			).Emit(fmt.Sprintf("Total computed for feed ID %s", config.FeedID))
+			// COMPUTE THE TOTAL (by adding all the balances)
+			runtime.Emitter().With("feedID", config.FeedID).Emit(fmt.Sprintf("Sum '%f' and '%.2f'", resp.TotalTrust, convertBigIntToFloat64(totalBalance)))
+			roundedTotalTrust := resp.TotalTrust * 100
+			total := roundedTotalTrust + convertBigIntToFloat64(totalBalance) // we multiply by 100 to convert the float to an integer and correctly sum
+			runtime.Emitter().With("feedID", config.FeedID).Emit(fmt.Sprintf("Total computed for feed ID %s: %.2f", config.FeedID, total))
 
 			return computeOutput{
-				Price:     int(total * 100),
+				Price:     int(total),
 				FeedID:    feedID, // TrueUSD
 				Timestamp: resp.UpdatedAt.Unix(),
 			}, nil
