@@ -146,16 +146,11 @@ jobs:
             exit $exit_code
           fi
 
-          echo "env_config_path=$(jq -r '.env_config' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
-          echo "env_artifact_path=$(jq -r '.env_artifact' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
-
       - name: Run CRE system tests
         shell: bash
         working-directory: system-tests/tests
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
-          ENV_ARTIFACT_PATH: ${{ steps.start-local-cre.outputs.env_artifact_path }}
-          CTF_CONFIGS: ${{ steps.start-local-cre.outputs.env_config_path }}
           # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
           # Beholder stack will be started only for the Beholder test
           CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:qa-latest

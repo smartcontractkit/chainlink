@@ -3,11 +3,14 @@ package config
 import (
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
 	"sync"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -95,7 +98,7 @@ func DefaultContractSet(withV2Registries bool) map[string]string {
 	return supportedSet
 }
 
-func (c *Config) Load() error {
+func (c *Config) Load(absPath string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -103,7 +106,13 @@ func (c *Config) Load() error {
 		return nil
 	}
 
-	// Load and validate test configuration
+	previousCTFconfigs := os.Getenv("CTF_CONFIGS")
+	defer func() {
+		_ = os.Setenv("CTF_CONFIGS", previousCTFconfigs)
+	}()
+
+	_ = os.Setenv("CTF_CONFIGS", absPath)
+
 	in, loadErr := framework.Load[Config](nil)
 	if loadErr != nil {
 		return errors.Wrap(loadErr, "failed to load environment configuration")
@@ -125,7 +134,12 @@ func (c *Config) Load() error {
 	return nil
 }
 
-func (c *Config) Store() error {
+const (
+	StateDirname          = "core/scripts/cre/environment/state"
+	LocalCREStateFilename = "local_cre.toml"
+)
+
+func (c *Config) Store(absPath string) error {
 	// change override mode to "each" for all node sets, because config contains unique secrets for each node
 	// if we later load it with "all" mode, all nodes in the nodeset will have the same configuration as the first node
 	// and they will fail to start (because they will all have the same P2P keys)
@@ -135,7 +149,22 @@ func (c *Config) Store() error {
 		}
 	}
 
-	return framework.Store(c)
+	framework.L.Info().Msgf("Storing local CRE state file: %s", absPath)
+	return storeLocalArtifact(c, absPath)
+}
+
+func MustLocalCREStateFileAbsPath(relativePathToRepoRoot string) string {
+	absPath, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, StateDirname, LocalCREStateFilename))
+	if err != nil {
+		panic(fmt.Errorf("failed to get absolute path for local CRE state file: %w", err))
+	}
+
+	return absPath
+}
+
+func LocalCREStateFileExists(relativePathToRepoRoot string) bool {
+	_, statErr := os.Stat(MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
+	return statErr == nil
 }
 
 // ResolveCapabilityForChain merges defaults with chain override for a capability on a given chain.
@@ -206,12 +235,25 @@ type KafkaConfig struct {
 	Topics []string `toml:"topics"`
 }
 
-func (c *ChipIngressConfig) Load() error {
+func (c *ChipIngressConfig) Load(absPath string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.loaded {
 		return nil
+	}
+
+	previousCTFconfigs := os.Getenv("CTF_CONFIGS")
+	defer func() {
+		setErr := os.Setenv("CTF_CONFIGS", previousCTFconfigs)
+		if setErr != nil {
+			framework.L.Warn().Err(setErr).Msg("failed to restore previous CTF_CONFIGS env var")
+		}
+	}()
+
+	setErr := os.Setenv("CTF_CONFIGS", absPath)
+	if setErr != nil {
+		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
 	}
 
 	in, err := framework.Load[ChipIngressConfig](nil)
@@ -225,8 +267,46 @@ func (c *ChipIngressConfig) Load() error {
 	return nil
 }
 
-func (c *ChipIngressConfig) Store() error {
-	return framework.Store(c)
+const (
+	ChipIngressStateFilename = "chip_ingress.toml"
+)
+
+func (c *ChipIngressConfig) Store(absPath string) error {
+	framework.L.Info().Msgf("Storing Chip Ingress state file: %s", absPath)
+	return storeLocalArtifact(c, absPath)
+}
+
+func MustChipIngressStateFileAbsPath(relativePathToRepoRoot string) string {
+	absPath, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, StateDirname, ChipIngressStateFilename))
+	if err != nil {
+		panic(fmt.Errorf("failed to get absolute path for local CRE state file: %w", err))
+	}
+
+	return absPath
+}
+
+func ChipIngressStateFileExists(relativePathToRepoRoot string) bool {
+	_, statErr := os.Stat(MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
+	return statErr == nil
+}
+
+func storeLocalArtifact(artifact any, absPath string) error {
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	if dErr != nil {
+		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
+	}
+
+	d, mErr := toml.Marshal(artifact)
+	if mErr != nil {
+		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
+	}
+
+	return os.WriteFile(absPath, d, 0600)
+}
+
+func RemoveAllEnvironmentStateDir(relativePathToRepoRoot string) error {
+	framework.L.Info().Msgf("Removing environment state directory: %s", StateDirname)
+	return os.RemoveAll(filepath.Join(relativePathToRepoRoot, StateDirname))
 }
 
 // copyExportedFields copies all exported fields from src to dst (same concrete type).
