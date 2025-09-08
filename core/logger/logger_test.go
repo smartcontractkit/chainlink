@@ -52,12 +52,15 @@ func TestLogStreamingEnabled(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(strconv.FormatBool(tc.logStreamingEnabled), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a no-op OTel logger for testing
+			noopLogger := noop.NewLoggerProvider().Logger("test")
+
 			config := Config{
-				LogLevel:            zapcore.InfoLevel,
-				LogStreamingEnabled: tc.logStreamingEnabled,
-				JsonConsole:         true,
-				UnixTS:              true,
+				LogLevel:    zapcore.InfoLevel,
+				OtelLogger:  noopLogger,
+				JsonConsole: true,
+				UnixTS:      true,
 			}
 
 			logger, closeLogger := config.New()

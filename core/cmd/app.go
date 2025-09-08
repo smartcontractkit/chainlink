@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	otellog "go.opentelemetry.io/otel/log"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -313,6 +315,11 @@ func NewApp(s *Shell) *cli.App {
 					return err
 				}
 
+				var otelLogger otellog.Logger
+				if s.Config.Telemetry().LogStreamingEnabled() {
+					otelLogger = beholder.GetLogger()
+				}
+
 				// Configure a new logger with otel
 				lggrCfg := logger.Config{
 					LogLevel:    s.Config.Log().Level(),
@@ -320,11 +327,11 @@ func NewApp(s *Shell) *cli.App {
 					JsonConsole: s.Config.Log().JSONConsole(),
 					UnixTS:      s.Config.Log().UnixTimestamps(),
 					//nolint:gosec // filemaxsizesmb won't exceed max int
-					FileMaxSizeMB:       int(logFileMaxSizeMB),
-					FileMaxAgeDays:      int(s.Config.Log().File().MaxAgeDays()),
-					FileMaxBackups:      int(s.Config.Log().File().MaxBackups()),
-					SentryEnabled:       s.Config.Sentry().DSN() != "",
-					LogStreamingEnabled: s.Config.Telemetry().LogStreamingEnabled(),
+					FileMaxSizeMB:  int(logFileMaxSizeMB),
+					FileMaxAgeDays: int(s.Config.Log().File().MaxAgeDays()),
+					FileMaxBackups: int(s.Config.Log().File().MaxBackups()),
+					SentryEnabled:  s.Config.Sentry().DSN() != "",
+					OtelLogger:     otelLogger,
 				}
 
 				l, closeFn := lggrCfg.New()

@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	otelzap "github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 
@@ -172,8 +171,8 @@ type Config struct {
 	diskPollConfig       zapDiskPollConfig
 	// This is for tests only
 	testDiskLogLvlChan chan zapcore.Level
-	// Enables log streaming and adding otel core
-	LogStreamingEnabled bool
+	// This is for streaming logs to OTel
+	OtelLogger otellog.Logger
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -195,9 +194,8 @@ func (c *Config) New() (Logger, func() error) {
 	)
 
 	var cores []zapcore.Core
-	if c.LogStreamingEnabled {
-		// beholder.GetLogger() requires beholder.SetGlobalProviders()
-		cores = append(cores, newOtelCore(beholder.GetLogger()))
+	if c.OtelLogger != nil {
+		cores = append(cores, newOtelCore(c.OtelLogger))
 	}
 
 	if !c.DebugLogsToDisk() {
