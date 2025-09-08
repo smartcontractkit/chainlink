@@ -151,7 +151,7 @@ consensus:
     ref: "secure-mint-consensus"
     inputs:
       observations:
-        - "$(trigger.outputs)"
+        - event: $(trigger.outputs)
     config:
       report_id: "0003"  
       key_id: "evm"

@@ -30,6 +30,7 @@ type DeployOCR3Output struct {
 	Version       string
 	Labels        []string
 	Datastore     datastore.DataStore
+	AddressBook   cldf.AddressBook // backward compatibility, to be removed in CRE-742
 }
 
 // DeployOCR3 is an operation that deploys the OCR3 contract.
@@ -85,6 +86,7 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			Type:          datastore.ContractType(tv.Type),
 			Version:       &tv.Version,
 			Labels:        labels,
+			Qualifier:     input.Qualifier,
 		}
 
 		// Create a mutable datastore in order to be able to add the ocr3 address and access it from the configure step
@@ -95,11 +97,16 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 		}
 
 		if err := ds.AddressRefStore.Add(addressRef); err != nil {
-			return DeployOCR3Output{}, err
+			return DeployOCR3Output{}, fmt.Errorf("failed to add OCR3 address %v to datastore: %w", addressRef, err)
 		}
 
 		lggr.Infof("Deployed %s on chain selector %d at address %s", tv.String(), chain.Selector, ocr3Addr.String())
 
+		ab := cldf.NewMemoryAddressBook()
+		err = ab.Save(chain.Selector, ocr3Addr.String(), tv)
+		if err != nil {
+			return DeployOCR3Output{}, fmt.Errorf("failed to save address to address book: %w", err)
+		}
 		return DeployOCR3Output{
 			Address:       ocr3Addr.String(),
 			ChainSelector: input.ChainSelector,
@@ -108,6 +115,7 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			Version:       tv.Version.String(),
 			Labels:        tv.Labels.List(),
 			Datastore:     ds.Seal(),
+			AddressBook:   ab, // TODO: CRE-742 remove AddressBook
 		}, nil
 	},
 )

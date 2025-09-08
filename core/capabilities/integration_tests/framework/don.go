@@ -477,6 +477,7 @@ func startNewNode(ctx context.Context,
 		c.Feature.FeedsManager = ptr(false)
 		c.Feature.LogPoller = ptr(true)
 		c.CRE.UseLocalTimeProvider = ptr(true)
+		c.CRE.EnableDKGRecipient = ptr(true)
 
 		if setupCfg != nil {
 			setupCfg(c)

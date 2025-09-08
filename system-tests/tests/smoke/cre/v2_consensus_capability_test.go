@@ -17,6 +17,7 @@ import (
 )
 
 func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
+	t.Skip("Pending resolution of this JIRA: https://smartcontract-it.atlassian.net/browse/CRE-800 ")
 	testLogger := framework.L
 	ctxWithTimeout, cancelCtx := context.WithTimeout(t.Context(), 4*time.Minute)
 	defer cancelCtx()

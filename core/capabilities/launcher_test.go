@@ -27,6 +27,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ capabilities.TriggerCapability = (*mockTrigger)(nil)
@@ -189,6 +190,8 @@ func TestLauncher(t *testing.T) {
 		launcher := NewLauncher(
 			lggr,
 			wrapper,
+			nil,
+			nil,
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
@@ -299,6 +302,8 @@ func TestLauncher(t *testing.T) {
 		launcher := NewLauncher(
 			lggr,
 			wrapper,
+			nil,
+			nil,
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
@@ -404,6 +409,8 @@ func TestLauncher(t *testing.T) {
 		launcher := NewLauncher(
 			lggr,
 			wrapper,
+			nil,
+			nil,
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
@@ -597,6 +604,8 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	launcher := NewLauncher(
 		lggr,
 		wrapper,
+		nil,
+		nil,
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
@@ -750,6 +759,8 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	launcher := NewLauncher(
 		lggr,
 		wrapper,
+		nil,
+		nil,
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
@@ -916,6 +927,8 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	launcher := NewLauncher(
 		lggr,
 		wrapper,
+		nil,
+		nil,
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
@@ -1082,6 +1095,8 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 	launcher := NewLauncher(
 		lggr,
 		wrapper,
+		nil,
+		nil,
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
@@ -1150,6 +1165,8 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	launcher := NewLauncher(
 		lggr,
 		wrapper,
+		nil,
+		nil,
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
@@ -1210,6 +1227,8 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 	launcher := NewLauncher(
 		lggr,
 		wrapper,
+		nil,
+		nil,
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
@@ -1247,4 +1266,51 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
 	defer launcher.Close()
+}
+
+func TestLauncher_DonPairsToUpdate(t *testing.T) {
+	registry := NewRegistry(logger.Test(t))
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	var pid, other ragetypes.PeerID
+	require.NoError(t, pid.UnmarshalText([]byte(utils.MustNewPeerID())))
+	require.NoError(t, other.UnmarshalText([]byte(utils.MustNewPeerID())))
+	sharedPeer := mocks.NewSharedPeer(t)
+
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
+		fullTriggerCapID,
+		capabilities.CapabilityTypeTrigger,
+		"streams trigger",
+	))
+	require.NoError(t, registry.Add(t.Context(), mt))
+
+	tt := NewTestTopology(pid, 4, 4)
+	wfDONID, capDONID, mixedDONID := registrysyncer.DonID(7), registrysyncer.DonID(12), registrysyncer.DonID(33)
+	localRegistry := tt.MakeLocalRegistry(uint32(wfDONID), uint32(capDONID), uint32(mixedDONID), RandomUTF8BytesWord(), fullTriggerCapID)
+	launcher := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+
+	sharedPeer.On("IsBootstrap").Return(false).Times(3)
+	// capability DON connects to DONs: workflow and mixed
+	res := launcher.donPairsToUpdate(tt.capabilityDonNodes[0], localRegistry)
+	require.Len(t, res, 2)
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
+
+	// workflow DON connects to DONs: capability and mixed
+	res = launcher.donPairsToUpdate(tt.workflowDonNodes[0], localRegistry)
+	require.Len(t, res, 2)
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
+
+	// peer (not bootstrap) that doesn't belong to any DON connects to nobody
+	require.Empty(t, launcher.donPairsToUpdate(other, localRegistry))
+
+	// bootstrap node adds all DON pairs
+	sharedPeer.On("IsBootstrap").Return(true).Once()
+	res = launcher.donPairsToUpdate(pid, localRegistry)
+	require.Len(t, res, 3)
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[2])
 }
