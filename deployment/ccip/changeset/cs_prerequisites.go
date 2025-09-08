@@ -25,6 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
@@ -175,6 +179,10 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 	var rmnProxy *rmn_proxy_contract.RMNProxy
 	var r *router.Router
 	var mc3 *multicall3.Multicall3
+	var burnMintTokenPool *burn_mint_token_pool.BurnMintTokenPool
+	var burnFromMintTokenPool *burn_from_mint_token_pool.BurnFromMintTokenPool
+	var burnWithFromMintTokenPool *burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
+	var lockReleaseTokenPool *lock_release_token_pool.LockReleaseTokenPool
 	if chainExists {
 		weth9Contract = chainState.Weth9
 		tokenAdminReg = chainState.TokenAdminRegistry
@@ -183,6 +191,27 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		rmnProxy = chainState.RMNProxy
 		r = chainState.Router
 		mc3 = chainState.Multicall3
+		// get existing token pools:
+		if tokenPools, ok := chainState.BurnMintTokenPools[shared.FactoryBurnMintERC20Symbol]; ok {
+			if tokenPool, ok := tokenPools[shared.CurrentTokenPoolVersion]; ok {
+				burnMintTokenPool = tokenPool
+			}
+		}
+		if tokenPools, ok := chainState.BurnFromMintTokenPools[shared.FactoryBurnMintERC20Symbol]; ok {
+			if tokenPool, ok := tokenPools[shared.CurrentTokenPoolVersion]; ok {
+				burnFromMintTokenPool = tokenPool
+			}
+		}
+		if tokenPools, ok := chainState.BurnWithFromMintTokenPools[shared.FactoryBurnMintERC20Symbol]; ok {
+			if tokenPool, ok := tokenPools[shared.CurrentTokenPoolVersion]; ok {
+				burnWithFromMintTokenPool = tokenPool
+			}
+		}
+		if tokenPools, ok := chainState.LockReleaseTokenPools[shared.FactoryBurnMintERC20Symbol]; ok {
+			if tokenPool, ok := tokenPools[shared.CurrentTokenPoolVersion]; ok {
+				lockReleaseTokenPool = tokenPool
+			}
+		}
 	}
 	var rmnAddr common.Address
 	// if we are setting up 1.5 version, deploy RMN contract based on the config provided
@@ -575,8 +604,10 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		} else {
 			e.Logger.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
 		}
-		// FactoryBurnMintERC20 is a contract that gets deployed by the TokenPoolFactory.
-		// We deploy it here so that we can verify it. All subsequent user deployments would then be verified.
+
+		// FactoryBurnMintERC20, BurnMintTokenPool, BurnFromMintTokenPool, BurnWithFromMintTokenPool & LockReleaseTokenPool
+		// are contracts that get deployed by the TokenPoolFactory.
+		// We deploy them here so that we can verify them. All subsequent user deployments would then be verified.
 		if factoryBurnMintERC20 == nil {
 			_, err := cldf.DeployContract(e.Logger, chain, ab,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
@@ -622,6 +653,184 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			}
 		} else {
 			e.Logger.Infow("factory burn mint erc20 already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
+		}
+		if burnMintTokenPool == nil {
+			_, err := cldf.DeployContract(e.Logger, chain, ab,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool] {
+					var (
+						burnMintTokenPoolAddr common.Address
+						tx2                   *types.Transaction
+						contract              *burn_mint_token_pool.BurnMintTokenPool
+						err2                  error
+					)
+					if chain.IsZkSyncVM {
+						burnMintTokenPoolAddr, _, contract, err2 = burn_mint_token_pool.DeployBurnMintTokenPoolZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							factoryBurnMintERC20.Address(),
+							18,
+							[]common.Address{}, // empty allow list
+							rmnProxy.Address(),
+							r.Address(),
+						)
+					} else {
+						burnMintTokenPoolAddr, tx2, contract, err2 = burn_mint_token_pool.DeployBurnMintTokenPool(
+							chain.DeployerKey,
+							chain.Client,
+							factoryBurnMintERC20.Address(),
+							18,
+							[]common.Address{}, // empty allow list
+							rmnProxy.Address(),
+							r.Address(),
+						)
+					}
+					return cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
+						Address: burnMintTokenPoolAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
+					}
+				},
+			)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy burn mint token pool", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			e.Logger.Infow("burn mint token pool already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
+		}
+		if burnFromMintTokenPool == nil {
+			_, err := cldf.DeployContract(e.Logger, chain, ab,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_from_mint_token_pool.BurnFromMintTokenPool] {
+					var (
+						burnFromMintTokenPoolAddr common.Address
+						tx2                       *types.Transaction
+						contract                  *burn_from_mint_token_pool.BurnFromMintTokenPool
+						err2                      error
+					)
+					if chain.IsZkSyncVM {
+						burnFromMintTokenPoolAddr, _, contract, err2 = burn_from_mint_token_pool.DeployBurnFromMintTokenPoolZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							factoryBurnMintERC20.Address(),
+							18,
+							[]common.Address{}, // empty allow list
+							rmnProxy.Address(),
+							r.Address(),
+						)
+					} else {
+						burnFromMintTokenPoolAddr, tx2, contract, err2 = burn_from_mint_token_pool.DeployBurnFromMintTokenPool(
+							chain.DeployerKey,
+							chain.Client,
+							factoryBurnMintERC20.Address(),
+							18,
+							[]common.Address{}, // empty allow list
+							rmnProxy.Address(),
+							r.Address(),
+						)
+					}
+					return cldf.ContractDeploy[*burn_from_mint_token_pool.BurnFromMintTokenPool]{
+						Address: burnFromMintTokenPoolAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.BurnFromMintTokenPool, deployment.Version1_5_1), Err: err2,
+					}
+				},
+			)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy burn from mint token pool", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			e.Logger.Infow("burn from mint token pool already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
+		}
+		if burnWithFromMintTokenPool == nil {
+			_, err := cldf.DeployContract(e.Logger, chain, ab,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool] {
+					var (
+						burnWithFromMintTokenPoolAddr common.Address
+						tx2                           *types.Transaction
+						contract                      *burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
+						err2                          error
+					)
+					if chain.IsZkSyncVM {
+						burnWithFromMintTokenPoolAddr, _, contract, err2 = burn_with_from_mint_token_pool.DeployBurnWithFromMintTokenPoolZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							factoryBurnMintERC20.Address(),
+							18,
+							[]common.Address{}, // empty allow list
+							rmnProxy.Address(),
+							r.Address(),
+						)
+					} else {
+						burnWithFromMintTokenPoolAddr, tx2, contract, err2 = burn_with_from_mint_token_pool.DeployBurnWithFromMintTokenPool(
+							chain.DeployerKey,
+							chain.Client,
+							factoryBurnMintERC20.Address(),
+							18,
+							[]common.Address{}, // empty allow list
+							rmnProxy.Address(),
+							r.Address(),
+						)
+					}
+					return cldf.ContractDeploy[*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool]{
+						Address: burnWithFromMintTokenPoolAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.BurnWithFromMintTokenPool, deployment.Version1_5_1), Err: err2,
+					}
+				},
+			)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy burn with from mint token pool", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			e.Logger.Infow("burn with from mint token pool already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
+		}
+		if lockReleaseTokenPool == nil {
+			_, err := cldf.DeployContract(e.Logger, chain, ab,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*lock_release_token_pool.LockReleaseTokenPool] {
+					var (
+						lockReleaseTokenPoolAddr common.Address
+						tx2                      *types.Transaction
+						contract                 *lock_release_token_pool.LockReleaseTokenPool
+						err2                     error
+					)
+					if chain.IsZkSyncVM {
+						lockReleaseTokenPoolAddr, _, contract, err2 = lock_release_token_pool.DeployLockReleaseTokenPoolZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							factoryBurnMintERC20.Address(),
+							18,
+							[]common.Address{}, // empty allow list
+							rmnProxy.Address(),
+							false,
+							r.Address(),
+						)
+					} else {
+						lockReleaseTokenPoolAddr, tx2, contract, err2 = lock_release_token_pool.DeployLockReleaseTokenPool(
+							chain.DeployerKey,
+							chain.Client,
+							factoryBurnMintERC20.Address(),
+							18,
+							[]common.Address{}, // empty allow list
+							rmnProxy.Address(),
+							false,
+							r.Address(),
+						)
+					}
+					return cldf.ContractDeploy[*lock_release_token_pool.LockReleaseTokenPool]{
+						Address: lockReleaseTokenPoolAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_5_1), Err: err2,
+					}
+				},
+			)
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy lock release token pool", "chain", chain.String(), "err", err)
+				return err
+			}
+		} else {
+			e.Logger.Infow("lock release token pool already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 		}
 	}
 	if deployOpts.Multicall3Enabled && mc3 == nil {
