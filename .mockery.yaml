@@ -211,6 +211,7 @@ packages:
       Peer:
       PeerWrapper:
       Signer:
+      SharedPeer:
   github.com/smartcontractkit/chainlink/v2/core/services/pipeline:
     interfaces:
       Config:

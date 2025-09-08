@@ -253,6 +253,12 @@ func (t *brokerDispatcher) SetReceiver(capabilityId string, donId uint32, receiv
 }
 func (t *brokerDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
+func (t *brokerDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, method string, receiver remotetypes.Receiver) error {
+	return errors.New("not implemented")
+}
+func (t *brokerDispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, method string) {
+}
+
 func (t *brokerDispatcher) Start(context.Context) error { return nil }
 
 func (t *brokerDispatcher) Close() error {
