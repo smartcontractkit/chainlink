@@ -87,7 +87,7 @@ func listenForKafkaMessages(
 	brokerAddress string,
 	topic string,
 	messageTypes map[string]func() proto.Message, // ce_type -> protobuf factory function
-	messageChan chan<- proto.Message,             // channel to send deserialized messages
+	messageChan chan<- proto.Message, // channel to send deserialized messages
 	errChan chan<- error,
 ) {
 	logger.Info().Str("broker", brokerAddress).Str("topic", topic).Msg("Starting Kafka listener")
