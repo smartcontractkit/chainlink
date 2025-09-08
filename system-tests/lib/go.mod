@@ -38,7 +38,7 @@ require (
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250808121824-2c3544aab8f3
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250908201510-c81901e017c3
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250908203624-4d41481033c5
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.17
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.13
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
