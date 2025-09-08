@@ -496,7 +496,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have key, owner and namespace set",
+			error: "secret ID must have key and namespace set",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -670,9 +670,12 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "ListSecretIdentifiers_Invalid_OwnerMissing",
-			response: nil,
-			error:    "owner must not be empty",
+			name: "ListSecretIdentifiers_OwnerMissing",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
