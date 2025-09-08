@@ -134,13 +134,19 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 		NodeIDs: req.WFNodeIDs,
 	}
 
+	var mcmsConfig *proposalutils.TimelockConfig
+	if req.MCMSConfig != nil {
+		mcmsConfig = &proposalutils.TimelockConfig{
+			MinDelay: req.MCMSConfig.MinDuration,
+		}
+	}
 	seqReport, err := operations.ExecuteSequence(
 		env.OperationsBundle,
 		creforwarder.ConfigureSeq,
 		creforwarder.ConfigureSeqDeps{Env: &env},
 		creforwarder.ConfigureSeqInput{
 			DON:        cfg,
-			MCMSConfig: &proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
+			MCMSConfig: mcmsConfig,
 			Chains:     req.Chains,
 		},
 	)
