@@ -1,9 +1,9 @@
 package keyringadapter
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 // SecureMintOCR3OnchainKeyringAdapter adapts an OCR2 OnchainKeyring to implement ocr3types.OnchainKeyring[ChainSelector]
@@ -15,7 +15,7 @@ type SecureMintOCR3OnchainKeyringAdapter struct {
 }
 
 // Ensure OnchainKeyringAdapter implements the OCR3 OnchainKeyring interface for PoR ChainSelector
-var _ ocr3types.OnchainKeyring[por.ChainSelector] = &SecureMintOCR3OnchainKeyringAdapter{}
+var _ ocr3types.OnchainKeyring[core.ChainSelector] = &SecureMintOCR3OnchainKeyringAdapter{}
 
 // NewSecureMintOCR3OnchainKeyringAdapter creates a new adapter that wraps an OCR2 OnchainKeyring
 // to implement the OCR3 OnchainKeyring interface for PoR ChainSelector.
@@ -36,7 +36,7 @@ func (adapter *SecureMintOCR3OnchainKeyringAdapter) PublicKey() types.OnchainPub
 func (adapter *SecureMintOCR3OnchainKeyringAdapter) Sign(
 	configDigest types.ConfigDigest,
 	seqNr uint64,
-	reportWithInfo ocr3types.ReportWithInfo[por.ChainSelector],
+	reportWithInfo ocr3types.ReportWithInfo[core.ChainSelector],
 ) (signature []byte, err error) {
 	// Convert OCR3 parameters to OCR2 ReportContext
 	// Note: seqNr is converted to uint32 for Epoch field, which may truncate for very large values
@@ -58,7 +58,7 @@ func (adapter *SecureMintOCR3OnchainKeyringAdapter) Verify(
 	publicKey types.OnchainPublicKey,
 	configDigest types.ConfigDigest,
 	seqNr uint64,
-	reportWithInfo ocr3types.ReportWithInfo[por.ChainSelector],
+	reportWithInfo ocr3types.ReportWithInfo[core.ChainSelector],
 	signature []byte,
 ) bool {
 	// Convert OCR3 parameters to OCR2 ReportContext

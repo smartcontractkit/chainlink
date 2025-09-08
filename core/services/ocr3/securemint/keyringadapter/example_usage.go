@@ -3,9 +3,9 @@ package keyringadapter
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 // ExampleUsage demonstrates how to use the OnchainKeyringAdapter
@@ -32,9 +32,9 @@ func ExampleUsage() {
 	// Step 3: Use the adapter as an OCR3 OnchainKeyring for PoR
 	configDigest := types.ConfigDigest([32]byte{1, 2, 3, 4, 5}) // example digest
 	seqNr := uint64(42)
-	chainSelector := por.ChainSelector(1234) // example chain selector
+	chainSelector := core.ChainSelector(1234) // example chain selector
 
-	reportWithInfo := ocr3types.ReportWithInfo[por.ChainSelector]{
+	reportWithInfo := ocr3types.ReportWithInfo[core.ChainSelector]{
 		Report: []byte("example-por-report"),
 		Info:   chainSelector,
 	}

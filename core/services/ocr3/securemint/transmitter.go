@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 const (
@@ -26,7 +25,7 @@ const (
 )
 
 type Transmitter interface {
-	ocr3types.ContractTransmitter[por.ChainSelector]
+	ocr3types.ContractTransmitter[coretypes.ChainSelector]
 	services.Service
 }
 
@@ -133,7 +132,7 @@ func (t *transmitter) Transmit(
 	ctx context.Context,
 	cd ocr2types.ConfigDigest,
 	seqNr uint64,
-	ocr3Report ocr3types.ReportWithInfo[por.ChainSelector],
+	ocr3Report ocr3types.ReportWithInfo[coretypes.ChainSelector],
 	sigs []types.AttributedOnchainSignature,
 ) error {
 	t.eng.Debugw("Transmit called", "cd", cd, "seqNr", seqNr, "report", ocr3Report, "sigs", sigs)

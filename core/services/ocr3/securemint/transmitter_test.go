@@ -11,12 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 func TestTransmitter_NewTransmitter(t *testing.T) {
@@ -175,9 +175,9 @@ func TestTransmitter_Transmit(t *testing.T) {
 		// Create test data
 		cd := ocr2types.ConfigDigest{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
 		seqNr := uint64(123)
-		report := ocr3types.ReportWithInfo[por.ChainSelector]{
+		report := ocr3types.ReportWithInfo[coretypes.ChainSelector]{
 			Report: []byte("test report data"),
-			Info:   por.ChainSelector(1), // Use ChainSelector as the Info type
+			Info:   coretypes.ChainSelector(1), // Use ChainSelector as the Info type
 		}
 		sigs := []types.AttributedOnchainSignature{
 			{
@@ -233,7 +233,7 @@ func TestTransmitter_Transmit(t *testing.T) {
 			require.NoError(t, err)
 
 			// json umarshal bytes to string and check if it contains "test report data"
-			var report ocr3types.ReportWithInfo[por.ChainSelector]
+			var report ocr3types.ReportWithInfo[coretypes.ChainSelector]
 			err = json.Unmarshal(reportBytes, &report)
 			require.NoError(t, err)
 			assert.Equal(t, "test report data", string(report.Report))
@@ -268,9 +268,9 @@ func TestTransmitter_Transmit_NoSubscribers(t *testing.T) {
 	// Test transmission without any registered triggers
 	cd := ocr2types.ConfigDigest{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
 	seqNr := uint64(127)
-	report := ocr3types.ReportWithInfo[por.ChainSelector]{
+	report := ocr3types.ReportWithInfo[coretypes.ChainSelector]{
 		Report: []byte("test report data no subscribers"),
-		Info:   por.ChainSelector(1), // Use ChainSelector as the Info type
+		Info:   coretypes.ChainSelector(1), // Use ChainSelector as the Info type
 	}
 	sigs := []types.AttributedOnchainSignature{}
 
@@ -316,4 +316,8 @@ func (m *mockCapabilitiesRegistry) GetTrigger(ctx context.Context, ID string) (c
 
 func (m *mockCapabilitiesRegistry) NodeByPeerID(ctx context.Context, peerID p2ptypes.PeerID) (capabilities.Node, error) {
 	return capabilities.Node{}, nil
+}
+
+func (m *mockCapabilitiesRegistry) DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error) {
+	return nil, nil
 }

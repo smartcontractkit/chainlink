@@ -51,7 +51,6 @@ import (
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
@@ -1510,7 +1509,7 @@ func (d *Delegate) newServicesSecureMint(
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
-	oracleArgsNoPlugin := libocr2.OCR3OracleArgs[por.ChainSelector]{
+	oracleArgsNoPlugin := libocr2.OCR3OracleArgs[core.ChainSelector]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		Database:                     ocrDB,

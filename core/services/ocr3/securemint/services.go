@@ -19,8 +19,6 @@ import (
 	evm_types "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
-	sm_plugin_loopp "github.com/smartcontractkit/tmp-sm-plugin-loopp/v2/pkg2"
 )
 
 var _ JobConfig = (*smJobConfig)(nil)
@@ -64,7 +62,7 @@ func NewSecureMintServices(ctx context.Context,
 	relayer loop.Relayer,
 	pipelineRunner pipeline.Runner,
 	lggr logger.Logger,
-	argsNoPlugin libocr.OCR3OracleArgs[por.ChainSelector],
+	argsNoPlugin libocr.OCR3OracleArgs[coretypes.ChainSelector],
 	cfg JobConfig,
 	capabilitiesRegistry coretypes.CapabilitiesRegistry,
 ) (srvs []job.ServiceCtx, err error) {
@@ -175,7 +173,7 @@ func NewSecureMintServices(ctx context.Context,
 		return nil, fmt.Errorf("failed to create secure mint external adapter: %w", err)
 	}
 
-	secureMintPluginFactory := sm_plugin_loopp.NewPluginSecureMintService(lggr, telem, cmdFn, ea)
+	secureMintPluginFactory := loop.NewPluginSecureMintService(lggr, telem, cmdFn, ea)
 	argsNoPlugin.ReportingPluginFactory = secureMintPluginFactory // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
 	srvs = append(srvs, secureMintPluginFactory)
 

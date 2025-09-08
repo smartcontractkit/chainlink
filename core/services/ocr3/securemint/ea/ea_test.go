@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -14,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -77,7 +78,7 @@ func Test_GetPayload(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	payload, err := ea.GetPayload(ctx, por.Blocks{1234567890: 1234567890, 5009297550715157269: 10})
+	payload, err := ea.GetPayload(ctx, coretypes.Blocks{1234567890: 1234567890, 5009297550715157269: 10})
 	require.NoError(t, err, "GetPayload should not return an error")
 
 	// Validate the 'ea_request' parameter serialized to json
@@ -100,18 +101,18 @@ func Test_GetPayload(t *testing.T) {
 	// Validate the resulting payload
 	amount, ok := big.NewInt(10).SetString("10332550000000000000000", 10)
 	require.True(t, ok, "Failed to parse reserve amount from string")
-	expectedPayload := por.ExternalAdapterPayload{
-		Mintables: por.Mintables{
+	expectedPayload := core.ExternalAdapterPayload{
+		Mintables: core.Mintables{
 			5009297550715157269: {
 				Block:    8,
 				Mintable: big.NewInt(10),
 			},
 		},
-		ReserveInfo: por.ReserveInfo{
+		ReserveInfo: core.ReserveInfo{
 			ReserveAmount: amount,
 			Timestamp:     time.UnixMilli(1749483841486),
 		},
-		LatestBlocks: por.Blocks{
+		LatestBlocks: core.Blocks{
 			5009297550715157269: 23,
 		},
 	}
