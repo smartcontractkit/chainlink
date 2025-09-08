@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -32,11 +31,6 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
 	var testLogger = framework.L
-	testLogger.Info().Msgf("Env Config Path: %s", testEnv.TestConfig.EnvironmentConfigPath)
-	if strings.Contains(testEnv.TestConfig.EnvironmentConfigPath, "workflow-gateway-capabilities-don.toml") || strings.Contains(testEnv.TestConfig.EnvironmentConfigPath, "workflow-gateway-don.toml") {
-		t.Skip("Skipping test for the following reason: Skip till the errors with these topologies are fixed: https://smartcontract-it.atlassian.net/browse/PRIV-160")
-		return
-	}
 	framework.L.Info().Msgf("Sleeping 1 minute to allow the Vault DON to start...")
 	// TODO: Remove this sleep https://smartcontract-it.atlassian.net/browse/PRIV-154
 	time.Sleep(1 * time.Minute)
