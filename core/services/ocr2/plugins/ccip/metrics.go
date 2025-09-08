@@ -115,9 +115,7 @@ func NewPluginMetricsCollector(pluginLabel string, bhClient beholder.Client, sou
 func (p *pluginMetricsCollector) NumberOfMessagesProcessed(phase ocrPhase, count int) {
 	messagesProcessed.
 		WithLabelValues(p.pluginName, p.source, p.dest, string(phase), p.sourceName, p.destName).
-		//nolint:gosec // count will never be negative or extremely large
 		Set(float64(count))
-		//nolint:gosec // count will never be negative or extremely large
 	p.messagesProcessed.Record(context.Background(), int64(count), metric.WithAttributes(
 		attribute.String("plugin", p.pluginName),
 		attribute.String("source", p.source),
@@ -131,10 +129,8 @@ func (p *pluginMetricsCollector) NumberOfMessagesProcessed(phase ocrPhase, count
 func (p *pluginMetricsCollector) NumberOfMessagesBasedOnInterval(phase ocrPhase, seqNrMin, seqNrMax uint64) {
 	messagesProcessed.
 		WithLabelValues(p.pluginName, p.source, p.dest, string(phase), p.sourceName, p.destName).
-		//nolint:gosec // count will never be negative or extremely large
 		Set(float64(seqNrMax - seqNrMin + 1))
-		//nolint:gosec // seqNr will never be negative or extremely large
-	p.messagesProcessed.Record(context.Background(), int64(seqNrMax-seqNrMin+1), metric.WithAttributes(
+	p.messagesProcessed.Record(context.Background(), int64(seqNrMax-seqNrMin+1), metric.WithAttributes( //nolint:gosec // Number will not be negative
 		attribute.String("plugin", p.pluginName),
 		attribute.String("source", p.source),
 		attribute.String("dest", p.dest),
@@ -147,7 +143,6 @@ func (p *pluginMetricsCollector) NumberOfMessagesBasedOnInterval(phase ocrPhase,
 func (p *pluginMetricsCollector) UnexpiredCommitRoots(count int) {
 	unexpiredCommitRoots.
 		WithLabelValues(p.pluginName, p.source, p.dest, p.sourceName, p.destName).
-		//nolint:gosec // count will never be negative or extremely large
 		Set(float64(count))
 	p.unexpiredCommitRoots.Record(context.Background(), int64(count), metric.WithAttributes(
 		attribute.String("plugin", p.pluginName),
@@ -166,10 +161,8 @@ func (p *pluginMetricsCollector) SequenceNumber(phase ocrPhase, seqNr uint64, co
 
 	maxSequenceNumber.
 		WithLabelValues(p.pluginName, p.source, p.dest, string(phase), contractAddress, p.sourceName, p.destName).
-		//nolint:gosec // count will never be negative or extremely large
 		Set(float64(seqNr))
-		//nolint:gosec // seqNr will never be negative or extremely large
-	p.maxSequenceNumber.Record(context.Background(), int64(seqNr), metric.WithAttributes(
+	p.maxSequenceNumber.Record(context.Background(), int64(seqNr), metric.WithAttributes( //nolint:gosec // Number will not be negative
 		attribute.String("plugin", p.pluginName),
 		attribute.String("source", p.source),
 		attribute.String("dest", p.dest),
@@ -192,10 +185,8 @@ func (p *pluginMetricsCollector) NewReportingPluginError() {
 func (p *pluginMetricsCollector) CommitLatestRoundID(contractAddress string, roundID uint64) {
 	commitLatestRoundID.
 		WithLabelValues(p.source, p.dest, contractAddress, p.pluginName).
-		//nolint:gosec // count or roundID will never be negative or extremely large
 		Set(float64(roundID))
-		//nolint:gosec // count or roundID will never be negative or extremely large
-	p.commitLatestRoundID.Record(context.Background(), int64(roundID), metric.WithAttributes(
+	p.commitLatestRoundID.Record(context.Background(), int64(roundID), metric.WithAttributes( //nolint:gosec // Number will not be negative
 		attribute.String("source_network_name", p.sourceName),
 		attribute.String("dest_network_name", p.destName),
 		attribute.String("contract_address", contractAddress),
@@ -206,10 +197,8 @@ func (p *pluginMetricsCollector) CommitLatestRoundID(contractAddress string, rou
 func (p *pluginMetricsCollector) ExecLatestRoundID(contractAddress string, roundID uint64) {
 	execLatestRoundID.
 		WithLabelValues(p.source, p.dest, contractAddress, p.pluginName).
-		//nolint:gosec // count or roundID will never be negative or extremely large
 		Set(float64(roundID))
-		//nolint:gosec // count or roundID will never be negative or extremely large
-	p.execLatestRoundID.Record(context.Background(), int64(roundID), metric.WithAttributes(
+	p.execLatestRoundID.Record(context.Background(), int64(roundID), metric.WithAttributes( //nolint:gosec // Number will not be negative
 		attribute.String("source_network_name", p.source),
 		attribute.String("dest_network_name", p.dest),
 		attribute.String("contract_address", contractAddress),
