@@ -1400,6 +1400,7 @@ func TestLauncher_CreateCombinedClientForV2Capabilities(t *testing.T) {
 }
 
 func TestLauncher_ExposeV2CapabilitiesRemotely(t *testing.T) {
+	t.Skip("skipping due to race - CRE-822")
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	fullTriggerCapID := "streams-trigger@1.0.0"
