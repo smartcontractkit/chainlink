@@ -29,7 +29,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.Test(t)
 	chainID := chainSelector(16015286601757825753)
-	seqNr := uint64(1)
+	seqNr := uint64(123456789)
 
 	// setup the trigger sink that will receive the trigger event in the securemint-specific format
 	triggerSink := framework.NewTriggerSink(t, "securemint-trigger", "1.0.0")
@@ -54,7 +54,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	trackInvalidPermissionEventsOnDFCache(t, dataFeedsCache)
 
 	// generate a wf job
-	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, uint64(chainID), dataFeedsCache.Address())
+	job := createSecureMintWorkflowJob(t, workflowName, workflowOwnerID, uint64(chainID), secureMintFeedDataID, dataFeedsCache.Address())
 	err = workflowDon.AddJob(ctx, &job)
 	require.NoError(t, err)
 
@@ -74,12 +74,12 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	// The price is packed from Mintable (99) and block number (10)
 	expectedUpdates := []secureMintUpdate{
 		{
-			dataID:         "0x04de41ba4fc9d91ad900000000000000", // 0x4 + 16015286601757825753 as bytes + right padded with 0s
+			dataID:         secureMintFeedDataID,
 			mintableAmount: mintableAmount,
 			blockNumber:    blockNumber,
 		},
 	}
-	h := newSecureMintHandler(expectedUpdates, blockNumber) // currently the secure mint aggregator uses the block number as timestamp
+	h := newSecureMintHandler(expectedUpdates, big.NewInt(int64(seqNr))) // currently the secure mint aggregator uses the reports' sequence number as timestamp
 	waitForDataFeedsCacheReports(t, dataFeedsCache, h)
 }
 

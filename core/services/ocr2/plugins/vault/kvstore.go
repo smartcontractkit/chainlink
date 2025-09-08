@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 const (
@@ -43,7 +44,7 @@ func NewWriteStore(writer ocr3_1types.KeyValueReadWriter) WriteKVStore {
 }
 
 func (s *KVStore) GetSecret(id *vault.SecretIdentifier) (*vault.StoredSecret, error) {
-	b, err := s.reader.Read([]byte(keyPrefix + KeyFor(id)))
+	b, err := s.reader.Read([]byte(keyPrefix + vaulttypes.KeyFor(id)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret: %w", err)
 	}
@@ -140,7 +141,7 @@ func (s *KVStore) RemoveIDFromMetadata(id *vault.SecretIdentifier) error {
 	si := []*vault.SecretIdentifier{}
 	var found bool
 	for _, i := range md.SecretIdentifiers {
-		if KeyFor(id) == KeyFor(i) {
+		if vaulttypes.KeyFor(id) == vaulttypes.KeyFor(i) {
 			found = true
 		} else {
 			si = append(si, i)
@@ -148,7 +149,7 @@ func (s *KVStore) RemoveIDFromMetadata(id *vault.SecretIdentifier) error {
 	}
 
 	if !found {
-		return fmt.Errorf("id %s not found in metadata for owner %s", KeyFor(id), id.Owner)
+		return fmt.Errorf("id %s not found in metadata for owner %s", vaulttypes.KeyFor(id), id.Owner)
 	}
 
 	newMd := &vault.StoredMetadata{
@@ -168,7 +169,7 @@ func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSe
 		return fmt.Errorf("failed to marshal secret: %w", err)
 	}
 
-	err = s.writer.Write([]byte(keyPrefix+KeyFor(id)), b)
+	err = s.writer.Write([]byte(keyPrefix+vaulttypes.KeyFor(id)), b)
 	if err != nil {
 		return fmt.Errorf("failed to write secret: %w", err)
 	}
@@ -181,7 +182,7 @@ func (s *KVStore) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSe
 }
 
 func (s *KVStore) DeleteSecret(id *vault.SecretIdentifier) error {
-	err := s.writer.Delete([]byte(keyPrefix + KeyFor(id)))
+	err := s.writer.Delete([]byte(keyPrefix + vaulttypes.KeyFor(id)))
 	if err != nil {
 		return fmt.Errorf("failed to delete secret: %w", err)
 	}

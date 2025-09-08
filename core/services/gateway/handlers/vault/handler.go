@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,24 +14,27 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
-	gw_handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 )
 
 const (
-	HandlerType          = "vault"
 	defaultCleanUpPeriod = 5 * time.Second
 )
 
 var (
-	_ gw_handlers.Handler = (*handler)(nil)
+	_                                 gwhandlers.Handler = (*handler)(nil)
+	errInsufficientResponsesForQuorum                    = errors.New("insufficient valid responses to reach quorum")
+	errQuorumUnobtainable                                = errors.New("quorum unobtainable")
 )
 
 type metrics struct {
@@ -62,26 +67,40 @@ func newMetrics() (*metrics, error) {
 }
 
 type activeRequest struct {
-	req        jsonrpc.Request[json.RawMessage]
+	req       jsonrpc.Request[json.RawMessage]
+	responses map[string]*jsonrpc.Response[json.RawMessage]
+	mu        sync.Mutex
+
 	createdAt  time.Time
-	callbackCh chan<- gw_handlers.UserCallbackPayload
+	callbackCh chan<- gwhandlers.UserCallbackPayload
+}
+
+type capabilitiesRegistry interface {
+	DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error)
+}
+
+type aggregator interface {
+	Aggregate(ctx context.Context, l logger.Logger, ar *activeRequest, currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type handler struct {
 	services.StateMachine
-	methodConfig Config
-	donConfig    *config.DONConfig
-	don          gw_handlers.DON
-	lggr         logger.Logger
-	codec        api.JsonRPCCodec
-	mu           sync.RWMutex
-	stopCh       services.StopChan
+	methodConfig      Config
+	donConfig         *config.DONConfig
+	don               gwhandlers.DON
+	lggr              logger.Logger
+	codec             api.JsonRPCCodec
+	mu                sync.RWMutex
+	stopCh            services.StopChan
+	requestAuthorizer vaultcap.RequestAuthorizer
 
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	activeRequests map[string]activeRequest
+	activeRequests map[string]*activeRequest
 	metrics        *metrics
+
+	aggregator aggregator
 }
 
 func (h *handler) HealthReport() map[string]error {
@@ -103,7 +122,7 @@ type Config struct {
 	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gw_handlers.DON, lggr logger.Logger) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, requestAuthorizer vaultcap.RequestAuthorizer, lggr logger.Logger) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -124,20 +143,22 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	}
 
 	return &handler{
-		methodConfig:    cfg,
-		donConfig:       donConfig,
-		don:             don,
-		lggr:            logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
-		requestTimeout:  time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter: nodeRateLimiter,
-		activeRequests:  make(map[string]activeRequest),
-		mu:              sync.RWMutex{},
-		stopCh:          make(services.StopChan),
-		metrics:         metrics,
+		methodConfig:      cfg,
+		donConfig:         donConfig,
+		don:               don,
+		lggr:              logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
+		requestTimeout:    time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:   nodeRateLimiter,
+		activeRequests:    make(map[string]*activeRequest),
+		mu:                sync.RWMutex{},
+		requestAuthorizer: requestAuthorizer,
+		stopCh:            make(services.StopChan),
+		metrics:           metrics,
+		aggregator:        &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
 	}, nil
 }
 
-func (h *handler) Start(ctx context.Context) error {
+func (h *handler) Start(_ context.Context) error {
 	return h.StartOnce("VaultHandler", func() error {
 		h.lggr.Info("starting vault handler")
 		go func() {
@@ -169,7 +190,7 @@ func (h *handler) Close() error {
 // removeExpiredRequests removes expired requests from the pending requests map
 func (h *handler) removeExpiredRequests(ctx context.Context) {
 	h.mu.RLock()
-	var expiredRequests []activeRequest
+	var expiredRequests []*activeRequest
 	now := time.Now()
 	for _, userRequest := range h.activeRequests {
 		if now.Sub(userRequest.createdAt) > h.requestTimeout {
@@ -187,44 +208,51 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return []string{
-		MethodSecretsCreate,
-		MethodSecretsGet,
-		MethodSecretsUpdate,
-		MethodSecretsDelete,
-	}
+	return vaulttypes.Methods
 }
 
-func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ chan<- gwhandlers.UserCallbackPayload) error {
 	return errors.New("vault handler does not support legacy messages")
 }
 
-func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gw_handlers.UserCallbackPayload) error {
+func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gwhandlers.UserCallbackPayload) error {
 	// Generate a unique ID for the request.
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	if req.ID == "" {
 		return errors.New("request ID cannot be empty")
 	}
 
-	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
-	ar := activeRequest{
+	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
+	if !isAuthorized {
+		h.lggr.Errorw("request not authorized", "request_id", req.ID, "owner", owner, "reason:", err)
+		return errors.New("request not authorized: " + err.Error())
+	}
+
+	// Prefix request id with owner, to ensure uniqueness across different owners
+	req.ID = owner + "::" + req.ID
+
+	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
+	ar := &activeRequest{
 		callbackCh: callbackCh,
 		req:        req,
 		createdAt:  time.Now(),
+		responses:  map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
 
 	h.mu.Lock()
 	h.activeRequests[req.ID] = ar
 	h.mu.Unlock()
 	switch req.Method {
-	case MethodSecretsCreate:
+	case vaulttypes.MethodSecretsCreate:
 		return h.handleSecretsCreate(ctx, ar)
-	case MethodSecretsGet:
+	case vaulttypes.MethodSecretsGet:
 		return h.handleSecretsGet(ctx, ar)
-	case MethodSecretsUpdate:
+	case vaulttypes.MethodSecretsUpdate:
 		return h.handleSecretsUpdate(ctx, ar)
-	case MethodSecretsDelete:
+	case vaulttypes.MethodSecretsDelete:
 		return h.handleSecretsDelete(ctx, ar)
+	case vaulttypes.MethodSecretsList:
+		return h.handleSecretsList(ctx, ar)
 	default:
 		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method)))
 	}
@@ -240,7 +268,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	h.mu.RLock()
-	ur, ok := h.activeRequests[resp.ID]
+	ar, ok := h.activeRequests[resp.ID]
 	h.mu.RUnlock()
 	if !ok {
 		// Request is not found, so we don't need to send a response to the user
@@ -253,10 +281,40 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
+	ar.mu.Lock()
+	_, exists := ar.responses[nodeAddr]
+	if exists {
+		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
+		ar.mu.Unlock()
+		return nil
+	}
+	ar.responses[nodeAddr] = resp
+	ar.mu.Unlock()
+
+	resp, err := h.aggregator.Aggregate(ctx, l, ar, resp)
+	switch {
+	case errors.Is(err, errQuorumUnobtainable):
+		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err))
+	case err != nil:
+		l.Debugw("error aggregating responses, waiting for other nodes...", "error", err)
+		return nil
+	}
+
+	return h.sendSuccessResponse(ctx, l, ar, resp)
+}
+
+func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
+	// Strip the owner prefix from the response ID before sending it back to the user
+	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
+	index := strings.Index(resp.ID, "::")
+	if index != -1 {
+		resp.ID = resp.ID[index+2:]
+	}
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
-		return h.sendResponse(ctx, ur, h.errorResponse(ur.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err)))
 	}
 
 	var errorCode api.ErrorCode
@@ -267,100 +325,134 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	l.Debugw("issued user callback", "errorCode", errorCode)
-	successResp := gw_handlers.UserCallbackPayload{
+	successResp := gwhandlers.UserCallbackPayload{
 		RawResponse: rawResponse,
 		ErrorCode:   errorCode,
 	}
-	return h.sendResponse(ctx, ur, successResp)
+	return h.sendResponse(ctx, ar, successResp)
 }
 
-func (h *handler) handleSecretsCreate(ctx context.Context, ar activeRequest) error {
+func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-	var secretsCreateRequest SecretsCreateRequest
-	if err := json.Unmarshal(*ar.req.Params, &secretsCreateRequest); err != nil {
+
+	createSecretsRequest := &vaultcommon.CreateSecretsRequest{}
+	if err := json.Unmarshal(*ar.req.Params, &createSecretsRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
-	if secretsCreateRequest.ID == "" || secretsCreateRequest.Value == "" || secretsCreateRequest.Owner == "" {
-		l.Debugw("invalid request parameters: secret id, owner and value cannot be empty")
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
+	err := vaultcap.ValidateCreateSecretsRequest(createSecretsRequest)
+	if err != nil {
+		l.Warnw("failed to validate create secrets request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err)))
 	}
 
-	// At this point, we know that the request is valid and we can send it to the nodes
-	return h.fanOutToVaultNodes(ctx, l, ar)
-}
-
-func (h *handler) handleSecretsUpdate(ctx context.Context, ar activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-
-	req := &vault.UpdateSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
-	}
-
-	req.RequestId = ar.req.ID
-
-	reqb, err := json.Marshal(req)
+	reqBytes, err := json.Marshal(createSecretsRequest)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
 	}
 
-	ar.req.Params = (*json.RawMessage)(&reqb)
+	ar.req.Params = (*json.RawMessage)(&reqBytes)
+	// At this point, we know that the request is valid, and we can send it to the nodes
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) handleSecretsDelete(ctx context.Context, ar activeRequest) error {
+func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
+
+	updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{}
+	if err := json.Unmarshal(*ar.req.Params, updateSecretsRequest); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+	}
+
+	updateSecretsRequest.RequestId = ar.req.ID
+
+	vaultcapErr := vaultcap.ValidateUpdateSecretsRequest(updateSecretsRequest)
+	if vaultcapErr != nil {
+		l.Warnw("failed to validate update secrets request", "error", vaultcapErr)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultcapErr)))
+	}
+
+	reqBytes, err := json.Marshal(updateSecretsRequest)
+	if err != nil {
+		l.Errorw("failed to marshal request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
+	}
+
+	ar.req.Params = (*json.RawMessage)(&reqBytes)
+	return h.fanOutToVaultNodes(ctx, l, ar)
+}
+
+func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
 
-	req := &vault.DeleteSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
+	deleteSecretsRequest := &vaultcommon.DeleteSecretsRequest{}
+	if err := json.Unmarshal(*ar.req.Params, deleteSecretsRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
-	req.RequestId = ar.req.ID
+	deleteSecretsRequest.RequestId = ar.req.ID
 
-	reqb, err := json.Marshal(req)
+	err := vaultcap.ValidateDeleteSecretsRequest(deleteSecretsRequest)
+	if err != nil {
+		l.Warnw("failed to validate delete secrets request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err)))
+	}
+
+	reqBytes, err := json.Marshal(deleteSecretsRequest)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
 	}
 
-	ar.req.Params = (*json.RawMessage)(&reqb)
+	ar.req.Params = (*json.RawMessage)(&reqBytes)
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar activeRequest) error {
-	var nodeErrors []error
-	for _, node := range h.donConfig.Members {
-		err := h.don.SendToNode(ctx, node.Address, &ar.req)
-		if err != nil {
-			nodeErrors = append(nodeErrors, err)
-			l.Errorw("error sending request to node", "node", node.Address, "error", err)
-		}
-	}
-
-	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
-	}
-
-	l.Debugw("successfully forwarded request to Vault nodes")
-	return nil
-}
-
-func (h *handler) handleSecretsGet(ctx context.Context, ar activeRequest) error {
+func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-	var secretsGetRequest SecretsGetRequest
+
+	secretsGetRequest := &vaultcommon.GetSecretsRequest{}
 	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
-	if secretsGetRequest.ID == "" || secretsGetRequest.Owner == "" {
-		l.Debugw("invalid request parameters: secret id and owner cannot be empty")
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, errors.New("secret id and value cannot be empty")))
+	err := vaultcap.ValidateGetSecretsRequest(secretsGetRequest)
+	if err != nil {
+		l.Warnw("failed to validate get secrets request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err)))
 	}
 
-	// At this point, we know that the request is valid and we can send it to the nodes
+	return h.fanOutToVaultNodes(ctx, l, ar)
+}
+
+func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) error {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestId", ar.req.ID)
+
+	req := &vaultcommon.ListSecretIdentifiersRequest{}
+	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+	}
+
+	req.RequestId = ar.req.ID
+
+	err := vaultcap.ValidateListSecretIdentifiersRequest(req)
+	if err != nil {
+		l.Warnw("failed to validate list secret identifiers request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err)))
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		l.Errorw("failed to marshal request", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
+	}
+
+	ar.req.Params = (*json.RawMessage)(&reqBytes)
+	return h.fanOutToVaultNodes(ctx, l, ar)
+}
+
+func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
 	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
 		err := h.don.SendToNode(ctx, node.Address, &ar.req)
@@ -382,7 +474,7 @@ func (h *handler) errorResponse(
 	req jsonrpc.Request[json.RawMessage],
 	errorCode api.ErrorCode,
 	errs ...error,
-) gw_handlers.UserCallbackPayload {
+) gwhandlers.UserCallbackPayload {
 	err := errors.New("unknown error")
 	if len(errs) > 0 && errs[0] != nil {
 		err = errs[0]
@@ -411,7 +503,14 @@ func (h *handler) errorResponse(
 		// Unused in this handler
 	}
 
-	return gw_handlers.UserCallbackPayload{
+	// Strip the owner prefix from the json response ID before sending it back to the user
+	// This ensures compliance with JSONRPC 2.0 spec, which requires response id to match request id
+	index := strings.Index(req.ID, "::")
+	if index != -1 {
+		req.ID = req.ID[index+2:]
+	}
+
+	return gwhandlers.UserCallbackPayload{
 		RawResponse: h.codec.EncodeNewErrorResponse(
 			req.ID,
 			api.ToJSONRPCErrorCode(errorCode),
@@ -422,7 +521,7 @@ func (h *handler) errorResponse(
 	}
 }
 
-func (h *handler) sendResponse(ctx context.Context, userRequest activeRequest, resp gw_handlers.UserCallbackPayload) error {
+func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, resp gwhandlers.UserCallbackPayload) error {
 	switch resp.ErrorCode {
 	case api.StaleNodeResponseError:
 	case api.FatalError:

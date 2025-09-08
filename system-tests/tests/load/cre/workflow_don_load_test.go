@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -46,7 +47,6 @@ import (
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -131,6 +131,7 @@ func setupLoadTestEnvironment(
 		JdInput:                              *in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
+		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
@@ -141,7 +142,7 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(
+	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
 		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // will not migrate now
 		universalSetupOutput.BlockchainOutput[0].ChainSelector,
 		keystone_changeset.KeystoneForwarder.String(),
@@ -343,47 +344,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	)
 
 	ctx := t.Context()
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		if t.Failed() {
-			logTestInfo(testLogger, "n/a", "n/a", setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
-
-			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-
-			removeErr := os.RemoveAll(logDir)
-			if removeErr != nil {
-				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
-				return
-			}
-
-			_, saveErr := framework.SaveContainerLogs(logDir)
-			if saveErr != nil {
-				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-				return
-			}
-
-			debugDons := make([]*cretypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
-				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].CLNodes {
-					containerNames = append(containerNames, output.Node.ContainerName)
-				}
-				debugDons = append(debugDons, &cretypes.DebugDon{
-					NodesMetadata:  donWithMetadata.NodesMetadata,
-					Flags:          donWithMetadata.Flags,
-					ContainerNames: containerNames,
-				})
-			}
-
-			debugInput := cretypes.DebugInput{
-				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput[0].BlockchainOutput,
-				InfraInput:       in.Infra,
-			}
-			lidebug.PrintTestDebug(ctx, t.Name(), testLogger, debugInput)
-		}
-	})
-
 	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
@@ -726,7 +686,8 @@ func (s *StreamsGun) createReport() (capabilities.OCRTriggerEvent, string, time.
 }
 
 func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
-	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle) (*capabilities.OCRTriggerEvent, string, error) {
+	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle,
+) (*capabilities.OCRTriggerEvent, string, error) {
 	values := make([]datastreamsllo.StreamValue, 0)
 
 	priceBytes, err := price.MarshalBinary()
@@ -800,7 +761,7 @@ func decodeTargetInput(inputs *values.Map) (evm.TargetRequest, error) {
 
 func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 	cacheDir := "cache/keys"
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -812,7 +773,7 @@ func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 		}
 
 		filename := fmt.Sprintf("%s/key_bundle_%d.json", cacheDir, i)
-		if err := os.WriteFile(filename, bytes, 0600); err != nil {
+		if err := os.WriteFile(filename, bytes, 0o600); err != nil {
 			return fmt.Errorf("failed to write key bundle %d to file: %w", i, err)
 		}
 	}
@@ -870,7 +831,7 @@ func NewFeedIDDF2(t *testing.T) ([32]byte, string) {
 
 func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 	cacheDir := "cache/feeds"
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -880,7 +841,7 @@ func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 		return fmt.Errorf("failed to marshal feed addresses: %w", err)
 	}
 
-	if err := os.WriteFile(filename, bytes, 0600); err != nil {
+	if err := os.WriteFile(filename, bytes, 0o600); err != nil {
 		return fmt.Errorf("failed to write feed addresses to file: %w", err)
 	}
 
@@ -960,7 +921,6 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
  `
 
 	tmpl, err := template.New("workflow").Parse(workflowTemplateLoad)
-
 	if err != nil {
 		panic(err)
 	}
@@ -976,7 +936,8 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
-		Spec:   renderedTemplate.String()}
+		Spec:   renderedTemplate.String(),
+	}
 }
 
 func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
@@ -996,7 +957,6 @@ func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *
  		{{- end }}
 			"""`
 	tmpl, err := template.New("mock-job").Parse(jobTemplate)
-
 	if err != nil {
 		panic(err)
 	}
@@ -1040,14 +1000,6 @@ func capTypeToInt(capType string) uint8 {
 	default:
 		panic("unknown capability type " + capType)
 	}
-}
-
-func logTestInfo(l zerolog.Logger, feedID, workflowName, dataFeedsCacheAddr, forwarderAddr string) {
-	l.Info().Msg("------ Test configuration:")
-	l.Info().Msgf("Feed ID: %s", feedID)
-	l.Info().Msgf("Workflow name: %s", workflowName)
-	l.Info().Msgf("DataFeedsCache address: %s", dataFeedsCacheAddr)
-	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
 func compareBenchmarkReports(t *testing.T, baselineReport, currentReport *benchspy.StandardReport) {

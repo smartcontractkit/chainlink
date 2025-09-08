@@ -35,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 )
 
 const (
@@ -695,7 +697,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d (seconds)", executionDuration), l)
 	l.Infof("execution duration: %d (seconds)", executionDuration)
-	err = events.EmitExecutionFinishedEvent(ctx, cma.Labels(), status, executionID)
+	err = events.EmitExecutionFinishedEvent(ctx, cma.Labels(), status, executionID, l)
 	if err != nil {
 		e.logger.Errorf("failed to emit execution finished event: %+v", err)
 	}
@@ -1448,6 +1450,30 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get local node state: %w", err)
 	}
+
+	if cfg.WorkflowRegistryChainID == "" {
+		// current integration tests (and things like the local-cre) sometimes
+		// need to avoid setting TOML config for the cap and workflow registry
+		// syncers as they spin up relayers. Setting default values like this
+		// prevents current and future tests from needing to setup custom
+		// wiring so that engine instances can be created with the proper registry values.
+		cfg.WorkflowRegistryChainID = "1"
+	}
+
+	chainIDint, err := strconv.ParseUint(cfg.WorkflowRegistryChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse chain ID: %w", err)
+	}
+	chainSelector, err := chain_selectors.SelectorFromChainId(chainIDint)
+	if err != nil {
+		return nil, fmt.Errorf("could not get chain selector: %w", err)
+	}
+
+	if cfg.WorkflowRegistryAddress == "" {
+		// refer to comment above on setting default value.
+		cfg.WorkflowRegistryAddress = "0xv1EngineDefault"
+	}
+
 	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
@@ -1460,6 +1486,11 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			int(nodeState.WorkflowDON.F),
 		)),
 		platform.KeyP2PID, nodeState.PeerID.String(),
+		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
+		platform.WorkflowRegistryChain, strconv.FormatUint(chainSelector, 10),
+		platform.EngineVersion, platform.ValueWorkflowVersionV2,
+		platform.DonVersion, strconv.Itoa(int(nodeState.WorkflowDON.ConfigVersion)),
+		// TODO platform.KeyOrganizationID, wire through org ID from linking service
 	)
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {

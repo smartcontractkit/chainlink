@@ -710,6 +710,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 		PublicKey:     vuni.vrfkey.PublicKey.String(),
 		FromAddresses: []string{vuni.submitter.Hex()},
 		GasLanePrice:  chain.Config().EVM().GasEstimator().PriceMax(),
+		EVMChainID:    testutils.FixtureChainID.String(),
 	})
 	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(toml)

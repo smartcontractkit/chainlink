@@ -4,6 +4,7 @@
 
 - [Test Modification and Execution Guide](#test-modification-and-execution-guide)
   - [Table of Contents](#table-of-contents)
+  - [Test Modification and Execution Guide](#test-modification-and-execution-guide-1)
   - [1. Running the Test](#1-running-the-test)
     - [Chainlink Node Image](#chainlink-node-image)
     - [Environment Variables](#environment-variables)
@@ -14,20 +15,22 @@
   - [3. Docker vs Kubernetes (k8s)](#3-docker-vs-kubernetes-k8s)
   - [4. CRIB Requirements](#4-crib-requirements)
   - [5. Setting Docker Images for CRIB Execution](#5-setting-docker-images-for-crib-execution)
-    - [Notes:](#notes)
+    - [Notes](#notes)
     - [Job Distributor (JD) Image in CRIB](#job-distributor-jd-image-in-crib)
       - [AWS Provider](#aws-provider)
       - [Kind Provider](#kind-provider)
   - [6. Running Tests in Local Kubernetes (`kind`)](#6-running-tests-in-local-kubernetes-kind)
+- [Caution: this section is outdated. We no longer use `devspace`](#caution-this-section-is-outdated-we-no-longer-use-devspace)
     - [Docker Registry Setup](#docker-registry-setup)
     - [Hostname Routing with `/etc/hosts`](#hostname-routing-with-etchosts)
-      - [Solutions:](#solutions)
+      - [Solutions](#solutions)
       - [Example Manual Entries](#example-manual-entries)
     - [Automating Host Setup with `devspace`](#automating-host-setup-with-devspace)
   - [7. CRIB Deployment Flow](#7-crib-deployment-flow)
+- [Caution: this section is outdated. We no longer use `devspace`](#caution-this-section-is-outdated-we-no-longer-use-devspace-1)
   - [8. Switching from `kind` to AWS Provider](#8-switching-from-kind-to-aws-provider)
   - [9. CRIB Limitations \& Considerations](#9-crib-limitations--considerations)
-    - [Gateway DON](#gateway-don)
+- [Caution: this section is partially outdated. We no longer use `devspace`](#caution-this-section-is-partially-outdated-we-no-longer-use-devspace)
     - [Mocked Price Provider](#mocked-price-provider)
     - [Environment Variables](#environment-variables-1)
     - [DNS Propagation (AWS only)](#dns-propagation-aws-only)
@@ -47,16 +50,16 @@
       - [Registration Parameters](#registration-parameters)
       - [URL Resolution Process](#url-resolution-process)
     - [Complete Workflow Setup Example](#complete-workflow-setup-example)
-  - [12. Workflow Secrets](#12-workflow-secrets)
-    - [How Secrets Work](#how-secrets-work)
-    - [Creating Secrets Configuration](#creating-secrets-configuration)
-    - [Environment Variable Naming](#environment-variable-naming)
-    - [Using Secrets in Workflows](#using-secrets-in-workflows)
-    - [Secrets Encryption Process](#secrets-encryption-process)
-    - [Encrypted Secrets File Structure](#encrypted-secrets-file-structure)
-    - [Security Considerations](#security-considerations)
-    - [Complete Example](#complete-example)
-  - [13. YAML Workflows (Data Feeds DSL)](#13-yaml-workflows-data-feeds-dsl)
+    - [12. Workflow Secrets](#12-workflow-secrets)
+      - [How Secrets Work](#how-secrets-work)
+      - [Creating Secrets Configuration](#creating-secrets-configuration)
+      - [Environment Variable Naming](#environment-variable-naming)
+      - [Using Secrets in Workflows](#using-secrets-in-workflows)
+      - [Secrets Encryption Process](#secrets-encryption-process)
+      - [Encrypted Secrets File Structure](#encrypted-secrets-file-structure)
+      - [Security Considerations](#security-considerations)
+      - [Complete Example](#complete-example)
+    - [13. YAML Workflows (Data Feeds DSL)](#13-yaml-workflows-data-feeds-dsl)
   - [14. Adding a New Test to the CI](#14-adding-a-new-test-to-the-ci)
     - [How Auto-Discovery Works](#how-auto-discovery-works)
     - [Test Architecture Pattern](#test-architecture-pattern)
@@ -79,7 +82,7 @@
       - [Live Provider Validation](#live-provider-validation)
       - [Mock Provider Validation](#mock-provider-validation)
     - [Configuration](#configuration)
-      - [TOML Configuration](#toml-configuration-1)
+      - [TOML Configuration](#toml-configuration)
       - [Programmatic Configuration](#programmatic-configuration)
     - [Usage in Tests](#usage-in-tests)
     - [Key Benefits](#key-benefits)
@@ -99,6 +102,7 @@ For more information about the local CRE check its [README.md](../../../../core/
 ## 1. Running the Test
 
 Before starting, you’ll need to configure your environment correctly. To do so execute the automated setup function:
+
 ```bash
 cd core/scripts/cre/environment && go run . env setup
 ```
@@ -116,10 +120,12 @@ The TOML config defines how Chainlink node images are used:
   ```
 
 - **Using a pre-built image**: Replace the config with:
+
   ```toml
   [nodesets.node_specs.node]
     image = "my-docker-image:my-tag"
   ```
+
   Apply this to every `nodesets.node_specs.node` section.
 
 **Minimum required version**: Commit [e13e5675](https://github.com/smartcontractkit/chainlink/commit/e13e5675d3852b04e18dad9881e958066a2bf87a) (Feb 25, 2025)
@@ -129,8 +135,10 @@ The TOML config defines how Chainlink node images are used:
 ### Environment Variables
 
 Only if you want to run the tests on non-default topology you need to set following variables before running the test:
+
 - `CTF_CONFIGS` -- either `configs/workflow-gateway-don.toml` or `configs/workflow-gateway-capabilities-don.toml`
 - `CRE_TOPOLOGY` -- either `workflow-gateway` or `workflow-gateway-capabilities`
+- `CTF_LOG_LEVEL=debug` -- to display test debug-level logs
 
 ---
 
@@ -166,7 +174,7 @@ Example `launch.json` entry:
   "request": "launch",
   "mode": "test",
   "program": "${workspaceFolder}/system-tests/tests/smoke/cre",
-  "args": ["-test.run", "Test_CRE_Workflow_Don"]
+  "args": ["-test.run", "Test_CRE_Suite"]
 }
 ```
 
@@ -286,13 +294,15 @@ CRIB does **not** support building Docker images from source during test runtime
 docker build -t localhost:5001/chainlink:<your-tag>> --build-arg CHAINLINK_USER=chainlink -f core/chainlink.Dockerfile
 ```
 
-### Notes:
+### Notes
 
 - All nodes in a single nodeset **must** use the same image.
 - You must specify an image tag explicitly (e.g., `:v1.2.3`).
 
 ### Job Distributor (JD) Image in CRIB
+
 #### AWS Provider
+
 If you're working with AWS you will need to set the JD image URL in the `overrides.toml`
 
 ```toml
@@ -303,6 +313,7 @@ If you're working with AWS you will need to set the JD image URL in the `overrid
 Replace `<PROD_ECR_REGISTRY_URL>` placeholder with the actual value.
 
 #### Kind Provider
+
 When working with kind provider, it will require pulling and pushing an image to local registry, similar as with CL node explained before.
 
 ```shell
@@ -312,6 +323,7 @@ docker push localhost:5001/job-distributor:0.12.7
 ```
 
 Now, you can set:
+
 ```toml
 [jd]
   image = "localhost:5001/job-distributor:0.12.7"
@@ -321,7 +333,7 @@ Now, you can set:
 
 ## 6. Running Tests in Local Kubernetes (`kind`)
 
-# Caution: this section is outdated. We no longer use `devspace`!
+# Caution: this section is outdated. We no longer use `devspace`
 
 ### Docker Registry Setup
 
@@ -335,7 +347,7 @@ docker pull registry:2
 
 CRIB dynamically creates hostname entries, but modifying `/etc/hosts` requires root. Tests fail if routing isn't set up.
 
-#### Solutions:
+#### Solutions
 
 1. **Manually add host entries**.
 2. **Run `devspace` manually before starting tests** to allow interactive root access.
@@ -392,7 +404,7 @@ Ensure DON type matches the `name` field in your TOML config.
 
 ## 7. CRIB Deployment Flow
 
-# Caution: this section is outdated. We no longer use `devspace`!
+# Caution: this section is outdated. We no longer use `devspace`
 
 1. **Start a `nix develop` shell**, set:
 
@@ -444,7 +456,7 @@ Recommended: Always switch namespaces when changing providers.
 
 ## 9. CRIB Limitations & Considerations
 
-# Caution: this section is partially outdated. We no longer use `devspace`!
+# Caution: this section is partially outdated. We no longer use `devspace`
 
 ### Mocked Price Provider
 
@@ -567,25 +579,18 @@ After compilation, workflow files must be distributed to the appropriate contain
 containerTargetDir := "/home/chainlink/workflows"
 
 // Copy compiled workflow binary
-workflowCopyErr := creworkflow.CopyWorkflowToDockerContainers(
-    compressedWorkflowWasmPath,
-    "workflow-node",
+workflowCopyErr := creworkflow.CopyArtifactsToDockerContainers(
     containerTargetDir,
+    "workflow-node",
+    compressedWorkflowWasmPath, workflowConfigFilePath
 )
 require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
-
-// Copy configuration file
-configCopyErr := creworkflow.CopyWorkflowToDockerContainers(
-    workflowConfigFilePath,
-    "workflow-node",
-    containerTargetDir,
-)
-require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
 ```
 
 #### Container Discovery
 
 The framework automatically discovers containers by name pattern:
+
 - Uses Docker API to list running containers
 - Matches container names against the provided pattern
 - Copies files to all matching containers
@@ -598,7 +603,7 @@ Workflows are registered with the blockchain contract using the `RegisterWithCon
 #### Registration Process
 
 ```go
-registerErr := creworkflow.RegisterWithContract(
+workflowID, registerErr := creworkflow.RegisterWithContract(
     t.Context(),
     sethClient,                    // Blockchain client
     workflowRegistryAddress,       // Contract address
@@ -669,11 +674,11 @@ func setupWorkflow(t *testing.T, workflowSourcePath, workflowName string, config
 
     // 3. Copy files to containers
     containerTargetDir := "/home/chainlink/workflows"
-    err := creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+    err := creworkflow.CopyArtifactsToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
     require.NoError(t, err, "failed to copy workflow binary")
 
     if configFilePath != "" {
-        err = creworkflow.CopyWorkflowToDockerContainers(configFilePath, "workflow-node", containerTargetDir)
+        err = creworkflow.CopyArtifactsToDockerContainers(configFilePath, "workflow-node", containerTargetDir)
         require.NoError(t, err, "failed to copy config file")
     }
 
@@ -683,7 +688,7 @@ func setupWorkflow(t *testing.T, workflowSourcePath, workflowName string, config
         configURL = ptr.Ptr("file://" + configFilePath)
     }
 
-    registerErr := creworkflow.RegisterWithContract(
+    workflowID, registerErr := creworkflow.RegisterWithContract(
         t.Context(),
         sethClient,
         workflowRegistryAddress,
@@ -741,6 +746,7 @@ secretsNames:
 - Environment variables must be set before running the workflow registration
 
 **Note**: `NODE_INDEX` refers to the node's position in the DON (0-based indexing), not the P2P ID. For example:
+
 - `API_KEY_ENV_VAR_NODE_0` for the first node in the DON
 - `API_KEY_ENV_VAR_NODE_1` for the second node in the DON
 - `API_KEY_ENV_VAR_NODE_2` for the third node in the DON
@@ -764,7 +770,7 @@ encryptedSecretsPath, err := creworkflow.PrepareSecrets(
 require.NoError(t, err, "failed to prepare secrets")
 
 // 3. Copy encrypted secrets to containers
-err = creworkflow.CopyWorkflowToDockerContainers(
+err = creworkflow.CopyArtifactsToDockerContainers(
     encryptedSecretsPath,
     "workflow-node",
     "/home/chainlink/workflows",
@@ -772,7 +778,7 @@ err = creworkflow.CopyWorkflowToDockerContainers(
 require.NoError(t, err, "failed to copy secrets to containers")
 
 // 4. Register workflow with secrets
-registerErr := creworkflow.RegisterWithContract(
+workflowID, registerErr := creworkflow.RegisterWithContract(
     ctx,
     sethClient,
     workflowRegistryAddress,
@@ -856,15 +862,15 @@ func setupWorkflowWithSecrets(t *testing.T, workflowSourcePath, workflowName, se
 
     // Copy files to containers
     containerTargetDir := "/home/chainlink/workflows"
-    err = creworkflow.CopyWorkflowToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+    err = creworkflow.CopyArtifactsToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
     require.NoError(t, err, "failed to copy workflow")
 
-    err = creworkflow.CopyWorkflowToDockerContainers(encryptedSecretsPath, "workflow-node", containerTargetDir)
+    err = creworkflow.CopyArtifactsToDockerContainers(encryptedSecretsPath, "workflow-node", containerTargetDir)
     require.NoError(t, err, "failed to copy secrets")
 
     // Register workflow with secrets
     secretsURL := "file://" + encryptedSecretsPath
-    registerErr := creworkflow.RegisterWithContract(
+    workflowID, registerErr := creworkflow.RegisterWithContract(
         t.Context(),
         sethClient,
         workflowRegistryAddress,
@@ -1020,6 +1026,7 @@ func Test_CRE_My_New_Workflow(t *testing.T) {
 ```
 
 **Important**: Your test should be designed to work with any of the supported DON topologies. The same test logic should ideally be compatible with:
+
 - `workflow` topology
 - `workflow-gateway` topology
 - `workflow-gateway-capabilities` topology
@@ -1048,6 +1055,7 @@ The CI automatically sets up the test environment:
 - **Shared Infrastructure**: All tests within the same topology share the same environment instance
 
 This approach ensures that:
+
 - Environment creation overhead is minimized
 - Tests can leverage shared contracts and node infrastructure
 - The same test logic can be validated across different DON configurations
@@ -1117,6 +1125,7 @@ priceProvider := NewTrueUSDPriceProvider(testLogger, feedIDs)
 ```
 
 **Characteristics:**
+
 - Uses real-time data from the TrueUSD API
 - No authentication required
 - Validates that prices are non-zero
@@ -1136,6 +1145,7 @@ require.NoError(t, err, "failed to create fake price provider")
 ```
 
 **Characteristics:**
+
 - Generates random prices for testing
 - Provides controlled price sequences
 - Validates exact price matches
@@ -1165,6 +1175,7 @@ The fake price provider sets up a mock HTTP server that:
 Both providers implement smart validation:
 
 #### Live Provider Validation
+
 ```go
 func (l *TrueUSDPriceProvider) NextPrice(feedID string, price *big.Int, elapsed time.Duration) bool {
     // Wait for non-zero price
@@ -1177,6 +1188,7 @@ func (l *TrueUSDPriceProvider) NextPrice(feedID string, price *big.Int, elapsed 
 ```
 
 #### Mock Provider Validation
+
 ```go
 func (f *FakePriceProvider) NextPrice(feedID string, price *big.Int, elapsed time.Duration) bool {
     // Check if this is a new price we haven't seen

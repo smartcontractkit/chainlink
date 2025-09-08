@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	ptypes "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -180,6 +181,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 					}
 
 					jobSpec := jobs.WorkerStandardCapability(nodeID, f.jobNamer(chainIDUint64, capabilityFlag), command, configStr, "")
+					jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &capabilityFlag}}
 					donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
 				}
 			}

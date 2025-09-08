@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -334,7 +335,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		},
 	}
 
-	var ocr3Config = internal.OracleConfig{
+	var ocr3Config = ocr3.OracleConfig{
 		MaxFaultyOracles:     dons.Get(c.WFDonConfig.Name).F(),
 		TransmissionSchedule: []int{dons.Get(c.WFDonConfig.Name).N()},
 	}

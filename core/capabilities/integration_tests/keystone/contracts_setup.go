@@ -49,6 +49,9 @@ func SetupConsumerContract(t *testing.T, backend *framework.EthBlockchain,
 	return addr, consumer
 }
 
+// secureMintFeedDataID is the Data ID generated for a secure mint feed using the feed_id.go generator in CLD
+const secureMintFeedDataID = "0x01c508f42b0201320000000000000000"
+
 func SetupDataFeedsCacheContract(t *testing.T, backend *framework.EthBlockchain,
 	forwarderAddress common.Address, workflowOwner string, workflowName string) (common.Address, *data_feeds_cache.DataFeedsCache) {
 	addr, _, dataFeedsCache, err := data_feeds_cache.DeployDataFeedsCache(backend.TransactionOpts(), backend.Client())
@@ -65,7 +68,7 @@ func SetupDataFeedsCacheContract(t *testing.T, backend *framework.EthBlockchain,
 	backend.Commit()
 
 	feedIDBytes := [16]byte{}
-	copy(feedIDBytes[:], common.FromHex("0x04de41ba4fc9d91ad900000000000000")) // Data ID for secure mint report for chain selector 16015286601757825753 (ethereum-testnet-sepolia)
+	copy(feedIDBytes[:], common.FromHex(secureMintFeedDataID))
 
 	_, err = dataFeedsCache.SetDecimalFeedConfigs(backend.TransactionOpts(), [][16]byte{feedIDBytes}, []string{"securemint"},
 		[]data_feeds_cache.DataFeedsCacheWorkflowMetadata{

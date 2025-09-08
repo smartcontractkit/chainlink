@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
@@ -14,6 +16,7 @@ import (
 type FeeQuoterView struct {
 	PDA                    string                                             `json:"pda,omitempty"`
 	Version                uint8                                              `json:"version,omitempty"`
+	UpgradeAuthority       string                                             `json:"upgradeAuthority,omitempty"`
 	Owner                  string                                             `json:"owner,omitempty"`
 	ProposedOwner          string                                             `json:"proposedOwner,omitempty"`
 	MaxFeeJuelsPerMsg      string                                             `json:"maxFeeJuelsPerMsg,omitempty"`
@@ -68,9 +71,16 @@ type FeeQuoterTokenTransferConfig struct {
 
 func GenerateFeeQuoterView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (FeeQuoterView, error) {
 	fq := FeeQuoterView{}
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(context.Background(), program, &rpc.GetAccountInfoOpts{
+		Commitment: cldf_solana.SolDefaultCommitment,
+	})
+	if err != nil {
+		return fq, fmt.Errorf("failed to get account info for program %s: %w", program.String(), err)
+	}
+	fq.UpgradeAuthority = accountInfo.Value.Owner.String()
 	var fqConfig solFeeQuoter.Config
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(program)
-	err := chain.GetAccountDataBorshInto(context.Background(), feeQuoterConfigPDA, &fqConfig)
+	err = chain.GetAccountDataBorshInto(context.Background(), feeQuoterConfigPDA, &fqConfig)
 	if err != nil {
 		return fq, fmt.Errorf("fee quoter config not found in existing state, initialize the fee quoter first %d", chain.Selector)
 	}

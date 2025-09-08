@@ -272,6 +272,9 @@ type ConfigureTokenPoolContractsConfig struct {
 	PoolUpdates map[uint64]TokenPoolConfig
 	// Symbol is the symbol of the token of interest.
 	TokenSymbol shared.TokenSymbol
+	// Unidirectional indicates whether the rate limit applies in only one direction.
+	// If false (default), validation enforces bidirectional limits.
+	Unidirectional bool
 }
 
 func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error {
@@ -295,17 +298,19 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error 
 		if !ok {
 			return fmt.Errorf("%s does not exist in state", chain.String())
 		}
-		for remoteChainSelector := range poolUpdate.ChainUpdates {
-			remotePoolUpdate, ok := c.PoolUpdates[remoteChainSelector]
-			if !ok {
-				return fmt.Errorf("%s is expecting a pool update to be defined for chain with selector %d", chain.String(), remoteChainSelector)
-			}
-			missingErr := fmt.Errorf("%s is expecting pool update on chain with selector %d to define a chain config pointing back to it", chain.String(), remoteChainSelector)
-			if remotePoolUpdate.ChainUpdates == nil {
-				return missingErr
-			}
-			if _, ok := remotePoolUpdate.ChainUpdates[chainSelector]; !ok {
-				return missingErr
+		if !c.Unidirectional {
+			for remoteChainSelector := range poolUpdate.ChainUpdates {
+				remotePoolUpdate, ok := c.PoolUpdates[remoteChainSelector]
+				if !ok {
+					return fmt.Errorf("%s is expecting a pool update to be defined for chain with selector %d", chain.String(), remoteChainSelector)
+				}
+				missingErr := fmt.Errorf("%s is expecting pool update on chain with selector %d to define a chain config pointing back to it", chain.String(), remoteChainSelector)
+				if remotePoolUpdate.ChainUpdates == nil {
+					return missingErr
+				}
+				if _, ok := remotePoolUpdate.ChainUpdates[chainSelector]; !ok {
+					return missingErr
+				}
 			}
 		}
 		if tokenAdminRegistry := chainState.TokenAdminRegistry; tokenAdminRegistry == nil {

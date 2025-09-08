@@ -46,7 +46,7 @@ func init() {
 		},
 	}
 
-	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", "configs/setup.toml", "Path to the TOML configuration file")
+	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
 
@@ -61,7 +61,7 @@ func init() {
 		},
 	}
 
-	BuildCapabilitiesCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", "configs/setup.toml", "Path to the TOML configuration file")
+	BuildCapabilitiesCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	BuildCapabilitiesCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	EnvironmentCmd.AddCommand(BuildCapabilitiesCmd)
 }
@@ -95,15 +95,17 @@ type capabilitiesConfig struct {
 }
 
 type capabilityRepository struct {
-	RepoURL      string `toml:"repository"`
-	Branch       string `toml:"branch"`
-	BuildCommand string `toml:"build_command"`
-	ArtifactsDir string `toml:"artifacts_dir"`
+	RepoURL       string   `toml:"repository"`
+	Branch        string   `toml:"branch"`
+	BuildCommand  string   `toml:"build_command"`
+	ArtifactsDirs []string `toml:"artifacts_dirs"`
 }
 
 var (
 	ECR = os.Getenv("AWS_ECR") // TODO this can be moved to an env file
 )
+
+const DefaultSetupConfigPath = "configs/setup.toml"
 
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
@@ -557,11 +559,13 @@ func buildCapabilityBinaries(ctx context.Context, capabilitiesConfig capabilitie
 			return fmt.Errorf("failed to create target directory: %w", err)
 		}
 
-		logger.Info().Msgf("Copying build artifacts from %s to %s", repo.ArtifactsDir, targetPath)
-		artifactsDir := filepath.Join(workingDir, repo.ArtifactsDir)
-		copyCmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("cp -r %s/* %s/", artifactsDir, targetPath)) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-		if err := copyCmd.Run(); err != nil {
-			return fmt.Errorf("failed to copy directory: %w", err)
+		for _, artifactDir := range repo.ArtifactsDirs {
+			logger.Info().Msgf("Copying build artifacts from %s to %s", artifactDir, targetPath)
+			artifactsDir := filepath.Join(workingDir, artifactDir)
+			copyCmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("cp -r %s/* %s/", artifactsDir, targetPath)) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+			if err := copyCmd.Run(); err != nil {
+				return fmt.Errorf("failed to copy directory: %w", err)
+			}
 		}
 
 		logger.Info().Msgf("✓ Build artifacts copied to %s", targetPath)

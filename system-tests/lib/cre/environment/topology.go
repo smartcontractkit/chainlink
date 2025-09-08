@@ -33,7 +33,6 @@ func BuildTopology(
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
-
 	topologyErr := libdon.ValidateTopology(nodeSets, infraInput)
 	if topologyErr != nil {
 		return nil, nil, errors.Wrap(topologyErr, "failed to validate topology")
@@ -108,9 +107,9 @@ func BuildTopology(
 			return nil, nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
-		configFactoryFunctions := make([]cre.NodeConfigFn, 0)
+		configFactoryFunctions := make([]cre.NodeConfigTransformerFn, 0)
 		for _, capability := range capabilities {
-			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigFn())
+			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigTransformerFn())
 		}
 
 		// generate configs only if they are not provided

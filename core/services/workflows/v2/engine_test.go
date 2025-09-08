@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,6 +21,8 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -29,6 +30,9 @@ import (
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -67,7 +71,7 @@ func TestEngine_Init(t *testing.T) {
 
 	initDoneCh := make(chan error)
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.Hooks = v2.LifecycleHooks{
@@ -110,10 +114,10 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 		},
 	}
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.GlobalLimits = sLimiter
+	cfg.GlobalExecutionConcurrencyLimiter = sLimiter
 	cfg.Hooks = hooks
 	var engine1, engine2, engine3, engine4 *v2.Engine
 
@@ -167,7 +171,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.Hooks = v2.LifecycleHooks{
@@ -180,14 +184,31 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	}
 
 	t.Run("too many triggers", func(t *testing.T) {
-		cfg.LocalLimits.MaxTriggerSubscriptions = 1
-		engine, err := v2.NewEngine(cfg)
+		cfg2 := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
+			cfg.TriggerSubscriptionLimit.DefaultValue = 1
+		})
+		cfg2.Module = module
+		cfg2.CapRegistry = capreg
+		cfg2.Hooks = v2.LifecycleHooks{
+			OnInitialized: func(err error) {
+				initDoneCh <- err
+			},
+			OnSubscribedToTriggers: func(triggerIDs []string) {
+				subscribedToTriggersCh <- triggerIDs
+			},
+		}
+		engine, err := v2.NewEngine(cfg2)
 		require.NoError(t, err)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
-		require.NoError(t, engine.Start(t.Context()))
-		require.ErrorContains(t, <-initDoneCh, "too many trigger subscriptions")
-		require.NoError(t, engine.Close())
-		cfg.LocalLimits.MaxTriggerSubscriptions = 10
+		servicetest.Run(t, engine)
+		var errLimited limits.ErrorBoundLimited[int]
+		if assert.ErrorAs(t, <-initDoneCh, &errLimited) {
+			assert.Equal(t, "PerWorkflow.TriggerSubscriptionLimit", errLimited.Key)
+			assert.Equal(t, settings.ScopeWorkflow, errLimited.Scope)
+			assert.Equal(t, "ffffaabbccddeeff00112233aabbccddeeff00112233aabbccddeeff00112233", errLimited.Tenant)
+			assert.Equal(t, 1, errLimited.Limit)
+			assert.Equal(t, 2, errLimited.Amount)
+		}
 	})
 
 	t.Run("trigger capability not found in the registry", func(t *testing.T) {
@@ -195,9 +216,8 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		require.NoError(t, err)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(nil, errors.New("not found")).Once()
-		require.NoError(t, engine.Start(t.Context()))
+		servicetest.Run(t, engine)
 		require.ErrorContains(t, <-initDoneCh, "trigger capability not found")
-		require.NoError(t, engine.Close())
 	})
 
 	t.Run("successful trigger registration", func(t *testing.T) {
@@ -212,10 +232,9 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		trigger1.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr1Ch, nil).Once()
 		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
 		trigger1.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
-		require.NoError(t, engine.Start(t.Context()))
+		servicetest.Run(t, engine)
 		require.NoError(t, <-initDoneCh)
 		require.Equal(t, []string{"id_0", "id_1"}, <-subscribedToTriggersCh)
-		require.NoError(t, engine.Close())
 	})
 
 	t.Run("failed trigger registration and rollback", func(t *testing.T) {
@@ -229,9 +248,8 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		trigger0.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr0Ch, nil).Once()
 		trigger1.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(nil, errors.New("failure ABC")).Once()
 		trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
-		require.NoError(t, engine.Start(t.Context()))
+		servicetest.Run(t, engine)
 		require.ErrorContains(t, <-initDoneCh, "failed to register trigger: failure ABC")
-		require.NoError(t, engine.Close())
 	})
 }
 
@@ -264,7 +282,7 @@ func TestEngine_Execution(t *testing.T) {
 	subscribedToTriggersCh := make(chan []string, 1)
 	executionFinishedCh := make(chan string)
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
@@ -375,12 +393,13 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	subscribedToTriggersCh := make(chan []string, 1)
 	executionFinishedCh := make(chan string)
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
+		// Set a very short execution timeout (100ms)
+		cfg.ExecutionTimeout.DefaultValue = 100 * time.Millisecond
+	})
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
-	// Set a very short execution timeout (100ms)
-	cfg.LocalLimits.WorkflowExecutionTimeoutMs = 100
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -465,12 +484,13 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 	var logs *observer.ObservedLogs
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
+		cfg.CapabilityCallTimeout.DefaultValue = 50 * time.Millisecond
+	})
 	cfg.Lggr, logs = logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
-	cfg.LocalLimits.CapabilityCallTimeoutMs = 50
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -860,12 +880,13 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	subscribedToTriggersCh := make(chan []string, 1)
 	executionFinishedCh := make(chan string)
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
+		// Set a very short capability call timeout (50ms)
+		cfg.CapabilityCallTimeout.DefaultValue = 50 * time.Millisecond
+	})
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
-	// Set a very short capability call timeout (50ms)
-	cfg.LocalLimits.CapabilityCallTimeoutMs = 50
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -980,7 +1001,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 	billingClient := setupMockBillingClient(t)
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
@@ -1089,7 +1110,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 	billingClient := setupMockBillingClient(t)
 
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, nil)
 	cfg.WorkflowConfig = config
 	cfg.Module = module
 	cfg.CapRegistry = capreg
@@ -1192,7 +1213,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	}
 
 	billingClient := setupMockBillingClient(t)
-	cfg := defaultTestConfig(t)
+	cfg := defaultTestConfig(t, nil)
 	cfg.WorkflowConfig = config
 	cfg.Module = module
 	cfg.CapRegistry = capreg
@@ -1306,7 +1327,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		v2.MetricsLabelerTest(t),
 		cfg.CapRegistry,
 		cfg.Lggr,
-		v2.NewSemaphore[[]*sdkpb.SecretResponse](5),
+		cfg.LocalLimiters.SecretsConcurrency,
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
 		cfg.WorkflowEncryptionKey,
@@ -1377,7 +1398,7 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 		Return(&billing.ReserveCreditsResponse{
 			Success: true,
 			Credits: "10000",
-		}, nil).Maybe()
+		}, nil)
 	billingClient.EXPECT().
 		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""

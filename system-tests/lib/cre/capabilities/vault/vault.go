@@ -56,6 +56,27 @@ func New(chainID uint64) (*capabilities.Capability, error) {
 	)
 }
 
+func EncryptSecret(secret string) (string, error) {
+	masterPublicKey := tdh2easy.PublicKey{}
+	masterPublicKeyBytes, err := hex.DecodeString(MasterPublicKeyStr)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decode master public key")
+	}
+	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to unmarshal master public key")
+	}
+	cipher, err := tdh2easy.Encrypt(&masterPublicKey, []byte(secret))
+	if err != nil {
+		return "", errors.Wrap(err, "failed to encrypt secret")
+	}
+	cipherBytes, err := cipher.Marshal()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal encrypted secrets to bytes")
+	}
+	return hex.EncodeToString(cipherBytes), nil
+}
+
 func jobSpec(chainID uint64) cre.JobSpecFn {
 	return func(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		if input.DonTopology == nil {
@@ -174,7 +195,7 @@ func handlerConfig(donMetadata *cre.DonMetadata) (cre.HandlerTypeToConfig, error
 	return map[string]string{coregateway.VaultHandlerType: `
 ServiceName = "vault"
 [gatewayConfig.Dons.Handlers.Config]
-requestTimeoutSec = 30
+requestTimeoutSec = 70
 [gatewayConfig.Dons.Handlers.Config.NodeRateLimiter]
 globalBurst = 10
 globalRPS = 50
