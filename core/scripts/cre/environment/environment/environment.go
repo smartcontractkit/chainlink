@@ -187,8 +187,7 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *cre.WrappedBlockchainOutpu
 		output.DonTopology.WorkflowDonID,
 		homeChainOut.ChainSelector,
 		rpcs,
-		// output.S3ProviderOutput,
-		nil,
+		output.S3ProviderOutput,
 	)
 
 	if settingsErr != nil {

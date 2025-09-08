@@ -862,9 +862,6 @@ func (g *GenerateSecretsInput) Validate() error {
 type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
 	BlockchainOutputs []*WrappedBlockchainOutput
-	// BlockchainOutputs map[uint64]*WrappedBlockchainOutput
-	// SethClients       map[uint64]*seth.Client
-	// SolClients        map[uint64]*solrpc.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses cldf.AddressBook
 	Datastore         datastore.DataStore
@@ -879,9 +876,6 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 	if len(f.BlockchainOutputs) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	// if len(f.SethClients) == 0 {
-	// 	return errors.New("seth clients are not set")
-	// }
 
 	var expectedSeth, expectedSols int
 	for _, chain := range f.BlockchainOutputs {
@@ -891,13 +885,6 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 		}
 		expectedSeth++
 	}
-
-	// if expectedSeth != len(f.SethClients) {
-	// 	return errors.Errorf("expected '%d' got '%d' unexpected number of seth clients", expectedSeth, len(f.SethClients))
-	// }
-	// if expectedSols != len(f.SolClients) {
-	// 	return errors.Errorf("expected '%d' got '%d' unexpected number of sol clients", expectedSols, len(f.SolClients))
-	// }
 	if len(f.NodeSetOutput) == 0 {
 		return errors.New("node set output not set")
 	}

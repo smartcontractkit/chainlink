@@ -71,7 +71,6 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 	return jdOutput, nil
 }
 
-// TODO: use background worker and wait for results?
 func StartDONsAndJD(lggr zerolog.Logger, jdInput *jd.Input, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput *infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
 	if jdInput == nil {
 		return nil, nil, errors.New("jd input is nil")
