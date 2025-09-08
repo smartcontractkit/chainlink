@@ -79,13 +79,13 @@ func createATAIx(e cldf.Environment, chain cldf_solana.Chain, tokenprogramID, mi
 // TODO: add option to set token mint authority by taking in its public key
 // might need to take authority private key if it needs to sign that
 type DeploySolanaTokenConfig struct {
-	ChainSelector          uint64
-	TokenProgramName       cldf.ContractType
-	TokenDecimals          uint8
-	TokenSymbol            string
-	MintPrivateKey         solana.PrivateKey // optional, if not provided, a new key will be generated
-	ATAList                []string          // addresses to create ATAs for
-	MintAmountToAddress    map[string]uint64 // address -> amount
+	ChainSelector       uint64
+	TokenProgramName    cldf.ContractType
+	TokenDecimals       uint8
+	TokenSymbol         string
+	MintPrivateKey      solana.PrivateKey // optional, if not provided, a new key will be generated
+	ATAList             []string          // addresses to create ATAs for
+	MintAmountToAddress map[string]uint64 // address -> amount
 	// if true, sets token freeze authority to nil otherwise sets to timelock
 	// WARNING: IF WE DISABLE THE FREEZE AUTHORITY IT IS IRREVERSIBLE
 	DisableFreezeAuthority bool
