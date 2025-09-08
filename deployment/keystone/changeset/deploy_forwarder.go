@@ -29,6 +29,7 @@ type DeployForwarderRequest struct {
 func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 	out.DataStore = datastore.NewMemoryDataStore()
+	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
@@ -51,8 +52,12 @@ func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Cha
 		if err := out.DataStore.Addresses().Add(report.Output.AddressRef); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge datastore for chain selector %d: %w", sel, err)
 		}
+		// merge the address book outputs
+		if err := out.AddressBook.Merge(report.Output.AddressBook); err != nil { //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for chain selector %d: %w", sel, err)
+		}
 	}
-	// convert all the addresses to t
+
 	return out, nil
 }
 
