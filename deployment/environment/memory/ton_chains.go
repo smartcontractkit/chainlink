@@ -2,6 +2,7 @@ package memory
 
 import (
 	"testing"
+	"time"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -71,9 +72,8 @@ func createTonChainConfig(chainID string, chain cldf_ton.Chain) chainlink.RawCon
 }
 
 func fundTonAccount(t *testing.T, funder *wallet.Wallet, to *address.Address, amount string) {
-	msg, err := funder.BuildTransfer(to, tlb.MustFromTON(amount), false, "")
-	require.NoError(t, err)
-	_, _, txerr := funder.SendManyWaitTransaction(t.Context(), []*wallet.Message{msg})
+	txerr := funder.TransferNoBounce(t.Context(), to, tlb.MustFromTON(amount), "", true)
 	require.NoError(t, txerr, "airdrop transaction failed")
+	time.Sleep(5 * time.Second)
 	// TODO: we could block on confirmation but nodes take a while to run, so it'll be confirmed by then
 }
