@@ -158,6 +158,10 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 		}
 
 		waitToCleanUp(cleanupWait)
+		_, saveErr := framework.SaveContainerLogs("./logs")
+		if saveErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
+		}
 
 		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
@@ -322,6 +326,11 @@ func startCmd() *cobra.Command {
 				}
 
 				waitToCleanUp(cleanupWait)
+				_, saveErr := framework.SaveContainerLogs("./logs")
+				if saveErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
+				}
+
 				removeErr := framework.RemoveTestContainers()
 				if removeErr != nil {
 					return errors.Wrap(removeErr, manualCtfCleanupMsg)
