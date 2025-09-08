@@ -35,7 +35,7 @@ type ConfigureCacheDecimalReportRequest struct {
 	FeedAdmin            solana.PublicKey
 
 	Descriptions [][32]uint8
-	DataIDs      [][16]uint8
+	DataIDs      []string
 }
 
 var _ cldf.ChangeSetV2[*ConfigureCacheDecimalReportRequest] = ConfigureCacheDecimalReport{}
@@ -56,9 +56,13 @@ func (cs ConfigureCacheDecimalReport) VerifyPreconditions(env cldf.Environment, 
 	}
 
 	// Check that Descriptions and DataIDs are all the same length
-
 	if len(req.DataIDs) != len(req.Descriptions) {
 		return errors.New("descriptions and DataIDs must all have the same length")
+	}
+
+	_, err := dataIDsToBytes(req.DataIDs)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -88,9 +92,13 @@ func (cs ConfigureCacheDecimalReport) Apply(env cldf.Environment, req *Configure
 	}
 
 	var remainingAccounts []solana.AccountMeta
+	dataIDs, err := dataIDsToBytes(req.DataIDs)
+	if err != nil {
+		return out, err
+	}
 
 	// Create decimalReportAccounts by deriving PDAs for each DataID
-	decimalReportAccounts, err := createRemainingAccounts(env.DataStore, "feed_config", req.ChainSel, req.Qualifier, req.Version, req.DataIDs)
+	decimalReportAccounts, err := createRemainingAccounts(env.DataStore, "feed_config", req.ChainSel, req.Qualifier, req.Version, dataIDs)
 	if err != nil {
 		return out, fmt.Errorf("failed to create remaining accounts: %w", err)
 	}
@@ -107,7 +115,7 @@ func (cs ConfigureCacheDecimalReport) Apply(env cldf.Environment, req *Configure
 			return out, fmt.Errorf("failed to derive forwarder authority: %w", err)
 		}
 
-		permissionAccounts, err := createPermissionFlagAccounts(cacheProgramKey, cacheStateKey, req.DataIDs,
+		permissionAccounts, err := createPermissionFlagAccounts(cacheProgramKey, cacheStateKey, dataIDs,
 			allowedSender, req.AllowedWorkflowOwner[idx], req.AllowedWorkflowName[idx])
 
 		if err != nil {
@@ -129,7 +137,7 @@ func (cs ConfigureCacheDecimalReport) Apply(env cldf.Environment, req *Configure
 		Type:              cldf.ContractType(CacheContract),
 		WorkflowMetadatas: workflowMetadatas,
 		FeedAdmin:         req.FeedAdmin,
-		DataIDs:           req.DataIDs,
+		DataIDs:           dataIDs,
 		Descriptions:      req.Descriptions,
 		RemainingAccounts: remainingAccounts,
 	}

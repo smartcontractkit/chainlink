@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,10 +21,10 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 const (
-	ArtifactDirName  = "env_artifact"
 	ArtifactFileName = "env_artifact.json"
 	NOPAdminPrefix   = "0xaadd000000000000000000000000000000"
 )
@@ -71,6 +72,67 @@ type DONCapabilityConfig struct {
 	*capabilitiespb.CapabilityConfig
 }
 
+func (c *DONCapabilityConfig) UnmarshalJSON(data []byte) error {
+	if c.CapabilityConfig == nil {
+		c.CapabilityConfig = &capabilitiespb.CapabilityConfig{}
+	}
+
+	type Alias DONCapabilityConfig
+	var aux struct {
+		// allow standard JSON unmarshalling of all fields except RemoteConfig
+		*Alias
+
+		// use a map to hold any nested shape: RemoteTriggerConfig/RemoteTargetConfig/RemoteExecutableConfig
+		RemoteConfig map[string]json.RawMessage `json:"RemoteConfig,omitempty"`
+	}
+
+	aux.Alias = (*Alias)(c)
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if aux.RemoteConfig == nil {
+		// nothing else to do, no remote config to parse
+		return nil
+	}
+
+	switch {
+	case aux.RemoteConfig["RemoteTriggerConfig"] != nil:
+		var rt capabilitiespb.RemoteTriggerConfig
+		if err := json.Unmarshal(aux.RemoteConfig["RemoteTriggerConfig"], &rt); err != nil {
+			return err
+		}
+		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &rt,
+		}
+	case aux.RemoteConfig["RemoteTargetConfig"] != nil:
+		var tgt capabilitiespb.RemoteTargetConfig
+		if err := json.Unmarshal(aux.RemoteConfig["RemoteTargetConfig"], &tgt); err != nil {
+			return err
+		}
+		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+			RemoteTargetConfig: &tgt,
+		}
+	case aux.RemoteConfig["RemoteExecutableConfig"] != nil:
+		var ex capabilitiespb.RemoteExecutableConfig
+		if err := json.Unmarshal(aux.RemoteConfig["RemoteExecutableConfig"], &ex); err != nil {
+			return err
+		}
+		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteExecutableConfig{
+			RemoteExecutableConfig: &ex,
+		}
+	default:
+		keys := make([]string, 0, len(aux.RemoteConfig))
+		for k := range aux.RemoteConfig {
+			keys = append(keys, k)
+		}
+		return fmt.Errorf("unknown remote config type in capability config, keys: %v", keys)
+	}
+
+	return nil
+}
+
 type BootstrapNodeArtifact struct {
 	Name       string `json:"name"`
 	NOP        string `json:"nop"`
@@ -87,6 +149,7 @@ type NOPArtifact struct {
 }
 
 func DumpArtifact(
+	absPath string,
 	datastore datastore.AddressRefStore,
 	addressBook cldf_deployment.AddressBook,
 	jdOutput jd.Output,
@@ -101,7 +164,7 @@ func DumpArtifact(
 	}
 
 	// Let's save the artifact to disk
-	artifactPath, err := persistArtifact(artifact)
+	artifactPath, err := persistArtifact(absPath, artifact)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to persist environment artifact")
 	}
@@ -235,20 +298,45 @@ func GenerateArtifact(
 	return &artifact, nil
 }
 
-func persistArtifact(artifact *EnvArtifact) (string, error) {
-	err := os.MkdirAll(ArtifactDirName, 0755)
+func persistArtifact(absPath string, artifact *EnvArtifact) (string, error) {
+	err := os.MkdirAll(filepath.Dir(absPath), 0755)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to create directory for the environment artifact")
 	}
-	err = WriteJSONFile(filepath.Join(ArtifactDirName, ArtifactFileName), artifact)
+
+	err = WriteJSONFile(absPath, artifact)
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "failed to write environment artifact to file")
 	}
 
-	absPath, absPathErr := filepath.Abs(filepath.Join(ArtifactDirName, ArtifactFileName))
-	if absPathErr != nil {
-		return "", pkgerrors.Wrap(absPathErr, "failed to get absolute path for the environment artifact")
+	return absPath, nil
+}
+
+func ReadEnvArtifact(absPath string) (*EnvArtifact, error) {
+	var artifact EnvArtifact
+
+	content, readErr := os.ReadFile(absPath)
+	if readErr != nil {
+		return nil, pkgerrors.Wrapf(readErr, "failed to read environment artifact from %s. Make sure that local CRE environment is running", absPath)
 	}
 
-	return absPath, nil
+	if err := json.Unmarshal(content, &artifact); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to unmarshal environment artifact")
+	}
+
+	return &artifact, nil
+}
+
+func MustEnvArtifactAbsPath(relativePathToRepoRoot string) string {
+	path, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, envconfig.StateDirname, ArtifactFileName))
+	if err != nil {
+		panic(err)
+	}
+
+	return path
+}
+
+func EnvArtifactFileExists(relativePathToRepoRoot string) bool {
+	_, statErr := os.Stat(MustEnvArtifactAbsPath(relativePathToRepoRoot))
+	return statErr == nil
 }

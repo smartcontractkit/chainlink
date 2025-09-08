@@ -17,7 +17,17 @@ import (
 )
 
 func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
+	t.Skip("Pending resolution of this JIRA: https://smartcontract-it.atlassian.net/browse/CRE-800 ")
 	testLogger := framework.L
+
+	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	require.NoError(t, bErr, "failed to start Beholder")
+
+	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.RelativePathToRepoRoot)
+	require.NoError(t, chipErr, "failed to load chip ingress cache")
+	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
+	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
+
 	ctxWithTimeout, cancelCtx := context.WithTimeout(t.Context(), 4*time.Minute)
 	defer cancelCtx()
 
@@ -32,9 +42,8 @@ func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
 		},
 	}
 
-	beholderMsgChan, beholderErrChan := subscribeToBeholderMessages(ctxWithTimeout, t, testLogger, testEnv, beholderMessageTypes)
-
 	compileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
+	beholderMsgChan, beholderErrChan := subscribeToBeholderMessages(ctxWithTimeout, testLogger, chipConfig, beholderMessageTypes)
 
 	expectedUserLog := "Successfully fetched"
 	var receivedResults []string

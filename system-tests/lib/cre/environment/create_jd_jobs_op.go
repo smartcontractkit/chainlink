@@ -36,7 +36,7 @@ type CreateJobsWithJdOpInput struct {
 type CreateJobsWithJdOpOutput struct {
 }
 
-var CreateJobsWithJdOp = operations.NewOperation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps](
+var CreateJobsWithJdOp = operations.NewOperation(
 	"create-jobs-op",
 	semver.MustParse("1.0.0"),
 	"Create Jobs",
@@ -84,7 +84,7 @@ var CreateJobsWithJdOp = operations.NewOperation[CreateJobsWithJdOpInput, Create
 
 // CreateJobsWithJdOpFactory creates a new operation with user-specified ID and version
 func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps] {
-	return operations.NewOperation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps](
+	return operations.NewOperation(
 		id,
 		semver.MustParse(version),
 		"Create Jobs",

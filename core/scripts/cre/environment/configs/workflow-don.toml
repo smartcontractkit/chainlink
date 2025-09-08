@@ -39,7 +39,6 @@
   override_mode = "each"
   http_port_range_start = 10100
 
-
   bootstrap_node_index = 0 # added for visibility, index of the node in the nodeset that will act as a bootstrap
   gateway_node_index = 0 # added for visibility, required when don_types include "gateway"
   env_vars = { CL_EVM_CMD = "" }
@@ -78,29 +77,8 @@
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
 
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-      """
-
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      #image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -126,29 +104,8 @@
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
 
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-      """
-
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      #image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -173,6 +130,63 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]

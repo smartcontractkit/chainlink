@@ -65,9 +65,10 @@ type (
 
 	// For DataFeeds Cache initialization
 	InitCacheInput struct {
-		ProgramID  solana.PublicKey
-		ChainSel   uint64
-		FeedAdmins []solana.PublicKey // Feed admins to be added to the cache
+		ProgramID          solana.PublicKey
+		ForwarderProgramID solana.PublicKey
+		ChainSel           uint64
+		FeedAdmins         []solana.PublicKey // Feed admins to be added to the cache
 	}
 
 	InitCacheOutput struct {
@@ -191,6 +192,7 @@ func initCache(b operations.Bundle, deps Deps, in InitCacheInput) (InitCacheOutp
 		in.FeedAdmins,
 		deps.Chain.DeployerKey.PublicKey(),
 		stateKey.PublicKey(),
+		in.ForwarderProgramID,
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {

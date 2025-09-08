@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -44,9 +45,10 @@ func startBeholderCmd() *cobra.Command {
 		timeout      time.Duration
 	)
 	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Start the Beholder",
-		Long:  `Start the Beholder`,
+		Use:              "start",
+		Short:            "Start the Beholder",
+		Long:             `Start the Beholder`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initDxTracker()
 			var startBeholderErr error
@@ -95,9 +97,10 @@ func startBeholderCmd() *cobra.Command {
 }
 
 var stopBeholderCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stop the Beholder",
-	Long:  `Stop the Beholder`,
+	Use:              "stop",
+	Short:            "Stop the Beholder",
+	Long:             "Stop the Beholder",
+	PersistentPreRun: globalPreRunFunc,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return stopBeholder()
 	},
@@ -109,13 +112,22 @@ func stopBeholder() error {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 	}
 
-	// remove only Beholder-related cache files
-	removeCacheErr := removeCtfConfigsCacheFiles(removeCurrentCtfConfigs)
+	removeCacheErr := removeBeholderStateFiles(relativePathToRepoRoot)
 	if removeCacheErr != nil {
 		framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
 	}
 
 	return framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+}
+
+func removeBeholderStateFiles(relativePathToRepoRoot string) error {
+	path := filepath.Join(relativePathToRepoRoot, envconfig.StateDirname, envconfig.ChipIngressStateFilename)
+	absPath, absErr := filepath.Abs(path)
+	if absErr != nil {
+		return errors.Wrap(absErr, "error getting absolute path for chip ingress state file")
+	}
+
+	return os.Remove(absPath)
 }
 
 var protoRegistrationErrMsg = "proto registration failed"
@@ -210,7 +222,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 	fmt.Println()
 	fmt.Print("To terminate Beholder stack execute: `go run . env beholder stop`\n\n")
 
-	return storeCTFConfigs(in)
+	return in.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
 }
 
 func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []string, schemaRegistryExternalURL string) error {
@@ -263,9 +275,10 @@ func createKafkaTopicsCmd() *cobra.Command {
 		purge  bool
 	)
 	cmd := &cobra.Command{
-		Use:   "create-topics",
-		Short: "Create Kafka topics",
-		Long:  `Create Kafka topics (with or without removing existing topics)`,
+		Use:              "create-topics",
+		Short:            "Create Kafka topics",
+		Long:             `Create Kafka topics (with or without removing existing topics)`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if url == "" {
 				return errors.New("red-panda-kafka-url cannot be empty")
@@ -305,9 +318,10 @@ func fetchAndRegisterProtosCmd() *cobra.Command {
 		protoConfigs []string
 	)
 	cmd := &cobra.Command{
-		Use:   "register-protos",
-		Short: "Fetch and register protos",
-		Long:  `Fetch and register protos`,
+		Use:              "register-protos",
+		Short:            "Fetch and register protos",
+		Long:             `Fetch and register protos`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Use default values if not provided
 			if schemaURL == "" {

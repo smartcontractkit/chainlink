@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
@@ -38,6 +40,8 @@ const (
 
 type EnvWrapperV2 struct {
 	t *testing.T
+
+	TestJD *envtest.JDNodeService
 
 	Env              *cldf.Environment
 	RegistrySelector uint64
@@ -103,7 +107,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	}
 
 	// Only need one DON
-	don, env := setupViewOnlyNodeTest(t, registryChainSel, envInitiated.BlockChains.EVMChains(), donCfg)
+	don, env, jd := setupViewOnlyNodeTest(t, registryChainSel, envInitiated.BlockChains.EVMChains(), donCfg)
 
 	env.DataStore = envInitiated.DataStore
 
@@ -146,6 +150,13 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		})
 	}
 
+	var mcmsConfig *ocr3.MCMSConfig
+	if useMCMS {
+		mcmsConfig = &ocr3.MCMSConfig{
+			MinDuration: 10 * time.Second,
+		}
+	}
+
 	configCapRegChangeset := changeset2.ConfigureCapabilitiesRegistry{}
 	changes := []changeset.ConfiguredChangeSet{
 		changeset.Configure(
@@ -153,7 +164,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 			changeset2.ConfigureCapabilitiesRegistryInput{
 				ChainSelector:               registryChainSel,
 				CapabilitiesRegistryAddress: registryAddrs[0].Address,
-				UseMCMS:                     useMCMS,
+				MCMSConfig:                  mcmsConfig,
 				Nops: []changeset2.CapabilitiesRegistryNodeOperator{
 					{
 						Name:  "Operator 1",
@@ -222,13 +233,14 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 
 	return &EnvWrapperV2{
 		t:                t,
+		TestJD:           jd,
 		Env:              &env,
 		RegistrySelector: registryChainSel,
 		RegistryAddress:  common.HexToAddress(registryAddrs[0].Address),
 	}
 }
 
-func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]cldf_evm.Chain, donCfg donConfig) (*viewOnlyDon, cldf.Environment) {
+func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]cldf_evm.Chain, donCfg donConfig) (*viewOnlyDon, cldf.Environment, *envtest.JDNodeService) {
 	var (
 		don      *viewOnlyDon
 		nodesCfg []envtest.NodeConfig
@@ -236,7 +248,10 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 
 	for i := 0; i < donCfg.N; i++ {
 		labels := map[string]string{
-			"don": donCfg.Name,
+			"don-" + donCfg.Name: donCfg.Name,
+			"environment":        "test",
+			"product":            "cre",
+			"type":               "plugin",
 		}
 		if donCfg.Labels != nil {
 			for k, v := range donCfg.Labels {
@@ -266,19 +281,20 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		blockChains[sel] = c
 	}
 
+	jd := envtest.NewJDService(nodes)
 	env := cldf.NewEnvironment(
-		"view only nodes",
+		"test",
 		logger.Test(t),
 		cldf.NewMemoryAddressBook(),
 		datastore.NewMemoryDataStore().Seal(),
 		nodes.IDs(),
-		envtest.NewJDService(nodes),
+		jd,
 		t.Context,
 		cldf.XXXGenerateTestOCRSecrets(),
 		cldf_chain.NewBlockChains(blockChains),
 	)
 
-	return don, *env
+	return don, *env, jd
 }
 
 func registryChain(chains map[uint64]cldf_evm.Chain) uint64 {
