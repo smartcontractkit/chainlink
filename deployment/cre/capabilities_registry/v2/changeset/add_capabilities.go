@@ -2,8 +2,12 @@ package changeset
 
 import (
 	"errors"
+	"fmt"
 
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -17,8 +21,8 @@ var _ cldf.ChangeSetV2[AddCapabilitiesInput] = AddCapabilities{}
 type AddCapabilitiesInput struct {
 	RegistryChainSel  uint64 `json:"registry_chain_sel" yaml:"registry_chain_sel"`
 	RegistryQualifier string `json:"registry_qualifier" yaml:"registry_qualifier"`
-	UseMCMS           bool   `json:"use_mcms" yaml:"use_mcms"` // not implemented yet
 
+	MCMSConfig        *ocr3.MCMSConfig             `json:"mcms_config" yaml:"mcms_config"`
 	DonName           string                       `json:"don_name" yaml:"don_name"`
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capability_configs" yaml:"capability_configs"`
 
@@ -40,17 +44,27 @@ func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapab
 }
 
 func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) (cldf.ChangesetOutput, error) {
+	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	if config.MCMSConfig != nil {
+		var err error
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.RegistryChainSel)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
+		}
+	}
+
 	registryRef := pkg.GetCapRegV2AddressRefKey(config.RegistryChainSel, config.RegistryQualifier)
 
 	seqReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		sequences.AddCapabilities,
-		sequences.AddCapabilitiesDeps{Env: &e},
+		sequences.AddCapabilitiesDeps{Env: &e, MCMSContracts: mcmsContracts},
 		sequences.AddCapabilitiesInput{
 			RegistryRef:       registryRef,
 			DonName:           config.DonName,
 			CapabilityConfigs: config.CapabilityConfigs,
 			Force:             config.Force,
+			MCMSConfig:        config.MCMSConfig,
 		},
 	)
 	if err != nil {
@@ -58,6 +72,7 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 	}
 
 	return cldf.ChangesetOutput{
-		Reports: seqReport.ExecutionReports,
+		Reports:               seqReport.ExecutionReports,
+		MCMSTimelockProposals: seqReport.Output.Proposals,
 	}, nil
 }

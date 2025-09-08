@@ -1,108 +1,246 @@
 package environment
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"golang.org/x/sync/errgroup"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 )
 
+type PrepareFundCLNodesOpDeps struct {
+	TestLogger        zerolog.Logger
+	Env               *cldf.Environment
+	BlockchainOutputs []*cre.WrappedBlockchainOutput
+	DonTopology       *cre.DonTopology
+}
+
+type PrepareFundCLNodesOpInput struct {
+	FundingPerChainFamilyForEachNode map[string]uint64
+}
+
+type PrepareFundCLNodesOpOutput struct {
+	PrivateKeysPerChainFamily        map[string]map[uint64][]byte
+	FundingPerChainFamilyForEachNode map[string]uint64
+}
+
+// PrepareCLNodesFundingOp prepares funding accounts for Chainlink nodes by generating new key pairs and funding them from the root account.
+// It cannot be run in parallel with other operations that modify blockchain state, as it relies on the root account's balance.
+var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput, *PrepareFundCLNodesOpOutput, PrepareFundCLNodesOpDeps](
+	"prepare-cl-nodes-funding-op",
+	semver.MustParse("1.0.0"),
+	"Prepare inputs for funding of Chainlink Nodes",
+	func(b operations.Bundle, deps PrepareFundCLNodesOpDeps, input PrepareFundCLNodesOpInput) (*PrepareFundCLNodesOpOutput, error) {
+		ctx := b.GetContext()
+
+		output := &PrepareFundCLNodesOpOutput{
+			PrivateKeysPerChainFamily:        make(map[string]map[uint64][]byte),
+			FundingPerChainFamilyForEachNode: input.FundingPerChainFamilyForEachNode,
+		}
+		requiredFundingPerChain := make(map[uint64]uint64)
+		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
+			for _, bcOut := range deps.BlockchainOutputs {
+				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) {
+					continue
+				}
+
+				if bcOut.SolChain != nil {
+					requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["solana"] * uint64(len(metaDon.DON.Nodes))
+					continue
+				}
+
+				requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["evm"] * uint64(len(metaDon.DON.Nodes))
+			}
+		}
+
+		for _, bcOut := range deps.BlockchainOutputs {
+			if requiredFundingPerChain[bcOut.ChainSelector] == 0 {
+				continue
+			}
+
+			chainFamily := "evm"
+			if bcOut.SolChain != nil {
+				chainFamily = "solana"
+			}
+
+			switch chainFamily {
+			case "evm":
+				if _, exists := output.PrivateKeysPerChainFamily[chainFamily]; !exists {
+					output.PrivateKeysPerChainFamily[chainFamily] = make(map[uint64][]byte)
+				}
+
+				if _, exists := output.PrivateKeysPerChainFamily[chainFamily][bcOut.ChainSelector]; !exists {
+					publicAddress, privateKeyBytes, pkErr := generatePubPrivKeyPairForEth()
+					if pkErr != nil {
+						return nil, pkgerrors.Wrap(pkErr, "failed to generate pub/priv key pair for EVM funding account")
+					}
+
+					fundingAmount := libc.MustSafeInt64(requiredFundingPerChain[bcOut.ChainSelector])
+					fundingAmount += (fundingAmount / 10) // add 10% to cover gas fees
+
+					_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
+						ToAddress:  *publicAddress,
+						Amount:     big.NewInt(fundingAmount),
+						PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
+					})
+
+					if fundingErr != nil {
+						return nil, pkgerrors.Wrapf(fundingErr, "failed to fund funding account %s on chain %d", publicAddress.String(), bcOut.ChainID)
+					}
+
+					output.PrivateKeysPerChainFamily[chainFamily][bcOut.ChainSelector] = privateKeyBytes
+				}
+			case "solana":
+				// TODO implement creation of new key and funding it
+				panic("funding Solana nodes not implemented")
+			default:
+				return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
+			}
+		}
+
+		return output, nil
+	},
+)
+
+func generatePubPrivKeyPairForEth() (*common.Address, []byte, error) {
+	privateKey, pkErr := crypto.GenerateKey()
+	if pkErr != nil {
+		return nil, nil, pkgerrors.Wrap(pkErr, "failed to generate private key for funding accounts")
+	}
+	privateKeyBytes := crypto.FromECDSA(privateKey)
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, nil, errors.New("error casting public key to ECDSA")
+	}
+	publicAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	return &publicAddress, privateKeyBytes, nil
+}
+
 type FundCLNodesOpDeps struct {
+	TestLogger        zerolog.Logger
 	Env               *cldf.Environment
 	BlockchainOutputs []*cre.WrappedBlockchainOutput
 	DonTopology       *cre.DonTopology
 }
 
 type FundCLNodesOpInput struct {
-	FundAmount int64
+	PrivateKeyPerChainFamily    map[string]map[uint64][]byte
+	FundingAmountPerChainFamily map[string]uint64
 }
 
 type FundCLNodesOpOutput struct {
 }
 
-var FundCLNodesOp = operations.NewOperation[FundCLNodesOpInput, FundCLNodesOpOutput, FundCLNodesOpDeps](
+var FundCLNodesOp = operations.NewOperation(
 	"fund-cl-nodes-op",
 	semver.MustParse("1.0.0"),
 	"Fund Chainlink Nodes",
-	func(b operations.Bundle, deps FundCLNodesOpDeps, input FundCLNodesOpInput) (FundCLNodesOpOutput, error) {
+	func(b operations.Bundle, deps FundCLNodesOpDeps, input FundCLNodesOpInput) (*FundCLNodesOpOutput, error) {
 		ctx := b.GetContext()
-		// Fund the nodes
-		concurrentNonceMap, concurrentNonceMapErr := NewConcurrentNonceMap(ctx, deps.BlockchainOutputs)
-		if concurrentNonceMapErr != nil {
-			return FundCLNodesOpOutput{}, pkgerrors.Wrap(concurrentNonceMapErr, "failed to create concurrent nonce map")
-		}
-
-		// Decrement the nonce for each chain, because we will increment it in the next loop
-		for _, bcOut := range deps.BlockchainOutputs {
-			concurrentNonceMap.Decrement(bcOut.ChainID)
-		}
-
-		errGroup := &errgroup.Group{}
 		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
+			deps.TestLogger.Info().Msgf("Funding nodes for DON %s", metaDon.Name)
 			for _, bcOut := range deps.BlockchainOutputs {
 				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) {
 					continue
 				}
 				for _, node := range metaDon.DON.Nodes {
-					errGroup.Go(func() error {
-						if bcOut.SolChain != nil {
-							funder := bcOut.SolChain.PrivateKey
-							recipient := solana.MustPublicKeyFromBase58(node.AccountAddr[bcOut.SolChain.ChainID])
-							deps.Env.Logger.Infof("attempt to fund Solana account %s", recipient.String())
-							err := libfunding.SendFundsSol(ctx, zerolog.Logger{}, bcOut.SolClient, libfunding.FundsToSendSol{
-								Recipent:   recipient,
-								PrivateKey: funder,
-								Amount:     50_000_000,
-							})
-							if err != nil {
-								return fmt.Errorf("failed to fund Solana node: %w", err)
-							}
-							deps.Env.Logger.Infof("successfully funded Solana account %s", recipient.String())
-							return nil
-						}
+					chainFamily := "evm"
+					if bcOut.SolChain != nil {
+						chainFamily = "solana"
+					}
 
-						nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
-						if nodeAddress == "" {
-							return nil
-						}
+					fundingAmount, ok := input.FundingAmountPerChainFamily[chainFamily]
+					if !ok {
+						return nil, fmt.Errorf("missing funding amount for chain family %s", chainFamily)
+					}
 
-						deps.Env.Logger.Infof("attempt to fund evm account %s", nodeAddress)
-						nonce := concurrentNonceMap.Increment(bcOut.ChainID)
-
-						_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
-							ToAddress:  common.HexToAddress(nodeAddress),
-							Amount:     big.NewInt(input.FundAmount),
-							PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
-							Nonce:      ptr.Ptr(nonce),
-						})
-						if fundingErr != nil {
-							return pkgerrors.Wrapf(fundingErr, "failed to fund node %s", nodeAddress)
+					switch chainFamily {
+					case "evm":
+						if err := fundEthAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily); err != nil {
+							return nil, err
 						}
-						deps.Env.Logger.Infof("successfully funded evm account %s", nodeAddress)
-						return nil
-					})
+					case "solana":
+						if err := fundSolanaAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily); err != nil {
+							return nil, err
+						}
+					default:
+						return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
+					}
 				}
 			}
+
+			deps.TestLogger.Info().Msgf("Funded nodes for DON %s", metaDon.Name)
 		}
 
-		if err := errGroup.Wait(); err != nil {
-			return FundCLNodesOpOutput{}, pkgerrors.Wrap(err, "failed to fund nodes")
-		}
-
-		return FundCLNodesOpOutput{}, nil
+		return &FundCLNodesOpOutput{}, nil
 	},
 )
+
+func fundEthAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, privateKeyPerChainFamily map[string]map[uint64][]byte) error {
+	nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
+	if nodeAddress == "" {
+		return nil // Skip nodes without addresses for this chain
+	}
+
+	testLogger.Info().Msgf("Attempting to fund EVM account %s", nodeAddress)
+
+	fundingPrivateKey, ok := privateKeyPerChainFamily["evm"][bcOut.ChainSelector]
+	if !ok {
+		return fmt.Errorf("missing funding private key for chain familyevm, chain %d", bcOut.ChainID)
+	}
+
+	fundingKey, fkErr := crypto.ToECDSA(fundingPrivateKey)
+	if fkErr != nil {
+		return pkgerrors.Wrap(fkErr, "failed to convert funding private key to ECDSA")
+	}
+
+	_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
+		ToAddress:  common.HexToAddress(nodeAddress),
+		Amount:     big.NewInt(libc.MustSafeInt64(fundingAmount)),
+		PrivateKey: fundingKey,
+	})
+
+	if fundingErr != nil {
+		return pkgerrors.Wrapf(fundingErr, "failed to fund node %s", nodeAddress)
+	}
+	testLogger.Info().Msgf("Successfully funded EVM account %s", nodeAddress)
+
+	return nil
+}
+
+func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, _ map[string]map[uint64][]byte) error {
+	funder := bcOut.SolChain.PrivateKey
+	recipient := solana.MustPublicKeyFromBase58(node.AccountAddr[bcOut.SolChain.ChainID])
+	testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
+
+	err := libfunding.SendFundsSol(ctx, zerolog.Logger{}, bcOut.SolClient, libfunding.FundsToSendSol{
+		Recipent:   recipient,
+		PrivateKey: funder,
+		Amount:     fundingAmount,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fund Solana node: %w", err)
+	}
+	testLogger.Info().Msgf("Successfully funded Solana account %s", recipient.String())
+
+	return nil
+}

@@ -135,6 +135,7 @@ type Delegate struct {
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
 	workflowKs            keystore.Workflow
+	dkgRecipientKs        keystore.DKGRecipient
 	RelayGetter
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *mailbox.Monitor
@@ -256,6 +257,7 @@ type DelegateOpts struct {
 	RetirementReportCache          retirement.RetirementReportCache
 	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowKs                     keystore.Workflow
+	DKGRecipientKs                 keystore.DKGRecipient
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 }
 
@@ -278,6 +280,7 @@ func NewDelegate(
 		ks:                             opts.Ks,
 		ethKs:                          opts.EthKs,
 		workflowKs:                     opts.WorkflowKs,
+		dkgRecipientKs:                 opts.DKGRecipientKs,
 		RelayGetter:                    opts.Relayers,
 		isNewlyCreatedJob:              false,
 		mailMon:                        opts.MailMon,
@@ -685,6 +688,15 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, errors.New("failed to instantiate vault plugin: gateway service wrapper is not configured")
 	}
 
+	dkgRecipientKeys, err := d.dkgRecipientKs.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DKG recipient keys: %w", err)
+	}
+	if len(dkgRecipientKeys) == 0 {
+		return nil, errors.New("failed to instantiate vault plugin: no DKG recipient keys found")
+	}
+	dkgRecipientKey := dkgRecipientKeys[0]
+
 	gwconnector := wrapper.GetGatewayConnector()
 	if gwconnector == nil {
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
@@ -796,7 +808,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get DKG keys: %w", err)
 	}
-	rpf, err := vaultocrplugin.NewReportingPluginFactory(lggr, requestStore, pk, secKeyShare)
+	rpf, err := vaultocrplugin.NewReportingPluginFactory(lggr, requestStore, nil, &dkgRecipientKey, pk, secKeyShare)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}

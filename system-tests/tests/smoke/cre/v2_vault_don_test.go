@@ -27,9 +27,6 @@ import (
 )
 
 func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
-	// Skip till we figure out and fix the issues with environment startup on this test
-	const skipReason = "Skip till the errors with topology TopologyWorkflowGatewayCapabilities are fixed: https://smartcontract-it.atlassian.net/browse/PRIV-160"
-	t.Skipf("Skipping test for the following reason: %s", skipReason)
 	/*
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/

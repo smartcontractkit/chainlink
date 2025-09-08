@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -82,7 +83,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name              = "%s"
 externalJobID       = "%s"
-evmChainID 		   = 0
+evmChainID 		   = "%s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
@@ -888,7 +889,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		idOCR1                   = int64(2)
 		remoteUUIDOCR1           = uuid.New()
 		ocr1NameAndExternalJobID = uuid.New()
-		ocr1Spec                 = fmt.Sprintf(OCR1TestSpecTemplate, ocr1NameAndExternalJobID, ocr1NameAndExternalJobID)
+		ocr1Spec                 = fmt.Sprintf(OCR1TestSpecTemplate, ocr1NameAndExternalJobID, ocr1NameAndExternalJobID, testutils.FixtureChainID.String())
 		argsOCR1                 = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDOCR1,
@@ -1314,8 +1315,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1635,8 +1634,6 @@ func Test_Service_DeleteJob(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1863,8 +1860,6 @@ answer1      [type=median index=0];
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -2478,7 +2473,6 @@ func Test_Service_CancelSpec(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -3247,7 +3241,6 @@ answer1 [type=median index=0];
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = testutils.Ptr(true)
@@ -3837,7 +3830,6 @@ updateInterval = "20m"
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = testutils.Ptr(true)
@@ -4356,7 +4348,6 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = testutils.Ptr(true)
@@ -4900,7 +4891,6 @@ chainID = 0
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = testutils.Ptr(true)
@@ -5044,8 +5034,6 @@ func Test_Service_RejectSpec(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -5136,7 +5124,6 @@ func Test_Service_UpdateSpecDefinition(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -5218,8 +5205,6 @@ func Test_Service_StartStop(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -5252,6 +5237,186 @@ func logMessages(logEntries []observer.LoggedEntry) []string {
 	}
 
 	return messages
+}
+
+func Test_Service_GetJobRuns(t *testing.T) {
+	t.Parallel()
+
+	var (
+		remoteUUID     = uuid.New()
+		feedsManagerID = int64(1)
+		jobID          = int32(100)
+		args           = &feeds.GetJobRunsArgs{
+			FeedsManagerID: feedsManagerID,
+			RemoteUUID:     remoteUUID,
+			Limit:          10,
+		}
+
+		baseTime    = time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+		createdAt1  = baseTime.Add(-2 * time.Hour)
+		finishedAt1 = baseTime.Add(-1 * time.Hour)
+		createdAt2  = baseTime.Add(-1 * time.Hour)
+		createdAt3  = baseTime.Add(-30 * time.Minute)
+		finishedAt3 = baseTime.Add(-10 * time.Minute)
+
+		testJob = job.Job{
+			ID:            jobID,
+			ExternalJobID: remoteUUID,
+			Name:          null.StringFrom("test job"),
+			Type:          "directrequest",
+		}
+
+		run1 = pipeline.Run{
+			ID:          1,
+			State:       pipeline.RunStatusCompleted,
+			CreatedAt:   createdAt1,
+			FinishedAt:  null.TimeFrom(finishedAt1),
+			AllErrors:   pipeline.RunErrors{null.StringFrom("test error"), null.String{}},
+			FatalErrors: pipeline.RunErrors{null.String{}, null.String{}},
+		}
+
+		run2 = pipeline.Run{
+			ID:          2,
+			State:       pipeline.RunStatusErrored,
+			CreatedAt:   createdAt2,
+			FinishedAt:  null.Time{},
+			AllErrors:   pipeline.RunErrors{null.String{}, null.StringFrom("fatal error")},
+			FatalErrors: pipeline.RunErrors{null.String{}, null.StringFrom("fatal error")},
+		}
+
+		run3 = pipeline.Run{
+			ID:          3,
+			State:       pipeline.RunStatusCompleted,
+			CreatedAt:   createdAt3,
+			FinishedAt:  null.TimeFrom(finishedAt3),
+			AllErrors:   pipeline.RunErrors{null.String{}, null.String{}},
+			FatalErrors: pipeline.RunErrors{null.String{}, null.String{}},
+		}
+	)
+
+	testCases := []struct {
+		name    string
+		args    *feeds.GetJobRunsArgs
+		before  func(svc *TestService)
+		want    int
+		wantErr string
+	}{
+		{
+			name: "success - returns job runs",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(true, nil)
+				svc.jobORM.EXPECT().PipelineRuns(mock.Anything, &jobID, 0, 10).Return([]pipeline.Run{run1, run2, run3}, 3, nil)
+			},
+			want: 3,
+		},
+		{
+			name: "success - returns limited job runs",
+			args: &feeds.GetJobRunsArgs{
+				FeedsManagerID: feedsManagerID,
+				RemoteUUID:     remoteUUID,
+				Limit:          2,
+			},
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(true, nil)
+				svc.jobORM.EXPECT().PipelineRuns(mock.Anything, &jobID, 0, 2).Return([]pipeline.Run{run1, run2}, 3, nil)
+			},
+			want: 2,
+		},
+		{
+			name: "error - job not found",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(job.Job{}, sql.ErrNoRows)
+			},
+			wantErr: "job not found",
+		},
+		{
+			name: "error - job ORM error",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(job.Job{}, errors.New("database error"))
+			},
+			wantErr: "failed to find job",
+		},
+		{
+			name: "error - feeds manager check fails",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(false, errors.New("database error"))
+			},
+			wantErr: "failed to check if job is managed by feeds manager",
+		},
+		{
+			name: "error - job not managed by feeds manager",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(false, nil)
+			},
+			wantErr: "job is not managed by the requesting feeds manager",
+		},
+		{
+			name: "error - pipeline runs fetch fails",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(true, nil)
+				svc.jobORM.EXPECT().PipelineRuns(mock.Anything, &jobID, 0, 10).Return([]pipeline.Run{}, 0, errors.New("database error"))
+			},
+			wantErr: "failed to fetch job runs",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestService(t)
+
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			actual, err := svc.GetJobRuns(testutils.Context(t), tc.args)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+				assert.Nil(t, actual)
+			} else {
+				require.NoError(t, err)
+				assert.Len(t, actual, tc.want)
+
+				if tc.want > 0 {
+					expectedRuns := []pipeline.Run{run1, run2, run3}
+					expectedSummaries := make([]*proto.JobRunSummary, 0, tc.want)
+
+					for i := 0; i < tc.want; i++ {
+						run := expectedRuns[i]
+						var finishedAt *timestamppb.Timestamp
+						if run.FinishedAt.Valid {
+							finishedAt = timestamppb.New(run.FinishedAt.Time)
+						}
+
+						expectedSummaries = append(expectedSummaries, &proto.JobRunSummary{
+							RunId:       run.ID,
+							State:       string(run.State),
+							CreatedAt:   timestamppb.New(run.CreatedAt),
+							FinishedAt:  finishedAt,
+							AllErrors:   feeds.ConvertPipelineRunErrors(run.AllErrors),
+							FatalErrors: feeds.ConvertPipelineRunErrors(run.FatalErrors),
+						})
+					}
+
+					assert.ElementsMatch(t, expectedSummaries, actual)
+				}
+			}
+		})
+	}
 }
 
 func waitSyncNodeInfoCall(t *testing.T, logs *observer.ObservedLogs) {

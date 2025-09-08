@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"text/template"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
@@ -100,7 +100,7 @@ func deployOCR3Contract(
 func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.OCR3OnchainConfig {
 	topLevelCfg := mustReadOCR3Config(configFile)
 	cfg := topLevelCfg.OracleConfig
-	secrets := deployment.XXXGenerateTestOCRSecrets()
+	secrets := focr.XXXGenerateTestOCRSecrets()
 	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeKeys[1:]), secrets) // skip the bootstrap node
 	helpers.PanicErr(err)
 	return c

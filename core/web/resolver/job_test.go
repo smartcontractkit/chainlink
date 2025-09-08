@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -316,7 +317,7 @@ func TestResolver_CreateJob(t *testing.T) {
 			}
 		}`
 	uuid := uuid.New()
-	spec := fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid)
+	spec := fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid, testutils.FixtureChainID.String())
 	variables := map[string]interface{}{
 		"input": map[string]interface{}{
 			"TOML": spec,

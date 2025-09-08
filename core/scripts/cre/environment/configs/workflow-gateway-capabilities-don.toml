@@ -51,6 +51,7 @@
   [nodesets.chain_capabilities]
     # we want to write only to the home chain, so that we can test whether remote write-evm-2337 capability of the 'capabilities DON' is used
     write-evm = ["1337"]
+    read-contract = ["1337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -77,13 +78,16 @@
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
 
+      [CRE]
+      EnableDKGRecipient = true
+
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
       """
 
 [[nodesets]]
-  nodes = 2
+  nodes = 4
   name = "capabilities"
   don_types = ["capabilities"]
   override_mode = "all"
@@ -95,11 +99,11 @@
   bootstrap_node_index = -1
   gateway_node_index = -1
 
-  capabilities = ["web-api-target", "vault"]
+  capabilities = ["web-api-target","vault"]
 
   [nodesets.chain_capabilities]
-    write-evm = ["1337", "2337"]
-    read-contract = ["1337", "2337"]
+  write-evm = ["2337"]
+  read-contract = ["2337"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -123,6 +127,9 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -167,6 +174,9 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
