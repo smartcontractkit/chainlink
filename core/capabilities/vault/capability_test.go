@@ -496,7 +496,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have both key and owner set",
+			error: "secret ID must have key, owner and namespace set",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
