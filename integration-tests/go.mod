@@ -62,7 +62,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250904194017-b705551a833b
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250908130445-df6a8da839fe
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/smartcontractkit/mcms v0.21.1
 	github.com/spf13/cobra v1.9.1
@@ -70,7 +70,7 @@ require (
 	github.com/subosito/gotenv v1.6.0
 	github.com/testcontainers/testcontainers-go v0.38.0
 	github.com/umbracle/ethgo v0.1.3
-	github.com/xssnick/tonutils-go v1.14.0
+	github.com/xssnick/tonutils-go v1.14.1
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.40.0

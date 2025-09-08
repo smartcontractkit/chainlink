@@ -486,7 +486,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250904194017-b705551a833b // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250908130445-df6a8da839fe // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250904194017-b705551a833b // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
@@ -530,7 +530,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
-	github.com/xssnick/tonutils-go v1.14.0 // indirect
+	github.com/xssnick/tonutils-go v1.14.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	github.com/zksync-sdk/zksync2-go v1.1.1-0.20250620124214-2c742ee399c6 // indirect

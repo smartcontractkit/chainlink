@@ -535,7 +535,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.13 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250904194017-b705551a833b // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250908130445-df6a8da839fe // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250904194017-b705551a833b // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect
@@ -590,7 +590,7 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
-	github.com/xssnick/tonutils-go v1.14.0 // indirect
+	github.com/xssnick/tonutils-go v1.14.1 // indirect
 	github.com/yuin/goldmark v1.7.12 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zclconf/go-cty v1.16.0 // indirect
