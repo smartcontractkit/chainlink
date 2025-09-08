@@ -3,6 +3,8 @@
 ## Overview
 
 The SecureMint plugin is a plugin that allows for secure minting of tokens.
+It's looppified, meaning its implementation is in https://github.com/smartcontractkit/chainlink-secure-mint/. 
+Make sure to install the plugin. 
 
 ## Validation
 
@@ -18,7 +20,7 @@ make setup-testdb
 
 ### Run test:
 ```bash
- time SECURE_TRANSMITTER_HACK_DISABLED=true CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^TestIntegration_SecureMint_happy_path$ github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }; tail all.log'
+ time CL_SECUREMINT_CMD=/Users/ggerritsen/go/bin/chainlink-secure-mint CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -timeout 2m -run ^TestIntegration_SecureMint_happy_path$ github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint -v 2>&1 | tee all.log | awk '/DEBUG|INFO|WARN|ERROR/ { print > "node_logs.log"; next }; { print > "other.log" }; tail all.log'
 ```
 
 ### If you change any dependencies:
