@@ -133,7 +133,7 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		"messageIDs", messageIDs,
 	)
 	r.metricsCollector.NumberOfMessagesBasedOnInterval(ccip.Observation, minSeqNr, maxSeqNr)
-	r.metricsCollector.CommitLatestRoundId(string(onRampAddress), uint64(epochAndRound.Round))
+	r.metricsCollector.CommitLatestRoundID(string(onRampAddress), uint64(epochAndRound.Round))
 	r.metricsCollector.SequenceNumber(ccip.Observation, maxSeqNr, string(onRampAddress))
 
 	// Even if all values are empty we still want to communicate our observation
@@ -318,7 +318,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 		return false, nil, err
 	}
 	r.metricsCollector.SequenceNumber(ccip.Report, report.Interval.Max, string(onRampAddress))
-	r.metricsCollector.CommitLatestRoundId(string(onRampAddress), uint64(epochAndRound.Round))
+	r.metricsCollector.CommitLatestRoundID(string(onRampAddress), uint64(epochAndRound.Round))
 	r.metricsCollector.NumberOfMessagesBasedOnInterval(ccip.Report, report.Interval.Min, report.Interval.Max)
 	lggr.Infow("Report",
 		"merkleRoot", hex.EncodeToString(report.MerkleRoot[:]),
