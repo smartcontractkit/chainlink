@@ -223,7 +223,6 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 			in.ForwarderState,
 			configPDA,
 			owner,
-			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
 			return out, fmt.Errorf("cant build init oracle instruction: %w", err)

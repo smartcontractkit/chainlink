@@ -1826,6 +1826,7 @@ type CreConfig struct {
 	Streams              *StreamsConfig         `toml:",omitempty"`
 	WorkflowFetcher      *WorkflowFetcherConfig `toml:",omitempty"`
 	UseLocalTimeProvider *bool                  `toml:",omitempty"`
+	EnableDKGRecipient   *bool                  `toml:",omitempty"`
 	Linking              *LinkingConfig         `toml:",omitempty"`
 }
 
@@ -1866,6 +1867,10 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		if c.UseLocalTimeProvider == nil {
 			c.UseLocalTimeProvider = f.UseLocalTimeProvider
 		}
+	}
+
+	if f.EnableDKGRecipient != nil {
+		c.EnableDKGRecipient = f.EnableDKGRecipient
 	}
 
 	if f.Linking != nil {

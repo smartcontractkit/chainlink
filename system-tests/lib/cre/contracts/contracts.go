@@ -18,8 +18,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -33,6 +35,7 @@ import (
 )
 
 type donConfig struct {
+	id uint32 // the DON id as registered in the capabilities registry
 	keystone_changeset.DonCapabilities
 	flags []cre.CapabilityFlag
 }
@@ -195,6 +198,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 
 		dons.c[donName] = donConfig{
+			id:              uint32(donMetadata.ID), //nolint:gosec // G115
 			DonCapabilities: c,
 			flags:           donMetadata.Flags,
 		}
@@ -217,6 +221,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		return errors.Wrap(err, "failed to configure capabilities registry")
 	}
 
+	// TODO support both v1 and v2 registries
 	capReg, err := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
 		input.CldEnv.DataStore.Addresses(),
 		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
@@ -268,26 +273,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 	}
 
-	// configure EVM forwarders only if we have some
-	if len(evmChainsWithForwarders) > 0 {
-		_, err = operations.ExecuteSequence(
-			input.CldEnv.OperationsBundle,
-			ks_contracts_op.ConfigureForwardersSeq,
-			ks_contracts_op.ConfigureForwardersSeqDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
-			},
-			ks_contracts_op.ConfigureForwardersSeqInput{
-				RegistryChainSel: input.ChainSelector,
-				DONs:             dons.donNodesets(),
-				Chains:           evmChainsWithForwarders,
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "failed to configure forwarders")
-		}
-	}
-
 	consensusV1DON, err := dons.shouldBeOneDon(cre.ConsensusCapability)
 	if err != nil {
 		return fmt.Errorf("failed to get consensus v1 DON: %w", err)
@@ -296,19 +281,42 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      input.CldEnv,
-			Registry: capReg.Contract,
+			Env: input.CldEnv,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress:  input.OCR3Address,
-			RegistryChainSel: input.ChainSelector,
-			DON:              consensusV1DON.keystoneDonConfig(),
-			Config:           consensusV1DON.resolveOcr3Config(input.OCR3Config),
-			DryRun:           false,
+			ContractAddress: input.OCR3Address,
+			ChainSelector:   input.ChainSelector,
+			DON:             consensusV1DON.keystoneDonConfig(),
+			Config:          consensusV1DON.resolveOcr3Config(input.OCR3Config),
+			DryRun:          false,
 		},
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to configure OCR3 contract")
+	}
+
+	// configure EVM forwarders only if we have some
+	if len(evmChainsWithForwarders) > 0 {
+		forwarderCfg, err2 := newDonConfigurationV1(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg.Contract)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to get DON configuration for forwarder configuration")
+		}
+		fout, err3 := operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			forwarder.ConfigureSeq,
+			forwarder.ConfigureSeqDeps{
+				Env: input.CldEnv,
+			},
+			forwarder.ConfigureSeqInput{
+				DON:    forwarderCfg,
+				Chains: evmChainsWithForwarders,
+			},
+		)
+		if err3 != nil {
+			return errors.Wrap(err3, "failed to configure forwarders")
+		}
+		// TODO pass this up the call stack to save in the env artifacts
+		framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
 	}
 
 	// don time happens to be the same as consensus v1 DON, but it doesn't have to be
@@ -316,15 +324,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		input.CldEnv.OperationsBundle,
 		ks_contracts_op.ConfigureOCR3Op,
 		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env:      input.CldEnv,
-			Registry: capReg.Contract,
+			Env: input.CldEnv,
 		},
 		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress:  input.DONTimeAddress,
-			RegistryChainSel: input.ChainSelector,
-			DON:              consensusV1DON.keystoneDonConfig(),
-			Config:           consensusV1DON.resolveOcr3Config(input.DONTimeConfig),
-			DryRun:           false,
+			ContractAddress: input.DONTimeAddress,
+			ChainSelector:   input.ChainSelector,
+			DON:             consensusV1DON.keystoneDonConfig(),
+			Config:          consensusV1DON.resolveOcr3Config(input.DONTimeConfig),
+			DryRun:          false,
 		},
 	)
 	if err != nil {
@@ -341,15 +348,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureOCR3Op,
 			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
+				Env: input.CldEnv,
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress:  input.VaultOCR3Address,
-				RegistryChainSel: input.ChainSelector,
-				DON:              vaultDON.keystoneDonConfig(),
-				Config:           vaultDON.resolveOcr3Config(input.VaultOCR3Config),
-				DryRun:           false,
+				ContractAddress: input.VaultOCR3Address,
+				ChainSelector:   input.ChainSelector,
+				DON:             vaultDON.keystoneDonConfig(),
+				Config:          vaultDON.resolveOcr3Config(input.VaultOCR3Config),
+				DryRun:          false,
 			},
 		)
 		if err != nil {
@@ -369,15 +375,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 				input.CldEnv.OperationsBundle,
 				ks_contracts_op.ConfigureOCR3Op,
 				ks_contracts_op.ConfigureOCR3OpDeps{
-					Env:      input.CldEnv,
-					Registry: capReg.Contract,
+					Env: input.CldEnv,
 				},
 				ks_contracts_op.ConfigureOCR3OpInput{
-					ContractAddress:  &evmOCR3Address,
-					RegistryChainSel: chainSelector,
-					DON:              evmDON.keystoneDonConfig(),
-					Config:           evmDON.resolveOcr3Config(input.EVMOCR3Config),
-					DryRun:           false,
+					ContractAddress: &evmOCR3Address,
+					ChainSelector:   chainSelector,
+					DON:             evmDON.keystoneDonConfig(),
+					Config:          evmDON.resolveOcr3Config(input.EVMOCR3Config),
+					DryRun:          false,
 				},
 			)
 			if err != nil {
@@ -395,19 +400,42 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureOCR3Op,
 			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env:      input.CldEnv,
-				Registry: capReg.Contract,
+				Env: input.CldEnv,
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress:  input.ConsensusV2OCR3Address,
-				RegistryChainSel: input.ChainSelector,
-				DON:              v2ConsensusDON.keystoneDonConfig(),
-				Config:           v2ConsensusDON.resolveOcr3Config(input.ConsensusV2OCR3Config),
-				DryRun:           false,
+				ContractAddress: input.ConsensusV2OCR3Address,
+				ChainSelector:   input.ChainSelector,
+				DON:             v2ConsensusDON.keystoneDonConfig(),
+				Config:          v2ConsensusDON.resolveOcr3Config(input.ConsensusV2OCR3Config),
+				DryRun:          false,
 			},
 		)
 		if err != nil {
 			return errors.Wrap(err, "failed to configure Consensus OCR3 contract")
+		}
+
+		// configure EVM forwarders only if we have some
+		if len(evmChainsWithForwarders) > 0 {
+			forwarderCfg, err := newDonConfigurationV1(v2ConsensusDON.Name, v2ConsensusDON.id, input.CldEnv, capReg.Contract)
+			if err != nil {
+				return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
+			}
+			fout, err := operations.ExecuteSequence(
+				input.CldEnv.OperationsBundle,
+				forwarder.ConfigureSeq,
+				forwarder.ConfigureSeqDeps{
+					Env: input.CldEnv,
+				},
+				forwarder.ConfigureSeqInput{
+					DON:    forwarderCfg,
+					Chains: evmChainsWithForwarders,
+				},
+			)
+			if err != nil {
+				return errors.Wrap(err, "failed to configure forwarders")
+			}
+			// TODO pass this up the call stack to save in the env artifacts
+			framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
 		}
 	}
 	return nil
@@ -638,4 +666,41 @@ func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64,
 	testLogger.Info().Msgf("Read Balances contract found on chain %d at address %s", chainSelector, readBalancesAddress)
 
 	return readBalancesAddress, rbOutput, nil
+}
+
+func newDonConfigurationV1(name string, donID uint32, env *cldf.Environment, capReg *kcr.CapabilitiesRegistry) (forwarder.DonConfiguration, error) {
+	if capReg == nil {
+		return forwarder.DonConfiguration{}, errors.New("nil capabilities registry contract")
+	}
+	d, err := capReg.GetDON(nil, donID)
+	if err != nil {
+		return forwarder.DonConfiguration{}, fmt.Errorf("failed to get don info for id %d: %w", donID, err)
+	}
+
+	return forwarder.DonConfiguration{
+		Name:    name,
+		ID:      donID,
+		F:       d.F,
+		Version: d.ConfigCount,
+		NodeIDs: p2pStrings(d.NodeP2PIds),
+	}, nil
+}
+
+func p2pIDs(rawIDs [][32]byte) []p2pkey.PeerID {
+	out := make([]p2pkey.PeerID, 0, len(rawIDs))
+	for _, id := range rawIDs {
+		out = append(out, p2pkey.PeerID(id))
+	}
+	return out
+}
+
+func p2pStrings(b [][32]byte) []string {
+	x := p2pIDs(b)
+	out := make([]string, 0, len(x))
+	for _, id := range x {
+		s := id.String()
+
+		out = append(out, s)
+	}
+	return out
 }

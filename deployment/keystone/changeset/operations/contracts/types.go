@@ -1,6 +1,5 @@
 package contracts
 
-type ConfigureKeystoneDON struct {
-	Name    string
-	NodeIDs []string // jd node ids or peer IDs
-}
+import "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
+
+type ConfigureKeystoneDON = contracts.DonNodeSet

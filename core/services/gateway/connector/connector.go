@@ -50,6 +50,8 @@ type GatewayConnectorHandler interface {
 }
 
 type gatewayConnector struct {
+	core.UnimplementedGatewayConnector
+
 	services.StateMachine
 
 	config      *ConnectorConfig

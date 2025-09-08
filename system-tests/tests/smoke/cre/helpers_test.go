@@ -201,8 +201,8 @@ Use it at the end of your test to `t.Cleanup()` the env after test run
 func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFilePath string, compressedWorkflowWasmPath string, blockchainOutputs []*cre.WrappedBlockchainOutput, workflowRegistryAddress common.Address) {
 	t.Helper()
 
-	testLogger := framework.L
-	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.\n", uniqueWorkflowName)
+	var testLogger = framework.L
+	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.", uniqueWorkflowName)
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
