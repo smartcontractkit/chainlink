@@ -273,7 +273,7 @@ func NewApp(s *Shell) *cli.App {
 				s.LDB = ldb
 
 				// Try opening DB connection and acquiring DB locks at once
-				if err := ldb.Open(rootCtx); err != nil {
+				if err = ldb.Open(rootCtx); err != nil {
 					// If not successful, we know neither locks nor connection remains opened
 					return s.errorOut(errors.Wrap(err, "opening db"))
 				}
@@ -302,7 +302,10 @@ func NewApp(s *Shell) *cli.App {
 				}
 
 				// Initialize globals with beholder and telemetry
-				initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
+				err = initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
+				if err != nil {
+					return errors.Wrap(err, "failed initializing globals")
+				}
 
 				// Swap out the logger, replacing the old one.
 				err = s.CloseLogger()
