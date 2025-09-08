@@ -1512,10 +1512,10 @@ github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgB
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
 github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250825135846-84f0d5167f8f h1:y2Q4pGg0iEZSJJEzYrDs3yIooGvga4ThhTobZ4rq7Dk=
 github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250825135846-84f0d5167f8f/go.mod h1://SdVNO8EApDtkB+iaexDScAnapRAvcGbxgF3H6ixhY=
-github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250805210128-7f8a0f403c3a h1:kQ8Zs6OzXizScIK8PEb8THxDUziGttGT9D6tTTAwmZk=
-github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250805210128-7f8a0f403c3a/go.mod h1:Ve1xD71bl193YIZQEoJMmBqLGQJdNs29bwbuObwvbhQ=
-github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250805210128-7f8a0f403c3a h1:38dAlTPRUQHZus5dCnBnQyf/V4oYn0p2svWlbPgHDQ4=
-github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250805210128-7f8a0f403c3a/go.mod h1:xtZNi6pOKdC3sLvokDvXOhgHzT+cyBqH/gWwvxTxqrg=
+github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5 h1:GmJQqNrWn5pNc8YTei6l2TOSYjK2fRd4+edFZIifCrU=
+github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5/go.mod h1:Ve1xD71bl193YIZQEoJMmBqLGQJdNs29bwbuObwvbhQ=
+github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5 h1:QhcYGEhRLInr1/qh/3RJiVdvJ0nxBHKhPe65WLbSBnU=
+github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5/go.mod h1:xtZNi6pOKdC3sLvokDvXOhgHzT+cyBqH/gWwvxTxqrg=
 github.com/smartcontractkit/chainlink-common v0.9.5-0.20250905131850-7713941a6848 h1:rytEHPfW7b4kM5BFIU/+AuaEYHBu5ke3pvWmdfhlIf0=
 github.com/smartcontractkit/chainlink-common v0.9.5-0.20250905131850-7713941a6848/go.mod h1:b5KI42+P0ZmUXuvOFzSH9uIB8K83wvXq1GNVoY+ePeg=
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.1 h1:ca2z5OXgnbBPQRxpwXwBLJsUA1+cAp5ncfW4Ssvd6eY=
