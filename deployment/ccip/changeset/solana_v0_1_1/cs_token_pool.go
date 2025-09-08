@@ -524,18 +524,27 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
 	}
-	useMcms := cfg.MCMS != nil
-	var authority solana.PublicKey
-	if useMcms {
-		// If MCMS is used, the authority is the timelock signer PDA
-		authority = timelockSignerPDA
-	} else {
-		// If MCMS is not used, the authority is the deployer key
-		authority = chain.DeployerKey.PublicKey()
-	}
+
 	var txns []mcmsTypes.Transaction
 	for _, tokenPoolCfg := range cfg.TokenPoolConfigs {
 		tokenPool := solChainState.GetActiveTokenPool(tokenPoolCfg.PoolType, tokenPoolCfg.Metadata)
+
+		useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
+			&e,
+			chain,
+			solChainState,
+			tokenPoolCfg.PoolType,
+			tokenPoolCfg.TokenPubKey,
+			tokenPoolCfg.Metadata,
+		)
+		var authority solana.PublicKey
+		if useMcms {
+			// If MCMS is used, the authority is the timelock signer PDA
+			authority = timelockSignerPDA
+		} else {
+			// If MCMS is not used, the authority is the deployer key
+			authority = chain.DeployerKey.PublicKey()
+		}
 
 		var configPDA solana.PublicKey
 		// Global Configuration
@@ -634,7 +643,14 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool global config PDA: %w", err)
 		}
 
-		useMcms := cfg.MCMS != nil
+		useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
+			&e,
+			chain,
+			solChainState,
+			tokenPoolConfig.PoolType,
+			tokenPoolConfig.TokenPubKey,
+			tokenPoolConfig.Metadata,
+		)
 
 		// Checking that configPDA exists, so the update method will not fail
 		if !useMcms {

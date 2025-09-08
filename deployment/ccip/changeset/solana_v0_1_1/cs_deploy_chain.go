@@ -1165,6 +1165,7 @@ type CloseBuffersConfig struct {
 }
 
 func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Closing existing buffers", "chainSelector", cfg.ChainSelector, "buffers", cfg.Buffers)
 	txns := make([]mcmsTypes.Transaction, 0)
 	authority := e.BlockChains.SolanaChains()[cfg.ChainSelector].DeployerKey.PublicKey()
 	if cfg.MCMS != nil {
