@@ -78,6 +78,9 @@
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
 
+      [CRE]
+      EnableDKGRecipient = true
+
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
@@ -121,6 +124,9 @@
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]

@@ -35,6 +35,7 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -294,7 +295,7 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 			}
 
-			defaultCapabilities, defaultCapabilitiesErr := sets.NewDefaultSet(libc.MustSafeUint64FromInt(homeChainIDInt), append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"})
+			defaultCapabilities, defaultCapabilitiesErr := sets.NewDefaultSet(libc.MustSafeUint64FromInt(homeChainIDInt))
 			if defaultCapabilitiesErr != nil {
 				return errors.Wrap(defaultCapabilitiesErr, "failed to create default capabilities")
 			}
@@ -303,7 +304,13 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
-			output, startErr := StartCLIEnvironment(cmdContext, in, topology, withPluginsDockerImage, defaultCapabilities, envDependencies)
+			extraJobSpecFunctions := []cre.JobSpecFn{
+				// temporary solution until we figure out where that jobspec should live. Gateway is not a capability, it's more of a role
+				// but we don't have a good expression of that abstraction yet
+				gateway.JobSpec(append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"}),
+			}
+
+			output, startErr := StartCLIEnvironment(cmdContext, in, topology, withPluginsDockerImage, defaultCapabilities, extraJobSpecFunctions, envDependencies)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -625,6 +632,7 @@ func StartCLIEnvironment(
 	topologyFlag string,
 	withPluginsDockerImageFlag string,
 	capabilities []cre.InstallableCapability,
+	extraJobSpecFunctions []cre.JobSpecFn,
 	env cre.CLIEnvironmentDependencies,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
@@ -683,6 +691,7 @@ func StartCLIEnvironment(
 		CapabilityConfigs:         in.CapabilityConfigs,
 		CopyCapabilityBinaries:    withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
 		Capabilities:              capabilities,
+		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
