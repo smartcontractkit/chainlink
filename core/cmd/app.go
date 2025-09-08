@@ -315,10 +315,11 @@ func NewApp(s *Shell) *cli.App {
 
 				// Configure a new logger with otel
 				lggrCfg := logger.Config{
-					LogLevel:            s.Config.Log().Level(),
-					Dir:                 s.Config.Log().File().Dir(),
-					JsonConsole:         s.Config.Log().JSONConsole(),
-					UnixTS:              s.Config.Log().UnixTimestamps(),
+					LogLevel:    s.Config.Log().Level(),
+					Dir:         s.Config.Log().File().Dir(),
+					JsonConsole: s.Config.Log().JSONConsole(),
+					UnixTS:      s.Config.Log().UnixTimestamps(),
+					//nolint:gosec
 					FileMaxSizeMB:       int(logFileMaxSizeMB),
 					FileMaxAgeDays:      int(s.Config.Log().File().MaxAgeDays()),
 					FileMaxBackups:      int(s.Config.Log().File().MaxBackups()),

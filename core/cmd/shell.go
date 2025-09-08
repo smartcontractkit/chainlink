@@ -172,6 +172,7 @@ type Shell struct {
 	DS       sqlutil.DataSource
 	KeyStore keystore.Master
 
+	//nolint:containedctx
 	RootCtx       context.Context    // initialized in Before
 	CancelRootCtx context.CancelFunc // called in After
 }
