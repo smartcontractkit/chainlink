@@ -132,7 +132,7 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 		require.Contains(t, err.Error(), tc.ExpectedError)
 	} else {
 		require.NoError(t, err)
-		require.NotEqual(t, "", result.TxIdempotencyKey)
+		require.NotEmpty(t, result.TxIdempotencyKey)
 		result.TxIdempotencyKey = ""
 		require.Equal(t, tc.ExpectedResult, result)
 	}
