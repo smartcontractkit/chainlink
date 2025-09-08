@@ -68,7 +68,7 @@ var DeployOp = operations.NewOperation[DeployOpInput, DeployOpOutput, DeployOpDe
 
 		return DeployOpOutput{
 			Addresses:   ds.Addresses(),
-			AddressBook: addressBook, //nolint:staticcheck // keeping the address book since not everything has been migrated to datastore
+			AddressBook: addressBook,
 			AddressRef:  r,
 		}, nil
 	},
