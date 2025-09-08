@@ -82,12 +82,12 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 	srcChainSelector := offRampConfig.SourceChainSelector
 	dstChainSelector := offRampConfig.ChainSelector
 
-	// nolint:gosec // srcChainID will never be negative
+	//nolint:gosec // srcChainID will never be negative
 	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(srcChainID))
 	if !ok {
 		return nil, fmt.Errorf("failed to get source chain by evm ID %d", srcChainID)
 	}
-	// nolint:gosec // srcChainID will never be negative
+	//nolint:gosec // srcChainID will never be negative
 	dstChain, ok2 := chainselectors.ChainByEvmChainID(uint64(dstChainID))
 	if !ok2 {
 		return nil, fmt.Errorf("failed to get dest chain by evm ID %d", dstChainID)

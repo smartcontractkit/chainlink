@@ -145,7 +145,7 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 	executableObservations = executableObservations[:capped]
 	r.metricsCollector.NumberOfMessagesProcessed(ccip.Observation, len(executableObservations))
 	r.metricsCollector.SequenceNumber(ccip.Observation, executableObservations[len(executableObservations)-1].SeqNr, string(offRampAddress))
-	r.metricsCollector.ExecLatestRoundId(string(offRampAddress), uint64(timestamp.Round))
+	r.metricsCollector.ExecLatestRoundID(string(offRampAddress), uint64(timestamp.Round))
 	lggr.Infow("Observation", "executableMessages", executableObservations)
 	// Note can be empty
 	return ccip.NewExecutionObservation(executableObservations).Marshal()
@@ -516,7 +516,7 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 	if len(execReport.Messages) > 0 {
 		r.metricsCollector.NumberOfMessagesProcessed(ccip.Report, len(execReport.Messages))
 		r.metricsCollector.SequenceNumber(ccip.Report, execReport.Messages[len(execReport.Messages)-1].SequenceNumber, string(offRampAddress))
-		r.metricsCollector.ExecLatestRoundId(string(offRampAddress), uint64(timestamp.Round))
+		r.metricsCollector.ExecLatestRoundID(string(offRampAddress), uint64(timestamp.Round))
 	}
 	return encodedReport, nil
 }

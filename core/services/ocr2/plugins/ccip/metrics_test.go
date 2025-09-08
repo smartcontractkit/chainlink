@@ -28,11 +28,11 @@ func Test_SequenceNumbers(t *testing.T) {
 	collector, _ := NewPluginMetricsCollector("test", *bhClient, sourceChainId, destChainId, srcChainName, destChainName)
 
 	collector.SequenceNumber(Report, 10, "0xabc")
-	// nolint:testifylint // no need for indelta
+	//nolint:testifylint // no need for indelta
 	assert.Equal(t, float64(10), testutil.ToFloat64(maxSequenceNumber.WithLabelValues("test", "1337", "2337", "report", "0xabc", "sourceChain", "destChain")))
 
 	collector.SequenceNumber(Report, 0, "0xabc")
-	// nolint:testifylint // no need for indelta
+	//nolint:testifylint // no need for indelta
 	assert.Equal(t, float64(10), testutil.ToFloat64(maxSequenceNumber.WithLabelValues("test", "1337", "2337", "report", "0xabc", "sourceChain", "destChain")))
 
 	bhClient.Close()
@@ -50,15 +50,15 @@ func Test_NumberOfMessages(t *testing.T) {
 	collector2, _ := NewPluginMetricsCollector("test2", *bhClient, destChainId, sourceChainId, destChainName, srcChainName)
 
 	collector.NumberOfMessagesBasedOnInterval(Observation, 1, 10)
-	// nolint:testifylint // no need for indelta
+	//nolint:testifylint // no need for indelta
 	assert.Equal(t, float64(10), testutil.ToFloat64(messagesProcessed.WithLabelValues("test", "1337", "2337", "observation", "sourceChain", "destChain")))
 
 	collector.NumberOfMessagesBasedOnInterval(Report, 5, 30)
-	// nolint:testifylint // no need for indelta
+	//nolint:testifylint // no need for indelta
 	assert.Equal(t, float64(26), testutil.ToFloat64(messagesProcessed.WithLabelValues("test", "1337", "2337", "report", "sourceChain", "destChain")))
 
 	collector2.NumberOfMessagesProcessed(Report, 15)
-	// nolint:testifylint // no need for indelta
+	//nolint:testifylint // no need for indelta
 	assert.Equal(t, float64(15), testutil.ToFloat64(messagesProcessed.WithLabelValues("test2", "2337", "1337", "report", "destChain", "sourceChain")))
 
 	bhClient.Close()
@@ -75,11 +75,11 @@ func Test_UnexpiredCommitRoots(t *testing.T) {
 	collector, _ := NewPluginMetricsCollector("test", *bhClient, sourceChainId, destChainId, srcChainName, destChainName)
 
 	collector.UnexpiredCommitRoots(10)
-	// nolint:testifylint // no need for indelta
+	//nolint:testifylint // no need for indelta
 	assert.Equal(t, float64(10), testutil.ToFloat64(unexpiredCommitRoots.WithLabelValues("test", "1337", "2337", "sourceChain", "destChain")))
 
 	collector.UnexpiredCommitRoots(5)
-	// nolint:testifylint // no need for indelta
+	//nolint:testifylint // no need for indelta
 	assert.Equal(t, float64(5), testutil.ToFloat64(unexpiredCommitRoots.WithLabelValues("test", "1337", "2337", "sourceChain", "destChain")))
 
 	bhClient.Close()
