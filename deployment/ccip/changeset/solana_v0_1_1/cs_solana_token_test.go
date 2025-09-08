@@ -7,6 +7,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	timelockutil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/timelock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -17,7 +19,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
+	changesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
@@ -37,8 +39,8 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err := commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// deployer creates token
-			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
-			changeset_solana.DeploySolanaTokenConfig{
+			cldf.CreateLegacyChangeSet(changesetSolana.DeploySolanaToken),
+			changesetSolana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: shared.SPL2022Tokens,
 				TokenDecimals:    9,
@@ -53,8 +55,8 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// deployer creates token
-			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
-			changeset_solana.DeploySolanaTokenConfig{
+			cldf.CreateLegacyChangeSet(changesetSolana.DeploySolanaToken),
+			changesetSolana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: shared.SPLTokens,
 				MintPrivateKey:   privKey,
@@ -83,16 +85,16 @@ func TestSolanaTokenOps(t *testing.T) {
 
 	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
 		// deployer creates ATA for itself and testUser
-		cldf.CreateLegacyChangeSet(changeset_solana.CreateSolanaTokenATA),
-		changeset_solana.CreateSolanaTokenATAConfig{
+		cldf.CreateLegacyChangeSet(changesetSolana.CreateSolanaTokenATA),
+		changesetSolana.CreateSolanaTokenATAConfig{
 			ChainSelector: solChain1,
 			TokenPubkey:   tokenAddress,
 			ATAList:       []string{deployerKey.String(), testUserPubKey.String()},
 		},
 	), commonchangeset.Configure(
 		// deployer mints token to itself and testUser
-		cldf.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
-		changeset_solana.MintSolanaTokenConfig{
+		cldf.CreateLegacyChangeSet(changesetSolana.MintSolanaToken),
+		changesetSolana.MintSolanaTokenConfig{
 			ChainSelector: solChain1,
 			TokenPubkey:   tokenAddress.String(),
 			AmountToAddress: map[string]uint64{
@@ -127,8 +129,8 @@ func TestSolanaTokenOps(t *testing.T) {
 	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// deployer creates token
-			cldf.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
-			changeset_solana.DeploySolanaTokenConfig{
+			cldf.CreateLegacyChangeSet(changesetSolana.DeploySolanaToken),
+			changesetSolana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: shared.SPLTokens,
 				TokenDecimals:    9,
@@ -177,4 +179,68 @@ func TestDeployLinkToken(t *testing.T) {
 		Chains:    1,
 		SolChains: 1,
 	})
+}
+
+func TestCreateTokenWithMetadata(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		SolChains: 1,
+	})
+	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	e, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			// deployer creates token
+			cldf.CreateLegacyChangeSet(changesetSolana.DeploySolanaToken),
+			changesetSolana.DeploySolanaTokenConfig{
+				ChainSelector:    solChain1,
+				TokenProgramName: shared.SPLTokens,
+				TokenDecimals:    9,
+				TokenSymbol:      "TOKEN_WITH_METADATA",
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1)
+	require.NoError(t, err)
+	tokenAddress := solanastateview.FindSolanaAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.SPLTokens,
+			Version: deployment.Version1_0_0,
+			Labels:  cldf.NewLabelSet("TOKEN_WITH_METADATA"),
+		},
+		addresses,
+	)
+
+	require.NotEmpty(t, tokenAddress)
+
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			// deployer creates token
+			cldf.CreateLegacyChangeSet(changesetSolana.CreateMetadataAccount),
+			changesetSolana.UploadTokenMetadataConfig{
+				ChainSelector: solChain1,
+				TokenMetadata: []changesetSolana.TokenMetadata{
+					{TokenPubkey: tokenAddress}},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	timelockSigner := timelockutil.GetSignerPDA(config.TestTimelockID)
+
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			// deployer creates token
+			cldf.CreateLegacyChangeSet(changesetSolana.ModifyUpdateAuthority),
+			changesetSolana.UploadTokenMetadataConfig{
+				ChainSelector: solChain1,
+				TokenMetadata: []changesetSolana.TokenMetadata{
+					{TokenPubkey: tokenAddress,
+						UpdateAuthority: timelockSigner}},
+			},
+		),
+	)
+	require.NoError(t, err)
 }
