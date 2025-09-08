@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -62,7 +63,7 @@ func NewSecureMintServices(ctx context.Context,
 	relayer loop.Relayer,
 	pipelineRunner pipeline.Runner,
 	lggr logger.Logger,
-	argsNoPlugin libocr.OCR3OracleArgs[coretypes.ChainSelector],
+	argsNoPlugin libocr.OCR3OracleArgs[securemint.ChainSelector],
 	cfg JobConfig,
 	capabilitiesRegistry coretypes.CapabilitiesRegistry,
 ) (srvs []job.ServiceCtx, err error) {

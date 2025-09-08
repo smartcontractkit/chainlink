@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core/securemint"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -25,7 +26,7 @@ const (
 )
 
 type Transmitter interface {
-	ocr3types.ContractTransmitter[coretypes.ChainSelector]
+	ocr3types.ContractTransmitter[securemint.ChainSelector]
 	services.Service
 }
 
@@ -132,7 +133,7 @@ func (t *transmitter) Transmit(
 	ctx context.Context,
 	cd ocr2types.ConfigDigest,
 	seqNr uint64,
-	ocr3Report ocr3types.ReportWithInfo[coretypes.ChainSelector],
+	ocr3Report ocr3types.ReportWithInfo[securemint.ChainSelector],
 	sigs []types.AttributedOnchainSignature,
 ) error {
 	t.eng.Debugw("Transmit called", "cd", cd, "seqNr", seqNr, "report", ocr3Report, "sigs", sigs)

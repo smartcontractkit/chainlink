@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core/securemint"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -175,9 +175,9 @@ func TestTransmitter_Transmit(t *testing.T) {
 		// Create test data
 		cd := ocr2types.ConfigDigest{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
 		seqNr := uint64(123)
-		report := ocr3types.ReportWithInfo[coretypes.ChainSelector]{
+		report := ocr3types.ReportWithInfo[securemint.ChainSelector]{
 			Report: []byte("test report data"),
-			Info:   coretypes.ChainSelector(1), // Use ChainSelector as the Info type
+			Info:   securemint.ChainSelector(1), // Use ChainSelector as the Info type
 		}
 		sigs := []types.AttributedOnchainSignature{
 			{
@@ -233,7 +233,7 @@ func TestTransmitter_Transmit(t *testing.T) {
 			require.NoError(t, err)
 
 			// json umarshal bytes to string and check if it contains "test report data"
-			var report ocr3types.ReportWithInfo[coretypes.ChainSelector]
+			var report ocr3types.ReportWithInfo[securemint.ChainSelector]
 			err = json.Unmarshal(reportBytes, &report)
 			require.NoError(t, err)
 			assert.Equal(t, "test report data", string(report.Report))
@@ -268,9 +268,9 @@ func TestTransmitter_Transmit_NoSubscribers(t *testing.T) {
 	// Test transmission without any registered triggers
 	cd := ocr2types.ConfigDigest{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}
 	seqNr := uint64(127)
-	report := ocr3types.ReportWithInfo[coretypes.ChainSelector]{
+	report := ocr3types.ReportWithInfo[securemint.ChainSelector]{
 		Report: []byte("test report data no subscribers"),
-		Info:   coretypes.ChainSelector(1), // Use ChainSelector as the Info type
+		Info:   securemint.ChainSelector(1), // Use ChainSelector as the Info type
 	}
 	sigs := []types.AttributedOnchainSignature{}
 

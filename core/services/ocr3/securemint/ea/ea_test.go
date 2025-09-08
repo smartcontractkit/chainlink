@@ -7,8 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core/securemint"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -78,7 +77,7 @@ func Test_GetPayload(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	payload, err := ea.GetPayload(ctx, coretypes.Blocks{1234567890: 1234567890, 5009297550715157269: 10})
+	payload, err := ea.GetPayload(ctx, securemint.Blocks{1234567890: 1234567890, 5009297550715157269: 10})
 	require.NoError(t, err, "GetPayload should not return an error")
 
 	// Validate the 'ea_request' parameter serialized to json
@@ -101,18 +100,18 @@ func Test_GetPayload(t *testing.T) {
 	// Validate the resulting payload
 	amount, ok := big.NewInt(10).SetString("10332550000000000000000", 10)
 	require.True(t, ok, "Failed to parse reserve amount from string")
-	expectedPayload := core.ExternalAdapterPayload{
-		Mintables: core.Mintables{
+	expectedPayload := securemint.ExternalAdapterPayload{
+		Mintables: securemint.Mintables{
 			5009297550715157269: {
 				Block:    8,
 				Mintable: big.NewInt(10),
 			},
 		},
-		ReserveInfo: core.ReserveInfo{
+		ReserveInfo: securemint.ReserveInfo{
 			ReserveAmount: amount,
 			Timestamp:     time.UnixMilli(1749483841486),
 		},
-		LatestBlocks: core.Blocks{
+		LatestBlocks: securemint.Blocks{
 			5009297550715157269: 23,
 		},
 	}

@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	sm "github.com/smartcontractkit/chainlink-common/pkg/types/core/securemint"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -1509,7 +1510,7 @@ func (d *Delegate) newServicesSecureMint(
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
-	oracleArgsNoPlugin := libocr2.OCR3OracleArgs[core.ChainSelector]{
+	oracleArgsNoPlugin := libocr2.OCR3OracleArgs[sm.ChainSelector]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		Database:                     ocrDB,

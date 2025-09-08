@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core/securemint"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -52,11 +52,11 @@ func TestPorOnchainKeyringAdapter(t *testing.T) {
 	testConfigDigest := types.ConfigDigest([32]byte{1, 2, 3, 4, 5})
 	testSeqNr := uint64(42)
 	testReport := types.Report([]byte("test-report"))
-	testChainSelector := core.ChainSelector(1234)
+	testChainSelector := securemint.ChainSelector(1234)
 	testSignature := []byte("test-signature")
 	testMaxSigLen := 65
 
-	reportWithInfo := ocr3types.ReportWithInfo[core.ChainSelector]{
+	reportWithInfo := ocr3types.ReportWithInfo[securemint.ChainSelector]{
 		Report: testReport,
 		Info:   testChainSelector,
 	}
@@ -70,7 +70,7 @@ func TestPorOnchainKeyringAdapter(t *testing.T) {
 		adapter := NewSecureMintOCR3OnchainKeyringAdapter(mockKeyring)
 
 		// Verify that the adapter implements the OCR3 OnchainKeyring interface
-		var _ ocr3types.OnchainKeyring[core.ChainSelector] = adapter
+		var _ ocr3types.OnchainKeyring[securemint.ChainSelector] = adapter
 	})
 
 	t.Run("PublicKey returns the underlying keyring's public key", func(t *testing.T) {
