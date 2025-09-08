@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
@@ -972,15 +973,28 @@ func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInf
 	return len(found) == len(p2pIdsToDon)
 }
 
+type ForwarderConfig struct {
+	DonID         uint32           // the DON id as registered in the capabilities registry. Is an id corresponding to a DON that run consensus capability
+	F             uint8            // the F value for the DON
+	ConfigVersion uint32           // the config version for the DON
+	Signers       []common.Address // the onchain public keys of the nodes in the DON corresponding to DonID
+}
+
+type ConfiguredForwarderResponse struct {
+	Ops    map[uint64]mcmstypes.BatchOperation // if UseMCMS is true, a map of chain selector to batch operation is returned
+	Config ForwarderConfig
+}
+
 // ConfigureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]mcmstypes.BatchOperation, error) {
+func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (*ConfiguredForwarderResponse, error) {
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
 	var (
 		opMap = make(map[uint64]mcmstypes.BatchOperation)
 	)
+	cfg := ForwarderConfig{}
 	for _, dn := range dons {
 		if !dn.Info.AcceptsWorkflows {
 			continue
@@ -991,6 +1005,13 @@ func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.Keyst
 		if useMCMS {
 			txOpts = cldf.SimTransactOpts()
 		}
+		cfg = ForwarderConfig{
+			DonID:         dn.Info.Id,
+			F:             dn.Info.F,
+			ConfigVersion: ver,
+			Signers:       signers,
+		}
+		lggr.Debugw("setting forwarder config", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 		tx, err := fwdr.SetConfig(txOpts, dn.Info.Id, ver, dn.Info.F, signers)
 		if err != nil {
 			err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
@@ -1012,5 +1033,8 @@ func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.Keyst
 		}
 		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
-	return opMap, nil
+	return &ConfiguredForwarderResponse{
+		Ops:    opMap,
+		Config: cfg,
+	}, nil
 }

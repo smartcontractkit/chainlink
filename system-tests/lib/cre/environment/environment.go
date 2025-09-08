@@ -30,6 +30,7 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
+	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
@@ -263,11 +264,11 @@ func SetupTestEnvironment(
 	// deploy evm forwarders
 	evmForwardersReport, seqErr := operations.ExecuteSequence(
 		allChainsCLDEnvironment.OperationsBundle,
-		ks_contracts_op.DeployKeystoneForwardersSequence,
-		ks_contracts_op.DeployKeystoneForwardersSequenceDeps{
+		creforwarder.DeploySequence,
+		creforwarder.DeploySequenceDeps{
 			Env: allChainsCLDEnvironment,
 		},
-		ks_contracts_op.DeployKeystoneForwardersInput{
+		creforwarder.DeploySequenceInput{
 			Targets: evmForwardersSelectors,
 		},
 	)
