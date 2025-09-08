@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -31,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
@@ -123,11 +126,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 	return out
 }
 
-func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) error {
-	if err := input.Validate(); err != nil {
-		return errors.Wrap(err, "input validation failed")
-	}
-
+func toDons(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) (*dons, error) {
 	dons := &dons{
 		c: make(map[string]donConfig),
 	}
@@ -149,7 +148,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 
 			enabledCapabilities, err2 := configFn(donMetadata.Flags, input.NodeSets[donIdx])
 			if err2 != nil {
-				return errors.Wrap(err2, "failed to get capabilities from config function")
+				return nil, errors.Wrap(err2, "failed to get capabilities from config function")
 			}
 
 			capabilities = append(capabilities, enabledCapabilities...)
@@ -161,14 +160,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}, crenode.EqualLabels)
 
 		if workerNodesErr != nil {
-			return errors.Wrap(workerNodesErr, "failed to find worker nodes")
+			return nil, errors.Wrap(workerNodesErr, "failed to find worker nodes")
 		}
 
 		donPeerIDs := make([]string, len(workerNodes))
 		for i, node := range workerNodes {
 			p2pID, err := crenode.ToP2PID(node, crenode.NoOpTransformFn)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get p2p id for node %d", i)
+				return nil, errors.Wrapf(err, "failed to get p2p id for node %d", i)
 			}
 
 			donPeerIDs[i] = p2pID
@@ -177,7 +176,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		forwarderF := (len(workerNodes) - 1) / 3
 		if forwarderF == 0 {
 			if flags.HasFlag(donMetadata.Flags, cre.ConsensusCapability) || flags.HasFlag(donMetadata.Flags, cre.ConsensusCapabilityV2) {
-				return fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", len(workerNodes))
+				return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", len(workerNodes))
 			}
 			// for other capabilities, we can use 1 as F
 			forwarderF = 1
@@ -203,32 +202,77 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			flags:           donMetadata.Flags,
 		}
 	}
+	return dons, nil
+}
 
-	_, err := operations.ExecuteSequence(
-		input.CldEnv.OperationsBundle,
-		ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
-		ks_contracts_op.ConfigureCapabilitiesRegistrySeqDeps{
-			Env:  input.CldEnv,
-			Dons: dons.allDonCapabilities(),
-		},
-		ks_contracts_op.ConfigureCapabilitiesRegistrySeqInput{
-			RegistryChainSel: input.ChainSelector,
-			UseMCMS:          false,
-			ContractAddress:  input.CapabilitiesRegistryAddress,
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to configure capabilities registry")
+func ConfigureCapabilityRegistry(input cre.ConfigureKeystoneInput, dons *dons) (CapabilitiesRegistry, error) {
+	if !input.WithV2Registries {
+		_, err := operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeqDeps{
+				Env:  input.CldEnv,
+				Dons: dons.allDonCapabilities(),
+			},
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeqInput{
+				RegistryChainSel: input.ChainSelector,
+				UseMCMS:          false,
+				ContractAddress:  input.CapabilitiesRegistryAddress,
+			},
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to configure capabilities registry")
+		}
+
+		capReg, err := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+			input.CldEnv.DataStore.Addresses(),
+			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+			input.CapabilitiesRegistryAddress.Hex(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get capabilities registry contract")
+		}
+		return &registryWrapper{V1: capReg.Contract}, nil
 	}
 
-	// TODO support both v1 and v2 registries
-	capReg, err := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+	// TODO: Turn don to inputs
+	_, err := operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
+		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
+			Env: input.CldEnv,
+		},
+		cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{},
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure capabilities registry")
+	}
+
+	capReg, err := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
 		input.CldEnv.DataStore.Addresses(),
 		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
 		input.CapabilitiesRegistryAddress.Hex(),
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to get capabilities registry contract")
+		return nil, errors.Wrap(err, "failed to get capabilities registry contract")
+	}
+
+	return &registryWrapper{V2: capReg.Contract}, nil
+}
+
+func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) error {
+	if err := input.Validate(); err != nil {
+		return errors.Wrap(err, "input validation failed")
+	}
+
+	dons, err := toDons(input, capabilityRegistryConfigFns)
+	if err != nil {
+		return errors.Wrap(err, "failed to map input to dons")
+	}
+
+	capReg, err := ConfigureCapabilityRegistry(input, dons)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure capability registry")
 	}
 
 	// remove chains that do not require any configurations ('read-only' chains that do not have forwarders deployed)
@@ -297,7 +341,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 
 	// configure EVM forwarders only if we have some
 	if len(evmChainsWithForwarders) > 0 {
-		forwarderCfg, err2 := newDonConfigurationV1(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg.Contract)
+		forwarderCfg, err2 := newDonConfiguration(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to get DON configuration for forwarder configuration")
 		}
@@ -416,7 +460,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 
 		// configure EVM forwarders only if we have some
 		if len(evmChainsWithForwarders) > 0 {
-			forwarderCfg, err := newDonConfigurationV1(v2ConsensusDON.Name, v2ConsensusDON.id, input.CldEnv, capReg.Contract)
+			forwarderCfg, err := newDonConfiguration(v2ConsensusDON.Name, v2ConsensusDON.id, input.CldEnv, capReg)
 			if err != nil {
 				return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
 			}
@@ -668,7 +712,60 @@ func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64,
 	return readBalancesAddress, rbOutput, nil
 }
 
-func newDonConfigurationV1(name string, donID uint32, env *cldf.Environment, capReg *kcr.CapabilitiesRegistry) (forwarder.DonConfiguration, error) {
+type DonInfo struct {
+	F           uint8
+	ConfigCount uint32
+	NodeP2PIds  [][32]byte
+}
+
+type CapabilitiesRegistry interface {
+	GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, error)
+}
+
+type registryWrapper struct {
+	V1 *kcr.CapabilitiesRegistry
+	V2 *capabilities_registry_v2.CapabilitiesRegistry
+}
+
+func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, error) {
+	if rw.V1 == nil && rw.V2 == nil {
+		return DonInfo{}, errors.New("nil capabilities registry contract")
+	}
+
+	if rw.V1 != nil && rw.V2 != nil {
+		return DonInfo{}, errors.New("invalid registry wrapper state: two versions specified")
+	}
+
+	if rw.V1 != nil {
+		d, err := rw.V1.GetDON(opts, donID)
+		if err != nil {
+			return DonInfo{}, err
+		}
+
+		return DonInfo{
+			F:           d.F,
+			ConfigCount: d.ConfigCount,
+			NodeP2PIds:  d.NodeP2PIds,
+		}, nil
+	}
+
+	if rw.V2 != nil {
+		d, err := rw.V2.GetDON(opts, donID)
+		if err != nil {
+			return DonInfo{}, err
+		}
+
+		return DonInfo{
+			F:           d.F,
+			ConfigCount: d.ConfigCount,
+			NodeP2PIds:  d.NodeP2PIds,
+		}, nil
+	}
+
+	return DonInfo{}, errors.New("no valid capabilities registry contract")
+}
+
+func newDonConfiguration(name string, donID uint32, _ *cldf.Environment, capReg CapabilitiesRegistry) (forwarder.DonConfiguration, error) {
 	if capReg == nil {
 		return forwarder.DonConfiguration{}, errors.New("nil capabilities registry contract")
 	}

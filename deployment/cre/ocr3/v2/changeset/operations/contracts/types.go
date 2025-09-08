@@ -29,7 +29,7 @@ type DonNodeSet struct {
 	NodeIDs []string
 }
 
-// RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data
+// RegisteredDon is a representation of a don that exists in the capabilities registry all with the enriched node data
 type RegisteredDon struct {
 	Name  string
 	Info  capabilities_registry_v2.CapabilitiesRegistryDONInfo

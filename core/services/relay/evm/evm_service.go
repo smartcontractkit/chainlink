@@ -256,7 +256,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evmtypes.S
 	}
 
 	if txStatus == evm.TxFatal {
-		return &evmtypes.TransactionResult{TxStatus: txStatus}, nil
+		return &evmtypes.TransactionResult{TxStatus: txStatus, TxIdempotencyKey: txID}, nil
 	}
 
 	receipt, err := retry.Do(retryContext, e.logger, func(ctx context.Context) (*evmtxmgr.ChainReceipt, error) {
@@ -275,8 +275,9 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evmtypes.S
 	}
 
 	return &evmtypes.TransactionResult{
-		TxStatus: evm.TxSuccess,
-		TxHash:   (*receipt).GetTxHash(),
+		TxStatus:         evm.TxSuccess,
+		TxHash:           (*receipt).GetTxHash(),
+		TxIdempotencyKey: txID,
 	}, nil
 }
 
