@@ -80,7 +80,7 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 	// for legacy tooling
 	var triggerCapability string
 	if workflowSpecConfig.ConsensusAggregationMethod == "llo_streams" {
-		triggerCapability = "streams-trigger:don_asset-1@2.0.0{"
+		triggerCapability = "streams-trigger:don_asset-1@2.0.0"
 	} else {
 		triggerCapability = "streams-trigger@1.1.0"
 	}
