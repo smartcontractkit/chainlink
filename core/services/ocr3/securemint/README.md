@@ -1,5 +1,7 @@
 # SecureMint Plugin
 
+TODO(gg): make sure that the two secure mint integration tests run successfully in CI.
+
 ## Overview
 
 The SecureMint plugin is a plugin that allows for secure minting of tokens.
