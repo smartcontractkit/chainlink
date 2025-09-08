@@ -614,6 +614,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
+		EnableDKGRecipient:   ptr(false),
 		Streams: &toml.StreamsConfig{
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),

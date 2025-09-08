@@ -134,6 +134,15 @@ func FindManyWithLabel(nodes []*cre.NodeMetadata, wantedLabel *cre.Label, labelM
 	return foundNodes, nil
 }
 
+func HasLabel(node *cre.NodeMetadata, labelKey string) bool {
+	for _, label := range node.Labels {
+		if label.Key == labelKey {
+			return true
+		}
+	}
+	return false
+}
+
 func FindLabelValue(node *cre.NodeMetadata, labelKey string) (string, error) {
 	for _, label := range node.Labels {
 		if label.Key == labelKey {

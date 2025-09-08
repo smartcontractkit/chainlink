@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/alitto/pond/v2"
@@ -15,8 +14,6 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials/insecure"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
@@ -104,6 +101,8 @@ func mustGetAddress(dataStore datastore.MutableDataStore, chainSel uint64, contr
 	return addrRef.Address
 }
 
+var stageCount = 7
+
 func SetupTestEnvironment(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -143,11 +142,11 @@ func SetupTestEnvironment(
 		}
 	}()
 
-	stageGen := NewStageGen(6, "STAGE")
+	stageGen := NewStageGen(stageCount, "STAGE")
 
 	var s3ProviderOutput *s3provider.Output
 	if input.S3ProviderInput != nil {
-		stageGen = NewStageGen(7, "STAGE")
+		stageGen = NewStageGen(stageCount+1, "STAGE")
 		fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
 		var s3ProviderErr error
 		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input.S3ProviderInput)
@@ -205,11 +204,6 @@ func SetupTestEnvironment(
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
 				evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
 			}
-		}
-		if bcOut.SolChain != nil {
-			// we expect that if we have solana, solana write capability is enabled
-			solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
-			continue
 		}
 	}
 
@@ -560,16 +554,36 @@ func SetupTestEnvironment(
 	// If the ConfigSet event is missed, OCR protocol will not start.
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Jobs created in %.2f seconds", stageGen.Elapsed().Seconds())))
 
+	// This operation cannot execute in the background, because it uses master private keys and we want to avoid nonce issues
+	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Preparing Chainlink Node funding")))
+	preFundingOutput, prefundErr := operations.ExecuteOperation(fullCldOutput.Environment.OperationsBundle, PrepareCLNodesFundingOp, PrepareFundCLNodesOpDeps{
+		TestLogger:        testLogger,
+		Env:               fullCldOutput.Environment,
+		BlockchainOutputs: blockchainOutputs,
+		DonTopology:       fullCldOutput.DonTopology,
+	}, PrepareFundCLNodesOpInput{FundingPerChainFamilyForEachNode: map[string]uint64{
+		"evm":    10000000000000000, // 0.01 ETH
+		"solana": 50_000_000,        // 0.05 SOL
+	}})
+	if prefundErr != nil {
+		return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
+	}
+	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Chainlink Node funding prepared in %.2f seconds", stageGen.Elapsed().Seconds())))
+
 	bkgErrPool := pond.NewPool(10)
 	fundNodesTaskErr := bkgErrPool.SubmitErr(func() error {
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Funding Chainlink nodes\n\n"))
 		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Funding Chainlink nodes\n\n"))
 
 		_, fundErr := operations.ExecuteOperation(fullCldOutput.Environment.OperationsBundle, FundCLNodesOp, FundCLNodesOpDeps{
+			TestLogger:        testLogger,
 			Env:               fullCldOutput.Environment,
 			BlockchainOutputs: blockchainOutputs,
 			DonTopology:       fullCldOutput.DonTopology,
-		}, FundCLNodesOpInput{FundAmount: 5000000000000000000})
+		}, FundCLNodesOpInput{
+			FundingAmountPerChainFamily: preFundingOutput.Output.FundingPerChainFamilyForEachNode,
+			PrivateKeyPerChainFamily:    preFundingOutput.Output.PrivateKeysPerChainFamily,
+		})
 
 		return fundErr
 	})
@@ -745,41 +759,6 @@ func mergeJobSpecSlices(from, to cre.DonsToJobSpecs) {
 		}
 		to[fromDonID] = append(to[fromDonID], fromJobSpecs...)
 	}
-}
-
-type ConcurrentNonceMap struct {
-	mu             sync.Mutex
-	nonceByChainID map[uint64]uint64
-}
-
-func NewConcurrentNonceMap(ctx context.Context, blockchainOutputs []*cre.WrappedBlockchainOutput) (*ConcurrentNonceMap, error) {
-	nonceByChainID := make(map[uint64]uint64)
-	for _, bcOut := range blockchainOutputs {
-		if bcOut.BlockchainOutput.Family == chainselectors.FamilyEVM {
-			var err error
-			ctxWithTimeout, cancel := context.WithTimeout(ctx, bcOut.SethClient.Cfg.Network.TxnTimeout.Duration())
-			nonceByChainID[bcOut.ChainID], err = bcOut.SethClient.Client.PendingNonceAt(ctxWithTimeout, bcOut.SethClient.MustGetRootKeyAddress())
-			cancel()
-			if err != nil {
-				cancel()
-				return nil, pkgerrors.Wrapf(err, "failed to get nonce for chain %d", bcOut.ChainID)
-			}
-		}
-	}
-	return &ConcurrentNonceMap{nonceByChainID: nonceByChainID}, nil
-}
-
-func (c *ConcurrentNonceMap) Decrement(chainID uint64) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.nonceByChainID[chainID]--
-}
-
-func (c *ConcurrentNonceMap) Increment(chainID uint64) uint64 {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.nonceByChainID[chainID]++
-	return c.nonceByChainID[chainID]
 }
 
 func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, error) {
