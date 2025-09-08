@@ -234,6 +234,23 @@ jobs:
             printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "self-hosted-ubuntu-24", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
 
+      - name: Save Docker logs
+        if: failure()
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          mkdir -p logs
+          for c in $(docker ps -a --filter "label=framework=ctf" --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
+          done
+
+      - name: Upload all artifacts as single package
+        if: failure()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: local-cre-docker-logs
+          path: ./core/scripts/cre/environment/logs/
+
 
   notify-test-failure:
     name: Notify about local env startup failure
