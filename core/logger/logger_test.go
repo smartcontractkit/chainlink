@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/log/noop"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -79,8 +80,11 @@ func TestLogStreamingEnabled(t *testing.T) {
 }
 
 func TestNewOtelCore(t *testing.T) {
+	// Create a no-op OTel logger for testing
+	noopLogger := noop.NewLoggerProvider().Logger("test")
+
 	// Test that NewOtelCore returns a valid core
-	core := newOtelCore()
+	core := newOtelCore(noopLogger)
 	require.NotNil(t, core)
 
 	// Test that the core can handle log entries

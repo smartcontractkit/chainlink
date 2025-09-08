@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 
 	"github.com/fatih/color"
-	otellogglobal "go.opentelemetry.io/otel/log/global"
+	otellog "go.opentelemetry.io/otel/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	otelzap "github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 
@@ -192,10 +193,17 @@ func (c *Config) New() (Logger, func() error) {
 		closeLogger func() error
 		err         error
 	)
+
+	var cores []zapcore.Core
+	if c.LogStreamingEnabled {
+		// beholder.GetLogger() requires beholder.SetGlobalProviders()
+		cores = append(cores, newOtelCore(beholder.GetLogger()))
+	}
+
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, c.LogStreamingEnabled)
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, cores...)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c, c.LogStreamingEnabled)
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c, cores...)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -245,18 +253,13 @@ func newZapConfigBase() zap.Config {
 	return cfg
 }
 
-func newDefaultLogger(zcfg zap.Config, unixTS bool, telemetryStreamingEnabled bool) (Logger, func() error, error) {
+func newDefaultLogger(zcfg zap.Config, unixTS bool, cores ...zapcore.Core) (Logger, func() error, error) {
 	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var cores []zapcore.Core
 	cores = append(cores, defaultCore)
-
-	if telemetryStreamingEnabled {
-		cores = append(cores, newOtelCore())
-	}
 
 	core := zapcore.NewTee(cores...)
 	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)
@@ -323,12 +326,9 @@ func newDiskCore(diskLogLevel zap.AtomicLevel, local Config) (zapcore.Core, erro
 	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }
 
-func newOtelCore() zapcore.Core {
-	// note: until beholder.SetGlobalOtelProviders() is not called
-	// the core uses no-op provider and logger
-	loggerProvider := otellogglobal.GetLoggerProvider()
+func newOtelCore(otelLogger otellog.Logger) zapcore.Core {
 	otelZapCore := otelzap.NewCore(
-		loggerProvider.Logger("beholder"),
+		otelLogger,
 	)
 
 	return otelZapCore

@@ -86,17 +86,12 @@ func (l *zapDiskLogger) pollDiskSpace() {
 	}
 }
 
-func newRotatingFileLogger(zcfg zap.Config, c Config, logStreamingEnabled bool) (*zapDiskLogger, func() error, error) {
+func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*zapDiskLogger, func() error, error) {
 	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, c.UnixTS)
 	if err != nil {
 		return nil, nil, err
 	}
-	var cores []zapcore.Core
 	cores = append(cores, defaultCore)
-
-	if logStreamingEnabled {
-		cores = append(cores, newOtelCore())
-	}
 
 	diskLogLevel := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	diskCore, diskErr := newDiskCore(diskLogLevel, c)
