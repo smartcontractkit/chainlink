@@ -609,7 +609,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		// are contracts that get deployed by the TokenPoolFactory.
 		// We deploy them here so that we can verify them. All subsequent user deployments would then be verified.
 		if factoryBurnMintERC20 == nil {
-			_, err := cldf.DeployContract(e.Logger, chain, ab,
+			factoryBurnMintERC20Contract, err := cldf.DeployContract(e.Logger, chain, ab,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20] {
 					var (
 						factoryBurnMintERC20Addr common.Address
@@ -651,6 +651,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 				e.Logger.Errorw("Failed to deploy factory burn mint erc20", "chain", chain.String(), "err", err)
 				return err
 			}
+
+			factoryBurnMintERC20 = factoryBurnMintERC20Contract.Contract // set this here so that the address can be referenced later
 		} else {
 			e.Logger.Infow("factory burn mint erc20 already deployed", "chain", chain.String(), "addr", factoryBurnMintERC20.Address)
 		}
