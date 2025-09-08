@@ -41,7 +41,7 @@ var _ cldf.ChangeSet[UploadTokenMetadataConfig] = UploadTokenMetadata
 const MplTokenMetadataProgram = "MplTokenMetadataProgram"
 
 // PROGRAM ID for Metaplex Metadata Program
-var MplTokenMetadataId solana.PublicKey = solana.MustPublicKeyFromBase58("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
+var MplTokenMetadataID solana.PublicKey = solana.MustPublicKeyFromBase58("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
 
 // discriminator for update_metadata_account_v2 ix
 const UpdateMetadataAccountV2Ix = 15
@@ -491,25 +491,19 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Token metadata update authority set", "tokenPubkey", metadata.TokenPubkey.String(), "updateAuthority", metadata.UpdateAuthority.String())
 		}
 	}
-
 	return cldf.ChangesetOutput{}, nil
 }
 
 func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
-
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating upload token metadata config: %w", err)
 	}
-
 	authority, err := calculateAuthorityForTokenMetadata(e, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error calculating authority for token metadata: %w", err)
 	}
-
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
-
 	for _, metadata := range cfg.TokenMetadata {
-
 		if !metadata.UpdateAuthority.IsZero() {
 			tokenMint := metadata.TokenPubkey
 			newUpdateAuthority := metadata.UpdateAuthority
@@ -526,7 +520,7 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 				return cldf.ChangesetOutput{}, fmt.Errorf("error generating set buffer ix: %w", err)
 			}
 			if cfg.MCMS != nil {
-				upgradeTx, err := BuildMCMSTxn(&instruction, MplTokenMetadataId.String(), MplTokenMetadataProgram)
+				upgradeTx, err := BuildMCMSTxn(&instruction, MplTokenMetadataID.String(), MplTokenMetadataProgram)
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create upgrade transaction: %w", err)
 				}
@@ -537,7 +531,6 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 			if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
-			return cldf.ChangesetOutput{}, nil
 		}
 	}
 
@@ -547,10 +540,10 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 func findMetadataPDA(mint solana.PublicKey) (solana.PublicKey, error) {
 	seeds := [][]byte{
 		[]byte("metadata"),
-		MplTokenMetadataId.Bytes(),
+		MplTokenMetadataID.Bytes(),
 		mint.Bytes(),
 	}
-	pda, _, err := solana.FindProgramAddress(seeds, MplTokenMetadataId)
+	pda, _, err := solana.FindProgramAddress(seeds, MplTokenMetadataID)
 	return pda, err
 }
 
@@ -569,7 +562,7 @@ func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadat
 type DataV2 struct {
 	Name                 string
 	Symbol               string
-	Uri                  string
+	URI                  string
 	SellerFeeBasisPoints uint16
 	Creators             *[]Creator
 	Collection           *Collection
@@ -627,7 +620,7 @@ func modifyTokenMetadataUpdateAuthorityTx(metadataAccount, authority, newAuthori
 	}
 
 	instruction := solana.NewInstruction(
-		MplTokenMetadataId,
+		MplTokenMetadataID,
 		accountsForIx,
 		data,
 	)
