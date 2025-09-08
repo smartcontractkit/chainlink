@@ -18,6 +18,7 @@ import (
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -81,10 +82,12 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 	srcChainSelector := offRampConfig.SourceChainSelector
 	dstChainSelector := offRampConfig.ChainSelector
 
+	// nolint:gosec // srcChainID will never be negative
 	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(srcChainID))
 	if !ok {
 		return nil, fmt.Errorf("failed to get source chain by evm ID %d", srcChainID)
 	}
+	// nolint:gosec // srcChainID will never be negative
 	dstChain, ok2 := chainselectors.ChainByEvmChainID(uint64(dstChainID))
 	if !ok2 {
 		return nil, fmt.Errorf("failed to get dest chain by evm ID %d", dstChainID)

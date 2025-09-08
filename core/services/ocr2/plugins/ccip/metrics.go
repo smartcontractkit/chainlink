@@ -7,9 +7,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 var (
@@ -29,11 +30,11 @@ var (
 		Name: "ccip_new_reporting_plugin_error_counter",
 		Help: "The count of the number of errors when calling NewReportingPlugin",
 	}, []string{"plugin"})
-	commitLatestRoundId = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	commitLatestRoundID = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ccip_commit_round_id",
 		Help: "The latest round ID observed by the commit plugin",
 	}, []string{"source_network_name", "dest_network_name", "contract_address", "plugin"})
-	execLatestRoundId = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	execLatestRoundID = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ccip_exec_round_id",
 		Help: "The latest round ID observed by the exec plugin",
 	}, []string{"source_network_name", "dest_network_name", "contract_address", "plugin"})
@@ -53,8 +54,8 @@ type PluginMetricsCollector interface {
 	UnexpiredCommitRoots(count int)
 	SequenceNumber(phase ocrPhase, seqNr uint64, contractAddress string)
 	NewReportingPluginError()
-	CommitLatestRoundId(contractAddress string, roundId uint64)
-	ExecLatestRoundId(contractAddress string, roundId uint64)
+	CommitLatestRoundId(contractAddress string, roundID uint64)
+	ExecLatestRoundId(contractAddress string, roundID uint64)
 }
 
 type pluginMetricsCollector struct {
@@ -65,8 +66,8 @@ type pluginMetricsCollector struct {
 	messagesProcessed                  metric.Int64Gauge
 	maxSequenceNumber                  metric.Int64Gauge
 	newReportingPluginErrorCounter     metric.Int64Counter
-	commitLatestRoundId                metric.Int64Gauge
-	execLatestRoundId                  metric.Int64Gauge
+	commitLatestRoundID                metric.Int64Gauge
+	execLatestRoundID                  metric.Int64Gauge
 }
 
 func NewPluginMetricsCollector(pluginLabel string, bhClient beholder.Client, sourceChainId, destChainId int64, srcChainName string, destChainName string) (*pluginMetricsCollector, error) {
@@ -86,11 +87,11 @@ func NewPluginMetricsCollector(pluginLabel string, bhClient beholder.Client, sou
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_new_reporting_plugin_error_counter counter: %w", err)
 	}
-	commitLatestRoundId, err := bhClient.Meter.Int64Gauge("ccip_commit_round_id")
+	commitLatestRoundID, err := bhClient.Meter.Int64Gauge("ccip_commit_round_id")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_commit_round_id gauge: %w", err)
 	}
-	execLatestRoundId, err := bhClient.Meter.Int64Gauge("ccip_exec_round_id")
+	execLatestRoundID, err := bhClient.Meter.Int64Gauge("ccip_exec_round_id")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register ccip_exec_round_id gauge: %w", err)
 	}
@@ -106,14 +107,15 @@ func NewPluginMetricsCollector(pluginLabel string, bhClient beholder.Client, sou
 		messagesProcessed:              messagesProcessed,
 		maxSequenceNumber:              maxSequenceNumber,
 		newReportingPluginErrorCounter: newReportingPluginErrorCounter,
-		commitLatestRoundId:            commitLatestRoundId,
-		execLatestRoundId:              execLatestRoundId,
+		commitLatestRoundID:            commitLatestRoundID,
+		execLatestRoundID:              execLatestRoundID,
 	}, nil
 }
 
 func (p *pluginMetricsCollector) NumberOfMessagesProcessed(phase ocrPhase, count int) {
 	messagesProcessed.
 		WithLabelValues(p.pluginName, p.source, p.dest, string(phase), p.sourceName, p.destName).
+		// nolint: gosec // count will never be negative or extremely large
 		Set(float64(count))
 	p.messagesProcessed.Record(context.Background(), int64(count), metric.WithAttributes(
 		attribute.String("plugin", p.pluginName),
@@ -128,6 +130,7 @@ func (p *pluginMetricsCollector) NumberOfMessagesProcessed(phase ocrPhase, count
 func (p *pluginMetricsCollector) NumberOfMessagesBasedOnInterval(phase ocrPhase, seqNrMin, seqNrMax uint64) {
 	messagesProcessed.
 		WithLabelValues(p.pluginName, p.source, p.dest, string(phase), p.sourceName, p.destName).
+		// nolint: gosec // count will never be negative or extremely large
 		Set(float64(seqNrMax - seqNrMin + 1))
 	p.messagesProcessed.Record(context.Background(), int64(seqNrMax-seqNrMin+1), metric.WithAttributes(
 		attribute.String("plugin", p.pluginName),
@@ -181,11 +184,12 @@ func (p *pluginMetricsCollector) NewReportingPluginError() {
 	))
 }
 
-func (p *pluginMetricsCollector) CommitLatestRoundId(contractAddress string, roundId uint64) {
-	commitLatestRoundId.
+func (p *pluginMetricsCollector) CommitLatestRoundId(contractAddress string, roundID uint64) {
+	commitLatestRoundID.
 		WithLabelValues(p.source, p.dest, contractAddress, p.pluginName).
-		Set(float64(roundId))
-	p.commitLatestRoundId.Record(context.Background(), int64(roundId), metric.WithAttributes(
+		// nolint: gosec // count or roundID will never be negative or extremely large
+		Set(float64(roundID))
+	p.commitLatestRoundID.Record(context.Background(), int64(roundID), metric.WithAttributes(
 		attribute.String("source_network_name", p.sourceName),
 		attribute.String("dest_network_name", p.destName),
 		attribute.String("contract_address", contractAddress),
@@ -193,11 +197,12 @@ func (p *pluginMetricsCollector) CommitLatestRoundId(contractAddress string, rou
 	))
 }
 
-func (p *pluginMetricsCollector) ExecLatestRoundId(contractAddress string, roundId uint64) {
-	execLatestRoundId.
+func (p *pluginMetricsCollector) ExecLatestRoundId(contractAddress string, roundID uint64) {
+	execLatestRoundID.
 		WithLabelValues(p.source, p.dest, contractAddress, p.pluginName).
-		Set(float64(roundId))
-	p.execLatestRoundId.Record(context.Background(), int64(roundId), metric.WithAttributes(
+		// nolint: gosec // count or roundID will never be negative or extremely large
+		Set(float64(roundID))
+	p.execLatestRoundID.Record(context.Background(), int64(roundID), metric.WithAttributes(
 		attribute.String("source_network_name", p.source),
 		attribute.String("dest_network_name", p.dest),
 		attribute.String("contract_address", contractAddress),
