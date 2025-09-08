@@ -402,6 +402,7 @@ func TestClose(t *testing.T) {
 		})
 
 	state, err := stateview.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
 
 	// test closing the old buffers
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
