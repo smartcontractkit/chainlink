@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm/manualexeclib"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -39,7 +38,11 @@ const (
 	// This is the duration of each chunk.
 	// For example, if the lookback is 14 days and the step duration is 24 hours,
 	// we will make 14 queries, each for 24 hours worth of blocks.
-	DefaultStepDuration = 24 * time.Hour
+	DefaultStepDuration        = 24 * time.Hour
+	EXECUTION_STATE_UNTOUCHED  = 0
+	EXECUTION_STATE_INPROGRESS = 1
+	EXECUTION_STATE_SUCCESS    = 2
+	EXECUTION_STATE_FAILURE    = 3
 )
 
 var (
@@ -325,8 +328,8 @@ func manuallyExecuteSingle(
 		return fmt.Errorf("failed to get execution state: %w", err)
 	}
 
-	if execState == testhelpers.EXECUTION_STATE_SUCCESS ||
-		(execState == testhelpers.EXECUTION_STATE_FAILURE && !reExecuteIfFailed) {
+	if execState == EXECUTION_STATE_SUCCESS ||
+		(execState == EXECUTION_STATE_FAILURE && !reExecuteIfFailed) {
 		lggr.Infow("message already executed", "execState", execState, "msgSeqNr", msgSeqNr)
 		return nil
 	}
@@ -605,7 +608,7 @@ func CheckAlreadyExecuted(
 			return fmt.Errorf("failed to get execution state: %w", err)
 		}
 
-		if execState == testhelpers.EXECUTION_STATE_SUCCESS || execState == testhelpers.EXECUTION_STATE_FAILURE {
+		if execState == EXECUTION_STATE_SUCCESS || execState == EXECUTION_STATE_FAILURE {
 			lggr.Infow("message already executed", "execState", execState, "msgSeqNr", seqNr)
 		} else {
 			lggr.Infow("message not executed", "execState", execState, "msgSeqNr", seqNr)
