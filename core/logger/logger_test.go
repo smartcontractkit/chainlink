@@ -40,13 +40,11 @@ func TestLogStreamingEnabled(t *testing.T) {
 		shouldHaveOtelCore  bool
 	}{
 		{
-			name:                "LogStreamingEnabled true should include otel core",
 			logStreamingEnabled: true,
 			expectedCoresCount:  2, // default core + otel core
 			shouldHaveOtelCore:  true,
 		},
 		{
-			name:                "LogStreamingEnabled false should not include otel core",
 			logStreamingEnabled: false,
 			expectedCoresCount:  1, // only default core
 			shouldHaveOtelCore:  false,
@@ -54,7 +52,7 @@ func TestLogStreamingEnabled(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(strconv.FormatBool(tc.logStreamingEnabled), func(t *testing.T) {
 			config := Config{
 				LogLevel:            zapcore.InfoLevel,
 				LogStreamingEnabled: tc.logStreamingEnabled,
