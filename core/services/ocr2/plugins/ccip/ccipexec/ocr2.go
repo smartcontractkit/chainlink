@@ -144,7 +144,9 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 	}
 	executableObservations = executableObservations[:capped]
 	r.metricsCollector.NumberOfMessagesProcessed(ccip.Observation, len(executableObservations))
-	r.metricsCollector.SequenceNumber(ccip.Observation, executableObservations[len(executableObservations)-1].SeqNr, string(offRampAddress))
+	if len(executableObservations) > 0 {
+		r.metricsCollector.SequenceNumber(ccip.Observation, executableObservations[len(executableObservations)-1].SeqNr, string(offRampAddress))
+	}
 	r.metricsCollector.ExecLatestRoundID(string(offRampAddress), uint64(timestamp.Round))
 	lggr.Infow("Observation", "executableMessages", executableObservations)
 	// Note can be empty
