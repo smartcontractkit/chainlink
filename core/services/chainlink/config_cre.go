@@ -60,6 +60,13 @@ func (c *creConfig) UseLocalTimeProvider() bool {
 	return *c.c.UseLocalTimeProvider
 }
 
+func (c *creConfig) EnableDKGRecipient() bool {
+	if c.c.EnableDKGRecipient == nil {
+		return false
+	}
+	return *c.c.EnableDKGRecipient
+}
+
 type linkingConfig struct {
 	url        string
 	tlsEnabled bool
