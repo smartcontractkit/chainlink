@@ -1330,6 +1330,64 @@ func (_c *ORM_IsJobManaged_Call) RunAndReturn(run func(context.Context, int64) (
 	return _c
 }
 
+// IsJobManagedByFeedsManager provides a mock function with given fields: ctx, jobID, feedsManagerID
+func (_m *ORM) IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (bool, error) {
+	ret := _m.Called(ctx, jobID, feedsManagerID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsJobManagedByFeedsManager")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) (bool, error)); ok {
+		return rf(ctx, jobID, feedsManagerID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) bool); ok {
+		r0 = rf(ctx, jobID, feedsManagerID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int64) error); ok {
+		r1 = rf(ctx, jobID, feedsManagerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_IsJobManagedByFeedsManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsJobManagedByFeedsManager'
+type ORM_IsJobManagedByFeedsManager_Call struct {
+	*mock.Call
+}
+
+// IsJobManagedByFeedsManager is a helper method to define mock.On call
+//   - ctx context.Context
+//   - jobID int64
+//   - feedsManagerID int64
+func (_e *ORM_Expecter) IsJobManagedByFeedsManager(ctx interface{}, jobID interface{}, feedsManagerID interface{}) *ORM_IsJobManagedByFeedsManager_Call {
+	return &ORM_IsJobManagedByFeedsManager_Call{Call: _e.mock.On("IsJobManagedByFeedsManager", ctx, jobID, feedsManagerID)}
+}
+
+func (_c *ORM_IsJobManagedByFeedsManager_Call) Run(run func(ctx context.Context, jobID int64, feedsManagerID int64)) *ORM_IsJobManagedByFeedsManager_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64), args[2].(int64))
+	})
+	return _c
+}
+
+func (_c *ORM_IsJobManagedByFeedsManager_Call) Return(_a0 bool, _a1 error) *ORM_IsJobManagedByFeedsManager_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_IsJobManagedByFeedsManager_Call) RunAndReturn(run func(context.Context, int64, int64) (bool, error)) *ORM_IsJobManagedByFeedsManager_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListChainConfigsByManagerIDs provides a mock function with given fields: ctx, mgrIDs
 func (_m *ORM) ListChainConfigsByManagerIDs(ctx context.Context, mgrIDs []int64) ([]feeds.ChainConfig, error) {
 	ret := _m.Called(ctx, mgrIDs)
