@@ -1382,6 +1382,7 @@ func TestLauncher_CreateCombinedClientForV2Capabilities(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	defer launcher.Close()
 
 	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, wfDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiverForMethod", fullExecutableCapID, wfDonID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
@@ -1482,6 +1483,7 @@ func TestLauncher_ExposeV2CapabilitiesRemotely(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	defer launcher.Close()
 
 	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
 	dispatcher.On("SetReceiverForMethod", fullExecutableCapID, capDonID, "Write", mock.AnythingOfType("*executable.server")).Return(nil)

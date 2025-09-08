@@ -51,11 +51,11 @@ func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
 	require.NotEmpty(t, underlyingTriggerCap.registrationsCh)
 
 	// send a trigger event and expect that it gets delivered right away
-	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 	awaitOutgoingMessageCh := make(chan struct{})
 	dispatcher.On("Send", peers[1], mock.Anything).Run(func(args mock.Arguments) {
 		awaitOutgoingMessageCh <- struct{}{}
 	}).Return(nil)
+	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 	<-awaitOutgoingMessageCh
 
 	require.NoError(t, publisher.Close())
@@ -71,8 +71,6 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	require.NotEmpty(t, underlyingTriggerCap.registrationsCh)
 
 	// send two trigger events and expect them to be delivered in a batch
-	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
-	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 	awaitOutgoingMessageCh := make(chan struct{})
 	dispatcher.On("Send", peers[1], mock.Anything).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*remotetypes.MessageBody)
@@ -83,17 +81,19 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 		require.Len(t, metadata.TriggerEventMetadata.WorkflowIds, 2)
 		awaitOutgoingMessageCh <- struct{}{}
 	}).Return(nil).Once()
+	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
+	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 	<-awaitOutgoingMessageCh
 
 	// if there are fewer pending event than the batch size,
 	// the events should still be sent after the batch collection period
-	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 	dispatcher.On("Send", peers[1], mock.Anything).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*remotetypes.MessageBody)
 		metadata := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
 		require.Len(t, metadata.TriggerEventMetadata.WorkflowIds, 1)
 		awaitOutgoingMessageCh <- struct{}{}
 	}).Return(nil).Once()
+	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 	<-awaitOutgoingMessageCh
 
 	require.NoError(t, publisher.Close())

@@ -737,7 +737,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 	cc := remote.NewCombinedClient(info)
 
 	for method, config := range methodConfig {
-		var receiver remotetypes.Receiver
+		var receiver remotetypes.ReceiverService
 		if config.RemoteTriggerConfig != nil {
 			// TODO(CRE-590): add support for SignedReportAggregator (needed by LLO Streams Trigger V2)
 			aggregator := aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)
@@ -776,6 +776,11 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if err = w.dispatcher.SetReceiverForMethod(capID, myDON.ID, method, receiver); err != nil {
 			return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
 		}
+		err = receiver.Start(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start receiver for capability %s, method %s: %w", capID, method, err)
+		}
+		w.subServices = append(w.subServices, receiver)
 	}
 
 	err = w.registry.Add(ctx, cc)
