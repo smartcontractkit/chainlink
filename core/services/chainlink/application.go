@@ -668,6 +668,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				Ks:                             keyStore.OCR2(),
 				EthKs:                          keyStore.Eth(),
 				WorkflowKs:                     keyStore.Workflow(),
+				DKGRecipientKs:                 keyStore.DKGRecipient(),
 				Relayers:                       relayChainInterops,
 				MailMon:                        mailMon,
 				CapabilitiesRegistry:           opts.CapabilitiesRegistry,

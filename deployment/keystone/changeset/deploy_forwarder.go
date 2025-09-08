@@ -113,6 +113,7 @@ func (r ConfigureForwardContractsRequest) UseMCMS() bool {
 	return r.MCMSConfig != nil
 }
 
+// TODO: use crefowarder.ConfigureOP instead of internal.ConfigureForwardContracts
 func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContractsRequest) (cldf.ChangesetOutput, error) {
 	wfDon, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
 		NodeIDs:          req.WFNodeIDs,

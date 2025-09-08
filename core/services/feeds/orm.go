@@ -57,6 +57,7 @@ type ORM interface {
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
 
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
+	IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (bool, error)
 
 	Transact(context.Context, func(ORM) error) error
 	WithDataSource(sqlutil.DataSource) ORM
@@ -387,7 +388,7 @@ func (o *orm) CountJobProposals(ctx context.Context) (count int64, err error) {
 // CountJobProposals counts the number of job proposal records.
 func (o *orm) CountJobProposalsByStatus(ctx context.Context) (counts *JobProposalCounts, err error) {
 	stmt := `
-SELECT 
+SELECT
 	COUNT(*) filter (where job_proposals.status = 'pending' OR job_proposals.pending_update = TRUE) as pending,
 	COUNT(*) filter (where job_proposals.status = 'approved' AND job_proposals.pending_update = FALSE) as approved,
 	COUNT(*) filter (where job_proposals.status = 'rejected' AND job_proposals.pending_update = FALSE) as rejected,
@@ -877,4 +878,21 @@ SELECT exists (
 
 	err = o.ds.GetContext(ctx, &exists, stmt, jobID)
 	return exists, errors.Wrap(err, "IsJobManaged failed")
+}
+
+// IsJobManagedByFeedsManager determines if a job is managed by a specific feeds manager.
+func (o *orm) IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (exists bool, err error) {
+	stmt := `
+SELECT exists (
+	SELECT 1
+	FROM job_proposals
+	INNER JOIN jobs ON job_proposals.external_job_id = jobs.external_job_id
+	WHERE jobs.id = $1
+	AND job_proposals.feeds_manager_id = $2
+	AND job_proposals.status <> 'deleted'
+);
+`
+
+	err = o.ds.GetContext(ctx, &exists, stmt, jobID, feedsManagerID)
+	return exists, errors.Wrap(err, "IsJobManagedByFeedsManager failed")
 }
