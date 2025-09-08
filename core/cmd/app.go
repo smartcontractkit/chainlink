@@ -319,7 +319,7 @@ func NewApp(s *Shell) *cli.App {
 					Dir:         s.Config.Log().File().Dir(),
 					JsonConsole: s.Config.Log().JSONConsole(),
 					UnixTS:      s.Config.Log().UnixTimestamps(),
-					//nolint:gosec
+					//nolint:gosec // filemaxsizesmb won't exceed max int
 					FileMaxSizeMB:       int(logFileMaxSizeMB),
 					FileMaxAgeDays:      int(s.Config.Log().File().MaxAgeDays()),
 					FileMaxBackups:      int(s.Config.Log().File().MaxBackups()),
