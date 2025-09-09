@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
@@ -15,6 +17,7 @@ import (
 type RouterView struct {
 	PDA                    string                              `json:"pda,omitempty"`
 	Version                uint8                               `json:"version,omitempty"`
+	UpgradeAuthority       string                              `json:"upgradeAuthority,omitempty"`
 	DefaultCodeVersion     string                              `json:"defaultCodeVersion,omitempty"`
 	SvmChainSelector       uint64                              `json:"svmChainSelector,omitempty"`
 	Owner                  string                              `json:"owner,omitempty"`
@@ -46,9 +49,16 @@ type RouterTokenAdminRegistry struct {
 
 func GenerateRouterView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RouterView, error) {
 	view := RouterView{}
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(context.Background(), program, &rpc.GetAccountInfoOpts{
+		Commitment: cldf_solana.SolDefaultCommitment,
+	})
+	if err != nil {
+		return view, fmt.Errorf("failed to get account info for program %s: %w", program.String(), err)
+	}
+	view.UpgradeAuthority = accountInfo.Value.Owner.String()
 	var config solRouter.Config
 	configPDA, _, _ := solState.FindConfigPDA(program)
-	err := chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
+	err = chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
 	if err != nil {
 		return view, fmt.Errorf("config not found in existing state, initialize the router first %d", chain.Selector)
 	}

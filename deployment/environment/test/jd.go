@@ -32,7 +32,6 @@ type JDNodeService struct {
 
 func NewJDService(nodes []deployment.Node) *JDNodeService {
 	return &JDNodeService{
-		//store: wrapAll(nodes),
 		store: newStore(nodes),
 	}
 }
@@ -180,6 +179,32 @@ func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRe
 	return &nodev1.UpdateNodeResponse{}, nil
 }
 
+func (s *JDNodeService) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, opts ...grpc.CallOption) (*jobv1.ProposeJobResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.store.getNode(in.NodeId)
+	if err != nil {
+		return nil, fmt.Errorf("node not found for id %s", in.NodeId)
+	}
+
+	s.store.addProposedJob(in)
+
+	return &jobv1.ProposeJobResponse{}, nil
+}
+
+func (s *JDNodeService) ListProposedJobRequests() ([]*jobv1.ProposeJobRequest, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var out []*jobv1.ProposeJobRequest
+	for _, reqs := range s.store.nodeIDToProposedJobs {
+		out = append(out, reqs...)
+	}
+
+	return out, nil
+}
+
 func newWrapperFromUpdate(req *nodev1.UpdateNodeRequest) (*wrappedNode, error) {
 	return nil, nil
 }
@@ -251,13 +276,16 @@ type store struct {
 
 	p2pToID map[p2pKey]string
 	csaToID map[csaKey]string
+
+	nodeIDToProposedJobs map[string][]*jobv1.ProposeJobRequest
 }
 
 func newStore(node []deployment.Node) *store {
 	s := &store{
-		db2:     make(map[string]*wrappedNode),
-		csaToID: make(map[csaKey]string),
-		p2pToID: make(map[p2pKey]string),
+		db2:                  make(map[string]*wrappedNode),
+		csaToID:              make(map[csaKey]string),
+		p2pToID:              make(map[p2pKey]string),
+		nodeIDToProposedJobs: make(map[string][]*jobv1.ProposeJobRequest),
 	}
 	for _, v := range node {
 		w := newWrapper(v)
@@ -314,6 +342,15 @@ func (s *store) put(n *wrappedNode) {
 	s.db2[n.Node.NodeID] = n
 	s.csaToID[n.Node.CSAKey] = n.NodeID
 	s.p2pToID[p2pKey(n.Node.PeerID.String())] = n.NodeID
+}
+
+func (s *store) addProposedJob(req *jobv1.ProposeJobRequest) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.nodeIDToProposedJobs[req.NodeId]; !ok {
+		s.nodeIDToProposedJobs[req.NodeId] = make([]*jobv1.ProposeJobRequest, 0)
+	}
+	s.nodeIDToProposedJobs[req.NodeId] = append(s.nodeIDToProposedJobs[req.NodeId], req)
 }
 
 type UnimplementedJobServiceClient struct{}

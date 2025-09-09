@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
+	bind "github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	common "github.com/ethereum/go-ethereum/common"
 
 	event "github.com/ethereum/go-ethereum/event"

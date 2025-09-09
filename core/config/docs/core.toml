@@ -544,6 +544,8 @@ ContractVersion = '1.0.0' # Default
 SupportedVersion = 1 # Default
 # ReceiverBufferSize is the size of the buffer for incoming messages.
 ReceiverBufferSize = 10000 # Default
+# SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
+SendToSharedPeer = false # Default
 
 [Capabilities.Dispatcher.RateLimit]
 # GlobalRPS is the global rate limit for the dispatcher.
@@ -615,6 +617,28 @@ AuthTimestampToleranceSec = 10 # Example
 ID = 'example_gateway' # Example
 # URL of the Gateway
 URL = 'wss://localhost:8081/node' # Example
+
+[Capabilities.SharedPeering]
+# Enabled enabled SharedPeer
+Enabled = false # Default
+# Bootstrappers overrides bootstrap nodes for SharedPeer peer groups. If empty, default bootstrappers from P2P.V2 will be used.
+Bootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+
+[Capabilities.SharedPeering.StreamConfig]
+# IncomingMessageBufferSize is the max number of enqueued incoming messages awaiting processing.
+IncomingMessageBufferSize = 500 # Default
+# OutgoingMessageBufferSize is the max number of outgoing messages.
+OutgoingMessageBufferSize = 500 # Default
+# MaxMessageLenBytes is the max size of a message in bytes.
+MaxMessageLenBytes = 500000 # Default
+# MessageRateLimiterRate is the max number of processed messages per second.
+MessageRateLimiterRate = 100.0 # Default
+# MessageRateLimiterCapacity is the "burst" of the message rate limiter.
+MessageRateLimiterCapacity = 500 # Default
+# BytesRateLimiterRate is the max size of precessed messages per second.
+BytesRateLimiterRate = 5000000.0 # Default
+# BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
+BytesRateLimiterCapacity = 10000000 # Default
 
 [Keeper]
 # **ADVANCED**
@@ -838,6 +862,12 @@ RestURL = "streams.url" # Example
 # URL is override URL for the workflow fetcher service. 
 URL = '' # Default
 
+[CRE.Linking]
+# URL is the locator for the Chainlink linking service.
+URL = "" # Default
+# TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+TLSEnabled = true # Default
+
 # Billing holds settings for connecting to the billing service.
 [Billing]
 # URL is the locator for the Chainlink billing service.
@@ -861,3 +891,5 @@ IgnoreJoblessBridges = false # Default
 [CRE]
 # UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
 UseLocalTimeProvider = true # Default
+# EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
+EnableDKGRecipient = false # Default

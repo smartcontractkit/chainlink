@@ -9,7 +9,6 @@ import (
 	consensusv2capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus/v2"
 	croncapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
 	evmcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
-	gatewaycapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/gateway"
 	httpactioncapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/httpaction"
 	httptriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/httptrigger"
 	logeventtriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logeventtrigger"
@@ -22,7 +21,7 @@ import (
 	writesolanacapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writesolana"
 )
 
-func NewDefaultSet(homeChainID uint64, extraAllowedPorts []int, extraAllowedIPs []string, extraAllowedIPsCIDR []string) ([]cre.InstallableCapability, error) {
+func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 	capabilities := []cre.InstallableCapability{}
 
 	cron, cErr := croncapability.New()
@@ -49,7 +48,7 @@ func NewDefaultSet(homeChainID uint64, extraAllowedPorts []int, extraAllowedIPs 
 	}
 	capabilities = append(capabilities, c2)
 
-	evm, evmErr := evmcapability.New()
+	evm, evmErr := evmcapability.New(homeChainID)
 	if evmErr != nil {
 		return nil, errors.Wrap(evmErr, "failed to create evm capability")
 	}
@@ -114,12 +113,6 @@ func NewDefaultSet(homeChainID uint64, extraAllowedPorts []int, extraAllowedIPs 
 		return nil, errors.Wrap(logeventtriggerErr, "failed to create log event trigger capability")
 	}
 	capabilities = append(capabilities, logeventtrigger)
-
-	gateway, gatewayErr := gatewaycapability.New(extraAllowedPorts, []string{}, []string{"0.0.0.0/0"})
-	if gatewayErr != nil {
-		return nil, errors.Wrap(gatewayErr, "failed to create gateway capability")
-	}
-	capabilities = append(capabilities, gateway)
 
 	return capabilities, nil
 }

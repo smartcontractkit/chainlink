@@ -5,41 +5,29 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
-	"testing"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-func loadBeholderStackCache(beholderConfigPath string) (*config.ChipIngressConfig, error) {
-	originalCtfConfigs := os.Getenv("CTF_CONFIGS")
-	defer func() {
-		setErr := os.Setenv("CTF_CONFIGS", originalCtfConfigs)
-		if setErr != nil {
-			framework.L.Error().Err(setErr).Msg("failed to restore CTF_CONFIGS env var")
-		}
-	}()
-
-	setErr := os.Setenv("CTF_CONFIGS", beholderConfigPath)
-	if setErr != nil {
-		return nil, errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
+func loadBeholderStackCache(relativePathToRepoRoot string) (*config.ChipIngressConfig, error) {
+	c := &config.ChipIngressConfig{}
+	if loadErr := c.Load(config.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)); loadErr != nil {
+		return nil, errors.Wrap(loadErr, "failed to load beholder stack cache")
 	}
 
-	return framework.Load[config.ChipIngressConfig](nil)
+	return c, nil
 }
 
-func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
-	split := strings.Split(stateFile, ",")
-	if _, err := os.Stat(split[0]); os.IsNotExist(err) {
-		framework.L.Info().Msg("Beholder has not been found. Starting Beholder...")
+func startBeholderStackIfIsNotRunning(relativePathToRepoRoot, environmentDir string) error {
+	if !config.ChipIngressStateFileExists(relativePathToRepoRoot) {
+		framework.L.Info().Str("state file", config.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)).Msg("Beholder state file was not found. Starting Beholder...")
 		cmd := exec.Command("go", "run", ".", "env", "beholder", "start")
 		cmd.Dir = environmentDir
 		cmd.Stdout = os.Stdout
@@ -53,17 +41,12 @@ func startBeholderStackIfIsNotRunning(stateFile, environmentDir string) error {
 	return nil
 }
 
-func subscribeToBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger,
-	testEnv *TestEnvironment,
-	messageTypes map[string]func() proto.Message) (<-chan proto.Message, <-chan error) {
-	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.BeholderConfigPath, testEnv.TestConfig.EnvironmentDirPath)
-	require.NoError(t, bErr, "failed to start Beholder")
-
-	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.BeholderConfigPath)
-	require.NoError(t, chipErr, "failed to load chip ingress cache")
-	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
-	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
-
+func subscribeToBeholderMessages(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	chipConfig *config.ChipIngressConfig,
+	messageTypes map[string]func() proto.Message,
+) (<-chan proto.Message, <-chan error) {
 	kafkaErrChan := make(chan error, 1)
 	messageChan := make(chan proto.Message, 10)
 

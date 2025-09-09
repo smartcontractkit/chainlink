@@ -2,7 +2,7 @@ module main
 
 go 1.24.5
 
-toolchain go1.24.6
+toolchain go1.24.7
 
 require (
 	github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250821154918-5c93d76162c5

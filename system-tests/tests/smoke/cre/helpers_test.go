@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -51,7 +52,7 @@ See an example in a test using PoR workflow.
 func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvironment) []uint64 {
 	t.Helper()
 
-	var testLogger = framework.L
+	testLogger := framework.L
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
@@ -103,7 +104,7 @@ It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName, workflowDONName string, workflowConfig *T, workflowFileLocation string) (string, string) {
 	t.Helper()
 
 	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
@@ -113,7 +114,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
-	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, creworkflow.DefaultWorkflowNodePattern, compressedWorkflowWasmPath, workflowConfigFilePath)
+	copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(workflowDONName), compressedWorkflowWasmPath, workflowConfigFilePath)
 	require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
 	testLogger.Info().Msg("Workflow artifacts successfully copied to the Docker containers.")
 
@@ -201,7 +202,7 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFile
 	t.Helper()
 
 	var testLogger = framework.L
-	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.\n", uniqueWorkflowName)
+	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.", uniqueWorkflowName)
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
@@ -212,11 +213,13 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFile
 func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) {
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowConfig, workflowFileLocation)
+	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.FullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
+	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDON.Name, workflowConfig, workflowFileLocation)
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+	workflowRegistryAddress, _, workflowRegistryErr := crecontracts.FindAddressesForChain(
 		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //lint:ignore SA1019 ignoring deprecation warning for this usage
 		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)

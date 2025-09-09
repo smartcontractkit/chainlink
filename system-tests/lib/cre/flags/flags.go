@@ -37,7 +37,7 @@ func HasFlagForAnyChain(values []string, capability string) bool {
 }
 
 func RequiresForwarderContract(values []string, chainID uint64) bool {
-	return HasFlagForChain(values, cre.EVMCapability, chainID) || HasFlagForChain(values, cre.WriteEVMCapability, chainID)
+	return HasFlagForChain(values, cre.EVMCapability, chainID) || HasFlagForChain(values, cre.WriteEVMCapability, chainID) || HasFlagForAnyChain(values, cre.WriteSolanaCapability)
 }
 
 func DonMetadataWithFlag(donTopologies []*cre.DonMetadata, flag string) []*cre.DonMetadata {
