@@ -713,9 +713,6 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
-	if err = handler.Start(ctx); err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
-	}
 	srvs = append(srvs, handler)
 
 	rid, err := spec.RelayID()

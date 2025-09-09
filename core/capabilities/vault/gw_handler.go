@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -58,6 +59,9 @@ type gatewayConnector interface {
 }
 
 type GatewayHandler struct {
+	services.Service
+	eng *services.Engine
+
 	capRegistry      core.CapabilitiesRegistry
 	secretsService   vaulttypes.SecretsService
 	gatewayConnector gatewayConnector
@@ -71,23 +75,29 @@ func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsSe
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
-	return &GatewayHandler{
+	gh := &GatewayHandler{
 		capRegistry:      capabilitiesRegistry,
 		secretsService:   secretsService,
 		gatewayConnector: gwsender,
 		lggr:             lggr.Named(HandlerName),
 		metrics:          metrics,
-	}, nil
+	}
+	gh.Service, gh.eng = services.Config{
+		Name:  "GatewayHandler",
+		Start: gh.start,
+		Close: gh.close,
+	}.NewServiceEngine(lggr)
+	return gh, nil
 }
 
-func (h *GatewayHandler) Start(ctx context.Context) error {
+func (h *GatewayHandler) start(ctx context.Context) error {
 	if gwerr := h.gatewayConnector.AddHandler(ctx, vaulttypes.Methods, h); gwerr != nil {
 		return fmt.Errorf("failed to add vault handler to connector: %w", gwerr)
 	}
 	return nil
 }
 
-func (h *GatewayHandler) Close() error {
+func (h *GatewayHandler) close() error {
 	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), vaulttypes.Methods); gwerr != nil {
 		return fmt.Errorf("failed to remove vault handler from connector: %w", gwerr)
 	}
