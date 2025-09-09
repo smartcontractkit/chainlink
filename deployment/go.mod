@@ -45,7 +45,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250909200825-c7c07c16e4f5
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250909210341-c0f50bf15b53
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20250908130445-df6a8da839fe
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250908130445-df6a8da839fe
