@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 type ConfigureSeqDeps struct {
@@ -58,7 +57,7 @@ type ConfigureSeqInput struct {
 	DON DonConfiguration // the DON to configuration for the forwarder to accept
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
-	MCMSConfig *changeset.MCMSConfig
+	MCMSConfig *proposalutils.TimelockConfig
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains map[uint64]struct{}
 }
@@ -98,7 +97,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 
 			addressesRefs := deps.Env.DataStore.Addresses().Filter(
 				datastore.AddressRefByChainSelector(chain.Selector),
-				datastore.AddressRefByType(datastore.ContractType(changeset.KeystoneForwarder)),
+				datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder)),
 			)
 			if len(addressesRefs) == 0 {
 				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d", chain.Selector)
@@ -162,9 +161,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 					inspectorPerChain,
 					[]mcmstypes.BatchOperation{*op},
 					"proposal to set forwarder config",
-					proposalutils.TimelockConfig{
-						MinDelay: input.MCMSConfig.MinDuration,
-					},
+					*input.MCMSConfig,
 				)
 				if err != nil {
 					return out, fmt.Errorf("configure-forwarders-seq failed: failed to build proposal: %w", err)

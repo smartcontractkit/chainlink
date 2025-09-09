@@ -69,6 +69,7 @@ type ConfigureContractsResponse struct {
 
 // ConfigureContracts configures contracts them with the given DONS and their capabilities. It optionally deploys the contracts
 // but best practice is to deploy them separately and pass the address book in the request
+// TODO: refactor to use cre sequences
 func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest) (*ConfigureContractsResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid request: %w", err)
@@ -100,8 +101,9 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 	if err != nil {
 		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
 	}
+
 	// ignore response because we are not using mcms here and therefore no proposals are returned
-	_, err = ConfigureForwardContracts(req.Env, ConfigureForwarderContractsRequest{
+	_, err = configureForwardContracts(req.Env, configureForwarderContractsRequest{
 		Dons: dons,
 	})
 	if err != nil {
@@ -985,9 +987,9 @@ type ConfiguredForwarderResponse struct {
 	Config ForwarderConfig
 }
 
-// ConfigureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
+// configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (*ConfiguredForwarderResponse, error) {
+func configureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (*ConfiguredForwarderResponse, error) {
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}

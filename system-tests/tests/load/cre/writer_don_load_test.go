@@ -88,7 +88,7 @@ func setupLoadTestWriterEnvironment(
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              in.JD,
-		InfraInput:                           in.Infra,
+		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
