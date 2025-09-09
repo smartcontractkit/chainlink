@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net"
@@ -29,14 +30,15 @@ import (
 	"github.com/urfave/cli"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -52,12 +54,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -111,10 +113,12 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				AuthHeaders:                    beholderAuthHeaders,
 				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
 				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
+				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
+				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 			}
 			// note: due to the OTEL specification, all histogram buckets
 			// must be defined when the beholder client is created
-			clientCfg.MetricViews = append(clientCfg.MetricViews, workflows.MetricViews()...)
+			clientCfg.MetricViews = append(clientCfg.MetricViews, monitoring.MetricViews()...)
 
 			if tracingCfg.Enabled {
 				clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
@@ -205,7 +209,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	ds := sqlutil.WrapDataSource(db, appLggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
-	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), appLggr)
+	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), appLggr.Infof)
 
 	err = keyStoreAuthenticator.Authenticate(ctx, keyStore, cfg.Password())
 	if err != nil {
@@ -228,7 +232,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
-	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
+	unrestrictedClient := clhttp.NewUnrestrictedClient()
 
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
@@ -236,10 +240,17 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
+	creOpts := chainlink.CREOpts{
+		CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
+	}
+	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {
+		creOpts.FetcherFunc, err = syncer.NewFetcherFunc(cfg.CRE().WorkflowFetcher().URL(), appLggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create workflow fetcher: %w", err)
+		}
+	}
 	return chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		CREOpts: chainlink.CREOpts{
-			CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
-		},
+		CREOpts:                  creOpts,
 		Config:                   cfg,
 		DS:                       ds,
 		KeyStore:                 keyStore,
@@ -248,13 +259,17 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: webhook.NewExternalInitiatorManager(ds, unrestrictedClient),
 		Version:                  static.Version,
-		RestrictedHTTPClient:     clhttp.NewRestrictedHTTPClient(cfg.Database(), appLggr),
+		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 		GRPCOpts:                 grpcOpts,
 		MercuryPool:              mercuryPool,
 		RetirementReportCache:    retirement.NewRetirementReportCache(appLggr, ds),
-		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
+		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
+		LimitsFactory: limits.Factory{
+			Meter:  beholder.GetMeter(),
+			Logger: appLggr.Named("Limits"),
+		},
 	})
 }
 
@@ -396,7 +411,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 			err = errors.WithStack(server.httpServer.Shutdown(context.Background()))
 		}
 		if server.tlsServer != nil {
-			err = multierr.Combine(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
+			err = stderrors.Join(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
 		}
 		return err
 	})
@@ -729,7 +744,7 @@ func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, multierr.Append(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
+		return nil, stderrors.Join(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
 	}
 	header := http.Header{}
 	header.Add("Cookie", string(b))

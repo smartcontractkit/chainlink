@@ -9,12 +9,13 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -32,6 +33,7 @@ type triggerPublisher struct {
 	workflowDONs    map[uint32]commoncap.DON
 	membersCache    map[uint32]map[p2ptypes.PeerID]bool
 	dispatcher      types.Dispatcher
+	capMethodName   string
 	messageCache    *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
 	registrations   map[registrationKey]*pubRegState
 	mu              sync.RWMutex // protects messageCache and registrations
@@ -65,7 +67,7 @@ var _ types.ReceiverService = &triggerPublisher{}
 
 const minAllowedBatchCollectionPeriod = 10 * time.Millisecond
 
-func NewTriggerPublisher(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, capMethodName string, lggr logger.Logger) *triggerPublisher {
 	if config == nil {
 		lggr.Info("no config provided, using default values")
 		config = &commoncap.RemoteTriggerConfig{}
@@ -87,12 +89,13 @@ func NewTriggerPublisher(config *commoncap.RemoteTriggerConfig, underlying commo
 		workflowDONs:    workflowDONs,
 		membersCache:    membersCache,
 		dispatcher:      dispatcher,
+		capMethodName:   capMethodName,
 		messageCache:    messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations:   make(map[registrationKey]*pubRegState),
 		batchingQueue:   make(map[[32]byte]*batchedResponse),
 		batchingEnabled: config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod,
 		stopCh:          make(services.StopChan),
-		lggr:            lggr.Named("TriggerPublisher"),
+		lggr:            logger.Named(lggr, "TriggerPublisher"),
 	}
 }
 
@@ -114,7 +117,13 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	if msg.Method == types.MethodRegisterTrigger {
+	if msg.ErrorMsg != "" {
+		p.lggr.Errorw("received a message with error",
+			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
+	}
+
+	switch msg.Method {
+	case types.MethodRegisterTrigger:
 		req, err := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
 		if err != nil {
 			p.lggr.Errorw("failed to unmarshal trigger registration request", "capabilityId", p.capInfo.ID, "err", err)
@@ -176,8 +185,12 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			cancel()
 			p.lggr.Errorw("failed to register trigger", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 		}
-	} else {
-		p.lggr.Errorw("received trigger request with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender)
+	case types.MethodTriggerEvent:
+		p.lggr.Errorw("trigger request failed with error",
+			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
+	default:
+		p.lggr.Errorw("received message with unknown method",
+			"method", SanitizeLogString(msg.Method), "sender", sender)
 	}
 }
 
@@ -290,6 +303,7 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 					TriggerEventId: resp.triggerEventID,
 				},
 			},
+			CapabilityMethod: p.capMethodName,
 		}
 		// NOTE: send to all nodes by default, introduce different strategies later (KS-76)
 		for _, peerID := range p.workflowDONs[resp.callerDonID].Members {

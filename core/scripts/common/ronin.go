@@ -10,6 +10,16 @@ import (
 	eth_types "github.com/ethereum/go-ethereum/core/types"
 )
 
+const (
+	RoninChainID       int64 = 2020
+	RoninSaigonChainID int64 = 2021
+)
+
+func IsRoninChain(chainID int64) bool {
+	return chainID == RoninChainID ||
+		chainID == RoninSaigonChainID
+}
+
 // RoninHeader is a copy of Header struct from ronin-chain repository
 // https://github.com/ronin-chain/ronin/blob/8a3b1ada700a48c78c178c56c8a2b0a0b9bfd3e6/core/types/block.go#L302
 type RoninHeader struct {

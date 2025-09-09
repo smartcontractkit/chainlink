@@ -17,7 +17,7 @@ var RemoveFeedProxyMappingChangeset = cldf.CreateChangeSet(removeFeedProxyMappin
 
 func removeFeedProxyMappingLogic(env cldf.Environment, c types.RemoveFeedProxyConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 
@@ -53,7 +53,7 @@ func removeFeedProxyMappingLogic(env cldf.Environment, c types.RemoveFeedProxyCo
 }
 
 func removeFeedFeedProxyMappingPrecondition(env cldf.Environment, c types.RemoveFeedProxyConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
@@ -62,7 +62,7 @@ func removeFeedFeedProxyMappingPrecondition(env cldf.Environment, c types.Remove
 		return errors.New("proxy addresses must not be empty")
 	}
 	if c.McmsConfig != nil {
-		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
+		if err := ValidateMCMSAddresses(env.DataStore.Addresses(), c.ChainSelector); err != nil {
 			return err
 		}
 	}

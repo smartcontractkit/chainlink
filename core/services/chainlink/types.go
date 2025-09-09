@@ -16,6 +16,7 @@ type GeneralConfig interface {
 	StarknetConfigs() RawConfigs
 	AptosConfigs() RawConfigs
 	TronConfigs() RawConfigs
+	TONConfigs() RawConfigs
 	// ConfigTOML returns both the user provided and effective configuration as TOML.
 	ConfigTOML() (user, effective string)
 	ImportedSecretConfig
@@ -25,5 +26,6 @@ type GeneralConfig interface {
 // to be imported into the keystore upon startup.
 type ImportedSecretConfig interface {
 	ImportedP2PKey() coreconfig.ImportableKey
-	ImportedEthKeys() coreconfig.ImportableEthKeyLister
+	ImportedEthKeys() coreconfig.ImportableChainKeyLister
+	ImportedSolKeys() coreconfig.ImportableChainKeyLister
 }

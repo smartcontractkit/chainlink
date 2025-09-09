@@ -903,6 +903,7 @@ type WorkflowSpec struct {
 	WorkflowID    string             `toml:"-" db:"workflow_id"` // Derived. Do not modify. the CID of the workflow.
 	WorkflowOwner string             `toml:"workflow_owner" db:"workflow_owner"`
 	WorkflowName  string             `toml:"workflow_name" db:"workflow_name"`
+	WorkflowTag   string             `toml:"workflow_tag" db:"workflow_tag"`
 	Status        WorkflowSpecStatus `db:"status"`
 	BinaryURL     string             `db:"binary_url"`
 	ConfigURL     string             `db:"config_url"`
@@ -1004,12 +1005,25 @@ func (w *WorkflowSpec) GetConfig(ctx context.Context) ([]byte, error) {
 	return rs, nil
 }
 
+type StandardCapabilitiesConfig struct {
+	Type              string              `toml:"type"`
+	SchemaVersion     int                 `toml:"schemaVersion"`
+	Name              string              `toml:"name"`
+	ExternalJobID     string              `toml:"externalJobID"`
+	ForwardingAllowed bool                `toml:"forwardingAllowed"`
+	Command           string              `toml:"command"`
+	Config            string              `toml:"config"`
+	OracleFactory     OracleFactoryConfig `toml:"oracle_factory"`
+}
+
 type OracleFactoryConfig struct {
-	Enabled            bool     `toml:"enabled"`
-	BootstrapPeers     []string `toml:"bootstrap_peers"`      // e.g.,["12D3KooWEBVwbfdhKnicois7FTYVsBFGFcoMhMCKXQC57BQyZMhz@localhost:6690"]
-	OCRContractAddress string   `toml:"ocr_contract_address"` // e.g., 0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6
-	ChainID            string   `toml:"chain_id"`             // e.g., "31337"
-	Network            string   `toml:"network"`              // e.g., "evm"
+	Enabled            bool                   `toml:"enabled"`
+	BootstrapPeers     []string               `toml:"bootstrap_peers"`
+	OCRContractAddress string                 `toml:"ocr_contract_address"`
+	OCRKeyBundleID     string                 `toml:"ocr_key_bundle_id"`
+	ChainID            string                 `toml:"chain_id"`
+	TransmitterID      string                 `toml:"transmitter_id"`
+	OnchainSigning     OnchainSigningStrategy `toml:"onchainSigningStrategy"`
 }
 
 // Value returns this instance serialized for database storage.
@@ -1028,6 +1042,11 @@ func (ofc *OracleFactoryConfig) Scan(value interface{}) error {
 		return errors.Errorf("expected bytes got %T", value)
 	}
 	return json.Unmarshal(b, &ofc)
+}
+
+type OnchainSigningStrategy struct {
+	StrategyName string            `toml:"strategyName"`
+	Config       map[string]string `toml:"config"`
 }
 
 type StandardCapabilitiesSpec struct {

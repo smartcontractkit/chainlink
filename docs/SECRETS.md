@@ -51,6 +51,19 @@ AllowSimplePasswords skips the password complexity check normally enforced on UR
 
 Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 
+## WebServer.OIDC
+```toml
+[WebServer.OIDC]
+clientSecret = "secret" # Example
+```
+Optional OIDC config
+
+### clientSecret
+```toml
+clientSecret = "secret" # Example
+```
+clientSecret is the secret value sent to the OIDC provider to exchange authorization code for ID token
+
 ## WebServer.LDAP
 ```toml
 [WebServer.LDAP]

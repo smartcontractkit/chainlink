@@ -1,110 +1,59 @@
 package utils
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
-	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
-	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 const MCMSProposalVersion = "v1"
 
 func GenerateProposal(
-	client aptos.AptosRpcClient,
+	env cldf.Environment,
 	mcmsAddress aptos.AccountAddress,
 	chainSel uint64,
-	operations []types.BatchOperation,
+	operations []mcmstypes.BatchOperation,
 	description string,
 	mcmsCfg proposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
 	// Get role from action
-	role, err := roleFromAction(mcmsCfg.MCMSAction)
+	role, err := proposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from action: %w", err)
 	}
-	jsonRole, _ := json.Marshal(aptosmcms.AdditionalFieldsMetadata{Role: role})
-	var action = mcmsCfg.MCMSAction
-	if action == "" {
-		action = types.TimelockActionSchedule
-	}
 	// Create MCMS inspector
-	inspector := aptosmcms.NewInspector(client, role)
-	startingOpCount, err := inspector.GetOpCount(context.Background(), mcmsAddress.StringLong())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get starting op count: %w", err)
-	}
-	opCount := startingOpCount
+	inspector := aptosmcms.NewInspector(env.BlockChains.AptosChains()[chainSel].Client, role)
 
-	// Create proposal builder
-	validUntil := time.Now().Unix() + int64(proposalutils.DefaultValidUntil.Seconds())
-	if validUntil < 0 || validUntil > math.MaxUint32 {
-		return nil, fmt.Errorf("validUntil value out of range for uint32: %d", validUntil)
-	}
-
-	proposalBuilder := mcms.NewTimelockProposalBuilder().
-		SetVersion(MCMSProposalVersion).
-		SetValidUntil(uint32(validUntil)).
-		SetDescription(description).
-		AddTimelockAddress(types.ChainSelector(chainSel), mcmsAddress.StringLong()).
-		SetOverridePreviousRoot(mcmsCfg.OverrideRoot).
-		AddChainMetadata(
-			types.ChainSelector(chainSel),
-			types.ChainMetadata{
-				StartingOpCount:  opCount,
-				MCMAddress:       mcmsAddress.StringLong(),
-				AdditionalFields: jsonRole,
-			},
-		).
-		SetAction(action).
-		SetDelay(types.NewDuration(mcmsCfg.MinDelay))
-
-	// Add operations and build
-	for _, op := range operations {
-		proposalBuilder.AddOperation(op)
-	}
-	proposal, err := proposalBuilder.Build()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build proposal: %w", err)
-	}
-
-	return proposal, nil
-}
-
-func roleFromAction(action types.TimelockAction) (aptosmcms.TimelockRole, error) {
-	switch action {
-	case types.TimelockActionSchedule:
-		return aptosmcms.TimelockRoleProposer, nil
-	case types.TimelockActionBypass:
-		return aptosmcms.TimelockRoleBypasser, nil
-	case types.TimelockActionCancel:
-		return aptosmcms.TimelockRoleCanceller, nil
-	case "":
-		return aptosmcms.TimelockRoleProposer, nil
-	default:
-		return aptosmcms.TimelockRoleProposer, fmt.Errorf("invalid action: %s", action)
-	}
+	return proposalutils.BuildProposalFromBatchesV2(
+		env,
+		map[uint64]string{chainSel: mcmsAddress.StringLong()},
+		map[uint64]string{chainSel: mcmsAddress.StringLong()},
+		map[uint64]mcmssdk.Inspector{chainSel: inspector},
+		operations,
+		description,
+		mcmsCfg,
+	)
 }
 
 // ToBatchOperations converts Operations into BatchOperations with a single transaction each
-func ToBatchOperations(ops []types.Operation) []types.BatchOperation {
-	batchOps := []types.BatchOperation{}
+func ToBatchOperations(ops []mcmstypes.Operation) []mcmstypes.BatchOperation {
+	var batchOps []mcmstypes.BatchOperation
 	for _, op := range ops {
-		batchOps = append(batchOps, types.BatchOperation{
+		batchOps = append(batchOps, mcmstypes.BatchOperation{
 			ChainSelector: op.ChainSelector,
-			Transactions:  []types.Transaction{op.Transaction},
+			Transactions:  []mcmstypes.Transaction{op.Transaction},
 		})
 	}
 	return batchOps
@@ -131,14 +80,14 @@ func CreateChunksAndStage(
 	chainSel uint64,
 	seed string,
 	codeObjectAddress *aptos.AccountAddress,
-) ([]types.Operation, error) {
+) ([]mcmstypes.Operation, error) {
 	mcmsAddress := mcmsContract.Address()
 	// Validate seed XOR codeObjectAddress, one and only one must be provided
 	if (seed != "") == (codeObjectAddress != nil) {
 		return nil, errors.New("either provide seed to publishToObject or objectAddress to upgradeObjectCode")
 	}
 
-	var operations []types.Operation
+	var operations []mcmstypes.Operation
 
 	// Create chunks
 	chunks, err := bind.CreateChunks(payload, bind.ChunkSizeInBytes)
@@ -181,22 +130,15 @@ func CreateChunksAndStage(
 		if err != nil {
 			return operations, fmt.Errorf("failed to encode chunk %d: %w", i, err)
 		}
-		additionalFields := aptosmcms.AdditionalFields{
-			PackageName: moduleInfo.PackageName,
-			ModuleName:  moduleInfo.ModuleName,
-			Function:    function,
-		}
-		afBytes, err := json.Marshal(additionalFields)
+
+		tx, err := GenerateMCMSTx(mcmsAddress, moduleInfo, function, args)
 		if err != nil {
-			return operations, fmt.Errorf("failed to marshal additional fields: %w", err)
+			return operations, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		operations = append(operations, types.Operation{
-			ChainSelector: types.ChainSelector(chainSel),
-			Transaction: types.Transaction{
-				To:               mcmsAddress.StringLong(),
-				Data:             aptosmcms.ArgsToData(args),
-				AdditionalFields: afBytes,
-			},
+
+		operations = append(operations, mcmstypes.Operation{
+			ChainSelector: mcmstypes.ChainSelector(chainSel),
+			Transaction:   tx,
 		})
 	}
 
@@ -204,19 +146,14 @@ func CreateChunksAndStage(
 }
 
 // GenerateMCMSTx is a helper function that generates a MCMS txs for the given parameters
-func GenerateMCMSTx(toAddress aptos.AccountAddress, moduleInfo bind.ModuleInformation, function string, args [][]byte) (types.Transaction, error) {
-	additionalFields := aptosmcms.AdditionalFields{
-		PackageName: moduleInfo.PackageName,
-		ModuleName:  moduleInfo.ModuleName,
-		Function:    function,
-	}
-	afBytes, err := json.Marshal(additionalFields)
-	if err != nil {
-		return types.Transaction{}, fmt.Errorf("failed to marshal additional fields: %w", err)
-	}
-	return types.Transaction{
-		To:               toAddress.StringLong(),
-		Data:             aptosmcms.ArgsToData(args),
-		AdditionalFields: afBytes,
-	}, nil
+func GenerateMCMSTx(toAddress aptos.AccountAddress, moduleInfo bind.ModuleInformation, function string, args [][]byte) (mcmstypes.Transaction, error) {
+	return aptosmcms.NewTransaction(
+		moduleInfo.PackageName,
+		moduleInfo.ModuleName,
+		function,
+		toAddress,
+		aptosmcms.ArgsToData(args),
+		"",
+		nil,
+	)
 }

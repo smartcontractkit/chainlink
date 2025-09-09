@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -130,7 +131,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		if info.Name == "" {
 			info.Name = fmt.Sprintf("node-%d", i)
 		}
-		node, err := NewNode(info)
+		node, err := NewNodeWithContext(ctx, info)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
 		}
@@ -164,6 +165,13 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 				Key:   LabelNodeTypeKey,
 				Value: ptr(LabelNodeTypeValuePlugin),
 			})
+
+			for key, val := range info.Labels {
+				node.labels = append(node.labels, &ptypes.Label{
+					Key:   key,
+					Value: ptr(val),
+				})
+			}
 		}
 		// Set up Job distributor in node and register node with the job distributor
 		err = node.SetUpAndLinkJobDistributor(ctx, jd)
@@ -176,8 +184,13 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 	return don, nil
 }
 
+// Deprecated: use NewNodeWithContext
 func NewNode(nodeInfo NodeInfo) (*Node, error) {
-	gqlClient, err := client.New(nodeInfo.CLConfig.URL, client.Credentials{
+	return NewNodeWithContext(context.Background(), nodeInfo)
+}
+
+func NewNodeWithContext(ctx context.Context, nodeInfo NodeInfo) (*Node, error) {
+	gqlClient, err := client.NewWithContext(ctx, nodeInfo.CLConfig.URL, client.Credentials{
 		Email:    nodeInfo.CLConfig.Email,
 		Password: nodeInfo.CLConfig.Password,
 	})
@@ -239,6 +252,11 @@ func (n *Node) AddLabel(label *ptypes.Label) {
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for _, chain := range chains {
 		var account string
+
+		if n.AccountAddr == nil {
+			n.AccountAddr = make(map[string]string)
+		}
+
 		switch chain.ChainType {
 		case "EVM":
 			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
@@ -248,9 +266,6 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			if accountAddr == nil {
 				return fmt.Errorf("no account address found for node %s", n.Name)
 			}
-			if n.AccountAddr == nil {
-				n.AccountAddr = make(map[string]string)
-			}
 			n.AccountAddr[chain.ChainID] = *accountAddr
 			account = *accountAddr
 		case "APTOS", "SOLANA":
@@ -259,10 +274,8 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
 			if len(accounts) == 0 {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainType)
 			}
-
-			n.AccountAddr[chain.ChainID] = accounts[0]
 			n.AccountAddr[chain.ChainID] = accounts[0]
 			account = accounts[0]
 		default:
@@ -566,4 +579,46 @@ func value[T any](v *T) T {
 		return *zero
 	}
 	return *v
+}
+
+func (n *Node) CancelProposalsByExternalJobID(ctx context.Context, externalJobIDs []string) ([]string, error) {
+	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
+	if err != nil {
+		return nil, err
+	}
+	if jd.GetJobProposals() == nil {
+		return nil, fmt.Errorf("no job proposals found for node %s", n.Name)
+	}
+
+	proposalIDs := []string{}
+	for _, jp := range jd.JobProposals {
+		if !slices.Contains(externalJobIDs, jp.ExternalJobID) {
+			continue
+		}
+
+		proposalIDs = append(proposalIDs, jp.Id)
+		spec, err := n.gqlClient.CancelJobProposalSpec(ctx, jp.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		if spec == nil {
+			return nil, fmt.Errorf("no job proposal spec found for id %s", jp.Id)
+		}
+	}
+
+	return proposalIDs, nil
+}
+
+func (n *Node) ApproveProposals(ctx context.Context, proposalIDs []string) error {
+	for _, proposalID := range proposalIDs {
+		spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, proposalID, false)
+		if err != nil {
+			return err
+		}
+		if spec == nil {
+			return fmt.Errorf("no job proposal spec found for id %s", proposalID)
+		}
+	}
+	return nil
 }

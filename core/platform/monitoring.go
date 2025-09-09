@@ -13,8 +13,10 @@ const (
 	KeyWorkflowID          = "workflowID"
 	KeyWorkflowExecutionID = "workflowExecutionID"
 	KeyWorkflowName        = "workflowName"
+	KeyWorkflowTag         = "workflowTag"
 	KeyWorkflowVersion     = "workflowVersion"
 	KeyWorkflowOwner       = "workflowOwner"
+	KeyOrganizationID      = "orgID"
 	KeyStepID              = "stepID"
 	KeyStepRef             = "stepRef"
 	KeyDonID               = "DonID"
@@ -23,6 +25,15 @@ const (
 	KeyDonQ                = "Q"
 	KeyP2PID               = "p2pID"
 	ValueWorkflowVersion   = "1.0.0"
+	ValueWorkflowVersionV2 = "2.0.0"
+
+	// Registry and version keys
+	WorkflowRegistryAddress     = "workflowRegistryAddress"
+	WorkflowRegistryVersion     = "workflowRegistryVersion"
+	WorkflowRegistryChain       = "workflowRegistryChain"
+	EngineVersion               = "engineVersion"
+	CapabilitiesRegistryVersion = "capabilitiesRegistryVersion"
+	DonVersion                  = "donVersion"
 )
 
 func LabelKeysSorted() iter.Seq[string] {

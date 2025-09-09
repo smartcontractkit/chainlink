@@ -4,9 +4,9 @@ import (
 	"context"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
 type fakeWriteChain struct {
@@ -16,7 +16,7 @@ type fakeWriteChain struct {
 }
 
 var _ services.Service = (*fakeWriteChain)(nil)
-var _ commonCap.TargetCapability = (*fakeWriteChain)(nil)
+var _ commonCap.ExecutableCapability = (*fakeWriteChain)(nil)
 
 func (wc *fakeWriteChain) Info(ctx context.Context) (commonCap.CapabilityInfo, error) {
 	return commonCap.CapabilityInfo{

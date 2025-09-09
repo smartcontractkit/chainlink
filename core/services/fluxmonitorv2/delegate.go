@@ -2,13 +2,15 @@ package fluxmonitorv2
 
 import (
 	"context"
+	stderrors "errors"
+	"fmt"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -73,10 +75,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if jb.FluxMonitorSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", jb)
 	}
-	chain, err := d.legacyChains.Get(jb.FluxMonitorSpec.EVMChainID.String())
+	chainService, err := d.legacyChains.Get(jb.FluxMonitorSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("fluxmonitor is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
+	}
+
 	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, d.cfg.FluxMonitor().DefaultTransactionQueueDepth())
 	var checker txmgr.TransmitCheckerSpec
 	if d.cfg.FluxMonitor().SimulateTransactions() {

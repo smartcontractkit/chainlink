@@ -18,7 +18,7 @@ import (
 var AcceptOwnershipChangeset = cldf.CreateChangeSet(acceptOwnershipLogic, acceptOwnershipPrecondition)
 
 func acceptOwnershipLogic(env cldf.Environment, c types.AcceptOwnershipConfig) (cldf.ChangesetOutput, error) {
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 
 	var mcmsProposals []ProposalData
 	for _, contractAddress := range c.ContractAddresses {
@@ -47,7 +47,7 @@ func acceptOwnershipLogic(env cldf.Environment, c types.AcceptOwnershipConfig) (
 }
 
 func acceptOwnershipPrecondition(env cldf.Environment, c types.AcceptOwnershipConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
@@ -56,5 +56,5 @@ func acceptOwnershipPrecondition(env cldf.Environment, c types.AcceptOwnershipCo
 		return errors.New("mcms config is required")
 	}
 
-	return ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector)
+	return ValidateMCMSAddresses(env.DataStore.Addresses(), c.ChainSelector)
 }

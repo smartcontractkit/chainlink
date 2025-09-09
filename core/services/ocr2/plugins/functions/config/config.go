@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 	s4PluginConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
@@ -46,7 +46,7 @@ type PluginConfig struct {
 	GatewayConnectorConfig                   *connector.ConnectorConfig                `json:"gatewayConnectorConfig"`
 	OnchainAllowlist                         *allowlist.OnchainAllowlistConfig         `json:"onchainAllowlist"`
 	OnchainSubscriptions                     *subscriptions.OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
-	RateLimiter                              *common.RateLimiterConfig                 `json:"rateLimiter"`
+	RateLimiter                              *ratelimit.RateLimiterConfig              `json:"rateLimiter"`
 	S4Constraints                            *s4.Constraints                           `json:"s4Constraints"`
 	DecryptionQueueConfig                    *DecryptionQueueConfig                    `json:"decryptionQueueConfig"`
 	ExternalAdapterMaxRetries                *uint32                                   `json:"externalAdapterMaxRetries"`

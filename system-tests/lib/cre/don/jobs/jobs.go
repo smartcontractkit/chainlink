@@ -10,13 +10,12 @@ import (
 	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs types.DonJobs) error {
+func Create(ctx context.Context, offChainClient cldf_offchain.Client, jobSpecs cre.DonJobs) error {
 	if len(jobSpecs) == 0 {
 		return nil
 	}
@@ -28,9 +27,9 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 		eg.Go(func() error {
 			jobRateLimit.Take()
 			timeout := time.Second * 60
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
-			_, err := offChainClient.ProposeJob(ctx, jobReq)
+			_, err := offChainClient.ProposeJob(ctxWithTimeout, jobReq)
 			if err != nil {
 				// Workflow specs get auto approved
 				// TODO: Narrow down scope by checking type == workflow

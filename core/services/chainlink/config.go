@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/imdario/mergo"
-	"go.uber.org/multierr"
 
 	gotoml "github.com/pelletier/go-toml/v2"
 
@@ -45,6 +44,8 @@ type Config struct {
 	Aptos RawConfigs `toml:",omitempty"`
 
 	Tron RawConfigs `toml:",omitempty"`
+
+	TON RawConfigs `toml:",omitempty"`
 }
 
 // RawConfigs is a list of RawConfig.
@@ -118,21 +119,21 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 	var err error
 	if v, ok := c["Enabled"]; ok {
 		if _, ok := v.(bool); !ok {
-			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected bool"})
+			err = errors.Join(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected bool"})
 		}
 	}
 
 	parsedRawConfig := &parsedRawConfig{}
 	chainID, exists := c["ChainID"]
 	if !exists {
-		err = multierr.Append(err, commonconfig.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
+		err = errors.Join(err, commonconfig.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else {
 		chainIDStr, ok := chainID.(string)
 		switch {
 		case !ok:
-			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: chainID, Msg: "expected string"})
+			err = errors.Join(err, commonconfig.ErrInvalid{Name: "ChainID", Value: chainID, Msg: "expected string"})
 		case chainIDStr == "":
-			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+			err = errors.Join(err, commonconfig.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 		default:
 			parsedRawConfig.chainID = chainIDStr
 		}
@@ -143,24 +144,24 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 		nodeMaps, ok := nodes.([]any)
 		switch {
 		case !ok:
-			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Nodes", Value: nodes, Msg: "expected array of node configs"})
+			err = errors.Join(err, commonconfig.ErrInvalid{Name: "Nodes", Value: nodes, Msg: "expected array of node configs"})
 		default:
 			for i, node := range nodeMaps {
 				nodeConfig, ok := node.(map[string]any)
 				if !ok {
-					err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d", i), Value: nodeConfig, Msg: "expected node config map"})
+					err = errors.Join(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d", i), Value: nodeConfig, Msg: "expected node config map"})
 				} else {
 					parsedRawConfig.nodes = append(parsedRawConfig.nodes, nodeConfig)
 					nodeName, exists := nodeConfig["Name"]
 					if !exists {
-						err = multierr.Append(err, commonconfig.ErrMissing{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
+						err = errors.Join(err, commonconfig.ErrMissing{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
 					} else {
 						nodeNameStr, ok := nodeName.(string)
 						switch {
 						case !ok:
-							err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d.Name", i), Value: nodeName, Msg: "expected string"})
+							err = errors.Join(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d.Name", i), Value: nodeName, Msg: "expected string"})
 						case nodeNameStr == "":
-							err = multierr.Append(err, commonconfig.ErrEmpty{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
+							err = errors.Join(err, commonconfig.ErrEmpty{Name: fmt.Sprintf("Nodes.%d.Name", i), Msg: "required for all nodes"})
 						default:
 							parsedRawConfig.nodeNames = append(parsedRawConfig.nodeNames, nodeNameStr)
 						}
@@ -177,9 +178,9 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 func (c RawConfig) ValidateConfig() error {
 	parsedRawConfig, err := c.parse()
 	if !parsedRawConfig.nodesExist {
-		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "expected at least one node"})
+		err = errors.Join(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "expected at least one node"})
 	} else if len(parsedRawConfig.nodes) == 0 {
-		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Nodes", Msg: "expected at least one node"})
+		err = errors.Join(err, commonconfig.ErrEmpty{Name: "Nodes", Msg: "expected at least one node"})
 	}
 	return err
 }
@@ -281,7 +282,7 @@ func (c *Config) warnings() (err error) {
 	deprecationErr := c.deprecationWarnings()
 
 	warningErr := c.valueWarnings()
-	err = multierr.Append(deprecationErr, warningErr)
+	err = errors.Join(deprecationErr, warningErr)
 	_, list := commonconfig.MultiErrorList(err)
 	return list
 }
@@ -291,7 +292,7 @@ func (c *Config) valueWarnings() (err error) {
 	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
 		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
 			if c.Tracing.TLSCertPath != nil {
-				err = multierr.Append(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+				err = errors.Join(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
 			}
 		}
 	}
@@ -341,37 +342,28 @@ func (c *Config) setDefaults() {
 	c.Starknet.SetDefaults()
 
 	c.Tron.SetDefaults()
+
+	c.TON.SetDefaults()
 }
 
 func (c *Config) SetFrom(f *Config) (err error) {
 	c.Core.SetFrom(&f.Core)
 
-	if err1 := c.EVM.SetFrom(&f.EVM); err1 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err1, "EVM"))
+	appendErr := func(e error, name string) {
+		if e != nil {
+			err = errors.Join(err, commonconfig.NamedMultiErrorList(e, name))
+		}
 	}
 
-	if err2 := c.Cosmos.SetFrom(f.Cosmos); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Cosmos"))
-	}
-
-	if err3 := c.Solana.SetFrom(&f.Solana); err3 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err3, "Solana"))
-	}
-
-	if err4 := c.Starknet.SetFrom(f.Starknet); err4 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err4, "Starknet"))
-	}
-
-	if err5 := c.Aptos.SetFrom(f.Aptos); err5 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err5, "Aptos"))
-	}
-
-	if err6 := c.Tron.SetFrom(f.Tron); err6 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err6, "Tron"))
-	}
+	appendErr(c.EVM.SetFrom(&f.EVM), "EVM")
+	appendErr(c.Cosmos.SetFrom(f.Cosmos), "Cosmos")
+	appendErr(c.Solana.SetFrom(&f.Solana), "Solana")
+	appendErr(c.Starknet.SetFrom(f.Starknet), "Starknet")
+	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")
+	appendErr(c.Tron.SetFrom(f.Tron), "Tron")
+	appendErr(c.TON.SetFrom(f.TON), "TON")
 
 	_, err = commonconfig.MultiErrorList(err)
-
 	return err
 }
 
@@ -381,43 +373,47 @@ type Secrets struct {
 
 func (s *Secrets) SetFrom(f *Secrets) (err error) {
 	if err2 := s.Database.SetFrom(&f.Database); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Database"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Database"))
 	}
 
 	if err2 := s.Password.SetFrom(&f.Password); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Password"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Password"))
 	}
 
 	if err2 := s.WebServer.SetFrom(&f.WebServer); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "WebServer"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "WebServer"))
 	}
 
 	if err2 := s.Pyroscope.SetFrom(&f.Pyroscope); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Pyroscope"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Pyroscope"))
 	}
 
 	if err2 := s.Prometheus.SetFrom(&f.Prometheus); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Prometheus"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Prometheus"))
 	}
 
 	if err2 := s.Mercury.SetFrom(&f.Mercury); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Mercury"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Mercury"))
 	}
 
 	if err2 := s.Threshold.SetFrom(&f.Threshold); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Threshold"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Threshold"))
 	}
 
 	if err2 := s.EVM.SetFrom(&f.EVM); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "EthKeys"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "EthKeys"))
 	}
 
 	if err2 := s.P2PKey.SetFrom(&f.P2PKey); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
+	}
+
+	if err2 := s.Solana.SetFrom(&f.Solana); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Solana"))
 	}
 
 	if err2 := s.CRE.SetFrom(&f.CRE); err2 != nil {
-		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
 	}
 
 	_, err = commonconfig.MultiErrorList(err)

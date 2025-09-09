@@ -3,6 +3,9 @@ package stateview
 import (
 	"encoding/json"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ccipview "github.com/smartcontractkit/chainlink/deployment/ccip/view"
@@ -16,8 +19,11 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
-	allChains := append(e.AllChainSelectors(), e.AllChainSelectorsSolana()...)
-	chainView, solanaView, err := state.View(&e, allChains)
+	var allChains []uint64
+	allChains = append(allChains, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))...)
+	allChains = append(allChains, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))...)
+	allChains = append(allChains, e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyAptos))...)
+	stateView, err := state.View(&e, allChains)
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +32,9 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 		return nil, err
 	}
 	return ccipview.CCIPView{
-		Chains:    chainView,
-		SolChains: solanaView,
-		Nops:      nopsView,
+		Chains:      stateView.Chains,
+		SolChains:   stateView.SolChains,
+		AptosChains: stateView.AptosChains,
+		Nops:        nopsView,
 	}, nil
 }

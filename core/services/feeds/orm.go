@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -56,6 +57,7 @@ type ORM interface {
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
 
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
+	IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (bool, error)
 
 	Transact(context.Context, func(ORM) error) error
 	WithDataSource(sqlutil.DataSource) ORM
@@ -64,18 +66,23 @@ type ORM interface {
 var _ ORM = &orm{}
 
 type orm struct {
-	ds sqlutil.DataSource
+	ds   sqlutil.DataSource
+	lggr logger.Logger
 }
 
-func NewORM(ds sqlutil.DataSource) *orm {
-	return &orm{ds: ds}
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger) *orm {
+	namedLogger := logger.Sugared(lggr.Named("FeedsORM"))
+	return &orm{
+		ds:   ds,
+		lggr: namedLogger,
+	}
 }
 
 func (o *orm) Transact(ctx context.Context, fn func(ORM) error) error {
 	return sqlutil.Transact(ctx, o.WithDataSource, o.ds, nil, fn)
 }
 
-func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return &orm{ds} }
+func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return &orm{ds: ds, lggr: o.lggr} }
 
 // Count counts the number of feeds manager records.
 // TODO: delete once multiple feeds managers support is released
@@ -381,7 +388,7 @@ func (o *orm) CountJobProposals(ctx context.Context) (count int64, err error) {
 // CountJobProposals counts the number of job proposal records.
 func (o *orm) CountJobProposalsByStatus(ctx context.Context) (counts *JobProposalCounts, err error) {
 	stmt := `
-SELECT 
+SELECT
 	COUNT(*) filter (where job_proposals.status = 'pending' OR job_proposals.pending_update = TRUE) as pending,
 	COUNT(*) filter (where job_proposals.status = 'approved' AND job_proposals.pending_update = FALSE) as approved,
 	COUNT(*) filter (where job_proposals.status = 'rejected' AND job_proposals.pending_update = FALSE) as rejected,
@@ -419,6 +426,7 @@ WHERE remote_uuid = $1
 AND status <> $2;
 `
 
+	o.lggr.Infow("getting job proposal by remote uuid", "remoteUUID", id)
 	jp = new(JobProposal)
 	err = o.ds.GetContext(ctx, jp, stmt, id, JobProposalStatusDeleted)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
@@ -547,6 +555,7 @@ WHERE id = $2
 RETURNING job_proposal_id;
 `
 
+	o.lggr.Infow("cancelling job proposal spec", "specID", id)
 	var jpID int64
 	if err := o.ds.GetContext(ctx, &jpID, stmt, SpecStatusCancelled, id); err != nil {
 		return err
@@ -565,6 +574,7 @@ SET status = (
 	updated_at = NOW()
 WHERE id = $1;
 `
+	o.lggr.Infow("updating job proposal after spec cancellation", "jobProposalID", jpID)
 	result, err := o.ds.ExecContext(ctx, stmt, jpID, nil)
 	if err != nil {
 		return err
@@ -625,6 +635,7 @@ WHERE (job_proposal_id, version) IN
 AND job_proposal_id = $1
 `
 
+	o.lggr.Infow("getting latest spec for job proposal", "jobProposalID", id)
 	var spec JobProposalSpec
 	err := o.ds.GetContext(ctx, &spec, stmt, id)
 	if err != nil {
@@ -642,6 +653,7 @@ SET status = $1,
 WHERE id = $2;
 `
 
+	o.lggr.Infow("deleting job proposal", "id", id, "pendingUpdate", pendingUpdate)
 	result, err := o.ds.ExecContext(ctx, stmt, JobProposalStatusDeleted, id, pendingUpdate)
 	if err != nil {
 		return err
@@ -680,6 +692,7 @@ WHERE status = $1
 AND job_proposal_id = $2
 `
 
+	o.lggr.Infow("getting approved spec for job proposal", "jobProposalID", jpID)
 	var spec JobProposalSpec
 	err := o.ds.GetContext(ctx, &spec, stmt, SpecStatusApproved, jpID)
 
@@ -865,4 +878,21 @@ SELECT exists (
 
 	err = o.ds.GetContext(ctx, &exists, stmt, jobID)
 	return exists, errors.Wrap(err, "IsJobManaged failed")
+}
+
+// IsJobManagedByFeedsManager determines if a job is managed by a specific feeds manager.
+func (o *orm) IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (exists bool, err error) {
+	stmt := `
+SELECT exists (
+	SELECT 1
+	FROM job_proposals
+	INNER JOIN jobs ON job_proposals.external_job_id = jobs.external_job_id
+	WHERE jobs.id = $1
+	AND job_proposals.feeds_manager_id = $2
+	AND job_proposals.status <> 'deleted'
+);
+`
+
+	err = o.ds.GetContext(ctx, &exists, stmt, jobID, feedsManagerID)
+	return exists, errors.Wrap(err, "IsJobManagedByFeedsManager failed")
 }

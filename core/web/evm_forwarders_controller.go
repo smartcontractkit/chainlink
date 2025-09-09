@@ -1,6 +1,8 @@
 package web
 
 import (
+	stderrors "errors"
+	"fmt"
 	"math/big"
 	"net/http"
 
@@ -8,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -80,11 +83,15 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 	}
 
 	filterCleanup := func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error {
-		chain, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String())
+		chainService, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String())
 		if err2 != nil {
 			// If the chain id doesn't even exist, or logpoller is disabled, then there isn't any filter to clean up.  Returning an error
 			// here could be dangerous as it would make it impossible to delete a forwarder with an invalid chain id
 			return nil
+		}
+		chain, ok := chainService.(legacyevm.Chain)
+		if !ok {
+			return fmt.Errorf("not available in loop mode: %w", stderrors.ErrUnsupported)
 		}
 
 		if chain.LogPoller() == logpoller.LogPollerDisabled {

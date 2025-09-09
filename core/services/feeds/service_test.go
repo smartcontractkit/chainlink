@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"math/rand/v2"
 	"slices"
 	"testing"
 	"time"
@@ -20,17 +21,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -81,7 +83,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name              = "%s"
 externalJobID       = "%s"
-evmChainID 		   = 0
+evmChainID 		   = "%s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 keyBundleID        = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
@@ -248,7 +250,7 @@ func setupTestServiceCfg(
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
 	keyStore.On("Workflow").Return(workflowKeystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Feature(), gcfg.Insecure(),
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.JobDistributor(), gcfg.Feature(), gcfg.Insecure(),
 		gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil, opts...)
 	svc.SetConnectionsManager(connMgr)
 
@@ -342,7 +344,7 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	)
 
 	svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		var multiFeedsManagers = true
+		multiFeedsManagers := true
 		c.Feature.MultiFeedsManagers = &multiFeedsManagers
 	})
 	ctx := testutils.Context(t)
@@ -413,7 +415,7 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	t.Parallel()
 
-	var pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	pubKeyHex := "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	var pubKey crypto.PublicKey
 	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
@@ -432,7 +434,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	)
 
 	svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		var multiFeedsManagers = true
+		multiFeedsManagers := true
 		c.Feature.MultiFeedsManagers = &multiFeedsManagers
 	})
 	ctx := testutils.Context(t)
@@ -487,10 +489,7 @@ func Test_Service_GetManager(t *testing.T) {
 }
 
 func Test_Service_UpdateFeedsManager(t *testing.T) {
-
-	var (
-		mgr = feeds.FeedsManager{ID: 1}
-	)
+	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)
 
@@ -648,8 +647,9 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey:   &wkID,
-				P2PKeyBundles: []*proto.P2PKeyBundle{{PeerId: p2pKey.PeerID().String(), PublicKey: p2pKey.PublicKeyHex()}},
+				WorkflowKey:     &wkID,
+				P2PKeyBundles:   []*proto.P2PKeyBundle{{PeerId: p2pKey.PeerID().String(), PublicKey: p2pKey.PublicKeyHex()}},
+				NopFriendlyName: "",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -708,10 +708,11 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	svc.orm.On("ListChainConfigsByManagerIDs", mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{}, nil)
 	wkID := workflowKey.ID()
 	svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
-		Version:       nodeVersion.Version,
-		ChainConfigs:  []*proto.ChainConfig{},
-		WorkflowKey:   &wkID,
-		P2PKeyBundles: []*proto.P2PKeyBundle{},
+		Version:         nodeVersion.Version,
+		ChainConfigs:    []*proto.ChainConfig{},
+		WorkflowKey:     &wkID,
+		P2PKeyBundles:   []*proto.P2PKeyBundle{},
+		NopFriendlyName: "",
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -792,7 +793,9 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 					OCR2Config:              feeds.OCR2ConfigModel{Enabled: false},
 				}
 
-				svc = setupTestService(t)
+				svc = setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+					c.JobDistributor.DisplayName = testutils.Ptr("nop-friendly-name-test")
+				})
 			)
 
 			workflowKey, err := workflowkey.New()
@@ -822,8 +825,9 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 						Ocr2Config:              &proto.OCR2Config{Enabled: false},
 					},
 				},
-				WorkflowKey:   &wkID,
-				P2PKeyBundles: []*proto.P2PKeyBundle{},
+				WorkflowKey:     &wkID,
+				P2PKeyBundles:   []*proto.P2PKeyBundle{},
+				NopFriendlyName: "nop-friendly-name-test",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -885,7 +889,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		idOCR1                   = int64(2)
 		remoteUUIDOCR1           = uuid.New()
 		ocr1NameAndExternalJobID = uuid.New()
-		ocr1Spec                 = fmt.Sprintf(OCR1TestSpecTemplate, ocr1NameAndExternalJobID, ocr1NameAndExternalJobID)
+		ocr1Spec                 = fmt.Sprintf(OCR1TestSpecTemplate, ocr1NameAndExternalJobID, ocr1NameAndExternalJobID, testutils.FixtureChainID.String())
 		argsOCR1                 = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDOCR1,
@@ -1311,8 +1315,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1423,6 +1425,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 			name: "Delete proposal error",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(job.Job{}, sql.ErrNoRows)
 				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(errors.New("orm error"))
 			},
 			args:    args,
@@ -1437,13 +1440,9 @@ func Test_Service_DeleteJob(t *testing.T) {
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
 				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
 
-				// mocks for CancelSpec()
-				svc.orm.On("GetSpec", mock.Anything, jobProposalSpec.ID).Return(jobProposalSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, approved.ID).Return(&approved, nil)
 				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
 
 				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(nil)
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
 				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(nil)
 
 				svc.fmsClient.On("CancelledJob",
@@ -1460,11 +1459,181 @@ func Test_Service_DeleteJob(t *testing.T) {
 			args:   args,
 			wantID: approved.ID,
 		},
+		{
+			name: "Delete workflow-spec transaction rollback on FMS client error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				// These should be called but then rolled back due to FMS error
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(nil)
+
+				// FMS client call fails - this should cause transaction rollback
+				svc.fmsClient.On("CancelledJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.CancelledJobRequest{
+						Uuid:    approved.RemoteUUID.String(),
+						Version: int64(jobProposalSpec.Version),
+					},
+				).Return(nil, errors.New("FMS client timeout"))
+
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:    args,
+			wantErr: "failed to auto-cancel workflow spec",
+		},
+		{
+			name: "Delete workflow-spec transaction rollback on job deletion error",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				// These should be called but then rolled back due to job deletion error
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(nil)
+
+				// Job deletion fails - this should cause transaction rollback
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, workflowJob.ID).Return(errors.New("job deletion failed"))
+
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:    args,
+			wantErr: "failed to auto-cancel workflow spec",
+		},
+		{
+			name: "GetClient error for workflow cancellation",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(nil, errors.New("connection manager error"))
+			},
+			args:    args,
+			wantErr: "failed to get FMS client for workflow spec cancellation",
+		},
+		{
+			name: "GetApprovedSpec error for workflow job - fallback to simple deletion",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(nil, errors.New("no approved spec"))
+
+				// Should fallback to simple proposal deletion
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "Proposal with ExternalJobID but job not found - simple deletion",
+			before: func(svc *TestService) {
+				proposalWithJobID := approved
+				proposalWithJobID.ExternalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
+
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&proposalWithJobID, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, proposalWithJobID.ExternalJobID.UUID).Return(job.Job{}, sql.ErrNoRows)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "Proposal with ExternalJobID but job is not workflow type - simple deletion",
+			before: func(svc *TestService) {
+				proposalWithJobID := approved
+				proposalWithJobID.ExternalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
+
+				nonWorkflowJob := job.Job{
+					ID:             2,
+					WorkflowSpecID: nil, // Not a workflow job
+				}
+
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&proposalWithJobID, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, proposalWithJobID.ExternalJobID.UUID).Return(nonWorkflowJob, nil)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "DeleteProposal error in workflow cancellation path",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				// DeleteProposal fails in workflow cancellation path
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(errors.New("delete proposal failed"))
+
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:    args,
+			wantErr: "failed to auto-cancel workflow spec",
+		},
+		{
+			name: "CancelSpec error in workflow cancellation path",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(workflowJob, nil)
+				svc.orm.On("GetApprovedSpec", mock.Anything, approved.ID).Return(jobProposalSpec, nil)
+
+				svc.connMgr.On("GetClient", mock.Anything).Return(svc.fmsClient, nil)
+
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				// CancelSpec fails
+				svc.orm.On("CancelSpec", mock.Anything, jobProposalSpec.ID).Return(errors.New("cancel spec failed"))
+
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			args:    args,
+			wantErr: "failed to auto-cancel workflow spec",
+		},
+		{
+			name: "observeJobProposalCounts error - success with warning log",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&approved, nil)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				// observeJobProposalCounts fails but shouldn't cause DeleteJob to fail
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(nil, errors.New("metrics error"))
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, approved.ExternalJobID.UUID).Return(job.Job{}, sql.ErrNoRows)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
+		{
+			name: "Proposal with null ExternalJobID - simple deletion success",
+			before: func(svc *TestService) {
+				proposalNullJobID := approved
+				proposalNullJobID.ExternalJobID = uuid.NullUUID{Valid: false}
+
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, approved.RemoteUUID).Return(&proposalNullJobID, nil)
+				svc.orm.On("DeleteProposal", mock.Anything, approved.ID).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+			args:   args,
+			wantID: approved.ID,
+		},
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1523,7 +1692,7 @@ ds1_parse    [type=jsonparse path="one,two"];
 ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
-# omit gasPriceSubunitsSource intentionally 
+# omit gasPriceSubunitsSource intentionally
 """
 `
 
@@ -1691,8 +1860,6 @@ answer1      [type=median index=0];
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -1858,6 +2025,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					{PeerId: p2pKey2.PeerID().String(), PublicKey: p2pKey2.PublicKeyHex()},
 					{PeerId: p2pKey3.PeerID().String(), PublicKey: p2pKey3.PublicKeyHex()},
 				},
+				NopFriendlyName: "",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
 			err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
@@ -1902,8 +2070,9 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 					Ocr2Config:              &proto.OCR2Config{Enabled: false},
 				},
 			},
-			WorkflowKey:   func(s string) *string { return &s }(workflowKey.ID()),
-			P2PKeyBundles: []*proto.P2PKeyBundle{},
+			WorkflowKey:     func(s string) *string { return &s }(workflowKey.ID()),
+			P2PKeyBundles:   []*proto.P2PKeyBundle{},
+			NopFriendlyName: "",
 		}
 	}
 	successResponse := func() *proto.UpdateNodeResponse {
@@ -2304,7 +2473,6 @@ func Test_Service_CancelSpec(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -2372,6 +2540,7 @@ func Test_Service_ApproveSpec(t *testing.T) {
 	var evmChainID *evmbig.Big
 	address := types.EIP55AddressFromAddress(common.Address{})
 	externalJobID := uuid.New()
+	now := time.Now()
 
 	var (
 		ctx  = testutils.Context(t)
@@ -2484,13 +2653,22 @@ answer1 [type=median index=0];
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "last cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
-				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(cancelledSpec, nil)
+				specs := []feeds.JobProposalSpec{
+					{20, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 1, jp.ID, now, now, now},
+					{21, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 2, jp.ID, now, now, now},
+					{22, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusRevoked, 3, jp.ID, now, now, now},
+					{23, fmt.Sprintf(defn, externalJobID), feeds.SpecStatusCancelled, 4, jp.ID, now, now, now},
+				}
+				lastCancelledSpec := specs[3]
+
+				svc.orm.On("GetSpec", mock.Anything, lastCancelledSpec.ID).Return(&lastCancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{lastCancelledSpec.JobProposalID}).
+					Return(shuffle(specs), nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -2508,22 +2686,114 @@ answer1 [type=median index=0];
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
-					cancelledSpec.ID,
+					lastCancelledSpec.ID,
 					externalJobID,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					&proto.ApprovedJobRequest{
 						Uuid:    jp.RemoteUUID.String(),
-						Version: int64(spec.Version),
+						Version: int64(lastCancelledSpec.Version),
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
 			},
-			id:    cancelledSpec.ID,
+			id:    23, // lastCancelledSpec.ID
 			force: false,
+		},
+		{
+			name:        "second to last cancelled spec success when no other spec is approved",
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				specs := []feeds.JobProposalSpec{
+					{20, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 1, jp.ID, now, now, now},
+					{21, fmt.Sprintf(defn, externalJobID), feeds.SpecStatusCancelled, 2, jp.ID, now, now, now},
+					{22, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusRevoked, 3, jp.ID, now, now, now},
+					{23, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 4, jp.ID, now, now, now},
+				}
+				secondToLastCancelledSpec := specs[1]
+
+				svc.orm.On("GetSpec", mock.Anything, secondToLastCancelledSpec.ID).Return(&secondToLastCancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{secondToLastCancelledSpec.JobProposalID}).
+					Return(shuffle(specs), nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", mock.Anything, address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					mock.Anything,
+					secondToLastCancelledSpec.ID,
+					externalJobID,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(secondToLastCancelledSpec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			id:    21, // secondToLastCancelledSpec.ID
+			force: false,
+		},
+		{
+			name:        "third to last cancelled spec fails even when no other spec is approved",
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				specs := []feeds.JobProposalSpec{
+					{20, fmt.Sprintf(defn, externalJobID), feeds.SpecStatusCancelled, 1, jp.ID, now, now, now},
+					{21, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 2, jp.ID, now, now, now},
+					{22, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusRevoked, 3, jp.ID, now, now, now},
+					{23, fmt.Sprintf(defn, uuid.New()), feeds.SpecStatusCancelled, 4, jp.ID, now, now, now},
+				}
+				thirdToLastCancelledSpec := specs[0]
+
+				svc.orm.On("GetSpec", mock.Anything, thirdToLastCancelledSpec.ID).Return(&thirdToLastCancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{thirdToLastCancelledSpec.JobProposalID}).
+					Return(shuffle(specs), nil)
+			},
+			id:      20, // thirdToLastCancelledSpec.ID
+			force:   false,
+			wantErr: "only the last two cancelled spec versions may be approved",
+		},
+		{
+			name: "cancelled spec failed when another spec is approved",
+			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusApproved,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, jp.ID),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{jp.ID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
+			},
+			id:      cancelledSpec.ID,
+			force:   false,
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name:        "pending job fail due to spec missing external job id",
@@ -2587,23 +2857,6 @@ answer1 [type=median index=0];
 			id:      rejectedSpec.ID,
 			force:   false,
 			wantErr: "cannot approve a rejected spec",
-		},
-		{
-			name: "cancelled spec failed not latest spec",
-			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
-					ID:            21,
-					Status:        feeds.SpecStatusPending,
-					JobProposalID: jp.ID,
-					Version:       2,
-					Definition:    defn,
-				}, nil)
-			},
-			id:      cancelledSpec.ID,
-			force:   false,
-			wantErr: "cannot approve a cancelled spec",
 		},
 		{
 			name:        "already existing job replacement (found via external job id) error",
@@ -2988,7 +3241,6 @@ answer1 [type=median index=0];
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = testutils.Ptr(true)
@@ -3171,13 +3423,22 @@ updateInterval = "20m"
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -3213,21 +3474,24 @@ updateInterval = "20m"
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    defn,
-				}, nil)
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",
@@ -3566,7 +3830,6 @@ updateInterval = "20m"
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = testutils.Ptr(true)
@@ -3679,15 +3942,23 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
-
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
 				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
@@ -3721,21 +3992,24 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    StreamTestSpecTemplate,
-				}, nil)
+					Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",
@@ -4074,7 +4348,6 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = testutils.Ptr(true)
@@ -4211,13 +4484,22 @@ chainID = 0
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when it is the latest spec",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
+				otherSpec := feeds.JobProposalSpec{
+					ID:            21,
+					Status:        feeds.SpecStatusRevoked,
+					JobProposalID: jp.ID,
+					Version:       2,
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(cancelledSpec, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
@@ -4253,21 +4535,24 @@ chainID = 0
 			force: false,
 		},
 		{
-			name: "cancelled spec failed not latest spec",
+			name: "cancelled spec failed when another spec is approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.orm.On("GetLatestSpec", mock.Anything, cancelledSpec.JobProposalID).Return(&feeds.JobProposalSpec{
+				otherSpec := feeds.JobProposalSpec{
 					ID:            21,
-					Status:        feeds.SpecStatusPending,
+					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 					Version:       2,
-					Definition:    defn,
-				}, nil)
+					Definition:    fmt.Sprintf(defn, externalJobID.String()),
+				}
+
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
+					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 			},
 			id:      cancelledSpec.ID,
 			force:   false,
-			wantErr: "cannot approve a cancelled spec",
+			wantErr: "the job spec with version 2 is already approved",
 		},
 		{
 			name: "rejected spec failed cannot be approved",
@@ -4606,7 +4891,6 @@ chainID = 0
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = testutils.Ptr(true)
@@ -4750,8 +5034,6 @@ func Test_Service_RejectSpec(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -4842,7 +5124,6 @@ func Test_Service_UpdateSpecDefinition(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -4924,8 +5205,6 @@ func Test_Service_StartStop(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -4960,8 +5239,197 @@ func logMessages(logEntries []observer.LoggedEntry) []string {
 	return messages
 }
 
+func Test_Service_GetJobRuns(t *testing.T) {
+	t.Parallel()
+
+	var (
+		remoteUUID     = uuid.New()
+		feedsManagerID = int64(1)
+		jobID          = int32(100)
+		args           = &feeds.GetJobRunsArgs{
+			FeedsManagerID: feedsManagerID,
+			RemoteUUID:     remoteUUID,
+			Limit:          10,
+		}
+
+		baseTime    = time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+		createdAt1  = baseTime.Add(-2 * time.Hour)
+		finishedAt1 = baseTime.Add(-1 * time.Hour)
+		createdAt2  = baseTime.Add(-1 * time.Hour)
+		createdAt3  = baseTime.Add(-30 * time.Minute)
+		finishedAt3 = baseTime.Add(-10 * time.Minute)
+
+		testJob = job.Job{
+			ID:            jobID,
+			ExternalJobID: remoteUUID,
+			Name:          null.StringFrom("test job"),
+			Type:          "directrequest",
+		}
+
+		run1 = pipeline.Run{
+			ID:          1,
+			State:       pipeline.RunStatusCompleted,
+			CreatedAt:   createdAt1,
+			FinishedAt:  null.TimeFrom(finishedAt1),
+			AllErrors:   pipeline.RunErrors{null.StringFrom("test error"), null.String{}},
+			FatalErrors: pipeline.RunErrors{null.String{}, null.String{}},
+		}
+
+		run2 = pipeline.Run{
+			ID:          2,
+			State:       pipeline.RunStatusErrored,
+			CreatedAt:   createdAt2,
+			FinishedAt:  null.Time{},
+			AllErrors:   pipeline.RunErrors{null.String{}, null.StringFrom("fatal error")},
+			FatalErrors: pipeline.RunErrors{null.String{}, null.StringFrom("fatal error")},
+		}
+
+		run3 = pipeline.Run{
+			ID:          3,
+			State:       pipeline.RunStatusCompleted,
+			CreatedAt:   createdAt3,
+			FinishedAt:  null.TimeFrom(finishedAt3),
+			AllErrors:   pipeline.RunErrors{null.String{}, null.String{}},
+			FatalErrors: pipeline.RunErrors{null.String{}, null.String{}},
+		}
+	)
+
+	testCases := []struct {
+		name    string
+		args    *feeds.GetJobRunsArgs
+		before  func(svc *TestService)
+		want    int
+		wantErr string
+	}{
+		{
+			name: "success - returns job runs",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(true, nil)
+				svc.jobORM.EXPECT().PipelineRuns(mock.Anything, &jobID, 0, 10).Return([]pipeline.Run{run1, run2, run3}, 3, nil)
+			},
+			want: 3,
+		},
+		{
+			name: "success - returns limited job runs",
+			args: &feeds.GetJobRunsArgs{
+				FeedsManagerID: feedsManagerID,
+				RemoteUUID:     remoteUUID,
+				Limit:          2,
+			},
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(true, nil)
+				svc.jobORM.EXPECT().PipelineRuns(mock.Anything, &jobID, 0, 2).Return([]pipeline.Run{run1, run2}, 3, nil)
+			},
+			want: 2,
+		},
+		{
+			name: "error - job not found",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(job.Job{}, sql.ErrNoRows)
+			},
+			wantErr: "job not found",
+		},
+		{
+			name: "error - job ORM error",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(job.Job{}, errors.New("database error"))
+			},
+			wantErr: "failed to find job",
+		},
+		{
+			name: "error - feeds manager check fails",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(false, errors.New("database error"))
+			},
+			wantErr: "failed to check if job is managed by feeds manager",
+		},
+		{
+			name: "error - job not managed by feeds manager",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(false, nil)
+			},
+			wantErr: "job is not managed by the requesting feeds manager",
+		},
+		{
+			name: "error - pipeline runs fetch fails",
+			args: args,
+			before: func(svc *TestService) {
+				svc.jobORM.EXPECT().FindJobByExternalJobID(mock.Anything, remoteUUID).Return(testJob, nil)
+				svc.orm.EXPECT().IsJobManagedByFeedsManager(mock.Anything, int64(jobID), feedsManagerID).Return(true, nil)
+				svc.jobORM.EXPECT().PipelineRuns(mock.Anything, &jobID, 0, 10).Return([]pipeline.Run{}, 0, errors.New("database error"))
+			},
+			wantErr: "failed to fetch job runs",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestService(t)
+
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			actual, err := svc.GetJobRuns(testutils.Context(t), tc.args)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+				assert.Nil(t, actual)
+			} else {
+				require.NoError(t, err)
+				assert.Len(t, actual, tc.want)
+
+				if tc.want > 0 {
+					expectedRuns := []pipeline.Run{run1, run2, run3}
+					expectedSummaries := make([]*proto.JobRunSummary, 0, tc.want)
+
+					for i := 0; i < tc.want; i++ {
+						run := expectedRuns[i]
+						var finishedAt *timestamppb.Timestamp
+						if run.FinishedAt.Valid {
+							finishedAt = timestamppb.New(run.FinishedAt.Time)
+						}
+
+						expectedSummaries = append(expectedSummaries, &proto.JobRunSummary{
+							RunId:       run.ID,
+							State:       string(run.State),
+							CreatedAt:   timestamppb.New(run.CreatedAt),
+							FinishedAt:  finishedAt,
+							AllErrors:   feeds.ConvertPipelineRunErrors(run.AllErrors),
+							FatalErrors: feeds.ConvertPipelineRunErrors(run.FatalErrors),
+						})
+					}
+
+					assert.ElementsMatch(t, expectedSummaries, actual)
+				}
+			}
+		})
+	}
+}
+
 func waitSyncNodeInfoCall(t *testing.T, logs *observer.ObservedLogs) {
 	assert.EventuallyWithT(t, func(collect *assert.CollectT) {
 		assert.Contains(collect, logMessages(logs.All()), "successfully synced node info")
 	}, 1*time.Second, 5*time.Millisecond)
+}
+
+func shuffle[T any](slice []T) []T {
+	sliceCopy := slices.Clone(slice)
+	rand.Shuffle(len(sliceCopy), func(i, j int) {
+		sliceCopy[i], sliceCopy[j] = sliceCopy[j], sliceCopy[i]
+	})
+
+	return sliceCopy
 }

@@ -1,8 +1,6 @@
 package webapi
 
-import (
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-)
+import "github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 
 const (
 	SingleNode string = "SingleNode"
@@ -17,8 +15,8 @@ const (
 type ServiceConfig struct {
 	// RateLimiter configuration for messages incoming to this node from the gateway.
 	// The sender is a Gateway node, which is identified by the Gateway ID.
-	RateLimiter common.RateLimiterConfig `toml:"incomingRateLimiter" json:"incomingRateLimiter" yaml:"incomingRateLimiter" mapstructure:"incomingRateLimiter"`
+	RateLimiter ratelimit.RateLimiterConfig `toml:"incomingRateLimiter" json:"incomingRateLimiter" yaml:"incomingRateLimiter" mapstructure:"incomingRateLimiter"`
 	// RateLimiter configuration for outgoing messages from this node to the gateway.
 	// The sender is a workflow, which is identified by the Workflow ID.
-	OutgoingRateLimiter common.RateLimiterConfig `toml:"outgoingRateLimiter" json:"outgoingRateLimiter" yaml:"outgoingRateLimiter" mapstructure:"outgoingRateLimiter"`
+	OutgoingRateLimiter ratelimit.RateLimiterConfig `toml:"outgoingRateLimiter" json:"outgoingRateLimiter" yaml:"outgoingRateLimiter" mapstructure:"outgoingRateLimiter"`
 }

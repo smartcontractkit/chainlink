@@ -99,6 +99,11 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		graphqlHandler(app),
 	)
 
+	err = app.AuthenticationProvider().ExtendRouter(api)
+	if err != nil {
+		return nil, err
+	}
+
 	return engine, nil
 }
 
@@ -352,6 +357,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"starknet", NewStarkNetKeysController(app)},
 			{"aptos", NewAptosKeysController(app)},
 			{"tron", NewTronKeysController(app)},
+			{"ton", NewTONKeysController(app)},
 		} {
 			authv2.GET("/keys/"+keys.path, keys.kc.Index)
 			authv2.POST("/keys/"+keys.path, auth.RequiresEditRole(keys.kc.Create))
@@ -366,6 +372,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/keys/vrf/:keyID", auth.RequiresAdminRole(vrfkc.Delete))
 		authv2.POST("/keys/vrf/import", auth.RequiresAdminRole(vrfkc.Import))
 		authv2.POST("/keys/vrf/export/:keyID", auth.RequiresAdminRole(vrfkc.Export))
+
+		wfkc := WorkflowKeysController{app}
+		authv2.GET("/keys/workflow", wfkc.Index)
 
 		jc := JobsController{app}
 		authv2.GET("/jobs", paginatedRequest(jc.Index))

@@ -10,17 +10,17 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 )
@@ -28,8 +28,7 @@ import (
 func Test_runLLOWorkflow(t *testing.T) {
 	ctx := t.Context()
 
-	lggr := logger.TestLogger(t)
-	lggr.SetLogLevel(zapcore.InfoLevel)
+	lggr := logger.Test(t)
 
 	// setup the trigger sink that will receive the trigger event in the llo-specific format, per v2.0.0
 	triggerSink := framework.NewTriggerSink(t, "streams-trigger:don_16nodes", "2.0.0") // note the label {"don": "16nodes"} to ensure that we can support labelled capabilities; it must match the llo wf spec in [workflow.go]. the label nor the value are important for this test
@@ -42,7 +41,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 	targetDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Target", NumNodes: 4, F: 1})
 	require.NoError(t, err)
 
-	workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
+	workflowDon, consumer, _, _ := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
 		targetDonConfiguration, triggerSink)
 
 	// generate a wf job with 10 feeds
@@ -98,13 +97,34 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 
 	// Create simple channel definition to match streams
 	streams := make([]llotypes.Stream, len(reports.Payload))
+	// Create multipliers based on the actual StreamIDs from the payload
+	multipliers := make([]cre.ReportCodecCapabilityTriggerMultiplier, len(reports.Payload))
+	multiplier, err := decimal.NewFromString("1000000000000000000")
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to parse multiplier string: %w", err)
+	}
 	for i, payload := range reports.Payload {
 		streams[i] = llotypes.Stream{
 			StreamID: payload.StreamID,
 		}
+
+		multipliers[i] = cre.ReportCodecCapabilityTriggerMultiplier{
+			Multiplier: multiplier,
+			StreamID:   payload.StreamID,
+		}
 	}
+
+	opts, err := (&cre.ReportCodecCapabilityTriggerOpts{
+		Multipliers: multipliers,
+	}).Encode()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to encode opts: %w", err)
+	}
+
 	channelDef := llotypes.ChannelDefinition{
-		Streams: streams,
+		ReportFormat: llotypes.ReportFormatCapabilityTrigger,
+		Streams:      streams,
+		Opts:         opts,
 	}
 
 	// Encode the report to bytes

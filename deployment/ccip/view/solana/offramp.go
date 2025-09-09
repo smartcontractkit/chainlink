@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 )
@@ -17,6 +18,7 @@ import (
 type OffRampView struct {
 	PDA                        string                              `json:"pda,omitempty"`
 	Version                    uint8                               `json:"version,omitempty"`
+	UpgradeAuthority           string                              `json:"upgradeAuthority,omitempty"`
 	DefaultCodeVersion         uint8                               `json:"defaultCodeVersion,omitempty"`
 	SvmChainSelector           uint64                              `json:"svmChainSelector,omitempty"`
 	EnableManualExecutionAfter int64                               `json:"enableManualExecutionAfter,omitempty"`
@@ -43,11 +45,18 @@ type OffRampSourceChainConfig struct {
 	OnRamp                    string `json:"onRamp,omitempty"`
 }
 
-func GenerateOffRampView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (OffRampView, error) {
+func GenerateOffRampView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (OffRampView, error) {
 	view := OffRampView{}
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(context.Background(), program, &rpc.GetAccountInfoOpts{
+		Commitment: cldf_solana.SolDefaultCommitment,
+	})
+	if err != nil {
+		return view, fmt.Errorf("failed to get account info for program %s: %w", program.String(), err)
+	}
+	view.UpgradeAuthority = accountInfo.Value.Owner.String()
 	var config solOffRamp.Config
 	configPDA, _, _ := solState.FindOfframpConfigPDA(program)
-	err := chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
+	err = chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
 	if err != nil {
 		return view, fmt.Errorf("config not found in existing state, initialize the off ramp first %d", chain.Selector)
 	}

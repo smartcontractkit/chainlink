@@ -9,9 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -69,9 +71,10 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
+	evmChains := tc.env.BlockChains.EVMChains()
 
-	srcChain := tc.env.Chains[tc.src]
-	dstChain := tc.env.Chains[tc.dst]
+	srcChain := evmChains[tc.src]
+	dstChain := evmChains[tc.dst]
 
 	state, err := stateview.LoadOnchainState(tc.env)
 	require.NoError(tc.t, err)
@@ -144,7 +147,7 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 	tc.t.Logf("fee token balance before: %s, fee token enabled: %s",
 		feeTokenBalanceBefore.String(), tc.feeToken.String())
 
-	msgSentEvent := testhelpers.TestSendRequest(
+	out := testhelpers.TestSendRequest(
 		tc.t,
 		tc.env,
 		state,
@@ -159,15 +162,16 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 			ExtraArgs:    nil,
 		},
 	)
+	msgSentEvent := out.RawEvent.(*onramp.OnRampCCIPMessageSent)
 
 	expectedSeqNum[testhelpers.SourceDestPair{
 		SourceChainSelector: tc.src,
 		DestChainSelector:   tc.dst,
-	}] = msgSentEvent.SequenceNumber
+	}] = out.SequenceNumber
 	expectedSeqNumExec[testhelpers.SourceDestPair{
 		SourceChainSelector: tc.src,
 		DestChainSelector:   tc.dst,
-	}] = []uint64{msgSentEvent.SequenceNumber}
+	}] = []uint64{out.SequenceNumber}
 
 	// Check the fee token balance after the request and ensure fee tokens were spent
 	var feeTokenBalanceAfter *big.Int
@@ -198,7 +202,8 @@ func RunFeeTokenTestCase(tc FeeTokenTestCase) {
 
 	if tc.assertExecution {
 		// Wait for all commit reports to land.
-		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env, state, expectedSeqNum, startBlocks)
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env, state,
+			testhelpers.ToSeqRangeMap(expectedSeqNum), startBlocks)
 
 		// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 		linkAddress := state.Chains[tc.dst].LinkToken.Address()

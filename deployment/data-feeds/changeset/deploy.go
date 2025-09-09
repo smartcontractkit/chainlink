@@ -10,12 +10,13 @@ import (
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func DeployCache(chain cldf.Chain, labels []string) (*types.DeployCacheResponse, error) {
+func DeployCache(chain cldf_evm.Chain, labels []string) (*types.DeployCacheResponse, error) {
 	cacheAddr, tx, cacheContract, err := cache.DeployDataFeedsCache(chain.DeployerKey, chain.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy DataFeedsCache: %w", err)
@@ -49,7 +50,7 @@ func DeployCache(chain cldf.Chain, labels []string) (*types.DeployCacheResponse,
 	return resp, nil
 }
 
-func DeployAggregatorProxy(chain cldf.Chain, aggregator common.Address, accessController common.Address, labels []string) (*types.DeployProxyResponse, error) {
+func DeployAggregatorProxy(chain cldf_evm.Chain, aggregator common.Address, accessController common.Address, labels []string) (*types.DeployProxyResponse, error) {
 	proxyAddr, tx, proxyContract, err := proxy.DeployAggregatorProxy(chain.DeployerKey, chain.Client, aggregator, accessController)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy AggregatorProxy: %w", err)
@@ -80,7 +81,7 @@ func DeployAggregatorProxy(chain cldf.Chain, aggregator common.Address, accessCo
 	return resp, nil
 }
 
-func DeployBundleAggregatorProxy(chain cldf.Chain, aggregator common.Address, owner common.Address, labels []string) (*types.DeployBundleAggregatorProxyResponse, error) {
+func DeployBundleAggregatorProxy(chain cldf_evm.Chain, aggregator common.Address, owner common.Address, labels []string) (*types.DeployBundleAggregatorProxyResponse, error) {
 	proxyAddr, tx, proxyContract, err := bundleproxy.DeployBundleAggregatorProxy(chain.DeployerKey, chain.Client, aggregator, owner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy BundleAggregatorProxy: %w", err)

@@ -71,6 +71,7 @@ var _ common.Logger = (Logger)(nil)
 //   - Trace: Only included if compiled with the trace tag. For example: go test -tags trace ...
 //
 // Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
+// Deprecated: use [common.Logger] & [common.SugaredLogger]
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger

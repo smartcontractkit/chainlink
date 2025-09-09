@@ -48,7 +48,7 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 	for _, nop := range req.Nops {
 		env.Logger.Infow("input NOP", "address", nop.Admin, "name", nop.Name)
 	}
-	registryChain, ok := env.Chains[req.RegistryChainSel]
+	registryChain, ok := env.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !ok {
 		return cldf.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
@@ -59,10 +59,11 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 
 	useMCMS := req.MCMSConfig != nil
 	req2 := internal.RegisterNOPSRequest{
-		Env:                   &env,
-		RegistryChainSelector: req.RegistryChainSel,
-		Nops:                  req.Nops,
-		UseMCMS:               useMCMS,
+		Env:           &env,
+		Registry:      capReg.Contract,
+		RegistryChain: &registryChain,
+		Nops:          req.Nops,
+		UseMCMS:       useMCMS,
 	}
 	resp, err := internal.RegisterNOPS(env.GetContext(), env.Logger, req2)
 

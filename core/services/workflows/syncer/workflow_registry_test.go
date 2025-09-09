@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -37,7 +38,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		er := NewEngineRegistry()
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",
@@ -105,7 +106,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",
@@ -172,7 +173,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",
@@ -214,7 +215,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		er := NewEngineRegistry()
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",
@@ -286,7 +287,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		er := NewEngineRegistry()
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",
@@ -341,7 +342,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",
@@ -398,7 +399,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		er := NewEngineRegistry()
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",
@@ -483,7 +484,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		er := NewEngineRegistry()
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",
@@ -564,7 +565,7 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		er := NewEngineRegistry()
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return nil, nil
 			},
 			"",

@@ -11,14 +11,14 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
@@ -26,9 +26,9 @@ import (
 )
 
 const (
-	Evm1 = uint64(0)
-	Evm2 = uint64(1)
-	Sol1 = uint64(2)
+	Evm1 = iota // 0
+	Evm2        // 1
+	Sol1        // 2
 )
 
 type curseAssertion struct {
@@ -171,14 +171,38 @@ var testCases = []CurseTestCase{
 			{chainID: Sol1, globalCurse: true, cursed: true},
 		},
 	},
+	{
+		name: "two chain globally",
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+			return []v1_6.CurseAction{
+				v1_6.CurseChain(mapIDToSelector(Evm1)),
+				v1_6.CurseChain(mapIDToSelector(Sol1)),
+			}
+		},
+		curseAssertions: []curseAssertion{
+			{chainID: Evm1, globalCurse: true, cursed: true},
+			{chainID: Sol1, globalCurse: true, cursed: true},
+			{chainID: Evm1, subject: Evm2, cursed: true},
+			{chainID: Evm1, subject: Sol1, cursed: true},
+			{chainID: Evm2, subject: Evm1, cursed: true},
+			{chainID: Evm2, subject: Sol1, cursed: true},
+		},
+	},
 }
 
 func TestRMNCurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseTest(t, tc)
 		})
+	}
+}
+
+func TestRMNCurseMCMS(t *testing.T) {
+	for _, tc := range testCases {
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})
 	}
@@ -187,6 +211,7 @@ func TestRMNCurse(t *testing.T) {
 func TestRMNCurseBypass(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
@@ -195,6 +220,7 @@ func TestRMNCurseBypass(t *testing.T) {
 func TestRMNCurseIdempotent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_CURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseIdempotentTest(t, tc)
 		})
 	}
@@ -203,6 +229,7 @@ func TestRMNCurseIdempotent(t *testing.T) {
 func TestRMNUncurseIdempotent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseIdempotentTest(t, tc)
 		})
 	}
@@ -211,9 +238,16 @@ func TestRMNUncurseIdempotent(t *testing.T) {
 func TestRMNUncurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseTest(t, tc)
 		})
+	}
+}
+
+func TestRMNUncurseMCMS(t *testing.T) {
+	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseMCMSTest(t, tc, types.TimelockActionSchedule)
 		})
 	}
@@ -222,6 +256,7 @@ func TestRMNUncurse(t *testing.T) {
 func TestRMNUncurseBypass(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
+			t.Parallel()
 			runRmnUncurseMCMSTest(t, tc, types.TimelockActionBypass)
 		})
 	}
@@ -230,6 +265,7 @@ func TestRMNUncurseBypass(t *testing.T) {
 func TestRMNCurseConfigValidate(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_VALIDATE", func(t *testing.T) {
+			t.Parallel()
 			runRmnCurseConfigValidateTest(t, tc)
 		})
 	}
@@ -455,6 +491,104 @@ func TestRMNCurseOneConnectedLanesSolana(t *testing.T) {
 	}, mapIDToSelector)
 }
 
+// TestRMNCurseUncurseAptos runs separately because setting up Aptos chain is slow
+// and can't be done on every test run.
+func TestRMNCurseUncurseAptos(t *testing.T) {
+	Aptos1 := uint64(2)
+	tcs := []CurseTestCase{
+		{
+			name: "curse global Aptos and EVM1",
+			curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+				return []v1_6.CurseAction{
+					v1_6.CurseChain(mapIDToSelector(Evm1)),
+					v1_6.CurseChain(mapIDToSelector(Aptos1)),
+				}
+			},
+			curseAssertions: []curseAssertion{
+				{chainID: Evm1, globalCurse: true, cursed: true},
+				{chainID: Aptos1, globalCurse: true, cursed: true},
+				{chainID: Evm1, subject: Evm2, cursed: true},
+				{chainID: Evm1, subject: Aptos1, cursed: true},
+				{chainID: Evm2, subject: Evm1, cursed: true},
+				{chainID: Evm2, subject: Aptos1, cursed: true},
+				{chainID: Aptos1, subject: Evm1, cursed: true},
+				{chainID: Aptos1, subject: Evm2, cursed: true},
+			},
+		},
+		{
+			name: "Curse Aptos <> EVM1",
+			curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
+				return []v1_6.CurseAction{
+					v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Aptos1)),
+				}
+			},
+			curseAssertions: []curseAssertion{
+				{chainID: Evm1, globalCurse: true, cursed: false},
+				{chainID: Aptos1, globalCurse: true, cursed: false},
+				{chainID: Evm1, subject: Evm2, cursed: false},
+				{chainID: Evm1, subject: Aptos1, cursed: true},
+				{chainID: Evm2, subject: Aptos1, cursed: false},
+				{chainID: Aptos1, subject: Evm1, cursed: true},
+				{chainID: Aptos1, subject: Evm2, cursed: false},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			e, _ := testhelpers.NewMemoryEnvironment(
+				t,
+				testhelpers.WithNumOfChains(2),
+				testhelpers.WithAptosChains(1),
+			)
+
+			mapIDToSelector := func(id uint64) uint64 {
+				return v1_6.GetAllCursableChainsSelector(e.Env)[id]
+			}
+
+			config := v1_6.RMNCurseConfig{
+				CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
+				Reason:                   "test curse",
+				IncludeNotConnectedLanes: true,
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay:   1 * time.Second,
+					MCMSAction: types.TimelockActionSchedule,
+				},
+			}
+
+			verifyNoActiveCurseOnAllChains(t, &e)
+
+			state, err := stateview.LoadOnchainState(e.Env)
+			require.NoError(t, err)
+			transferRMNContractToMCMS(t, &e, state)
+
+			_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
+				[]commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
+						config,
+					)},
+			)
+			require.NoError(t, err)
+
+			verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
+
+			_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
+				[]commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
+						config,
+					)},
+			)
+			require.NoError(t, err)
+
+			verifyNoActiveCurseOnAllChains(t, &e)
+		})
+	}
+}
+
 func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
 
@@ -495,10 +629,9 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 		contractsByChain[chainSelector] = []common.Address{rmnRemoteAddress}
 	}
 
-	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
-	timelocksPerChain := deployergroup.BuildTimelockPerChain(e.Env, state)
+	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address())
 	// This is required because RMN Contracts is initially owned by the deployer
-	_, err := commonchangeset.Apply(t, e.Env, timelocksPerChain,
+	_, err := commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
@@ -511,8 +644,9 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 	)
 	require.NoError(t, err)
 
-	for _, solChain := range e.Env.AllChainSelectorsSolana() {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e.Env, solChain, true,
+	chainSelectorSolana := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	for _, solChain := range chainSelectorSolana {
+		_, _ = testhelpers.TransferOwnershipSolanaV0_1_0(t, &e.Env, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
@@ -528,7 +662,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 		Timelock:     83 * solana.LAMPORTS_PER_SOL,
 	}
 	amountsPerChain := make(map[uint64]commonSolana.AmountsToTransfer)
-	for chainSelector := range e.Env.SolChains {
+	for _, chainSelector := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana)) {
 		amountsPerChain[chainSelector] = cfgAmounts
 	}
 	config := commonSolana.FundMCMSignerConfig{
@@ -537,7 +671,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 
 	changesetInstance := commonSolana.FundMCMSignersChangeset{}
 
-	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env, []commonchangeset.ConfiguredChangeSet{
+	_, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(changesetInstance, config),
 	})
 	require.NoError(t, err)
@@ -567,7 +701,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 
 	transferRMNContractToMCMS(t, &e, state)
 
-	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
+	_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
@@ -578,7 +712,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 
-	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
+	_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
@@ -705,7 +839,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase, action types.TimelockAc
 
 	transferRMNContractToMCMS(t, &e, state)
 
-	_, _, err = commonchangeset.ApplyChangesetsV2(t, e.Env,
+	_, _, err = commonchangeset.ApplyChangesets(t, e.Env,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
@@ -730,7 +864,7 @@ func verifyTestCaseAssertions(t *testing.T, e *testhelpers.DeployedEnv, tc Curse
 			cursedSubject = globals.GlobalCurseSubject()
 		}
 
-		isCursed, err := cursableChains[mapIDToSelector(assertion.chainID)].IsSubjectCursed(cursedSubject)
+		isCursed, err := cursableChains[mapIDToSelector(assertion.chainID)].IsCursed(cursedSubject)
 		require.NoError(t, err)
 		require.Equal(t, assertion.cursed, isCursed, "chain %d subject %d", assertion.chainID, assertion.subject)
 	}
@@ -745,7 +879,7 @@ func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
 			family, err := chain_selectors.GetSelectorFamily(chainSelector)
 			require.NoError(t, err)
 
-			isCursed, err := chain.IsSubjectCursed(globals.FamilyAwareSelectorToSubject(selector, family))
+			isCursed, err := chain.IsCursed(globals.FamilyAwareSelectorToSubject(selector, family))
 			require.NoError(t, err)
 			require.False(t, isCursed, "chain %d subject %d", chainSelector, globals.FamilyAwareSelectorToSubject(selector, family))
 		}
@@ -778,7 +912,7 @@ var forceOptionTestCases = []ForceOptionTestCase{
 	{
 		name: "RMNCurseForceOptionFalse",
 		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
-			_, _, err := commonchangeset.ApplyChangesetsV2(t, env.Env,
+			_, _, err := commonchangeset.ApplyChangesets(t, env.Env,
 				[]commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
@@ -809,7 +943,7 @@ var forceOptionTestCases = []ForceOptionTestCase{
 	{
 		name: "RMNCurseForceOptionTrue",
 		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
-			_, _, err := commonchangeset.ApplyChangesetsV2(t, env.Env,
+			_, _, err := commonchangeset.ApplyChangesets(t, env.Env,
 				[]commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
@@ -855,6 +989,7 @@ func TestGetAllCursableChainsWithRMNRemote(t *testing.T) {
 func TestRMNUncurseForceOption(t *testing.T) {
 	for _, tc := range forceOptionTestCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithSolChains(1))
 
 			mapIDToSelector := func(id uint64) uint64 {

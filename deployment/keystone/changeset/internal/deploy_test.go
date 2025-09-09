@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"testing"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,6 +14,9 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -39,9 +41,6 @@ func Test_RegisterNOPS(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -50,6 +49,10 @@ func Test_RegisterNOPS(t *testing.T) {
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterNOPS(context.TODO(), lggr, internal.RegisterNOPSRequest{
 			Env:                   env,
@@ -242,9 +245,6 @@ func Test_RegisterNodes(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				env := &cldf.Environment{
 					Logger: lggr,
-					Chains: map[uint64]cldf.Chain{
-						chain.Selector: chain,
-					},
 					ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 						chain.Selector: {
 							registry.Address().String(): cldf.TypeAndVersion{
@@ -253,6 +253,10 @@ func Test_RegisterNodes(t *testing.T) {
 							},
 						},
 					}),
+					BlockChains: cldf_chain.NewBlockChains(
+						map[uint64]cldf_chain.BlockChain{
+							chain.Selector: chain,
+						}),
 				}
 				resp, err := internal.RegisterNodes(lggr, &internal.RegisterNodesRequest{
 					Env:                   env,
@@ -303,9 +307,6 @@ func Test_RegisterNodes(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -314,6 +315,10 @@ func Test_RegisterNodes(t *testing.T) {
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterNodes(lggr, &internal.RegisterNodesRequest{
 			Env:                   env,
@@ -354,9 +359,6 @@ func Test_RegisterNodes(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -365,6 +367,10 @@ func Test_RegisterNodes(t *testing.T) {
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterNodes(lggr, &internal.RegisterNodesRequest{
 			Env:                   env,
@@ -400,9 +406,6 @@ func Test_RegisterDons(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -411,6 +414,10 @@ func Test_RegisterDons(t *testing.T) {
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
 			Env:                   env,
@@ -496,9 +503,6 @@ func Test_RegisterDons(t *testing.T) {
 
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				setupResp.Chain.Selector: setupResp.Chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				setupResp.Chain.Selector: {
 					regContract.Address().String(): cldf.TypeAndVersion{
@@ -507,6 +511,10 @@ func Test_RegisterDons(t *testing.T) {
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					setupResp.Chain.Selector: setupResp.Chain,
+				}),
 		}
 		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
 			Env:                   env,
@@ -533,9 +541,6 @@ func Test_RegisterDons(t *testing.T) {
 		useMCMS = true
 		env := &cldf.Environment{
 			Logger: lggr,
-			Chains: map[uint64]cldf.Chain{
-				chain.Selector: chain,
-			},
 			ExistingAddresses: cldf.NewMemoryAddressBookFromMap(map[uint64]map[string]cldf.TypeAndVersion{
 				chain.Selector: {
 					registry.Address().String(): cldf.TypeAndVersion{
@@ -544,6 +549,10 @@ func Test_RegisterDons(t *testing.T) {
 					},
 				},
 			}),
+			BlockChains: cldf_chain.NewBlockChains(
+				map[uint64]cldf_chain.BlockChain{
+					chain.Selector: chain,
+				}),
 		}
 		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
 			Env:                   env,

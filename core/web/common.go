@@ -1,11 +1,13 @@
 package web
 
 import (
+	stderrors "errors"
+	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 )
 
 var (
@@ -22,9 +24,13 @@ func getChain(legacyChains legacyevm.LegacyChainContainer, chainIDstr string) (c
 		if !ok {
 			return nil, ErrInvalidChainID
 		}
-		chain, err = legacyChains.Get(chainIDstr)
+		chainService, err := legacyChains.Get(chainIDstr)
 		if err != nil {
 			return nil, ErrMissingChainID
+		}
+		chain, ok = chainService.(legacyevm.Chain)
+		if !ok {
+			return nil, fmt.Errorf("not available in loop mode: %w", stderrors.ErrUnsupported)
 		}
 		return chain, nil
 	}

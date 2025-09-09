@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -21,7 +22,7 @@ func validateSetPool(
 	sender common.Address,
 	externalAdmin common.Address,
 	symbol shared.TokenSymbol,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 ) error {
 	// We must be the administrator
 	if config.Administrator != sender {
@@ -43,7 +44,7 @@ func SetPoolChangeset(env cldf.Environment, c TokenAdminRegistryChangesetConfig)
 	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("set pool for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
-		chain := env.Chains[chainSelector]
+		chain := env.BlockChains.EVMChains()[chainSelector]
 		chainState := state.Chains[chainSelector]
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {

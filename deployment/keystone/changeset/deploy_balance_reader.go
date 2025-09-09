@@ -15,6 +15,7 @@ import (
 var _ cldf.ChangeSet[DeployBalanceReaderRequest] = DeployBalanceReader
 
 type DeployBalanceReaderRequest struct {
+	Qualifier      string
 	ChainSelectors []uint64 // filter to only deploy to these chains; if empty, deploy to all chains
 }
 
@@ -24,17 +25,18 @@ type DeployBalanceReaderRequest struct {
 func DeployBalanceReader(env cldf.Environment, cfg DeployBalanceReaderRequest) (cldf.ChangesetOutput, error) {
 	out := cldf.ChangesetOutput{
 		AddressBook: cldf.NewMemoryAddressBook(),
-		DataStore:   datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata](),
+		DataStore:   datastore.NewMemoryDataStore(),
 	}
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
-		selectors = slices.Collect(maps.Keys(env.Chains))
+		selectors = slices.Collect(maps.Keys(env.BlockChains.EVMChains()))
 	}
 	for _, sel := range selectors {
 		req := &DeployRequestV2{
-			ChainSel: sel,
-			deployFn: internal.DeployBalanceReader,
+			ChainSel:  sel,
+			Qualifier: cfg.Qualifier,
+			deployFn:  internal.DeployBalanceReader,
 		}
 		csOut, err := DeployBalanceReaderV2(env, req)
 		if err != nil {

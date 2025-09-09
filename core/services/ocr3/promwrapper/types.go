@@ -40,7 +40,7 @@ var (
 			Name: "ocr3_reporting_plugin_reports_processed",
 			Help: "Tracks number of reports processed/generated within by different OCR3 functions",
 		},
-		[]string{"chainID", "plugin", "function"},
+		[]string{"chainFamily", "chainID", "plugin", "function"},
 	)
 	promOCR3Durations = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -48,20 +48,20 @@ var (
 			Help:    "The amount of time elapsed during the OCR3 plugin's function",
 			Buckets: buckets,
 		},
-		[]string{"chainID", "plugin", "function", "success"},
+		[]string{"chainFamily", "chainID", "plugin", "function", "success"},
 	)
 	promOCR3Sizes = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ocr3_reporting_plugin_data_sizes",
 			Help: "Tracks the size of the data produced by OCR3 plugin in bytes (e.g. reports, observations etc.)",
 		},
-		[]string{"chainID", "plugin", "function"},
+		[]string{"chainFamily", "chainID", "plugin", "function"},
 	)
 	promOCR3PluginStatus = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "ocr3_reporting_plugin_status",
 			Help: "Gauge indicating whether plugin is up and running or not",
 		},
-		[]string{"chainID", "plugin", "configDigest"},
+		[]string{"chainFamily", "chainID", "plugin", "configDigest"},
 	)
 )

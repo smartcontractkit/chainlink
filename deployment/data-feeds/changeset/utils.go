@@ -3,16 +3,25 @@ package changeset
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
+	"math/big"
+	"strings"
 
 	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
+
+type WorkflowMetadata struct {
+	Workflows map[string]string
+}
 
 func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
 	dataIDs := make([][16]byte, len(feedIDs))
@@ -30,6 +39,22 @@ func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
 	return dataIDs, nil
 }
 
+func FeedIDsToBytes(feedIDs []string) ([][]byte, error) {
+	dataIDs16, err := FeedIDsToBytes16(feedIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	dataSlices := make([][]byte, len(dataIDs16))
+	for i, v := range dataIDs16 {
+		b := make([]byte, 32)
+		copy(b, v[:])
+		dataSlices[i] = b
+	}
+
+	return dataSlices, nil
+}
+
 func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
 	if hexStr[:2] == "0x" {
 		hexStr = hexStr[2:] // Remove "0x" prefix
@@ -43,6 +68,32 @@ func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
 	copy(result[:], decodedBytes[:16])
 
 	return result, nil
+}
+
+func ExtractTypeAndVersion(hexStr string) (string, error) {
+	data, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid hex: %w", err)
+	}
+
+	if len(data) < 64 {
+		return "", errors.New("data too short to be ABI-encoded")
+	}
+
+	// Extract the length (32 bytes from offset 32)
+	lengthBytes := data[32:64]
+	strLen := new(big.Int).SetBytes(lengthBytes).Int64()
+
+	if strLen < 0 {
+		return "", errors.New("negative string length")
+	}
+
+	if len(data) < 64+int(strLen) {
+		return "", errors.New("data too short for expected string length")
+	}
+
+	strBytes := data[64 : 64+int(strLen)]
+	return string(strBytes), nil
 }
 
 // HashedWorkflowName returns first 10 bytes of the sha256(workflow_name)
@@ -84,14 +135,26 @@ func GetDecimalsFromFeedID(feedID string) (uint8, error) {
 	return 0, nil
 }
 
-func GetDataFeedsCacheAddress(ab cldf.AddressBook, chainSelector uint64, label *string) string {
-	dataFeedsCacheAddress := ""
-	cacheTV := cldf.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
+func GetDataFeedsCacheAddress(ab cldf.AddressBook, dataStore datastore.AddressRefStore, chainSelector uint64, label *string) string {
+	var qualifier string
 	if label != nil {
-		cacheTV.Labels.Add(*label)
+		qualifier = *label
 	} else {
-		cacheTV.Labels.Add("data-feeds")
+		qualifier = "data-feeds"
 	}
+
+	// try to find the address in datastore, fallback to addressbook
+	record, err := dataStore.Get(
+		datastore.NewAddressRefKey(chainSelector, DataFeedsCache, &deployment.Version1_0_0, qualifier),
+	)
+	if err == nil {
+		return record.Address
+	}
+
+	// legacy addressbook
+	dataFeedsCacheAddress := ""
+	cacheTV := cldf.NewTypeAndVersion("DataFeedsCache", deployment.Version1_0_0)
+	cacheTV.Labels.Add(qualifier)
 
 	address, err := ab.AddressesForChain(chainSelector)
 	if err != nil {
@@ -99,10 +162,47 @@ func GetDataFeedsCacheAddress(ab cldf.AddressBook, chainSelector uint64, label *
 	}
 
 	for addr, tv := range address {
-		if tv.String() == cacheTV.String() {
+		if strings.Contains(tv.String(), cacheTV.String()) {
 			dataFeedsCacheAddress = addr
 		}
 	}
 
 	return dataFeedsCacheAddress
+}
+
+func UpdateWorkflowMetadataDS(
+	env cldf.Environment,
+	ds datastore.MutableDataStore,
+	wfName string,
+	wfSpec string,
+) error {
+	// environment metadata is overwritten with every Set(), so we need to read the existing metadata first
+	record, err := env.DataStore.EnvMetadata().Get()
+	if err != nil {
+		// if the datastore is not initialized, we should create a new one
+		env.Logger.Errorf("failed to get env datastore: %v", err)
+	}
+
+	metadata, err := datastore.As[WorkflowMetadata](record.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to cast env metadata: %w", err)
+	}
+
+	if metadata.Workflows == nil {
+		metadata.Workflows = make(map[string]string)
+	}
+
+	// upsert the workflow spec in the metadata
+	metadata.Workflows[wfName] = wfSpec
+
+	err = ds.EnvMetadata().Set(
+		datastore.EnvMetadata{
+			Metadata: metadata,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to set workflow spec in datastore: %w", err)
+	}
+
+	return nil
 }

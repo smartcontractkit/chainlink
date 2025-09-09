@@ -7,28 +7,27 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"iter"
 	"maps"
 	"math"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -100,19 +99,6 @@ type Config struct {
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
 type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
 
-// ContractReader is a subset of types.ContractReader defined locally to enable mocking.
-type ContractReader interface {
-	Start(ctx context.Context) error
-	Close() error
-	Bind(context.Context, []types.BoundContract) error
-	QueryKeys(ctx context.Context, keyQueries []types.ContractKeyFilter, limitAndSort query.LimitAndSort) (iter.Seq2[string, types.Sequence], error)
-	GetLatestValueWithHeadData(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error)
-}
-
-type ContractReaderFactory interface {
-	NewContractReader(context.Context, []byte) (types.ContractReader, error)
-}
-
 // WorkflowRegistrySyncer is the public interface of the package.
 type WorkflowRegistrySyncer interface {
 	services.Service
@@ -140,7 +126,7 @@ type workflowRegistry struct {
 	lggr                    logger.Logger
 	workflowRegistryAddress string
 
-	newContractReaderFn newContractReaderFn
+	contractReaderFn versioning.ContractReaderFactory
 
 	config Config
 
@@ -180,13 +166,11 @@ type donNotifier interface {
 	WaitForDon(ctx context.Context) (capabilities.DON, error)
 }
 
-type newContractReaderFn func(context.Context, []byte) (ContractReader, error)
-
 // NewWorkflowRegistry returns a new workflowRegistry.
 // Only queries for WorkflowRegistryForceUpdateSecretsRequestedV1 events.
 func NewWorkflowRegistry(
 	lggr logger.Logger,
-	newContractReaderFn newContractReaderFn,
+	contractReaderFn versioning.ContractReaderFactory,
 	addr string,
 	config Config,
 	handler evtHandler,
@@ -205,7 +189,7 @@ func NewWorkflowRegistry(
 
 	wr := &workflowRegistry{
 		lggr:                    lggr,
-		newContractReaderFn:     newContractReaderFn,
+		contractReaderFn:        contractReaderFn,
 		workflowRegistryAddress: addr,
 		config:                  config,
 		eventCh:                 make(chan Event),
@@ -263,7 +247,6 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			case SyncStrategyReconciliation:
 				w.syncUsingReconciliationStrategy(ctx, don, reader)
 			}
-
 		}()
 
 		return nil
@@ -291,7 +274,7 @@ func (w *workflowRegistry) Name() string {
 }
 
 // readRegistryEventsLoop polls the contract for events and sends them to the events channel for handling.
-func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventTypes []WorkflowRegistryEventType, don capabilities.DON, reader ContractReader, lastReadBlockNumber string) {
+func (w *workflowRegistry) readRegistryEventsLoop(ctx context.Context, eventTypes []WorkflowRegistryEventType, don capabilities.DON, reader types.ContractReader, lastReadBlockNumber string) {
 	ticker := w.getTicker()
 
 	var keyQueries = make([]types.ContractKeyFilter, 0, len(eventTypes))
@@ -412,7 +395,7 @@ func (w *workflowRegistry) handleWithMetrics(ctx context.Context, event Event) e
 // syncUsingEventStrategy syncs workflow registry contract state by watching for events on the contract.
 // It first loads the workflow metadata from the contract state as WorkflowRegistered events,
 // and then starts a goroutine with one loop for handling the events.
-func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capabilities.DON, reader ContractReader) {
+func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capabilities.DON, reader types.ContractReader) {
 	w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
 
 	workflowMetadata, loadWorkflowsHead, err := w.getWorkflowMetadata(ctx, don, reader)
@@ -444,7 +427,6 @@ func (w *workflowRegistry) syncUsingEventStrategy(ctx context.Context, don capab
 			if err != nil {
 				w.lggr.Errorw("failed to handle event", "err", err)
 			}
-
 		}
 	}
 
@@ -494,8 +476,8 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 		prevWfID := engine.WorkflowID.Hex()
 
 		id := idFor(wfMeta.Owner, wfMeta.WorkflowName)
-		switch {
-		case wfMeta.Status == WorkflowStatusActive:
+		switch wfMeta.Status {
+		case WorkflowStatusActive:
 			switch {
 			// if the workflow is active, but unable to get engine from the engine registry
 			// then handle as registered event
@@ -569,7 +551,7 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 			default:
 				return nil, fmt.Errorf("invariant violation: could not handle workflow (currWfID=%s; prevWfID=%s, engineFound=%t) in active status", currWfID, prevWfID, engineFound)
 			}
-		case wfMeta.Status == WorkflowStatusPaused:
+		case WorkflowStatusPaused:
 			switch {
 			case !engineFound:
 				// Account for a state change from active to paused, by checking
@@ -647,7 +629,7 @@ func newReconcileReport() *reconcileReport {
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // It still watches for ForceUpdateSecretsEvents, which can't be reconciled through workflow metadata state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
-func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, don capabilities.DON, reader ContractReader) {
+func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, don capabilities.DON, reader types.ContractReader) {
 	_, loadWorkflowsHead, err := w.getWorkflowMetadata(ctx, don, reader)
 	if err != nil {
 		w.lggr.Errorw("failed to load workflows head", "err", err)
@@ -677,13 +659,13 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
 			}
-			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
+			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents), "metadata", workflowMetadata)
 			events, err := w.generateReconciliationEvents(ctx, pendingEvents, workflowMetadata, don.ID)
 			if err != nil {
 				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
 				continue
 			}
-			w.lggr.Debugw("generated events to reconcile", "num", len(events))
+			w.lggr.Debugw("generated events to reconcile", "num", len(events), "events", events)
 
 			pendingEvents = map[string]*reconciliationEvent{}
 
@@ -739,12 +721,7 @@ type sequenceWithEventType struct {
 
 func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	ctx context.Context,
-) (ContractReader, error) {
-	bc := types.BoundContract{
-		Name:    WorkflowRegistryContractName,
-		Address: w.workflowRegistryAddress,
-	}
-
+) (types.ContractReader, error) {
 	contractReaderCfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
 			WorkflowRegistryContractName: {
@@ -797,9 +774,14 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 		return nil, err
 	}
 
-	reader, err := w.newContractReaderFn(ctx, marshalledCfg)
+	reader, err := w.contractReaderFn(ctx, marshalledCfg)
 	if err != nil {
 		return nil, err
+	}
+
+	bc := types.BoundContract{
+		Name:    WorkflowRegistryContractName,
+		Address: w.workflowRegistryAddress,
 	}
 
 	// bind contract to contract reader
@@ -815,7 +797,7 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 }
 
 // getWorkflowMetadata uses contract reader to query the contract for all workflow metadata using the method GetWorkflowMetadataListByDONMethodName
-func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader ContractReader) ([]GetWorkflowMetadata, *types.Head, error) {
+func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]GetWorkflowMetadata, *types.Head, error) {
 	contractBinding := types.BoundContract{
 		Address: w.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,
@@ -881,41 +863,41 @@ func toWorkflowRegistryEventResponse(
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 	case WorkflowRegisteredEvent:
 		var data WorkflowRegisteredV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowUpdatedEvent:
 		var data WorkflowUpdatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowPausedEvent:
 		var data WorkflowPausedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowActivatedEvent:
 		var data WorkflowActivatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	case WorkflowDeletedEvent:
 		var data WorkflowDeletedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
 			return workflowRegistryEvent{}, err
 		}
-		resp.Event.Data = data
+		resp.Data = data
 		resp.DonID = &data.DonID
 	default:
 		return workflowRegistryEvent{}, fmt.Errorf("unknown event type: %s", evt)

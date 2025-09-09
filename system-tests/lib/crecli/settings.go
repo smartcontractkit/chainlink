@@ -1,7 +1,13 @@
+/*
+We will keep this file for now, because we want to be able to create the `cre.yaml` file used by the CRE CLI v0.2.x,
+when local CRE is started or when sandboxes are created.
+*/
 package crecli
 
 import (
 	"os"
+
+	"github.com/google/uuid"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -9,15 +15,15 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
 const (
-	CRECLISettingsFileName     = "cre.yaml"
-	CRECLIWorkflowSettingsFile = "workflow.yaml"
-	CRECLIProfile              = "test"
+	CRECLISettingsFileName = "cre.yaml"
+	CRECLIProfile          = "test"
 )
 
 type Profiles struct {
@@ -38,7 +44,7 @@ type Settings struct {
 }
 
 type DevPlatform struct {
-	DonID uint32 `yaml:"don-id,omitempty"`
+	DonID uint64 `yaml:"don-id,omitempty"`
 }
 
 type UserWorkflow struct {
@@ -72,19 +78,21 @@ type RPC struct {
 }
 
 type WorkflowStorage struct {
-	Gist Gist `yaml:"gist"`
+	Gist  Gist                 `yaml:"gist"`
+	Minio MinioStorageSettings `yaml:"minio,omitempty"` // Optional, if not provided, Gist will be used
 }
 
 type Gist struct {
 	GithubToken string `yaml:"github_token"`
 }
 
-type PoRWorkflowConfig struct {
-	FeedID            string  `json:"feed_id"`
-	URL               string  `json:"url"`
-	ConsumerAddress   string  `json:"consumer_address"`
-	WriteTargetName   string  `json:"write_target_name"`
-	AuthKeySecretName *string `json:"auth_key_secret_name,omitempty"`
+type MinioStorageSettings struct {
+	Endpoint        string `yaml:"endpoint"`
+	AccessKeyID     string `yaml:"access_key_id"`
+	SecretAccessKey string `yaml:"secret_access_key"`
+	SessionToken    string `yaml:"session_token"`
+	UseSSL          bool   `yaml:"use_ssl"`
+	Region          string `yaml:"region"`
 }
 
 func setProfile(profile string, settings Settings) (Profiles, error) {
@@ -107,18 +115,26 @@ func setProfile(profile string, settings Settings) (Profiles, error) {
 }
 
 // rpcs: chainSelector -> url
-func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, addressBook cldf.AddressBook, donID uint32, homeChainSelector uint64, rpcs map[uint64]string) (*os.File, error) {
+func PrepareCRECLISettingsFile(
+	profile string,
+	workflowOwner common.Address,
+	addressBook cldf.AddressBook,
+	donID uint64,
+	homeChainSelector uint64,
+	rpcs map[uint64]string,
+	s3ProviderOutput *s3provider.Output,
+) (*os.File, error) {
 	settingsFile, err := os.Create(CRECLISettingsFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRE CLI settings file")
 	}
 
-	capRegAddr, capRegErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
+	capRegAddr, _, capRegErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
 	if capRegErr != nil {
 		return nil, errors.Wrapf(capRegErr, "failed to get capabilities registry address for chain %d", homeChainSelector)
 	}
 
-	workflowRegistryAddr, workflowRegistryErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddr, _, workflowRegistryErr := contracts.FindAddressesForChain(addressBook, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	if workflowRegistryErr != nil {
 		return nil, errors.Wrapf(workflowRegistryErr, "failed to get workflow registry address for chain %d", homeChainSelector)
 	}
@@ -148,11 +164,21 @@ func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, add
 				},
 			},
 		},
-		WorkflowStorage: WorkflowStorage{
-			Gist: Gist{
-				GithubToken: `${CRE_GITHUB_API_TOKEN}`,
-			},
-		},
+	}
+
+	if s3ProviderOutput != nil {
+		profileSettings.WorkflowStorage.Minio = MinioStorageSettings{
+			Endpoint:        s3ProviderOutput.Endpoint,
+			AccessKeyID:     s3ProviderOutput.AccessKey,
+			SecretAccessKey: s3ProviderOutput.SecretKey,
+			SessionToken:    uuid.NewString(),
+			UseSSL:          false,
+			Region:          s3ProviderOutput.Region,
+		}
+	}
+
+	profileSettings.WorkflowStorage.Gist = Gist{
+		GithubToken: `${CRE_GITHUB_API_TOKEN}`,
 	}
 
 	for chainSelector, rpc := range rpcs {
@@ -168,7 +194,7 @@ func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, add
 	}
 
 	for chainSelector := range addresses {
-		dfAddr, dfErr := contracts.FindAddressesForChain(addressBook, chainSelector, df_changeset.DataFeedsCache.String())
+		dfAddr, _, dfErr := contracts.FindAddressesForChain(addressBook, chainSelector, df_changeset.DataFeedsCache.String())
 		if dfErr == nil {
 			profileSettings.Contracts.DataFeeds = append(profileSettings.Contracts.DataFeeds, ContractRegistry{
 				Name:          df_changeset.DataFeedsCache.String(),
@@ -178,7 +204,7 @@ func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, add
 		}
 		// it is okay if there's no data feeds cache address for a chain
 
-		forwaderAddr, forwaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.KeystoneForwarder))
+		forwaderAddr, _, forwaderErr := contracts.FindAddressesForChain(addressBook, chainSelector, string(keystone_changeset.KeystoneForwarder))
 		if forwaderErr == nil {
 			profileSettings.Contracts.Keystone = append(profileSettings.Contracts.Keystone, ContractRegistry{
 				Name:          keystone_changeset.KeystoneForwarder.String(),
@@ -202,37 +228,6 @@ func PrepareCRECLISettingsFile(profile string, workflowOwner common.Address, add
 	_, writeErr := settingsFile.Write(settingsMarshalled)
 	if writeErr != nil {
 		return nil, errors.Wrapf(writeErr, "failed to write %s settings file", CRECLISettingsFileName)
-	}
-
-	return settingsFile, nil
-}
-
-func PrepareCRECLIWorkflowSettingsFile(profile string, workflowOwner common.Address, workflowName string) (*os.File, error) {
-	settingsFile, err := os.CreateTemp("", CRECLIWorkflowSettingsFile)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create CRE CLI workflow settings file")
-	}
-
-	profileSettings := Settings{
-		UserWorkflow: UserWorkflow{
-			WorkflowOwnerAddress: workflowOwner.Hex(),
-			WorkflowName:         workflowName,
-		},
-	}
-
-	settings, settingsErr := setProfile(profile, profileSettings)
-	if settingsErr != nil {
-		return nil, errors.Wrap(settingsErr, "failed to set profile")
-	}
-
-	settingsMarshalled, marshallErr := yaml.Marshal(settings)
-	if marshallErr != nil {
-		return nil, errors.Wrap(marshallErr, "failed to marshal CRE CLI settings")
-	}
-
-	_, writeErr := settingsFile.Write(settingsMarshalled)
-	if writeErr != nil {
-		return nil, errors.Wrapf(writeErr, "failed to write %s settings file", CRECLIWorkflowSettingsFile)
 	}
 
 	return settingsFile, nil

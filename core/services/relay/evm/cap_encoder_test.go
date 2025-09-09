@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -214,7 +214,7 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
 	_, err = enc.Encode(testutils.Context(t), *wrapped)
-	assert.ErrorContains(t, err, "incorrect length for id")
+	assert.ErrorContains(t, err, "wrong length")
 }
 
 func TestEVMEncoder_SubABI(t *testing.T) {

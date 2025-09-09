@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -76,7 +77,7 @@ func (req *MutateNodeCapabilitiesRequest) Validate(e cldf.Environment) error {
 		return fmt.Errorf("invalid registry chain selector %d: selector does not exist", req.RegistryChainSel)
 	}
 
-	_, exists = e.Chains[req.RegistryChainSel]
+	_, exists = e.BlockChains.EVMChains()[req.RegistryChainSel]
 	if !exists {
 		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", req.RegistryChainSel)
 	}
@@ -90,11 +91,11 @@ func (req *MutateNodeCapabilitiesRequest) UseMCMS() bool {
 	return req.MCMSConfig != nil
 }
 
-func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e cldf.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *OwnedContract[*kcr.CapabilitiesRegistry], error) {
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e cldf.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *contracts.OwnedContract[*kcr.CapabilitiesRegistry], error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
-	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
+	registryChain := e.BlockChains.EVMChains()[req.RegistryChainSel] // exists because of the validation above
 	capReg, err := loadCapabilityRegistry(registryChain, e, req.RegistryRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load capability registry: %w", err)

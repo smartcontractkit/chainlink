@@ -4,32 +4,34 @@ import (
 	"context"
 	"fmt"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // ChainReaderProviderOpts is a struct that contains the parameters for GetChainReader.
 type ChainReaderProviderOpts struct {
-	Lggr          logger.Logger
-	Relayer       loop.Relayer
-	ChainID       string
-	DestChainID   string
-	HomeChainID   string
-	Ofc           OffChainConfig
-	ChainSelector cciptypes.ChainSelector
-	ChainFamily   string
+	Lggr            logger.Logger
+	Relayer         loop.Relayer
+	ChainID         string
+	DestChainID     string
+	HomeChainID     string
+	Ofc             OffChainConfig
+	ChainSelector   cciptypes.ChainSelector
+	ChainFamily     string
+	DestChainFamily string
 }
 
 // ChainWriterProviderOpts is a struct that contains the parameters for GetChainWriter.
 type ChainWriterProviderOpts struct {
-	ChainID               string
-	Relayer               loop.Relayer
-	Transmitters          map[types.RelayID][]string
-	ExecBatchGasLimit     uint64
-	ChainFamily           string
-	OfframpProgramAddress []byte
+	ChainID                        string
+	Relayer                        loop.Relayer
+	Transmitters                   map[types.RelayID][]string
+	ExecBatchGasLimit              uint64
+	ChainFamily                    string
+	OfframpProgramAddress          []byte
+	SolanaChainWriterConfigVersion *string
 }
 
 // ChainRWProvider is an interface that defines the methods to get a ContractReader and a ContractWriter.

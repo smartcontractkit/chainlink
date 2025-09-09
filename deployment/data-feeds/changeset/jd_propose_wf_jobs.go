@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -17,7 +18,7 @@ import (
 )
 
 const (
-	timeout = 120 * time.Second
+	timeout = 240 * time.Second
 )
 
 // ProposeWFJobsToJDChangeset is a changeset that reads a feed state file, creates a workflow job spec from it and proposes it to JD.
@@ -27,7 +28,7 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
 	defer cancel()
 
-	chainInfo, _ := cldf.ChainInfo(c.ChainSelector)
+	chainInfo, _ := cldf_chain_utils.ChainInfo(c.ChainSelector)
 
 	feedStatePath := filepath.Join("feeds", chainInfo.ChainName+".json")
 	feedState, _ := LoadJSON[*v1_0.FeedState](feedStatePath, c.InputFS)
@@ -41,8 +42,8 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 	workflowSpecConfig := c.WorkflowSpecConfig
 	workflowState := feedState.Workflows[workflowSpecConfig.WorkflowName]
 
-	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
+	// Addressbook is deprecated, but we still use it for the time being
+	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), c.ChainSelector, &c.CacheLabel)
 
 	// default values
 	consensusEncoderAbi, _ := getWorkflowConsensusEncoderAbi(workflowSpecConfig.TargetContractEncoderType)
@@ -165,7 +166,7 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 		return fmt.Errorf("failed to get consensus encoder abi: %w", err)
 	}
 
-	chainInfo, err := cldf.ChainInfo(c.ChainSelector)
+	chainInfo, err := cldf_chain_utils.ChainInfo(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}
@@ -186,8 +187,8 @@ func proposeWFJobsToJDPrecondition(env cldf.Environment, c types.ProposeWFJobsCo
 		return fmt.Errorf("no workflow found for hash %s in %s", c.WorkflowSpecConfig.WorkflowName, inputFileName)
 	}
 
-	//nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
-	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, c.ChainSelector, &c.CacheLabel)
+	// Addressbook is deprecated, but we still use it for the time being
+	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), c.ChainSelector, &c.CacheLabel)
 	if cacheAddress == "" {
 		return errors.New("failed to get data feeds cache address")
 	}

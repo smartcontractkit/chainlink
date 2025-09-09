@@ -10,19 +10,20 @@ import (
 	"sync"
 	"time"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
+
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -53,9 +54,10 @@ type ClientRequest struct {
 	wg       *sync.WaitGroup
 }
 
+// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration) (*ClientRequest, error) {
+	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
@@ -70,13 +72,18 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	// to ensure that it supports parallel step execution
 	requestID := types.MethodExecute + ":" + workflowExecutionID + ":" + req.Metadata.ReferenceID
 
-	tc, err := transmission.ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
+	var tc transmission.TransmissionConfig
+	if transmissionConfig != nil { // global setting used by V2 Capabilities
+		tc = *transmissionConfig
+	} else { // per-workflow setting used by V1 Capabilities
+		tc, err = transmission.ExtractTransmissionConfig(req.Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
+		}
 	}
 
-	lggr = lggr.With("requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID)
+	lggr = logger.With(lggr, "requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName)
 }
 
 var (
@@ -85,7 +92,7 @@ var (
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string) (*ClientRequest, error) {
+	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
@@ -156,12 +163,13 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		go func(innerCtx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
 			defer wg.Done()
 			message := &types.MessageBody{
-				CapabilityId:    remoteCapabilityInfo.ID,
-				CapabilityDonId: remoteCapabilityDonInfo.ID,
-				CallerDonId:     localDonInfo.ID,
-				Method:          methodType,
-				Payload:         rawRequest,
-				MessageId:       []byte(requestID),
+				CapabilityId:     remoteCapabilityInfo.ID,
+				CapabilityDonId:  remoteCapabilityDonInfo.ID,
+				CallerDonId:      localDonInfo.ID,
+				Method:           methodType,
+				Payload:          rawRequest,
+				MessageId:        []byte(requestID),
+				CapabilityMethod: capMethodName,
 			}
 
 			select {
@@ -302,7 +310,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			return fmt.Errorf("failed to get message hash: %w", err)
 		}
 
-		lggr := c.lggr.With("responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
+		lggr := logger.With(c.lggr, "responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
 
 		nodeReports, exists := c.meteringResponses[responseID]
 		if !exists {

@@ -99,15 +99,16 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	chains, _, err := devenv.NewChains(lggr, envConfig.Chains)
+	blockChains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
-	l.DeployedEnv.Users = users
-	l.DeployedEnv.Env.Chains = chains
-	l.DeployedEnv.FeedChainSel = feedSel
-	l.DeployedEnv.HomeChainSel = homeChainSel
-	l.DeployedEnv.ReplayBlocks = replayBlocks
+
+	l.Users = users
+	l.Env.BlockChains = blockChains
+	l.FeedChainSel = feedSel
+	l.HomeChainSel = homeChainSel
+	l.ReplayBlocks = replayBlocks
 }
 
 func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
@@ -155,6 +156,12 @@ func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, is
 	return l.testEnv.MockAdapter.InternalEndpoint
 }
 
+func (l *DeployedLocalDevEnvironment) MockLBTCAttestationServer(t *testing.T, isAttestationMissing bool) string {
+	err := ccipactions.SetMockServerWithLBTCAttestation(l.testEnv.MockAdapter, isAttestationMissing)
+	require.NoError(t, err)
+	return l.testEnv.MockAdapter.InternalEndpoint
+}
+
 func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	errGrp := errgroup.Group{}
 	for _, n := range l.testEnv.ClCluster.Nodes {
@@ -185,6 +192,7 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 	for _, opt := range opts {
 		opt(testCfg)
 	}
+
 	// check for EnvType env var
 	testCfg.MustSetEnvTypeOrDefault(t)
 	require.NoError(t, testCfg.Validate(), "invalid test config")
@@ -285,7 +293,8 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 	var remoteChains []devenv.RemoteChains
 
 	var rpcs []devenv.Chain
-	for chainSel, chain := range state.Chains {
+	for _, chainSel := range state.EVMChains() {
+		chain := state.MustGetEVMChainState(chainSel)
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
 		chainParams = append(chainParams, devenv.ChainParam{
@@ -315,9 +324,9 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 		},
 		HomeChain: devenv.HomeChain{
 			Name:                 MustCCIPNameToRMNName(hc.Name),
-			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
-			CCIPHome:             state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
-			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
+			CapabilitiesRegistry: state.MustGetEVMChainState(tenv.HomeChainSel).CapabilityRegistry.Address().String(),
+			CCIPHome:             state.MustGetEVMChainState(tenv.HomeChainSel).CCIPHome.Address().String(),
+			RMNHome:              state.MustGetEVMChainState(tenv.HomeChainSel).RMNHome.Address().String(),
 		},
 		RemoteChains: remoteChains,
 		ChainParams:  chainParams,

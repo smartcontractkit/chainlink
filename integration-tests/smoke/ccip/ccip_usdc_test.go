@@ -5,22 +5,18 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
 /*
@@ -32,7 +28,7 @@ import (
 * 	chainB (USDC)
  */
 func TestUSDCTokenTransfer(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ctx := t.Context()
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3),
@@ -44,24 +40,25 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	allChainSelectors := maps.Keys(e.Chains)
+	evmChains := e.BlockChains.EVMChains()
+	allChainSelectors := maps.Keys(evmChains)
 	chainA := allChainSelectors[0]
 	chainC := allChainSelectors[1]
 	chainB := allChainSelectors[2]
 
-	ownerChainA := e.Chains[chainA].DeployerKey
-	ownerChainC := e.Chains[chainC].DeployerKey
-	ownerChainB := e.Chains[chainB].DeployerKey
+	ownerChainA := evmChains[chainA].DeployerKey
+	ownerChainC := evmChains[chainC].DeployerKey
+	ownerChainB := evmChains[chainB].DeployerKey
 
-	aChainUSDC, cChainUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, chainA, chainC, state)
+	aChainUSDC, cChainUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, evmChains, chainA, chainC, state)
 	require.NoError(t, err)
 
-	bChainUSDC, _, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, chainB, chainC, state)
+	bChainUSDC, _, err := testhelpers.ConfigureUSDCTokenPools(lggr, evmChains, chainB, chainC, state)
 	require.NoError(t, err)
 
 	aChainToken, _, cChainToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
-		tenv.Env.Chains,
+		tenv.Env.BlockChains.EVMChains(),
 		chainA,
 		chainC,
 		ownerChainA,
@@ -92,7 +89,21 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 	)
 
-	err = updateFeeQuoters(t, lggr, e, state, chainA, chainB, chainC, aChainUSDC, bChainUSDC, cChainUSDC)
+	updateFeeQtrGrp := errgroup.Group{}
+	for _, chainSel1 := range allChainSelectors {
+		updateFeeQtrGrp.Go(func() error {
+			for _, chainSel2 := range allChainSelectors {
+				if chainSel1 == chainSel2 {
+					continue
+				}
+				if err := testhelpers.UpdateFeeQuoterForToken(t, e, lggr, evmChains[chainSel1], chainSel2, shared.USDCSymbol); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	err = updateFeeQtrGrp.Wait()
 	require.NoError(t, err)
 
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
@@ -158,7 +169,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 		{
 			Name:        "USDC programmable token transfer to valid contract receiver",
-			Receiver:    state.Chains[chainC].Receiver.Address().Bytes(),
+			Receiver:    state.MustGetEVMChainState(chainC).Receiver.Address().Bytes(),
 			SourceChain: chainA,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -175,7 +186,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 		{
 			Name:        "USDC programmable token transfer with too little gas",
-			Receiver:    state.Chains[chainB].Receiver.Address().Bytes(),
+			Receiver:    state.MustGetEVMChainState(chainB).Receiver.Address().Bytes(),
 			SourceChain: chainC,
 			DestChain:   chainB,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -233,29 +244,4 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e, expectedTokenBalances)
-}
-
-func updateFeeQuoters(
-	t *testing.T,
-	lggr logger.Logger,
-	e cldf.Environment,
-	state stateview.CCIPOnChainState,
-	chainA, chainB, chainC uint64,
-	aChainUSDC, bChainUSDC, cChainUSDC *burn_mint_erc677.BurnMintERC677,
-) error {
-	updateFeeQtrGrp := errgroup.Group{}
-	updateFeeQtrGrp.Go(func() error {
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainA], chainC)
-	})
-	updateFeeQtrGrp.Go(func() error {
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainB], chainC)
-	})
-	updateFeeQtrGrp.Go(func() error {
-		err1 := testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainC], chainA)
-		if err1 != nil {
-			return err1
-		}
-		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainC], chainB)
-	})
-	return updateFeeQtrGrp.Wait()
 }

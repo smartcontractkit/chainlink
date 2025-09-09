@@ -2,7 +2,6 @@ package executable
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,15 +9,14 @@ import (
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // server manages all external users of a local executable capability.
@@ -32,6 +30,7 @@ type server struct {
 	lggr logger.Logger
 
 	config       *commoncap.RemoteExecutableConfig
+	hasher       types.MessageHasher
 	peerID       p2ptypes.PeerID
 	underlying   commoncap.ExecutableCapability
 	capInfo      commoncap.CapabilityInfo
@@ -41,6 +40,7 @@ type server struct {
 
 	requestIDToRequest map[string]requestAndMsgID
 	requestTimeout     time.Duration
+	capMethodName      string
 
 	// Used to detect messages with the same message id but different payloads
 	messageIDToRequestIDsCount map[string]map[string]int
@@ -63,14 +63,18 @@ type requestAndMsgID struct {
 func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID p2ptypes.PeerID, underlying commoncap.ExecutableCapability,
 	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
 	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	maxParallelRequests int,
+	maxParallelRequests int, messageHasher types.MessageHasher, capMethodName string,
 	lggr logger.Logger) *server {
 	if remoteExecutableConfig == nil {
 		lggr.Info("no remote config provided, using default values")
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
+	if messageHasher == nil {
+		messageHasher = NewV1Hasher(remoteExecutableConfig.RequestHashExcludedAttributes)
+	}
 	return &server{
 		config:       remoteExecutableConfig,
+		hasher:       messageHasher,
 		underlying:   underlying,
 		peerID:       peerID,
 		capInfo:      capInfo,
@@ -81,8 +85,9 @@ func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID 
 		requestIDToRequest:         map[string]requestAndMsgID{},
 		messageIDToRequestIDsCount: map[string]map[string]int{},
 		requestTimeout:             requestTimeout,
+		capMethodName:              capMethodName,
 
-		lggr:   lggr.Named("ExecutableCapabilityServer"),
+		lggr:   logger.Named(lggr, "ExecutableCapabilityServer"),
 		stopCh: make(services.StopChan),
 
 		parallelExecutor: newParallelExecutor(maxParallelRequests),
@@ -94,10 +99,7 @@ func (r *server) Start(ctx context.Context) error {
 		r.wg.Add(1)
 		go func() {
 			defer r.wg.Done()
-			tickerInterval := expiryCheckInterval
-			if r.requestTimeout < tickerInterval {
-				tickerInterval = r.requestTimeout
-			}
+			tickerInterval := min(r.requestTimeout, expiryCheckInterval)
 			ticker := time.NewTicker(tickerInterval)
 			defer ticker.Stop()
 
@@ -169,7 +171,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	msgHash, err := r.getMessageHash(msg)
+	msgHash, err := r.hasher.Hash(msg)
 	if err != nil {
 		r.lggr.Errorw("failed to get message hash", "err", err)
 		return
@@ -202,7 +204,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}
 
 		sr, ierr := request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr)
+			callingDon, messageID, r.dispatcher, r.requestTimeout, r.capMethodName, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return
@@ -224,32 +226,6 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}); executeTaskErr != nil {
 		r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
 	}
-}
-
-func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
-	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
-	}
-
-	// An attribute called StepDependency is used to define a data dependency between steps,
-	// and not to provide input values; we should therefore disregard it when hashing the request
-	if len(r.config.RequestHashExcludedAttributes) == 0 {
-		r.config.RequestHashExcludedAttributes = []string{"StepDependency"}
-	}
-
-	for _, path := range r.config.RequestHashExcludedAttributes {
-		if req.Inputs != nil {
-			req.Inputs.DeleteAtPath(path)
-		}
-	}
-
-	reqBytes, err := pb.MarshalCapabilityRequest(req)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
-	}
-	hash := sha256.Sum256(reqBytes)
-	return hash, nil
 }
 
 func GetMessageID(msg *types.MessageBody) (string, error) {

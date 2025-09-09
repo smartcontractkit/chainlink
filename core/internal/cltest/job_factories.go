@@ -23,7 +23,7 @@ const (
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			contractAddress    = "%s"
-			evmChainID		   = "0"
+			evmChainID		   = "%s"
 			p2pPeerID          = "%s"
 			p2pv2Bootstrappers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 			isBootstrapPeer    = false
@@ -39,7 +39,7 @@ const (
 )
 
 func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress types.EIP55Address, peerID p2pkey.PeerID, keyBundleID string) string {
-	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress.Hex(), keyBundleID)
+	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, testutils.FixtureChainID.String(), peerID, transmitterAddress.Hex(), keyBundleID)
 }
 
 func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource) (job.Job, job.WebhookSpec) {

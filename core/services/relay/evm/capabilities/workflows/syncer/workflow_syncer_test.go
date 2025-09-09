@@ -18,18 +18,22 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	crypto2 "github.com/ethereum/go-ethereum/crypto"
 	"github.com/jonboulle/clockwork"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -38,13 +42,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
-
-	"github.com/stretchr/testify/require"
-
-	crypto2 "github.com/ethereum/go-ethereum/crypto"
 )
 
 var rlConfig = ratelimiter.Config{
@@ -129,7 +131,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	defer eventPollTicker.Stop()
 
 	// Deploy a test workflow_registry
-	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v1.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 
@@ -159,7 +161,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	// Create the registry
 	registry, err := syncer.NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
@@ -258,7 +260,7 @@ func Test_InitialStateSync(t *testing.T) {
 	donID := uint32(1)
 
 	// Deploy a test workflow_registry
-	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v1.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 	// setup contract state to allow the secrets to be updated
@@ -286,7 +288,7 @@ func Test_InitialStateSync(t *testing.T) {
 	// Create the worker
 	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
@@ -371,7 +373,7 @@ func Test_SecretsWorker(t *testing.T) {
 			giveWorkflow.ID = giveID
 
 			// Deploy a test workflow_registry
-			wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+			wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v1.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 			backendTH.Backend.Commit()
 			require.NoError(t, err)
 
@@ -391,18 +393,24 @@ func Test_SecretsWorker(t *testing.T) {
 			contents, err := orm.GetContents(ctx, giveSecretsURL)
 			require.NoError(t, err)
 			require.Equal(t, string(beforeSecretsPayload), contents)
-			rl, err := ratelimiter.NewRateLimiter(rlConfig)
+			limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+			require.NoError(t, err)
+			rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 			require.NoError(t, err)
 
-			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+			wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 			require.NoError(t, err)
 
 			store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
-
+			wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+			capRegistry := corecaps.NewRegistry(lggr)
+			capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 			engineRegistry := syncer.NewEngineRegistry()
+			donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-			evtHandler, err := syncer.NewEventHandler(lggr, nil, nil, engineRegistry,
-				emitter, rl, wl, store)
+			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, engineRegistry,
+				emitter, limiters, rl, wl, store, workflowEncryptionKey)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
@@ -411,7 +419,7 @@ func Test_SecretsWorker(t *testing.T) {
 
 			worker, err := syncer.NewWorkflowRegistry(
 				lggr,
-				func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+				func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 					return backendTH.NewContractReader(ctx, t, bytes)
 				},
 				wfRegistryAddr.Hex(),
@@ -482,7 +490,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 	defer giveTicker.Stop()
 
 	// Deploy a test workflow_registry
-	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v1.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 
@@ -500,7 +508,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 
 	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
@@ -564,7 +572,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	defer giveTicker.Stop()
 
 	// Deploy a test workflow_registry
-	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v1.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 
@@ -574,20 +582,26 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
 	require.NoError(t, err)
-
+	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+	capRegistry := corecaps.NewRegistry(lggr)
+	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-	handler, err := syncer.NewEventHandler(lggr, nil, nil, er, emitter, rl, wl, store)
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
@@ -668,7 +682,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	defer giveTicker.Stop()
 
 	// Deploy a test workflow_registry
-	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v1.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 
@@ -678,20 +692,26 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
-	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
-
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
+	require.NoError(t, err)
+	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+	capRegistry := corecaps.NewRegistry(lggr)
+	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-	handler, err := syncer.NewEventHandler(lggr, nil, nil, er,
-		emitter, rl, wl, store, syncer.WithStaticEngine(&mockService{}))
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er,
+		emitter, limiters, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
@@ -740,7 +760,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 		donID := uint32(1)
 
 		// Deploy a test workflow_registry
-		wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+		wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v1.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 		backendTH.Backend.Commit()
 		require.NoError(t, err)
 
@@ -771,7 +791,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 		// Create the worker
 		worker, err := syncer.NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return backendTH.NewContractReader(ctx, t, bytes)
 			},
 			wfRegistryAddr.Hex(),
@@ -809,7 +829,7 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	donID := uint32(1)
 
 	// Deploy a test workflow_registry
-	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v1.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 
@@ -843,7 +863,7 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	// Create the worker
 	worker, err := syncer.NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
@@ -878,7 +898,7 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 func updateAuthorizedAddress(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	wfRegC *workflow_registry_wrapper_v1.WorkflowRegistry,
 	addresses []common.Address,
 	_ bool,
 ) {
@@ -898,7 +918,7 @@ func updateAuthorizedAddress(
 func updateAllowedDONs(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	wfRegC *workflow_registry_wrapper_v1.WorkflowRegistry,
 	donIDs []uint32,
 	allowed bool,
 ) {
@@ -928,7 +948,7 @@ type RegisterWorkflowCMD struct {
 func registerWorkflow(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	wfRegC *workflow_registry_wrapper_v1.WorkflowRegistry,
 	input RegisterWorkflowCMD,
 ) {
 	t.Helper()
@@ -943,7 +963,7 @@ func registerWorkflow(
 func requestForceUpdateSecrets(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	wfRegC *workflow_registry_wrapper_v1.WorkflowRegistry,
 	secretsURL string,
 ) {
 	_, err := wfRegC.RequestForceUpdateSecrets(th.ContractsOwner, secretsURL)
@@ -956,7 +976,7 @@ func requestForceUpdateSecrets(
 func activateWorkflow(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	wfRegC *workflow_registry_wrapper_v1.WorkflowRegistry,
 	workflowKey [32]byte,
 ) {
 	t.Helper()
@@ -970,7 +990,7 @@ func activateWorkflow(
 func pauseWorkflow(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	wfRegC *workflow_registry_wrapper_v1.WorkflowRegistry,
 	workflowKey [32]byte,
 ) {
 	t.Helper()
@@ -984,7 +1004,7 @@ func pauseWorkflow(
 func deleteWorkflow(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	wfRegC *workflow_registry_wrapper_v1.WorkflowRegistry,
 	workflowKey [32]byte,
 ) {
 	t.Helper()
@@ -998,7 +1018,7 @@ func deleteWorkflow(
 func updateWorkflow(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
-	wfRegC *workflow_registry_wrapper.WorkflowRegistry,
+	wfRegC *workflow_registry_wrapper_v1.WorkflowRegistry,
 	workflowKey [32]byte, newWorkflowID [32]byte, binaryURL string, configURL string, secretsURL string,
 ) {
 	t.Helper()

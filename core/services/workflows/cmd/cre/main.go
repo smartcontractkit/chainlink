@@ -10,19 +10,28 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/cmd/cre/utils"
 )
 
 func main() {
-	var wasmPath string
-	var configPath string
-	var debugMode bool
+	var (
+		wasmPath                   string
+		configPath                 string
+		secretsPath                string
+		debugMode                  bool
+		enableBeholder             bool
+		enableBilling              bool
+		enableStandardCapabilities bool
+	)
 
 	flag.StringVar(&wasmPath, "wasm", "", "Path to the WASM binary file")
 	flag.StringVar(&configPath, "config", "", "Path to the Config file")
+	flag.StringVar(&secretsPath, "secrets", "", "Path to the secrets file")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug-level logging")
+	flag.BoolVar(&enableBeholder, "beholder", false, "Enable printing beholder messages to standard log")
+	flag.BoolVar(&enableBilling, "billing", false, "Enable to run a faked billing service that prints to the standard log.")
+	flag.BoolVar(&enableStandardCapabilities, "standardCapabilities", true, "Enable to use the latest production standard capability binaries for capabilities. The binaries must be available in local GOBIN.")
 	flag.Parse()
 
 	if wasmPath == "" {
@@ -45,6 +54,15 @@ func main() {
 		}
 	}
 
+	var secrets []byte
+	if secretsPath != "" {
+		secrets, err = os.ReadFile(secretsPath)
+		if err != nil {
+			fmt.Printf("Failed to read secrets file: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -57,49 +75,11 @@ func main() {
 	logCfg := logger.Config{LogLevel: logLevel}
 	lggr, _ := logCfg.New()
 
-	// Create the registry and fake capabilities
-	registry := capabilities.NewRegistry(lggr)
-	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-	capabilities, err := NewFakeCapabilities(ctx, lggr, registry)
-	if err != nil {
-		fmt.Printf("Failed to create capabilities: %v\n", err)
-		os.Exit(1)
-	}
-
-	run(ctx, lggr, registry, capabilities, binary, config)
-}
-
-// run instantiates the engine, starts it and blocks until the context is canceled.
-func run(
-	ctx context.Context,
-	lggr logger.Logger,
-	registry *capabilities.Registry,
-	capabilities []services.Service,
-	binary, config []byte) {
-	engine, err := NewStandaloneEngine(ctx, lggr, registry, binary, config)
-	if err != nil {
-		fmt.Printf("Failed to create engine: %v\n", err)
-		os.Exit(1)
-	}
-
-	for _, cap := range capabilities {
-		if err2 := cap.Start(ctx); err2 != nil {
-			fmt.Printf("Failed to start capability: %v\n", err2)
-			os.Exit(1)
-		}
-	}
-	err = engine.Start(ctx)
-	if err != nil {
-		fmt.Printf("Failed to start engine: %v\n", err)
-		os.Exit(1)
-	}
-
-	<-ctx.Done()
-
-	fmt.Println("Shutting down the Engine")
-	_ = engine.Close()
-	for _, cap := range capabilities {
-		lggr.Infow("Shutting down capability", "id", cap.Name())
-		_ = cap.Close()
-	}
+	runner := utils.NewRunner(nil)
+	runner.Run(ctx, "", binary, config, secrets, utils.RunnerConfig{
+		EnableBilling:              enableBilling,
+		EnableBeholder:             enableBeholder,
+		EnableStandardCapabilities: enableStandardCapabilities,
+		Lggr:                       lggr,
+	})
 }

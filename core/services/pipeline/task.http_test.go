@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
 // ethUSDPairing has the ETH/USD parameters needed when POSTing to the price
@@ -188,9 +187,9 @@ func TestHTTPTask_Variables(t *testing.T) {
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
-				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
+				require.ErrorIs(t, result.Error, test.expectedErrorCause)
 				if test.expectedErrorContains != "" {
-					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
+					require.ErrorContains(t, result.Error, test.expectedErrorContains)
 				}
 			} else {
 				require.NoError(t, result.Error)
@@ -228,8 +227,8 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		RequestData: ethUSDPairing,
 	}
 	// Use real clients here to actually test the local connection blocking
-	r := clhttp.NewRestrictedHTTPClient(config.Database(), logger.TestLogger(t))
-	u := clhttp.NewUnrestrictedHTTPClient()
+	r := clhttp.NewRestrictedClient(config.Database(), logger.TestLogger(t))
+	u := clhttp.NewUnrestrictedClient()
 	task.HelperSetDependencies(config.JobPipeline(), r, u)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)

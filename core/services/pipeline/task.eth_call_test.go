@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -56,7 +56,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
@@ -77,7 +77,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"$(gasLimit)",
 			"",
 			nil,
@@ -99,7 +99,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			&specGasLimit,
@@ -120,7 +120,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
@@ -142,7 +142,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xThisAintGonnaWork",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
@@ -158,7 +158,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbee",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
@@ -174,7 +174,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
@@ -190,7 +190,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
@@ -206,7 +206,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"",
 			nil,
@@ -244,7 +244,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"latest",
 			nil,
@@ -265,7 +265,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"0",
+			testutils.FixtureChainID.String(),
 			"",
 			"pending",
 			nil,
@@ -334,7 +334,7 @@ func TestETHCallTask(t *testing.T) {
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
 				require.Nil(t, result.Value)
 				if test.expectedErrorCause != nil {
-					require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
+					require.ErrorIs(t, result.Error, test.expectedErrorCause)
 				}
 				if test.expectedErrorContains != "" {
 					require.Contains(t, result.Error.Error(), test.expectedErrorContains)

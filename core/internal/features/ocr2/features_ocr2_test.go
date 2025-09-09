@@ -28,6 +28,7 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -47,11 +48,11 @@ func TestIntegration_OCR2(t *testing.T) {
 
 func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	t.Parallel()
-	owner, b, ocrContractAddress, ocrContract := SetupOCR2Contracts(t)
+	owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
 	bootstrapNodePort := freeport.GetOne(t)
-	bootstrapNode := SetupNodeOCR2(t, owner, bootstrapNodePort, true /* useForwarders */, b, nil)
+	bootstrapNode := SetupNodeOCR2(t, owner, bootstrapNodePort, true /* useForwarders */, b, nil, nodeConfig)
 
 	var (
 		oracles            []confighelper2.OracleIdentityExtra
@@ -65,7 +66,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 		node := SetupNodeOCR2(t, owner, ports[i], true /* useForwarders */, b, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		})
+		}, nodeConfig)
 
 		// Effective transmitter should be a forwarder not an EOA.
 		require.NotEqual(t, node.EffectiveTransmitter, node.Transmitter)
@@ -215,9 +216,14 @@ updateInterval = "1m"
 
 	// Once all the jobs are added, replay to ensure we have the configSet logs.
 	for _, app := range apps {
-		require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
+		chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+		require.True(t, ok)
+		require.NoError(t, chain.LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
 	}
-	require.NoError(t, bootstrapNode.App.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
+
+	bootstrapChain, ok := bootstrapNode.App.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
+	require.NoError(t, bootstrapChain.LogPoller().Replay(testutils.Context(t), blockBeforeConfig.Number().Int64()))
 
 	// Assert that all the OCR jobs get a run with valid values eventually.
 	var wg sync.WaitGroup
@@ -268,7 +274,9 @@ updateInterval = "1m"
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	require.NoError(t, err)
 	store := keys.NewStore(keystore.NewEthSigner(apps[0].KeyStore.Eth(), testutils.SimulatedChainID))
-	ct, err := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].Client(), contractABI, nil, apps[0].GetRelayers().LegacyEVMChains().Slice()[0].LogPoller(), lggr, store)
+	chain, ok := apps[0].GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
+	ct, err := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, chain.Client(), contractABI, nil, chain.LogPoller(), lggr, store)
 	require.NoError(t, err)
 	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)

@@ -1,20 +1,28 @@
 package ocr
 
 import (
+	"context"
+	stderrors "errors"
+	"fmt"
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
@@ -44,16 +52,26 @@ type insecureConfig interface {
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(gcfg GeneralConfig, legacyChains legacyevm.LegacyChainContainer, tomlString string) (job.Job, error) {
-	return ValidatedOracleSpecTomlCfg(gcfg, func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
-		c, err := legacyChains.Get(id.String())
+	return ValidatedOracleSpecTomlCfg(gcfg, func(id *big.Int, contractAddress types.EIP55Address) (evmconfig.ChainScopedConfig, error) {
+		chainService, err := legacyChains.Get(id.String())
 		if err != nil {
 			return nil, err
+		}
+		c, ok := chainService.(legacyevm.Chain)
+		if !ok {
+			return nil, fmt.Errorf("ocr is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
+		}
+		if gcfg.OCR().ConfigLogValidation() {
+			_, err = validateContractConfig(legacyChains, id, contractAddress)
+			if err != nil {
+				return nil, err
+			}
 		}
 		return c.Config(), nil
 	}, tomlString)
 }
 
-func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int) (evmconfig.ChainScopedConfig, error), tomlString string) (job.Job, error) {
+func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int, contractAddress types.EIP55Address) (evmconfig.ChainScopedConfig, error), tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCROracleSpec
 	tree, err := toml.Load(tomlString)
@@ -91,7 +109,7 @@ func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int) (
 		}
 	}
 
-	cfg, err := configFn(jb.OCROracleSpec.EVMChainID.ToInt())
+	cfg, err := configFn(jb.OCROracleSpec.EVMChainID.ToInt(), spec.ContractAddress)
 	if err != nil {
 		return jb, err
 	}
@@ -106,6 +124,7 @@ func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int) (
 	if err := validateTimingParameters(cfg.EVM(), cfg.EVM().OCR(), gcfg.Insecure(), spec, gcfg.OCR()); err != nil {
 		return jb, err
 	}
+
 	return jb, nil
 }
 
@@ -165,5 +184,88 @@ func validateNonBootstrapSpec(tree *toml.Tree, spec job.Job, ocrObservationTimeo
 			return errors.Errorf("individual max task duration must be < observation timeout")
 		}
 	}
+	return nil
+}
+
+func validateContractConfig(legacyChains legacyevm.LegacyChainContainer, id *big.Int, contractAddress types.EIP55Address) (evmconfig.ChainScopedConfig, error) {
+	chainService, err := legacyChains.Get(id.String())
+	if err != nil {
+		return nil, err
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("ocr is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
+	}
+
+	// Check if contract exists
+	isDeployed, err := isContractDeployed(chain.Client(), contractAddress.Address())
+	if err != nil {
+		return nil, err
+	}
+	if !isDeployed {
+		return chain.Config(), nil
+	}
+
+	ct, err := newContractTracker(chain, contractAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate contract configuration
+	if err := validateContractLogs(ct, contractAddress); err != nil {
+		return nil, err
+	}
+
+	return chain.Config(), nil
+}
+
+func isContractDeployed(client client.Client, address common.Address) (bool, error) {
+	code, err := client.CodeAt(context.Background(), address, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to get code at address: %w", err)
+	}
+	return len(code) > 0, nil
+}
+
+func newContractTracker(chain legacyevm.Chain, contractAddress types.EIP55Address) (*OCRContractTracker, error) {
+	contractCaller, err := offchainaggregator.NewOffchainAggregatorCaller(contractAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
+	}
+
+	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create OffchainAggregator wrapper")
+	}
+
+	filterer, err := offchainaggregator.NewOffchainAggregatorFilterer(contractAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create OffchainAggregator filterer")
+	}
+
+	return &OCRContractTracker{
+		contractCaller:   contractCaller,
+		blockTranslator:  ocrcommon.NewBlockTranslator(chain.Config().EVM(), chain.Client(), logger.NullLogger),
+		ethClient:        chain.Client(),
+		contract:         contract,
+		contractFilterer: filterer,
+	}, nil
+}
+
+func validateContractLogs(ct *OCRContractTracker, contractAddress types.EIP55Address) error {
+	ctx := context.Background()
+	changedInBlock, _, err := ct.LatestConfigDetails(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get config at address %s: %w", contractAddress.String(), err)
+	}
+
+	if changedInBlock == 0 {
+		return nil // Contract is not configured, skip validation
+	}
+
+	if _, configErr := ct.ConfigFromLogs(ctx, changedInBlock); configErr != nil {
+		return errors.Wrap(configErr, "could not fetch OCR contract config, try switching to an archive node")
+	}
+
 	return nil
 }

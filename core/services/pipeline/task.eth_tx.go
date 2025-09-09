@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -10,16 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 // Return types:
@@ -76,9 +75,13 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
 		return Result{Error: err}, retryableRunInfo()
 	}
+	legacyChain, ok := chain.(legacyevm.Chain)
+	if !ok {
+		return Result{Error: ErrUnsupportedInLOOPPMode}, RunInfo{}
+	}
 
-	cfg := chain.Config().EVM()
-	txManager := chain.TxManager()
+	cfg := legacyChain.Config().EVM()
+	txManager := legacyChain.TxManager()
 	_, err = CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, RunInfo{}
@@ -96,7 +99,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		transmitCheckerMap    MapParam
 		failOnRevert          BoolParam
 	)
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
@@ -123,7 +126,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		return Result{Error: err}, RunInfo{}
 	}
 
-	fromAddr, err := t.keyStore.GetRoundRobinAddress(ctx, chain.ID(), fromAddrs...)
+	fromAddr, err := t.keyStore.GetRoundRobinAddress(ctx, legacyChain.ID(), fromAddrs...)
 	if err != nil {
 		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
 		lggr.Error(err)
@@ -136,7 +139,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 	var forwarderAddress common.Address
 	if t.forwardingAllowed {
 		var fwderr error
-		forwarderAddress, fwderr = chain.TxManager().GetForwarderForEOA(ctx, fromAddr)
+		forwarderAddress, fwderr = legacyChain.TxManager().GetForwarderForEOA(ctx, fromAddr)
 		if fwderr != nil {
 			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "err", fwderr)
 		}

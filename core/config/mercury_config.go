@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -44,10 +43,10 @@ func (m *MercuryTransmitterProtocol) UnmarshalText(text []byte) error {
 type MercuryTransmitter interface {
 	Protocol() MercuryTransmitterProtocol
 	TransmitQueueMaxSize() uint32
-	TransmitTimeout() commonconfig.Duration
+	TransmitTimeout() time.Duration
 	TransmitConcurrency() uint32
-	ReaperFrequency() commonconfig.Duration
-	ReaperMaxAge() commonconfig.Duration
+	ReaperFrequency() time.Duration
+	ReaperMaxAge() time.Duration
 }
 
 type Mercury interface {

@@ -8,8 +8,10 @@ import (
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
-	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/access_controller"
+	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -22,7 +24,7 @@ import (
 
 func deployAccessControllerProgram(
 	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana,
-	chain cldf.SolChain, addressBook cldf.AddressBook,
+	chain cldf_solana.Chain, addressBook cldf.AddressBook,
 ) error {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
@@ -33,7 +35,7 @@ func deployAccessControllerProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(e.Logger, cldf.SolProgramInfo{
+		deployedProgramID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
 			Name:  deployment.AccessControllerProgramName,
 			Bytes: deployment.SolanaProgramBytes[deployment.AccessControllerProgramName],
 		}, false, true)
@@ -66,7 +68,7 @@ func deployAccessControllerProgram(
 
 func initAccessController(
 	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
-	chain cldf.SolChain, addressBook cldf.AddressBook,
+	chain cldf_solana.Chain, addressBook cldf.AddressBook,
 ) error {
 	if chainState.AccessControllerProgram.IsZero() {
 		return errors.New("access controller program is not deployed")
@@ -124,7 +126,7 @@ func initAccessController(
 const accessControllerAccountSize = uint64(8 + 32 + 32 + ((32 * 64) + 8))
 
 func initializeAccessController(
-	e cldf.Environment, chain cldf.SolChain, programID solana.PublicKey, roleAccount solana.PrivateKey,
+	e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey, roleAccount solana.PrivateKey,
 ) error {
 	rentExemption, err := chain.Client.GetMinimumBalanceForRentExemption(e.GetContext(),
 		accessControllerAccountSize, rpc.CommitmentConfirmed)
@@ -161,7 +163,7 @@ func initializeAccessController(
 	return nil
 }
 
-func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolChain) error {
+func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain cldf_solana.Chain) error {
 	proposerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
 	cancellerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.CancellerMcmSeed)
 	bypasserPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.BypasserMcmSeed)
@@ -190,7 +192,7 @@ func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain cldf.SolCha
 }
 
 func addAccess(
-	chain cldf.SolChain, chainState *state.MCMSWithTimelockStateSolana,
+	chain cldf_solana.Chain, chainState *state.MCMSWithTimelockStateSolana,
 	role timelockBindings.Role, accounts ...solana.PublicKey,
 ) error {
 	timelockConfigPDA := state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)

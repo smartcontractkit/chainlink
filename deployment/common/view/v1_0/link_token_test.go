@@ -8,8 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,7 +24,7 @@ func TestLinkTokenView(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	chain := e.Chains[e.AllChainSelectors()[0]]
+	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
 	_, tx, lt, err := link_token.DeployLinkToken(chain.DeployerKey, chain.Client)
 	require.NoError(t, err)
 	_, err = chain.Confirm(tx)
@@ -29,17 +34,20 @@ func TestLinkTokenView(t *testing.T) {
 }
 
 func TestLinkTokenViewZk(t *testing.T) {
+	// Timeouts in CI
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
+
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		ZkChains: 1,
 	})
-	chain := e.Chains[e.AllChainSelectors()[0]]
+	chain := e.BlockChains.EVMChains()[e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]]
 	_, _, lt, err := link_token.DeployLinkTokenZk(nil, chain.ClientZkSyncVM, chain.DeployerKeyZkSyncVM, chain.Client)
 	require.NoError(t, err)
 
 	testLinkTokenViewWithChain(t, chain, lt)
 }
 
-func testLinkTokenViewWithChain(t *testing.T, chain cldf.Chain, lt *link_token.LinkToken) {
+func testLinkTokenViewWithChain(t *testing.T, chain cldf_evm.Chain, lt *link_token.LinkToken) {
 	v, err := GenerateLinkTokenView(lt)
 	require.NoError(t, err)
 

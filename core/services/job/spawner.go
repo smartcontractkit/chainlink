@@ -206,8 +206,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 
 	delegate, exists := js.jobTypeDelegates[jb.Type]
 	if !exists {
-		lggr.Errorw("Job type has not been registered with job.Spawner", "type", jb.Type)
-		return pkgerrors.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
+		return fmt.Errorf("unregistered type %q for job: %d", jb.Type, jb.ID)
 	}
 	// We always add the active job in the activeJob map, even in the case
 	// that it fails to start. That way we have access to the delegate to call
@@ -225,12 +224,11 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 
 	srvs, err := delegate.ServicesForSpec(ctx, jb)
 	if err != nil {
-		lggr.Errorw("Error creating services for job", "err", err)
 		cctx, cancel := js.chStop.NewCtx()
 		defer cancel()
 		js.orm.TryRecordError(cctx, jb.ID, err.Error())
 		js.activeJobs[jb.ID] = aj
-		return pkgerrors.Wrapf(err, "failed to create services for job: %d", jb.ID)
+		return fmt.Errorf("failed to create services for job: %d: %w", jb.ID, err)
 	}
 
 	var ms services.MultiStart
@@ -243,8 +241,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		if c, ok := srv.(services.HealthReporter); ok {
 			err = js.checker.Register(c)
 			if err != nil {
-				lggr.Errorw("Error registering service with health checker", "err", err)
-				return err
+				return fmt.Errorf("failed to register service with health checker for job %d: %w", jb.ID, err)
 			}
 		}
 		aj.services = append(aj.services, srv)

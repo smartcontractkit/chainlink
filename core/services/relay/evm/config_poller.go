@@ -86,7 +86,7 @@ func newConfigPoller(ctx context.Context, lggr logger.Logger, client client.Clie
 	}
 
 	cp := &configPoller{
-		lggr:                   lggr,
+		lggr:                   logger.Named(lggr, "ConfigPoller"),
 		filterName:             configPollerFilterName(aggregatorContractAddr),
 		destChainLogPoller:     destChainPoller,
 		aggregatorContractAddr: aggregatorContractAddr,

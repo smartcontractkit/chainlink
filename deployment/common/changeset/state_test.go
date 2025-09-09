@@ -8,6 +8,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -20,13 +21,13 @@ import (
 func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 	type testCase struct {
 		name      string
-		chain     cldf.Chain
+		chain     cldf_evm.Chain
 		addresses map[string]cldf.TypeAndVersion
 		wantState *MCMSWithTimelockState // Expected state
 		wantErr   string
 	}
 
-	defaultChain := cldf.Chain{
+	defaultChain := cldf_evm.Chain{
 		Selector: chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector,
 	}
 	tests := []testCase{
@@ -215,11 +216,11 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, tt.wantState.MCMSWithTimelockContracts.Timelock.Address(), gotState.MCMSWithTimelockContracts.Timelock.Address())
-			require.Equal(t, tt.wantState.MCMSWithTimelockContracts.CallProxy.Address(), gotState.MCMSWithTimelockContracts.CallProxy.Address())
-			require.Equal(t, tt.wantState.MCMSWithTimelockContracts.ProposerMcm.Address(), gotState.MCMSWithTimelockContracts.ProposerMcm.Address())
-			require.Equal(t, tt.wantState.MCMSWithTimelockContracts.CancellerMcm.Address(), gotState.MCMSWithTimelockContracts.CancellerMcm.Address())
-			require.Equal(t, tt.wantState.MCMSWithTimelockContracts.BypasserMcm.Address(), gotState.MCMSWithTimelockContracts.BypasserMcm.Address())
+			require.Equal(t, tt.wantState.Timelock.Address(), gotState.Timelock.Address())
+			require.Equal(t, tt.wantState.CallProxy.Address(), gotState.CallProxy.Address())
+			require.Equal(t, tt.wantState.ProposerMcm.Address(), gotState.ProposerMcm.Address())
+			require.Equal(t, tt.wantState.CancellerMcm.Address(), gotState.CancellerMcm.Address())
+			require.Equal(t, tt.wantState.BypasserMcm.Address(), gotState.BypasserMcm.Address())
 		})
 	}
 }

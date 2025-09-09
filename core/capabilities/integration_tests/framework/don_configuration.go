@@ -7,6 +7,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -15,7 +16,7 @@ type DonConfiguration struct {
 	name       string
 	keys       []ethkey.KeyV2
 	KeyBundles []ocr2key.KeyBundle
-	peerIDs    []peer
+	p2pKeys    []p2pkey.KeyV2
 }
 
 // NewDonConfigurationParams exists purely to make it obvious in the test code what DON configuration is being used
@@ -31,20 +32,15 @@ func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error
 		return DonConfiguration{}, errors.New("invalid configuration, number of nodes must be at least 3*F+1")
 	}
 
-	keyBundles, peerIDs, err := getKeyBundlesAndPeerIDs(don.Name, don.NumNodes)
+	keyBundles, p2pKeys, err := getKeyBundlesAndP2PKeys(don.Name, don.NumNodes)
 	if err != nil {
-		return DonConfiguration{}, fmt.Errorf("failed to get key bundles and peer IDs: %w", err)
+		return DonConfiguration{}, fmt.Errorf("failed to get key bundles and p2p keys: %w", err)
 	}
 
-	donPeers := make([]p2ptypes.PeerID, len(peerIDs))
+	donPeers := make([]p2ptypes.PeerID, len(p2pKeys))
 	var donKeys []ethkey.KeyV2
-	for i := 0; i < len(peerIDs); i++ {
-		peerID := p2ptypes.PeerID{}
-		err = peerID.UnmarshalText([]byte(peerIDs[i].PeerID))
-		if err != nil {
-			return DonConfiguration{}, fmt.Errorf("failed to unmarshal peer ID: %w", err)
-		}
-		donPeers[i] = peerID
+	for i := 0; i < len(p2pKeys); i++ {
+		donPeers[i] = p2ptypes.PeerID(p2pKeys[i].PeerID())
 		newKey, err := ethkey.NewV2()
 		if err != nil {
 			return DonConfiguration{}, fmt.Errorf("failed to create key: %w", err)
@@ -60,7 +56,7 @@ func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error
 			AcceptsWorkflows: don.AcceptsWorkflows,
 		},
 		name:       don.Name,
-		peerIDs:    peerIDs,
+		p2pKeys:    p2pKeys,
 		keys:       donKeys,
 		KeyBundles: keyBundles,
 	}

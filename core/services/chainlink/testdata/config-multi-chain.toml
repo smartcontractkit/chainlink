@@ -43,6 +43,7 @@ PerOwner = 200
 [[EVM]]
 ChainID = '1'
 FinalityDepth = 26
+SafeDepth = 0
 FinalityTagEnabled = true
 FinalizedBlockOffset = 12
 

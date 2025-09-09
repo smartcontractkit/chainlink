@@ -11,18 +11,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	data_feeds_cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
@@ -32,17 +32,18 @@ var (
 	workflowOwnerID = "0100000000000000000000000000000000000001"
 )
 
-func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger,
+func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.Logger,
 	workflowDonInfo framework.DonConfiguration,
 	triggerDonInfo framework.DonConfiguration,
 	targetDonInfo framework.DonConfiguration,
-	trigger framework.TriggerFactory) (workflowDon *framework.DON, consumer *feeds_consumer.KeystoneFeedsConsumer) {
+	trigger framework.TriggerFactory) (workflowDon *framework.DON, consumer *feeds_consumer.KeystoneFeedsConsumer, dataFeedsCache *data_feeds_cache.DataFeedsCache, forwarder *forwarder.KeystoneForwarder) {
 	donContext := framework.CreateDonContext(ctx, t)
 
 	workflowDon = createKeystoneWorkflowDon(ctx, t, lggr, workflowDonInfo, triggerDonInfo, targetDonInfo, donContext)
 
-	forwarderAddr, _ := SetupForwarderContract(t, workflowDon, donContext.EthBlockchain)
+	forwarderAddr, forwarder := SetupForwarderContract(t, workflowDon, donContext.EthBlockchain)
 	_, consumer = SetupConsumerContract(t, donContext.EthBlockchain, forwarderAddr, workflowOwnerID, workflowName)
+	_, dataFeedsCache = SetupDataFeedsCacheContract(t, donContext.EthBlockchain, forwarderAddr, workflowOwnerID, workflowName)
 
 	writeTargetDon := createKeystoneWriteTargetDon(ctx, t, lggr, targetDonInfo, donContext, forwarderAddr)
 
@@ -54,10 +55,10 @@ func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.SugaredLog
 
 	donContext.WaitForCapabilitiesToBeExposed(t, workflowDon, triggerDon, writeTargetDon)
 
-	return workflowDon, consumer
+	return workflowDon, consumer, dataFeedsCache, forwarder
 }
 
-func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, triggerDonInfo framework.DonConfiguration,
+func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Logger, triggerDonInfo framework.DonConfiguration,
 	donContext framework.DonContext, trigger framework.TriggerFactory) *framework.DON {
 	triggerDon := framework.NewDON(ctx, t, lggr, triggerDonInfo,
 		[]commoncap.DON{}, donContext, false, 1*time.Second)
@@ -67,7 +68,7 @@ func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Sug
 	return triggerDon
 }
 
-func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, targetDonInfo framework.DonConfiguration, donContext framework.DonContext, forwarderAddr common.Address) *framework.DON {
+func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger.Logger, targetDonInfo framework.DonConfiguration, donContext framework.DonContext, forwarderAddr common.Address) *framework.DON {
 	writeTargetDon := framework.NewDON(ctx, t, lggr, targetDonInfo,
 		[]commoncap.DON{}, donContext, false, 1*time.Second)
 	_, err := writeTargetDon.AddPublishedEthereumWriteTargetNonStandardCapability(forwarderAddr)
@@ -76,7 +77,7 @@ func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger
 	return writeTargetDon
 }
 
-func createKeystoneWorkflowDon(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, workflowDonInfo framework.DonConfiguration,
+func createKeystoneWorkflowDon(ctx context.Context, t *testing.T, lggr logger.Logger, workflowDonInfo framework.DonConfiguration,
 	triggerDonInfo framework.DonConfiguration, targetDonInfo framework.DonConfiguration, donContext framework.DonContext) *framework.DON {
 	workflowDon := framework.NewDON(ctx, t, lggr, workflowDonInfo,
 		[]commoncap.DON{triggerDonInfo.DON, targetDonInfo.DON},
@@ -126,7 +127,7 @@ func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 }
 
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
+	v3Codec := reportcodec.NewReportCodec(feedID, logger.Test(t))
 	raw, err := v3Codec.BuildReport(t.Context(), v3.ReportFields{
 		BenchmarkPrice: price,
 

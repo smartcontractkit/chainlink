@@ -3,31 +3,31 @@
 package main
 
 import (
-	croncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/v2"
+	"log/slog"
+
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
-func RunSimpleCronWorkflow(runner sdk.DonRunner) {
-	cron := &croncap.Cron{}
-	cfg := &croncap.Config{
-		Schedule: "*/3 * * * * *", // every three seconds
+func RunSimpleCronWorkflow(_ struct{}, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[struct{}], error) {
+	cfg := &cron.Config{
+		Schedule: "*/3 * * * * *", // every 3 seconds
 	}
 
-	runner.Run(&sdk.WorkflowArgs[sdk.DonRuntime]{
-		Handlers: []sdk.Handler[sdk.DonRuntime]{
-			sdk.NewDonHandler(
-				cron.Trigger(cfg),
-				onTrigger,
-			),
-		},
-	})
+	return cre.Workflow[struct{}]{
+		cre.Handler(
+			cron.Trigger(cfg),
+			onTrigger,
+		),
+	}, nil
 }
 
-func onTrigger(runtime sdk.DonRuntime, outputs *croncap.Payload) (string, error) {
-	return "ping", nil
+func onTrigger(config struct{}, runtime cre.Runtime, outputs *cron.Payload) (string, error) {
+	runtime.Logger().Info("inside onTrigger handler")
+	return "success!", nil
 }
 
 func main() {
-	RunSimpleCronWorkflow(wasm.NewDonRunner())
+	wasm.NewRunner(func(_ []byte) (struct{}, error) { return struct{}{}, nil }).Run(RunSimpleCronWorkflow)
 }

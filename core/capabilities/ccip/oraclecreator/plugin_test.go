@@ -1,9 +1,18 @@
 package oraclecreator
 
 import (
+	"math/big"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -47,4 +56,90 @@ func TestPluginTypeToTelemetryType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
+	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	poc := &pluginOracleCreator{p2pID: key}
+
+	peerID := key.PeerID().String()
+	transmitAccount := ocrtypes.Account("test-transmit-account")
+
+	tests := []struct {
+		name          string
+		publicConfig  ocr3confighelper.PublicConfig
+		expected      ocrtypes.Account
+		expectErr     bool
+		expectedError string
+	}{
+		{
+			name: "matching peerID",
+			publicConfig: ocr3confighelper.PublicConfig{
+				OracleIdentities: []confighelper.OracleIdentity{
+					{PeerID: strings.TrimPrefix(peerID, "p2p_"), TransmitAccount: transmitAccount},
+					{PeerID: "another-peer", TransmitAccount: ocrtypes.Account("another-account")},
+				},
+			},
+			expected:  transmitAccount,
+			expectErr: false,
+		},
+		{
+			name: "non-matching peerID",
+			publicConfig: ocr3confighelper.PublicConfig{
+				OracleIdentities: []confighelper.OracleIdentity{
+					{PeerID: "another-peer", TransmitAccount: ocrtypes.Account("another-account")},
+				},
+			},
+			expected:      ocrtypes.Account(""),
+			expectErr:     true,
+			expectedError: "no transmitter found for my peer id " + peerID + " in public config",
+		},
+		{
+			name: "empty OracleIdentities",
+			publicConfig: ocr3confighelper.PublicConfig{
+				OracleIdentities: []confighelper.OracleIdentity{},
+			},
+			expected:      ocrtypes.Account(""),
+			expectErr:     true,
+			expectedError: "no transmitter found for my peer id " + peerID + " in public config",
+		},
+		{
+			name:          "nil OracleIdentities",
+			publicConfig:  ocr3confighelper.PublicConfig{OracleIdentities: nil},
+			expected:      ocrtypes.Account(""),
+			expectErr:     true,
+			expectedError: "no transmitter found for my peer id " + peerID + " in public config",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := poc.getTransmitterFromPublicConfig(tt.publicConfig)
+			if tt.expectErr {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedError)
+				require.Equal(t, tt.expected, result)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+// Sanity-check that these parameters are not accidentally changed without breaking CI
+func Test_defaultLocalConfigProperties(t *testing.T) {
+	lc := defaultLocalConfig()
+
+	assert.Equal(t, 30*time.Second, lc.DefaultMaxDurationInitialization)
+	assert.Equal(t, 10*time.Second, lc.BlockchainTimeout)
+	assert.Equal(t, 10*time.Second, lc.ContractConfigLoadTimeout)
+	assert.Equal(t, uint16(1), lc.ContractConfigConfirmations)
+	assert.True(t, lc.SkipContractConfigConfirmations)
+	assert.Equal(t, 10*time.Second, lc.ContractConfigTrackerPollInterval)
+	assert.Equal(t, 10*time.Second, lc.ContractTransmitterTransmitTimeout)
+	assert.Equal(t, 10*time.Second, lc.DatabaseTimeout)
+	assert.Equal(t, 1*time.Second, lc.MinOCR2MaxDurationQuery)
+	assert.Equal(t, "false", lc.DevelopmentMode)
+	assert.True(t, lc.EnableTransmissionTelemetry)
 }

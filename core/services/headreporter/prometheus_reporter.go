@@ -2,6 +2,7 @@ package headreporter
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -10,14 +11,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
 
 type (
@@ -70,16 +69,20 @@ func NewLegacyEVMPrometheusReporter(ds sqlutil.DataSource, chainContainer legacy
 }
 
 func (pr *prometheusReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, error) {
-	chain, err := pr.chains.Get(evmChainID.String())
+	chainService, err := pr.chains.Get(evmChainID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain: %w", err)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("txm is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	return chain.TxManager(), nil
 }
 
 func (pr *prometheusReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	evmChainID := head.EVMChainID.ToInt()
-	return multierr.Combine(
+	return stderrors.Join(
 		errors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedAge(ctx, evmChainID), "reportMaxUnconfirmedAge failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedBlocks(ctx, head), "reportMaxUnconfirmedBlocks failed"),
@@ -159,7 +162,7 @@ SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
 		return errors.Wrap(err, "failed to query for pipeline_run_id")
 	}
 	defer func() {
-		err = multierr.Combine(err, rows.Close())
+		err = stderrors.Join(err, rows.Close())
 	}()
 
 	pipelineTaskRunsQueued := 0

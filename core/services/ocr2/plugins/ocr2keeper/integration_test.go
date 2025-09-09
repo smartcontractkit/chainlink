@@ -31,6 +31,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic2_0"
@@ -452,8 +453,10 @@ func setupForwarderForNode(
 	_, err = forwarderORM.CreateForwarder(ctx, faddr, ubig.Big(*chainID))
 	require.NoError(t, err)
 
-	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	fwdr, err := chain.TxManager().GetForwarderForEOA(ctx, recipient)
 	require.NoError(t, err)
 	require.Equal(t, faddr, fwdr)

@@ -5,18 +5,38 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
+
+type FundsToSend struct {
+	ToAddress  common.Address
+	Amount     *big.Int
+	PrivateKey *ecdsa.PrivateKey
+	GasLimit   *int64
+	GasPrice   *big.Int
+	GasFeeCap  *big.Int
+	GasTipCap  *big.Int
+	TxTimeout  *time.Duration
+	Nonce      *uint64
+}
+
+type FundsToSendSol struct {
+	Recipent   solana.PublicKey
+	PrivateKey solana.PrivateKey
+	Amount     uint64
+}
 
 func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	publicKey := privateKey.Public()
@@ -27,7 +47,65 @@ func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }
 
-func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.FundsToSend) (*types.Receipt, error) {
+func SendFundsSol(ctx context.Context, logger zerolog.Logger, client *rpc.Client, payload FundsToSendSol) error {
+	funder := payload.PrivateKey
+	recipient := payload.Recipent
+	if recipient.IsZero() {
+		return errors.New("recipient is zero")
+	}
+	bal, err := client.GetBalance(ctx, funder.PublicKey(), rpc.CommitmentConfirmed)
+	if err != nil {
+		return fmt.Errorf("failed to get funder balance: %w", err)
+	}
+	logger.Debug().
+		Uint64("Sender balance:", bal.Value)
+
+	recent, err := client.GetRecentBlockhash(ctx, rpc.CommitmentFinalized)
+	if err != nil {
+		return fmt.Errorf("failed to get recent block hash: %w", err)
+	}
+
+	tx, err := solana.NewTransaction([]solana.Instruction{
+		system.NewTransferInstruction(
+			payload.Amount,
+			funder.PublicKey(),
+			recipient,
+		).Build(),
+	},
+		recent.Value.Blockhash,
+		solana.TransactionPayer(funder.PublicKey()))
+	if err != nil {
+		return fmt.Errorf("failed to build fund transaction: %w", err)
+	}
+
+	_, err = tx.Sign(
+		func(key solana.PublicKey) *solana.PrivateKey {
+			if funder.PublicKey().Equals(key) {
+				return &funder
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to sign fund transaction: %w", err)
+	}
+
+	_, err = client.SendTransaction(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to send fund transaction: %w", err)
+	}
+
+	bal2, err := client.GetBalance(ctx, funder.PublicKey(), rpc.CommitmentConfirmed)
+	if err != nil {
+		return fmt.Errorf("failed to get recipient balance: %w", err)
+	}
+
+	logger.Debug().
+		Uint64("Recipient balance: ", bal2.Value)
+	return nil
+}
+
+func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, payload FundsToSend) (*types.Receipt, error) {
 	fromAddress, err := PrivateKeyToAddress(payload.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -35,8 +113,8 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 
 	var nonce uint64
 	if payload.Nonce == nil {
-		ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
-		nonce, err = client.Client.PendingNonceAt(ctx, fromAddress)
+		nonceCtx, cancel := context.WithTimeout(ctx, client.Cfg.Network.TxnTimeout.Duration())
+		nonce, err = client.Client.PendingNonceAt(nonceCtx, fromAddress)
 		defer cancel()
 		if err != nil {
 			return nil, err
@@ -135,9 +213,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("About to send funds")
 
-	ctx, cancel := context.WithTimeout(context.Background(), txTimeout)
+	sendCtx, cancel := context.WithTimeout(ctx, txTimeout)
 	defer cancel()
-	err = client.Client.SendTransaction(ctx, signedTx)
+	err = client.Client.SendTransaction(sendCtx, signedTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send transaction")
 	}
@@ -155,7 +233,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("Sent funds")
 
-	receipt, receiptErr := client.WaitMined(ctx, logger, client.Client, signedTx)
+	minedCtx, mineCancel := context.WithTimeout(ctx, txTimeout)
+	defer mineCancel()
+	receipt, receiptErr := client.WaitMined(minedCtx, logger, client.Client, signedTx)
 	if receiptErr != nil {
 		return nil, errors.Wrap(receiptErr, "failed to wait for transaction to be mined")
 	}
@@ -164,7 +244,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload libtypes.Fund
 		return receipt, nil
 	}
 
-	tx, _, err := client.Client.TransactionByHash(ctx, signedTx.Hash())
+	txCtx, txCancel := context.WithTimeout(ctx, txTimeout)
+	defer txCancel()
+	tx, _, err := client.Client.TransactionByHash(txCtx, signedTx.Hash())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get transaction by hash ")
 	}

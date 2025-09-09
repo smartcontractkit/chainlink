@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -26,7 +26,7 @@ type LinkTokenView struct {
 func GenerateLinkTokenView(lt *link_token.LinkToken) (LinkTokenView, error) {
 	owner, err := lt.Owner(nil)
 	if err != nil {
-		return LinkTokenView{}, fmt.Errorf("failed to get owner %s: %w", lt.Address(), err)
+		owner = common.Address{}
 	}
 	decimals, err := lt.Decimals(nil)
 	if err != nil {
@@ -38,11 +38,11 @@ func GenerateLinkTokenView(lt *link_token.LinkToken) (LinkTokenView, error) {
 	}
 	minters, err := lt.GetMinters(nil)
 	if err != nil {
-		return LinkTokenView{}, fmt.Errorf("failed to get minters %s: %w", lt.Address(), err)
+		minters = []common.Address{}
 	}
 	burners, err := lt.GetBurners(nil)
 	if err != nil {
-		return LinkTokenView{}, fmt.Errorf("failed to get burners %s: %w", lt.Address(), err)
+		burners = []common.Address{}
 	}
 	return LinkTokenView{
 		ContractMetaData: types.ContractMetaData{

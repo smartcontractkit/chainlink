@@ -36,6 +36,54 @@ func (_m *TxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) EXPECT() *TxManage
 	return &TxManager_Expecter[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]{mock: &_m.Mock}
 }
 
+// CalculateFee provides a mock function with given fields: feeParts
+func (_m *TxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) CalculateFee(feeParts txmgr.FeeParts) *big.Int {
+	ret := _m.Called(feeParts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CalculateFee")
+	}
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(txmgr.FeeParts) *big.Int); ok {
+		r0 = rf(feeParts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
+// TxManager_CalculateFee_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CalculateFee'
+type TxManager_CalculateFee_Call[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] struct {
+	*mock.Call
+}
+
+// CalculateFee is a helper method to define mock.On call
+//   - feeParts txmgr.FeeParts
+func (_e *TxManager_Expecter[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) CalculateFee(feeParts interface{}) *TxManager_CalculateFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	return &TxManager_CalculateFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]{Call: _e.mock.On("CalculateFee", feeParts)}
+}
+
+func (_c *TxManager_CalculateFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Run(run func(feeParts txmgr.FeeParts)) *TxManager_CalculateFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(txmgr.FeeParts))
+	})
+	return _c
+}
+
+func (_c *TxManager_CalculateFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Return(_a0 *big.Int) *TxManager_CalculateFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TxManager_CalculateFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) RunAndReturn(run func(txmgr.FeeParts) *big.Int) *TxManager_CalculateFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Close provides a mock function with no fields
 func (_m *TxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Close() error {
 	ret := _m.Called()
@@ -726,6 +774,65 @@ func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, F
 }
 
 func (_c *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) RunAndReturn(run func(context.Context, string) (*evm.TransactionFee, error)) *TxManager_GetTransactionFee_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetTransactionReceipt provides a mock function with given fields: ctx, transactionID
+func (_m *TxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionReceipt(ctx context.Context, transactionID string) (*types.ChainReceipt[THASH, BHASH], error) {
+	ret := _m.Called(ctx, transactionID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTransactionReceipt")
+	}
+
+	var r0 *types.ChainReceipt[THASH, BHASH]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*types.ChainReceipt[THASH, BHASH], error)); ok {
+		return rf(ctx, transactionID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *types.ChainReceipt[THASH, BHASH]); ok {
+		r0 = rf(ctx, transactionID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.ChainReceipt[THASH, BHASH])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, transactionID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TxManager_GetTransactionReceipt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTransactionReceipt'
+type TxManager_GetTransactionReceipt_Call[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] struct {
+	*mock.Call
+}
+
+// GetTransactionReceipt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - transactionID string
+func (_e *TxManager_Expecter[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionReceipt(ctx interface{}, transactionID interface{}) *TxManager_GetTransactionReceipt_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	return &TxManager_GetTransactionReceipt_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]{Call: _e.mock.On("GetTransactionReceipt", ctx, transactionID)}
+}
+
+func (_c *TxManager_GetTransactionReceipt_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Run(run func(ctx context.Context, transactionID string)) *TxManager_GetTransactionReceipt_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *TxManager_GetTransactionReceipt_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Return(receipt *types.ChainReceipt[THASH, BHASH], err error) *TxManager_GetTransactionReceipt_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
+	_c.Call.Return(receipt, err)
+	return _c
+}
+
+func (_c *TxManager_GetTransactionReceipt_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) RunAndReturn(run func(context.Context, string) (*types.ChainReceipt[THASH, BHASH], error)) *TxManager_GetTransactionReceipt_Call[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }

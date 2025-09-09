@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
@@ -18,8 +22,10 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
@@ -28,7 +34,10 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -38,17 +47,22 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
@@ -63,6 +77,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -75,6 +90,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -118,13 +134,18 @@ type Delegate struct {
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
+	workflowKs            keystore.Workflow
+	dkgRecipientKs        keystore.DKGRecipient
 	RelayGetter
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *mailbox.Monitor
 	retirementReportCache retirement.RetirementReportCache
 
-	legacyChains         legacyevm.LegacyChainContainer // legacy: use relayers instead
-	capabilitiesRegistry core.CapabilitiesRegistry
+	legacyChains                   legacyevm.LegacyChainContainer // legacy: use relayers instead
+	capabilitiesRegistry           core.CapabilitiesRegistry
+	dontimeStore                   *dontime.Store
+	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
+	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 }
 
 type DelegateConfig interface {
@@ -179,6 +200,7 @@ type ocr2Config interface {
 	TraceLogging() bool
 	CaptureAutomationCustomTelemetry() bool
 	AllowNoBootstrappers() bool
+	KeyValueStoreRootDir() string
 }
 
 type insecureConfig interface {
@@ -216,22 +238,27 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Th
 var _ job.Delegate = (*Delegate)(nil)
 
 type DelegateOpts struct {
-	Ds                    sqlutil.DataSource
-	JobORM                job.ORM
-	BridgeORM             bridges.ORM
-	MercuryORM            evmmercury.ORM
-	PipelineRunner        pipeline.Runner
-	StreamRegistry        streams.Getter
-	PeerWrapper           *ocrcommon.SingletonPeerWrapper
-	MonitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	LegacyChains          legacyevm.LegacyChainContainer
-	Lggr                  logger.Logger
-	Ks                    keystore.OCR2
-	EthKs                 keystore.Eth
-	Relayers              RelayGetter
-	MailMon               *mailbox.Monitor
-	CapabilitiesRegistry  core.CapabilitiesRegistry
-	RetirementReportCache retirement.RetirementReportCache
+	Ds                             sqlutil.DataSource
+	JobORM                         job.ORM
+	BridgeORM                      bridges.ORM
+	MercuryORM                     evmmercury.ORM
+	PipelineRunner                 pipeline.Runner
+	StreamRegistry                 streams.Getter
+	PeerWrapper                    *ocrcommon.SingletonPeerWrapper
+	MonitoringEndpointGen          telemetry.MonitoringEndpointGenerator
+	LegacyChains                   legacyevm.LegacyChainContainer
+	Lggr                           logger.Logger
+	Ks                             keystore.OCR2
+	EthKs                          keystore.Eth
+	Relayers                       RelayGetter
+	MailMon                        *mailbox.Monitor
+	CapabilitiesRegistry           core.CapabilitiesRegistry
+	DonTimeStore                   *dontime.Store
+	RetirementReportCache          retirement.RetirementReportCache
+	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
+	WorkflowKs                     keystore.Workflow
+	DKGRecipientKs                 keystore.DKGRecipient
+	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
 }
 
 func NewDelegate(
@@ -239,24 +266,29 @@ func NewDelegate(
 	cfg DelegateConfig,
 ) *Delegate {
 	return &Delegate{
-		ds:                    opts.Ds,
-		jobORM:                opts.JobORM,
-		bridgeORM:             opts.BridgeORM,
-		mercuryORM:            opts.MercuryORM,
-		pipelineRunner:        opts.PipelineRunner,
-		streamRegistry:        opts.StreamRegistry,
-		peerWrapper:           opts.PeerWrapper,
-		monitoringEndpointGen: opts.MonitoringEndpointGen,
-		legacyChains:          opts.LegacyChains,
-		cfg:                   cfg,
-		lggr:                  opts.Lggr.Named("OCR2"),
-		ks:                    opts.Ks,
-		ethKs:                 opts.EthKs,
-		RelayGetter:           opts.Relayers,
-		isNewlyCreatedJob:     false,
-		mailMon:               opts.MailMon,
-		capabilitiesRegistry:  opts.CapabilitiesRegistry,
-		retirementReportCache: opts.RetirementReportCache,
+		ds:                             opts.Ds,
+		jobORM:                         opts.JobORM,
+		bridgeORM:                      opts.BridgeORM,
+		mercuryORM:                     opts.MercuryORM,
+		pipelineRunner:                 opts.PipelineRunner,
+		streamRegistry:                 opts.StreamRegistry,
+		peerWrapper:                    opts.PeerWrapper,
+		monitoringEndpointGen:          opts.MonitoringEndpointGen,
+		legacyChains:                   opts.LegacyChains,
+		cfg:                            cfg,
+		lggr:                           opts.Lggr.Named("OCR2"),
+		ks:                             opts.Ks,
+		ethKs:                          opts.EthKs,
+		workflowKs:                     opts.WorkflowKs,
+		dkgRecipientKs:                 opts.DKGRecipientKs,
+		RelayGetter:                    opts.Relayers,
+		isNewlyCreatedJob:              false,
+		mailMon:                        opts.MailMon,
+		capabilitiesRegistry:           opts.CapabilitiesRegistry,
+		dontimeStore:                   opts.DonTimeStore,
+		retirementReportCache:          opts.RetirementReportCache,
+		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
+		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
 	}
 }
 
@@ -301,10 +333,14 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 	//  at all (no rows deleted).
 	spec := jb.OCR2OracleSpec
 	transmitterID := spec.TransmitterID.String
-	chain, err := d.legacyChains.Get(relayID.ChainID)
+	chainService, err := d.legacyChains.Get(relayID.ChainID)
 	if err != nil {
 		d.lggr.Errorw("cleanupEVM: failed to get chain id", "chainId", relayID.ChainID, "err", err)
 		return nil
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return fmt.Errorf("not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	lp := chain.LogPoller()
 
@@ -373,12 +409,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		if err != nil {
 			return err
 		}
-		var chainSelector uint64
-		chainSelector, err = chainselectors.SelectorFromChainId(chain.ID().Uint64())
+		var chainDetails chainselectors.ChainDetails
+		chainDetails, err = chainselectors.GetChainDetailsByChainIDAndFamily(relayID.ChainID, relayID.Network)
 		if err != nil {
 			return err
 		}
-		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector); err != nil {
+		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainDetails.ChainSelector); err != nil {
 			// Cleanup is optimistic. Don't return error here, as we don't want
 			// to block job deletion
 			d.lggr.Errorw("failed to cleanup llo", "err", err, "spec", spec)
@@ -446,11 +482,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if rid.Network == relay.NetworkEVM {
 		lggr = logger.Sugared(lggr.With("evmChainID", rid.ChainID))
 
-		chain, err2 := d.legacyChains.Get(rid.ChainID)
+		r, err2 := d.Get(rid)
 		if err2 != nil {
-			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err2)
+			return nil, fmt.Errorf("could not get EVM Relayer for chain ID %s: %w", rid.ChainID, err2)
 		}
-		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
+		evm, err2 := r.EVM()
+		if err2 != nil {
+			return nil, fmt.Errorf("could not get EVMService for chain %s: %w", rid.ChainID, err2)
+		}
+		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(ctx, &jb, evm, lggr)
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err2)
 		}
@@ -533,12 +573,19 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesCCIPCommit(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.CCIPExecution:
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
+
+	case types.VaultPlugin:
+		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer)
+
+	case types.DonTimePlugin:
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
 }
 
-func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
+func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, evm types.EVMService, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.PluginType == types.Mercury || spec.PluginType == types.LLO {
 		return spec.TransmitterID.String, nil
@@ -547,7 +594,7 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 	if spec.RelayConfig["sendingKeys"] == nil {
 		spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
 	} else if !spec.TransmitterID.Valid {
-		sendingKeys, err := job.SendingKeysForJob(jb)
+		sendingKeys, err := job.SendingKeysForJob(jb.OCR2OracleSpec)
 		if err != nil {
 			return "", err
 		}
@@ -561,19 +608,14 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 	// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 	// ForwardingAllowed cannot be set with Mercury, so this should always be false for mercury jobs
 	if jb.ForwardingAllowed {
-		if chain == nil {
-			return "", errors.New("job forwarding requires non-nil chain")
+		if evm == nil {
+			return "", errors.New("job forwarding requires non-nil evm service")
 		}
 
 		var err error
 		var effectiveTransmitterID common.Address
 		// Median forwarders need special handling because of OCR2Aggregator transmitters whitelist.
-		if spec.PluginType == types.Median {
-			effectiveTransmitterID, err = chain.TxManager().GetForwarderForEOAOCR2Feeds(ctx, common.HexToAddress(spec.TransmitterID.String), common.HexToAddress(spec.ContractID))
-		} else {
-			effectiveTransmitterID, err = chain.TxManager().GetForwarderForEOA(ctx, common.HexToAddress(spec.TransmitterID.String))
-		}
-
+		effectiveTransmitterID, err = evm.GetForwarderForEOA(ctx, common.HexToAddress(spec.TransmitterID.String), common.HexToAddress(spec.ContractID), string(spec.PluginType))
 		if err == nil {
 			return effectiveTransmitterID.String(), nil
 		} else if !spec.TransmitterID.Valid {
@@ -587,6 +629,310 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 
 type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
+}
+
+func dkgKeys(key workflowkey.Key, dkgConfig *vaultocrplugin.DKGConfig) (*tdh2easy.PublicKey, *tdh2easy.PrivateShare, error) {
+	masterPublicKeyHex := dkgConfig.MasterPublicKey
+	masterPublicKey, err := hex.DecodeString(masterPublicKeyHex)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode master public key hex: %w", err)
+	}
+
+	pk := &tdh2easy.PublicKey{}
+	err = pk.Unmarshal(masterPublicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal master public key: %w", err)
+	}
+
+	encryptedPrivateKeyShareHex := dkgConfig.EncryptedPrivateKeyShare
+	encryptedPrivateKeyShare, err := hex.DecodeString(encryptedPrivateKeyShareHex)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode encrypted private key share hex: %w", err)
+	}
+
+	plaintextPrivateKeyShare, err := key.Decrypt(encryptedPrivateKeyShare)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decrypt private key share: %w", err)
+	}
+
+	pks := &tdh2easy.PrivateShare{}
+	err = pks.Unmarshal(plaintextPrivateKeyShare)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal insecure private share: %w", err)
+	}
+
+	return pk, pks, nil
+}
+
+func (d *Delegate) newServicesVaultPlugin(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+	capabilitiesRegistry core.CapabilitiesRegistry,
+	wrapper *gatewayconnector.ServiceWrapper,
+	syncer syncerV2.WorkflowRegistrySyncer,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	cfg := &vaultocrplugin.Config{}
+	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to unmarshal plugin config: %w", err)
+	}
+
+	if wrapper == nil {
+		return nil, errors.New("failed to instantiate vault plugin: gateway service wrapper is not configured")
+	}
+
+	dkgRecipientKeys, err := d.dkgRecipientKs.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DKG recipient keys: %w", err)
+	}
+	if len(dkgRecipientKeys) == 0 {
+		return nil, errors.New("failed to instantiate vault plugin: no DKG recipient keys found")
+	}
+	dkgRecipientKey := dkgRecipientKeys[0]
+
+	gwconnector := wrapper.GetGatewayConnector()
+	if gwconnector == nil {
+		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
+	}
+
+	requestStore := requests.NewStore[*vaulttypes.Request]()
+	clock := clockwork.NewRealClock()
+	expiryDuration := cfg.RequestExpiryDuration.Duration()
+	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
+	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer))
+	srvs = append(srvs, vaultCapability)
+
+	err = capabilitiesRegistry.Add(ctx, vaultCapability)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to register vault capability: %w", err)
+	}
+
+	handler, err := vaultcap.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, d.lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
+	}
+	if err = handler.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
+	}
+	srvs = append(srvs, handler)
+
+	if gwerr := gwconnector.AddHandler(ctx, vaulttypes.Methods, handler); gwerr != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", gwerr)
+	}
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{PluginName: string(types.VaultPlugin), Err: err}
+	}
+
+	relayer, err := d.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
+	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.OCR3Capability),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  spec.PluginConfig.Bytes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(types.VaultPlugin),
+	)
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
+	fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
+	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
+	}
+	kvFactory := kvdb.NewBadgerKeyValueDatabaseFactory(fullPath)
+
+	keyBundles := map[string]ocr2key.KeyBundle{
+		string(chaintype.EVM): kb,
+	}
+	onchainKeyringAdapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+	if err != nil {
+		return nil, err
+	}
+
+	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractTransmitter: vaultocrplugin.NewTransmitter(
+			lggr,
+			ocrtypes.Account(spec.TransmitterID.String),
+			requestStoreHandler,
+		),
+		Database:                ocrDB,
+		KeyValueDatabaseFactory: kvFactory,
+		LocalConfig:             lc,
+		Logger:                  ocrLogger,
+		MonitoringEndpoint:      oracleEndpoint,
+		OffchainConfigDigester:  provider.OffchainConfigDigester(),
+		OffchainKeyring:         kb,
+		OnchainKeyring:          onchainKeyringAdapter,
+		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+	workflowKey, err := keystore.GetDefault(ctx, d.workflowKs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get workflow key: %w", err)
+	}
+	pk, secKeyShare, err := dkgKeys(workflowKey, cfg.DKG)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get DKG keys: %w", err)
+	}
+	rpf, err := vaultocrplugin.NewReportingPluginFactory(lggr, requestStore, nil, &dkgRecipientKey, pk, secKeyShare)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
+	}
+	oracleArgs.ReportingPluginFactory = rpf
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+
+	return srvs, nil
+}
+
+func (d *Delegate) newDonTimePlugin(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{PluginName: "dontime", Err: err}
+	}
+
+	relayer, err := d.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "dontime"}
+	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(types.DonTimePlugin),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  spec.PluginConfig.Bytes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType(types.DonTimePlugin),
+	)
+
+	transmitter := dontime.NewTransmitter(lggr, d.dontimeStore, ocrtypes.Account(spec.TransmitterID.String))
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
+	onchainSigningStrategy := validate.OCR2OnchainSigningStrategy{}
+	err = json.Unmarshal(spec.OnchainSigningStrategy.Bytes(), &onchainSigningStrategy)
+	if err != nil {
+		return nil, err
+	}
+
+	var onchainKeyringAdapter ocr3types.OnchainKeyring[[]byte]
+	if onchainSigningStrategy.IsMultiChain() {
+		// We are extracting the config beforehand
+		keyBundles := map[string]ocr2key.KeyBundle{}
+		for name := range onchainSigningStrategy.ConfigCopy() {
+			kbID, ostErr := onchainSigningStrategy.KeyBundleID(name)
+			if ostErr != nil {
+				return nil, ostErr
+			}
+			os, ostErr := d.ks.Get(kbID)
+			if ostErr != nil {
+				return nil, ostErr
+			}
+			keyBundles[name] = os
+		}
+		onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
+	}
+
+	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractTransmitter:          transmitter,
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               onchainKeyringAdapter,
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+	}
+	oracleArgs.ReportingPluginFactory, err = dontime.NewFactory(d.dontimeStore, lggr.Named("DonTimePluginFactory"))
+	if err != nil {
+		return nil, err
+	}
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+	return srvs, nil
 }
 
 func (d *Delegate) newServicesGenericPlugin(
@@ -1016,6 +1362,7 @@ func (d *Delegate) newServicesLLO(
 		llotypes.ReportFormatEVMPremiumLegacy,
 		llotypes.ReportFormatRetirement,
 		llotypes.ReportFormatEVMABIEncodeUnpacked,
+		llotypes.ReportFormatEVMABIEncodeUnpackedExpr,
 		llotypes.ReportFormatCapabilityTrigger,
 		llotypes.ReportFormatEVMStreamlined,
 	}
@@ -1112,6 +1459,7 @@ func (d *Delegate) newServicesMedian(
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
+	lc.EnableTransmissionTelemetry = true
 	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -1351,9 +1699,13 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %q", rid.Network)
 	}
-	chain, err2 := d.legacyChains.Get(rid.ChainID)
+	chainService, err2 := d.legacyChains.Get(rid.ChainID)
 	if err2 != nil {
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("keepers is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 
 	cid := chain.ID()
@@ -1481,9 +1833,13 @@ func (d *Delegate) newServicesOCR2Functions(
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("functions services: expected EVM relayer got %q", rid.Network)
 	}
-	chain, err := d.legacyChains.Get(rid.ChainID)
+	chainService, err := d.legacyChains.Get(rid.ChainID)
 	if err != nil {
 		return nil, fmt.Errorf("functions services: failed to get chain %s: %w", rid.ChainID, err)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("functions is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 	cid := chain.ID()
 	ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKs, cid), cid)
@@ -1651,6 +2007,7 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 		return nil, err
 	}
 
+	lc.EnableTransmissionTelemetry = true
 	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -1835,6 +2192,7 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		return nil, err
 	}
 
+	lc.EnableTransmissionTelemetry = true
 	oracleArgsNoPlugin2 := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,

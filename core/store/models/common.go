@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -15,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -487,11 +487,11 @@ var (
 
 func (h ServiceHeader) Validate() (err error) {
 	if !headerNameRegex.MatchString(h.Header) {
-		err = multierr.Append(err, errors.Errorf("invalid header name: %s", h.Header))
+		err = stderrors.Join(err, errors.Errorf("invalid header name: %s", h.Header))
 	}
 
 	if !headerValueRegex.MatchString(h.Value) {
-		err = multierr.Append(err, errors.Errorf("invalid header value: %s", h.Value))
+		err = stderrors.Join(err, errors.Errorf("invalid header value: %s", h.Value))
 	}
 	return
 }

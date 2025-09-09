@@ -6,7 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -77,6 +78,7 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 				"id": jb.PipelineSpecID,
 			},
 			"jb": map[string]interface{}{
+				"streamID":      jb.StreamID,
 				"databaseID":    jb.ID,
 				"externalJobID": jb.ExternalJobID,
 				"name":          jb.Name.ValueOrZero(),
@@ -85,7 +87,7 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 	}
 
 	return &multiStreamPipeline{
-		lggr.Named("MultiStreamPipeline").With("spec.ID", spec.ID, "jobID", spec.JobID, "jobName", spec.JobName, "jobType", spec.JobType),
+		logger.Sugared(lggr).Named("MultiStreamPipeline").With("spec.ID", spec.ID, "jobID", spec.JobID, "jobName", spec.JobName, "jobType", spec.JobType),
 		spec,
 		runner,
 		rrs,

@@ -4,10 +4,9 @@ import (
 	"context"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
@@ -28,35 +27,21 @@ type DeployCCIPOutput struct {
 }
 
 func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput) (*cldf.Environment, error) {
-	chains, solChains, err := devenv.NewChains(lggr, output.Chains)
+	blockChains, err := devenv.NewChains(lggr, output.Chains)
 	if err != nil {
 		return nil, err
 	}
 
-	blockChains := map[uint64]chain.BlockChain{}
-	for _, c := range chains {
-		blockChains[c.Selector] = c
-	}
-	for _, c := range solChains {
-		blockChains[c.Selector] = c
-	}
-
-	return cldf.NewCLDFEnvironment(
+	return cldf.NewEnvironment(
 		CRIB_ENV_NAME,
 		lggr,
 		output.AddressBook,
-		datastore.NewMemoryDataStore[
-			datastore.DefaultMetadata,
-			datastore.DefaultMetadata,
-		]().Seal(),
-		chains,
-		solChains, // nil for solana chains, can use memory solana chain example when required
-		nil,       // nil for aptos chains, can use memory solana chain example when required
+		datastore.NewMemoryDataStore().Seal(),
 		output.NodeIDs,
 		nil, // todo: populate the offchain client using output.DON
 		//nolint:gocritic // intentionally use a lambda to allow dynamic context replacement in Environment Commit 90ee880
 		func() context.Context { return context.Background() },
-		cldf.XXXGenerateTestOCRSecrets(),
-		chain.NewBlockChains(blockChains),
+		focr.XXXGenerateTestOCRSecrets(),
+		blockChains,
 	), nil
 }

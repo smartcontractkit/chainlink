@@ -28,6 +28,7 @@ var (
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
 	DonIDClaimer         deployment.ContractType = "DonIDClaimer"
 	PriceFeed            deployment.ContractType = "PriceFeed"
+	TokenGovernor        deployment.ContractType = "TokenGovernor"
 
 	// Test contracts. Note test router maps to a regular router contract.
 	TestRouter             deployment.ContractType = "TestRouter"
@@ -37,19 +38,26 @@ var (
 	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken                  deployment.ContractType = "BurnMintToken"
-	FactoryBurnMintERC20Token      deployment.ContractType = "FactoryBurnMintERC20Token"
-	ERC20Token                     deployment.ContractType = "ERC20Token"
-	ERC677Token                    deployment.ContractType = "ERC677Token"
-	ERC677TokenHelper              deployment.ContractType = "ERC677TokenHelper"
-	BurnMintTokenPool              deployment.ContractType = "BurnMintTokenPool"
-	BurnWithFromMintTokenPool      deployment.ContractType = "BurnWithFromMintTokenPool"
-	BurnFromMintTokenPool          deployment.ContractType = "BurnFromMintTokenPool"
-	LockReleaseTokenPool           deployment.ContractType = "LockReleaseTokenPool"
-	USDCToken                      deployment.ContractType = "USDCToken"
-	USDCTokenMessenger             deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool                  deployment.ContractType = "USDCTokenPool"
-	HybridLockReleaseUSDCTokenPool deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
+	BurnMintToken                                   deployment.ContractType = "BurnMintToken"
+	BurnMintERC20Token                              deployment.ContractType = "BurnMintERC20Token"
+	FactoryBurnMintERC20Token                       deployment.ContractType = "FactoryBurnMintERC20Token"
+	ERC20Token                                      deployment.ContractType = "ERC20Token"
+	ERC677Token                                     deployment.ContractType = "ERC677Token"
+	ERC677TokenHelper                               deployment.ContractType = "ERC677TokenHelper"
+	BurnMintTokenPool                               deployment.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool                       deployment.ContractType = "BurnWithFromMintTokenPool"
+	BurnMintFastTransferTokenPool                   deployment.ContractType = "BurnMintFastTransferTokenPool"
+	BurnMintWithExternalMinterFastTransferTokenPool deployment.ContractType = "BurnMintWithExternalMinterFastTransferTokenPool"
+	BurnFromMintTokenPool                           deployment.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool                            deployment.ContractType = "LockReleaseTokenPool"
+	USDCToken                                       deployment.ContractType = "USDCToken"
+	USDCTokenMessenger                              deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool                                   deployment.ContractType = "USDCTokenPool"
+	CCTPMessageTransmitterProxy                     deployment.ContractType = "CCTPMessageTransmitterProxy"
+	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
+	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
+	BurnMintWithExternalMinterTokenPool             deployment.ContractType = "BurnMintWithExternalMinterTokenPool"
+	HybridWithExternalMinterTokenPool               deployment.ContractType = "HybridWithExternalMinterTokenPool"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"
@@ -66,11 +74,19 @@ var (
 	RemoteSource         deployment.ContractType = "RemoteSource"
 	RemoteDest           deployment.ContractType = "RemoteDest"
 	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
+	CCTPTokenPool        deployment.ContractType = "CCTPTokenPool"
+	BPFUpgradeable       deployment.ContractType = "BPFUpgradeable"
 	// CLL Identifier
 	CLLMetadata = "CLL"
 
 	// Aptos
-	AptosMCMSType     deployment.ContractType = "AptosManyChainMultisig"
-	AptosCCIPType     deployment.ContractType = "AptosCCIP"
-	AptosReceiverType deployment.ContractType = "AptosReceiver"
+	AptosMCMSType             deployment.ContractType = "AptosManyChainMultisig"
+	AptosCCIPType             deployment.ContractType = "AptosCCIP"
+	AptosReceiverType         deployment.ContractType = "AptosReceiver"
+	AptosManagedTokenPoolType deployment.ContractType = "AptosManagedTokenPool"
+	AptosManagedTokenType     deployment.ContractType = "AptosManagedTokenType"
+
+	// TON, [NONEVM-1938] currently added necessary contract for unblocking e2e env setup
+	TonCCIP     deployment.ContractType = "TonCCIP"
+	TonReceiver deployment.ContractType = "TonReceiver"
 )

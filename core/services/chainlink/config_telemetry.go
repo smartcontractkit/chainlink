@@ -8,6 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
+const defaultHeartbeatInterval = 1 * time.Second
+
 type telemetryConfig struct {
 	s toml.Telemetry
 }
@@ -85,4 +87,25 @@ func (b *telemetryConfig) ChipIngressEndpoint() string {
 		return ""
 	}
 	return *b.s.ChipIngressEndpoint
+}
+
+func (b *telemetryConfig) ChipIngressInsecureConnection() bool {
+	if b.s.ChipIngressInsecureConnection == nil {
+		return false
+	}
+	return *b.s.ChipIngressInsecureConnection
+}
+
+func (b *telemetryConfig) HeartbeatInterval() time.Duration {
+	if b.s.HeartbeatInterval == nil || b.s.HeartbeatInterval.Duration() <= 0 {
+		return defaultHeartbeatInterval
+	}
+	return b.s.HeartbeatInterval.Duration()
+}
+
+func (b *telemetryConfig) LogStreamingEnabled() bool {
+	if b.s.LogStreamingEnabled == nil {
+		return false
+	}
+	return *b.s.LogStreamingEnabled
 }

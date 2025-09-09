@@ -10,6 +10,7 @@ import (
 
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
 	solanaStateView "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -129,7 +130,7 @@ func doApproveTokenTransfer(
 	amount uint64,
 	decimals uint8,
 ) error {
-	solChain := e.SolChains[chainSelector]
+	solChain := e.BlockChains.SolanaChains()[chainSelector]
 
 	tokenProgram, err := state.TokenToTokenProgram(tokenPubKey)
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -429,13 +429,13 @@ func (multiCfg *AddMultiEVMSolanaLaneConfig) populateAndValidateIndividualCSConf
 	if err := input.evmOffRampInput.Validate(env, evmState); err != nil {
 		return input, fmt.Errorf("failed to validate evm off ramp input: %w", err)
 	}
-	if err := input.solanaRouterInput.Validate(env); err != nil {
+	if err := input.solanaRouterInput.Validate(env, evmState); err != nil {
 		return input, fmt.Errorf("failed to validate solana router input: %w", err)
 	}
-	if err := input.solanaOffRampInput.Validate(env); err != nil {
+	if err := input.solanaOffRampInput.Validate(env, evmState); err != nil {
 		return input, fmt.Errorf("failed to validate solana off ramp input: %w", err)
 	}
-	if err := input.solanaFeeQuoterInput.Validate(env); err != nil {
+	if err := input.solanaFeeQuoterInput.Validate(env, evmState); err != nil {
 		return input, fmt.Errorf("failed to validate solana fee quoter input: %w", err)
 	}
 	return input, nil
@@ -470,7 +470,7 @@ func addEVMSolanaPreconditions(env cldf.Environment, input AddMultiEVMSolanaLane
 			return fmt.Errorf("failed to validate EVM chain %d: %w", cfg.EVMChainSelector, err)
 		}
 	}
-	if _, ok := env.SolChains[input.SolanaChainSelector]; !ok {
+	if _, ok := env.BlockChains.SolanaChains()[input.SolanaChainSelector]; !ok {
 		return fmt.Errorf("failed to find Solana chain in env %d", input.SolanaChainSelector)
 	}
 	solanaState, err := stateview.LoadOnchainStateSolana(env)
@@ -492,7 +492,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for Solana chain: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[input.SolanaChainSelector], addresses)
+	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(env.BlockChains.SolanaChains()[input.SolanaChainSelector], addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
 	}

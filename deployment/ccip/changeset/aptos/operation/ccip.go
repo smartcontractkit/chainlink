@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/smartcontractkit/mcms/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
@@ -24,7 +24,7 @@ type DeployCCIPInput struct {
 
 type DeployCCIPOutput struct {
 	CCIPAddress    aptos.AccountAddress
-	MCMSOperations []types.Operation
+	MCMSOperations []mcmstypes.Operation
 }
 
 var DeployCCIPOp = operations.NewOperation(
@@ -39,10 +39,10 @@ func deployCCIP(b operations.Bundle, deps AptosDeps, in DeployCCIPInput) (Deploy
 	// Validate there's no package deployed XOR is update
 	if (onChainState.CCIPAddress == (aptos.AccountAddress{})) == (in.IsUpdate) {
 		if in.IsUpdate {
-			b.Logger.Infow("Trying to update a non-deployed package", "addr", onChainState.CCIPAddress.String())
+			b.Logger.Infow("Trying to update a non-deployed package", "addr", onChainState.CCIPAddress.StringLong())
 			return DeployCCIPOutput{}, fmt.Errorf("CCIP package not deployed on Aptos chain %d", deps.AptosChain.Selector)
 		}
-		b.Logger.Infow("CCIP Package already deployed", "addr", onChainState.CCIPAddress.String())
+		b.Logger.Infow("CCIP Package already deployed", "addr", onChainState.CCIPAddress.StringLong())
 		return DeployCCIPOutput{CCIPAddress: onChainState.CCIPAddress}, nil
 	}
 
@@ -64,7 +64,7 @@ func deployCCIP(b operations.Bundle, deps AptosDeps, in DeployCCIPInput) (Deploy
 	}, nil
 }
 
-func getCCIPDeployMCMSOps(mcmsContract mcmsbind.MCMS, chainSel uint64, ccipAddress aptos.AccountAddress) (aptos.AccountAddress, []types.Operation, error) {
+func getCCIPDeployMCMSOps(mcmsContract mcmsbind.MCMS, chainSel uint64, ccipAddress aptos.AccountAddress) (aptos.AccountAddress, []mcmstypes.Operation, error) {
 	// Calculate addresses of the owner and the object
 	var ccipObjectAddress aptos.AccountAddress
 	var err error
@@ -73,25 +73,25 @@ func getCCIPDeployMCMSOps(mcmsContract mcmsbind.MCMS, chainSel uint64, ccipAddre
 	} else {
 		ccipObjectAddress, err = mcmsContract.MCMSRegistry().GetNewCodeObjectAddress(nil, []byte(ccip.DefaultSeed))
 		if err != nil {
-			return ccipObjectAddress, []types.Operation{}, fmt.Errorf("failed to calculate object address: %w", err)
+			return ccipObjectAddress, nil, fmt.Errorf("failed to calculate object address: %w", err)
 		}
 	}
 
 	// Compile Package
 	payload, err := ccip.Compile(ccipObjectAddress, mcmsContract.Address(), ccipAddress == aptos.AccountAddress{})
 	if err != nil {
-		return ccipObjectAddress, []types.Operation{}, fmt.Errorf("failed to compile: %w", err)
+		return ccipObjectAddress, nil, fmt.Errorf("failed to compile: %w", err)
 	}
 
 	// Create chunks and stage operations
-	var operations []types.Operation
+	var operations []mcmstypes.Operation
 	if ccipAddress == (aptos.AccountAddress{}) {
 		operations, err = utils.CreateChunksAndStage(payload, mcmsContract, chainSel, ccip.DefaultSeed, nil)
 	} else {
 		operations, err = utils.CreateChunksAndStage(payload, mcmsContract, chainSel, "", &ccipObjectAddress)
 	}
 	if err != nil {
-		return ccipObjectAddress, operations, fmt.Errorf("failed to create chunks and stage for %d: %w", chainSel, err)
+		return ccipObjectAddress, nil, fmt.Errorf("failed to create chunks and stage for %d: %w", chainSel, err)
 	}
 
 	return ccipObjectAddress, operations, nil
@@ -107,22 +107,22 @@ type DeployModulesInput struct {
 var DeployRouterOp = operations.NewOperation(
 	"deploy-router-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes Router module on CCIP package",
+	"Generates MCMS proposals that deploys Router module on CCIP package",
 	deployRouter,
 )
 
-func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
+func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	// TODO: is there a way to check if module exists?
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
 	payload, err := ccip_router.Compile(in.CCIPAddress, mcmsContract.Address(), true)
 	if err != nil {
-		return []types.Operation{}, fmt.Errorf("failed to compile: %w", err)
+		return nil, fmt.Errorf("failed to compile: %w", err)
 	}
 	// Create chunks and stage operations
 	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.CCIPAddress)
 	if err != nil {
-		return operations, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
+		return nil, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
 	}
 
 	return operations, nil
@@ -132,21 +132,21 @@ func deployRouter(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([
 var DeployOffRampOp = operations.NewOperation(
 	"deploy-offramp-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes OffRamp module on CCIP package",
+	"Generates MCMS proposals that deploys OffRamp module on CCIP package",
 	deployOffRamp,
 )
 
-func deployOffRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
+func deployOffRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
 	payload, err := ccip_offramp.Compile(in.CCIPAddress, mcmsContract.Address(), true)
 	if err != nil {
-		return []types.Operation{}, fmt.Errorf("failed to compile: %w", err)
+		return nil, fmt.Errorf("failed to compile: %w", err)
 	}
 	// Create chunks and stage operations
 	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.CCIPAddress)
 	if err != nil {
-		return operations, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
+		return nil, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
 	}
 	return operations, nil
 }
@@ -155,30 +155,31 @@ func deployOffRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) (
 var DeployOnRampOp = operations.NewOperation(
 	"deploy-onramp-op",
 	Version1_0_0,
-	"Generates MCMS proposals that deployes OnRamp module on CCIP package",
+	"Generates MCMS proposals that deploys OnRamp module on CCIP package",
 	deployOnRamp,
 )
 
-func deployOnRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]types.Operation, error) {
+func deployOnRamp(b operations.Bundle, deps AptosDeps, in DeployModulesInput) ([]mcmstypes.Operation, error) {
 	mcmsContract := mcmsbind.Bind(in.MCMSAddress, deps.AptosChain.Client)
 	// Compile Package
 	payload, err := ccip_onramp.Compile(in.CCIPAddress, mcmsContract.Address(), true)
 	if err != nil {
-		return []types.Operation{}, fmt.Errorf("failed to compile: %w", err)
+		return nil, fmt.Errorf("failed to compile: %w", err)
 	}
 	// Create chunks and stage operations
 	operations, err := utils.CreateChunksAndStage(payload, mcmsContract, deps.AptosChain.Selector, "", &in.CCIPAddress)
 	if err != nil {
-		return operations, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
+		return nil, fmt.Errorf("failed to create chunks and stage for %d: %w", deps.AptosChain.Selector, err)
 	}
 	return operations, nil
 }
 
 // OP: InitializeCCIP Operation
 type InitializeCCIPInput struct {
-	MCMSAddress aptos.AccountAddress
-	CCIPAddress aptos.AccountAddress
-	CCIPConfig  aptoscfg.ChainContractParams
+	MCMSAddress      aptos.AccountAddress
+	CCIPAddress      aptos.AccountAddress
+	LinkTokenAddress aptos.AccountAddress
+	CCIPConfig       aptoscfg.ChainContractParams
 }
 
 var InitializeCCIPOp = operations.NewOperation(
@@ -188,8 +189,8 @@ var InitializeCCIPOp = operations.NewOperation(
 	initializeCCIP,
 )
 
-func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) (types.BatchOperation, error) {
-	var txs []types.Transaction
+func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput) ([]mcmstypes.Transaction, error) {
+	var txs []mcmstypes.Transaction
 
 	// Config OnRamp with empty lane configs. We're only able to get router address after deploying the router module
 	onrampBind := ccip_onramp.Bind(in.CCIPAddress, deps.AptosChain.Client)
@@ -202,11 +203,11 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 		[]bool{},
 	)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to encode onramp initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode onramp initialize: %w", err)
 	}
 	mcmsTx, err := utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for OnRamp Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for OnRamp Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
@@ -221,11 +222,11 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 		in.CCIPConfig.OffRampParams.SourceChainsOnRamp,
 	)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to encode offramp initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode offramp initialize: %w", err)
 	}
 	mcmsTx, err = utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for OffRamp Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
@@ -233,32 +234,63 @@ func initializeCCIP(b operations.Bundle, deps AptosDeps, in InitializeCCIPInput)
 	ccipBind := ccip.Bind(in.CCIPAddress, deps.AptosChain.Client)
 
 	moduleInfo, function, _, args, err = ccipBind.FeeQuoter().Encoder().Initialize(
-		deps.AptosChain.Selector,
-		in.CCIPConfig.FeeQuoterParams.LinkToken,
+		in.CCIPConfig.FeeQuoterParams.MaxFeeJuelsPerMsg,
+		in.LinkTokenAddress,
 		in.CCIPConfig.FeeQuoterParams.TokenPriceStalenessThreshold,
 		in.CCIPConfig.FeeQuoterParams.FeeTokens,
 	)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to encode feequoter initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode feequoter initialize: %w", err)
 	}
 	mcmsTx, err = utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for FeeQuoter Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for FeeQuoter Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
 	moduleInfo, function, _, args, err = ccipBind.RMNRemote().Encoder().Initialize(deps.AptosChain.Selector)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to encode rmnremote initialize: %w", err)
+		return nil, fmt.Errorf("failed to encode rmnremote initialize: %w", err)
 	}
 	mcmsTx, err = utils.GenerateMCMSTx(in.CCIPAddress, moduleInfo, function, args)
 	if err != nil {
-		return types.BatchOperation{}, fmt.Errorf("failed to generate MCMS operations for RMNRemote Initialize: %w", err)
+		return nil, fmt.Errorf("failed to generate MCMS operations for RMNRemote Initialize: %w", err)
 	}
 	txs = append(txs, mcmsTx)
 
-	return types.BatchOperation{
-		ChainSelector: types.ChainSelector(deps.AptosChain.Selector),
-		Transactions:  txs,
-	}, nil
+	return txs, nil
+}
+
+// OP: ApplyAllowedOfframpUpdates Operation
+var ApplyAllowedOfframpUpdatesOp = operations.NewOperation(
+	"apply-allowed-offramp-updates-op",
+	Version1_0_0,
+	"Adds CCIP owner address to OffRamp allow list",
+	applyAllowedOfframpUpdates,
+)
+
+func applyAllowedOfframpUpdates(b operations.Bundle, deps AptosDeps, _ operations.EmptyInput) (mcmstypes.Transaction, error) {
+	// Bind CCIP Package
+	ccipAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].CCIPAddress
+	ccipBind := ccip.Bind(ccipAddress, deps.AptosChain.Client)
+
+	// Bind MCMS Package
+	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
+	mcmsBind := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
+
+	// Add CCIP Owner address to update token prices allow list
+	ccipOwnerAddress, err := mcmsBind.MCMSRegistry().GetRegisteredOwnerAddress(nil, ccipAddress)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to get CCIP owner address: %w", err)
+	}
+	moduleInfo, function, _, args, err := ccipBind.Auth().Encoder().ApplyAllowedOfframpUpdates(nil, []aptos.AccountAddress{ccipOwnerAddress})
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to encode ApplyAllowedOfframpUpdates: %w", err)
+	}
+	tx, err := utils.GenerateMCMSTx(ccipAddress, moduleInfo, function, args)
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	return tx, nil
 }

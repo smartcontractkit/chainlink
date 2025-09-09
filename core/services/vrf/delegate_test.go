@@ -25,11 +25,11 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -81,11 +81,11 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	evmKs := keys.NewChainStore(keystore.NewEthSigner(ks.Eth(), ec.ConfiguredChainID()), ec.ConfiguredChainID())
 	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, evmKs, nil, nil, nil)
-	orm := heads.NewORM(*testutils.FixtureChainID, db)
+	orm := heads.NewORM(*testutils.FixtureChainID, db, 0)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
@@ -574,7 +574,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
@@ -602,7 +602,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		ctx := testutils.Context(t)
 		db := pgtest.NewSqlxDB(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr.Infof)
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
@@ -701,13 +701,16 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 		vuni.legacyChains,
 		logger.TestLogger(t),
 		mailMon)
-	chain, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
+	chainService, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
 	require.NoError(t, err)
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		VRFVersion:    vrfcommon.V2Plus,
 		PublicKey:     vuni.vrfkey.PublicKey.String(),
 		FromAddresses: []string{vuni.submitter.Hex()},
 		GasLanePrice:  chain.Config().EVM().GasEstimator().PriceMax(),
+		EVMChainID:    testutils.FixtureChainID.String(),
 	})
 	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(toml)

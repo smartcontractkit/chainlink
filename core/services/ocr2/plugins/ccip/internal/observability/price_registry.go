@@ -20,7 +20,6 @@ func NewPriceRegistryReader(origin ccipdata.PriceRegistryReader, chainID int64, 
 		metric: metricDetails{
 			interactionDuration: readerHistogram,
 			resultSetSize:       readerDatasetSize,
-			pluginName:          pluginName,
 			readerName:          "PriceRegistryReader",
 			chainId:             chainID,
 		},

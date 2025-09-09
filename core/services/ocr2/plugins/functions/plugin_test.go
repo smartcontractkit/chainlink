@@ -6,12 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	sfmocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	gfaMocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
 	gfsMocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -36,7 +36,7 @@ func TestNewConnector_Success(t *testing.T) {
 	s4Storage := s4mocks.NewStorage(t)
 	allowlist := gfaMocks.NewOnchainAllowlist(t)
 	subscriptions := gfsMocks.NewOnchainSubscriptions(t)
-	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
+	rateLimiter, err := ratelimit.NewRateLimiter(ratelimit.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	listener := sfmocks.NewFunctionsListener(t)
 	offchainTransmitter := sfmocks.NewOffchainTransmitter(t)
@@ -67,7 +67,7 @@ func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	s4Storage := s4mocks.NewStorage(t)
 	allowlist := gfaMocks.NewOnchainAllowlist(t)
 	subscriptions := gfsMocks.NewOnchainSubscriptions(t)
-	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
+	rateLimiter, err := ratelimit.NewRateLimiter(ratelimit.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	listener := sfmocks.NewFunctionsListener(t)
 	offchainTransmitter := sfmocks.NewOffchainTransmitter(t)

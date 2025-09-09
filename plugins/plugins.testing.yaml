@@ -1,0 +1,17 @@
+# This file defines testing plugins to be installed via `loopinstall`.
+# This file should only include testing plugins that are not meant to be released to the public. Relayer and other plugins that make it into the final release should not be added here. They should be tested within their own repo's CI pipelines.
+
+# Common plugin configuration
+defaults:
+  # The `-s` flag is added to strip debug information from the binary to reduce
+  # the binary size for releases.
+  # See: `go tool link -help`
+  goflags: "-ldflags=-s"
+
+plugins:
+  mock:
+    - enabled: true
+      moduleURI: "github.com/smartcontractkit/capabilities/mock"
+      gitRef: "02cb745cabad2979034e6f96ebb47c9322df24ba"
+      installPath: "github.com/smartcontractkit/capabilities/mock"
+

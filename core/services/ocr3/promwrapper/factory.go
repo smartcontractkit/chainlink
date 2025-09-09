@@ -11,23 +11,26 @@ import (
 var _ ocr3types.ReportingPluginFactory[any] = &ReportingPluginFactory[any]{}
 
 type ReportingPluginFactory[RI any] struct {
-	origin  ocr3types.ReportingPluginFactory[RI]
-	lggr    logger.Logger
-	chainID string
-	plugin  string
+	origin      ocr3types.ReportingPluginFactory[RI]
+	lggr        logger.Logger
+	chainFamily string
+	chainID     string
+	plugin      string
 }
 
 func NewReportingPluginFactory[RI any](
 	origin ocr3types.ReportingPluginFactory[RI],
 	lggr logger.Logger,
+	chainFamily string,
 	chainID string,
 	plugin string,
 ) *ReportingPluginFactory[RI] {
 	return &ReportingPluginFactory[RI]{
-		origin:  origin,
-		lggr:    lggr,
-		chainID: chainID,
-		plugin:  plugin,
+		origin:      origin,
+		lggr:        lggr,
+		chainFamily: chainFamily,
+		chainID:     chainID,
+		plugin:      plugin,
 	}
 }
 
@@ -42,6 +45,7 @@ func (r ReportingPluginFactory[RI]) NewReportingPlugin(ctx context.Context, conf
 	)
 	wrapped := newReportingPlugin(
 		plugin,
+		r.chainFamily,
 		r.chainID,
 		r.plugin,
 		config.ConfigDigest.String(),

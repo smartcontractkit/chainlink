@@ -102,7 +102,7 @@ func main() {
 		return
 	}
 	codec := api.JsonRPCCodec{}
-	rawMsg, err := codec.EncodeRequest(msg)
+	rawMsg, err := codec.EncodeLegacyRequest(msg)
 	if err != nil {
 		fmt.Println("error JSON-RPC encoding", err)
 		return

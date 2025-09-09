@@ -2,6 +2,7 @@ package standardcapabilities
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -12,20 +13,23 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/trigger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -47,10 +51,11 @@ type Delegate struct {
 	relayers                RelayGetter
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
-	peerWrapper             *ocrcommon.SingletonPeerWrapper
+	externalPeerWrapper     p2ptypes.PeerWrapper
+	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
-	selectorOpts            []func(*webapi.RoundRobinSelector)
+	selectorOpts            []func(*gateway.RoundRobinSelector)
 
 	isNewlyCreatedJob bool
 }
@@ -74,10 +79,11 @@ func NewDelegate(
 	relayers RelayGetter,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	ks keystore.Master,
-	peerWrapper *ocrcommon.SingletonPeerWrapper,
+	externalPeerWrapper p2ptypes.PeerWrapper,
+	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
-	opts ...func(*webapi.RoundRobinSelector),
+	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -91,7 +97,8 @@ func NewDelegate(
 		isNewlyCreatedJob:       false,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		ks:                      ks,
-		peerWrapper:             peerWrapper,
+		externalPeerWrapper:     externalPeerWrapper,
+		ocrPeerWrapper:          ocrPeerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
 		computeFetcherFactoryFn: fetcherFactoryFn,
 		selectorOpts:            opts,
@@ -108,9 +115,35 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
+	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID()).Named(spec.Name.ValueOrZero())
 
 	kvStore := job.NewKVStore(spec.ID, d.ds)
+
+	// Enable signing and decryption for the capability, if available.
+	var ks core.Keystore
+	var decrypter core.Decrypter
+	var signer crypto.Signer
+	if d.ks.Workflow() != nil {
+		workflowKeys, err := d.ks.Workflow().GetAll()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow keys: %w", err)
+		}
+		if len(workflowKeys) > 0 {
+			decrypter = &workflowKeys[0]
+		}
+	}
+	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
+		p2pKey, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
+		if err != nil {
+			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
+		}
+		signer = p2pKey
+	}
+	ks, err := core.NewSignerDecrypter(core.StandardCapabilityAccount, signer, decrypter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signer decrypter: %w", err)
+	}
+
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 	errorLog := &ErrorLog{jobID: spec.ID, recordError: d.jobORM.RecordError}
 	pr := generic.NewPipelineRunnerAdapter(log, spec, d.pipelineRunner)
@@ -138,37 +171,18 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
 	}
 
-	ethKeyBundles, err := d.ks.Eth().GetAll(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var ethKeyBundle ethkey.KeyV2
-	if len(ethKeyBundles) == 0 {
-		ethKeyBundle, err = d.ks.Eth().Create(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create ETH key bundle")
-		}
-	} else {
-		if len(ethKeyBundles) > 1 {
-			log.Infof("found %d ETH key bundles, which may cause unexpected behavior if using the OracleFactory", len(ethKeyBundles))
-		}
-		ethKeyBundle = ethKeyBundles[0]
-	}
-
 	var oracleFactory core.OracleFactory
 	// NOTE: special case for custom Oracle Factory for use in tests
 	if d.newOracleFactoryFn != nil {
 		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
-			Logger:        log,
-			JobORM:        d.jobORM,
-			JobID:         spec.ID,
-			JobName:       spec.Name.ValueOrZero(),
-			KB:            ocrEvmKeyBundle,
-			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper:   d.peerWrapper,
-			RelayerSet:    relayerSet,
-			TransmitterID: ethKeyBundle.Address.String(),
+			Logger:      log,
+			JobORM:      d.jobORM,
+			JobID:       spec.ID,
+			JobName:     spec.Name.ValueOrZero(),
+			KB:          ocrEvmKeyBundle,
+			Config:      spec.StandardCapabilitiesSpec.OracleFactory,
+			PeerWrapper: d.ocrPeerWrapper,
+			RelayerSet:  relayerSet,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
@@ -176,24 +190,30 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	} else {
 		log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
 
-		if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
+		if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.ocrPeerWrapper == nil {
 			return nil, errors.New("P2P stack required for Oracle Factory")
 		}
 
 		oracleFactory, err = generic.NewOracleFactory(generic.OracleFactoryParams{
-			Logger:        log,
-			JobORM:        d.jobORM,
-			JobID:         spec.ID,
-			JobName:       spec.Name.ValueOrZero(),
-			KB:            ocrEvmKeyBundle,
-			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-			PeerWrapper:   d.peerWrapper,
-			RelayerSet:    relayerSet,
-			TransmitterID: ethKeyBundle.Address.String(),
+			Logger:                 log,
+			JobORM:                 d.jobORM,
+			JobID:                  spec.ID,
+			JobName:                spec.Name.ValueOrZero(),
+			KB:                     ocrEvmKeyBundle,
+			Config:                 spec.StandardCapabilitiesSpec.OracleFactory,
+			OnchainSigningStrategy: spec.StandardCapabilitiesSpec.OracleFactory.OnchainSigning,
+			PeerWrapper:            d.ocrPeerWrapper,
+			RelayerSet:             relayerSet,
+			OcrKeystore:            d.ks.OCR2(),
+			EthKeystore:            d.ks.Eth(),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
 		}
+	}
+	var connector connector.GatewayConnector
+	if d.gatewayConnectorWrapper != nil {
+		connector = d.gatewayConnectorWrapper.GetGatewayConnector()
 	}
 
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
@@ -201,7 +221,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if d.gatewayConnectorWrapper == nil {
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
-		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
 		triggerSrvc, err := trigger.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
@@ -213,7 +232,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if d.gatewayConnectorWrapper == nil {
 			return nil, errors.New("gateway connector is required for web API Target capability")
 		}
-		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
@@ -253,7 +271,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 			lggr := d.logger.Named("ComputeAction")
 
-			handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr, d.selectorOpts...)
+			handler, err := webapi.NewOutgoingConnectorHandler(connector, cfg.ServiceConfig, capabilities.MethodComputeAction, lggr, d.selectorOpts...)
 			if err != nil {
 				return nil, err
 			}
@@ -282,8 +300,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return services, nil
 	}
 
-	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
-		pr, relayerSet, oracleFactory)
+	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
+		pr, relayerSet, oracleFactory, connector, ks)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }

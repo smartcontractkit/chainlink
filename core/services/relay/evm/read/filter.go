@@ -2,6 +2,9 @@ package read
 
 import (
 	"context"
+	"crypto/sha3"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -10,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 type Registrar interface {
@@ -49,6 +53,11 @@ func (r *syncedFilter) Update(ctx context.Context, registrar Registrar, updatedN
 	// filter updated successfully, it's not dirty anymore
 	r.dirty = false
 
+	// if name hasn't changed, then we didn't update filter params.
+	if oldName == updatedName {
+		return nil
+	}
+
 	return r.unregister(ctx, registrar, oldName)
 }
 
@@ -60,17 +69,41 @@ func (r *syncedFilter) Register(ctx context.Context, registrar Registrar) error 
 }
 
 func (r *syncedFilter) register(ctx context.Context, registrar Registrar) error {
-	if !registrar.HasFilter(r.filter.Name) {
-		if err := registrar.RegisterFilter(ctx, r.filter); err != nil {
-			return FilterError{
-				Err:    fmt.Errorf("%w: %s", types.ErrInternal, err.Error()),
-				Action: "register",
-				Filter: r.filter,
-			}
+	// don't need check filter existence
+	// lp.Register is noop in case if filter is unchanged
+	if err := registrar.RegisterFilter(ctx, r.filter); err != nil {
+		return FilterError{
+			Err:    fmt.Errorf("%w: %s", types.ErrInternal, err.Error()),
+			Action: "register",
+			Filter: r.filter,
 		}
 	}
 
 	return nil
+}
+
+func (r *syncedFilter) deriveName() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	s := struct {
+		Addresses evmtypes.AddressArray
+		EventSigs evmtypes.HashArray // list of possible values for eventsig (aka topic1)
+		Topic2    evmtypes.HashArray // list of possible values for topic2
+		Topic3    evmtypes.HashArray // list of possible values for topic3
+		Topic4    evmtypes.HashArray // list of possible values for topic4
+	}{
+		r.filter.Addresses,
+		r.filter.EventSigs,
+		r.filter.Topic2,
+		r.filter.Topic3,
+		r.filter.Topic4,
+	}
+
+	data, _ := json.Marshal(s) // the structure is json-safe, fine to ignore
+
+	hash := sha3.Sum256(data)
+
+	return hex.EncodeToString(hash[:])
 }
 
 func (r *syncedFilter) Unregister(ctx context.Context, registrar Registrar) error {
@@ -109,6 +142,10 @@ func (r *syncedFilter) SetName(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if r.filter.Name == name {
+		return
+	}
+
 	r.dirty = true
 
 	r.filter.Name = name
@@ -117,6 +154,11 @@ func (r *syncedFilter) SetName(name string) {
 func (r *syncedFilter) AddAddress(address common.Address) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	for _, addr := range r.filter.Addresses {
+		if addr.Cmp(address) == 0 {
+			return
+		}
+	}
 
 	r.dirty = true
 
@@ -127,14 +169,19 @@ func (r *syncedFilter) RemoveAddress(address common.Address) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.dirty = true
-
 	var addrIdx int
+	var found bool
 	for idx, addr := range r.filter.Addresses {
 		if addr.Hex() == address.Hex() {
 			addrIdx = idx
+			found = true
 		}
 	}
+	if !found {
+		return
+	}
+
+	r.dirty = true
 
 	r.filter.Addresses[addrIdx] = r.filter.Addresses[len(r.filter.Addresses)-1]
 	r.filter.Addresses = r.filter.Addresses[:len(r.filter.Addresses)-1]

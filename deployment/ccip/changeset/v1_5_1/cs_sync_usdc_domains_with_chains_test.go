@@ -10,6 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -140,11 +143,11 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 				testCfg.IsUSDC = test.DeployUSDC
 			})
 			e := deployedEnvironment.Env
-			selectors := deployedEnvironment.Env.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			if test.DeployUSDC {
 				var err error
-				e, err = commoncs.Apply(t, e, nil,
+				e, err = commoncs.Apply(t, e,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 						v1_5_1.ConfigureTokenPoolContractsConfig{
@@ -199,26 +202,20 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				testCfg.IsUSDC = true
 			})
 			e := deployedEnvironment.Env
-			selectors := e.AllChainSelectors()
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(selectors))
 			timelockOwnedContractsByChain := make(map[uint64][]common.Address, 1)
 			for _, selector := range selectors {
-				// Assemble map of addresses required for Timelock scheduling & execution
-				timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-					Timelock:  state.Chains[selector].Timelock,
-					CallProxy: state.Chains[selector].CallProxy,
-				}
 				// We would only need the token pool owned by timelock in these tests (if mcms config is provided)
 				timelockOwnedContractsByChain[selector] = []common.Address{state.Chains[selector].USDCTokenPools[deployment.Version1_5_1].Address()}
 			}
 
 			if mcmsConfig != nil {
 				// Transfer ownership of token pools to timelock
-				e, err = commoncs.Apply(t, e, timelockContracts,
+				e, err = commoncs.Apply(t, e,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
@@ -230,7 +227,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			e, err = commoncs.Apply(t, e, timelockContracts,
+			e, err = commoncs.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 					v1_5_1.ConfigureTokenPoolContractsConfig{
@@ -257,7 +254,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			e, err = commoncs.Apply(t, e, timelockContracts,
+			e, err = commoncs.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.SyncUSDCDomainsWithChainsChangeset),
 					v1_5_1.SyncUSDCDomainsWithChainsConfig{

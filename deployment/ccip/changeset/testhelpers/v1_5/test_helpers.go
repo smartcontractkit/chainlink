@@ -14,9 +14,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/stretchr/testify/require"
 
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -36,20 +39,16 @@ import (
 func AddLanes(t *testing.T, e cldf.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) cldf.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
-			v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
-			v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
-			v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
-		),
-	)
+	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
+		v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+		v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+		v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
+	))
 	require.NoError(t, err)
 	return e
 }
@@ -67,8 +66,8 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 	for _, pair := range pairs {
 		dest := pair.DestChainSelector
 		src := pair.SourceChainSelector
-		sourceChainState := state.Chains[src]
-		destChainState := state.Chains[dest]
+		sourceChainState := state.MustGetEVMChainState(src)
+		destChainState := state.MustGetEVMChainState(dest)
 		_, err := sourceChainState.LinkTokenAddress()
 		require.NoError(t, err)
 		require.NotNil(t, sourceChainState.RMNProxy)
@@ -81,7 +80,7 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 		require.NotNil(t, destChainState.RMNProxy)
 		require.NotNil(t, destChainState.TokenAdminRegistry)
 		priceGetterConfig := CreatePriceGetterConfig(t, state, src, dest)
-		block, err := env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
+		block, err := env.BlockChains.EVMChains()[dest].Client.HeaderByNumber(context.Background(), nil)
 		require.NoError(t, err)
 		destEVMChainIdStr, err := chain_selectors.GetChainIDFromSelector(dest)
 		require.NoError(t, err)
@@ -213,9 +212,9 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 
 // CreatePriceGetterConfig returns price getter config as json string.
 func CreatePriceGetterConfig(t *testing.T, state stateview.CCIPOnChainState, source, dest uint64) string {
-	sourceRouter := state.Chains[source].Router
-	destRouter := state.Chains[dest].Router
-	destLinkAddr, err := state.Chains[dest].LinkTokenAddress()
+	sourceRouter := state.MustGetEVMChainState(source).Router
+	destRouter := state.MustGetEVMChainState(dest).Router
+	destLinkAddr, err := state.MustGetEVMChainState(dest).LinkTokenAddress()
 	require.NoError(t, err)
 
 	linkPriceDest, ok := big.NewInt(0).SetString("8000000000000000000", 10)
@@ -277,15 +276,15 @@ func SendRequest(
 	t *testing.T,
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
-	opts ...testhelpers.SendReqOpts,
+	opts ...ccipclient.SendReqOpts,
 ) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, error) {
-	cfg := &testhelpers.CCIPSendReqConfig{}
+	cfg := &ccipclient.CCIPSendReqConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 	// Set default sender if not provided
 	if cfg.Sender == nil {
-		cfg.Sender = e.Chains[cfg.SourceChain].DeployerKey
+		cfg.Sender = e.BlockChains.EVMChains()[cfg.SourceChain].DeployerKey
 	}
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
@@ -294,7 +293,7 @@ func SendRequest(
 		return nil, err
 	}
 
-	onRamp := state.Chains[cfg.SourceChain].EVM2EVMOnRamp[cfg.DestChain]
+	onRamp := state.MustGetEVMChainState(cfg.SourceChain).EVM2EVMOnRamp[cfg.DestChain]
 
 	it, err := onRamp.FilterCCIPSendRequested(&bind.FilterOpts{
 		Start:   blockNum,
@@ -319,8 +318,8 @@ func SendRequest(
 
 func WaitForCommit(
 	t *testing.T,
-	src cldf.Chain,
-	dest cldf.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	commitStore *commit_store.CommitStore,
 	seqNr uint64,
 ) {
@@ -347,8 +346,8 @@ func WaitForCommit(
 
 func WaitForNoCommit(
 	t *testing.T,
-	src cldf.Chain,
-	dest cldf.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	commitStore *commit_store.CommitStore,
 	seqNr uint64,
 ) {
@@ -373,10 +372,39 @@ func WaitForNoCommit(
 	}
 }
 
+func WaitForNoExec(
+	t *testing.T,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
+	offRamp *evm_2_evm_offramp.EVM2EVMOffRamp,
+	seqNr uint64,
+) {
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			state, err := offRamp.GetExecutionState(nil, seqNr)
+			require.NoError(t, err)
+			t.Logf("Waiting for no execution for sequence number %d, current state %d", seqNr, state)
+			// We expect the state to be untouched or in a failure state
+			if cciptypes.MessageExecutionState(state) == cciptypes.ExecutionStateSuccess {
+				t.Fatalf("Execution for sequence number %d found while it was not expected, current state %d", seqNr, state)
+				return
+			}
+		case <-timer.C:
+			t.Logf("Successfully observed no execution for sequence number %d for offramp %s during 30s period", seqNr, offRamp.Address().String())
+			return
+		}
+	}
+}
+
 func WaitForExecute(
 	t *testing.T,
-	src cldf.Chain,
-	dest cldf.Chain,
+	src cldf_evm.Chain,
+	dest cldf_evm.Chain,
 	offRamp *evm_2_evm_offramp.EVM2EVMOffRamp,
 	seqNrs []uint64,
 	blockNum uint64,

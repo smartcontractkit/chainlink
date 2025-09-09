@@ -9,8 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -29,6 +35,10 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
+
+type testMetadata struct {
+	Data string `json:"data"`
+}
 
 type ConfiguredChangeSet interface {
 	Apply(e cldf.Environment) (cldf.ChangesetOutput, error)
@@ -60,99 +70,31 @@ func (ca configuredChangeSetImpl[C]) Apply(e cldf.Environment) (cldf.ChangesetOu
 // Apply applies the changeset applications to the environment and returns the updated environment. This is the
 // variadic function equivalent of ApplyChangesets, but allowing you to simply pass in one or more changesets as
 // parameters at the end of the function. e.g. `changeset.Apply(t, e, nil, configuredCS1, configuredCS2)` etc.
-func Apply(t *testing.T, e cldf.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, first ConfiguredChangeSet, rest ...ConfiguredChangeSet) (cldf.Environment, error) {
-	return ApplyChangesets(t, e, timelockContractsPerChain, append([]ConfiguredChangeSet{first}, rest...))
+func Apply(t *testing.T, e cldf.Environment, first ConfiguredChangeSet, rest ...ConfiguredChangeSet) (cldf.Environment, error) {
+	env, _, err := ApplyChangesets(t, e, append([]ConfiguredChangeSet{first}, rest...))
+	return env, err
+}
+
+type applyChangesetOptions struct {
+	realBackend bool
+}
+
+type ApplyChangesetsOptions func(*applyChangesetOptions) *applyChangesetOptions
+
+func WithRealBackend() ApplyChangesetsOptions {
+	return func(o *applyChangesetOptions) *applyChangesetOptions {
+		o.realBackend = true
+		return o
+	}
 }
 
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesets(t *testing.T, e cldf.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ConfiguredChangeSet) (cldf.Environment, error) {
-	currentEnv := e
-	for i, csa := range changesetApplications {
-		out, err := csa.Apply(currentEnv)
-		if err != nil {
-			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
-		}
-		var addresses cldf.AddressBook
-		if out.AddressBook != nil {
-			addresses = out.AddressBook
-			err := addresses.Merge(currentEnv.ExistingAddresses)
-			if err != nil {
-				return e, fmt.Errorf("failed to merge address book: %w", err)
-			}
-		} else {
-			addresses = currentEnv.ExistingAddresses
-		}
-
-		// Collect expected DataStore state after changeset is applied
-		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
-		if out.DataStore != nil {
-			ds1 := datastore.NewMemoryDataStore[
-				datastore.DefaultMetadata,
-				datastore.DefaultMetadata,
-			]()
-			// New Addresses
-			err := ds1.Merge(out.DataStore.Seal())
-			if err != nil {
-				return e, fmt.Errorf("failed to merge new addresses into datastore: %w", err)
-			}
-			// Existing Addresses
-			err = ds1.Merge(currentEnv.DataStore)
-			if err != nil {
-				return e, fmt.Errorf("failed to merge current addresses into datastore: %w", err)
-			}
-			ds = ds1.Seal()
-		} else {
-			ds = currentEnv.DataStore
-		}
-
-		if out.Jobs != nil {
-			// do nothing, as these jobs auto-accept.
-		}
-
-		if out.MCMSTimelockProposals != nil {
-			for _, prop := range out.MCMSTimelockProposals {
-				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
-				// return the error so devs can ensure expected reversions
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
-				if err != nil {
-					return cldf.Environment{}, err
-				}
-				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
-				if err != nil {
-					return cldf.Environment{}, err
-				}
-			}
-		}
-		if out.MCMSProposals != nil {
-			for _, prop := range out.MCMSProposals {
-				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				// return the error so devs can ensure expected reversions
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
-				if err != nil {
-					return cldf.Environment{}, err
-				}
-			}
-		}
-		currentEnv = cldf.Environment{
-			Name:              e.Name,
-			Logger:            e.Logger,
-			ExistingAddresses: addresses,
-			DataStore:         ds,
-			Chains:            e.Chains,
-			SolChains:         e.SolChains,
-			AptosChains:       e.AptosChains,
-			NodeIDs:           e.NodeIDs,
-			Offchain:          e.Offchain,
-			OCRSecrets:        e.OCRSecrets,
-			GetContext:        e.GetContext,
-			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
-		}
+func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []ConfiguredChangeSet, opts ...ApplyChangesetsOptions) (cldf.Environment, []cldf.ChangesetOutput, error) {
+	opt := applyChangesetOptions{}
+	for _, o := range opts {
+		opt = *o(&opt)
 	}
-	return currentEnv, nil
-}
 
-// ApplyChangesetsV2 applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications []ConfiguredChangeSet) (cldf.Environment, []cldf.ChangesetOutput, error) {
 	currentEnv := e
 	outputs := make([]cldf.ChangesetOutput, 0, len(changesetApplications))
 	for i, csa := range changesetApplications {
@@ -173,12 +115,9 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 		}
 
 		// Collect expected DataStore state after changeset is applied
-		var ds datastore.DataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]
+		var ds datastore.DataStore
 		if out.DataStore != nil {
-			ds1 := datastore.NewMemoryDataStore[
-				datastore.DefaultMetadata,
-				datastore.DefaultMetadata,
-			]()
+			ds1 := datastore.NewMemoryDataStore()
 			// New Addresses
 			err := ds1.Merge(out.DataStore.Seal())
 			if err != nil {
@@ -205,14 +144,12 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
 			DataStore:         ds,
-			Chains:            e.Chains,
-			SolChains:         e.SolChains,
-			AptosChains:       e.AptosChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,
 			GetContext:        e.GetContext,
 			OperationsBundle:  operations.NewBundle(e.GetContext, e.Logger, operations.NewMemoryReporter()), // to ensure that each migration is run in a clean environment
+			BlockChains:       e.BlockChains,
 		}
 
 		if out.MCMSTimelockProposals != nil {
@@ -222,7 +159,13 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
+				// We need to supply a salt override, otherwise the validUntil timestamp will be used to generate the salt.
+				// In tests, validUntil is not always guaranteed to produce a unique operation ID because proposals often get generated within the same second.
+				// This has been a cause of flakiness in the past (caused an AlreadyScheduled error).
+				saltOverride := utils.RandomHash()
+				prop.SaltOverride = &saltOverride
+
+				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop, opt.realBackend)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return cldf.Environment{}, nil, err
@@ -259,9 +202,9 @@ func ApplyChangesetsV2(t *testing.T, e cldf.Environment, changesetApplications [
 func DeployLinkTokenTest(t *testing.T, memoryConfig memory.MemoryEnvironmentConfig) {
 	lggr := logger.Test(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memoryConfig)
-	chain1 := e.AllChainSelectors()[0]
+	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	config := []uint64{chain1}
-	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
+	e, _, err := ApplyChangesets(t, e, []ConfiguredChangeSet{
 		Configure(
 			cldf.CreateLegacyChangeSet(DeployLinkToken),
 			config,
@@ -270,7 +213,7 @@ func DeployLinkTokenTest(t *testing.T, memoryConfig memory.MemoryEnvironmentConf
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)
-	state, err := commonState.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	state, err := commonState.MaybeLoadLinkTokenChainState(e.BlockChains.EVMChains()[chain1], addrs)
 	require.NoError(t, err)
 	// View itself already unit tested
 	_, err = state.GenerateLinkView()
@@ -279,15 +222,17 @@ func DeployLinkTokenTest(t *testing.T, memoryConfig memory.MemoryEnvironmentConf
 	// solana test
 	if memoryConfig.SolChains > 0 {
 		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
-		e, err = Apply(t, e, nil,
+		chainSelectorSolana := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+		e, err = Apply(t, e,
 			Configure(cldf.CreateLegacyChangeSet(DeploySolanaLinkToken), DeploySolanaLinkTokenConfig{
-				ChainSelector: e.AllChainSelectorsSolana()[0],
+				ChainSelector: chainSelectorSolana,
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,
 			}),
 		)
 		require.NoError(t, err)
-		addrs, err = e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
+		chainSelectorSolana = e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+		addrs, err = e.ExistingAddresses.AddressesForChain(chainSelectorSolana)
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}
@@ -307,7 +252,7 @@ func SetPreloadedSolanaAddresses(t *testing.T, env cldf.Environment, selector ui
 	require.NoError(t, err)
 }
 
-func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf.Chain, to common.Address, amount int64) {
+func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf_evm.Chain, to common.Address, amount int64) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
@@ -337,7 +282,7 @@ func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf.Chain,
 }
 
 // MaybeGetLinkBalance returns the LINK balance of the given address on the given chain.
-func MaybeGetLinkBalance(t *testing.T, e cldf.Environment, chain cldf.Chain, linkAddr common.Address) *big.Int {
+func MaybeGetLinkBalance(t *testing.T, e cldf.Environment, chain cldf_evm.Chain, linkAddr common.Address) *big.Int {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 	linkState, err := commonState.MaybeLoadLinkTokenChainState(chain, addresses)

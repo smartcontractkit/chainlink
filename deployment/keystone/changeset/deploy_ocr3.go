@@ -7,19 +7,21 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
-var _ cldf.ChangeSet[uint64] = DeployOCR3
+var _ cldf.ChangeSet[*DeployRequestV2] = DeployOCR3V2
 
 // Deprecated: use DeployOCR3V2 instead
 func DeployOCR3(env cldf.Environment, registryChainSel uint64) (cldf.ChangesetOutput, error) {
@@ -39,7 +41,7 @@ type ConfigureOCR3Config struct {
 	ChainSel             uint64
 	NodeIDs              []string
 	Address              *common.Address // address of the OCR3 contract to configure
-	OCR3Config           *internal.OracleConfig
+	OCR3Config           *ocr3.OracleConfig
 	DryRun               bool
 	WriteGeneratedConfig io.Writer // if not nil, write the generated config to this writer as JSON [OCR2OracleConfig]
 
@@ -52,11 +54,25 @@ func (cfg ConfigureOCR3Config) UseMCMS() bool {
 }
 
 func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.ChangesetOutput, error) {
-	resp, err := internal.ConfigureOCR3ContractFromJD(&env, internal.ConfigureOCR3Config{
+	chain, ok := env.BlockChains.EVMChains()[cfg.ChainSel]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
+	}
+
+	if cfg.Address == nil {
+		return cldf.ChangesetOutput{}, errors.New("address of OCR3 contract to configure is required")
+	}
+
+	contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](env.DataStore.Addresses(), chain, cfg.Address.Hex())
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
+	}
+
+	resp, err := ocr3.ConfigureOCR3ContractFromJD(&env, ocr3.ConfigureOCR3Config{
 		ChainSel:   cfg.ChainSel,
 		NodeIDs:    cfg.NodeIDs,
 		OCR3Config: cfg.OCR3Config,
-		Address:    cfg.Address,
+		Contract:   contract.Contract,
 		DryRun:     cfg.DryRun,
 		UseMCMS:    cfg.UseMCMS(),
 	})
@@ -82,16 +98,6 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 	if cfg.UseMCMS() {
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
-		}
-
-		chain, ok := env.Chains[cfg.ChainSel]
-		if !ok {
-			return out, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
-		}
-
-		contract, err := GetOwnedContractV2[*ocr3_capability.OCR3Capability](env.DataStore.Addresses(), chain, cfg.Address.Hex())
-		if err != nil {
-			return out, fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
 		if contract.McmsContracts == nil {

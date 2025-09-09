@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -264,8 +266,7 @@ func TestBuildConfigs(t *testing.T) {
 	}, configs.UpdateRouterRampsConfig)
 }
 
-func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-5756")
+func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -314,16 +315,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 			state, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
-			selectors := e.AllChainSelectors()
-
-			timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts, len(selectors))
-			for _, selector := range selectors {
-				// Assemble map of addresses required for Timelock scheduling & execution
-				timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
-					Timelock:  state.Chains[selector].Timelock,
-					CallProxy: state.Chains[selector].CallProxy,
-				}
-			}
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
 			if test.MCMS != nil {
 				contractsToTransfer := make(map[uint64][]common.Address, len(selectors))
@@ -339,7 +331,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 						state.Chains[selector].NonceManager.Address(),
 					}
 				}
-				e, err = commonchangeset.Apply(t, e, timelockContracts,
+				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
@@ -367,7 +359,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 				}
 			}
 
-			e, err = commonchangeset.Apply(t, e, timelockContracts,
+			e, err = commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					v1_6.UpdateBidirectionalLanesChangeset,
 					v1_6.UpdateBidirectionalLanesConfig{
@@ -387,7 +379,7 @@ func TestUpdateBidirectiConalLanesChangeset(t *testing.T) {
 			}
 
 			if test.Disable {
-				e, err = commonchangeset.Apply(t, e, timelockContracts,
+				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
 						v1_6.UpdateBidirectionalLanesChangeset,
 						v1_6.UpdateBidirectionalLanesConfig{

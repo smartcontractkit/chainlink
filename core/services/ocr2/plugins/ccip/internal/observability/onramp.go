@@ -19,7 +19,6 @@ func NewObservedOnRampReader(origin ccipdata.OnRampReader, chainID int64, plugin
 		metric: metricDetails{
 			interactionDuration: readerHistogram,
 			resultSetSize:       readerDatasetSize,
-			pluginName:          pluginName,
 			readerName:          "OnRampReader",
 			chainId:             chainID,
 		},

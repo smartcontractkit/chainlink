@@ -135,7 +135,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -297,7 +297,9 @@ jobs:
         uses: ./.github/actions/setup-wasmd
 
       - name: Setup Postgres
-        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
+        with:
+          image-tag: "16-alpine"
 
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
@@ -311,9 +313,7 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        run: |
-          make install-loopinstall
-          make install-plugins-public
+        run: make install-plugins
 
       - name: Go mod tidy
         shell: bash
@@ -330,8 +330,8 @@ jobs:
       - name: Install flakeguard and gotestsum
         shell: bash
         run: |
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
-          go install gotest.tools/gotestsum@v1.12.2 # needed for flakeguard output formatting
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
+          go install gotest.tools/gotestsum@v1.12.3 # needed for flakeguard output formatting
 
       - name: Run tests with flakeguard
         shell: bash
@@ -441,7 +441,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@bc66d27e3325a1fecedc0fc932d13d3e54ff6f25 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@9687993689805382c40dd48250a07efd155a09b9 # june 11, 2025
 
       - name: Aggregate Flakeguard Results
         id: results
@@ -789,25 +789,3 @@ jobs:
                 }
               ]
             }
-
-  llm-analysis:
-    name: LLM Analysis
-    runs-on: ubuntu-latest
-    if: always()
-    needs: [report, get-tests]
-    steps:
-      - name: Download all test result artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: context
-          pattern: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
-      - name: Analyze
-        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@flakeguard-ai-analysis/1.2.0
-        with:
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          failed_test_results: "context/failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json"
-      - name: Upload Analysis
-        uses: actions/upload-artifact@v4
-        with:
-          name: llm-analysis-${{ needs.get-tests.outputs.workflow_id }}.jsonl
-          path: ${{ github.workspace }}/analysis.jsonl

@@ -18,7 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -301,6 +301,7 @@ func (cr *chainReader) QueryKey(
 			return nil, err
 		}
 		sequenceOfValues[idx] = commontypes.Sequence{
+			TxHash: entry.TxHash,
 			Cursor: entry.Cursor,
 			Head:   entry.Head,
 			Data:   &value,

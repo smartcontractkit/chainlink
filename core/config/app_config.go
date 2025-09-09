@@ -26,6 +26,7 @@ type AppConfig interface {
 	StarkNetEnabled() bool
 	AptosEnabled() bool
 	TronEnabled() bool
+	TONEnabled() bool
 
 	Validate() error
 	ValidateDB() error
@@ -42,6 +43,7 @@ type AppConfig interface {
 	Feature() Feature
 	FluxMonitor() FluxMonitor
 	Insecure() Insecure
+	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
 	Keeper() Keeper
 	Log() Log
@@ -59,6 +61,8 @@ type AppConfig interface {
 	Tracing() Tracing
 	Telemetry() Telemetry
 	CRE() CRE
+	Billing() Billing
+	BridgeStatusReporter() BridgeStatusReporter
 }
 
 type DatabaseBackupMode string

@@ -34,7 +34,9 @@ import (
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -171,8 +173,10 @@ func (node *Node) FindJobIDForContract(t *testing.T, addr common.Address) int32 
 }
 
 func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContracts CCIPIntegrationTestHarness) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -193,8 +197,10 @@ func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContr
 }
 
 func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, commitCfg ccipdata.CommitOnchainConfig) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -218,8 +224,10 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 }
 
 func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg v1_2_0.ExecOnchainConfig) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -244,8 +252,10 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 
 //nolint:gosec // safe cast in tests
 func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, onRamp common.Address, seqNum int) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Source.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Source.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -272,8 +282,10 @@ func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegr
 
 //nolint:gosec // safe cast in tests
 func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, offRamp common.Address, minSeqNum int, maxSeqNum int) []logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var logs []logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -301,8 +313,10 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 
 //nolint:gosec // safe to casts in tests
 func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, offRamp common.Address, seqNum int) logpoller.Log {
-	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
+	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
+	c, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		ccipContracts.Source.Chain.Commit()
@@ -432,7 +446,7 @@ func setupNodeCCIP(
 	require.NoError(t, err)
 	csaKeyStore.On("EnsureKey", mock.Anything).Return(nil)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	keyStore := NewKsa(db, lggr, csaKeyStore)
+	keyStore := NewKsa(db, csaKeyStore, lggr.Infof)
 	ctx := testutils.Context(t)
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		CREOpts: chainlink.CREOpts{
@@ -441,6 +455,7 @@ func setupNodeCCIP(
 		Config:   config,
 		DS:       db,
 		KeyStore: keyStore,
+		// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
 		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
 			fc.GenEthClient = func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {
@@ -458,6 +473,7 @@ func setupNodeCCIP(
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,
+		LimitsFactory:            limits.Factory{Logger: lggr.Named("Limits")},
 	})
 
 	require.NoError(t, err)
@@ -932,8 +948,10 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	c.AddAllJobs(t, jobParams)
 
 	// Replay for bootstrap.
-	bc, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
+	cs, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
 	require.NoError(t, err)
+	bc, ok := cs.(legacyevm.Chain)
+	require.True(t, ok)
 	require.NoError(t, bc.LogPoller().Replay(context.Background(), configBlock))
 	c.Dest.Chain.Commit()
 
@@ -992,9 +1010,9 @@ func (k *ksa) CSA() keystore.CSA {
 	return k.csa
 }
 
-func NewKsa(db *sqlx.DB, lggr logger.Logger, csa keystore.CSA) *ksa {
+func NewKsa(db *sqlx.DB, csa keystore.CSA, logf keystore.Logf) *ksa {
 	return &ksa{
-		Master: keystore.New(db, clutils.FastScryptParams, lggr),
+		Master: keystore.New(db, clutils.FastScryptParams, logf),
 		csa:    csa,
 	}
 }

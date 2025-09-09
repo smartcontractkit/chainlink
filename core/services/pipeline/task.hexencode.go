@@ -3,10 +3,10 @@ package pipeline
 import (
 	"context"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -39,7 +39,7 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var stringInput StringParam
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&stringInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
@@ -48,7 +48,7 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var bytesInput BytesParam
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&bytesInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {
@@ -57,7 +57,7 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var decimalInput DecimalParam
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&decimalInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil && !decimalInput.Decimal().IsInteger() {
@@ -66,7 +66,7 @@ func (t *HexEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var bigIntInput MaybeBigIntParam
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&bigIntInput, From(VarExpr(t.Input, vars), NonemptyString(t.Input), Input(inputs, 0))), "input"),
 	)
 	if err == nil {

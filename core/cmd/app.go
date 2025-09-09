@@ -202,6 +202,7 @@ func NewApp(s *Shell) *cli.App {
 				keysCommand("StarkNet", NewStarkNetKeysClient(s)),
 				keysCommand("Aptos", NewAptosKeysClient(s)),
 				keysCommand("Tron", NewTronKeysClient(s)),
+				keysCommand("TON", NewTONKeysClient(s)),
 
 				initVRFKeysSubCmd(s),
 			},

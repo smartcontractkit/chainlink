@@ -43,8 +43,10 @@ type ocr2test struct {
 
 func defaultTestData() ocr2test {
 	return ocr2test{
-		name:                "n/a",
-		env:                 make(map[string]string),
+		name: "n/a",
+		env: map[string]string{
+			string(env.EVMPlugin.Cmd): "", // not yet supported
+		},
 		chainReaderAndCodec: false,
 	}
 }
@@ -52,13 +54,19 @@ func defaultTestData() ocr2test {
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
-	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
-	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
+	noPlugins := map[string]string{
+		string(env.EVMPlugin.Cmd):    "",
+		string(env.MedianPlugin.Cmd): "",
+	}
+	plugins := map[string]string{
+		string(env.EVMPlugin.Cmd):    "", // not yet supported
+		string(env.MedianPlugin.Cmd): "chainlink-feeds",
+	}
 	for _, test := range []ocr2test{
-		{"legacy", noMedianPlugin, false},
-		{"legacy-chain-reader", noMedianPlugin, true},
-		{"plugins", medianPlugin, false},
-		{"plugins-chain-reader", medianPlugin, true},
+		{"legacy", noPlugins, false},
+		{"legacy-chain-reader", noPlugins, true},
+		{"plugins", plugins, false},
+		{"plugins-chain-reader", plugins, true},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

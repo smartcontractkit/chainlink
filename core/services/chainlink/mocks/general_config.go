@@ -265,6 +265,100 @@ func (_c *GeneralConfig_AutoPprof_Call) RunAndReturn(run func() config.AutoPprof
 	return _c
 }
 
+// Billing provides a mock function with no fields
+func (_m *GeneralConfig) Billing() config.Billing {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Billing")
+	}
+
+	var r0 config.Billing
+	if rf, ok := ret.Get(0).(func() config.Billing); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Billing)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_Billing_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Billing'
+type GeneralConfig_Billing_Call struct {
+	*mock.Call
+}
+
+// Billing is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Billing() *GeneralConfig_Billing_Call {
+	return &GeneralConfig_Billing_Call{Call: _e.mock.On("Billing")}
+}
+
+func (_c *GeneralConfig_Billing_Call) Run(run func()) *GeneralConfig_Billing_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Billing_Call) Return(_a0 config.Billing) *GeneralConfig_Billing_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Billing_Call) RunAndReturn(run func() config.Billing) *GeneralConfig_Billing_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// BridgeStatusReporter provides a mock function with no fields
+func (_m *GeneralConfig) BridgeStatusReporter() config.BridgeStatusReporter {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for BridgeStatusReporter")
+	}
+
+	var r0 config.BridgeStatusReporter
+	if rf, ok := ret.Get(0).(func() config.BridgeStatusReporter); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.BridgeStatusReporter)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_BridgeStatusReporter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BridgeStatusReporter'
+type GeneralConfig_BridgeStatusReporter_Call struct {
+	*mock.Call
+}
+
+// BridgeStatusReporter is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) BridgeStatusReporter() *GeneralConfig_BridgeStatusReporter_Call {
+	return &GeneralConfig_BridgeStatusReporter_Call{Call: _e.mock.On("BridgeStatusReporter")}
+}
+
+func (_c *GeneralConfig_BridgeStatusReporter_Call) Run(run func()) *GeneralConfig_BridgeStatusReporter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_BridgeStatusReporter_Call) Return(_a0 config.BridgeStatusReporter) *GeneralConfig_BridgeStatusReporter_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_BridgeStatusReporter_Call) RunAndReturn(run func() config.BridgeStatusReporter) *GeneralConfig_BridgeStatusReporter_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CRE provides a mock function with no fields
 func (_m *GeneralConfig) CRE() config.CRE {
 	ret := _m.Called()
@@ -740,19 +834,19 @@ func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMon
 }
 
 // ImportedEthKeys provides a mock function with no fields
-func (_m *GeneralConfig) ImportedEthKeys() config.ImportableEthKeyLister {
+func (_m *GeneralConfig) ImportedEthKeys() config.ImportableChainKeyLister {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for ImportedEthKeys")
 	}
 
-	var r0 config.ImportableEthKeyLister
-	if rf, ok := ret.Get(0).(func() config.ImportableEthKeyLister); ok {
+	var r0 config.ImportableChainKeyLister
+	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.ImportableEthKeyLister)
+			r0 = ret.Get(0).(config.ImportableChainKeyLister)
 		}
 	}
 
@@ -776,12 +870,12 @@ func (_c *GeneralConfig_ImportedEthKeys_Call) Run(run func()) *GeneralConfig_Imp
 	return _c
 }
 
-func (_c *GeneralConfig_ImportedEthKeys_Call) Return(_a0 config.ImportableEthKeyLister) *GeneralConfig_ImportedEthKeys_Call {
+func (_c *GeneralConfig_ImportedEthKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedEthKeys_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_ImportedEthKeys_Call) RunAndReturn(run func() config.ImportableEthKeyLister) *GeneralConfig_ImportedEthKeys_Call {
+func (_c *GeneralConfig_ImportedEthKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedEthKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -829,6 +923,53 @@ func (_c *GeneralConfig_ImportedP2PKey_Call) Return(_a0 config.ImportableKey) *G
 }
 
 func (_c *GeneralConfig_ImportedP2PKey_Call) RunAndReturn(run func() config.ImportableKey) *GeneralConfig_ImportedP2PKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ImportedSolKeys provides a mock function with no fields
+func (_m *GeneralConfig) ImportedSolKeys() config.ImportableChainKeyLister {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedSolKeys")
+	}
+
+	var r0 config.ImportableChainKeyLister
+	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableChainKeyLister)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedSolKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedSolKeys'
+type GeneralConfig_ImportedSolKeys_Call struct {
+	*mock.Call
+}
+
+// ImportedSolKeys is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedSolKeys() *GeneralConfig_ImportedSolKeys_Call {
+	return &GeneralConfig_ImportedSolKeys_Call{Call: _e.mock.On("ImportedSolKeys")}
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) Run(run func()) *GeneralConfig_ImportedSolKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedSolKeys_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedSolKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedSolKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -966,6 +1107,53 @@ func (_c *GeneralConfig_InsecurePPROFHeap_Call) Return(_a0 bool) *GeneralConfig_
 }
 
 func (_c *GeneralConfig_InsecurePPROFHeap_Call) RunAndReturn(run func() bool) *GeneralConfig_InsecurePPROFHeap_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// JobDistributor provides a mock function with no fields
+func (_m *GeneralConfig) JobDistributor() config.JobDistributor {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for JobDistributor")
+	}
+
+	var r0 config.JobDistributor
+	if rf, ok := ret.Get(0).(func() config.JobDistributor); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.JobDistributor)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_JobDistributor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JobDistributor'
+type GeneralConfig_JobDistributor_Call struct {
+	*mock.Call
+}
+
+// JobDistributor is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) JobDistributor() *GeneralConfig_JobDistributor_Call {
+	return &GeneralConfig_JobDistributor_Call{Call: _e.mock.On("JobDistributor")}
+}
+
+func (_c *GeneralConfig_JobDistributor_Call) Run(run func()) *GeneralConfig_JobDistributor_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_JobDistributor_Call) Return(_a0 config.JobDistributor) *GeneralConfig_JobDistributor_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_JobDistributor_Call) RunAndReturn(run func() config.JobDistributor) *GeneralConfig_JobDistributor_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1904,6 +2092,98 @@ func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlink.RawConfigs) *
 }
 
 func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_StarknetConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// TONConfigs provides a mock function with no fields
+func (_m *GeneralConfig) TONConfigs() chainlink.RawConfigs {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TONConfigs")
+	}
+
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chainlink.RawConfigs)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_TONConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TONConfigs'
+type GeneralConfig_TONConfigs_Call struct {
+	*mock.Call
+}
+
+// TONConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) TONConfigs() *GeneralConfig_TONConfigs_Call {
+	return &GeneralConfig_TONConfigs_Call{Call: _e.mock.On("TONConfigs")}
+}
+
+func (_c *GeneralConfig_TONConfigs_Call) Run(run func()) *GeneralConfig_TONConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_TONConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_TONConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_TONConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_TONConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// TONEnabled provides a mock function with no fields
+func (_m *GeneralConfig) TONEnabled() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TONEnabled")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// GeneralConfig_TONEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TONEnabled'
+type GeneralConfig_TONEnabled_Call struct {
+	*mock.Call
+}
+
+// TONEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) TONEnabled() *GeneralConfig_TONEnabled_Call {
+	return &GeneralConfig_TONEnabled_Call{Call: _e.mock.On("TONEnabled")}
+}
+
+func (_c *GeneralConfig_TONEnabled_Call) Run(run func()) *GeneralConfig_TONEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_TONEnabled_Call) Return(_a0 bool) *GeneralConfig_TONEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_TONEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_TONEnabled_Call {
 	_c.Call.Return(run)
 	return _c
 }

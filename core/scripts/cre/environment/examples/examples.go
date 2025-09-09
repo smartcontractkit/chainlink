@@ -9,19 +9,35 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 )
 
-var rpcUrl string
+var rpcURL string
 
-var DeployPermissionlessFeedsConsumer = &cobra.Command{
+var DeployPermissionlessFeedsConsumerCmd = &cobra.Command{
 	Use:   "deploy-permissionless-feeds-consumer",
-	Short: "Download CRE CLI binary",
-	Long:  `Download the CRE CLI binary from GitHub releases`,
+	Short: "Deploy a Permissionless Feeds Consumer contract",
+	Long:  `Deploy a Permissionless Feeds Consumer contract to the specified blockchain network using the provided RPC URL.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		address, deployErr := deploy.DeployPermissionlessFeedsConsumer(rpcUrl)
+		address, deployErr := deploy.PermissionlessFeedsConsumer(rpcURL)
 		if deployErr != nil {
 			return errors.Wrap(deployErr, "failed to deploy Permissionless Feeds Consumer contract")
 		}
 
 		fmt.Printf("\033[35m\nDeployed Permissionless Feeds Consumer contract to: %s\033[0m\n\n", address.Hex())
+
+		return nil
+	},
+}
+
+var DeployBalanceReaderCmd = &cobra.Command{
+	Use:   "deploy-balance-reader",
+	Short: "Deploy a Balance Reader contract",
+	Long:  `Deploy a Balance Reader contract to the specified blockchain network using the provided RPC URL.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		address, deployErr := deploy.BalanceReader(rpcURL)
+		if deployErr != nil {
+			return errors.Wrap(deployErr, "failed to deploy Balance Reader contract")
+		}
+
+		fmt.Printf("\033[35m\nDeployed Balance Reader contract to: %s\033[0m\n\n", address.Hex())
 
 		return nil
 	},
@@ -38,8 +54,9 @@ var ExamplesCmd = &cobra.Command{
 }
 
 func init() {
-	contractsCmd.Flags().StringVarP(&rpcUrl, "rpc-url", "r", "http://localhost:8545", "RPC URL")
+	DeployPermissionlessFeedsConsumerCmd.Flags().StringVarP(&rpcURL, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 
-	contractsCmd.AddCommand(DeployPermissionlessFeedsConsumer)
+	contractsCmd.AddCommand(DeployPermissionlessFeedsConsumerCmd)
+	contractsCmd.AddCommand(DeployBalanceReaderCmd)
 	ExamplesCmd.AddCommand(contractsCmd)
 }

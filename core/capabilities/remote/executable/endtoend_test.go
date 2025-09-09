@@ -15,15 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -245,7 +245,7 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlying commoncap.ExecutableCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration,
 	method func(ctx context.Context, caller commoncap.ExecutableCapability), waitForExecuteCalls bool) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -294,7 +294,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(&commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{}}, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout, 10, lggr)
+			capabilityNodeResponseTimeout, 10, nil, "", lggr)
 		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
@@ -303,7 +303,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	workflowNodes := make([]commoncap.ExecutableCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		workflowNode := executable.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout, lggr)
+		workflowNode := executable.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout, nil, "", lggr)
 		servicetest.Run(t, workflowNode)
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)
 		workflowNodes[i] = workflowNode
@@ -344,7 +344,7 @@ func newTestAsyncMessageBroker(t *testing.T, sendChBufferSize int) *testAsyncMes
 	b.Service, b.eng = services.Config{
 		Name:  "testAsyncMessageBroker",
 		Start: b.start,
-	}.NewServiceEngine(logger.TestLogger(t))
+	}.NewServiceEngine(logger.Test(t))
 	return b
 }
 
@@ -434,6 +434,12 @@ func (t *nodeDispatcher) SetReceiver(capabilityID string, donID uint32, receiver
 	return nil
 }
 func (t *nodeDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
+
+func (t *nodeDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, methodName string, receiver remotetypes.Receiver) error {
+	return nil
+}
+func (t *nodeDispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, methodName string) {
+}
 
 type abstractTestCapability struct {
 }

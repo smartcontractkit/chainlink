@@ -1,5 +1,7 @@
 package api
 
+import "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 type ErrorCode int
 
 const (
@@ -10,6 +12,9 @@ const (
 	RequestTimeoutError
 	NodeReponseEncodingError
 	FatalError
+	UnsupportedMethodError
+	InvalidParamsError
+	StaleNodeResponseError
 )
 
 func (e ErrorCode) String() string {
@@ -28,43 +33,73 @@ func (e ErrorCode) String() string {
 		return "NodeReponseEncodingError"
 	case FatalError:
 		return "FatalError"
+	case UnsupportedMethodError:
+		return "UnsupportedMethodError"
+	case InvalidParamsError:
+		return "InvalidParamsError"
+	case StaleNodeResponseError:
+		return "StaleNodeResponseError"
 	default:
 		return "UnknownError"
 	}
 }
 
 // See https://www.jsonrpc.org/specification#error_object
-func ToJsonRPCErrorCode(errorCode ErrorCode) int {
-	gatewayErrorToJsonRPCError := map[ErrorCode]int{
+func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
+	gatewayErrorToJSONRPCError := map[ErrorCode]int64{
 		NoError:                  0,
-		UserMessageParseError:    -32700, // Parse Error
-		UnsupportedDONIdError:    -32602, // Invalid Params
-		HandlerError:             -32600, // Invalid Request
-		RequestTimeoutError:      -32000, // Server Error
-		NodeReponseEncodingError: -32603, // Internal Error
-		FatalError:               -32000, // Server Error
+		UserMessageParseError:    jsonrpc2.ErrParse,            // Parse Error
+		UnsupportedDONIdError:    jsonrpc2.ErrInvalidParams,    // Invalid Params
+		InvalidParamsError:       jsonrpc2.ErrInvalidParams,    // Invalid Params
+		HandlerError:             jsonrpc2.ErrInvalidRequest,   // Invalid Request
+		RequestTimeoutError:      jsonrpc2.ErrServerOverloaded, // Server Error
+		NodeReponseEncodingError: jsonrpc2.ErrInternal,         // Internal Error
+		FatalError:               jsonrpc2.ErrInternal,         // Internal Error
+		UnsupportedMethodError:   jsonrpc2.ErrMethodNotFound,   // Method Not Found
+		StaleNodeResponseError:   jsonrpc2.ErrInternal,         // Internal Error
 	}
 
-	code, ok := gatewayErrorToJsonRPCError[errorCode]
+	code, ok := gatewayErrorToJSONRPCError[errorCode]
 	if !ok {
-		return -32000
+		return jsonrpc2.ErrInternal
+	}
+	return code
+}
+
+func FromJSONRPCErrorCode(errorCode int64) ErrorCode {
+	jsonrpcErrorToGatewayError := map[int64]ErrorCode{
+		0:                            NoError,
+		jsonrpc2.ErrParse:            UserMessageParseError,
+		jsonrpc2.ErrInvalidParams:    InvalidParamsError,
+		jsonrpc2.ErrInvalidRequest:   HandlerError,
+		jsonrpc2.ErrServerOverloaded: RequestTimeoutError,
+		jsonrpc2.ErrInternal:         FatalError,
+		jsonrpc2.ErrMethodNotFound:   UnsupportedMethodError,
+	}
+
+	code, ok := jsonrpcErrorToGatewayError[errorCode]
+	if !ok {
+		return FatalError
 	}
 	return code
 }
 
 // See https://go.dev/src/net/http/status.go
 func ToHttpErrorCode(errorCode ErrorCode) int {
-	gatewayErrorToHttpError := map[ErrorCode]int{
+	gatewayErrorToHTTPError := map[ErrorCode]int{
 		NoError:                  200, // OK
 		UserMessageParseError:    400, // Bad Request
 		UnsupportedDONIdError:    400, // Bad Request
+		UnsupportedMethodError:   400, // Bad Request
 		HandlerError:             400, // Bad Request
+		InvalidParamsError:       400, // Bad Request
 		RequestTimeoutError:      504, // Gateway Timeout
 		NodeReponseEncodingError: 500, // Internal Server Error
 		FatalError:               500, // Internal Server Error
+		StaleNodeResponseError:   500, // Internal Server Error
 	}
 
-	code, ok := gatewayErrorToHttpError[errorCode]
+	code, ok := gatewayErrorToHTTPError[errorCode]
 	if !ok {
 		return 500
 	}

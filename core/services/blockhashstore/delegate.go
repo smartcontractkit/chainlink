@@ -3,6 +3,7 @@ package blockhashstore
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"sync"
 	"time"
@@ -15,9 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/trusted_blockhash_store"
 	v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	v2plus "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -72,10 +73,14 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	d.logger.Debugw("Creating services for job spec", "job", string(marshalledJob))
 
 	cid := jb.BlockhashStoreSpec.EVMChainID.ToInt()
-	chain, err := d.legacyChains.Get(cid.String())
+	chainService, err := d.legacyChains.Get(cid.String())
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting chain ID %s: %w", cid, err)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("blockhashstore is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 
 	if !d.cfg.Feature().LogPoller() {

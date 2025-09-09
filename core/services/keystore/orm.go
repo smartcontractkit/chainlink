@@ -7,21 +7,17 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
-func NewORM(ds sqlutil.DataSource, lggr logger.Logger) ksORM {
-	namedLogger := lggr.Named("KeystoreORM")
+func NewORM(ds sqlutil.DataSource) ksORM {
 	return ksORM{
-		ds:   ds,
-		lggr: namedLogger,
+		ds: ds,
 	}
 }
 
 type ksORM struct {
-	ds   sqlutil.DataSource
-	lggr logger.Logger
+	ds sqlutil.DataSource
 }
 
 func (orm ksORM) isEmpty(ctx context.Context) (bool, error) {

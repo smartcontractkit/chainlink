@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"log"
 	"math"
@@ -24,6 +25,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -380,8 +382,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 	// Local shell initialization always uses local auth users table for admin auth
 	authProviderORM := app.BasicAdminUsersORM()
 
-	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
-
 	if s.Config.EVMEnabled() {
 		// ensure any imported keys are imported
 		for _, k := range s.Config.ImportedEthKeys().List() {
@@ -405,19 +405,16 @@ func (s *Shell) runNode(c *cli.Context) error {
 			lggr.Debugf("Imported eth key %s for chain %v", k.JSON(), k.ChainDetails())
 		}
 
-		chainList, err2 := legacyEVMChains.List()
-		if err2 != nil {
-			return fmt.Errorf("error listing legacy evm chains: %w", err2)
-		}
-		for _, ch := range chainList {
-			if ch.Config().EVM().AutoCreateKey() {
-				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
-				err2 := app.GetKeyStore().Eth().EnsureKeys(rootCtx, ch.ID())
+		for _, cs := range s.Config.EVMConfigs() {
+			id := cs.ChainID.ToInt()
+			if b := cs.AutoCreateKey; b != nil && *b {
+				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", id)
+				err2 := app.GetKeyStore().Eth().EnsureKeys(rootCtx, id)
 				if err2 != nil {
 					return errors.Wrap(err2, "failed to ensure keystore keys")
 				}
 			} else {
-				lggr.Debugf("AutoCreateKey=false, will not ensure EVM key for chain %s", ch.ID())
+				lggr.Debugf("AutoCreateKey=false, will not ensure EVM key for chain %s", id)
 			}
 		}
 	}
@@ -448,6 +445,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.TronEnabled() {
 			enabledChains = append(enabledChains, chaintype.Tron)
 		}
+		if s.Config.TONEnabled() {
+			enabledChains = append(enabledChains, chaintype.TON)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
@@ -476,6 +476,19 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.SolanaEnabled() {
+		for _, k := range s.Config.ImportedSolKeys().List() {
+			lggr.Debug("Importing sol key")
+			_, err2 := app.GetKeyStore().Solana().Import(rootCtx, []byte(k.JSON()), k.Password())
+			if err2 != nil {
+				if errors.Is(err2, keystore.ErrKeyExists) {
+					lggr.Debugf("Sol key %s already exists for chain %v", k.JSON(), k.ChainDetails())
+					continue
+				}
+				return s.errorOut(errors.Wrap(err2, "error importing sol key"))
+			}
+			lggr.Debugf("Imported sol key %s for chain %v", k.JSON(), k.ChainDetails())
+		}
+
 		err2 := app.GetKeyStore().Solana().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
@@ -497,6 +510,19 @@ func (s *Shell) runNode(c *cli.Context) error {
 		err2 := app.GetKeyStore().Tron().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure tron key")
+		}
+	}
+	if s.Config.TONEnabled() {
+		err2 := app.GetKeyStore().TON().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure ton key")
+		}
+	}
+
+	if s.Config.CRE().EnableDKGRecipient() {
+		err2 := app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure dkg recipient key")
 		}
 	}
 
@@ -666,9 +692,13 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	// TODO: BCF-2511 once the dust settles on BCF-2440/1 evaluate how the
 	// [loop.Relayer] interface needs to be extended to support programming similar to
 	// this pattern but in a chain-agnostic way
-	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return s.errorOut(err)
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return fmt.Errorf("transaction rebroadcast is not available in loop mode: %w", stderrors.ErrUnsupported)
 	}
 	keyStore := app.GetKeyStore()
 
@@ -809,7 +839,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 
 	force := c.Bool("force")
 
-	if err := store.ResetDatabase(ctx, s.Logger, cfg, force); err != nil {
+	if err := store.ResetDatabase(ctx, s.Logger, cfg, force, false); err != nil {
 		return s.errorOut(err)
 	}
 	return nil

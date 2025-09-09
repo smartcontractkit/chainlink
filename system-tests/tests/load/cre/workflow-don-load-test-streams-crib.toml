@@ -7,15 +7,11 @@ chain_id = "1337"
 type = "anvil"
 docker_cmd_params = ["-b", "5"]
 
-# ----- BINARY PATHS -----
-# Path to the mock capability binary
-[binaries_config]
-mock_capability_binary_path = "../../../../../capabilities/bin/amd64/mock"
-
 # ----- JOB DISTRIBUTOR -----
 # Docker image for the job distributor service - hardcoded version
 [jd]
-image = "job-distributor:0.9.0" #Currently this is hardcoded, leave this as it is
+csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+image = "job-distributor:0.12.7"
 
 # ----- MOCK CAPABILITIES -----
 # Trigger capability that simulates streams of data

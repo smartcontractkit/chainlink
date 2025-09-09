@@ -18,13 +18,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 
 	sel "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -38,10 +35,10 @@ import (
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/usdc_reader_tester"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -77,13 +74,13 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		}).Maybe()
 	usdcReader, err := reader.NewUSDCMessageReader(
 		ctx,
-		logger.TestLogger(t),
+		logger.Test(t),
 		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 			ethereumChain: {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
 			},
 		},
-		map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
+		map[cciptypes.ChainSelector]contractreader.Extended{
 			ethereumChain: ts.reader,
 		}, mokAddrCodec)
 	require.NoError(t, err)
@@ -277,13 +274,13 @@ func Benchmark_MessageHashes(b *testing.B) {
 
 			usdcReader, err := reader.NewUSDCMessageReader(
 				ctx,
-				logger.TestLogger(b),
+				logger.Test(b),
 				map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 					sourceChain: {
 						SourceMessageTransmitterAddr: ts.contractAddr.String(),
 					},
 				},
-				map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
+				map[cciptypes.ChainSelector]contractreader.Extended{
 					sourceChain: ts.reader,
 				}, mokAddrCodec)
 			require.NoError(b, err)
@@ -352,7 +349,7 @@ func populateDatabase(b *testing.B,
 	}
 
 	require.NoError(b, testEnv.orm.InsertLogs(ctx, logs))
-	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(numOfMessages+finalityDepth), time.Now(), int64(numOfMessages+finalityDepth)))
+	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(numOfMessages+finalityDepth), time.Now(), int64(numOfMessages+finalityDepth), int64(numOfMessages+finalityDepth)))
 }
 
 func createMessageSentLogPollerData(startNonce int64, i int, sourceDomainCCTP uint32, destDomainCCTP uint32) []byte {
@@ -430,8 +427,7 @@ func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSel
 	contract, err := usdc_reader_tester.NewUSDCReaderTester(address, simulatedBackend.Client())
 	require.NoError(t, err)
 
-	lggr := logger.TestLogger(t)
-	lggr.SetLogLevel(zapcore.ErrorLevel)
+	lggr := logger.Test(t)
 
 	// Parameterize database selection
 	var db *sqlx.DB
@@ -473,13 +469,16 @@ func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSel
 		require.NoError(t, db.Close())
 	})
 
+	// Convert to the extended contract reader interface.
+	ecr := contractreader.NewExtendedContractReader(
+		(contractreader.ContractReaderFacade)(cr))
 	return &testSetupData{
 		contractAddr: address,
 		contract:     contract,
 		sb:           simulatedBackend,
 		auth:         auth,
 		cl:           cl,
-		reader:       cr,
+		reader:       ecr,
 		orm:          orm,
 		db:           db,
 		lp:           lp,
@@ -492,7 +491,7 @@ type testSetupData struct {
 	sb           *simulated.Backend
 	auth         *bind.TransactOpts
 	cl           client.Client
-	reader       types.ContractReader
+	reader       contractreader.Extended
 	orm          logpoller.ORM
 	db           *sqlx.DB
 	lp           logpoller.LogPoller

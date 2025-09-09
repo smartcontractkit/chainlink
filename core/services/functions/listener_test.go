@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
@@ -98,7 +99,9 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 		MailMon:        mailMon,
 	})
 
-	chain := legacyChains.Slice()[0]
+	chainService := legacyChains.Slice()[0]
+	chain, ok := chainService.(legacyevm.Chain)
+	require.True(t, ok)
 	lggr := logger.TestLogger(t)
 
 	pluginORM := functions_mocks.NewORM(t)

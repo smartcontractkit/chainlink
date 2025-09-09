@@ -889,20 +889,20 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 	jb2.Name = null.StringFrom("Job with same chain id & contract address")
 	jb2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-	jb.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
+	jb2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
 	err = jobORM.CreateJob(ctx, &jb2)
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	jb3, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
 	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
 	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.Int64()
-	jb.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
+	jb3.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
 	err = jobORM.CreateJob(ctx, &jb3)
-	require.Error(t, err)
+	require.NoError(t, err)
 }
 
 func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
@@ -1047,6 +1047,18 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		tronKey, err := keyStore.Tron().Create(ctx)
 		require.NoError(t, err)
 		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, tronKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run(("test TON key validation"), func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb.OCR2OracleSpec.Relay = relay.NetworkTON
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no TON key matching: \"bad key\"")
+
+		tonKey, err := keyStore.TON().Create(ctx)
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, tonKey.ID())
 		require.NoError(t, err)
 	})
 

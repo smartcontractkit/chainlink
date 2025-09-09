@@ -4,199 +4,182 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-
-	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-
-	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	keystonenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
+	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
-// deprecated, use ComputeCapabilityFactoryFn, OCR3CapabilityFactoryFn, CronCapabilityFactoryFn instead
-var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-	var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-	if flags.HasFlag(donFlags, types.CronCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "cron-trigger",
-				Version:        "1.0.0",
-				CapabilityType: 0, // TRIGGER
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	if flags.HasFlag(donFlags, types.CustomComputeCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "custom-compute",
-				Version:        "1.0.0",
-				CapabilityType: 1, // ACTION
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	if flags.HasFlag(donFlags, types.OCR3Capability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "offchain_reporting",
-				Version:        "1.0.0",
-				CapabilityType: 2, // CONSENSUS
-				ResponseType:   0, // REPORT
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	return capabilities
+type donConfig struct {
+	id uint32 // the DON id as registered in the capabilities registry
+	keystone_changeset.DonCapabilities
+	flags []cre.CapabilityFlag
 }
 
-// deprecated, use capabilities.webapi.WebAPICapabilityFactoryFn instead
-var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-	var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-	if flags.HasFlag(donFlags, types.WebAPITriggerCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "web-api-trigger",
-				Version:        "1.0.0",
-				CapabilityType: 0, // TRIGGER
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	if flags.HasFlag(donFlags, types.WebAPITargetCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "web-api-target",
-				Version:        "1.0.0",
-				CapabilityType: 3, // TARGET
-				ResponseType:   1, // OBSERVATION_IDENTICAL
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
-	return capabilities
+func (d *donConfig) resolveOcr3Config(c keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig {
+	c.TransmissionSchedule = []int{d.N()}
+	return &c
 }
 
-// deprecated, use capabilities.chainwriter.ChainWriterCapabilityFactory instead
-var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-		var capabilities []keystone_changeset.DONCapabilityWithConfig
+func (d *donConfig) keystoneDonConfig() ks_contracts_op.ConfigureKeystoneDON {
+	don := ks_contracts_op.ConfigureKeystoneDON{
+		Name: d.Name,
+	}
+	for _, nop := range d.Nops {
+		don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
+	}
+	return don
+}
 
-		fullName := corevm.GenerateWriteTargetName(chainID)
-		splitName := strings.Split(fullName, "@")
+type dons struct {
+	c map[string]donConfig
+}
 
-		if flags.HasFlag(donFlags, types.WriteEVMCapability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   splitName[0],
-					Version:        splitName[1],
-					CapabilityType: 3, // TARGET
-					ResponseType:   1, // OBSERVATION_IDENTICAL
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
+func (d *dons) GetByName(name string) (donConfig, error) {
+	c, ok := d.c[name]
+	if !ok {
+		return donConfig{}, fmt.Errorf("don with name %s not found", name)
+	}
+	return c, nil
+}
+
+func (d *dons) ListByFlag(flag cre.CapabilityFlag) ([]donConfig, error) {
+	out := make([]donConfig, 0)
+	for _, don := range d.c {
+		if flags.HasFlag(don.flags, flag) {
+			out = append(out, don)
 		}
-
-		return capabilities
 	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("don with flag %s not found", flag)
+	}
+	return out, nil
 }
 
-// deprecated, use capabilities.chainreader.ChainReaderCapabilityFactory instead
-var ChainReaderCapabilityFactory = func(chainID uint64, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
-		var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-		if flags.HasFlag(donFlags, types.LogTriggerCapability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   fmt.Sprintf("log-event-trigger-%s-%d", chainFamily, chainID),
-					Version:        "1.0.0",
-					CapabilityType: 0, // TRIGGER
-					ResponseType:   0, // REPORT
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
+func (d *dons) ListByCapability(capName, capVersion string) ([]donConfig, error) {
+	out := make([]donConfig, 0)
+	for _, don := range d.c {
+		for _, cap := range don.Capabilities {
+			if strings.EqualFold(cap.Capability.LabelledName, capName) && strings.EqualFold(cap.Capability.Version, capVersion) {
+				out = append(out, don)
+				break
+			}
 		}
-
-		if flags.HasFlag(donFlags, types.ReadContractCapability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   fmt.Sprintf("read-contract-%s-%d", chainFamily, chainID),
-					Version:        "1.0.0",
-					CapabilityType: 1, // ACTION
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-
-		return capabilities
 	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("don with capability %s v%s not found", capName, capVersion)
+	}
+	return out, nil
 }
 
-func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn) error {
-	if err := input.Validate(); err != nil {
-		return errors.Wrap(err, "input validation failed")
+func (d *dons) shouldBeOneDon(flag cre.CapabilityFlag) (donConfig, error) {
+	dons, err := d.ListByFlag(flag)
+	if err != nil {
+		return donConfig{}, err
+	}
+	if len(dons) != 1 {
+		return donConfig{}, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(dons))
+	}
+	return dons[0], nil
+}
+
+func (d *dons) donNodesets() []ks_contracts_op.ConfigureKeystoneDON {
+	out := make([]ks_contracts_op.ConfigureKeystoneDON, 0, len(d.c))
+	for _, don := range d.c {
+		out = append(out, don.keystoneDonConfig())
+	}
+	return out
+}
+
+func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
+	out := make([]keystone_changeset.DonCapabilities, 0, len(d.c))
+	for _, don := range d.c {
+		out = append(out, don.DonCapabilities)
+	}
+	return out
+}
+
+func toDons(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) (*dons, error) {
+	dons := &dons{
+		c: make(map[string]donConfig),
 	}
 
-	donCapabilities := make([]keystone_changeset.DonCapabilities, 0, len(input.Topology.DonsMetadata))
-
-	for _, donMetadata := range input.Topology.DonsMetadata {
+	for donIdx, donMetadata := range input.Topology.DonsMetadata {
 		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
 		// since it doesn't have any capabilities
-		if flags.HasOnlyOneFlag(donMetadata.Flags, types.GatewayDON) {
+		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
 			continue
 		}
 
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		// check what capabilities each DON has and register them with Capabilities Registry contract
-		for _, factoryFn := range capabilityFactoryFns {
-			capabilities = append(capabilities, factoryFn(donMetadata.Flags)...)
+		for _, configFn := range capabilityRegistryConfigFns {
+			if configFn == nil {
+				continue
+			}
+
+			enabledCapabilities, err2 := configFn(donMetadata.Flags, input.NodeSets[donIdx])
+			if err2 != nil {
+				return nil, errors.Wrap(err2, "failed to get capabilities from config function")
+			}
+
+			capabilities = append(capabilities, enabledCapabilities...)
 		}
 
-		workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{
-			Key:   node.NodeTypeKey,
-			Value: types.WorkerNode,
-		}, node.EqualLabels)
+		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
+			Key:   crenode.NodeTypeKey,
+			Value: cre.WorkerNode,
+		}, crenode.EqualLabels)
 
 		if workerNodesErr != nil {
-			return errors.Wrap(workerNodesErr, "failed to find worker nodes")
+			return nil, errors.Wrap(workerNodesErr, "failed to find worker nodes")
 		}
 
 		donPeerIDs := make([]string, len(workerNodes))
 		for i, node := range workerNodes {
-			p2pID, err := keystonenode.ToP2PID(node, keystonenode.NoOpTransformFn)
+			p2pID, err := crenode.ToP2PID(node, crenode.NoOpTransformFn)
 			if err != nil {
-				return errors.Wrapf(err, "failed to get p2p id for node %d", i)
+				return nil, errors.Wrapf(err, "failed to get p2p id for node %d", i)
 			}
 
 			donPeerIDs[i] = p2pID
+		}
+
+		forwarderF := (len(workerNodes) - 1) / 3
+		if forwarderF == 0 {
+			if flags.HasFlag(donMetadata.Flags, cre.ConsensusCapability) || flags.HasFlag(donMetadata.Flags, cre.ConsensusCapabilityV2) {
+				return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", len(workerNodes))
+			}
+			// for other capabilities, we can use 1 as F
+			forwarderF = 1
 		}
 
 		// we only need to assign P2P IDs to NOPs, since `ConfigureInitialContractsChangeset` method
@@ -205,96 +188,313 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns 
 			Name:  fmt.Sprintf("NOP for %s DON", donMetadata.Name),
 			Nodes: donPeerIDs,
 		}
-
-		forwarderF := (len(workerNodes) - 1) / 3
-
-		if forwarderF == 0 {
-			if flags.HasFlag(donMetadata.Flags, types.OCR3Capability) {
-				return fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) = 0", len(workerNodes))
-			}
-			// for other capabilities, we can use 1 as F
-			forwarderF = 1
-		}
-
 		donName := donMetadata.Name + "-don"
-		donCapabilities = append(donCapabilities, keystone_changeset.DonCapabilities{
+		c := keystone_changeset.DonCapabilities{
 			Name:         donName,
 			F:            libc.MustSafeUint8(forwarderF),
 			Nops:         []keystone_changeset.NOP{nop},
 			Capabilities: capabilities,
-		})
+		}
+
+		dons.c[donName] = donConfig{
+			id:              uint32(donMetadata.ID), //nolint:gosec // G115
+			DonCapabilities: c,
+			flags:           donMetadata.Flags,
+		}
+	}
+	return dons, nil
+}
+
+func ConfigureCapabilityRegistry(input cre.ConfigureKeystoneInput, dons *dons) (CapabilitiesRegistry, error) {
+	if !input.WithV2Registries {
+		_, err := operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeqDeps{
+				Env:  input.CldEnv,
+				Dons: dons.allDonCapabilities(),
+			},
+			ks_contracts_op.ConfigureCapabilitiesRegistrySeqInput{
+				RegistryChainSel: input.ChainSelector,
+				UseMCMS:          false,
+				ContractAddress:  input.CapabilitiesRegistryAddress,
+			},
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to configure capabilities registry")
+		}
+
+		capReg, err := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+			input.CldEnv.DataStore.Addresses(),
+			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+			input.CapabilitiesRegistryAddress.Hex(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get capabilities registry contract")
+		}
+		return &registryWrapper{V1: capReg.Contract}, nil
 	}
 
-	var transmissionSchedule []int
+	// TODO: Turn don to inputs
+	_, err := operations.ExecuteSequence(
+		input.CldEnv.OperationsBundle,
+		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
+		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
+			Env: input.CldEnv,
+		},
+		cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{},
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to configure capabilities registry")
+	}
 
-	for _, metaDon := range input.Topology.DonsMetadata {
-		if flags.HasFlag(metaDon.Flags, types.OCR3Capability) {
-			workerNodes, workerNodesErr := node.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
-				Key:   node.NodeTypeKey,
-				Value: types.WorkerNode,
-			}, node.EqualLabels)
+	capReg, err := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
+		input.CldEnv.DataStore.Addresses(),
+		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+		input.CapabilitiesRegistryAddress.Hex(),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get capabilities registry contract")
+	}
 
-			if workerNodesErr != nil {
-				return errors.Wrap(workerNodesErr, "failed to find worker nodes")
+	return &registryWrapper{V2: capReg.Contract}, nil
+}
+
+func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) error {
+	if err := input.Validate(); err != nil {
+		return errors.Wrap(err, "input validation failed")
+	}
+
+	dons, err := toDons(input, capabilityRegistryConfigFns)
+	if err != nil {
+		return errors.Wrap(err, "failed to map input to dons")
+	}
+
+	capReg, err := ConfigureCapabilityRegistry(input, dons)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure capability registry")
+	}
+
+	// remove chains that do not require any configurations ('read-only' chains that do not have forwarders deployed)
+	allAddresses, addrErr := input.CldEnv.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
+	if addrErr != nil {
+		return errors.Wrap(addrErr, "failed to get addresses from address book")
+	}
+
+	evmChainsWithForwarders := make(map[uint64]struct{})
+	for chainSelector, addresses := range allAddresses {
+		for _, typeAndVersion := range addresses {
+			if typeAndVersion.Type == keystone_changeset.KeystoneForwarder {
+				evmChainsWithForwarders[chainSelector] = struct{}{}
 			}
-
-			// this schedule makes sure that all worker nodes are transmitting OCR3 reports
-			transmissionSchedule = []int{len(workerNodes)}
-			break
 		}
 	}
 
-	if len(transmissionSchedule) == 0 {
-		return errors.New("no OCR3-capable DON found in the topology")
+	solChainsWithForwarder := make(map[uint64]struct{})
+	solForwarders := input.CldEnv.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(ks_solana.DefaultForwarderQualifier))
+	for _, forwarder := range solForwarders {
+		solChainsWithForwarder[forwarder.ChainSelector] = struct{}{}
 	}
 
-	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
-	oracleConfig := keystone_changeset.OracleConfig{
-		DeltaProgressMillis:               5000,
-		DeltaResendMillis:                 5000,
-		DeltaInitialMillis:                5000,
-		DeltaRoundMillis:                  2000,
-		DeltaGraceMillis:                  500,
-		DeltaCertifiedCommitRequestMillis: 1000,
-		DeltaStageMillis:                  30000,
-		MaxRoundsPerEpoch:                 10,
-		TransmissionSchedule:              transmissionSchedule,
-		MaxDurationQueryMillis:            1000,
-		MaxDurationObservationMillis:      1000,
-		MaxDurationShouldAcceptMillis:     1000,
-		MaxDurationShouldTransmitMillis:   1000,
-		MaxFaultyOracles:                  1,
-		MaxQueryLengthBytes:               1000000,
-		MaxObservationLengthBytes:         1000000,
-		MaxReportLengthBytes:              1000000,
-		MaxBatchSize:                      1000,
-		UniqueReports:                     true,
+	// configure Solana forwarder only if we have some
+	if len(solChainsWithForwarder) > 0 {
+		for _, don := range dons.donNodesets() {
+			cs := commonchangeset.Configure(ks_solana.ConfigureForwarders{},
+				&ks_solana.ConfigureForwarderRequest{
+					WFDonName:        don.Name,
+					WFNodeIDs:        don.NodeIDs,
+					RegistryChainSel: input.ChainSelector,
+					Chains:           solChainsWithForwarder,
+					Qualifier:        ks_solana.DefaultForwarderQualifier,
+					Version:          "1.0.0",
+				},
+			)
+
+			_, err = cs.Apply(*input.CldEnv)
+			if err != nil {
+				return errors.Wrap(err, "failed to configure Solana forwarders")
+			}
+		}
 	}
 
-	cfg := keystone_changeset.InitialContractsCfg{
-		RegistryChainSel: input.ChainSelector,
-		Dons:             donCapabilities,
-		OCR3Config:       &oracleConfig,
-	}
-
-	_, err := keystone_changeset.ConfigureInitialContractsChangeset(*input.CldEnv, cfg)
+	consensusV1DON, err := dons.shouldBeOneDon(cre.ConsensusCapability)
 	if err != nil {
-		return errors.Wrap(err, "failed to configure initial contracts")
+		return fmt.Errorf("failed to get consensus v1 DON: %w", err)
+	}
+	_, err = operations.ExecuteOperation(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureOCR3Op,
+		ks_contracts_op.ConfigureOCR3OpDeps{
+			Env: input.CldEnv,
+		},
+		ks_contracts_op.ConfigureOCR3OpInput{
+			ContractAddress: input.OCR3Address,
+			ChainSelector:   input.ChainSelector,
+			DON:             consensusV1DON.keystoneDonConfig(),
+			Config:          consensusV1DON.resolveOcr3Config(input.OCR3Config),
+			DryRun:          false,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure OCR3 contract")
 	}
 
+	// configure EVM forwarders only if we have some
+	if len(evmChainsWithForwarders) > 0 {
+		forwarderCfg, err2 := newDonConfiguration(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to get DON configuration for forwarder configuration")
+		}
+		fout, err3 := operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			forwarder.ConfigureSeq,
+			forwarder.ConfigureSeqDeps{
+				Env: input.CldEnv,
+			},
+			forwarder.ConfigureSeqInput{
+				DON:    forwarderCfg,
+				Chains: evmChainsWithForwarders,
+			},
+		)
+		if err3 != nil {
+			return errors.Wrap(err3, "failed to configure forwarders")
+		}
+		// TODO pass this up the call stack to save in the env artifacts
+		framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
+	}
+
+	// don time happens to be the same as consensus v1 DON, but it doesn't have to be
+	_, err = operations.ExecuteOperation(
+		input.CldEnv.OperationsBundle,
+		ks_contracts_op.ConfigureOCR3Op,
+		ks_contracts_op.ConfigureOCR3OpDeps{
+			Env: input.CldEnv,
+		},
+		ks_contracts_op.ConfigureOCR3OpInput{
+			ContractAddress: input.DONTimeAddress,
+			ChainSelector:   input.ChainSelector,
+			DON:             consensusV1DON.keystoneDonConfig(),
+			Config:          consensusV1DON.resolveOcr3Config(input.DONTimeConfig),
+			DryRun:          false,
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to configure DON Time contract")
+	}
+
+	if input.VaultOCR3Address.Cmp(common.Address{}) != 0 {
+		vaultDON, err := dons.shouldBeOneDon(cre.VaultCapability)
+		if err != nil {
+			return fmt.Errorf("failed to get vault DON: %w", err)
+		}
+
+		_, err = operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureOCR3Op,
+			ks_contracts_op.ConfigureOCR3OpDeps{
+				Env: input.CldEnv,
+			},
+			ks_contracts_op.ConfigureOCR3OpInput{
+				ContractAddress: input.VaultOCR3Address,
+				ChainSelector:   input.ChainSelector,
+				DON:             vaultDON.keystoneDonConfig(),
+				Config:          vaultDON.resolveOcr3Config(input.VaultOCR3Config),
+				DryRun:          false,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure Vault OCR3 contract")
+		}
+	}
+
+	for chainSelector, evmOCR3Address := range *input.EVMOCR3Addresses {
+		// not sure how to map EVM chains to DONs, so for now we assume that there's only one DON that supports EVM chains
+		evmDON, err := dons.shouldBeOneDon(cre.EVMCapability)
+		if err != nil {
+			return fmt.Errorf("failed to get EVM DON: %w", err)
+		}
+
+		if evmOCR3Address.Cmp(common.Address{}) != 0 {
+			_, err = operations.ExecuteOperation(
+				input.CldEnv.OperationsBundle,
+				ks_contracts_op.ConfigureOCR3Op,
+				ks_contracts_op.ConfigureOCR3OpDeps{
+					Env: input.CldEnv,
+				},
+				ks_contracts_op.ConfigureOCR3OpInput{
+					ContractAddress: &evmOCR3Address,
+					ChainSelector:   chainSelector,
+					DON:             evmDON.keystoneDonConfig(),
+					Config:          evmDON.resolveOcr3Config(input.EVMOCR3Config),
+					DryRun:          false,
+				},
+			)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed to configure EVM OCR3 contract for chain selector: %d, address:%s", chainSelector, evmOCR3Address.Hex()))
+			}
+		}
+	}
+
+	if input.ConsensusV2OCR3Address.Cmp(common.Address{}) != 0 {
+		v2ConsensusDON, err := dons.shouldBeOneDon(cre.ConsensusCapabilityV2)
+		if err != nil {
+			return fmt.Errorf("failed to get consensus v2 DON: %w", err)
+		}
+		_, err = operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureOCR3Op,
+			ks_contracts_op.ConfigureOCR3OpDeps{
+				Env: input.CldEnv,
+			},
+			ks_contracts_op.ConfigureOCR3OpInput{
+				ContractAddress: input.ConsensusV2OCR3Address,
+				ChainSelector:   input.ChainSelector,
+				DON:             v2ConsensusDON.keystoneDonConfig(),
+				Config:          v2ConsensusDON.resolveOcr3Config(input.ConsensusV2OCR3Config),
+				DryRun:          false,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure Consensus OCR3 contract")
+		}
+
+		// configure EVM forwarders only if we have some
+		if len(evmChainsWithForwarders) > 0 {
+			forwarderCfg, err := newDonConfiguration(v2ConsensusDON.Name, v2ConsensusDON.id, input.CldEnv, capReg)
+			if err != nil {
+				return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
+			}
+			fout, err := operations.ExecuteSequence(
+				input.CldEnv.OperationsBundle,
+				forwarder.ConfigureSeq,
+				forwarder.ConfigureSeqDeps{
+					Env: input.CldEnv,
+				},
+				forwarder.ConfigureSeqInput{
+					DON:    forwarderCfg,
+					Chains: evmChainsWithForwarders,
+				},
+			)
+			if err != nil {
+				return errors.Wrap(err, "failed to configure forwarders")
+			}
+			// TODO pass this up the call stack to save in the env artifacts
+			framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
+		}
+	}
 	return nil
 }
 
 // values supplied by Alexandr Yepishev as the expected values for OCR3 config
-func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConfig, error) {
+func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
 	var transmissionSchedule []int
 
 	for _, metaDon := range topology.DonsMetadata {
-		if flags.HasFlag(metaDon.Flags, types.OCR3Capability) {
-			workerNodes, workerNodesErr := node.FindManyWithLabel(metaDon.NodesMetadata, &types.Label{
-				Key:   node.NodeTypeKey,
-				Value: types.WorkerNode,
-			}, node.EqualLabels)
+		if flags.HasFlag(metaDon.Flags, cre.ConsensusCapability) || flags.HasFlag(metaDon.Flags, cre.ConsensusCapabilityV2) {
+			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &cre.Label{
+				Key:   crenode.NodeTypeKey,
+				Value: cre.WorkerNode,
+			}, crenode.EqualLabels)
 
 			if workerNodesErr != nil {
 				return nil, errors.Wrap(workerNodesErr, "failed to find worker nodes")
@@ -310,6 +510,7 @@ func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConf
 		return nil, errors.New("no OCR3-capable DON found in the topology")
 	}
 
+	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := &keystone_changeset.OracleConfig{
 		DeltaProgressMillis:               5000,
 		DeltaResendMillis:                 5000,
@@ -335,75 +536,56 @@ func DefaultOCR3Config(topology *types.Topology) (*keystone_changeset.OracleConf
 	return oracleConfig, nil
 }
 
-func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, error) {
+func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, cldf.TypeAndVersion, error) {
 	addresses, err := addressBook.AddressesForChain(chainSelector)
 	if err != nil {
-		return common.Address{}, errors.Wrap(err, "failed to get addresses for chain")
+		return common.Address{}, cldf.TypeAndVersion{}, errors.Wrap(err, "failed to get addresses for chain")
 	}
 
 	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), contractName) {
-			return common.HexToAddress(addrStr), nil
+		if !strings.Contains(tv.String(), contractName) {
+			continue
 		}
+
+		return common.HexToAddress(addrStr), tv, nil
 	}
 
-	return common.Address{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
+	return common.Address{}, cldf.TypeAndVersion{}, fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector)
 }
 
+// TODO: CRE-742 use datastore
 func MustFindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) common.Address {
-	addr, err := FindAddressesForChain(addressBook, chainSelector, contractName)
+	addr, _, err := FindAddressesForChain(addressBook, chainSelector, contractName)
 	if err != nil {
 		panic(fmt.Errorf("failed to find %s address in the address book for chain %d", contractName, chainSelector))
 	}
 	return addr
 }
 
-func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowRegistryInput) (*types.WorkflowRegistryOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-	if input.Out != nil && input.Out.UseCache {
-		return input.Out, nil
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
+// MergeAllDataStores merges all DataStores (after contracts deployments)
+func MergeAllDataStores(fullCldEnvOutput *cre.FullCLDEnvironmentOutput, changesetOutputs ...cldf.ChangesetOutput) {
+	framework.L.Info().Msg("Merging DataStores (after contracts deployments)...")
+	minChangesetsCap := 2
+	if len(changesetOutputs) < minChangesetsCap {
+		panic(fmt.Errorf("DataStores merging failed: at least %d changesets required", minChangesetsCap))
 	}
 
-	_, err := workflow_registry_changeset.UpdateAllowedDons(*input.CldEnv, &workflow_registry_changeset.UpdateAllowedDonsRequest{
-		RegistryChainSel: input.ChainSelector,
-		DonIDs:           input.AllowedDonIDs,
-		Allowed:          true,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to update allowed Dons")
+	// Start with the first changeset's data store
+	baseDataStore := changesetOutputs[0].DataStore
+
+	// Merge all subsequent changesets into the base data store
+	for i := 1; i < len(changesetOutputs); i++ {
+		otherDataStore := changesetOutputs[i].DataStore
+		mergeErr := baseDataStore.Merge(otherDataStore.Seal())
+		if mergeErr != nil {
+			panic(errors.Wrap(mergeErr, "DataStores merging failed"))
+		}
 	}
 
-	addresses := make([]string, 0, len(input.WorkflowOwners))
-	for _, owner := range input.WorkflowOwners {
-		addresses = append(addresses, owner.Hex())
-	}
-
-	_, err = workflow_registry_changeset.UpdateAuthorizedAddresses(*input.CldEnv, &workflow_registry_changeset.UpdateAuthorizedAddressesRequest{
-		RegistryChainSel: input.ChainSelector,
-		Addresses:        addresses,
-		Allowed:          true,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to update authorized addresses")
-	}
-
-	out := &types.WorkflowRegistryOutput{
-		ChainSelector:  input.ChainSelector,
-		AllowedDonIDs:  input.AllowedDonIDs,
-		WorkflowOwners: input.WorkflowOwners,
-	}
-
-	input.Out = out
-	return out, nil
+	fullCldEnvOutput.Environment.DataStore = baseDataStore.Seal()
 }
 
-func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDataFeedsCacheInput) (*types.ConfigureDataFeedsCacheOutput, error) {
+func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureDataFeedsCacheInput) (*cre.ConfigureDataFeedsCacheOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -423,7 +605,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 			AdminAddress:  input.AdminAddress,
 			IsAdmin:       true,
 		}
-		_, setAdminErr := changeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
+		_, setAdminErr := commonchangeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
 		if setAdminErr != nil {
 			return nil, errors.Wrap(setAdminErr, "failed to set feed admin")
 		}
@@ -443,7 +625,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 		feeIDs = append(feeIDs, feedID[:32])
 	}
 
-	_, setFeedConfigErr := changeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
+	_, setFeedConfigErr := commonchangeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
 		ChainSelector:    input.ChainSelector,
 		CacheAddress:     input.DataFeedsCacheAddress,
 		DataIDs:          feeIDs,
@@ -455,7 +637,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 		return nil, errors.Wrap(setFeedConfigErr, "failed to set feed config")
 	}
 
-	out := &types.ConfigureDataFeedsCacheOutput{
+	out := &cre.ConfigureDataFeedsCacheOutput{
 		DataFeedsCacheAddress: input.DataFeedsCacheAddress,
 		FeedIDs:               input.FeedIDs,
 		AllowedSenders:        input.AllowedSenders,
@@ -470,4 +652,152 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 	input.Out = out
 
 	return out, nil
+}
+
+func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) (common.Address, cldf.ChangesetOutput, error) {
+	testLogger.Info().Msg("Deploying Data Feeds Cache contract...")
+	deployDfConfig := df_changeset_types.DeployConfig{
+		ChainsToDeploy: []uint64{chainSelector},
+		Labels:         []string{"data-feeds"}, // label required by the changeset
+	}
+
+	dfOutput, dfErr := commonchangeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployDfConfig)
+	if dfErr != nil {
+		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrapf(dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
+	}
+
+	mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	if mergeErr != nil {
+		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(mergeErr, "failed to merge address book of Data Feeds Cache contract")
+	}
+	testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
+
+	dataFeedsCacheAddress, _, dataFeedsCacheErr := FindAddressesForChain(
+		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		chainSelector,
+		df_changeset.DataFeedsCache.String(),
+	)
+	if dataFeedsCacheErr != nil {
+		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrapf(dataFeedsCacheErr, "failed to find Data Feeds Cache contract address on chain %d", chainSelector)
+	}
+	testLogger.Info().Msgf("Data Feeds Cache contract found on chain %d at address %s", chainSelector, dataFeedsCacheAddress)
+
+	return dataFeedsCacheAddress, dfOutput, nil
+}
+
+func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) (common.Address, cldf.ChangesetOutput, error) {
+	testLogger.Info().Msg("Deploying Read Balances contract...")
+	deployReadBalanceRequest := &keystone_changeset.DeployRequestV2{ChainSel: chainSelector}
+	rbOutput, rbErr := keystone_changeset.DeployBalanceReaderV2(*fullCldEnvOutput.Environment, deployReadBalanceRequest)
+	if rbErr != nil {
+		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(rbErr, "failed to deploy Read Balances contract")
+	}
+
+	mergeErr2 := fullCldEnvOutput.Environment.ExistingAddresses.Merge(rbOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	if mergeErr2 != nil {
+		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(mergeErr2, "failed to merge address book of Read Balances contract")
+	}
+	testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
+
+	readBalancesAddress, _, readContractErr := FindAddressesForChain(
+		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		chainSelector,
+		keystone_changeset.BalanceReader.String(),
+	)
+	if readContractErr != nil {
+		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(readContractErr, "failed to find Read Balances contract address")
+	}
+	testLogger.Info().Msgf("Read Balances contract found on chain %d at address %s", chainSelector, readBalancesAddress)
+
+	return readBalancesAddress, rbOutput, nil
+}
+
+type DonInfo struct {
+	F           uint8
+	ConfigCount uint32
+	NodeP2PIds  [][32]byte
+}
+
+type CapabilitiesRegistry interface {
+	GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, error)
+}
+
+type registryWrapper struct {
+	V1 *kcr.CapabilitiesRegistry
+	V2 *capabilities_registry_v2.CapabilitiesRegistry
+}
+
+func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, error) {
+	if rw.V1 == nil && rw.V2 == nil {
+		return DonInfo{}, errors.New("nil capabilities registry contract")
+	}
+
+	if rw.V1 != nil && rw.V2 != nil {
+		return DonInfo{}, errors.New("invalid registry wrapper state: two versions specified")
+	}
+
+	if rw.V1 != nil {
+		d, err := rw.V1.GetDON(opts, donID)
+		if err != nil {
+			return DonInfo{}, err
+		}
+
+		return DonInfo{
+			F:           d.F,
+			ConfigCount: d.ConfigCount,
+			NodeP2PIds:  d.NodeP2PIds,
+		}, nil
+	}
+
+	if rw.V2 != nil {
+		d, err := rw.V2.GetDON(opts, donID)
+		if err != nil {
+			return DonInfo{}, err
+		}
+
+		return DonInfo{
+			F:           d.F,
+			ConfigCount: d.ConfigCount,
+			NodeP2PIds:  d.NodeP2PIds,
+		}, nil
+	}
+
+	return DonInfo{}, errors.New("no valid capabilities registry contract")
+}
+
+func newDonConfiguration(name string, donID uint32, _ *cldf.Environment, capReg CapabilitiesRegistry) (forwarder.DonConfiguration, error) {
+	if capReg == nil {
+		return forwarder.DonConfiguration{}, errors.New("nil capabilities registry contract")
+	}
+	d, err := capReg.GetDON(nil, donID)
+	if err != nil {
+		return forwarder.DonConfiguration{}, fmt.Errorf("failed to get don info for id %d: %w", donID, err)
+	}
+
+	return forwarder.DonConfiguration{
+		Name:    name,
+		ID:      donID,
+		F:       d.F,
+		Version: d.ConfigCount,
+		NodeIDs: p2pStrings(d.NodeP2PIds),
+	}, nil
+}
+
+func p2pIDs(rawIDs [][32]byte) []p2pkey.PeerID {
+	out := make([]p2pkey.PeerID, 0, len(rawIDs))
+	for _, id := range rawIDs {
+		out = append(out, p2pkey.PeerID(id))
+	}
+	return out
+}
+
+func p2pStrings(b [][32]byte) []string {
+	x := p2pIDs(b)
+	out := make([]string, 0, len(x))
+	for _, id := range x {
+		s := id.String()
+
+		out = append(out, s)
+	}
+	return out
 }

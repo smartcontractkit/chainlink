@@ -10,8 +10,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -74,7 +74,7 @@ func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAccept
 		upgrader:          upgrader,
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
-		lggr:              lggr.Named("WebSocketServer"),
+		lggr:              logger.Named(lggr, "WebSocketServer"),
 	}
 	mux := http.NewServeMux()
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))

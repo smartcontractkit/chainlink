@@ -21,7 +21,6 @@ func TestProperLabelsArePassed(t *testing.T) {
 
 	details := metricDetails{
 		interactionDuration: histogram,
-		pluginName:          "plugin",
 		readerName:          "reader",
 		chainId:             123,
 	}
@@ -36,11 +35,8 @@ func TestProperLabelsArePassed(t *testing.T) {
 		require.Error(t, err)
 	}
 
-	assert.Equal(t, successCounter, counterFromHistogramByLabels(t, histogram, "123", "plugin", "reader", "successFun", "true"))
-	assert.Equal(t, failedCounter, counterFromHistogramByLabels(t, histogram, "123", "plugin", "reader", "failedFun", "false"))
-
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, histogram, "123", "plugin", "reader", "failedFun", "true"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, histogram, "123", "plugin", "reader", "successFun", "false"))
+	assert.Equal(t, successCounter, counterFromHistogramByLabels(t, histogram, "123", "reader", "successFun"))
+	assert.Equal(t, failedCounter, counterFromHistogramByLabels(t, histogram, "123", "reader", "failedFun"))
 }
 
 func TestMetricsSendFromContractDirectly(t *testing.T) {
@@ -57,9 +53,9 @@ func TestMetricsSendFromContractDirectly(t *testing.T) {
 		_, _ = observedOfframp.GetTokens(ctx)
 	}
 
-	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetTokens", "false"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetPoolByDestToken", "false"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "plugin", "OffRampReader", "GetPoolByDestToken", "true"))
+	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "OffRampReader", "GetTokens"))
+	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "OffRampReader", "GetPoolByDestToken"))
+	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.interactionDuration, "420", "OffRampReader", "GetPoolByDestToken"))
 }
 
 func counterFromHistogramByLabels(t *testing.T, histogramVec *prometheus.HistogramVec, labels ...string) int {

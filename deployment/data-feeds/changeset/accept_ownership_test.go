@@ -7,6 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -22,17 +27,17 @@ import (
 
 func TestAcceptOwnership(t *testing.T) {
 	t.Parallel()
+
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.AllChainSelectors()[0]
-	chain := env.Chains[chainSelector]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))[0]
+	chain := env.BlockChains.EVMChains()[chainSelector]
 
-	newEnv, err := commonChangesets.Apply(t, env, nil,
+	newEnv, err := commonChangesets.Apply(t, env,
 		commonChangesets.Configure(
 			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
@@ -42,15 +47,16 @@ func TestAcceptOwnership(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	timeLockAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
-	require.NoError(t, err)
+	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("RBACTimelock"))
+	require.Len(t, records, 1)
+	timeLockAddress := records[0].Address
 
 	cache, _ := DeployCache(chain, []string{})
 	tx, _ := cache.Contract.TransferOwnership(chain.DeployerKey, common.HexToAddress(timeLockAddress))
 	_, err = chain.Confirm(tx)
 	require.NoError(t, err)
 
-	_, err = commonChangesets.Apply(t, newEnv, nil,
+	_, err = commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
 			AcceptOwnershipChangeset,
 			types.AcceptOwnershipConfig{

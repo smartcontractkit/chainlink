@@ -5,8 +5,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -27,7 +30,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
-	chains := e.AllChainSelectors()
+	chains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chain1 := chains[0]
 	chain2 := chains[1]
 	cfg := commonchangeset.ExistingContractsConfig{
@@ -66,10 +69,11 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.NoError(t, err)
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
-	require.Equal(t, state.Chains[chain1].LinkToken.Address(), common.BigToAddress(big.NewInt(1)))
-	require.Equal(t, state.Chains[chain1].Weth9.Address(), common.BigToAddress(big.NewInt(2)))
-	require.Equal(t, state.Chains[chain1].TokenAdminRegistry.Address(), common.BigToAddress(big.NewInt(3)))
-	require.NotEmpty(t, state.Chains[chain2].RegistryModules1_6)
-	require.Equal(t, state.Chains[chain2].RegistryModules1_6[0].Address(), common.BigToAddress(big.NewInt(4)))
-	require.Equal(t, state.Chains[chain2].Router.Address(), common.BigToAddress(big.NewInt(5)))
+	chainState, _ := state.EVMChainState(chain1)
+	require.Equal(t, chainState.LinkToken.Address(), common.BigToAddress(big.NewInt(1)))
+	require.Equal(t, chainState.Weth9.Address(), common.BigToAddress(big.NewInt(2)))
+	require.Equal(t, chainState.TokenAdminRegistry.Address(), common.BigToAddress(big.NewInt(3)))
+	require.NotEmpty(t, state.MustGetEVMChainState(chain2).RegistryModules1_6)
+	require.Equal(t, state.MustGetEVMChainState(chain2).RegistryModules1_6[0].Address(), common.BigToAddress(big.NewInt(4)))
+	require.Equal(t, state.MustGetEVMChainState(chain2).Router.Address(), common.BigToAddress(big.NewInt(5)))
 }

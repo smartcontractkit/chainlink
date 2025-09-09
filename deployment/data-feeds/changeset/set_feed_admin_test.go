@@ -4,9 +4,15 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -25,35 +31,32 @@ func TestSetCacheAdmin(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
 		Chains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	newEnv, err := commonChangesets.Apply(t, env, nil,
-		commonChangesets.Configure(
-			changeset.DeployCacheChangeset,
-			types.DeployConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Labels:         []string{"data-feeds"},
-			},
-		),
-		commonChangesets.Configure(
-			cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
-			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
-	)
+	newEnv, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
+		changeset.DeployCacheChangeset,
+		types.DeployConfig{
+			ChainsToDeploy: []uint64{chainSelector},
+			Labels:         []string{"data-feeds"},
+		},
+	), commonChangesets.Configure(
+		cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+		map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+			chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+		},
+	))
 	require.NoError(t, err)
 
-	cacheAddress, err := cldf.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
-	require.NoError(t, err)
+	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
+	require.Len(t, records, 1)
+	cacheAddress := records[0].Address
 
 	// without MCMS
-	resp, err := commonChangesets.Apply(t, newEnv, nil,
+	resp, err := commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
 			changeset.SetFeedAdminChangeset,
 			types.SetFeedAdminConfig{
@@ -68,7 +71,7 @@ func TestSetCacheAdmin(t *testing.T) {
 	require.NotNil(t, resp)
 
 	// with MCMS
-	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+	newEnv, err = commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
 			cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 			commonChangesets.TransferToMCMSWithTimelockConfig{
@@ -81,7 +84,7 @@ func TestSetCacheAdmin(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	resp, err = commonChangesets.Apply(t, newEnv, nil,
+	resp, err = commonChangesets.Apply(t, newEnv,
 		commonChangesets.Configure(
 			changeset.SetFeedAdminChangeset,
 			types.SetFeedAdminConfig{

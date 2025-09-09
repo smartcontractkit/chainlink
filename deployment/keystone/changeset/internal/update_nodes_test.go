@@ -17,10 +17,12 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -33,7 +35,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 	type fields struct {
 		p2pToUpdates         map[p2pkey.PeerID]internal.NodeUpdate
 		nopToNodes           map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-		chain                cldf.Chain
+		chain                cldf_evm.Chain
 		capabilitiesRegistry *kcr.CapabilitiesRegistry
 	}
 	tests := []struct {
@@ -46,7 +48,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 			fields: fields{
 				p2pToUpdates:         map[p2pkey.PeerID]internal.NodeUpdate{},
 				nopToNodes:           nil,
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -60,7 +62,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 					},
 				},
 				nopToNodes:           nil,
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -74,7 +76,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 					},
 				},
 				nopToNodes:           nil,
-				chain:                cldf.Chain{},
+				chain:                cldf_evm.Chain{},
 				capabilitiesRegistry: nil,
 			},
 			wantErr: true,
@@ -682,7 +684,7 @@ func TestAppendCapabilities(t *testing.T) {
 	require.Len(t, appendedResp2, 1)
 	gotCaps2 := appendedResp2[testPeerID(t, "peerID_1")]
 	require.Len(t, gotCaps2, 3)
-	require.EqualValues(t, gotCaps, gotCaps2)
+	require.Equal(t, gotCaps, gotCaps2)
 }
 
 func testPeerID(t *testing.T, s string) p2pkey.PeerID {
@@ -692,15 +694,13 @@ func testPeerID(t *testing.T, s string) p2pkey.PeerID {
 	return p2pkey.PeerID(out)
 }
 
-func testChain(t *testing.T) cldf.Chain {
-	chains, _ := memory.NewMemoryChains(t, 1, 5)
-	var chain cldf.Chain
-	for _, c := range chains {
-		chain = c
-		break
-	}
-	require.NotEmpty(t, chain)
-	return chain
+func testChain(t *testing.T) cldf_evm.Chain {
+	t.Helper()
+
+	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 5))
+	require.NotEmpty(t, chains)
+
+	return chains.EVMChains()[chains.ListChainSelectors()[0]]
 }
 
 func testNop(t *testing.T, name string) kcr.CapabilitiesRegistryNodeOperator {

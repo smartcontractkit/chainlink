@@ -9,6 +9,10 @@ import (
 
 	handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 
+	json "encoding/json"
+
+	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -70,17 +74,113 @@ func (_c *Handler_Close_Call) RunAndReturn(run func() error) *Handler_Close_Call
 	return _c
 }
 
-// HandleNodeMessage provides a mock function with given fields: ctx, msg, nodeAddr
-func (_m *Handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	ret := _m.Called(ctx, msg, nodeAddr)
+// HandleJSONRPCUserMessage provides a mock function with given fields: ctx, jsonRequest, callbackCh
+func (_m *Handler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) error {
+	ret := _m.Called(ctx, jsonRequest, callbackCh)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HandleJSONRPCUserMessage")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, jsonrpc2.Request[json.RawMessage], chan<- handlers.UserCallbackPayload) error); ok {
+		r0 = rf(ctx, jsonRequest, callbackCh)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Handler_HandleJSONRPCUserMessage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HandleJSONRPCUserMessage'
+type Handler_HandleJSONRPCUserMessage_Call struct {
+	*mock.Call
+}
+
+// HandleJSONRPCUserMessage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - jsonRequest jsonrpc2.Request[json.RawMessage]
+//   - callbackCh chan<- handlers.UserCallbackPayload
+func (_e *Handler_Expecter) HandleJSONRPCUserMessage(ctx interface{}, jsonRequest interface{}, callbackCh interface{}) *Handler_HandleJSONRPCUserMessage_Call {
+	return &Handler_HandleJSONRPCUserMessage_Call{Call: _e.mock.On("HandleJSONRPCUserMessage", ctx, jsonRequest, callbackCh)}
+}
+
+func (_c *Handler_HandleJSONRPCUserMessage_Call) Run(run func(ctx context.Context, jsonRequest jsonrpc2.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload)) *Handler_HandleJSONRPCUserMessage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(jsonrpc2.Request[json.RawMessage]), args[2].(chan<- handlers.UserCallbackPayload))
+	})
+	return _c
+}
+
+func (_c *Handler_HandleJSONRPCUserMessage_Call) Return(_a0 error) *Handler_HandleJSONRPCUserMessage_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Handler_HandleJSONRPCUserMessage_Call) RunAndReturn(run func(context.Context, jsonrpc2.Request[json.RawMessage], chan<- handlers.UserCallbackPayload) error) *Handler_HandleJSONRPCUserMessage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// HandleLegacyUserMessage provides a mock function with given fields: ctx, msg, callbackCh
+func (_m *Handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+	ret := _m.Called(ctx, msg, callbackCh)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HandleLegacyUserMessage")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error); ok {
+		r0 = rf(ctx, msg, callbackCh)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Handler_HandleLegacyUserMessage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HandleLegacyUserMessage'
+type Handler_HandleLegacyUserMessage_Call struct {
+	*mock.Call
+}
+
+// HandleLegacyUserMessage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - msg *api.Message
+//   - callbackCh chan<- handlers.UserCallbackPayload
+func (_e *Handler_Expecter) HandleLegacyUserMessage(ctx interface{}, msg interface{}, callbackCh interface{}) *Handler_HandleLegacyUserMessage_Call {
+	return &Handler_HandleLegacyUserMessage_Call{Call: _e.mock.On("HandleLegacyUserMessage", ctx, msg, callbackCh)}
+}
+
+func (_c *Handler_HandleLegacyUserMessage_Call) Run(run func(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload)) *Handler_HandleLegacyUserMessage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*api.Message), args[2].(chan<- handlers.UserCallbackPayload))
+	})
+	return _c
+}
+
+func (_c *Handler_HandleLegacyUserMessage_Call) Return(_a0 error) *Handler_HandleLegacyUserMessage_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Handler_HandleLegacyUserMessage_Call) RunAndReturn(run func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error) *Handler_HandleLegacyUserMessage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// HandleNodeMessage provides a mock function with given fields: ctx, resp, nodeAddr
+func (_m *Handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc2.Response[json.RawMessage], nodeAddr string) error {
+	ret := _m.Called(ctx, resp, nodeAddr)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleNodeMessage")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, string) error); ok {
-		r0 = rf(ctx, msg, nodeAddr)
+	if rf, ok := ret.Get(0).(func(context.Context, *jsonrpc2.Response[json.RawMessage], string) error); ok {
+		r0 = rf(ctx, resp, nodeAddr)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -95,15 +195,15 @@ type Handler_HandleNodeMessage_Call struct {
 
 // HandleNodeMessage is a helper method to define mock.On call
 //   - ctx context.Context
-//   - msg *api.Message
+//   - resp *jsonrpc2.Response[json.RawMessage]
 //   - nodeAddr string
-func (_e *Handler_Expecter) HandleNodeMessage(ctx interface{}, msg interface{}, nodeAddr interface{}) *Handler_HandleNodeMessage_Call {
-	return &Handler_HandleNodeMessage_Call{Call: _e.mock.On("HandleNodeMessage", ctx, msg, nodeAddr)}
+func (_e *Handler_Expecter) HandleNodeMessage(ctx interface{}, resp interface{}, nodeAddr interface{}) *Handler_HandleNodeMessage_Call {
+	return &Handler_HandleNodeMessage_Call{Call: _e.mock.On("HandleNodeMessage", ctx, resp, nodeAddr)}
 }
 
-func (_c *Handler_HandleNodeMessage_Call) Run(run func(ctx context.Context, msg *api.Message, nodeAddr string)) *Handler_HandleNodeMessage_Call {
+func (_c *Handler_HandleNodeMessage_Call) Run(run func(ctx context.Context, resp *jsonrpc2.Response[json.RawMessage], nodeAddr string)) *Handler_HandleNodeMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*api.Message), args[2].(string))
+		run(args[0].(context.Context), args[1].(*jsonrpc2.Response[json.RawMessage]), args[2].(string))
 	})
 	return _c
 }
@@ -113,55 +213,54 @@ func (_c *Handler_HandleNodeMessage_Call) Return(_a0 error) *Handler_HandleNodeM
 	return _c
 }
 
-func (_c *Handler_HandleNodeMessage_Call) RunAndReturn(run func(context.Context, *api.Message, string) error) *Handler_HandleNodeMessage_Call {
+func (_c *Handler_HandleNodeMessage_Call) RunAndReturn(run func(context.Context, *jsonrpc2.Response[json.RawMessage], string) error) *Handler_HandleNodeMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// HandleUserMessage provides a mock function with given fields: ctx, msg, callbackCh
-func (_m *Handler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-	ret := _m.Called(ctx, msg, callbackCh)
+// Methods provides a mock function with no fields
+func (_m *Handler) Methods() []string {
+	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for HandleUserMessage")
+		panic("no return value specified for Methods")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error); ok {
-		r0 = rf(ctx, msg, callbackCh)
+	var r0 []string
+	if rf, ok := ret.Get(0).(func() []string); ok {
+		r0 = rf()
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
 	}
 
 	return r0
 }
 
-// Handler_HandleUserMessage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HandleUserMessage'
-type Handler_HandleUserMessage_Call struct {
+// Handler_Methods_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Methods'
+type Handler_Methods_Call struct {
 	*mock.Call
 }
 
-// HandleUserMessage is a helper method to define mock.On call
-//   - ctx context.Context
-//   - msg *api.Message
-//   - callbackCh chan<- handlers.UserCallbackPayload
-func (_e *Handler_Expecter) HandleUserMessage(ctx interface{}, msg interface{}, callbackCh interface{}) *Handler_HandleUserMessage_Call {
-	return &Handler_HandleUserMessage_Call{Call: _e.mock.On("HandleUserMessage", ctx, msg, callbackCh)}
+// Methods is a helper method to define mock.On call
+func (_e *Handler_Expecter) Methods() *Handler_Methods_Call {
+	return &Handler_Methods_Call{Call: _e.mock.On("Methods")}
 }
 
-func (_c *Handler_HandleUserMessage_Call) Run(run func(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload)) *Handler_HandleUserMessage_Call {
+func (_c *Handler_Methods_Call) Run(run func()) *Handler_Methods_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*api.Message), args[2].(chan<- handlers.UserCallbackPayload))
+		run()
 	})
 	return _c
 }
 
-func (_c *Handler_HandleUserMessage_Call) Return(_a0 error) *Handler_HandleUserMessage_Call {
+func (_c *Handler_Methods_Call) Return(_a0 []string) *Handler_Methods_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Handler_HandleUserMessage_Call) RunAndReturn(run func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error) *Handler_HandleUserMessage_Call {
+func (_c *Handler_Methods_Call) RunAndReturn(run func() []string) *Handler_Methods_Call {
 	_c.Call.Return(run)
 	return _c
 }

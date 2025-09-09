@@ -3,24 +3,34 @@ package v1_6
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
-	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
+	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
+	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	aptosUtils "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	aptos_ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -63,10 +73,6 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 		return err
 	}
 
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
 	if len(c.CurseActions) == 0 {
 		return errors.New("curse actions are required")
 	}
@@ -83,9 +89,14 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 		globals.GlobalCurseSubject(): {},
 	}
 
+	validAptosSubjects := map[globals.Subject]struct{}{
+		globals.GlobalCurseSubject(): {},
+	}
+
 	for _, selector := range GetAllCursableChainsSelector(e) {
 		validEVMSubjects[globals.FamilyAwareSelectorToSubject(selector, chain_selectors.FamilyEVM)] = struct{}{}
 		validSolanaSubjects[globals.FamilyAwareSelectorToSubject(selector, chain_selectors.FamilySolana)] = struct{}{}
+		validAptosSubjects[globals.FamilyAwareSelectorToSubject(selector, chain_selectors.FamilyAptos)] = struct{}{}
 	}
 
 	for _, curseAction := range c.CurseActions {
@@ -111,7 +122,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
 				}
 
-				targetChain := e.Chains[action.ChainSelector]
+				targetChain := e.BlockChains.EVMChains()[action.ChainSelector]
 				targetChainState, ok := state.Chains[action.ChainSelector]
 				if !ok {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
@@ -125,13 +136,27 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
 				}
 
-				targetChain := e.SolChains[action.ChainSelector]
+				targetChain := e.BlockChains.SolanaChains()[action.ChainSelector]
 				targetChainState, ok := state.SolChains[action.ChainSelector]
 				if !ok {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
 				}
 				if err := solanastateview.ValidateOwnershipSolana(&e, targetChain, c.MCMS != nil, targetChainState.RMNRemote, shared.RMNRemote, solana.PublicKey{}); err != nil {
 					return fmt.Errorf("chain %s: %w", targetChain.String(), err)
+				}
+			case chain_selectors.FamilyAptos:
+				if _, ok := validAptosSubjects[action.SubjectToCurse]; !ok {
+					return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
+				}
+
+				targetChain := e.BlockChains.AptosChains()[action.ChainSelector]
+				_, ok := state.AptosChains[action.ChainSelector]
+				if !ok {
+					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
+				}
+
+				if c.MCMS == nil {
+					return errors.New("mcms configs are required for aptos chains")
 				}
 			}
 		}
@@ -180,7 +205,6 @@ func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
 // Given 3 chains A, B, C
 // CurseLaneBidirectionally(A, B) will curse A with the curse subject of B and B with the curse subject of A
 func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64) CurseAction {
-
 	// Bidirectional curse between two chains
 	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		curseActions1, err := CurseLaneOnlyOnSource(sourceSelector, destinationSelector)(e)
@@ -365,7 +389,8 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
+	description := "proposal to curse RMNs: " + cfg.Reason
+	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(description)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -395,6 +420,7 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
 	}
+	var aptosProposals []mcms.TimelockProposal
 	for selector, chain := range cursableChains {
 		if curseSubjects, ok := grouped[selector]; ok {
 			// Only curse the subjects that are not actually cursed
@@ -422,10 +448,59 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %w", selector, err)
 			}
 			e.Logger.Infof("Cursed chain %d with subjects %v", selector, notAlreadyCursedSubjects)
+
+			// Aptos has no deployerGroup implementation, collecting MCMS operations separately
+			family, err := chain_selectors.GetSelectorFamily(selector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to check family for chain %d: %w", selector, err)
+			}
+			if family == chain_selectors.FamilyAptos {
+				proposal, err := aptosUtils.GenerateProposal(
+					e,
+					state.AptosChains[selector].MCMSAddress,
+					selector,
+					[]mcmstypes.BatchOperation{chain.(*AptosCursableChain).MCMSOp},
+					cfg.Reason,
+					*cfg.MCMS,
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", selector, err)
+				}
+				aptosProposals = append(aptosProposals, *proposal)
+			}
 		}
 	}
 
-	return deployerGroup.Enact()
+	partialOut, err := deployerGroup.Enact()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to enact deployer group: %w", err)
+	}
+	if len(aptosProposals) == 0 {
+		return partialOut, nil
+	}
+	// can't have Aptos curse/uncurse without MCMS
+	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
+	}
+	proposals := partialOut.MCMSTimelockProposals
+	proposals = append(proposals, aptosProposals...)
+	aggProposal, err := proposalutils.AggregateProposalsV2(
+		e,
+		proposalutils.MCMSStates{
+			MCMSEVMState:    state.EVMMCMSStateByChain(),
+			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
+			MCMSAptosState:  state.AptosMCMSStateByChain(),
+		},
+		proposals,
+		description,
+		cfg.MCMS,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate MCMS proposals: %w", err)
+	}
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: []mcms.TimelockProposal{*aggProposal},
+	}, nil
 }
 
 // RMNUncurseChangeset creates a new changeset for uncursing chains or lanes on RMNRemote contracts.
@@ -455,7 +530,8 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
+	description := "proposal to curse RMNs: " + cfg.Reason
+	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(description)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -478,6 +554,7 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
 	}
+	var aptosProposals []mcms.TimelockProposal
 	for selector, chain := range cursableChains {
 		if curseSubjects, ok := grouped[selector]; ok {
 			// Only keep the subject that are actually cursed
@@ -505,16 +582,69 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %w", selector, err)
 			}
 			e.Logger.Infof("Uncursed chain %d with subjects %v", selector, actuallyCursedSubjects)
+
+			// Aptos has no deployerGroup implementation, collecting MCMS operations separately
+			family, err := chain_selectors.GetSelectorFamily(selector)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to check family for chain %d: %w", selector, err)
+			}
+			if family == chain_selectors.FamilyAptos {
+				proposal, err := aptosUtils.GenerateProposal(
+					e,
+					state.AptosChains[selector].MCMSAddress,
+					selector,
+					[]mcmstypes.BatchOperation{chain.(*AptosCursableChain).MCMSOp},
+					cfg.Reason,
+					*cfg.MCMS,
+				)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal for Aptos chain %d: %w", selector, err)
+				}
+				aptosProposals = append(aptosProposals, *proposal)
+			}
 		}
 	}
 
-	return deployerGroup.Enact()
+	partialOut, err := deployerGroup.Enact()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to enact deployer group: %w", err)
+	}
+	if len(aptosProposals) == 0 {
+		return partialOut, nil
+	}
+	// can't have Aptos curse/uncurse without MCMS
+	if len(partialOut.MCMSTimelockProposals) != 1 && cfg.MCMS != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("expected exactly one MCMS proposal, got %d", len(partialOut.MCMSTimelockProposals))
+	}
+	proposals := partialOut.MCMSTimelockProposals
+	proposals = append(proposals, aptosProposals...)
+	aggProposal, err := proposalutils.AggregateProposalsV2(
+		e,
+		proposalutils.MCMSStates{
+			MCMSEVMState:    state.EVMMCMSStateByChain(),
+			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
+			MCMSAptosState:  state.AptosMCMSStateByChain(),
+		},
+		proposals,
+		description,
+		cfg.MCMS,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate MCMS proposals: %w", err)
+	}
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: []mcms.TimelockProposal{*aggProposal},
+	}, nil
 }
 
 type CursableChain interface {
 	Name() string
 	IsConnectedToSourceChain(selector uint64) (bool, error)
 	IsCursable() (bool, error)
+	// IsCursed has the default RMN behavior.
+	// Returns true if subject is cursed or chain is globally cursed. False otherwise.
+	IsCursed(subject globals.Subject) (bool, error)
+	// IsSubjectCursed checks if that specific subject is cursed.
 	IsSubjectCursed(subject globals.Subject) (bool, error)
 	Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error
 	Uncurse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error
@@ -526,13 +656,44 @@ type SolanaCursableChain struct {
 	chain    solanastateview.CCIPChainState
 }
 
+func (c SolanaCursableChain) IsCursed(subject globals.Subject) (bool, error) {
+	isCursed, _, err := c.getIsCursed(subject)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if subject %x is cursed on chain %d: %w", subject, c.selector, err)
+	}
+	return isCursed, nil
+}
+
 func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
-	chain := c.env.SolChains[c.selector]
+	isCursed, curseType, err := c.getIsCursed(subject)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if subject %x is cursed on chain %d: %w", subject, c.selector, err)
+	}
+	if !isCursed {
+		return false, nil
+	}
+	// Curse types are returned as errors.
+	// ref: https://github.com/smartcontractkit/chainlink-ccip/blob/1d85eec090976eaa0a3063d89f4fccc5e29323fa/chains/solana/contracts/target/idl/rmn_remote.json#L478
+	switch curseType {
+	case 9006: // Globally cursed
+		if subject == globals.GlobalCurseSubject() {
+			return true, nil
+		}
+		return false, nil
+	case 9005: // Subject cursed
+		return true, nil
+	default:
+		return false, fmt.Errorf("unknown curseType %d: %w", curseType, err)
+	}
+}
+
+// getIsCursed checks if a subject is cursed on the Solana chain. And returns the curseType if it is cursed.
+func (c SolanaCursableChain) getIsCursed(subject globals.Subject) (isCursed bool, curseType int64, err error) {
+	chain := c.env.BlockChains.SolanaChains()[c.selector]
 	curseSubject := solRmnRemote.CurseSubject{
 		Value: subject,
 	}
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
-	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
 	ix, err := solRmnRemote.NewVerifyNotCursedInstruction(
 		curseSubject,
@@ -540,15 +701,64 @@ func (c SolanaCursableChain) IsSubjectCursed(subject globals.Subject) (bool, err
 		rmnRemoteConfigPDA,
 	).ValidateAndBuild()
 	if err != nil {
-		return false, fmt.Errorf("failed to generate instructions: %w", err)
+		return false, 0, fmt.Errorf("failed to generate instructions: %w", err)
 	}
-	_, err = solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{ix}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	data, err := ix.Data()
 	if err != nil {
-		c.env.Logger.Infof("Curse already exists for chain %d and curse subject %v", c.selector, curseSubject)
-		return true, nil
+		return false, 0, fmt.Errorf("failed to extract data payload from verify not cursed instruction: %w", err)
+	}
+	// Manually create instruction rather than directly using the ix above
+	// Using the ix above requires setting the program ID in the binding directly which panics if called multiple times
+	verifyIx := solana.NewInstruction(c.chain.RMNRemote, ix.Accounts(), data)
+	_, txErr := solCommonUtil.SendAndConfirmWithLookupTables(context.Background(), chain.Client, []solana.Instruction{verifyIx}, *chain.DeployerKey, rpc.CommitmentConfirmed, nil)
+	if txErr == nil {
+		// If no error return then it's not cursed
+		return false, 0, nil
+	}
+	errCode, err := parseSolanaErrorCode(txErr)
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to parse solana error code: %w", err)
+	}
+	return true, errCode, nil
+}
+
+func parseSolanaErrorCode(err error) (int64, error) {
+	var rpcErr *jsonrpc.RPCError
+	if !errors.As(err, &rpcErr) {
+		return 0, fmt.Errorf("not a jsonrpc.RPCError: %w", err)
 	}
 
-	return false, nil
+	data, ok := rpcErr.Data.(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("invalid data format: %w", err)
+	}
+
+	errData, ok := data["err"].(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("no err field found: %w", err)
+	}
+
+	instrErr, ok := errData["InstructionError"].([]interface{})
+	if !ok || len(instrErr) < 2 {
+		return 0, fmt.Errorf("invalid InstructionError format: %w", err)
+	}
+
+	customErr, ok := instrErr[1].(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("invalid custom error format: %w", err)
+	}
+
+	custom, ok := customErr["Custom"].(json.Number)
+	if !ok {
+		return 0, fmt.Errorf("no Custom field found: %w", err)
+	}
+
+	errorCode, err := custom.Int64()
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse custom error number: %w", err)
+	}
+
+	return errorCode, nil
 }
 
 func (c SolanaCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
@@ -558,7 +768,6 @@ func (c SolanaCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 	}
 
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
-	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
 	deployer, err := deployerGroup.GetDeployerForSVM(c.selector)
 	if err != nil {
@@ -576,12 +785,15 @@ func (c SolanaCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, s
 				rmnRemoteCursesPDA,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-
 			if err != nil {
 				return nil, "", "", fmt.Errorf("failed to generate instructions: %w", err)
 			}
-
-			return ix, c.chain.RMNRemote.String(), shared.RMNRemote, nil
+			ixData, err := ix.Data()
+			if err != nil {
+				return nil, "", "", fmt.Errorf("failed to extract data payload from rmn remote curse instruction: %w", err)
+			}
+			curseIx := solana.NewInstruction(c.chain.RMNRemote, ix.Accounts(), ixData)
+			return curseIx, c.chain.RMNRemote.String(), shared.RMNRemote, nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to build curse instruction for subject %x on chain %d: %w", subject, c.selector, err)
@@ -597,7 +809,6 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 	}
 
 	rmnRemoteConfigPDA := c.chain.RMNRemoteConfigPDA
-	solRmnRemote.SetProgramID(c.chain.RMNRemote)
 	rmnRemoteCursesPDA := c.chain.RMNRemoteCursesPDA
 	deployer, err := deployerGroup.GetDeployerForSVM(c.selector)
 	if err != nil {
@@ -618,7 +829,12 @@ func (c SolanaCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup,
 			if err != nil {
 				return nil, "", "", fmt.Errorf("failed to generate instructions: %w", err)
 			}
-			return ix, c.chain.RMNRemote.String(), shared.RMNRemote, nil
+			ixData, err := ix.Data()
+			if err != nil {
+				return nil, "", "", fmt.Errorf("failed to extract data payload from rmn remote uncurse instruction: %w", err)
+			}
+			uncurseIx := solana.NewInstruction(c.chain.RMNRemote, ix.Accounts(), ixData)
+			return uncurseIx, c.chain.RMNRemote.String(), shared.RMNRemote, nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to build uncurse instruction for subject %x on chain %d: %w", subject, c.selector, err)
@@ -643,7 +859,7 @@ func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, er
 	}
 
 	var chainStateAccount solOffRamp.SourceChain
-	if err = c.env.SolChains[c.selector].GetAccountDataBorshInto(context.Background(), pda, &chainStateAccount); err != nil {
+	if err = c.env.BlockChains.SolanaChains()[c.selector].GetAccountDataBorshInto(context.Background(), pda, &chainStateAccount); err != nil {
 		return false, nil
 	}
 
@@ -651,17 +867,18 @@ func (c SolanaCursableChain) IsConnectedToSourceChain(selector uint64) (bool, er
 }
 
 func (c SolanaCursableChain) Name() string {
-	return c.env.SolChains[c.selector].Name()
+	return c.env.BlockChains.SolanaChains()[c.selector].Name()
 }
 
 type EvmCursableChain struct {
-	selector uint64
-	env      cldf.Environment
-	chain    evm.CCIPChainState
+	selector            uint64
+	env                 cldf.Environment
+	chain               evm.CCIPChainState
+	cursedSubjectsCache map[globals.Subject]struct{}
 }
 
 func (c EvmCursableChain) Name() string {
-	return c.env.Chains[c.selector].Name()
+	return c.env.BlockChains.EVMChains()[c.selector].Name()
 }
 
 func (c EvmCursableChain) IsConnectedToSourceChain(sourceSelector uint64) (bool, error) {
@@ -676,12 +893,40 @@ func (c EvmCursableChain) IsConnectedToSourceChain(sourceSelector uint64) (bool,
 	return true, nil
 }
 
-func (c EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
-	cursed, err := c.chain.RMNRemote.IsCursed(nil, subject)
+func (c *EvmCursableChain) IsCursed(subject globals.Subject) (bool, error) {
+	err := c.cacheCurses()
 	if err != nil {
-		return false, fmt.Errorf("failed to check if chain %d is cursed: %w", c.selector, err)
+		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
 	}
+	if _, isGloballyCursed := c.cursedSubjectsCache[globals.GlobalCurseSubject()]; isGloballyCursed {
+		return true, nil
+	}
+	_, isCursed := c.cursedSubjectsCache[subject]
+	return isCursed, nil
+}
+
+func (c *EvmCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
+	err := c.cacheCurses()
+	if err != nil {
+		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
+	}
+	_, cursed := c.cursedSubjectsCache[subject]
 	return cursed, nil
+}
+
+func (c *EvmCursableChain) cacheCurses() error {
+	if c.cursedSubjectsCache != nil {
+		return nil
+	}
+	c.cursedSubjectsCache = make(map[globals.Subject]struct{})
+	cursedSubjects, err := c.chain.RMNRemote.GetCursedSubjects(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
+	}
+	for _, subj := range cursedSubjects {
+		c.cursedSubjectsCache[subj] = struct{}{}
+	}
+	return nil
 }
 
 func (c EvmCursableChain) IsCursable() (bool, error) {
@@ -724,6 +969,124 @@ func (c EvmCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup, su
 	return nil
 }
 
+type AptosCursableChain struct {
+	selector            uint64
+	env                 cldf.Environment
+	chain               aptosstateview.CCIPChainState
+	MCMSOp              mcmstypes.BatchOperation
+	cursedSubjectsCache map[globals.Subject]struct{}
+}
+
+func (c AptosCursableChain) IsSubjectCursed(subject globals.Subject) (bool, error) {
+	err := c.cacheCurses()
+	if err != nil {
+		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
+	}
+	_, cursed := c.cursedSubjectsCache[subject]
+	return cursed, nil
+}
+
+func (c *AptosCursableChain) IsCursed(subject globals.Subject) (bool, error) {
+	err := c.cacheCurses()
+	if err != nil {
+		return false, fmt.Errorf("failed to cache curses for chain %d: %w", c.selector, err)
+	}
+	if _, isGloballyCursed := c.cursedSubjectsCache[globals.GlobalCurseSubject()]; isGloballyCursed {
+		return true, nil
+	}
+	_, isCursed := c.cursedSubjectsCache[subject]
+	return isCursed, nil
+}
+
+func (c *AptosCursableChain) cacheCurses() error {
+	if c.cursedSubjectsCache != nil {
+		return nil
+	}
+	c.cursedSubjectsCache = make(map[globals.Subject]struct{})
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	ccipBind := aptosCCIP.Bind(c.chain.CCIPAddress, chain.Client)
+	cursedSubjects, err := ccipBind.RMNRemote().GetCursedSubjects(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get cursed subjects for chain %d: %w", c.selector, err)
+	}
+	for _, subj := range cursedSubjects {
+		c.cursedSubjectsCache[globals.Subject(subj)] = struct{}{}
+	}
+	return nil
+}
+func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilyAptos)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	subjectBytes := make([][]byte, len(subjects))
+	for i, subject := range subjects {
+		subjectBytes[i] = subject[:]
+	}
+	in := aptos_ops.CurseMultipleInput{
+		Subjects:    subjectBytes,
+		CCIPAddress: c.chain.CCIPAddress,
+	}
+	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.CurseMultipleOp, chain, in)
+	if err != nil {
+		return fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", c.selector, err)
+	}
+	c.MCMSOp = mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(c.selector),
+		Transactions:  []mcmstypes.Transaction{report.Output},
+	}
+
+	return nil
+}
+
+func (c *AptosCursableChain) Uncurse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
+	err := assertEndianness(subjects, chain_selectors.FamilyAptos)
+	if err != nil {
+		return fmt.Errorf("failed to assert subject endianness: %w", err)
+	}
+
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	subjectBytes := make([][]byte, len(subjects))
+	for i, subject := range subjects {
+		subjectBytes[i] = subject[:]
+	}
+	in := aptos_ops.UncurseMultipleInput{
+		Subjects:    subjectBytes,
+		CCIPAddress: c.chain.CCIPAddress,
+	}
+	report, err := operations.ExecuteOperation(c.env.OperationsBundle, aptos_ops.UncurseMultipleOp, chain, in)
+	if err != nil {
+		return fmt.Errorf("failed to execute curse operation on Aptos chain %d: %w", c.selector, err)
+	}
+	c.MCMSOp = mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(c.selector),
+		Transactions:  []mcmstypes.Transaction{report.Output},
+	}
+
+	return nil
+}
+
+func (c AptosCursableChain) IsCursable() (bool, error) {
+	return c.chain.CCIPAddress != aptos.AccountAddress{}, nil
+}
+
+func (c AptosCursableChain) IsConnectedToSourceChain(selector uint64) (bool, error) {
+	chain := c.env.BlockChains.AptosChains()[c.selector]
+	offRampBind := aptosOffRamp.Bind(c.chain.CCIPAddress, chain.Client)
+	cfg, err := offRampBind.Offramp().GetSourceChainConfig(nil, selector)
+	if err != nil {
+		return false, fmt.Errorf("failed to GetSourceChainConfig for %d: %w", selector, err)
+	}
+
+	return cfg.IsEnabled, nil
+}
+
+func (c AptosCursableChain) Name() string {
+	return c.env.BlockChains.AptosChains()[c.selector].Name()
+}
+
 func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
@@ -731,7 +1094,7 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 	}
 	cursableChains := make(map[uint64]CursableChain)
 	for selector := range state.Chains {
-		cursableChains[selector] = EvmCursableChain{
+		cursableChains[selector] = &EvmCursableChain{
 			selector: selector,
 			chain:    state.Chains[selector], // Access chain state directly
 			env:      env,
@@ -740,6 +1103,14 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 
 	for selector, chain := range state.SolChains {
 		cursableChains[selector] = SolanaCursableChain{
+			selector: selector,
+			chain:    chain,
+			env:      env,
+		}
+	}
+
+	for selector, chain := range state.AptosChains {
+		cursableChains[selector] = &AptosCursableChain{
 			selector: selector,
 			chain:    chain,
 			env:      env,
@@ -761,9 +1132,13 @@ func GetCursableChains(env cldf.Environment) (map[uint64]CursableChain, error) {
 }
 
 func GetAllCursableChainsSelector(env cldf.Environment) []uint64 {
+	// This function has to list family by family to guarantee order for tests
 	selectors := make([]uint64, 0)
-	selectors = append(selectors, env.AllChainSelectors()...)
-	selectors = append(selectors, env.AllChainSelectorsSolana()...)
+	selectors = append(selectors, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))...)
+	solSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	selectors = append(selectors, solSelectors...)
+	aptosSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
+	selectors = append(selectors, aptosSelectors...)
 	return selectors
 }
 
@@ -779,7 +1154,7 @@ func assertEndianness(subjects []globals.Subject, family string) error {
 				return fmt.Errorf("endianness incorrect for Solana curse subject: %s", subject)
 			}
 		default:
-			// EVM uses big endian to encode the subject so we expect the first 8 bytes to be 0
+			// EVM and Aptos uses big endian to encode the subject so we expect the first 8 bytes to be 0
 			if !bytes.Equal(subject[:8], []byte{0, 0, 0, 0, 0, 0, 0, 0}) {
 				return fmt.Errorf("endianness incorrect for curse subject: %s", subject)
 			}

@@ -23,25 +23,84 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
+  pull_request:
+    types: [labeled, synchronize]
 
 jobs:
+
+  changes:
+    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    environment: "integration"
+    permissions:
+      contents: read
+    outputs:
+      should-run-tests: >-
+        ${{
+          github.event_name == 'workflow_dispatch' ||
+          github.event_name == 'workflow_call' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-local-cre-env-tests') ||
+          steps.changes.outputs.ci_changes == 'true'
+        }}
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
+
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          filters: |
+            ci_changes:
+              - '.github/workflows/cre-local-env-tests.yaml'
+
   test-cli:
-    runs-on: ubuntu-latest
+    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
     timeout-minutes: 30
     permissions:
       contents: read
       id-token: write
+    needs: changes
+    if: needs.changes.outputs.should-run-tests == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.chainlink_version }}
+          ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
+
+      - name: Enable S3 Cache for Self-Hosted Runners
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
       - name: Set up Go
+        id: setup-go
         uses: actions/setup-go@v5
         with:
           go-version-file: core/scripts/go.mod
+          cache: true
+
+      - name: Download Go dependencies
+        id: go-deps
+        working-directory: core/scripts/cre/environment
+        env:
+          SETUP_GO_CACHE_HIT: ${{ steps.setup-go.outputs.cache-hit }}
+        run: |
+          if [[ "${SETUP_GO_CACHE_HIT}" == "true" ]]; then
+            echo "::debug::Cache hit - skipping dependency download"
+            echo "deps_download_seconds=0" >> $GITHUB_OUTPUT
+          else
+            echo "::debug::Cache miss - downloading dependencies"
+            { time go mod tidy && go mod download; } 2> >(tee /tmp/go_deps_time >&2)
+            deps_time=$(cat /tmp/go_deps_time | grep real | awk '{print $2}')
+            minutes=$(echo $deps_time | awk -F'm' '{print $1}')
+            seconds=$(echo $deps_time | awk -F'm' '{print $2}' | sed 's/s//')
+            total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
+            echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
+          fi
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
@@ -60,43 +119,132 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Set date variable
+        id: set-date
+        if:  ${{ github.event_name == 'pull_request' }}
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
       - name: Overwrite chainlink version in TOML config
         shell: bash
         run: |
           cat > core/scripts/cre/environment/configs/ci-override.toml<< EOF
           [jd]
-            image = "injected-at-runtime"
-
-          [[nodesets]]
-            nodes = 5
-            override_mode = "all"
-            http_port_range_start = 10100
-            name = "workflow"
-
-            [nodesets.db]
-              image = "postgres:12.0"
-              port = 13000
-
-            [[nodesets.node_specs]]
-              [nodesets.node_specs.node]
-                image = "injected-at-runtime"
+            csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+            image = "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.12.7"
           EOF
 
-      - name: Start the CLI
+      - name: Start the environment
+        id: start-cli
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        env:
+          CTF_CONFIGS: "./configs/workflow-don.toml,./configs/ci-override.toml"
+          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
+          E2E_JD_VERSION: "0.12.7"
+          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
+          E2E_TEST_CHAINLINK_VERSION: ${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}
+          DISABLE_DX_TRACKING: "true"
+          CI: "true"
+        run: |
+          # hack to make sure we can start the env, those files are used for cli-tests only (not by system-tests)
+          # ensure that there is a line `touch ./binaries/<capability>` for all [nodesets.chain_capabilities] in config toml
+          # ------
+          # we could use the 'plugins' image here that has all the capabilities, but we want to test a different execution path
+          # from the one used in cre-system-tests.yaml, which uses the 'plugins' image
+          # caveat: since these aren't real capability binaries, all workflows that use them will fail
+          mkdir ./binaries
+          touch ./binaries/cron
+          touch ./binaries/readcontract
+          touch ./binaries/http_action
+          touch ./binaries/http_trigger
+          touch ./binaries/consensus
+          touch ./binaries/evm
+          { time go run main.go env start; } 2> >(tee /tmp/time_output >&2)
+
+          # Convert time to total seconds
+          time_str=$(cat /tmp/time_output | grep real | awk '{print $2}')
+          minutes=$(echo $time_str | awk -F'm' '{print $1}')
+          seconds=$(echo $time_str | awk -F'm' '{print $2}' | sed 's/s//')
+          total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
+          echo "execution_time=$total_seconds" >> $GITHUB_OUTPUT
+
+      - name: Deploy v2 Cron workflow
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env workflow deploy --compile --workflow-file-path ./examples/workflows/v2/cron/main.go --name cronv2workflow
+
+      - name: Delete v2 Cron workflow
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env workflow delete --name cronv2workflow
+
+      - name: Execute example PoR workflow
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env workflow run-por-example
+          # no need to delete it as that command does it automatically
+
+      - name: List environment state files
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env state list
+
+      - name: Purge environment state files
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env state purge
+
+      - name: Track local env startup success rate
+        # track only scheduled runs to exclude failures in PRs or manual runs
+        if: always() && github.event_name == 'schedule'
         shell: bash
         env:
-          CTF_CONFIGS: "./configs/single-don.toml,./configs/ci-override.toml"
-          E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
-          E2E_JD_VERSION: "0.9.0"
-          E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink"
-          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag }}
+          START_CLI_OUTCOME: ${{ steps.start-cli.outcome }}
+          GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
+          DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
         run: |
-          cd core/scripts/cre/environment
-          go run main.go env start
+            success=false
+            if [[ "${START_CLI_OUTCOME}" == "success" ]]; then success=true; fi
+
+            echo "::debug::success: $success"
+
+            printf -v data '{"name": "cre.local.startup.result", "github_username": "%s", "timestamp": "%s", "metadata": {"success": "%s", "is_ci": true, "error": "N/A", "panicked": "N/A", "runner": "self-hosted-ubuntu-24", "infra": "docker"}}' "$DX_ACTOR" "$EPOCHSECONDS" "$success"
+            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
+
+      - name: Track local env startup duration
+        # track only scheduled runs to exclude failures in PRs or manual runs
+        if: always() && github.event_name == 'schedule'
+        shell: bash
+        env:
+          GETDX_SECRET_KEY: ${{ secrets.GETDX_SECRET_KEY }}
+          EXECUTION_TIME: ${{ steps.start-cli.outputs.execution_time }}
+          CACHE_HIT: ${{ steps.setup-go.outputs.cache-hit }}
+          DEPS_DOWNLOAD_SECONDS: ${{ steps.go-deps.outputs.deps_download_seconds }}
+          DX_ACTOR: ${{ contains(github.actor, 'github-merge-queue') && 'Tofel' || github.actor }}
+        run: |
+            echo "::debug::execution_time: ${EXECUTION_TIME}"
+            echo "::debug::cache_hit: ${CACHE_HIT}"
+            echo "::debug::deps_download_seconds: ${DEPS_DOWNLOAD_SECONDS}"
+
+            printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "self-hosted-ubuntu-24", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
+            curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
+
+      - name: Upload all artifacts as single package
+        if: failure()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: local-cre-docker-logs
+          path: ./core/scripts/cre/environment/logs/
+
 
   notify-test-failure:
     name: Notify about local env startup failure
-    if: failure()
+    if: failure() && github.event_name != 'pull_request'
     needs: [test-cli]
     runs-on: ubuntu-latest
     steps:
@@ -109,26 +257,22 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             {
-              "channel": "C0364FG2CN9",
-              "text": "Local CRE environment failed to start",
+              "channel": "C0948PT3X38",
+              "text": "At least one local CRE test failed",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*:rotating_light: Local CRE environment failed to start :rotating_light:*"
+                    "text": "*:rotating_light: Local CRE test failed :rotating_light:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Alerting <@U060CGGPY8H> local CRE environment failed to start for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
+                    "text": "Alerting <@U060CGGPY8H> local CRE test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop."
                   }
                 }
               ]
             }
-
-
-
-

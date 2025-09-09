@@ -8,6 +8,10 @@ type ChainSpecificAddressCodec interface {
 	AddressBytesToString([]byte) (string, error)
 	// AddressStringToBytes converts an address from string to bytes
 	AddressStringToBytes(string) ([]byte, error)
+	// OracleIDAsAddressBytes returns a valid address for this chain family with the bytes set to the given oracle ID.
+	OracleIDAsAddressBytes(oracleID uint8) ([]byte, error)
+	// TransmitterBytesToString converts a transmitter account from bytes to string
+	TransmitterBytesToString([]byte) (string, error)
 }
 
 // SourceChainExtraDataCodec is an interface for decoding source chain specific extra args and dest exec data into a map[string]any representation for a specific chain

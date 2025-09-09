@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"net/http"
 	"net/url"
 	"path"
@@ -12,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -90,8 +90,6 @@ var _ Task = (*BridgeTask)(nil)
 
 var zeroURL = new(url.URL)
 
-const stalenessCap = 30 * time.Minute
-
 func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
@@ -109,7 +107,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		cacheTTL          Uint64Param
 		reqHeaders        StringSliceParam
 	)
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
@@ -177,13 +175,6 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
-	// cacheTTL should not exceed stalenessCap.
-	cacheDuration := time.Duration(cacheTTL) * time.Second
-	if cacheDuration > stalenessCap {
-		lggr.Warnf("bridge task cacheTTL exceeds stalenessCap %s, overriding value to stalenessCap", stalenessCap)
-		cacheDuration = stalenessCap
-	}
-
 	var cachedResponse bool
 	responseBytes, statusCode, headers, start, finish, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	elapsed := finish.Sub(start)
@@ -207,9 +198,9 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 				bt.ResponseError = new(string)
 				*bt.ResponseError = err.Error()
 			}
-			if t.StreamID.Valid {
-				bt.StreamID = &t.StreamID.Uint32
-			}
+
+			bt.resolveStreamID(t, vars, lggr)
+
 			select {
 			case telemetryCh <- bt:
 			default:
@@ -240,7 +231,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		}
 
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetCachedResponse(overtimeCtx, t.dotID, t.specId, cacheDuration)
+		responseBytes, cacheErr = t.orm.GetCachedResponse(overtimeCtx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second) //nolint:gosec // G115
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
 			if !errors.Is(cacheErr, sql.ErrNoRows) {
@@ -296,6 +287,22 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		"cached", cachedResponse,
 	)
 	return result, runInfo
+}
+
+func (bt *BridgeTelemetry) resolveStreamID(t *BridgeTask, vars Vars, lggr logger.Logger) {
+	if t.StreamID.Valid {
+		bt.StreamID = &t.StreamID.Uint32
+	} else {
+		if streamID, sErr := vars.Get("jb.streamID"); sErr == nil {
+			if streamIDptr, ok := streamID.(*uint32); !ok {
+				lggr.Debugw("Bridge task: streamID from vars is not a *uint32", "streamID", streamID)
+			} else {
+				bt.StreamID = streamIDptr
+			}
+		} else {
+			lggr.Debugw("Bridge task: failed to get streamID from vars", "err", sErr)
+		}
+	}
 }
 
 func (t *BridgeTask) getBridgeURLFromName(ctx context.Context, name StringParam) (URLParam, error) {

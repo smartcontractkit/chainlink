@@ -2,10 +2,10 @@ package loader
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/graph-gophers/dataloader"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -18,25 +18,6 @@ import (
 
 // ErrInvalidType indicates that results loaded is not the type expected
 var ErrInvalidType = errors.New("invalid type")
-
-// GetChainByID fetches the chain by it's id.
-// Deprecated: use GetChainByRelayID.
-func GetChainByID(ctx context.Context, id string) (*chainlink.NetworkChainStatus, error) {
-	ldr := For(ctx)
-
-	thunk := ldr.ChainsByIDLoader.Load(ctx, dataloader.StringKey(id))
-	result, err := thunk()
-	if err != nil {
-		return nil, err
-	}
-
-	chain, ok := result.(chainlink.NetworkChainStatus)
-	if !ok {
-		return nil, ErrInvalidType
-	}
-
-	return &chain, nil
-}
 
 // GetChainByRelayID fetches the chain by it's relayId.
 func GetChainByRelayID(ctx context.Context, id string) (*chainlink.NetworkChainStatus, error) {
@@ -104,7 +85,7 @@ func GetJobRunsByIDs(ctx context.Context, ids []int64) ([]pipeline.Run, error) {
 	thunk := ldr.JobRunsByIDLoader.LoadMany(ctx, dataloader.NewKeysFromStrings(strIDs))
 	results, errs := thunk()
 	if errs != nil {
-		merr := multierr.Combine(errs...)
+		merr := stderrors.Join(errs...)
 
 		return nil, errors.Wrap(merr, "errors fetching runs")
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -51,6 +52,7 @@ var _ loop.Keystore = &EthSigner{}
 
 type EthSigner struct {
 	Eth
+	core.UnimplementedKeystore
 	chainID *big.Int
 }
 
@@ -156,7 +158,7 @@ func (ks *eth) Create(ctx context.Context, chainIDs ...*big.Int) (ethkey.KeyV2, 
 	if err != nil {
 		return ethkey.KeyV2{}, errors.Wrap(err, "unable to add eth key")
 	}
-	ks.logger.Infow("Created EVM key with ID "+key.Address.Hex(), "address", key.Address.Hex(), "evmChainIDs", chainIDs)
+	ks.announce(key)
 	return key, err
 }
 
@@ -183,7 +185,7 @@ func (ks *eth) EnsureKeys(ctx context.Context, chainIDs ...*big.Int) (err error)
 		if err != nil {
 			return fmt.Errorf("failed to add key %s for chain %s: %w", newKey.Address, chainID, err)
 		}
-		ks.logger.Infow("Created EVM key with ID "+newKey.Address.Hex(), "address", newKey.Address.Hex(), "evmChainID", chainID)
+		ks.announce(newKey)
 	}
 
 	return nil

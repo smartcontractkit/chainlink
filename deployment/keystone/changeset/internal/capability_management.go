@@ -10,6 +10,7 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -18,7 +19,7 @@ import (
 // AddCapabilities adds the capabilities to the registry
 //
 // It is idempotent. It deduplicates the input capabilities.
-func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain cldf.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*mcmstypes.BatchOperation, error) {
+func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain cldf_evm.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*mcmstypes.BatchOperation, error) {
 	if len(capabilities) == 0 {
 		return nil, nil
 	}
@@ -46,7 +47,7 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 	return nil, nil
 }
 
-func addCapabilitiesMCMSProposal(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability, regChain cldf.Chain) (*mcmstypes.BatchOperation, error) {
+func addCapabilitiesMCMSProposal(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability, regChain cldf_evm.Chain) (*mcmstypes.BatchOperation, error) {
 	tx, err := registry.AddCapabilities(cldf.SimTransactOpts(), caps)
 	if err != nil {
 		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)

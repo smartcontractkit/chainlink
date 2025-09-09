@@ -242,3 +242,7 @@ func (p *peer) HealthReport() map[string]error {
 func (p *peer) Name() string {
 	return p.lggr.Name()
 }
+
+func (p *peer) IsBootstrap() bool {
+	return p.isBootstrap
+}

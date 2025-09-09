@@ -27,11 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
 const (
@@ -393,10 +393,10 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, ur
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	httpRequest := clhttp.HTTPRequest{
+	httpRequest := clhttp.Request{
 		Client:  c.client,
 		Request: request,
-		Config:  clhttp.HTTPRequestConfig{SizeLimit: c.httpLimit},
+		Config:  clhttp.RequestConfig{SizeLimit: c.httpLimit},
 		Logger:  c.lggr.Named("HTTPRequest").With("url", url, "expectedSHA", hex.EncodeToString(expectedSha[:])),
 	}
 

@@ -12,4 +12,7 @@ type Telemetry interface {
 	EmitterBatchProcessor() bool
 	EmitterExportTimeout() time.Duration
 	ChipIngressEndpoint() string
+	ChipIngressInsecureConnection() bool
+	HeartbeatInterval() time.Duration
+	LogStreamingEnabled() bool
 }

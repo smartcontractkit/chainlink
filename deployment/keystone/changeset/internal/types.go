@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -14,6 +13,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -41,7 +41,7 @@ type DeployResponse struct {
 }
 
 type DeployRequest struct {
-	Chain cldf.Chain
+	Chain cldf_evm.Chain
 }
 
 type DonNode struct {
@@ -57,49 +57,6 @@ type CapabilityHost struct {
 type Nop struct {
 	capabilities_registry.CapabilitiesRegistryNodeOperator
 	NodeIDs []string // nodes run by this operator
-}
-
-func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
-	var aptosOcr2KeyBundleId string
-	var aptosOnchainPublicKey string
-	var aptosCC *deployment.OCRConfig
-	for details, cfg := range o.SelToOCRConfig {
-		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil && family == chainsel.FamilyAptos {
-			aptosCC = &cfg
-			break
-		}
-	}
-	if aptosCC != nil {
-		aptosOcr2KeyBundleId = aptosCC.KeyBundleID
-		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
-	}
-	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
-	if !exists {
-		panic(fmt.Sprintf("ocr2 config not found for chain selector %d", registryChainSel))
-	}
-	return NodeKeys{
-		EthAddress:            string(evmCC.TransmitAccount),
-		P2PPeerID:             strings.TrimPrefix(o.PeerID.String(), "p2p_"),
-		OCR2BundleID:          evmCC.KeyBundleID,
-		OCR2OffchainPublicKey: hex.EncodeToString(evmCC.OffchainPublicKey[:]),
-		OCR2OnchainPublicKey:  fmt.Sprintf("%x", evmCC.OnchainPublicKey[:]),
-		OCR2ConfigPublicKey:   hex.EncodeToString(evmCC.ConfigEncryptionPublicKey[:]),
-		CSAPublicKey:          o.CSAKey,
-		// default value of encryption public key is the CSA public key
-		// TODO: DEVSVCS-760
-		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
-		// TODO Aptos support. How will that be modeled in clo data?
-		// TODO: AptosAccount is unset but probably unused
-		AptosBundleID:         aptosOcr2KeyBundleId,
-		AptosOnchainPublicKey: aptosOnchainPublicKey,
-	}
-}
-func makeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeKeys {
-	var out []NodeKeys
-	for _, n := range nodes {
-		out = append(out, toNodeKeys(&n, registryChainSel))
-	}
-	return out
 }
 
 type NOP struct {
@@ -133,6 +90,14 @@ type DonCapabilities struct {
 	Capabilities []DONCapabilityWithConfig // every capability is hosted on each nop
 }
 
+func (v DonCapabilities) N() int {
+	out := 0
+	for _, n := range v.Nops {
+		out += len(n.Nodes)
+	}
+	return out
+}
+
 type DONCapabilityWithConfig struct {
 	Capability kcr.CapabilitiesRegistryCapability
 	Config     *capabilitiespb.CapabilityConfig
@@ -163,7 +128,7 @@ func NodeOperator(name string, adminAddress string) capabilities_registry.Capabi
 	}
 }
 
-func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint64) (map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string, error) {
+func NopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint64) (map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string, error) {
 	out := make(map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string)
 	for _, don := range dons {
 		for _, nop := range don.Nops {
@@ -198,14 +163,14 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 	return out, nil
 }
 
-func mapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[string][]RegisteredCapability, error) {
+func MapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[string][]RegisteredCapability, error) {
 	out := make(map[string][]RegisteredCapability)
 	for _, don := range dons {
 		var caps []RegisteredCapability
 		for _, c := range don.Capabilities {
 			id, err := registry.GetHashedCapabilityId(nil, c.Capability.LabelledName, c.Capability.Version)
 			if err != nil {
-				return nil, fmt.Errorf("failed to call GetHashedCapabilityId: %w", err)
+				return nil, fmt.Errorf("failed to call GetHashedCapabilityId for %s: %w", c.Capability.LabelledName, err)
 			}
 			caps = append(caps, RegisteredCapability{
 				ID:                             id,
@@ -218,9 +183,9 @@ func mapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[stri
 	return out, nil
 }
 
-// mapDonsToNodes returns a map of don name to simplified representation of their nodes
+// MapDonsToNodes returns a map of don name to simplified representation of their nodes
 // all nodes must have evm config and ocr3 capability nodes are must also have an aptos chain config
-func mapDonsToNodes(dons []DonInfo, excludeBootstraps bool, registryChainSel uint64) (map[string][]deployment.Node, error) {
+func MapDonsToNodes(dons []DonInfo, excludeBootstraps bool, registryChainSel uint64) (map[string][]deployment.Node, error) {
 	donToNodes := make(map[string][]deployment.Node)
 	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c
 	// they are equivalent
@@ -251,21 +216,28 @@ type RegisteredDonConfig struct {
 	Name             string
 	NodeIDs          []string // ids in the offchain client
 	RegistryChainSel uint64
+	Registry         *capabilities_registry.CapabilitiesRegistry
 }
 
 func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
-	// load the don info from the capabilities registry
-	r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-	capReg := r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
+	var (
+		err    error
+		capReg = cfg.Registry
+	)
 
-	if capReg == nil {
-		return nil, errors.New("capabilities registry not found in contract sets")
+	if cfg.Registry == nil {
+		// load the don info from the capabilities registry
+		r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+			Chains:      env.BlockChains.EVMChains(),
+			AddressBook: env.ExistingAddresses,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get contract sets: %w", err)
+		}
+		capReg = r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
+		if capReg == nil {
+			return nil, errors.New("capabilities registry not found in contract sets")
+		}
 	}
 
 	di, err := capReg.GetDONs(nil)
@@ -327,11 +299,11 @@ func (d RegisteredDon) Signers(chainFamily string) []common.Address {
 	return out
 }
 
-func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonInfo, registryChainSel uint64) ([]RegisteredDon, error) {
+func JoinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonInfo, registryChainSel uint64) ([]RegisteredDon, error) {
 	// all maps should have the same keys
-	nodes, err := mapDonsToNodes(dons, true, registryChainSel)
+	nodes, err := MapDonsToNodes(dons, true, registryChainSel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to map dons to capabilities: %w", err)
+		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
 	}
 	if len(donInfos) != len(nodes) {
 		return nil, fmt.Errorf("mismatched lengths don infos %d,  nodes %d", len(donInfos), len(nodes))

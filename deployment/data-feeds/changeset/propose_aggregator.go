@@ -17,7 +17,7 @@ import (
 var ProposeAggregatorChangeset = cldf.CreateChangeSet(proposeAggregatorLogic, proposeAggregatorPrecondition)
 
 func proposeAggregatorLogic(env cldf.Environment, c types.ProposeConfirmAggregatorConfig) (cldf.ChangesetOutput, error) {
-	chain := env.Chains[c.ChainSelector]
+	chain := env.BlockChains.EVMChains()[c.ChainSelector]
 
 	aggregatorProxy, err := proxy.NewAggregatorProxy(c.ProxyAddress, chain.Client)
 	if err != nil {
@@ -55,13 +55,13 @@ func proposeAggregatorLogic(env cldf.Environment, c types.ProposeConfirmAggregat
 }
 
 func proposeAggregatorPrecondition(env cldf.Environment, c types.ProposeConfirmAggregatorConfig) error {
-	_, ok := env.Chains[c.ChainSelector]
+	_, ok := env.BlockChains.EVMChains()[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 
 	if c.McmsConfig != nil {
-		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
+		if err := ValidateMCMSAddresses(env.DataStore.Addresses(), c.ChainSelector); err != nil {
 			return err
 		}
 	}

@@ -7,13 +7,16 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	deployment2 "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -41,7 +44,7 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 		sender common.Address,
 		externalAdmin common.Address,
 		symbol shared.TokenSymbol,
-		chain cldf.Chain,
+		chain cldf_evm.Chain,
 	) error,
 ) error {
 	state, err := stateview.LoadOnchainState(env)
@@ -57,11 +60,11 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
-		chain, ok := env.Chains[chainSelector]
+		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in environment", chainSelector)
 		}
-		chainState, ok := state.Chains[chainSelector]
+		chainState, ok := state.EVMChainState(chainSelector)
 		if !ok {
 			return fmt.Errorf("%s does not exist in state", chain)
 		}
@@ -131,7 +134,7 @@ func (t TokenPoolInfo) Validate() error {
 func (t TokenPoolInfo) GetConfigOnRegistry(
 	ctx context.Context,
 	symbol shared.TokenSymbol,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	state evm.CCIPChainState,
 ) (token_admin_registry.TokenAdminRegistryTokenConfig, error) {
 	_, tokenAddress, err := t.GetPoolAndTokenAddress(ctx, symbol, chain, state)
@@ -150,7 +153,7 @@ func (t TokenPoolInfo) GetConfigOnRegistry(
 func (t TokenPoolInfo) GetPoolAndTokenAddress(
 	ctx context.Context,
 	symbol shared.TokenSymbol,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	state evm.CCIPChainState,
 ) (*token_pool.TokenPool, common.Address, error) {
 	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, t.Type, t.Version)
@@ -171,7 +174,7 @@ func (t TokenPoolInfo) GetPoolAndTokenAddress(
 // GetTokenPoolAddressFromSymbolTypeAndVersion returns the token pool address in the environment linked to a particular symbol, type, and version
 func GetTokenPoolAddressFromSymbolTypeAndVersion(
 	chainState evm.CCIPChainState,
-	chain cldf.Chain,
+	chain cldf_evm.Chain,
 	symbol shared.TokenSymbol,
 	poolType deployment2.ContractType,
 	version semver.Version,
@@ -179,6 +182,24 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 	switch poolType {
 	case shared.BurnMintTokenPool:
 		if tokenPools, ok := chainState.BurnMintTokenPools[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
+	case shared.BurnMintFastTransferTokenPool:
+		if tokenPools, ok := chainState.BurnMintFastTransferTokenPools[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
+	case shared.BurnMintWithExternalMinterFastTransferTokenPool:
+		if tokenPools, ok := chainState.BurnMintWithExternalMinterFastTransferTokenPools[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
+	case shared.HybridWithExternalMinterFastTransferTokenPool:
+		if tokenPools, ok := chainState.HybridWithExternalMinterFastTransferTokenPools[symbol]; ok {
 			if tokenPool, ok := tokenPools[version]; ok {
 				return tokenPool.Address(), true
 			}
@@ -202,12 +223,34 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 			}
 		}
 	case shared.USDCTokenPool:
+		if version == deployment.Version1_6_2 {
+			if tokenPool, ok := chainState.USDCTokenPoolsV1_6[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
 		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
 			return tokenPool.Address(), true
 		}
 	case shared.HybridLockReleaseUSDCTokenPool:
+		if version == deployment.Version1_6_2 {
+			if tokenPool, ok := chainState.USDCTokenPoolsV1_6[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
 		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
 			return tokenPool.Address(), true
+		}
+	case shared.BurnMintWithExternalMinterTokenPool:
+		if tokenPools, ok := chainState.BurnMintWithExternalMinterTokenPool[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
+	case shared.HybridWithExternalMinterTokenPool:
+		if tokenPools, ok := chainState.HybridWithExternalMinterTokenPool[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
 		}
 	}
 

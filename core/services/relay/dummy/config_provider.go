@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -63,7 +63,7 @@ type configProvider struct {
 }
 
 func NewConfigProvider(lggr logger.Logger, cfg RelayConfig) (types.ConfigProvider, error) {
-	cp := &configProvider{lggr: lggr.Named("DummyConfigProvider").Named(cfg.ConfigTracker.ConfigDigest.String())}
+	cp := &configProvider{lggr: logger.Sugared(lggr).Named("DummyConfigProvider").Named(cfg.ConfigTracker.ConfigDigest.String())}
 
 	{
 		contractConfig, err := cfg.ConfigTracker.ToContractConfig()

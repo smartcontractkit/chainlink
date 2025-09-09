@@ -1,6 +1,7 @@
 package blockhashstore_test
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -10,11 +11,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -88,7 +89,13 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	delegate, testData := createTestDelegate(t)
 
 	require.NotEmpty(t, testData.legacyChains.Slice())
-	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
+	chain, ok := testData.legacyChains.Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
+	finalityDepth := chain.Config().EVM().FinalityDepth()
+	if finalityDepth > math.MaxInt32 {
+		t.Fatalf("finality depth overflows int32: %d", finalityDepth)
+	}
+	defaultWaitBlocks := (int32)(finalityDepth)
 
 	t.Run("happy", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*big.Big)(testutils.FixtureChainID)}}
@@ -149,7 +156,14 @@ func TestDelegate_StartStop(t *testing.T) {
 	delegate, testData := createTestDelegate(t)
 
 	require.NotEmpty(t, testData.legacyChains.Slice())
-	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
+	chain, ok := testData.legacyChains.Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
+
+	finalityDepth := chain.Config().EVM().FinalityDepth()
+	if finalityDepth > math.MaxInt32 {
+		t.Fatalf("finality depth overflows int32: %d", finalityDepth)
+	}
+	defaultWaitBlocks := (int32)(finalityDepth)
 	spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,

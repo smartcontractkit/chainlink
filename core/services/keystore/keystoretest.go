@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -51,8 +50,8 @@ func newInMemoryORM(ds sqlutil.DataSource) *memoryORM {
 
 // NewInMemory sets up a keystore which NOOPs attempts to access the `encrypted_key_rings` table. Accessing `evm.key_states`
 // will still hit the DB.
-func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
-	dbORM := NewORM(ds, lggr)
+func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, logf Logf) *master {
+	dbORM := NewORM(ds)
 	memoryORM := newInMemoryORM(ds)
 
 	km := &keyManager{
@@ -60,22 +59,24 @@ func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr lo
 		keystateORM:  dbORM,
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
-		logger:       lggr.Named("KeyStore"),
+		announce:     announcer(logf),
 	}
 
 	return &master{
-		keyManager: km,
-		cosmos:     newCosmosKeyStore(km),
-		csa:        newCSAKeyStore(km),
-		eth:        newEthKeyStore(km, dbORM, ds),
-		ocr:        newOCRKeyStore(km),
-		ocr2:       newOCR2KeyStore(km),
-		p2p:        newP2PKeyStore(km),
-		solana:     newSolanaKeyStore(km),
-		starknet:   newStarkNetKeyStore(km),
-		aptos:      newAptosKeyStore(km),
-		tron:       newTronKeyStore(km),
-		vrf:        newVRFKeyStore(km),
-		workflow:   newWorkflowKeyStore(km),
+		keyManager:   km,
+		cosmos:       newCosmosKeyStore(km),
+		csa:          newCSAKeyStore(km),
+		eth:          newEthKeyStore(km, dbORM, ds),
+		ocr:          newOCRKeyStore(km),
+		ocr2:         newOCR2KeyStore(km),
+		p2p:          newP2PKeyStore(km),
+		solana:       newSolanaKeyStore(km),
+		starknet:     newStarkNetKeyStore(km),
+		aptos:        newAptosKeyStore(km),
+		tron:         newTronKeyStore(km),
+		ton:          newTONKeyStore(km),
+		vrf:          newVRFKeyStore(km),
+		workflow:     newWorkflowKeyStore(km),
+		dkgRecipient: newDKGRecipientKeyStore(km),
 	}
 }

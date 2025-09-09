@@ -14,12 +14,14 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ cldf.ChangeSet[DeployForwarderRequest] = DeployForwarder
 
 type DeployForwarderRequest struct {
+	Qualifier      string
 	ChainSelectors []uint64 // filter to only deploy to these chains; if empty, deploy to all chains
 }
 
@@ -31,11 +33,13 @@ func DeployForwarderX(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Ch
 	lggr := env.Logger
 	ab := cldf.NewMemoryAddressBook()
 	selectors := cfg.ChainSelectors
+	evmChains := env.BlockChains.EVMChains()
+
 	if len(selectors) == 0 {
-		selectors = slices.Collect(maps.Keys(env.Chains))
+		selectors = slices.Collect(maps.Keys(evmChains))
 	}
 	for _, sel := range selectors {
-		chain, ok := env.Chains[sel]
+		chain, ok := evmChains[sel]
 		if !ok {
 			return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", sel)
 		}
@@ -53,17 +57,18 @@ func DeployForwarderX(env cldf.Environment, cfg DeployForwarderRequest) (cldf.Ch
 func DeployForwarder(env cldf.Environment, cfg DeployForwarderRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 	out.AddressBook = cldf.NewMemoryAddressBook() //nolint:staticcheck // TODO CRE-400
-	out.DataStore = datastore.NewMemoryDataStore[datastore.DefaultMetadata, datastore.DefaultMetadata]()
+	out.DataStore = datastore.NewMemoryDataStore()
 
 	selectors := cfg.ChainSelectors
 	if len(selectors) == 0 {
-		selectors = slices.Collect(maps.Keys(env.Chains))
+		selectors = slices.Collect(maps.Keys(env.BlockChains.EVMChains()))
 	}
 
 	for _, sel := range selectors {
 		req := &DeployRequestV2{
-			ChainSel: sel,
-			deployFn: internal.DeployForwarder,
+			ChainSel:  sel,
+			Qualifier: cfg.Qualifier,
+			deployFn:  internal.DeployForwarder,
 		}
 		csOut, err := deploy(env, req)
 		if err != nil {
@@ -111,6 +116,7 @@ func (r ConfigureForwardContractsRequest) UseMCMS() bool {
 	return r.MCMSConfig != nil
 }
 
+// TODO: use crefowarder.ConfigureOP instead of internal.ConfigureForwardContracts
 func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContractsRequest) (cldf.ChangesetOutput, error) {
 	wfDon, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
 		NodeIDs:          req.WFNodeIDs,
@@ -139,7 +145,7 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 			if !ok {
 				return out, fmt.Errorf("expected configured forwarder address for chain selector %d", chainSelector)
 			}
-			fwr, err := GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.Chains[chainSelector], fwrAddr.String())
+			fwr, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](env.DataStore.Addresses(), env.BlockChains.EVMChains()[chainSelector], fwrAddr.String())
 			if err != nil {
 				return out, fmt.Errorf("failed to get forwarder contract for chain selector %d: %w", chainSelector, err)
 			}

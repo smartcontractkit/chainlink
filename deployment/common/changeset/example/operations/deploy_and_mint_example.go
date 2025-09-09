@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
@@ -33,7 +34,7 @@ type SqDeployLinkOutput struct {
 
 type EthereumDeps struct {
 	Auth  *bind.TransactOpts
-	Chain cldf.Chain
+	Chain cldf_evm.Chain
 	AB    cldf.AddressBook
 }
 
@@ -45,13 +46,13 @@ func (l DeployAndMintExampleChangeset) VerifyPreconditions(e cldf.Environment, c
 }
 
 func (l DeployAndMintExampleChangeset) Apply(e cldf.Environment, config SqDeployLinkInput) (cldf.ChangesetOutput, error) {
-	auth := e.Chains[config.ChainID].DeployerKey
+	auth := e.BlockChains.EVMChains()[config.ChainID].DeployerKey
 	ab := cldf.NewMemoryAddressBook()
 
 	// build your custom dependencies needed in the sequence/operation
 	deps := EthereumDeps{
 		Auth:  auth,
-		Chain: e.Chains[config.ChainID],
+		Chain: e.BlockChains.EVMChains()[config.ChainID],
 		AB:    ab,
 	}
 

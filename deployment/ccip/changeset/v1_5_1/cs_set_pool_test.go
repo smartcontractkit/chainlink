@@ -21,7 +21,7 @@ import (
 func TestSetPoolChangeset_Validations(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
@@ -107,7 +107,7 @@ func TestSetPoolChangeset_Validations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			_, err := commonchangeset.Apply(t, e, timelockContracts,
+			_, err := commonchangeset.Apply(t, e,
 				commonchangeset.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
 					test.Config,
@@ -127,7 +127,7 @@ func TestSetPoolChangeset_Execution(t *testing.T) {
 		}
 
 		t.Run(msg, func(t *testing.T) {
-			e, selectorA, selectorB, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
+			e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
 
 			e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 				selectorA: {
@@ -148,68 +148,64 @@ func TestSetPoolChangeset_Execution(t *testing.T) {
 			registryOnA := state.Chains[selectorA].TokenAdminRegistry
 			registryOnB := state.Chains[selectorB].TokenAdminRegistry
 
-			_, err = commonchangeset.Apply(t, e, timelockContracts,
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
-					v1_5_1.TokenAdminRegistryChangesetConfig{
-						MCMS: mcmsConfig,
-						Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-							selectorA: {
-								testhelpers.TestTokenSymbol: {
-									Type:    shared.BurnMintTokenPool,
-									Version: deployment.Version1_5_1,
-								},
+			_, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+				v1_5_1.TokenAdminRegistryChangesetConfig{
+					MCMS: mcmsConfig,
+					Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+						selectorA: {
+							testhelpers.TestTokenSymbol: {
+								Type:    shared.BurnMintTokenPool,
+								Version: deployment.Version1_5_1,
 							},
-							selectorB: {
-								testhelpers.TestTokenSymbol: {
-									Type:    shared.BurnMintTokenPool,
-									Version: deployment.Version1_5_1,
-								},
+						},
+						selectorB: {
+							testhelpers.TestTokenSymbol: {
+								Type:    shared.BurnMintTokenPool,
+								Version: deployment.Version1_5_1,
 							},
 						},
 					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
-					v1_5_1.TokenAdminRegistryChangesetConfig{
-						MCMS: mcmsConfig,
-						Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-							selectorA: {
-								testhelpers.TestTokenSymbol: {
-									Type:    shared.BurnMintTokenPool,
-									Version: deployment.Version1_5_1,
-								},
+				},
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+				v1_5_1.TokenAdminRegistryChangesetConfig{
+					MCMS: mcmsConfig,
+					Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+						selectorA: {
+							testhelpers.TestTokenSymbol: {
+								Type:    shared.BurnMintTokenPool,
+								Version: deployment.Version1_5_1,
 							},
-							selectorB: {
-								testhelpers.TestTokenSymbol: {
-									Type:    shared.BurnMintTokenPool,
-									Version: deployment.Version1_5_1,
-								},
+						},
+						selectorB: {
+							testhelpers.TestTokenSymbol: {
+								Type:    shared.BurnMintTokenPool,
+								Version: deployment.Version1_5_1,
 							},
 						},
 					},
-				),
-				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
-					v1_5_1.TokenAdminRegistryChangesetConfig{
-						MCMS: mcmsConfig,
-						Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
-							selectorA: {
-								testhelpers.TestTokenSymbol: {
-									Type:    shared.BurnMintTokenPool,
-									Version: deployment.Version1_5_1,
-								},
+				},
+			), commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
+				v1_5_1.TokenAdminRegistryChangesetConfig{
+					MCMS: mcmsConfig,
+					Pools: map[uint64]map[shared.TokenSymbol]v1_5_1.TokenPoolInfo{
+						selectorA: {
+							testhelpers.TestTokenSymbol: {
+								Type:    shared.BurnMintTokenPool,
+								Version: deployment.Version1_5_1,
 							},
-							selectorB: {
-								testhelpers.TestTokenSymbol: {
-									Type:    shared.BurnMintTokenPool,
-									Version: deployment.Version1_5_1,
-								},
+						},
+						selectorB: {
+							testhelpers.TestTokenSymbol: {
+								Type:    shared.BurnMintTokenPool,
+								Version: deployment.Version1_5_1,
 							},
 						},
 					},
-				),
-			)
+				},
+			))
 			require.NoError(t, err)
 
 			configOnA, err := registryOnA.GetTokenConfig(nil, tokens[selectorA].Address)

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -40,28 +39,31 @@ type Core struct {
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
-	Feature          Feature          `toml:",omitempty"`
-	Database         Database         `toml:",omitempty"`
-	TelemetryIngress TelemetryIngress `toml:",omitempty"`
-	AuditLogger      AuditLogger      `toml:",omitempty"`
-	Log              Log              `toml:",omitempty"`
-	WebServer        WebServer        `toml:",omitempty"`
-	JobPipeline      JobPipeline      `toml:",omitempty"`
-	FluxMonitor      FluxMonitor      `toml:",omitempty"`
-	OCR2             OCR2             `toml:",omitempty"`
-	OCR              OCR              `toml:",omitempty"`
-	P2P              P2P              `toml:",omitempty"`
-	Keeper           Keeper           `toml:",omitempty"`
-	AutoPprof        AutoPprof        `toml:",omitempty"`
-	Pyroscope        Pyroscope        `toml:",omitempty"`
-	Sentry           Sentry           `toml:",omitempty"`
-	Insecure         Insecure         `toml:",omitempty"`
-	Tracing          Tracing          `toml:",omitempty"`
-	Mercury          Mercury          `toml:",omitempty"`
-	Capabilities     Capabilities     `toml:",omitempty"`
-	Telemetry        Telemetry        `toml:",omitempty"`
-	Workflows        Workflows        `toml:",omitempty"`
-	CRE              CreConfig        `toml:",omitempty"`
+	Feature              Feature              `toml:",omitempty"`
+	Database             Database             `toml:",omitempty"`
+	TelemetryIngress     TelemetryIngress     `toml:",omitempty"`
+	AuditLogger          AuditLogger          `toml:",omitempty"`
+	Log                  Log                  `toml:",omitempty"`
+	WebServer            WebServer            `toml:",omitempty"`
+	JobDistributor       JobDistributor       `toml:",omitempty"`
+	JobPipeline          JobPipeline          `toml:",omitempty"`
+	FluxMonitor          FluxMonitor          `toml:",omitempty"`
+	OCR2                 OCR2                 `toml:",omitempty"`
+	OCR                  OCR                  `toml:",omitempty"`
+	P2P                  P2P                  `toml:",omitempty"`
+	Keeper               Keeper               `toml:",omitempty"`
+	AutoPprof            AutoPprof            `toml:",omitempty"`
+	Pyroscope            Pyroscope            `toml:",omitempty"`
+	Sentry               Sentry               `toml:",omitempty"`
+	Insecure             Insecure             `toml:",omitempty"`
+	Tracing              Tracing              `toml:",omitempty"`
+	Mercury              Mercury              `toml:",omitempty"`
+	Capabilities         Capabilities         `toml:",omitempty"`
+	Telemetry            Telemetry            `toml:",omitempty"`
+	Workflows            Workflows            `toml:",omitempty"`
+	CRE                  CreConfig            `toml:",omitempty"`
+	Billing              Billing              `toml:",omitempty"`
+	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -101,24 +103,27 @@ func (c *Core) SetFrom(f *Core) {
 	c.Pyroscope.setFrom(&f.Pyroscope)
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
+	c.JobDistributor.setFrom(&f.JobDistributor)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
 	c.CRE.setFrom(&f.CRE)
+	c.Billing.setFrom(&f.Billing)
+	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
 }
 
 func (c *Core) ValidateConfig() (err error) {
 	_, verr := parse.HomeDir(*c.RootDir)
 	if verr != nil {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
 	}
 
 	if (*c.OCR.Enabled || *c.OCR2.Enabled) && !*c.P2P.V2.Enabled {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "P2P.V2.Enabled", Value: false, Msg: "P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2."})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "P2P.V2.Enabled", Value: false, Msg: "P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2."})
 	}
 
 	if *c.Tracing.Enabled && *c.Telemetry.Enabled {
 		if c.Tracing.CollectorTarget == c.Telemetry.Endpoint {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "Tracing.CollectorTarget", Value: *c.Tracing.CollectorTarget, Msg: "Same as Telemetry.Endpoint. Must be different or disabled."})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "Tracing.CollectorTarget", Value: *c.Tracing.CollectorTarget, Msg: "Same as Telemetry.Endpoint. Must be different or disabled."})
 		}
 	}
 
@@ -134,8 +139,101 @@ type Secrets struct {
 	Mercury    MercurySecrets           `toml:",omitempty"`
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
-	P2PKey     P2PKey                   `toml:",omitempty"`
-	CRE        CreSecrets               `toml:",omitempty"`
+	Solana     SolKeys                  `toml:",omitempty"` // choose Solana as the TOML field name to align with relayer config convention
+
+	P2PKey P2PKey     `toml:",omitempty"`
+	CRE    CreSecrets `toml:",omitempty"`
+}
+
+type SolKeys struct {
+	Keys []*SolKey
+}
+
+type SolKey struct {
+	JSON     *models.Secret
+	ID       *string
+	Password *models.Secret
+}
+
+func (s *SolKeys) SetFrom(f *SolKeys) error {
+	err := s.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if f == nil || len(f.Keys) == 0 {
+		return nil
+	}
+	s.Keys = make([]*SolKey, len(f.Keys))
+	copy(s.Keys, f.Keys)
+	return nil
+}
+
+func (s *SolKeys) validateMerge(f *SolKeys) (err error) {
+	have := make(map[string]struct{})
+	if s != nil && f != nil {
+		for _, solKey := range s.Keys {
+			have[*solKey.ID] = struct{}{}
+		}
+		for _, solKey := range f.Keys {
+			if _, ok := have[*solKey.ID]; ok {
+				err = errors.Join(err, configutils.ErrOverride{Name: "SolKeys: " + *solKey.ID})
+			}
+		}
+	}
+	return err
+}
+
+func (s *SolKeys) ValidateConfig() (err error) {
+	for i, solKey := range s.Keys {
+		if err2 := solKey.ValidateConfig(); err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: fmt.Sprintf("SolKeys[%d]", i), Value: solKey, Msg: "invalid SolKey"})
+		}
+	}
+	return err
+}
+
+func (e *SolKey) SetFrom(f *SolKey) (err error) {
+	err = e.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		e.JSON = v
+	}
+	if v := f.Password; v != nil {
+		e.Password = v
+	}
+	if v := f.ID; v != nil {
+		e.ID = v
+	}
+	return nil
+}
+
+func (e *SolKey) validateMerge(f *SolKey) (err error) {
+	if e.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "PrivateKey"})
+	}
+	if e.ID != nil && f.ID != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Selector"})
+	}
+	if e.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (e *SolKey) ValidateConfig() (err error) {
+	if (e.JSON != nil) != (e.Password != nil) && (e.Password != nil) != (e.ID != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "SolKey", Value: e.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	// require valid id
+	if e.ID != nil {
+		_, err2 := chain_selectors.SolanaNameFromChainId(*e.ID)
+		if err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "ChainID", Value: e.ID, Msg: "invalid chain id"})
+		}
+	}
+	return err
 }
 
 type EthKeys struct {
@@ -163,7 +261,7 @@ func (e *EthKeys) validateMerge(f *EthKeys) (err error) {
 		}
 		for _, ethKey := range f.Keys {
 			if _, ok := have[*ethKey.ID]; ok {
-				err = multierr.Append(err, configutils.ErrOverride{Name: fmt.Sprintf("EthKeys: %d", *ethKey.ID)})
+				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("EthKeys: %d", *ethKey.ID)})
 			}
 		}
 	}
@@ -173,7 +271,7 @@ func (e *EthKeys) validateMerge(f *EthKeys) (err error) {
 func (e *EthKeys) ValidateConfig() (err error) {
 	for i, ethKey := range e.Keys {
 		if err2 := ethKey.ValidateConfig(); err2 != nil {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: fmt.Sprintf("EthKeys[%d]", i), Value: ethKey, Msg: "invalid EthKey"})
+			err = errors.Join(err, configutils.ErrInvalid{Name: fmt.Sprintf("EthKeys[%d]", i), Value: ethKey, Msg: "invalid EthKey"})
 		}
 	}
 	return err
@@ -220,17 +318,17 @@ func (d *DatabaseSecrets) ValidateConfig() (err error) {
 
 func (d *DatabaseSecrets) validateConfig(buildMode string) (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
-		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
+		err = errors.Join(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if *d.AllowSimplePasswords && buildMode == build.Prod {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	} else if !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
 	if d.BackupURL != nil && !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.BackupURL)); verr != nil {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
 	return err
@@ -256,15 +354,15 @@ func (d *DatabaseSecrets) SetFrom(f *DatabaseSecrets) (err error) {
 
 func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 	if d.AllowSimplePasswords != nil && f.AllowSimplePasswords != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "AllowSimplePasswords"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "AllowSimplePasswords"})
 	}
 
 	if d.BackupURL != nil && f.BackupURL != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "BackupURL"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "BackupURL"})
 	}
 
 	if d.URL != nil && f.URL != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "URL"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "URL"})
 	}
 
 	return err
@@ -295,26 +393,26 @@ func (e *EthKey) SetFrom(f *EthKey) (err error) {
 
 func (e *EthKey) validateMerge(f *EthKey) (err error) {
 	if e.JSON != nil && f.JSON != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "PrivateKey"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "PrivateKey"})
 	}
 	if e.ID != nil && f.ID != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "Selector"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "Selector"})
 	}
 	if e.Password != nil && f.Password != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "Password"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
 	}
 	return err
 }
 
 func (e *EthKey) ValidateConfig() (err error) {
 	if (e.JSON != nil) != (e.Password != nil) && (e.Password != nil) != (e.ID != nil) {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "EthKey", Value: e.JSON, Msg: "all fields must be nil or non-nil"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "EthKey", Value: e.JSON, Msg: "all fields must be nil or non-nil"})
 	}
 	// require valid id
 	if e.ID != nil {
 		_, ok := chain_selectors.ChainByEvmChainID(uint64(*e.ID)) //nolint:gosec // disable G115
 		if !ok {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "ChainSelector", Value: e.ID, Msg: "invalid chain selector"})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "ChainSelector", Value: e.ID, Msg: "invalid chain selector"})
 		}
 	}
 	return err
@@ -340,17 +438,17 @@ func (p *P2PKey) SetFrom(f *P2PKey) (err error) {
 }
 func (p *P2PKey) validateMerge(f *P2PKey) (err error) {
 	if p.JSON != nil && f.JSON != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "JSON"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
 	}
 	if p.Password != nil && f.Password != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "Password"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
 	}
 	return err
 }
 
 func (p *P2PKey) ValidateConfig() (err error) {
 	if (p.JSON != nil) != (p.Password != nil) {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "P2PKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "P2PKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
 	}
 	return err
 }
@@ -378,11 +476,11 @@ func (p *Passwords) SetFrom(f *Passwords) (err error) {
 
 func (p *Passwords) validateMerge(f *Passwords) (err error) {
 	if p.Keystore != nil && f.Keystore != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "Keystore"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "Keystore"})
 	}
 
 	if p.VRF != nil && f.VRF != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "VRF"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "VRF"})
 	}
 
 	return err
@@ -390,7 +488,7 @@ func (p *Passwords) validateMerge(f *Passwords) (err error) {
 
 func (p *Passwords) ValidateConfig() (err error) {
 	if p.Keystore == nil || *p.Keystore == "" {
-		err = multierr.Append(err, configutils.ErrEmpty{Name: "Keystore", Msg: "must be provided and non-empty"})
+		err = errors.Join(err, configutils.ErrEmpty{Name: "Keystore", Msg: "must be provided and non-empty"})
 	}
 	return err
 }
@@ -414,7 +512,7 @@ func (p *PyroscopeSecrets) SetFrom(f *PyroscopeSecrets) (err error) {
 
 func (p *PyroscopeSecrets) validateMerge(f *PyroscopeSecrets) (err error) {
 	if p.AuthToken != nil && f.AuthToken != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "AuthToken"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "AuthToken"})
 	}
 
 	return err
@@ -439,7 +537,7 @@ func (p *PrometheusSecrets) SetFrom(f *PrometheusSecrets) (err error) {
 
 func (p *PrometheusSecrets) validateMerge(f *PrometheusSecrets) (err error) {
 	if p.AuthToken != nil && f.AuthToken != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "AuthToken"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "AuthToken"})
 	}
 
 	return err
@@ -547,7 +645,7 @@ func (l *DatabaseLock) Mode() string {
 
 func (l *DatabaseLock) ValidateConfig() (err error) {
 	if l.LeaseRefreshInterval.Duration() > l.LeaseDuration.Duration()/2 {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval.String(),
+		err = errors.Join(err, configutils.ErrInvalid{Name: "LeaseRefreshInterval", Value: l.LeaseRefreshInterval.String(),
 			Msg: fmt.Sprintf("must be less than or equal to half of LeaseDuration (%s)", l.LeaseDuration.String())})
 	}
 	return
@@ -747,6 +845,7 @@ type WebServer struct {
 	ListenIP                *net.IP
 
 	LDAP      WebServerLDAP      `toml:",omitempty"`
+	OIDC      WebServerOIDC      `toml:",omitempty"`
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
 	TLS       WebServerTLS       `toml:",omitempty"`
@@ -791,42 +890,78 @@ func (w *WebServer) setFrom(f *WebServer) {
 	}
 
 	w.LDAP.setFrom(&f.LDAP)
+	w.OIDC.setFrom(&f.OIDC)
 	w.MFA.setFrom(&f.MFA)
 	w.RateLimit.setFrom(&f.RateLimit)
 	w.TLS.setFrom(&f.TLS)
 }
 
 func (w *WebServer) ValidateConfig() (err error) {
-	// Validate LDAP fields when authentication method is LDAPAuth
-	if *w.AuthenticationMethod != string(sessions.LDAPAuth) {
-		return
+	switch *w.AuthenticationMethod {
+	case string(sessions.LDAPAuth):
+		// Assert LDAP fields when AuthMethod set to LDAP
+		if *w.LDAP.BaseDN == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
+		}
+		if *w.LDAP.BaseUserAttr == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
+		}
+		if *w.LDAP.UsersDN == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
+		}
+		if *w.LDAP.GroupsDN == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
+		}
+		if *w.LDAP.AdminUserGroupCN == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.EditUserGroupCN == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.RunUserGroupCN == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.ReadUserGroupCN == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		}
+		return err
+	case string(sessions.OIDCAuth):
+		if w.OIDC.ClientID == nil || *w.OIDC.ClientID == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.ClientID", Msg: "OIDC ClientID can not be empty"})
+		}
+		if w.OIDC.ProviderURL == nil || *w.OIDC.ProviderURL == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.ProviderURL", Msg: "OIDC ProviderURL can not be empty"})
+		}
+		if w.OIDC.RedirectURL == nil || *w.OIDC.RedirectURL == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.RedirectURL", Msg: "OIDC RedirectURL can not be empty"})
+		}
+		if w.OIDC.ClaimName == nil || *w.OIDC.ClaimName == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.ClaimName", Msg: "OIDC ClaimName can not be empty"})
+		}
+		if w.OIDC.AdminClaim == nil || *w.OIDC.AdminClaim == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.AdminClaim", Msg: "OIDC AdminClaim can not be empty"})
+		}
+		if w.OIDC.EditClaim == nil || *w.OIDC.EditClaim == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.EditClaim", Msg: "OIDC EditClaim can not be empty"})
+		}
+		if w.OIDC.RunClaim == nil || *w.OIDC.RunClaim == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.RunClaim", Msg: "OIDC RunClaim can not be empty"})
+		}
+		if w.OIDC.ReadClaim == nil || *w.OIDC.ReadClaim == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.ReadClaim", Msg: "OIDC ReadClaim can not be empty"})
+		}
+		if w.OIDC.SessionTimeout == commonconfig.MustNewDuration(0) {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.SessionTimeout", Msg: "OIDC SessionTimeout can not be empty"})
+		}
+		if w.OIDC.UserAPITokenEnabled == nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.UserAPITokenEnabled", Msg: "OIDC UserAPITokenEnabled can not be empty"})
+		}
+		if w.OIDC.UserAPITokenDuration == commonconfig.MustNewDuration(0) {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "OIDC.UserAPITokenDuration", Msg: "OIDC UserAPITokenDuration can not be empty"})
+		}
+		return err
 	}
 
-	// Assert LDAP fields when AuthMethod set to LDAP
-	if *w.LDAP.BaseDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
-	}
-	if *w.LDAP.BaseUserAttr == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
-	}
-	if *w.LDAP.UsersDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
-	}
-	if *w.LDAP.GroupsDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
-	}
-	if *w.LDAP.AdminUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
-	}
-	if *w.LDAP.EditUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
-	}
-	if *w.LDAP.RunUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
-	}
-	if *w.LDAP.ReadUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
-	}
 	return err
 }
 
@@ -974,9 +1109,9 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 }
 
 type WebServerLDAPSecrets struct {
-	ServerAddress     *models.SecretURL
-	ReadOnlyUserLogin *models.Secret
-	ReadOnlyUserPass  *models.Secret
+	ServerAddress     *commonconfig.SecretURL
+	ReadOnlyUserLogin *commonconfig.SecretString
+	ReadOnlyUserPass  *commonconfig.SecretString
 }
 
 func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
@@ -991,13 +1126,101 @@ func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
 	}
 }
 
+type WebServerOIDC struct {
+	ClientID             *string
+	ProviderURL          *string
+	RedirectURL          *string
+	ClaimName            *string
+	AdminClaim           *string
+	EditClaim            *string
+	RunClaim             *string
+	ReadClaim            *string
+	SessionTimeout       *commonconfig.Duration
+	UserAPITokenEnabled  *bool
+	UserAPITokenDuration *commonconfig.Duration
+}
+
+func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
+	if v := f.ClientID; v != nil {
+		w.ClientID = v
+	}
+	if v := f.ProviderURL; v != nil {
+		w.ProviderURL = v
+	}
+	if v := f.RedirectURL; v != nil {
+		w.RedirectURL = v
+	}
+	if v := f.ClaimName; v != nil {
+		w.ClaimName = v
+	}
+	if v := f.AdminClaim; v != nil {
+		w.AdminClaim = v
+	}
+	if v := f.EditClaim; v != nil {
+		w.EditClaim = v
+	}
+	if v := f.RunClaim; v != nil {
+		w.RunClaim = v
+	}
+	if v := f.ReadClaim; v != nil {
+		w.ReadClaim = v
+	}
+	if v := f.SessionTimeout; v != nil {
+		w.SessionTimeout = v
+	}
+	if v := f.UserAPITokenEnabled; v != nil {
+		w.UserAPITokenEnabled = v
+	}
+	if v := f.UserAPITokenDuration; v != nil {
+		w.UserAPITokenDuration = v
+	}
+}
+
+type WebServerOIDCSecrets struct {
+	ClientSecret *commonconfig.SecretString
+}
+
+func (w *WebServerOIDCSecrets) setFrom(f *WebServerOIDCSecrets) {
+	if v := f.ClientSecret; v != nil {
+		w.ClientSecret = v
+	}
+}
+
 type WebServerSecrets struct {
 	LDAP WebServerLDAPSecrets `toml:",omitempty"`
+	OIDC WebServerOIDCSecrets `toml:",omitempty"`
 }
 
 func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
 	w.LDAP.setFrom(&f.LDAP)
+	w.OIDC.setFrom(&f.OIDC)
 	return nil
+}
+
+func (w *WebServerSecrets) ValidateConfig() (err error) {
+	// Validate LDAP if it has non-zero values
+	if w.LDAP != (WebServerLDAPSecrets{}) {
+		if w.LDAP.ServerAddress == nil || w.LDAP.ServerAddress.URL().String() == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "WebServerLDAPSecrets.ServerAddress", Msg: "WebServerLDAPSecrets ServerAddress cannot be empty"})
+		}
+
+		if w.LDAP.ReadOnlyUserLogin == nil || *w.LDAP.ReadOnlyUserLogin == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "w.LDAP.bServerLDAPSecrets.ReadOnlyUserLogin", Msg: "WebServerLDAPSecrets ReadOnlyUserLogin cannot be empty"})
+		}
+
+		if w.LDAP.ReadOnlyUserPass == nil || *w.LDAP.ReadOnlyUserPass == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "w.LDAP.bServerLDAPSecrets.ReadOnlyUserPass", Msg: "WebServerLDAPSecrets ReadOnlyUserPass cannot be empty"})
+		}
+	}
+
+	// Validate OIDC if it has non-zero values
+	if w.OIDC != (WebServerOIDCSecrets{}) {
+		if w.OIDC.ClientSecret.String() == "" {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "WebServerOIDCSecrets.ClientSecret", Msg: "WebServerOIDCSecrets ClientSecret cannot be empty"})
+		}
+	}
+
+	return err
 }
 
 type JobPipeline struct {
@@ -1080,6 +1303,7 @@ type OCR2 struct {
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
 	TraceLogging                       *bool
+	KeyValueStoreRootDir               *string
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -1125,6 +1349,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v
 	}
+	if v := f.KeyValueStoreRootDir; v != nil {
+		o.KeyValueStoreRootDir = v
+	}
 }
 
 type OCR struct {
@@ -1140,6 +1367,7 @@ type OCR struct {
 	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
 	TraceLogging         *bool
+	ConfigLogValidation  *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -1175,6 +1403,9 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v
+	}
+	if v := f.ConfigLogValidation; v != nil {
+		o.ConfigLogValidation = v
 	}
 }
 
@@ -1400,17 +1631,17 @@ func (ins *Insecure) validateConfig(buildMode string) (err error) {
 		return
 	}
 	if ins.DevWebServer != nil && *ins.DevWebServer {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	// OCRDevelopmentMode is allowed on dev/test builds.
 	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && buildMode == build.Prod {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.InfiniteDepthQueries != nil && *ins.InfiniteDepthQueries {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "InfiniteDepthQueries", Value: *ins.InfiniteDepthQueries, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "InfiniteDepthQueries", Value: *ins.InfiniteDepthQueries, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.DisableRateLimiting != nil && *ins.DisableRateLimiting {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "DisableRateLimiting", Value: *ins.DisableRateLimiting, Msg: "insecure configs are not allowed on secure builds"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "DisableRateLimiting", Value: *ins.DisableRateLimiting, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	return err
 }
@@ -1461,7 +1692,7 @@ func (m *MercuryTLS) setFrom(f *MercuryTLS) {
 func (m *MercuryTLS) ValidateConfig() (err error) {
 	if *m.CertFile != "" {
 		if !isValidFilePath(*m.CertFile) {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "CertFile", Value: *m.CertFile, Msg: "must be a valid file path"})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "CertFile", Value: *m.CertFile, Msg: "must be a valid file path"})
 		}
 	}
 	return
@@ -1553,7 +1784,7 @@ func (m *MercurySecrets) validateMerge(f *MercurySecrets) (err error) {
 	if m.Credentials != nil && f.Credentials != nil {
 		for k := range f.Credentials {
 			if _, exists := m.Credentials[k]; exists {
-				err = multierr.Append(err, configutils.ErrOverride{Name: fmt.Sprintf("Credentials[\"%s\"]", k)})
+				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("Credentials[\"%s\"]", k)})
 			}
 		}
 	}
@@ -1565,19 +1796,19 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	urls := make(map[string]struct{}, len(m.Credentials))
 	for name, creds := range m.Credentials {
 		if name == "" {
-			err = multierr.Append(err, configutils.ErrEmpty{Name: "Name", Msg: "must be provided and non-empty"})
+			err = errors.Join(err, configutils.ErrEmpty{Name: "Name", Msg: "must be provided and non-empty"})
 		}
 		if creds.URL == nil || creds.URL.URL() == nil {
-			err = multierr.Append(err, configutils.ErrMissing{Name: "URL", Msg: "must be provided and non-empty"})
+			err = errors.Join(err, configutils.ErrMissing{Name: "URL", Msg: "must be provided and non-empty"})
 			continue
 		}
 		if creds.LegacyURL != nil && creds.LegacyURL.URL() == nil {
-			err = multierr.Append(err, configutils.ErrMissing{Name: "Legacy URL", Msg: "must be a valid URL"})
+			err = errors.Join(err, configutils.ErrMissing{Name: "Legacy URL", Msg: "must be a valid URL"})
 			continue
 		}
 		s := creds.URL.URL().String()
 		if _, exists := urls[s]; exists {
-			err = multierr.Append(err, configutils.NewErrDuplicate("URL", s))
+			err = errors.Join(err, configutils.NewErrDuplicate("URL", s))
 		}
 		urls[s] = struct{}{}
 	}
@@ -1592,7 +1823,22 @@ type StreamsConfig struct {
 }
 
 type CreConfig struct {
-	Streams *StreamsConfig `toml:",omitempty"`
+	Streams              *StreamsConfig         `toml:",omitempty"`
+	WorkflowFetcher      *WorkflowFetcherConfig `toml:",omitempty"`
+	UseLocalTimeProvider *bool                  `toml:",omitempty"`
+	EnableDKGRecipient   *bool                  `toml:",omitempty"`
+	Linking              *LinkingConfig         `toml:",omitempty"`
+}
+
+// WorkflowFetcherConfig holds the configuration for fetching workflow files
+type WorkflowFetcherConfig struct {
+	URL *string `toml:",omitempty"`
+}
+
+// LinkingConfig holds the configuration for connecting to the CRE linking service
+type LinkingConfig struct {
+	URL        *string `toml:",omitempty"`
+	TLSEnabled *bool   `toml:",omitempty"`
 }
 
 func (c *CreConfig) setFrom(f *CreConfig) {
@@ -1607,6 +1853,66 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 			c.Streams.RestURL = v
 		}
 	}
+
+	if f.WorkflowFetcher != nil {
+		if c.WorkflowFetcher == nil {
+			c.WorkflowFetcher = &WorkflowFetcherConfig{}
+		}
+		if v := f.WorkflowFetcher.URL; v != nil {
+			c.WorkflowFetcher.URL = v
+		}
+	}
+
+	if f.UseLocalTimeProvider != nil {
+		if c.UseLocalTimeProvider == nil {
+			c.UseLocalTimeProvider = f.UseLocalTimeProvider
+		}
+	}
+
+	if f.EnableDKGRecipient != nil {
+		c.EnableDKGRecipient = f.EnableDKGRecipient
+	}
+
+	if f.Linking != nil {
+		if c.Linking == nil {
+			c.Linking = &LinkingConfig{}
+		}
+		if v := f.Linking.URL; v != nil {
+			c.Linking.URL = v
+		}
+		if v := f.Linking.TLSEnabled; v != nil {
+			c.Linking.TLSEnabled = v
+		}
+	}
+}
+
+func (w *WorkflowFetcherConfig) ValidateConfig() error {
+	if w.URL == nil || *w.URL == "" {
+		return nil // URL is optional
+	}
+
+	u, err := url.Parse(*w.URL)
+	if err != nil {
+		return configutils.ErrInvalid{Name: "URL", Value: *w.URL, Msg: "must be a valid URL"}
+	}
+
+	if u.Scheme != "file" && u.Scheme != "http" && u.Scheme != "https" {
+		return configutils.ErrInvalid{Name: "URL", Value: *w.URL, Msg: "scheme must be one of: file, http, https"}
+	}
+
+	return nil
+}
+
+func (l *LinkingConfig) ValidateConfig() error {
+	if l.URL == nil {
+		val := ""
+		l.URL = &val
+	}
+	if l.TLSEnabled == nil {
+		val := true
+		l.TLSEnabled = &val
+	}
+	return nil
 }
 
 type StreamsSecretConfig struct {
@@ -1642,10 +1948,10 @@ func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
 func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
 	if c.Streams != nil && f.Streams != nil {
 		if c.Streams.APIKey != nil && f.Streams.APIKey != nil {
-			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APIKey"})
+			err = errors.Join(err, configutils.ErrOverride{Name: "Streams.APIKey"})
 		}
 		if c.Streams.APISecret != nil && f.Streams.APISecret != nil {
-			err = multierr.Append(err, configutils.ErrOverride{Name: "Streams.APISecret"})
+			err = errors.Join(err, configutils.ErrOverride{Name: "Streams.APISecret"})
 		}
 	}
 	return err
@@ -1674,9 +1980,10 @@ func (eerl *EngineExecutionRateLimit) setFrom(f *EngineExecutionRateLimit) {
 }
 
 type ExternalRegistry struct {
-	Address   *string
-	NetworkID *string
-	ChainID   *string
+	Address         *string
+	NetworkID       *string
+	ChainID         *string
+	ContractVersion *string
 }
 
 func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
@@ -1690,6 +1997,10 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.ContractVersion != nil {
+		r.ContractVersion = f.ContractVersion
 	}
 }
 
@@ -1722,14 +2033,49 @@ func (r *Limits) setFrom(f *Limits) {
 	}
 }
 
+type WorkflowStorage struct {
+	ArtifactStorageHost *string
+	URL                 *string
+	TLSEnabled          *bool
+}
+
+func (s *WorkflowStorage) setFrom(f *WorkflowStorage) {
+	if f.ArtifactStorageHost != nil {
+		s.ArtifactStorageHost = f.ArtifactStorageHost
+	}
+	if f.URL != nil {
+		s.URL = f.URL
+	}
+	if f.TLSEnabled != nil {
+		s.TLSEnabled = f.TLSEnabled
+	}
+}
+
+func (s *WorkflowStorage) ValidateConfig() error {
+	URLIsSet := s.URL != nil && *s.URL != ""
+	ArtifactStorageHostIsSet := s.ArtifactStorageHost != nil && *s.ArtifactStorageHost != ""
+	if URLIsSet && !ArtifactStorageHostIsSet {
+		return configutils.ErrInvalid{Name: "ArtifactStorageHost", Value: "", Msg: "workflow storage service artifact storage host must be set"}
+	}
+
+	if s.TLSEnabled == nil {
+		val := true
+		s.TLSEnabled = &val
+	}
+
+	return nil
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
 	ChainID                 *string
+	ContractVersion         *string
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
+	WorkflowStorage         WorkflowStorage
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1743,6 +2089,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.ContractVersion != nil {
+		r.ContractVersion = f.ContractVersion
 	}
 
 	if f.MaxBinarySize != nil {
@@ -1760,12 +2110,15 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 	if f.SyncStrategy != nil {
 		r.SyncStrategy = f.SyncStrategy
 	}
+
+	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
 }
 
 type Dispatcher struct {
 	SupportedVersion   *int
 	ReceiverBufferSize *int
 	RateLimit          DispatcherRateLimit
+	SendToSharedPeer   *bool
 }
 
 func (d *Dispatcher) setFrom(f *Dispatcher) {
@@ -1777,6 +2130,10 @@ func (d *Dispatcher) setFrom(f *Dispatcher) {
 
 	if f.SupportedVersion != nil {
 		d.SupportedVersion = f.SupportedVersion
+	}
+
+	if f.SendToSharedPeer != nil {
+		d.SendToSharedPeer = f.SendToSharedPeer
 	}
 }
 
@@ -1847,9 +2204,60 @@ type ConnectorGateway struct {
 	URL *string
 }
 
+type SharedPeering struct {
+	Enabled       *bool
+	Bootstrappers *[]ocrcommontypes.BootstrapperLocator
+	StreamConfig  StreamConfig
+}
+
+func (c *SharedPeering) setFrom(f *SharedPeering) {
+	if f.Enabled != nil {
+		c.Enabled = f.Enabled
+	}
+	if f.Bootstrappers != nil {
+		c.Bootstrappers = f.Bootstrappers
+	}
+	c.StreamConfig.setFrom(&f.StreamConfig)
+}
+
+type StreamConfig struct {
+	IncomingMessageBufferSize  *int
+	OutgoingMessageBufferSize  *int
+	MaxMessageLenBytes         *int
+	MessageRateLimiterRate     *float64
+	MessageRateLimiterCapacity *uint32
+	BytesRateLimiterRate       *float64
+	BytesRateLimiterCapacity   *uint32
+}
+
+func (c *StreamConfig) setFrom(f *StreamConfig) {
+	if v := f.IncomingMessageBufferSize; v != nil {
+		c.IncomingMessageBufferSize = v
+	}
+	if v := f.OutgoingMessageBufferSize; v != nil {
+		c.OutgoingMessageBufferSize = v
+	}
+	if v := f.MaxMessageLenBytes; v != nil {
+		c.MaxMessageLenBytes = v
+	}
+	if v := f.MessageRateLimiterRate; v != nil {
+		c.MessageRateLimiterRate = v
+	}
+	if v := f.MessageRateLimiterCapacity; v != nil {
+		c.MessageRateLimiterCapacity = v
+	}
+	if v := f.BytesRateLimiterRate; v != nil {
+		c.BytesRateLimiterRate = v
+	}
+	if v := f.BytesRateLimiterCapacity; v != nil {
+		c.BytesRateLimiterCapacity = v
+	}
+}
+
 type Capabilities struct {
 	RateLimit        EngineExecutionRateLimit `toml:",omitempty"`
 	Peering          P2P                      `toml:",omitempty"`
+	SharedPeering    SharedPeering            `toml:",omitempty"`
 	Dispatcher       Dispatcher               `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry         `toml:",omitempty"`
 	WorkflowRegistry WorkflowRegistry         `toml:",omitempty"`
@@ -1859,6 +2267,7 @@ type Capabilities struct {
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.RateLimit.setFrom(&f.RateLimit)
 	c.Peering.setFrom(&f.Peering)
+	c.SharedPeering.setFrom(&f.SharedPeering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)
 	c.Dispatcher.setFrom(&f.Dispatcher)
@@ -1884,7 +2293,7 @@ func (t *ThresholdKeyShareSecrets) SetFrom(f *ThresholdKeyShareSecrets) (err err
 
 func (t *ThresholdKeyShareSecrets) validateMerge(f *ThresholdKeyShareSecrets) (err error) {
 	if t.ThresholdKeyShare != nil && f.ThresholdKeyShare != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "ThresholdKeyShare"})
+		err = errors.Join(err, configutils.ErrOverride{Name: "ThresholdKeyShare"})
 	}
 
 	return err
@@ -1931,7 +2340,7 @@ func (t *Tracing) ValidateConfig() (err error) {
 
 	if t.SamplingRatio != nil {
 		if *t.SamplingRatio < 0 || *t.SamplingRatio > 1 {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
 		}
 	}
 
@@ -1940,18 +2349,18 @@ func (t *Tracing) ValidateConfig() (err error) {
 		case "tls":
 			// TLSCertPath must be set
 			if t.TLSCertPath == nil {
-				err = multierr.Append(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is tls"})
+				err = errors.Join(err, configutils.ErrMissing{Name: "TLSCertPath", Msg: "must be set when Tracing.Mode is tls"})
 			} else {
 				ok := isValidFilePath(*t.TLSCertPath)
 				if !ok {
-					err = multierr.Append(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
+					err = errors.Join(err, configutils.ErrInvalid{Name: "TLSCertPath", Value: *t.TLSCertPath, Msg: "must be a valid file path"})
 				}
 			}
 		case "unencrypted":
 			// no-op
 		default:
 			// Mode must be either "tls" or "unencrypted"
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'tls' or 'unencrypted'"})
+			err = errors.Join(err, configutils.ErrInvalid{Name: "Mode", Value: *t.Mode, Msg: "must be either 'tls' or 'unencrypted'"})
 		}
 	}
 
@@ -1959,12 +2368,12 @@ func (t *Tracing) ValidateConfig() (err error) {
 		switch *t.Mode {
 		case "tls":
 			if !isValidURI(*t.CollectorTarget) {
-				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+				err = errors.Join(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
 			}
 		case "unencrypted":
 			// Unencrypted traces can not be sent to external networks
 			if !isValidLocalURI(*t.CollectorTarget) {
-				err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid local URI"})
+				err = errors.Join(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid local URI"})
 			}
 		default:
 			// no-op
@@ -1975,15 +2384,18 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled               *bool
-	CACertFile            *string
-	Endpoint              *string
-	InsecureConnection    *bool
-	ResourceAttributes    map[string]string `toml:",omitempty"`
-	TraceSampleRatio      *float64
-	EmitterBatchProcessor *bool
-	EmitterExportTimeout  *commonconfig.Duration
-	ChipIngressEndpoint   *string
+	Enabled                       *bool
+	CACertFile                    *string
+	Endpoint                      *string
+	InsecureConnection            *bool
+	ResourceAttributes            map[string]string `toml:",omitempty"`
+	TraceSampleRatio              *float64
+	EmitterBatchProcessor         *bool
+	EmitterExportTimeout          *commonconfig.Duration
+	ChipIngressEndpoint           *string
+	ChipIngressInsecureConnection *bool
+	HeartbeatInterval             *commonconfig.Duration
+	LogStreamingEnabled           *bool
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2014,6 +2426,15 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.ChipIngressEndpoint; v != nil {
 		b.ChipIngressEndpoint = v
 	}
+	if v := f.ChipIngressInsecureConnection; v != nil {
+		b.ChipIngressInsecureConnection = v
+	}
+	if v := f.HeartbeatInterval; v != nil {
+		b.HeartbeatInterval = v
+	}
+	if v := f.LogStreamingEnabled; v != nil {
+		b.LogStreamingEnabled = v
+	}
 }
 
 func (b *Telemetry) ValidateConfig() (err error) {
@@ -2021,16 +2442,16 @@ func (b *Telemetry) ValidateConfig() (err error) {
 		return nil
 	}
 	if b.Endpoint == nil || *b.Endpoint == "" {
-		err = multierr.Append(err, configutils.ErrMissing{Name: "Endpoint", Msg: "must be set when Telemetry is enabled"})
+		err = errors.Join(err, configutils.ErrMissing{Name: "Endpoint", Msg: "must be set when Telemetry is enabled"})
 	}
 	if b.InsecureConnection == nil || !*b.InsecureConnection {
 		// InsecureConnection is set and false
 		if b.CACertFile == nil || *b.CACertFile == "" {
-			err = multierr.Append(err, configutils.ErrMissing{Name: "CACertFile", Msg: "must be set, unless InsecureConnection is used"})
+			err = errors.Join(err, configutils.ErrMissing{Name: "CACertFile", Msg: "must be set, unless InsecureConnection is used"})
 		}
 	}
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
+		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
 	return err
 }
@@ -2075,4 +2496,100 @@ func isValidHostname(hostname string) bool {
 
 func isValidFilePath(path string) bool {
 	return len(path) > 0 && len(path) < 4096
+}
+
+type Billing struct {
+	URL        *string
+	TLSEnabled *bool
+}
+
+func (b *Billing) setFrom(f *Billing) {
+	if f.URL != nil {
+		b.URL = f.URL
+	}
+
+	if f.TLSEnabled != nil {
+		b.TLSEnabled = f.TLSEnabled
+	}
+}
+
+func (b *Billing) ValidateConfig() error {
+	if b.URL == nil || *b.URL == "" {
+		return configutils.ErrInvalid{Name: "URL", Value: "", Msg: "billing service url must be set"}
+	}
+
+	if b.TLSEnabled == nil {
+		val := true
+		b.TLSEnabled = &val
+	}
+
+	return nil
+}
+
+type BridgeStatusReporter struct {
+	Enabled              *bool
+	StatusPath           *string
+	PollingInterval      *commonconfig.Duration
+	IgnoreInvalidBridges *bool
+	IgnoreJoblessBridges *bool
+}
+
+func (e *BridgeStatusReporter) setFrom(f *BridgeStatusReporter) {
+	if f.Enabled != nil {
+		e.Enabled = f.Enabled
+	}
+	if f.StatusPath != nil {
+		e.StatusPath = f.StatusPath
+	}
+	if f.PollingInterval != nil {
+		e.PollingInterval = f.PollingInterval
+	}
+	if f.IgnoreInvalidBridges != nil {
+		e.IgnoreInvalidBridges = f.IgnoreInvalidBridges
+	}
+	if f.IgnoreJoblessBridges != nil {
+		e.IgnoreJoblessBridges = f.IgnoreJoblessBridges
+	}
+}
+
+func (e *BridgeStatusReporter) ValidateConfig() error {
+	if e.Enabled == nil || !*e.Enabled {
+		return nil
+	}
+
+	// Default values when enabled
+	if e.StatusPath == nil || *e.StatusPath == "" {
+		defaultPath := "/status"
+		e.StatusPath = &defaultPath
+	}
+
+	if e.PollingInterval == nil {
+		return configutils.ErrInvalid{Name: "PollingInterval", Value: nil, Msg: "must be set"}
+	}
+
+	if e.PollingInterval.Duration() < config.MinimumPollingInterval {
+		return configutils.ErrInvalid{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + config.MinimumPollingInterval.String()}
+	}
+
+	if e.IgnoreInvalidBridges == nil {
+		defaultIgnoreInvalid := true
+		e.IgnoreInvalidBridges = &defaultIgnoreInvalid
+	}
+
+	if e.IgnoreJoblessBridges == nil {
+		defaultIgnoreJobless := false
+		e.IgnoreJoblessBridges = &defaultIgnoreJobless
+	}
+
+	return nil
+}
+
+type JobDistributor struct {
+	DisplayName *string
+}
+
+func (jd *JobDistributor) setFrom(f *JobDistributor) {
+	if f.DisplayName != nil {
+		jd.DisplayName = f.DisplayName
+	}
 }

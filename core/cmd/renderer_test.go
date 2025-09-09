@@ -43,7 +43,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 		resp, cleanup := client.Get("/v2/config/v2")
 		t.Cleanup(cleanup)
 		var effective web.ConfigV2Resource
-		require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &effective))
+		cltest.ParseJSONAPIResponse(t, resp, &effective)
 
 		assert.Equal(t, wantEffective, effective.Config)
 	})
@@ -52,7 +52,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 		resp, cleanup := client.Get("/v2/config/v2?userOnly=true")
 		t.Cleanup(cleanup)
 		var user web.ConfigV2Resource
-		require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &user))
+		cltest.ParseJSONAPIResponse(t, resp, &user)
 
 		assert.Equal(t, wantUser, user.Config)
 	})

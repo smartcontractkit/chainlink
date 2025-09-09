@@ -1,6 +1,8 @@
 package config
 
 import (
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -9,6 +11,7 @@ type CapabilitiesExternalRegistry interface {
 	Address() string
 	NetworkID() string
 	ChainID() string
+	ContractVersion() string
 	RelayID() types.RelayID
 }
 
@@ -23,11 +26,19 @@ type CapabilitiesWorkflowRegistry interface {
 	Address() string
 	NetworkID() string
 	ChainID() string
+	ContractVersion() string
 	MaxEncryptedSecretsSize() utils.FileSize
 	MaxBinarySize() utils.FileSize
 	MaxConfigSize() utils.FileSize
 	RelayID() types.RelayID
 	SyncStrategy() string
+	WorkflowStorage() WorkflowStorage
+}
+
+type WorkflowStorage interface {
+	ArtifactStorageHost() string
+	URL() string
+	TLSEnabled() bool
 }
 
 type GatewayConnector interface {
@@ -48,8 +59,25 @@ type ConnectorGateway interface {
 type Capabilities interface {
 	RateLimit() EngineExecutionRateLimit
 	Peering() P2P
+	SharedPeering() SharedPeering
 	Dispatcher() Dispatcher
 	ExternalRegistry() CapabilitiesExternalRegistry
 	WorkflowRegistry() CapabilitiesWorkflowRegistry
 	GatewayConnector() GatewayConnector
+}
+
+type SharedPeering interface {
+	Enabled() bool
+	Bootstrappers() (locators []ocrcommontypes.BootstrapperLocator)
+	StreamConfig() StreamConfig
+}
+
+type StreamConfig interface {
+	IncomingMessageBufferSize() int
+	OutgoingMessageBufferSize() int
+	MaxMessageLenBytes() int
+	MessageRateLimiterRate() float64
+	MessageRateLimiterCapacity() uint32
+	BytesRateLimiterRate() float64
+	BytesRateLimiterCapacity() uint32
 }

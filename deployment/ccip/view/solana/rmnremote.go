@@ -5,15 +5,17 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/mr-tron/base58"
 
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
-	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 )
 
 type RMNRemoteView struct {
+	UpgradeAuthority   string   `json:"upgradeAuthority,omitempty"`
 	ConfigPDA          string   `json:"configPDA,omitempty"`
 	CursePDA           string   `json:"cursePDA,omitempty"`
 	Version            uint8    `json:"version,omitempty"`
@@ -23,11 +25,18 @@ type RMNRemoteView struct {
 	CurseSubjects      []string `json:"curses,omitempty"`
 }
 
-func GenerateRMNRemoteView(chain cldf.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RMNRemoteView, error) {
+func GenerateRMNRemoteView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RMNRemoteView, error) {
 	view := RMNRemoteView{}
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(context.Background(), program, &rpc.GetAccountInfoOpts{
+		Commitment: cldf_solana.SolDefaultCommitment,
+	})
+	if err != nil {
+		return view, fmt.Errorf("failed to get account info for program %s: %w", program.String(), err)
+	}
+	view.UpgradeAuthority = accountInfo.Value.Owner.String()
 	var config solRmnRemote.Config
 	configPDA, _, _ := solState.FindRMNRemoteConfigPDA(program)
-	err := chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
+	err = chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
 	if err != nil {
 		return view, fmt.Errorf("config not found in existing state, initialize rmn first %d", chain.Selector)
 	}

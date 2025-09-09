@@ -17,11 +17,11 @@ import (
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -39,25 +39,28 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	newConfig := func() chainlink.GeneralConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			node1_1 := toml.Node{
-				Name:     ptr("Test node chain1:1"),
-				WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
-				HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
-				SendOnly: ptr(false),
-				Order:    ptr(int32(15)),
+				Name:              ptr("Test node chain1:1"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8546"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8546"),
+				SendOnly:          ptr(false),
+				Order:             ptr(int32(15)),
+				IsLoadBalancedRPC: ptr[bool](false),
 			}
 			node1_2 := toml.Node{
-				Name:     ptr("Test node chain1:2"),
-				WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
-				HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
-				SendOnly: ptr(false),
-				Order:    ptr(int32(36)),
+				Name:              ptr("Test node chain1:2"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8547"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8547"),
+				SendOnly:          ptr(false),
+				Order:             ptr(int32(36)),
+				IsLoadBalancedRPC: ptr[bool](false),
 			}
 			node2_1 := toml.Node{
-				Name:     ptr("Test node chain2:1"),
-				WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
-				HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
-				SendOnly: ptr(false),
-				Order:    ptr(int32(11)),
+				Name:              ptr("Test node chain2:1"),
+				WSURL:             commonconfig.MustParseURL("ws://localhost:8547"),
+				HTTPURL:           commonconfig.MustParseURL("http://localhost:8547"),
+				SendOnly:          ptr(false),
+				Order:             ptr(int32(11)),
+				IsLoadBalancedRPC: ptr[bool](false),
 			}
 			c.EVM[0] = &toml.EVMConfig{
 				ChainID: evmChainID1,
@@ -161,7 +164,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		{name: "2 solana chain with 2 node",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
-				chainlink.InitSolana(factory, keyStore.Solana(), chainlink.SolanaFactoryConfig{
+				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
 					TOMLConfigs: newConfig().SolanaConfigs()}),
 			},
 			expectedSolanaChainCnt: 2,
@@ -174,7 +177,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		},
 
 		{name: "all chains",
-			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), chainlink.SolanaFactoryConfig{
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
 				TOMLConfigs: newConfig().SolanaConfigs()}),
 				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
@@ -189,8 +192,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					EthKeystore: keyStore.Eth(),
 					CSAKeystore: &keystore.CSASigner{CSA: keyStore.CSA()},
 				}),
-				chainlink.InitStarknet(factory, keyStore.StarkNet(), cfg.StarknetConfigs()),
-				chainlink.InitCosmos(factory, keyStore.Cosmos(), cfg.CosmosConfigs()),
+				chainlink.InitStarknet(factory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()),
+				chainlink.InitCosmos(factory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
@@ -256,6 +259,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					t.Skip("aptos doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkTron:
 					t.Skip("tron doesn't need a CoreRelayerChainInteroperator")
+				case relay.NetworkTON:
+					t.Skip("ton doesn't need a CoreRelayerChainInteroperator")
 
 				default:
 					require.Fail(t, "untested relay network", relayNetwork)
@@ -299,8 +304,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					assert.Equal(t, wantId.ChainID, stat.ID)
 					// check legacy chains for evm and cosmos
 					if wantId.Network == relay.NetworkEVM {
-						c, err := cr.LegacyEVMChains().Get(wantId.ChainID)
+						cs, err := cr.LegacyEVMChains().Get(wantId.ChainID)
 						assert.NoError(t, err)
+						c, ok := cs.(legacyevm.Chain)
+						require.True(t, ok)
 						assert.NotNil(t, c)
 						assert.Equal(t, wantId.ChainID, c.ID().String())
 					}

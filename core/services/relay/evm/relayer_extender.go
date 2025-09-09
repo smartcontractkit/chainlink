@@ -4,13 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	"go.uber.org/multierr"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -18,16 +17,15 @@ import (
 var ErrNoChains = errors.New("no EVM chains loaded")
 
 type LegacyChainsAndConfig struct {
-	rs  []legacyevm.Chain
-	cfg toml.EVMConfigs
+	rs []legacyevm.Chain
 }
 
 func (r *LegacyChainsAndConfig) NewLegacyChains() *legacyevm.LegacyChains {
-	m := make(map[string]legacyevm.Chain)
+	m := make(map[string]types.ChainService)
 	for _, r := range r.Slice() {
 		m[r.ID().String()] = r
 	}
-	return legacyevm.NewLegacyChains(m, r.cfg)
+	return legacyevm.NewLegacyChains(m)
 }
 
 func (r *LegacyChainsAndConfig) Slice() []legacyevm.Chain {
@@ -73,7 +71,7 @@ func NewLegacyChains(
 		opts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := legacyevm.NewTOMLChain(enabled[i], opts, clientsByChainID)
 		if err2 != nil {
-			err = multierr.Combine(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
+			err = errors.Join(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
 			continue
 		}
 
@@ -89,5 +87,5 @@ func NewLegacyChainsAndConfig(
 ) (*LegacyChainsAndConfig, error) {
 	result, err := NewLegacyChains(lggr, ks, chainOpts)
 	// always return because it's accumulating errors
-	return &LegacyChainsAndConfig{result, chainOpts.ChainConfigs}, err
+	return &LegacyChainsAndConfig{result}, err
 }

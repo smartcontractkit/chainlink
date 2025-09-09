@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -152,7 +151,7 @@ func (cb *contractBinding) Register(ctx context.Context, registrar Registrar) er
 }
 
 func (cb *contractBinding) Update(ctx context.Context, registrar Registrar) error {
-	name := logpoller.FilterName(cb.name + "." + uuid.NewString())
+	name := logpoller.FilterName(cb.name + "." + cb.registrar.deriveName())
 
 	if !cb.registered() {
 		cb.registrar.SetName(name)

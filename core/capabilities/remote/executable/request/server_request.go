@@ -16,9 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -126,6 +127,7 @@ type ServerRequest struct {
 	requestMessageID string
 	method           string
 	requestTimeout   time.Duration
+	capMethodName    string
 
 	mux  sync.Mutex
 	lggr logger.Logger
@@ -136,8 +138,8 @@ type ServerRequest struct {
 func NewServerRequest(capability capabilities.ExecutableCapability, method string, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
-	dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) (*ServerRequest, error) {
-	lggr = lggr.Named("ServerRequest").With("requestID", requestID, "capabilityID", capabilityID)
+	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string, lggr logger.Logger) (*ServerRequest, error) {
+	lggr = logger.Sugared(lggr).Named("ServerRequest").With("requestID", requestID, "capabilityID", capabilityID)
 
 	m, err := newSrMetrics(capabilityID, callingDon.ID)
 	if err != nil {
@@ -157,6 +159,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 		requestMessageID:        requestID,
 		method:                  method,
 		requestTimeout:          requestTimeout,
+		capMethodName:           capMethodName,
 		lggr:                    lggr,
 		metrics:                 m,
 	}, nil
@@ -294,13 +297,14 @@ func (e *ServerRequest) sendResponses(ctx context.Context) error {
 
 func (e *ServerRequest) sendResponse(ctx context.Context, requester p2ptypes.PeerID) error {
 	responseMsg := types.MessageBody{
-		CapabilityId:    e.capabilityID,
-		CapabilityDonId: e.capabilityDonID,
-		CallerDonId:     e.callingDon.ID,
-		Method:          types.MethodExecute,
-		MessageId:       []byte(e.requestMessageID),
-		Sender:          e.capabilityPeerID[:],
-		Receiver:        requester[:],
+		CapabilityId:     e.capabilityID,
+		CapabilityDonId:  e.capabilityDonID,
+		CallerDonId:      e.callingDon.ID,
+		Method:           types.MethodExecute,
+		MessageId:        []byte(e.requestMessageID),
+		Sender:           e.capabilityPeerID[:],
+		Receiver:         requester[:],
+		CapabilityMethod: e.capMethodName,
 	}
 
 	if e.response.error != types.Error_OK {
@@ -331,7 +335,7 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 		return nil, errors.New("failed to unmarshal capability request")
 	}
 
-	lggr = lggr.With("metadata", capabilityRequest.Metadata)
+	lggr = logger.With(lggr, "metadata", capabilityRequest.Metadata)
 
 	lggr.Debugw("executing capability")
 	capResponse, err := capability.Execute(ctx, capabilityRequest)

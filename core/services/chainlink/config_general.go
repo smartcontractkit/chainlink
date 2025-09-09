@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	_ "embed"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -218,12 +218,16 @@ func (g *generalConfig) TronConfigs() RawConfigs {
 	return g.c.Tron
 }
 
+func (g *generalConfig) TONConfigs() RawConfigs {
+	return g.c.TON
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
 
 func (g *generalConfig) validate(secretsValidationFn func() error) error {
-	err := multierr.Combine(
+	err := stderrors.Join(
 		validateEnv(),
 		g.c.Validate(),
 		secretsValidationFn(),
@@ -259,7 +263,7 @@ func validateEnv() (err error) {
 		k := kv[:i]
 		_, ok := os.LookupEnv(k)
 		if ok {
-			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
+			err = stderrors.Join(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
 		}
 	}
 	return
@@ -349,6 +353,15 @@ func (g *generalConfig) AptosEnabled() bool {
 
 func (g *generalConfig) TronEnabled() bool {
 	for _, c := range g.c.Tron {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) TONEnabled() bool {
+	for _, c := range g.c.TON {
 		if c.IsEnabled() {
 			return true
 		}
@@ -511,6 +524,10 @@ func (g *generalConfig) Sentry() coreconfig.Sentry {
 	return sentryConfig{g.c.Sentry}
 }
 
+func (g *generalConfig) JobDistributor() coreconfig.JobDistributor {
+	return jobDistributorConfig{g.c.JobDistributor}
+}
+
 func (g *generalConfig) Password() coreconfig.Password {
 	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
 }
@@ -527,9 +544,14 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
-func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableEthKeyLister {
+func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableChainKeyLister {
 	return &importedEthKeyConfigs{s: g.secrets.EVM}
 }
+
+func (g *generalConfig) ImportedSolKeys() coreconfig.ImportableChainKeyLister {
+	return &importedSolKeyConfigs{s: g.secrets.Solana}
+}
+
 func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
 	return &importedP2PKeyConfig{s: g.secrets.P2PKey}
 }
@@ -543,6 +565,14 @@ func (g *generalConfig) Telemetry() coreconfig.Telemetry {
 
 func (g *generalConfig) CRE() coreconfig.CRE {
 	return &creConfig{s: g.secrets.CRE, c: g.c.CRE}
+}
+
+func (g *generalConfig) Billing() coreconfig.Billing {
+	return &billingConfig{t: g.c.Billing}
+}
+
+func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
+	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}

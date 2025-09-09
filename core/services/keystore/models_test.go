@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -42,6 +43,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	vrf1, vrf2 := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1)), vrfkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	tk1, tk2 := cosmoskey.MustNewInsecure(rand.Reader), cosmoskey.MustNewInsecure(rand.Reader)
 	uk1, uk2 := tronkey.MustNewInsecure(rand.Reader), tronkey.MustNewInsecure(rand.Reader)
+	ton1, ton2 := tonkey.MustNewInsecure(rand.Reader), tonkey.MustNewInsecure(rand.Reader)
 	originalKeyRingRaw := rawKeyRing{
 		CSA:    [][]byte{internal.RawBytes(csa1), internal.RawBytes(csa2)},
 		Eth:    [][]byte{internal.RawBytes(eth1), internal.RawBytes(eth2)},
@@ -52,6 +54,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		VRF:    [][]byte{internal.RawBytes(vrf1), internal.RawBytes(vrf2)},
 		Cosmos: [][]byte{internal.RawBytes(tk1), internal.RawBytes(tk2)},
 		Tron:   [][]byte{internal.RawBytes(uk1), internal.RawBytes(uk2)},
+		TON:    [][]byte{internal.RawBytes(ton1), internal.RawBytes(ton2)},
 	}
 	originalKeyRing, kerr := originalKeyRingRaw.keys()
 	require.NoError(t, kerr)
@@ -69,6 +72,10 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Len(t, decryptedKeyRing.Tron, 2)
 		require.Equal(t, originalKeyRing.Tron[uk1.ID()].Base58Address(), decryptedKeyRing.Tron[uk1.ID()].Base58Address())
 		require.Equal(t, originalKeyRing.Tron[uk2.ID()].Base58Address(), decryptedKeyRing.Tron[uk2.ID()].Base58Address())
+		// compare ton keys
+		require.Len(t, decryptedKeyRing.TON, 2)
+		require.Equal(t, originalKeyRing.TON[ton1.ID()].AddressBase64(), decryptedKeyRing.TON[ton1.ID()].AddressBase64())
+		require.Equal(t, originalKeyRing.TON[ton2.ID()].AddressBase64(), decryptedKeyRing.TON[ton2.ID()].AddressBase64())
 		// compare csa keys
 		require.Len(t, decryptedKeyRing.CSA, 2)
 		require.Equal(t, originalKeyRing.CSA[csa1.ID()].PublicKey, decryptedKeyRing.CSA[csa1.ID()].PublicKey)

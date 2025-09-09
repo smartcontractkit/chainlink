@@ -39,8 +39,6 @@ import (
 
 	txmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 
-	types "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	uuid "github.com/google/uuid"
 
 	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -340,53 +338,6 @@ func (_c *Application_DeleteLogPollerDataAfter_Call) Return(_a0 error) *Applicat
 }
 
 func (_c *Application_DeleteLogPollerDataAfter_Call) RunAndReturn(run func(context.Context, *big.Int, int64) error) *Application_DeleteLogPollerDataAfter_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// EVMORM provides a mock function with no fields
-func (_m *Application) EVMORM() types.Configs {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for EVMORM")
-	}
-
-	var r0 types.Configs
-	if rf, ok := ret.Get(0).(func() types.Configs); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.Configs)
-		}
-	}
-
-	return r0
-}
-
-// Application_EVMORM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EVMORM'
-type Application_EVMORM_Call struct {
-	*mock.Call
-}
-
-// EVMORM is a helper method to define mock.On call
-func (_e *Application_Expecter) EVMORM() *Application_EVMORM_Call {
-	return &Application_EVMORM_Call{Call: _e.mock.On("EVMORM")}
-}
-
-func (_c *Application_EVMORM_Call) Run(run func()) *Application_EVMORM_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Application_EVMORM_Call) Return(_a0 types.Configs) *Application_EVMORM_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Application_EVMORM_Call) RunAndReturn(run func() types.Configs) *Application_EVMORM_Call {
 	_c.Call.Return(run)
 	return _c
 }

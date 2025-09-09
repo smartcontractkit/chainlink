@@ -8,7 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
+	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -35,18 +39,18 @@ func setupUpdateDelayTestEnv(t *testing.T) cldf.Environment {
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
-	chainSelector := env.AllChainSelectorsSolana()[0]
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
 	require.NoError(t, err)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
-	//nolint:staticcheck // will wait till we can migrate from address book before using data store
+
 	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", cldf.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
 	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock
-	env, err = changeset.Apply(t, env, nil,
+	env, err = changeset.Apply(t, env,
 		changeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
@@ -63,8 +67,7 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
-	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
-	validSolChainSelector := validEnv.AllChainSelectorsSolana()[0]
+	validSolChainSelector := validEnv.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 
 	timelockID := mcmsSolana.ContractAddress(
 		solana.NewWallet().PublicKey(),
@@ -72,7 +75,6 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	)
 	mcmDummyProgram := solana.NewWallet().PublicKey()
 
-	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, cldf.TypeAndVersion{
 		Type:    types.RBACTimelock,
 		Version: deployment.Version1_0_0,
@@ -85,14 +87,11 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 
 	// Create an environment that simulates a chain where the timelock program has not been deployed,
 	// e.g. missing the required addresses so that the state loader returns empty seeds.
-	noTimelockEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:    0,
-		SolChains: 1,
-		Nodes:     1,
+	noTimelockEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
+	noTimelockEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
+		chainselectors.SOLANA_DEVNET.Selector: cldf_solana.Chain{},
 	})
-	noTimelockEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = cldf.SolChain{}
 
-	//nolint:staticcheck // will wait till we can migrate from address book before using data store
 	err = noTimelockEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, cldf.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
@@ -100,12 +99,10 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create an environment with a Solana chain that has an invalid (zero) underlying chain.
-	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:    0,
-		SolChains: 0,
-		Nodes:     1,
+	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{})
+	invalidSolChainEnv.BlockChains = cldf_chain.NewBlockChains(map[uint64]cldf_chain.BlockChain{
+		validSolChainSelector: cldf_solana.Chain{},
 	})
-	invalidSolChainEnv.SolChains[validSolChainSelector] = cldf.SolChain{}
 
 	tests := []struct {
 		name          string
@@ -161,7 +158,6 @@ func TestUpdateTimelockDelaySolana_VerifyPreconditions(t *testing.T) {
 	cs := commonSolana.UpdateTimelockDelaySolana{}
 
 	for _, tt := range tests {
-		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			err := cs.VerifyPreconditions(tt.env, tt.config)
 			if tt.expectedError == "" {
@@ -179,22 +175,23 @@ func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 	t.Parallel()
 	env := setupUpdateDelayTestEnv(t)
 	newDelayDuration := 5 * time.Minute
+	solChainSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
 	config := commonSolana.UpdateTimelockDelaySolanaCfg{
 		DelayPerChain: map[uint64]time.Duration{
-			env.AllChainSelectorsSolana()[0]: newDelayDuration,
+			solChainSel: newDelayDuration,
 		},
 	}
 
 	changesetInstance := commonSolana.UpdateTimelockDelaySolana{}
 
-	env, _, err := changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
+	env, _, err := changeset.ApplyChangesets(t, env, []changeset.ConfiguredChangeSet{
 		changeset.Configure(changesetInstance, config),
 	})
 	require.NoError(t, err)
 
-	chainSelector := env.AllChainSelectorsSolana()[0]
-	solChain := env.SolChains[chainSelector]
-	//nolint:staticcheck // will wait till we can migrate from address book before using data store
+	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))[0]
+	solChain := env.BlockChains.SolanaChains()[chainSelector]
+
 	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 

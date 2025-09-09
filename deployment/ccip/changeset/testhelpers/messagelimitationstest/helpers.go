@@ -4,15 +4,16 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	aptos_feequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -23,7 +24,7 @@ func NewTestSetup(
 	sourceChain,
 	destChain uint64,
 	srctoken common.Address,
-	srcFeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig,
+	srcFeeQuoterDestChainConfig any,
 	testRouter,
 	validateResp bool,
 	opts ...TestSetupOpts,
@@ -41,6 +42,22 @@ func NewTestSetup(
 
 	for _, opt := range opts {
 		opt(&ts)
+	}
+
+	family, err := chain_selectors.GetSelectorFamily(ts.SrcChain)
+	require.NoError(ts.T, err)
+
+	switch family {
+	case chain_selectors.FamilyEVM:
+		evmFeeQuoterDestChainConfig, ok := ts.SrcFeeQuoterDestChainConfig.(fee_quoter.FeeQuoterDestChainConfig)
+		require.True(ts.T, ok, "expected Evm Fee quoter destination chain config type")
+		ts.SrcFeeQuoterDestChainConfig = evmFeeQuoterDestChainConfig
+	case chain_selectors.FamilyAptos:
+		aptosFeeQuoterDestChainConfig, ok := ts.SrcFeeQuoterDestChainConfig.(aptos_feequoter.DestChainConfig)
+		require.True(ts.T, ok, "expected Aptos Fee quoter destination chain config type")
+		ts.SrcFeeQuoterDestChainConfig = aptosFeeQuoterDestChainConfig
+	default:
+		ts.T.Fatalf("unsupported source chain family %v", family)
 	}
 
 	return ts
@@ -69,7 +86,7 @@ type TestSetup struct {
 	SrcChain                    uint64
 	DestChain                   uint64
 	SrcToken                    common.Address
-	SrcFeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig
+	SrcFeeQuoterDestChainConfig any
 	TestRouter                  bool
 	ValidateResp                bool
 }
@@ -77,7 +94,7 @@ type TestSetup struct {
 type TestCase struct {
 	TestSetup
 	Name      string
-	Msg       router.ClientEVM2AnyMessage
+	Msg       any
 	ExpRevert bool
 }
 
@@ -99,20 +116,50 @@ func Run(tc TestCase) TestCaseOutput {
 		require.NoError(tc.T, err)
 	}
 
-	msgSentEvent, err := testhelpers.SendRequest(
+	var msgOpt ccipclient.SendReqOpts
+
+	family, err := chain_selectors.GetSelectorFamily(tc.SrcChain)
+	require.NoError(tc.T, err)
+
+	switch family {
+	case chain_selectors.FamilyEVM:
+		evmMsg, ok := tc.Msg.(router.ClientEVM2AnyMessage)
+		require.True(tc.T, ok, "expected EVM message type")
+		msgOpt = ccipclient.WithMessage(evmMsg)
+	case chain_selectors.FamilyAptos:
+		aptosMsg, ok := tc.Msg.(testhelpers.AptosSendRequest)
+		require.True(tc.T, ok, "expected Aptos message type")
+		msgOpt = ccipclient.WithMessage(aptosMsg)
+	default:
+		tc.T.Fatalf("unsupported source chain family %v", family)
+	}
+
+	out, err := testhelpers.SendRequest(
 		tc.Env, tc.OnchainState,
-		testhelpers.WithSourceChain(tc.SrcChain),
-		testhelpers.WithDestChain(tc.DestChain),
-		testhelpers.WithTestRouter(tc.TestRouter),
-		testhelpers.WithEvm2AnyMessage(tc.Msg))
+		ccipclient.WithSourceChain(tc.SrcChain),
+		ccipclient.WithDestChain(tc.DestChain),
+		ccipclient.WithTestRouter(tc.TestRouter),
+		msgOpt)
+
+	var errorMsg string
 
 	if tc.ExpRevert {
+		switch family {
+		case chain_selectors.FamilyEVM:
+			errorMsg = "execution reverted"
+		case chain_selectors.FamilyAptos:
+			errorMsg = "transaction reverted:"
+		default:
+			tc.T.Fatalf("unsupported source chain family %v", family)
+		}
+
 		tc.T.Logf("Message reverted as expected")
 		require.Error(tc.T, err)
-		require.Contains(tc.T, err.Error(), "execution reverted")
+		require.Contains(tc.T, err.Error(), errorMsg)
 		return TestCaseOutput{}
 	}
 	require.NoError(tc.T, err)
+	msgSentEvent := out.RawEvent.(*onramp.OnRampCCIPMessageSent)
 
 	tc.T.Logf("Message not reverted as expected")
 

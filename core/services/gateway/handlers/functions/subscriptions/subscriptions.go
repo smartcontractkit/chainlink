@@ -11,10 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -86,7 +86,7 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 		client:             client,
 		router:             router,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
-		lggr:               lggr.Named("OnchainSubscriptions"),
+		lggr:               logger.Named(lggr, "OnchainSubscriptions"),
 		stopCh:             make(services.StopChan),
 	}, nil
 }

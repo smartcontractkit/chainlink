@@ -2,9 +2,9 @@ package pipeline
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -31,7 +31,7 @@ func (t *ConditionalTask) Run(_ context.Context, _ logger.Logger, vars Vars, inp
 	var (
 		boolParam BoolParam
 	)
-	err = multierr.Combine(
+	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&boolParam, From(VarExpr(t.Data, vars), Input(inputs, 0), nil)), "data"),
 	)
 	if err != nil {

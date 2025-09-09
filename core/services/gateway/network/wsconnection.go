@@ -5,11 +5,11 @@ import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/gorilla/websocket"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -77,7 +77,7 @@ var (
 
 func NewWSConnectionWrapper(lggr logger.Logger) WSConnectionWrapper {
 	cw := &wsConnectionWrapper{
-		lggr:       lggr.Named("WSConnectionWrapper"),
+		lggr:       logger.Named(lggr, "WSConnectionWrapper"),
 		writeCh:    make(chan writeItem),
 		readCh:     make(chan ReadItem),
 		shutdownCh: make(chan struct{}),

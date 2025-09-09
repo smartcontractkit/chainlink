@@ -1,0 +1,120 @@
+[capability_configs.consensus]
+  binary_path = "./binaries/consensus"
+
+# Global config for consensus is optional - uses empty config by default
+[capability_configs.consensus.config]
+#   CustomField = "value"  # Add custom fields if needed
+
+[capability_configs.cron]
+  binary_path = "./binaries/cron"
+
+# Global config for cron is optional - uses empty config by default
+[capability_configs.cron.config]
+#   CustomField = "value"  # Add custom fields if needed
+
+[capability_configs.custom-compute]
+  # No binary_path needed - this is a built-in capability, it doesn't exist as a separate binary
+
+[capability_configs.custom-compute.config]
+  NumWorkers = 3
+  GlobalRPS = 20.0
+  GlobalBurst = 30
+  PerSenderRPS = 1.5
+  PerSenderBurst = 5
+
+[capability_configs.log-event-trigger]
+  binary_path = "./binaries/log-event-trigger"
+
+[capability_configs.log-event-trigger.config]
+  LookbackBlocks = 2000        # Default lookback blocks
+  PollPeriod = 1500            # Default poll period in milliseconds
+
+[capability_configs.evm]
+  # Defaults for the EVM capability
+  # These are merged with per-DON chain_overrides
+  binary_path = "./binaries/evm"
+
+[capability_configs.evm.config]
+  LogTriggerPollInterval = 1500000000  # 1.5s in nanoseconds
+  ReceiverGasMinimum = 500
+  # Runtime values below are typically filled at runtime, but may be overridden
+  # CreForwarderAddress = "0x0000000000000000000000000000000000000000"
+  # NodeAddress = "0x0000000000000000000000000000000000000000"
+
+[capability_configs.read-contract]
+  binary_path = "./binaries/readcontract"
+
+#[capability_configs.web-api-target]
+#  no binary path for web API target, it's built-in
+
+[capability_configs.web-api-target.config]
+  # Rate limiter configuration for web API target
+  GlobalRPS = 1000.0
+  GlobalBurst = 1000
+  PerSenderRPS = 1000.0
+  PerSenderBurst = 1000
+
+#[capability_configs.web-api-trigger]
+#  no binary path for web API trigger, it's built-in
+
+# Web API trigger uses empty config by default
+[capability_configs.web-api-trigger.config]
+#   CustomField = "value"  # Add custom fields if needed
+
+[capability_configs.http-action]
+  binary_path = "./binaries/http_action"
+
+[capability_configs.http-action.config]
+  # HTTP Action capability configuration
+  ProxyMode = "gateway"
+  IncomingGlobalBurst = 10
+  IncomingGlobalRPS = 50
+  IncomingPerSenderBurst = 10
+  IncomingPerSenderRPS = 10
+  OutgoingGlobalBurst = 10
+  OutgoingGlobalRPS = 50
+  OutgoingPerSenderBurst = 10
+  OutgoingPerSenderRPS = 10
+
+[capability_configs.http-trigger]
+  binary_path = "./binaries/http_trigger"
+
+[capability_configs.http-trigger.config]
+  # HTTP Trigger capability configuration
+  IncomingGlobalBurst = 10
+  IncomingGlobalRPS = 50
+  IncomingPerSenderBurst = 10
+  IncomingPerSenderRPS = 10
+  OutgoingGlobalBurst = 10
+  OutgoingGlobalRPS = 50
+  OutgoingPerSenderBurst = 10
+  OutgoingPerSenderRPS = 10
+
+[capability_configs.write-evm]
+  # No binary_path needed - this is a built-in capability, it doesn't exist as a separate binary
+
+[capability_configs.write-evm.config]
+  # EVM Workflow configuration for write capabilities
+  GasLimitDefault = 400_000
+  TxAcceptanceState = 2
+  PollPeriod = "2s"
+  AcceptanceTimeout = "30s"
+  # Runtime values below are typically filled at runtime, but may be overridden
+  # FromAddress = "0x0000000000000000000000000000000000000000"
+  # ForwarderAddress = "0x0000000000000000000000000000000000000000"
+[capability_configs.write-solana.config]
+  # Solana Workflow configuration for write capabilities
+  TxAcceptanceState = 3
+  PollPeriod = "2s"
+  AcceptanceTimeout = "30s"
+  TxRetentionTimeout = "60s"
+  Local = true
+  # Runtime values below are typically filled at runtime, but may be overridden
+  # FromAddress = "0x0000000000000000000000000000000000000000"
+  # ForwarderAddress = "0x0000000000000000000000000000000000000000"
+
+[capability_configs.mock]
+  binary_path = "./binaries/mock"
+
+[capability_configs.mock.config]
+  Port = 7777  # Default port for mock service

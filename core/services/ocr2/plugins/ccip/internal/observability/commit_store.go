@@ -19,7 +19,6 @@ func NewObservedCommitStoreReader(origin ccipdata.CommitStoreReader, chainID int
 		metric: metricDetails{
 			interactionDuration: readerHistogram,
 			resultSetSize:       readerDatasetSize,
-			pluginName:          pluginName,
 			readerName:          "CommitStoreReader",
 			chainId:             chainID,
 		},

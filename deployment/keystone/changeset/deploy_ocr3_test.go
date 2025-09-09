@@ -6,9 +6,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -16,6 +19,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -30,10 +34,13 @@ func TestDeployOCR3(t *testing.T) {
 		Chains: 2,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+	qualifier := "test-ocr3-qualifier"
 
-	registrySel := env.AllChainSelectors()[0]
+	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
-	resp, err := changeset.DeployOCR3(env, registrySel)
+	resp, err := changeset.DeployOCR3V2(env, &changeset.DeployRequestV2{
+		ChainSel: registrySel, Qualifier: qualifier,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// OCR3 should be deployed on chain 0
@@ -41,9 +48,12 @@ func TestDeployOCR3(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
 
+	dsAddrs := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier), datastore.AddressRefByChainSelector(registrySel))
+	require.Len(t, dsAddrs, 1)
+
 	// nothing on chain 1
-	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
-	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	require.NotEqual(t, registrySel, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
+	oaddrs, _ := resp.AddressBook.AddressesForChain(env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
 	assert.Empty(t, oaddrs)
 }
 
@@ -51,7 +61,7 @@ func TestConfigureOCR3(t *testing.T) {
 	t.Parallel()
 
 	nWfNodes := 4
-	c := internal.OracleConfig{
+	c := ocr3.OracleConfig{
 		MaxFaultyOracles:     1,
 		DeltaProgressMillis:  12345,
 		TransmissionSchedule: []int{nWfNodes},
@@ -66,18 +76,32 @@ func TestConfigureOCR3(t *testing.T) {
 		})
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
+		require.NoError(t, err)
+
+		// Find existing OCR3 contract
+		var existingOCR3Addr string
+		for addr, tv := range existingContracts {
+			if tv.Type == internal.OCR3Capability {
+				existingOCR3Addr = addr
+				break
+			}
+		}
 
 		w := &bytes.Buffer{}
+		addr := common.HexToAddress(existingOCR3Addr)
 		cfg := changeset.ConfigureOCR3Config{
 			ChainSel:             te.RegistrySelector,
 			NodeIDs:              wfNodes,
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
+			Address:              &addr,
 		}
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.NoError(t, err)
-		var got internal.OCR2OracleConfig
+		var got ocr3.OCR2OracleConfig
 		err = json.Unmarshal(w.Bytes(), &got)
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)
@@ -93,7 +117,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
@@ -109,10 +133,13 @@ func TestConfigureOCR3(t *testing.T) {
 		}
 
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(te.Env, registrySel)
+		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{ChainSel: registrySel})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
+
+		require.NoError(t, resp.DataStore.Merge(te.Env.DataStore))
+		te.Env.DataStore = resp.DataStore.Seal()
 
 		// Verify after merge there are three original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
@@ -142,7 +169,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.NoError(t, err)
-		var got internal.OCR2OracleConfig
+		var got ocr3.OCR2OracleConfig
 		err = json.Unmarshal(w.Bytes(), &got)
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)
@@ -158,14 +185,14 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
 		require.Len(t, existingContracts, 4)
 
 		// Deploy a new OCR3 contract
-		resp, err := changeset.DeployOCR3(te.Env, registrySel)
+		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{ChainSel: registrySel})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
@@ -187,7 +214,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		_, err = changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "OCR contract address is unspecified")
+		require.ErrorContains(t, err, "OCR3 contract to configure is required")
 	})
 
 	t.Run("fails multiple OCR3 contracts but address not found", func(t *testing.T) {
@@ -198,7 +225,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
@@ -233,7 +260,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		_, err = changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "not found in contract set")
+		require.ErrorContains(t, err, "not found in datastore")
 	})
 
 	t.Run("mcms", func(t *testing.T) {
@@ -247,7 +274,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
-		registrySel := te.Env.AllChainSelectors()[0]
+		registrySel := te.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 		// Verify after merge there are three original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
@@ -274,7 +301,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.NoError(t, err)
-		var got internal.OCR2OracleConfig
+		var got ocr3.OCR2OracleConfig
 		err = json.Unmarshal(w.Bytes(), &got)
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)

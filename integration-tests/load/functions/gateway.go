@@ -98,7 +98,7 @@ func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) (uint8, uint64, erro
 		return 0, 0, err
 	}
 	codec := api.JsonRPCCodec{}
-	rawMsg, err := codec.EncodeRequest(msg)
+	rawMsg, err := codec.EncodeLegacyRequest(msg)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -147,11 +147,11 @@ func ListS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 		return err
 	}
 	codec := api.JsonRPCCodec{}
-	rawMsg, err := codec.EncodeRequest(msg)
+	rawMsg, err := codec.EncodeLegacyRequest(msg)
 	if err != nil {
 		return err
 	}
-	msgdec, err := codec.DecodeRequest(rawMsg)
+	msgdec, err := codec.DecodeLegacyResponse(rawMsg)
 	if err != nil {
 		return err
 	}

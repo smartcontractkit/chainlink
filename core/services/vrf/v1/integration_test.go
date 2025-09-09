@@ -17,6 +17,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -157,8 +158,10 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		cu.RootContractAddress.String(), "", "", "", 0, 200, 0, 100)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(ctx, 1))
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	require.True(t, ok)
+	require.NoError(t, chain.LogPoller().Ready())
+	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
 
 	// Create a VRF request
 	_, err := cu.ConsumerContract.TestRequestRandomness(cu.Carol,

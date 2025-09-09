@@ -21,4 +21,5 @@ type OCR interface {
 	TraceLogging() bool
 	DefaultTransactionQueueDepth() uint32
 	CaptureEATelemetry() bool
+	ConfigLogValidation() bool
 }

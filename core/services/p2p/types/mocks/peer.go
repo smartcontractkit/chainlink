@@ -163,6 +163,51 @@ func (_c *Peer_ID_Call) RunAndReturn(run func() ragep2ptypes.PeerID) *Peer_ID_Ca
 	return _c
 }
 
+// IsBootstrap provides a mock function with no fields
+func (_m *Peer) IsBootstrap() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsBootstrap")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// Peer_IsBootstrap_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsBootstrap'
+type Peer_IsBootstrap_Call struct {
+	*mock.Call
+}
+
+// IsBootstrap is a helper method to define mock.On call
+func (_e *Peer_Expecter) IsBootstrap() *Peer_IsBootstrap_Call {
+	return &Peer_IsBootstrap_Call{Call: _e.mock.On("IsBootstrap")}
+}
+
+func (_c *Peer_IsBootstrap_Call) Run(run func()) *Peer_IsBootstrap_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Peer_IsBootstrap_Call) Return(_a0 bool) *Peer_IsBootstrap_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_IsBootstrap_Call) RunAndReturn(run func() bool) *Peer_IsBootstrap_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Name provides a mock function with no fields
 func (_m *Peer) Name() string {
 	ret := _m.Called()

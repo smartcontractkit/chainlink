@@ -11,7 +11,9 @@ import (
 	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/mcm"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
@@ -25,7 +27,7 @@ import (
 
 func deployMCMProgram(
 	env cldf.Environment, chainState *state.MCMSWithTimelockStateSolana,
-	chain cldf.SolChain, addressBook cldf.AddressBook,
+	chain cldf_solana.Chain, addressBook cldf.AddressBook,
 ) error {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
@@ -36,7 +38,7 @@ func deployMCMProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, cldf.SolProgramInfo{
+		deployedProgramID, err := chain.DeployProgram(log, cldf_solana.ProgramInfo{
 			Name:  deployment.McmProgramName,
 			Bytes: deployment.SolanaProgramBytes[deployment.McmProgramName],
 		}, false, true)
@@ -69,13 +71,12 @@ func deployMCMProgram(
 
 func initMCM(
 	env cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
-	chain cldf.SolChain, addressBook cldf.AddressBook, mcmConfig *mcmsTypes.Config,
+	chain cldf_solana.Chain, addressBook cldf.AddressBook, mcmConfig *mcmsTypes.Config,
 ) error {
 	if chainState.McmProgram.IsZero() {
 		return errors.New("mcm program is not deployed")
 	}
 	programID := chainState.McmProgram
-	mcmBindings.SetProgramID(programID)
 
 	typeAndVersion := cldf.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 	mcmProgram, mcmSeed, err := chainState.GetStateFromType(contractType)
@@ -127,7 +128,7 @@ func initMCM(
 	return nil
 }
 
-func initializeMCM(e cldf.Environment, chain cldf.SolChain, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
+func initializeMCM(e cldf.Environment, chain cldf_solana.Chain, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
 	var mcmConfig mcmBindings.MultisigConfig
 	err := chain.GetAccountDataBorshInto(e.GetContext(), state.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
 	if err == nil {
@@ -150,7 +151,7 @@ func initializeMCM(e cldf.Environment, chain cldf.SolChain, mcmProgram solana.Pu
 		return fmt.Errorf("failed to unmarshal program data: %w", err)
 	}
 
-	instruction, err := mcmBindings.NewInitializeInstruction(
+	ix, err := mcmBindings.NewInitializeInstruction(
 		chain.Selector,
 		multisigID,
 		state.GetMCMConfigPDA(mcmProgram, multisigID),
@@ -164,8 +165,12 @@ func initializeMCM(e cldf.Environment, chain cldf.SolChain, mcmProgram solana.Pu
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-
-	err = chain.Confirm([]solana.Instruction{instruction})
+	ixData, err := ix.Data()
+	if err != nil {
+		return fmt.Errorf("failed to extract data payload from mcm initialize instruction: %w", err)
+	}
+	initIx := solana.NewInstruction(mcmProgram, ix.Accounts(), ixData)
+	err = chain.Confirm([]solana.Instruction{initIx})
 	if err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}

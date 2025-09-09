@@ -18,7 +18,7 @@ func TestContractReaderConfigRaw(t *testing.T) {
 
 	var result config.ContractReader
 	require.NoError(t, json.Unmarshal(raw, &result))
-	require.EqualValues(t, cfg, result)
+	require.Equal(t, cfg, result)
 
 	cfg, err = SourceContractReaderConfig()
 	require.NoError(t, err)
@@ -26,5 +26,5 @@ func TestContractReaderConfigRaw(t *testing.T) {
 	raw, err = json.Marshal(cfg)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(raw, &result))
-	require.EqualValues(t, cfg, result)
+	require.Equal(t, cfg, result)
 }

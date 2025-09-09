@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -57,8 +56,8 @@ func (c *CommitOCR2ConfigParams) PopulateOffChainAndOnChainCfg(priceReg common.A
 		c.PriceReportingDisabled,
 	).Encode()
 	if err != nil {
-		return errors.Wrapf(err, "failed to encode offchain config for source chain %d and destination chain %d",
-			c.SourceChainSelector, c.DestinationChainSelector)
+		return fmt.Errorf("failed to encode offchain config for source chain %d and destination chain %d: %w",
+			c.SourceChainSelector, c.DestinationChainSelector, err)
 	}
 	c.OCR2ConfigParams.OnchainConfig, err = abihelpers.EncodeAbiStruct(testhelpers.NewCommitOnchainConfig(priceReg))
 	if err != nil {
@@ -76,7 +75,7 @@ func (c *CommitOCR2ConfigParams) Validate(state stateview.CCIPOnChainState) erro
 		return fmt.Errorf("invalid SourceChainSelector: %w", err)
 	}
 
-	chain, exists := state.Chains[c.DestinationChainSelector]
+	chain, exists := state.EVMChainState(c.DestinationChainSelector)
 	if !exists {
 		return fmt.Errorf("chain %d does not exist in state", c.DestinationChainSelector)
 	}
@@ -142,7 +141,7 @@ func (e *ExecuteOCR2ConfigParams) Validate(state stateview.CCIPOnChainState) err
 	if err := cldf.IsValidChainSelector(e.DestinationChainSelector); err != nil {
 		return fmt.Errorf("invalid DestinationChainSelector: %w", err)
 	}
-	chain, exists := state.Chains[e.DestinationChainSelector]
+	chain, exists := state.EVMChainState(e.DestinationChainSelector)
 	if !exists {
 		return fmt.Errorf("chain %d does not exist in state", e.DestinationChainSelector)
 	}
@@ -192,15 +191,15 @@ func SetOCR2ConfigForTestChangeset(env cldf.Environment, c OCR2Config) (cldf.Cha
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid OCR2 config: %w", err)
 	}
 	for _, commit := range c.CommitConfigs {
-		if err := commit.PopulateOffChainAndOnChainCfg(state.Chains[commit.DestinationChainSelector].PriceRegistry.Address()); err != nil {
+		if err := commit.PopulateOffChainAndOnChainCfg(state.MustGetEVMChainState(commit.DestinationChainSelector).PriceRegistry.Address()); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for commit: %w", err)
 		}
 		finalCfg, err := deriveOCR2Config(env, commit.DestinationChainSelector, commit.OCR2ConfigParams)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for commit: %w", err)
 		}
-		commitStore := state.Chains[commit.DestinationChainSelector].CommitStore[commit.SourceChainSelector]
-		chain := env.Chains[commit.DestinationChainSelector]
+		commitStore := state.MustGetEVMChainState(commit.DestinationChainSelector).CommitStore[commit.SourceChainSelector]
+		chain := env.BlockChains.EVMChains()[commit.DestinationChainSelector]
 		tx, err := commitStore.SetOCR2Config(
 			chain.DeployerKey,
 			finalCfg.Signers,
@@ -222,16 +221,16 @@ func SetOCR2ConfigForTestChangeset(env cldf.Environment, c OCR2Config) (cldf.Cha
 	}
 	for _, exec := range c.ExecConfigs {
 		if err := exec.PopulateOffChainAndOnChainCfg(
-			state.Chains[exec.DestinationChainSelector].Router.Address(),
-			state.Chains[exec.DestinationChainSelector].PriceRegistry.Address()); err != nil {
+			state.MustGetEVMChainState(exec.DestinationChainSelector).Router.Address(),
+			state.MustGetEVMChainState(exec.DestinationChainSelector).PriceRegistry.Address()); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for offramp: %w", err)
 		}
 		finalCfg, err := deriveOCR2Config(env, exec.DestinationChainSelector, exec.OCR2ConfigParams)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to derive OCR2 config for offramp: %w", err)
 		}
-		offRamp := state.Chains[exec.DestinationChainSelector].EVM2EVMOffRamp[exec.SourceChainSelector]
-		chain := env.Chains[exec.DestinationChainSelector]
+		offRamp := state.MustGetEVMChainState(exec.DestinationChainSelector).EVM2EVMOffRamp[exec.SourceChainSelector]
+		chain := env.BlockChains.EVMChains()[exec.DestinationChainSelector]
 		tx, err := offRamp.SetOCR2Config(
 			chain.DeployerKey,
 			finalCfg.Signers,
@@ -317,10 +316,10 @@ func deriveOCR2Config(
 	for _, transmitter := range transmitters {
 		bytes, err := hexutil.Decode(string(transmitter))
 		if err != nil {
-			return FinalOCR2Config{}, errors.Wrap(err, fmt.Sprintf("given address is not valid %s", transmitter))
+			return FinalOCR2Config{}, fmt.Errorf("given address is not valid %s: %w", transmitter, err)
 		}
 		if len(bytes) != 20 {
-			return FinalOCR2Config{}, errors.Errorf("address is not 20 bytes %s", transmitter)
+			return FinalOCR2Config{}, fmt.Errorf("address is not 20 bytes %s", transmitter)
 		}
 		transmittersAddresses = append(transmittersAddresses, common.BytesToAddress(bytes))
 	}

@@ -129,6 +129,7 @@ func (t TestRelayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
 }
 
 type TestRelayer struct {
+	types.UnimplementedRelayer
 	relayArgs  types.RelayArgs
 	pluginArgs types.PluginArgs
 }
@@ -167,6 +168,10 @@ func (t *TestRelayer) LatestHead(_ context.Context) (types.Head, error) {
 }
 
 func (t *TestRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
+	panic("implement me")
+}
+
+func (t *TestRelayer) GetChainInfo(_ context.Context) (types.ChainInfo, error) {
 	panic("implement me")
 }
 

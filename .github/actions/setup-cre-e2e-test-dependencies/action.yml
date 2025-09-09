@@ -1,0 +1,106 @@
+name: Setup CRE E2E Test Dependencies
+description: Setup dependencies for CRE E2E tests with efficient caching
+
+inputs:
+
+  cre-cli-version:
+    description: Version of the CRE CLI to use
+    default: "v0.2.0"
+  capability-version:
+    description: Version of the capability to use
+    default: "v1.0.2-alpha"
+  capability-names:
+    description: Comma-separated list of capability names to use
+    default: "cron"
+
+  # GATI Inputs
+  gati-role-arn:
+    description: ARN of the GATI role to assume for GitHub token
+    required: true
+  gati-lambda-url:
+    description: URL of the GATI Lambda function to get the GitHub token
+    required: true
+  gati-region:
+    description: AWS region for the GATI Lambda function
+    default: "us-west-2"
+
+runs:
+  using: composite
+  steps:
+
+    - name: Setup cache directory and key
+      id: setup-cache-dir-key
+      shell: bash
+      env:
+        DOWNLOAD_PATH: ${{ github.workspace }}/system-tests/binaries-deps
+        EXPECTED_PATH: ${{ github.workspace }}/core/scripts/cre/environment/binaries/
+        CAPABILITY_NAMES: ${{ inputs.capability-names }}
+        CAPABILITY_VERSION: ${{ inputs.capability-version }}
+      run: |
+        mkdir -p ${DOWNLOAD_PATH}
+
+        echo "download-path=${DOWNLOAD_PATH}" | tee -a "${GITHUB_OUTPUT}"
+        echo "expected-path=${EXPECTED_PATH}" | tee -a "${GITHUB_OUTPUT}"
+
+        capability_hash=$(echo "${CAPABILITY_NAMES}" | tr ',' '\n' | sort | sha256sum | cut -d ' ' -f 1)
+        cache_key="${CAPABILITY_VERSION}-${capability_hash}"
+        echo "cache-key=${cache_key}" | tee -a "${GITHUB_OUTPUT}"
+
+    - name: Restore Cache
+      id: cache-restore
+      uses: actions/cache/restore@v4
+      with:
+        key: ${{ steps.setup-cache-dir-key.outputs.cache-key }}
+        path: ${{ steps.setup-cache-dir-key.outputs.download-path }}
+
+    - name: Setup GitHub token using GATI
+      if: ${{ steps.cache-restore.outputs.cache-hit != 'true' }}
+      id: setup-gati-token
+      uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+      with:
+        aws-role-arn: ${{ inputs.gati-role-arn }}
+        aws-lambda-url: ${{ inputs.gati-lambda-url }}
+        aws-region: ${{ inputs.gati-region }}
+        aws-role-duration-seconds: "1800"
+
+    - name: Download test dependencies
+      if: ${{ steps.cache-restore.outputs.cache-hit != 'true' }}
+      shell: bash
+      working-directory: system-tests/tests/smoke/cre/cmd
+      env:
+        GITHUB_API_TOKEN: ${{ steps.setup-gati-token.outputs.access-token }}
+        MAX_RETRIES: 3
+        CAPABILITY_NAMES: ${{ inputs.capability-names }}
+        CAPABILITY_VERSION: ${{ inputs.capability-version }}
+        DOWNLOAD_PATH: ${{ steps.setup-cache-dir-key.outputs.download-path }}
+      run: |
+        ./download_cre_ci_deps.sh \
+          ${MAX_RETRIES} \
+          ${CAPABILITY_NAMES} \
+          ${CAPABILITY_VERSION} \
+          ${DOWNLOAD_PATH}
+
+    - name: Save cache
+      if: ${{ steps.cache-restore.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        key: ${{ steps.setup-cache-dir-key.outputs.cache-key }}
+        path: ${{ steps.setup-cache-dir-key.outputs.download-path }}
+
+    - name: Move binaries to expected location
+      shell: bash
+      env:
+        DOWNLOAD_PATH: ${{ steps.setup-cache-dir-key.outputs.download-path }}
+        EXPECTED_PATH: ${{ steps.setup-cache-dir-key.outputs.expected-path }}
+      run: |
+        echo "Moving binaries from ${DOWNLOAD_PATH}/ to ${EXPECTED_PATH}/"
+
+        echo "Contents of ${DOWNLOAD_PATH}/ before moving:"
+        ls -la ${DOWNLOAD_PATH}/
+
+        mkdir -p ${EXPECTED_PATH}/
+
+        mv ${DOWNLOAD_PATH}/* ${EXPECTED_PATH}/
+
+        echo "Contents of ${EXPECTED_PATH}/ after moving:"
+        ls -la ${EXPECTED_PATH}/

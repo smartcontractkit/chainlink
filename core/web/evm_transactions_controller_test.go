@@ -99,7 +99,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	ptx := presenters.EthTxResource{}
-	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
+	cltest.ParseJSONAPIResponse(t, resp, &ptx)
 	txp := presenters.NewEthTxResourceFromAttempt(attempt)
 
 	assert.Equal(t, txp.State, ptx.State)

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -107,10 +106,10 @@ var _ Transmitter = (*transmitter)(nil)
 
 type Config interface {
 	Protocol() config.MercuryTransmitterProtocol
-	ReaperMaxAge() commonconfig.Duration
+	ReaperMaxAge() time.Duration
 	TransmitConcurrency() uint32
 	TransmitQueueMaxSize() uint32
-	TransmitTimeout() commonconfig.Duration
+	TransmitTimeout() time.Duration
 }
 
 type transmitter struct {

@@ -94,6 +94,19 @@ UserAPITokenDuration = '240h0m0s'
 UpstreamSyncInterval = '0s'
 UpstreamSyncRateLimit = '2m0s'
 
+[WebServer.OIDC]
+ClientID = ''
+ProviderURL = ''
+RedirectURL = ''
+ClaimName = 'groups'
+AdminClaim = 'NodeAdmins'
+EditClaim = 'NodeEditors'
+RunClaim = 'NodeRunners'
+ReadClaim = 'NodeReadOnly'
+SessionTimeout = '15m0s'
+UserAPITokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+
 [WebServer.MFA]
 RPID = ''
 RPOrigin = ''
@@ -111,6 +124,9 @@ Host = ''
 HTTPSPort = 6689
 KeyPath = ''
 ListenIP = '0.0.0.0'
+
+[JobDistributor]
+DisplayName = ''
 
 [JobPipeline]
 ExternalInitiatorsEnabled = false
@@ -144,6 +160,7 @@ AllowNoBootstrappers = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
+KeyValueStoreRootDir = '~/.chainlink-data'
 
 [OCR]
 Enabled = false
@@ -157,6 +174,7 @@ SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
 TraceLogging = false
+ConfigLogValidation = false
 
 [P2P]
 IncomingMessageBufferSize = 10
@@ -265,9 +283,23 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
+[Capabilities.SharedPeering]
+Enabled = false
+Bootstrappers = []
+
+[Capabilities.SharedPeering.StreamConfig]
+IncomingMessageBufferSize = 500
+OutgoingMessageBufferSize = 500
+MaxMessageLenBytes = 500000
+MessageRateLimiterRate = 100.0
+MessageRateLimiterCapacity = 500
+BytesRateLimiterRate = 5000000.0
+BytesRateLimiterCapacity = 10000000
+
 [Capabilities.Dispatcher]
 SupportedVersion = 1
 ReceiverBufferSize = 10000
+SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -279,15 +311,22 @@ PerSenderBurst = 50
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 
 [Capabilities.WorkflowRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+ContractVersion = '1.0.0'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+ArtifactStorageHost = ''
+URL = ''
+TLSEnabled = true
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -310,6 +349,9 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+ChipIngressInsecureConnection = false
+HeartbeatInterval = '1s'
+LogStreamingEnabled = false
 
 [Workflows]
 [Workflows.Limits]
@@ -317,6 +359,27 @@ Global = 200
 PerOwner = 200
 
 [CRE]
+UseLocalTimeProvider = true
+EnableDKGRecipient = false
+
 [CRE.Streams]
 WsURL = ''
 RestURL = ''
+
+[CRE.WorkflowFetcher]
+URL = ''
+
+[CRE.Linking]
+URL = ''
+TLSEnabled = true
+
+[Billing]
+URL = 'localhost:4319'
+TLSEnabled = true
+
+[BridgeStatusReporter]
+Enabled = false
+StatusPath = '/status'
+PollingInterval = '5m0s'
+IgnoreInvalidBridges = true
+IgnoreJoblessBridges = false

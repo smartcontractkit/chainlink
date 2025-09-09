@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 	smocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions/mocks"
 )
@@ -54,7 +54,7 @@ func TestSubscriptions_OnePass(t *testing.T) {
 	orm := smocks.NewORM(t)
 	orm.On("GetSubscriptions", mock.Anything, uint(0), uint(100)).Return([]subscriptions.StoredSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything, mock.Anything).Return(nil)
-	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
+	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.Test(t))
 	require.NoError(t, err)
 
 	err = subscriptions.Start(ctx)
@@ -106,7 +106,7 @@ func TestSubscriptions_MultiPass(t *testing.T) {
 	orm := smocks.NewORM(t)
 	orm.On("GetSubscriptions", mock.Anything, uint(0), uint(100)).Return([]subscriptions.StoredSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything, mock.Anything).Return(nil)
-	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
+	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.Test(t))
 	require.NoError(t, err)
 
 	err = subscriptions.Start(ctx)
@@ -160,7 +160,7 @@ func TestSubscriptions_Stored(t *testing.T) {
 	orm.On("GetSubscriptions", mock.Anything, uint(1), uint(1)).Return([]subscriptions.StoredSubscription{}, nil)
 	orm.On("UpsertSubscription", mock.Anything, mock.Anything).Return(nil)
 
-	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.TestLogger(t))
+	subscriptions, err := subscriptions.NewOnchainSubscriptions(client, config, orm, logger.Test(t))
 	require.NoError(t, err)
 
 	err = subscriptions.Start(ctx)
