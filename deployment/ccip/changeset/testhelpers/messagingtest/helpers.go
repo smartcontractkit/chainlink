@@ -1,7 +1,6 @@
 package messagingtest
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
