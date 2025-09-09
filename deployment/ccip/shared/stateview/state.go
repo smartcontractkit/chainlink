@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
@@ -24,6 +25,7 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -791,13 +793,9 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 		evmMu:       &sync.RWMutex{},
 	}
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := mergeAddressesFromBothSources(e, chainSelector)
 		if err != nil {
-			if !errors.Is(err, cldf.ErrChainNotFound) {
-				return state, err
-			}
-			// Chain not found in address book, initialize empty
-			addresses = make(map[string]cldf.TypeAndVersion)
+			return state, fmt.Errorf("failed to merge addresses for chain %d: %w", chainSelector, err)
 		}
 		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
 		if err != nil {
@@ -1412,4 +1410,80 @@ func LoadOnchainStateSolana(e cldf.Environment) (CCIPOnChainState, error) {
 		state.SolChains[chainSelector] = chainState
 	}
 	return state, nil
+}
+
+// mergeAddressesFromBothSources combines addresses from both DataStore and AddressBook making it backward compatible.
+// This should be deleted in future when AddressBook is fully deprecated
+// DataStore addresses take precedence over AddressBook addresses when there are conflicts
+func mergeAddressesFromBothSources(e cldf.Environment, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
+	// Start with addresses from AddressBook for backward compatibility
+	addressBookAddresses := make(map[string]cldf.TypeAndVersion)
+	if addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector); err == nil {
+		addressBookAddresses = addresses
+	} else if !errors.Is(err, cldf.ErrChainNotFound) {
+		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
+	}
+
+	// Try to load addresses from DataStore (without qualifier for general case)
+	// Only try if DataStore is available
+	if e.DataStore != nil {
+		dataStoreAddresses, err := loadAddressesFromDataStore(e.DataStore, chainSelector, "")
+		if err != nil {
+			// If DataStore has no addresses, just return AddressBook addresses
+			if strings.Contains(err.Error(), "no addresses found") {
+				return addressBookAddresses, nil
+			}
+			// Don't fail if DataStore is not working - fall back to AddressBook
+			return addressBookAddresses, nil
+		}
+
+		// Merge the two maps - DataStore addresses take precedence
+		mergedAddresses := make(map[string]cldf.TypeAndVersion)
+
+		// First add all AddressBook addresses
+		for addr, tv := range addressBookAddresses {
+			mergedAddresses[addr] = tv
+		}
+
+		// Then add DataStore addresses (overwriting any conflicts)
+		for addr, tv := range dataStoreAddresses {
+			mergedAddresses[addr] = tv
+		}
+
+		return mergedAddresses, nil
+	}
+
+	// If no DataStore, just return AddressBook addresses
+	return addressBookAddresses, nil
+}
+
+// loadAddressesFromDataStore loads addresses from DataStore with optional qualifier
+func loadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+	addressesChain := make(map[string]cldf.TypeAndVersion)
+
+	// Build filter list starting with chain selector
+	filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{datastore.AddressRefByChainSelector(chainSelector)}
+
+	// Add qualifier filter if provided
+	if qualifier != "" {
+		filters = append(filters, datastore.AddressRefByQualifier(qualifier))
+	}
+
+	addresses := ds.Addresses().Filter(filters...)
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
+	}
+
+	for _, addressRef := range addresses {
+		tv := cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addressRef.Type),
+			Version: *addressRef.Version,
+		}
+		// Preserve labels from DataStore
+		if !addressRef.Labels.IsEmpty() {
+			tv.Labels = cldf.NewLabelSet(addressRef.Labels.List()...)
+		}
+		addressesChain[addressRef.Address] = tv
+	}
+	return addressesChain, nil
 }

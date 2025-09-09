@@ -3,6 +3,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -63,16 +64,25 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (view.MCMSWith
 
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
 func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+	return MaybeLoadMCMSWithTimelockStateWithQualifier(env, chainSelectors, "")
+}
+
+// MaybeLoadMCMSWithTimelockStateWithQualifier loads the MCMSWithTimelockState state for each chain in the given environment,
+// supporting qualifiers for filtering addresses. This uses the merged approach searching both AddressBook and DataStore.
+func MaybeLoadMCMSWithTimelockStateWithQualifier(env cldf.Environment, chainSelectors []uint64, qualifier string) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
-		addressesChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+
+		// Use merged addresses from both AddressBook and DataStore for backward compatibility
+		addressesChain, err := mergeAddressesFromBothSourcesEVMWithQualifier(env, chainSelector, qualifier)
 		if err != nil {
 			return nil, err
 		}
+
 		state, err := MaybeLoadMCMSWithTimelockChainState(chain, addressesChain)
 		if err != nil {
 			return nil, err
@@ -80,6 +90,50 @@ func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint6
 		result[chainSelector] = state
 	}
 	return result, nil
+}
+
+// mergeAddressesFromBothSourcesEVMWithQualifier combines addresses from both DataStore and AddressBook making it backward compatible.
+// This version supports qualifiers for filtering DataStore addresses.
+func mergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+	// Start with addresses from AddressBook for backward compatibility
+	addressBookAddresses := make(map[string]cldf.TypeAndVersion)
+	if addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector); err == nil {
+		addressBookAddresses = addresses
+	} else if !errors.Is(err, cldf.ErrChainNotFound) {
+		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
+	}
+
+	// Try to load addresses from DataStore with qualifier
+	// Only try if DataStore is available
+	if env.DataStore != nil {
+		dataStoreAddresses, err := loadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
+		if err != nil {
+			// If DataStore has no addresses, just return AddressBook addresses
+			if strings.Contains(err.Error(), "no addresses found") {
+				return addressBookAddresses, nil
+			}
+			// Don't fail if DataStore is not working - fall back to AddressBook
+			return addressBookAddresses, nil
+		}
+
+		// Merge the two maps - DataStore addresses take precedence
+		mergedAddresses := make(map[string]cldf.TypeAndVersion)
+
+		// First add all AddressBook addresses
+		for addr, tv := range addressBookAddresses {
+			mergedAddresses[addr] = tv
+		}
+
+		// Then add DataStore addresses (overwriting any conflicts)
+		for addr, tv := range dataStoreAddresses {
+			mergedAddresses[addr] = tv
+		}
+
+		return mergedAddresses, nil
+	}
+
+	// If no DataStore, just return AddressBook addresses
+	return addressBookAddresses, nil
 }
 
 // MaybeLoadMCMSWithTimelockStateDataStore loads the MCMSWithTimelockState state for each chain in the given environment from the DataStore.

@@ -2,8 +2,10 @@ package changeset
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,10 +17,12 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -49,6 +53,99 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 	return owner, c, nil
 }
 
+// searchContractInBothSources searches for a contract type in both AddressBook and DataStore
+// Returns the address if found in either source (similar to cldf.SearchAddressBook)
+func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contractType cldf.ContractType) (string, error) {
+	// Use the merged address loading from the EVM state function
+	addressesChain, err := mergeAddressesFromBothSourcesEVMWithQualifier(e, chainSelector, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to load addresses: %w", err)
+	}
+
+	// Search through merged addresses for the contract type
+	for addr, tv := range addressesChain {
+		if tv.Type == contractType {
+			return addr, nil
+		}
+	}
+
+	return "", fmt.Errorf("%s not found", contractType)
+}
+
+// mergeAddressesFromBothSourcesEVMWithQualifier combines addresses from both DataStore and AddressBook making it backward compatible.
+func mergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+	// Start with addresses from AddressBook for backward compatibility
+	addressBookAddresses := make(map[string]cldf.TypeAndVersion)
+	if addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector); err == nil {
+		addressBookAddresses = addresses
+	} else if !errors.Is(err, cldf.ErrChainNotFound) {
+		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
+	}
+
+	// Try to load addresses from DataStore with qualifier
+	// Only try if DataStore is available
+	if env.DataStore != nil {
+		dataStoreAddresses, err := loadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
+		if err != nil {
+			// If DataStore has no addresses, just return AddressBook addresses
+			if strings.Contains(err.Error(), "no addresses found") {
+				return addressBookAddresses, nil
+			}
+			// Don't fail if DataStore is not working - fall back to AddressBook
+			return addressBookAddresses, nil
+		}
+
+		// Merge the two maps - DataStore addresses take precedence
+		mergedAddresses := make(map[string]cldf.TypeAndVersion)
+
+		// First add all AddressBook addresses
+		for addr, tv := range addressBookAddresses {
+			mergedAddresses[addr] = tv
+		}
+
+		// Then add DataStore addresses (overwriting any conflicts)
+		for addr, tv := range dataStoreAddresses {
+			mergedAddresses[addr] = tv
+		}
+
+		return mergedAddresses, nil
+	}
+
+	// If no DataStore, just return AddressBook addresses
+	return addressBookAddresses, nil
+}
+
+// loadAddressesFromDataStore loads addresses from DataStore with optional qualifier
+func loadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+	addressesChain := make(map[string]cldf.TypeAndVersion)
+
+	// Build filter list starting with chain selector
+	filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{datastore.AddressRefByChainSelector(chainSelector)}
+
+	// Add qualifier filter if provided
+	if qualifier != "" {
+		filters = append(filters, datastore.AddressRefByQualifier(qualifier))
+	}
+
+	addresses := ds.Addresses().Filter(filters...)
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
+	}
+
+	for _, addressRef := range addresses {
+		tv := cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addressRef.Type),
+			Version: *addressRef.Version,
+		}
+		// Preserve labels from DataStore
+		if !addressRef.Labels.IsEmpty() {
+			tv.Labels = cldf.NewLabelSet(addressRef.Labels.List()...)
+		}
+		addressesChain[addressRef.Address] = tv
+	}
+	return addressesChain, nil
+}
+
 func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 	evmChains := e.BlockChains.EVMChains()
 	for chainSelector, contracts := range t.ContractsByChain {
@@ -70,10 +167,10 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 			}
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
-		if _, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock); err != nil {
+		if _, err := searchContractInBothSources(e, chainSelector, types.RBACTimelock); err != nil {
 			return fmt.Errorf("timelock not present on the chain %w", err)
 		}
-		if _, err := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig); err != nil {
+		if _, err := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig); err != nil {
 			return fmt.Errorf("mcms proposer not present on the chain %w", err)
 		}
 	}
@@ -99,8 +196,8 @@ func TransferToMCMSWithTimelockV2(
 	execReports := make([]operations.Report[any, any], 0)
 	for chainSelector, contracts := range cfg.ContractsByChain {
 		// Already validated that the timelock/proposer exists.
-		timelockAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
-		proposerAddr, _ := cldf.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
+		timelockAddr, _ := searchContractInBothSources(e, chainSelector, types.RBACTimelock)
+		proposerAddr, _ := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig)
 		timelockAddressByChain[chainSelector] = timelockAddr
 		proposerAddressByChain[chainSelector] = proposerAddr
 		inspectorPerChain[chainSelector] = evm.NewInspector(evmChains[chainSelector].Client)
@@ -227,12 +324,12 @@ func (cfg RenounceTimelockDeployerConfig) Validate(e cldf.Environment) error {
 	}
 
 	// MCMS should already exists
-	state, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	contracts, err := state.MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
 	if err != nil {
 		return err
 	}
 
-	contract, ok := state[cfg.ChainSel]
+	contract, ok := contracts[cfg.ChainSel]
 	if !ok {
 		return fmt.Errorf("mcms contracts not found on chain %d", cfg.ChainSel)
 	}
@@ -249,7 +346,7 @@ func RenounceTimelockDeployer(e cldf.Environment, cfg RenounceTimelockDeployerCo
 		return cldf.ChangesetOutput{}, err
 	}
 
-	contracts, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	contracts, err := state.MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

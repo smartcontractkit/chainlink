@@ -2,6 +2,7 @@ package proposalutils
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -381,7 +383,8 @@ func SingleGroupTimelockConfigV2(t *testing.T) commontypes.MCMSWithTimelockConfi
 }
 
 func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint64) string {
-	addressesForChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	// Use merged addresses from both AddressBook and DataStore for backward compatibility
+	addressesForChain, err := mergeAddressesFromBothSources(env, chainSelector)
 	require.NoError(t, err)
 
 	for address, tvStr := range addressesForChain {
@@ -392,4 +395,75 @@ func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint
 
 	require.FailNow(t, "unable to find call proxy address")
 	return ""
+}
+
+// mergeAddressesFromBothSources combines addresses from both DataStore and AddressBook making it backward compatible.
+// This follows the same pattern used in CCIP stateview and EVM state implementations
+func mergeAddressesFromBothSources(env cldf.Environment, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
+	// Start with addresses from AddressBook for backward compatibility
+	addressBookAddresses := make(map[string]cldf.TypeAndVersion)
+	if addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector); err == nil {
+		addressBookAddresses = addresses
+	} else if !errors.Is(err, cldf.ErrChainNotFound) {
+		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
+	}
+
+	// Try to load addresses from DataStore (without qualifier for general case)
+	// Only try if DataStore is available
+	if env.DataStore != nil {
+		dataStoreAddresses, err := loadAddressesFromDataStoreLocal(env.DataStore, chainSelector, "")
+		if err != nil {
+			// If DataStore has no addresses, just return AddressBook addresses
+			return addressBookAddresses, nil
+		}
+
+		// Merge the two maps - DataStore addresses take precedence
+		mergedAddresses := make(map[string]cldf.TypeAndVersion)
+
+		// First add all AddressBook addresses
+		for addr, tv := range addressBookAddresses {
+			mergedAddresses[addr] = tv
+		}
+
+		// Then add DataStore addresses (overwriting any conflicts)
+		for addr, tv := range dataStoreAddresses {
+			mergedAddresses[addr] = tv
+		}
+
+		return mergedAddresses, nil
+	}
+
+	// If no DataStore, just return AddressBook addresses
+	return addressBookAddresses, nil
+}
+
+// loadAddressesFromDataStoreLocal loads addresses from DataStore with optional qualifier
+func loadAddressesFromDataStoreLocal(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+	addressesChain := make(map[string]cldf.TypeAndVersion)
+
+	// Build filter list starting with chain selector
+	filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{datastore.AddressRefByChainSelector(chainSelector)}
+
+	// Add qualifier filter if provided
+	if qualifier != "" {
+		filters = append(filters, datastore.AddressRefByQualifier(qualifier))
+	}
+
+	addresses := ds.Addresses().Filter(filters...)
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
+	}
+
+	for _, addressRef := range addresses {
+		tv := cldf.TypeAndVersion{
+			Type:    cldf.ContractType(addressRef.Type),
+			Version: *addressRef.Version,
+		}
+		// Preserve labels from DataStore
+		if !addressRef.Labels.IsEmpty() {
+			tv.Labels = cldf.NewLabelSet(addressRef.Labels.List()...)
+		}
+		addressesChain[addressRef.Address] = tv
+	}
+	return addressesChain, nil
 }
