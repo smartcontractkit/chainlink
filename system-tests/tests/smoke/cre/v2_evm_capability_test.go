@@ -46,10 +46,6 @@ func executeEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 			enabledChains[strChainID] = struct{}{}
 		}
 	}
-	if len(enabledChains) == 0 {
-		t.Skip("AAA")
-		return
-	}
 	require.NotEmpty(t, enabledChains, "No chains have EVM capability enabled in any node set")
 	const workflowFileLocation = "./evmread/main.go"
 	lggr := framework.L
