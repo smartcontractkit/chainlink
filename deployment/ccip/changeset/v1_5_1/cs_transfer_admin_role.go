@@ -57,7 +57,7 @@ func validateTransferAdminRole(
 
 func transferAdminRolePrecondition(e cldf.Environment, cfg TransferAdminRoleConfig) error {
 	if len(cfg.TransferAdminByChain) == 0 {
-		return fmt.Errorf("at least one chain with token admin info must be specified in TransferAdminRoleConfig")
+		return errors.New("at least one chain with token admin info must be specified in TransferAdminRoleConfig")
 	}
 
 	state, err := stateview.LoadOnchainState(e)

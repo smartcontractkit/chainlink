@@ -1,6 +1,7 @@
 package v1_5_1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -50,7 +51,7 @@ type TokenAdminInfo struct {
 
 func proposeAdminRolePrecondition(e cldf.Environment, cfg ProposeAdminRoleConfig) error {
 	if len(cfg.ProposeAdminByChain) == 0 {
-		return fmt.Errorf("at least one chain with token admin info must be specified in ProposeAdminRoleConfig")
+		return errors.New("at least one chain with token admin info must be specified in ProposeAdminRoleConfig")
 	}
 
 	state, err := stateview.LoadOnchainState(e)
