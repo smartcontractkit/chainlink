@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/lib
 
-go 1.24.5
+go 1.24.6
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.

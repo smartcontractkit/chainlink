@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based
 
-go 1.24.5
-
-toolchain go1.24.7
+go 1.24.6
 
 require (
 	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250905131850-7713941a6848

@@ -94,7 +94,8 @@ func executeEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 }
 
 func logWorkflowLogs(ctx context.Context, t *testing.T, testEnv *TestEnvironment) {
-	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	lggr := framework.L.Level(zerolog.DebugLevel)
+	beholder, err := NewBeholder(lggr, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, err, "failed to create beholder instance")
 
 	// We are interested in UserLogs (successful execution)
@@ -108,7 +109,6 @@ func logWorkflowLogs(ctx context.Context, t *testing.T, testEnv *TestEnvironment
 		},
 	}
 
-	lggr := framework.L
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(ctx, beholderMessageTypes)
 	// Check the beholder logs for the expected messages
 	for {
