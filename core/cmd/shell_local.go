@@ -337,23 +337,20 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}()
 
 	// Enforce closing after grace period
-	var forceOnce sync.Once
-	forceClose := func() {
-		forceOnce.Do(func() {
-			// Close DB hard if still open
-			if s.LDB != nil {
-				if err := s.LDB.Close(); err != nil {
-					lggr.Criticalf("Failed to close DB: %v", err)
-				}
-				s.LDB = nil
+	forceClose := sync.OnceFunc(func() {
+		// Close DB hard if still open
+		if s.LDB != nil {
+			if err := s.LDB.Close(); err != nil {
+				lggr.Criticalf("Failed to close DB: %v", err)
 			}
-			// Close logger if still open
-			if s.CloseLogger != nil {
-				_ = s.CloseLogger()
-			}
-			os.Exit(1)
-		})
-	}
+			s.LDB = nil
+		}
+		// Close logger if still open
+		if s.CloseLogger != nil {
+			_ = s.CloseLogger()
+		}
+		os.Exit(1)
+	})
 
 	// When root is cancelled, start the grace timer.
 	go func() {
