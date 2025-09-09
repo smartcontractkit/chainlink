@@ -323,11 +323,3 @@ func newDiskCore(diskLogLevel zap.AtomicLevel, local Config) (zapcore.Core, erro
 
 	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }
-
-func newOtelCore(otelLogger otellog.Logger) zapcore.Core {
-	otelZapCore := otelzap.NewCore(
-		otelLogger,
-	)
-
-	return otelZapCore
-}
