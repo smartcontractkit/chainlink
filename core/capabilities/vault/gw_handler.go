@@ -105,6 +105,8 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 		response = h.handleSecretsDelete(ctx, gatewayID, req)
 	case vaulttypes.MethodSecretsList:
 		response = h.handleSecretsList(ctx, gatewayID, req)
+	case vaulttypes.MethodPublicKeyGet:
+		response = h.handlePublicKeyGet(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
@@ -247,6 +249,30 @@ func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string
 		ID:      req.ID,
 		Method:  req.Method,
 		Result:  (*json.RawMessage)(&resultBytes),
+	}
+}
+
+func (h *GatewayHandler) handlePublicKeyGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	r := &vaultcommon.GetPublicKeyRequest{}
+	if err := json.Unmarshal(*req.Params, r); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+
+	resp, err := h.secretsService.GetPublicKey(ctx, r)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
+	}
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+
+	return &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&b),
 	}
 }
 

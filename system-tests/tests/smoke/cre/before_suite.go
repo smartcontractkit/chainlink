@@ -1,10 +1,9 @@
 package cre
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
-	"strings"
+	"path/filepath"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -24,17 +23,19 @@ import (
 // TestConfig holds common test specific configurations related to the test execution
 // These configurations are not meant to impact the actual test logic
 type TestConfig struct {
-	EnvironmentConfigPath   string
-	EnvironmentDirPath      string
-	EnvironmentArtifactPath string
-	BeholderConfigPath      string
+	RelativePathToRepoRoot   string
+	EnvironmentConfigPath    string
+	EnvironmentDirPath       string
+	EnvironmentStateFile     string
+	EnvironmentArtifactPaths string
+	BeholderStateFile        string
 }
 
 // TestEnvironment holds references to the main test components
 type TestEnvironment struct {
 	Config                   *envconfig.Config
 	TestConfig               *TestConfig
-	EnvArtifact              environment.EnvArtifact
+	EnvArtifact              *environment.EnvArtifact
 	Logger                   zerolog.Logger
 	FullCldEnvOutput         *cre.FullCLDEnvironmentOutput
 	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
@@ -47,7 +48,7 @@ func SetupTestEnvironment(t *testing.T, flags ...string) *TestEnvironment {
 	defaultTestConfig := getDefaultTestConfig(t)
 	createEnvironment(t, defaultTestConfig, flags...)
 	in := getEnvironmentConfig(t)
-	envArtifact := getEnvironmentArtifact(t)
+	envArtifact := getEnvironmentArtifact(t, defaultTestConfig.RelativePathToRepoRoot)
 	fullCldEnvOutput, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, err, "failed to load environment")
 
@@ -64,11 +65,14 @@ func SetupTestEnvironment(t *testing.T, flags ...string) *TestEnvironment {
 func getDefaultTestConfig(t *testing.T) *TestConfig {
 	t.Helper()
 
+	relativePathToRepoRoot := "../../../../"
+	environmentDirPath := filepath.Join(relativePathToRepoRoot, "core/scripts/cre/environment")
+
 	return &TestConfig{
-		EnvironmentDirPath:      "../../../../core/scripts/cre/environment",
-		EnvironmentConfigPath:   "../../../../core/scripts/cre/environment/configs/workflow-don.toml",
-		EnvironmentArtifactPath: "../../../../core/scripts/cre/environment/env_artifact/env_artifact.json",
-		BeholderConfigPath:      "../../../../core/scripts/cre/environment/configs/chip-ingress-cache.toml",
+		RelativePathToRepoRoot: relativePathToRepoRoot,
+		EnvironmentDirPath:     environmentDirPath,
+		EnvironmentConfigPath:  filepath.Join(environmentDirPath, "/configs/workflow-don.toml"), // change to your desired config, if you want to use another topology
+		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
 	}
 }
 
@@ -80,36 +84,28 @@ func getEnvironmentConfig(t *testing.T) *envconfig.Config {
 	return in
 }
 
-func getEnvironmentArtifact(t *testing.T) environment.EnvArtifact {
+func getEnvironmentArtifact(t *testing.T, relativePathToRepoRoot string) *environment.EnvArtifact {
 	t.Helper()
 
-	var envArtifact environment.EnvArtifact
-	artFile, err := os.ReadFile(os.Getenv("ENV_ARTIFACT_PATH"))
-	require.NoError(t, err, "failed to read artifact file")
-
-	err = json.Unmarshal(artFile, &envArtifact)
-	require.NoError(t, err, "failed to unmarshal artifact file")
+	envArtifact, artErr := environment.ReadEnvArtifact(environment.MustEnvArtifactAbsPath(relativePathToRepoRoot))
+	require.NoError(t, artErr, "failed to read environment artifact")
 	return envArtifact
 }
 
 func createEnvironment(t *testing.T, testConfig *TestConfig, flags ...string) {
 	t.Helper()
 
-	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath, testConfig.EnvironmentArtifactPath)
+	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath)
 	require.NoError(t, confErr, "failed to set configuration")
 
-	createErr := createEnvironmentIfNotExists(testConfig.EnvironmentDirPath, flags...)
+	createErr := createEnvironmentIfNotExists(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, flags...)
 	require.NoError(t, createErr, "failed to create environment")
 
-	// transform the config file to the cache file, so that we can use the cached environment
-	cachedConfigFile, cacheErr := ctfConfigToCacheFile()
-	require.NoError(t, cacheErr, "failed to get cached config file")
-
-	setErr := os.Setenv("CTF_CONFIGS", cachedConfigFile)
+	setErr := os.Setenv("CTF_CONFIGS", envconfig.MustLocalCREStateFileAbsPath(testConfig.RelativePathToRepoRoot))
 	require.NoError(t, setErr, "failed to set CTF_CONFIGS env var")
 }
 
-func setConfigurationIfMissing(configName, envArtifactPath string) error {
+func setConfigurationIfMissing(configName string) error {
 	if os.Getenv("CTF_CONFIGS") == "" {
 		err := os.Setenv("CTF_CONFIGS", configName)
 		if err != nil {
@@ -117,24 +113,12 @@ func setConfigurationIfMissing(configName, envArtifactPath string) error {
 		}
 	}
 
-	if os.Getenv("ENV_ARTIFACT_PATH") == "" {
-		err := os.Setenv("ENV_ARTIFACT_PATH", envArtifactPath)
-		if err != nil {
-			return errors.Wrap(err, "failed to set ENV_ARTIFACT_PATH env var")
-		}
-	}
-
 	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
 }
 
-func createEnvironmentIfNotExists(environmentDir string, flags ...string) error {
-	cachedConfigFile, cacheErr := ctfConfigToCacheFile()
-	if cacheErr != nil {
-		return errors.Wrap(cacheErr, "failed to get cached config file")
-	}
-
-	if _, err := os.Stat(cachedConfigFile); os.IsNotExist(err) {
-		framework.L.Info().Str("cached_config_file", cachedConfigFile).Msg("Cached config file does not exist, starting environment...")
+func createEnvironmentIfNotExists(relativePathToRepoRoot, environmentDir string, flags ...string) error {
+	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
+		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
 		args := []string{"run", ".", "env", "start"}
 		args = append(args, flags...)
@@ -150,18 +134,4 @@ func createEnvironmentIfNotExists(environmentDir string, flags ...string) error 
 	}
 
 	return nil
-}
-
-func ctfConfigToCacheFile() (string, error) {
-	configFile := os.Getenv("CTF_CONFIGS")
-	if configFile == "" {
-		return "", errors.New("CTF_CONFIGS env var is not set")
-	}
-
-	if strings.HasSuffix(configFile, "-cache.toml") {
-		return configFile, nil
-	}
-
-	split := strings.Split(configFile, ",")
-	return strings.ReplaceAll(split[0], ".toml", "") + "-cache.toml", nil
 }

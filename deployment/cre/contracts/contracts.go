@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -33,6 +34,11 @@ var (
 	RBACTimelock              cldf.ContractType = "RBACTimelock"              // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/RBACTimelock.sol
 	ProposerManyChainMultiSig cldf.ContractType = "ProposerManyChainMultiSig" // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/ManyChainMultiSig.sol
 )
+
+// TODO: replace with proposalutils.MCMSConfig
+type MCMSConfig struct {
+	MinDuration time.Duration
+}
 
 // Ownable is an interface for contracts that have an owner.
 type Ownable interface {

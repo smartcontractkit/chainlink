@@ -128,14 +128,14 @@ func setupLoadTestEnvironment(
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
-		JdInput:                              *in.JD,
+		JdInput:                              in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// Set inputs in the test config, so that they can be saved
@@ -1143,7 +1143,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"capability_ocr3",
+			crecontracts.OCR3ContractQualifier,
 		)
 		ocr3CapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(ocr3Key)
 		if err != nil {
@@ -1154,7 +1154,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"DONTime",
+			crecontracts.DONTimeContractQualifier,
 		)
 		donTimeAddress, err := input.CldEnvironment.DataStore.Addresses().Get(donTimeKey)
 		if err != nil {

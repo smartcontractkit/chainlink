@@ -123,6 +123,15 @@ Optional parameters:
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
 - `-c`: List of configuration files for `.proto` files that will be registered in Beholder (only if `--with-beholder/-b` flag is used). Defaults to [./proto-configs/default.toml](./proto-configs/default.toml)
 
+## Purging environment state
+To remove all state and cache files used by the environment execute:
+```bash
+# while in core/scripts/cre/environment
+go run . env state purge
+```
+
+This might be helpful if you suspect that state files might be corrupt and you're unable to start the environment.
+
 ### Using existing Docker Plugins image
 
 If you don't want to build Chainlink image from your local branch (default behaviour) or you don't want to go through the hassle of downloading capabilities binaries in order to enable them on your environment you should use the `--with-plugins-docker-image` flag. It is recommended to use a nightly `core plugins` image that's build by [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml) as it contains all supported capability binaries.

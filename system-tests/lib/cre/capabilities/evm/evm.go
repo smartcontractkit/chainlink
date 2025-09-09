@@ -16,6 +16,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
@@ -69,6 +70,7 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 		if selectorErr != nil {
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
+
 		faultyNodes, faultyErr := nodeSetInput.MaxFaultyNodes()
 		if faultyErr != nil {
 			return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")

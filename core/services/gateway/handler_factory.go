@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -62,7 +64,7 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	case VaultHandlerType:
 		requestAuthorizer := vaultcap.NewRequestAuthorizer(hf.lggr, hf.workflowRegistrySyncer)
-		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr)
+		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr, clockwork.NewRealClock())
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

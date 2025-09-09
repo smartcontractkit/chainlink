@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -20,13 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func BuildTopology(
+func PrepareConfiguration(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	infraInput infra.Input,
-	evmChainIDs []int,
-	solChainIDs []string,
-	blockchainOutput map[uint64]*cre.WrappedBlockchainOutput,
+	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
 	datastore datastore.DataStore,
 	capabilities []cre.InstallableCapability,
@@ -52,6 +51,23 @@ func BuildTopology(
 	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(localNodeSets)
 	if keysOutputErr != nil {
 		return nil, nil, errors.Wrap(keysOutputErr, "failed to generate keys output")
+	}
+
+	evmChainIDs := make([]int, 0)
+	solChainIDs := make([]string, 0)
+	chainPerSelector := make(map[uint64]*cre.WrappedBlockchainOutput)
+	for _, bcOut := range blockchainOutputs {
+		if bcOut.SolChain != nil {
+			sel := bcOut.SolChain.ChainSelector
+			chainPerSelector[sel] = bcOut
+			chainPerSelector[sel].ChainSelector = sel
+			chainPerSelector[sel].SolChain = bcOut.SolChain
+			chainPerSelector[sel].SolChain.ArtifactsDir = bcOut.SolChain.ArtifactsDir
+			solChainIDs = append(solChainIDs, bcOut.SolChain.ChainID)
+			continue
+		}
+		chainPerSelector[bcOut.ChainSelector] = bcOut
+		evmChainIDs = append(evmChainIDs, libc.MustSafeInt(bcOut.ChainID))
 	}
 
 	generateKeysInput := &cre.GenerateKeysInput{
@@ -119,7 +135,7 @@ func BuildTopology(
 					AddressBook:             addressBook,
 					Datastore:               datastore,
 					DonMetadata:             donMetadata,
-					BlockchainOutput:        blockchainOutput,
+					BlockchainOutput:        chainPerSelector,
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
