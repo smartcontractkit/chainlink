@@ -3,11 +3,12 @@ package logger
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/log/noop"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 )
 
 func TestConfig(t *testing.T) {
