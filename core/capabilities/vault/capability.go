@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ type Capability struct {
 	expiresAfter      time.Duration
 	handler           *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	requestAuthorizer RequestAuthorizer
+	publicKey         *LazyPublicKey
 }
 
 func (s *Capability) Start(ctx context.Context) error {
@@ -323,6 +325,27 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
+func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetPublicKeyRequest) (*vaultcommon.GetPublicKeyResponse, error) {
+	l := logger.With(s.lggr, "method", "GetPublicKey")
+	l.Infof("Received Request: GetPublicKeyRequest")
+
+	pubKey := s.publicKey.Get()
+	if pubKey == nil {
+		l.Info("could not get public key: is the plugin initialized?")
+		return nil, errors.New("could not get public key: is the plugin initialized?")
+	}
+
+	pkb, err := pubKey.Marshal()
+	if err != nil {
+		l.Infof("could not marshal public key: %s", err.Error())
+		return nil, fmt.Errorf("could not marshal public key: %w", err)
+	}
+
+	return &vaultcommon.GetPublicKeyResponse{
+		PublicKey: hex.EncodeToString(pkb),
+	}, nil
+}
+
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
 	respCh := make(chan *vaulttypes.Response, 1)
 	s.handler.SendRequest(ctx, &vaulttypes.Request{
@@ -367,6 +390,7 @@ func NewCapability(
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	requestAuthorizer RequestAuthorizer,
+	publicKey *LazyPublicKey,
 ) *Capability {
 	return &Capability{
 		lggr:              logger.Named(lggr, "VaultCapability"),
@@ -374,5 +398,6 @@ func NewCapability(
 		expiresAfter:      expiresAfter,
 		handler:           handler,
 		requestAuthorizer: requestAuthorizer,
+		publicKey:         publicKey,
 	}
 }

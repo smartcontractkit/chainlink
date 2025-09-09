@@ -141,7 +141,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 	return out
 }
 
-func toDons(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) (*dons, error) {
+func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 	dons := &dons{
 		c: make(map[string]donConfig),
 	}
@@ -156,7 +156,7 @@ func toDons(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		// check what capabilities each DON has and register them with Capabilities Registry contract
-		for _, configFn := range capabilityRegistryConfigFns {
+		for _, configFn := range input.CapabilityRegistryConfigFns {
 			if configFn == nil {
 				continue
 			}
@@ -275,12 +275,12 @@ func ConfigureCapabilityRegistry(input cre.ConfigureKeystoneInput, dons *dons) (
 	return &registryWrapper{V2: capReg.Contract}, nil
 }
 
-func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) error {
+func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	if err := input.Validate(); err != nil {
 		return errors.Wrap(err, "input validation failed")
 	}
 
-	dons, err := toDons(input, capabilityRegistryConfigFns)
+	dons, err := toDons(input)
 	if err != nil {
 		return errors.Wrap(err, "failed to map input to dons")
 	}
@@ -422,7 +422,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 	}
 
-	for chainSelector, evmOCR3Address := range *input.EVMOCR3Addresses {
+	for chainSelector, evmOCR3Address := range input.EVMOCR3Addresses {
 		// not sure how to map EVM chains to DONs, so for now we assume that there's only one DON that supports EVM chains
 		evmDON, err := dons.shouldBeOneDon(cre.EVMCapability)
 		if err != nil {

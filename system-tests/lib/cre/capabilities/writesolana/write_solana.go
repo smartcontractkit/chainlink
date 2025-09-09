@@ -7,8 +7,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/BurntSushi/toml"
 	"github.com/gagliardetto/solana-go"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
