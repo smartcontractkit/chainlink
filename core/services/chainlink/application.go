@@ -1224,31 +1224,6 @@ func newCREServices(
 		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
 
-	// TODO(gg): remove
-	// // enable hack unless it's specifically disabled on the environment (e.g. for tests)
-	// secureMintTransmitterHackDisabled, ok := os.LookupEnv("SECURE_TRANSMITTER_HACK_DISABLED")
-	// if !ok || secureMintTransmitterHackDisabled != "true" {
-	// 	globalLogger.Infow("HACK: initializing Secure Mint transmitter for sending mock secure mint trigger events")
-	// 	transmitterConfig := securemint.TransmitterConfig{
-	// 		Logger:                       globalLogger,
-	// 		CapabilitiesRegistry:         opts.CapabilitiesRegistry,
-	// 		DonID:                        1,
-	// 		TriggerCapabilityName:        "securemint-trigger",
-	// 		TriggerCapabilityVersion:     "1.0.0",
-	// 		TriggerTickerMinResolutionMs: 1000,
-	// 		TriggerSendChannelBufferSize: 1000,
-	// 	}
-	// 	transmitter, err := transmitterConfig.NewTransmitter("securemint-transmitter")
-	// 	if err != nil {
-	// 		globalLogger.Errorw("could not create Secure Mint transmitter, skipping", "error", err)
-	// 	} else {
-	// 		srvcs = append(srvcs, transmitter)
-	// 		globalLogger.Infow("HACK: successfully created Secure Mint transmitter")
-	// 	}
-	// } else {
-	// 	globalLogger.Infow("HACK: Secure Mint transmitter hack disabled, skipping")
-	// }
-
 	return &CREServices{
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,
