@@ -20,5 +20,4 @@ func TestDonsOrderedByID(t *testing.T) {
 	if ordered[0].id != 1 || ordered[1].id != 2 || ordered[2].id != 3 {
 		t.Fatalf("expected dons ordered by id 1,2,3 got %d,%d,%d", ordered[0].id, ordered[1].id, ordered[2].id)
 	}
-
 }
