@@ -340,6 +340,8 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
 	}
 
+	createSecretsRequest.RequestId = ar.req.ID
+
 	err := vaultcap.ValidateCreateSecretsRequest(createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
