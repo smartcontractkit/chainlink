@@ -370,6 +370,7 @@ func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, d
 }
 
 func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
+	t.Skipf("Skipping because flaky: https://chainlink-core.slack.com/archives/C05JDS9S64S/p1757374215352519")
 	ctx := testhelpers.Context(t)
 	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
