@@ -450,13 +450,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 	// V2 aka "NoDAG"
 	cfg := &v2.EngineConfig{
-		Lggr:                 h.lggr,
-		Module:               module,
-		WorkflowConfig:       config,
-		CapRegistry:          h.capRegistry,
-		UseLocalTimeProvider: h.useLocalTimeProvider,
-		DonTimeStore:         h.donTimeStore,
-		ExecutionsStore:      h.workflowStore,
+		Lggr:                  h.lggr,
+		Module:                module,
+		WorkflowConfig:        config,
+		CapRegistry:           h.capRegistry,
+		UseLocalTimeProvider:  h.useLocalTimeProvider,
+		DonTimeStore:          h.donTimeStore,
+		ExecutionsStore:       h.workflowStore,
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,
 		WorkflowName:          name,
