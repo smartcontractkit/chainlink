@@ -89,7 +89,7 @@ func (h *GatewayHandler) Start(ctx context.Context) error {
 
 func (h *GatewayHandler) Close() error {
 	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), vaulttypes.Methods); gwerr != nil {
-		return fmt.Errorf("failed to remove vault handler from connector: %v", gwerr)
+		return fmt.Errorf("failed to remove vault handler from connector: %w", gwerr)
 	}
 	return nil
 }

@@ -49,7 +49,7 @@ func (s *Capability) Start(ctx context.Context) error {
 func (s *Capability) Close() error {
 	err := s.capabilitiesRegistry.Remove(context.Background(), vaultcommon.CapabilityID)
 	if err != nil {
-		return fmt.Errorf("error unregistering vault capability: %v", err)
+		return fmt.Errorf("error unregistering vault capability: %w", err)
 	}
 
 	return s.handler.Close()
