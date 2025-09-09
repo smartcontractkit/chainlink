@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	otellog "go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/log"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -315,7 +315,7 @@ func NewApp(s *Shell) *cli.App {
 					return err
 				}
 
-				var otelLogger otellog.Logger
+				var otelLogger log.Logger
 				if s.Config.Telemetry().LogStreamingEnabled() {
 					otelLogger = beholder.GetLogger()
 				}
