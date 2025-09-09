@@ -3,6 +3,7 @@ package logger
 import (
 	"testing"
 
+	otelzap "github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/log/noop"
@@ -85,7 +86,7 @@ func TestNewOtelCore(t *testing.T) {
 	noopLogger := noop.NewLoggerProvider().Logger("test")
 
 	// Test that NewOtelCore returns a valid core
-	core := newOtelCore(noopLogger)
+	core := otelzap.NewCore(noopLogger)
 	require.NotNil(t, core)
 
 	// Test that the core can handle log entries

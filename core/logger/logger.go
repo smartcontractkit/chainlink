@@ -195,7 +195,7 @@ func (c *Config) New() (Logger, func() error) {
 
 	var cores []zapcore.Core
 	if c.OtelLogger != nil {
-		cores = append(cores, newOtelCore(c.OtelLogger))
+		cores = append(cores, otelzap.NewCore(c.OtelLogger))
 	}
 
 	if !c.DebugLogsToDisk() {
