@@ -13,50 +13,27 @@ import (
 	common_events "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflow_events "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
-	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
 func ExecuteDonTimeTest(t *testing.T, testEnv *TestEnvironment) {
 	testLogger := framework.L
 	timeout := 2 * time.Minute
-	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time/main.go"
 	workflowName := "timebeholder"
 
 	testLogger.Info().Msg("Starting Beholder...")
-	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.BeholderConfigPath, testEnv.TestConfig.EnvironmentDirPath)
+	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, bErr, "failed to start Beholder")
 
-	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.BeholderConfigPath)
+	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.RelativePathToRepoRoot)
 	require.NoError(t, chipErr, "failed to load chip ingress cache")
 	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
 	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
 
-	compressedWorkflowWasmPath, _ := createWorkflowArtifacts(t, testLogger, workflowName, &None{}, workflowFileLocation)
+	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &None{}, workflowFileLocation)
 
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
-
-	t.Cleanup(func() {
-		deleteWorkflows(t, workflowName, "", compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
-	})
-
-	// TODO: Do we need to wait some time for DON Time Plugin to be started?
-	workflowRegConfig := &WorkflowRegistrationConfig{
-		WorkflowName:         workflowName,
-		WorkflowLocation:     workflowFileLocation,
-		CompressedWasmPath:   compressedWorkflowWasmPath,
-		WorkflowRegistryAddr: workflowRegistryAddress,
-		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
-		ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
-	}
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
-
+	// Start tracking logs
 	listenerCtx, cancelListener := context.WithTimeout(t.Context(), 2*time.Minute)
 	t.Cleanup(func() {
 		cancelListener()
