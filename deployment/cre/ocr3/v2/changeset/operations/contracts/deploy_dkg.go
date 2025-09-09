@@ -30,7 +30,6 @@ type DeployDKGOutput struct {
 	Version       string
 	Labels        []string
 	Datastore     datastore.DataStore
-	AddressBook   cldf.AddressBook // backward compatibility, to be removed in CRE-742
 }
 
 // DeployDKG is an operation that deploys the DKG contract.
@@ -102,11 +101,6 @@ var DeployDKG = operations.NewOperation[DeployDKGInput, DeployDKGOutput, DeployD
 
 		lggr.Infof("Deployed %s on chain selector %d at address %s", tv.String(), chain.Selector, dkgAddr.String())
 
-		ab := cldf.NewMemoryAddressBook()
-		err = ab.Save(chain.Selector, dkgAddr.String(), tv)
-		if err != nil {
-			return DeployDKGOutput{}, fmt.Errorf("failed to save address to address book: %w", err)
-		}
 		return DeployDKGOutput{
 			Address:       dkgAddr.String(),
 			ChainSelector: input.ChainSelector,
@@ -115,7 +109,6 @@ var DeployDKG = operations.NewOperation[DeployDKGInput, DeployDKGOutput, DeployD
 			Version:       tv.Version.String(),
 			Labels:        tv.Labels.List(),
 			Datastore:     ds.Seal(),
-			AddressBook:   ab, // TODO: CRE-742 remove AddressBook
 		}, nil
 	},
 )

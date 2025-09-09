@@ -818,10 +818,6 @@ func deployDKGContract(qualifier string, selector uint64, env *cldf.Environment,
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy DKG contract '%s' on chain %d: %w", qualifier, selector, err)
 	}
-	// TODO: CRE-742 remove address book
-	if err = env.ExistingAddresses.Merge(dkgDeployReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-		return nil, fmt.Errorf("failed to merge address book with DKG contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
 	if err = ds.Merge(dkgDeployReport.Output.Datastore); err != nil {
 		return nil, fmt.Errorf("failed to merge datastore with DKG contract address for '%s' on chain %d: %w", qualifier, selector, err)
 	}

@@ -21,9 +21,7 @@ type DeployDKGContractSequenceInput struct {
 }
 
 type DeployDKGContractSequenceOutput struct {
-	// TODO: CRE-742 remove AddressBook
-	AddressBook cldf.AddressBook // Keeping the address store for backward compatibility, as not everything has been migrated to datastore
-	Datastore   datastore.DataStore
+	Datastore datastore.DataStore
 }
 
 // DeployDKGContractsSequence is a sequence that deploys the DKG contract.
@@ -33,7 +31,6 @@ var DeployDKGContractsSequence = operations.NewSequence[DeployDKGContractSequenc
 	semver.MustParse("1.0.0"),
 	"Deploy DKG Contracts",
 	func(b operations.Bundle, deps DeployDKGContractSequenceDeps, input DeployDKGContractSequenceInput) (output DeployDKGContractSequenceOutput, err error) {
-		ab := cldf.NewMemoryAddressBook()
 		as := datastore.NewMemoryDataStore()
 
 		// DKG Contract
@@ -41,13 +38,12 @@ var DeployDKGContractsSequence = operations.NewSequence[DeployDKGContractSequenc
 		if err != nil {
 			return DeployDKGContractSequenceOutput{}, fmt.Errorf("failed to execution operation DeployDKG: %w", err)
 		}
-		err = updateAddresses(as.Addresses(), dkgDeployReport.Output.Datastore.Addresses(), ab, dkgDeployReport.Output.AddressBook)
+		err = updateAddresses(as.Addresses(), dkgDeployReport.Output.Datastore.Addresses(), cldf.NewMemoryAddressBook(), cldf.NewMemoryAddressBook())
 		if err != nil {
 			return DeployDKGContractSequenceOutput{}, fmt.Errorf("failed to update addresses after DKG deployment: %w", err)
 		}
 		return DeployDKGContractSequenceOutput{
-			AddressBook: ab,
-			Datastore:   as.Seal(),
+			Datastore: as.Seal(),
 		}, nil
 
 	},
