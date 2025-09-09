@@ -39,7 +39,7 @@ func loadBeholderStackCache(relativePathToRepoRoot string) (*config.ChipIngressC
 	if loadErr := c.Load(config.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)); loadErr != nil {
 		return nil, errors.Wrap(loadErr, "failed to load beholder stack cache")
 	}
-	if c.ChipIngress.Output.RedPanda.KafkaExternalURL != "" {
+	if c.ChipIngress.Output.RedPanda.KafkaExternalURL == "" {
 		return nil, errors.New("kafka external url is not set in the cache")
 	}
 
