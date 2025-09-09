@@ -45,11 +45,12 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] Beholder test", func(t *testing.T) {
-			t.Skipf("Skipping test broken by external dependencies - https://chainlink-core.slack.com/archives/C07GQNPVBB5/p1757375569881989")
+			t.Skip("Skipping until we can figure out why latest Chip Ingress image is not working")
 			ExecuteBeholderTest(t, testEnv)
 		})
 
 		t.Run("[v2] Consensus test", func(t *testing.T) {
+			t.Skip("Skipping until we can figure out why latest Chip Ingress image is not working")
 			executeConsensusTest(t, testEnv)
 		})
 		t.Run("[v2] EVM test", func(t *testing.T) {
