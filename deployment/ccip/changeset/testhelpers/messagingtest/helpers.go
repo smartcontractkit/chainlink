@@ -10,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/tvm/cell"
+
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
@@ -245,7 +246,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
 		}
 		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3common.SeqNum(expectedSeqNumRange[sourceDest].Start()),
-			ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+			msgSentEventLocal.SequenceNumber}
 
 		expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)
 		// TODO: If this feature is needed more we can refactor the function to return a slice of events
