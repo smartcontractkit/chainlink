@@ -2,6 +2,7 @@ package cre
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
@@ -20,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -29,6 +32,8 @@ import (
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	crefunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 )
 
 type WorkflowTestConfig struct {
@@ -37,28 +42,27 @@ type WorkflowTestConfig struct {
 	FeedIDs              []string
 }
 
-func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
-	testLogger := framework.L
+func beforePoRTest(t *testing.T, testEnv *TestEnvironment) (PriceProvider, WorkflowTestConfig) {
+	porWfCfg := WorkflowTestConfig{FeedIDs: []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}}
 	// AuthorizationKeySecretName := "AUTH_KEY"
 	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
 	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
 	// It is needed for FakePriceProvider
+
+	testLogger := framework.L
 	AuthorizationKey := "" // required by FakePriceProvider
-	PoRWorkflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
+	priceProvider, err := NewFakePriceProvider(testLogger, testEnv.Config.Fake, AuthorizationKey, porWfCfg.FeedIDs)
+	require.NoError(t, err, "failed to create fake price provider")
+
+	return priceProvider, porWfCfg
+}
+
+func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, cfg WorkflowTestConfig) {
+	testLogger := framework.L
 	blockchainOutputs := testEnv.WrappedBlockchainOutputs
-	baseWorkflowName := "por-workflow"
-	feedIDs := []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}
-	baseWorkflowTestConfig := &WorkflowTestConfig{
-		WorkflowName:         baseWorkflowName,
-		WorkflowFileLocation: PoRWorkflowFileLocation,
-		FeedIDs:              feedIDs,
-	}
 
 	writeableChains := getWritableChainsFromSavedEnvironmentState(t, testEnv)
-	require.Len(t, baseWorkflowTestConfig.FeedIDs, len(writeableChains), "a number of writeable chains must match the number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
-
-	priceProvider, err := NewFakePriceProvider(testLogger, testEnv.Config.Fake, AuthorizationKey, feedIDs)
-	require.NoError(t, err, "failed to create fake price provider")
+	require.Len(t, cfg.FeedIDs, len(writeableChains), "a number of writeable chains must match the number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
 
 	/*
 		DEPLOY DATA FEEDS CACHE + READ BALANCES CONTRACTS ON ALL CHAINS (except read-only ones)
@@ -66,13 +70,22 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 
 		REGISTER ONE WORKFLOW PER CHAIN (except read-only ones)
 	*/
+
+	// amountToFund is moved to the outer scope to correctly count the final amount sent
+	// to the requested number of new addresses used to read balances from in the PoR workflow.
+	// This amount is added to the prices from the (http) PriceProvider,
+	// forming the final PoR "expected" total price written on-chain.
+	var amountToFund *big.Int
+	numberOfAddressesToCreate := 2
+	fmt.Printf("Each address to read will be funded with %s wei\n", amountToFund.String())
 	for idx, bcOutput := range blockchainOutputs {
 		chainFamily := bcOutput.BlockchainOutput.Family
 		chainID := bcOutput.ChainID
 		chainSelector := bcOutput.ChainSelector
 		chainType := bcOutput.BlockchainOutput.Type
+		perChainSethClient := bcOutput.SethClient
 		fullCldEnvOutput := testEnv.FullCldEnvOutput
-		feedID := baseWorkflowTestConfig.FeedIDs[idx]
+		feedID := cfg.FeedIDs[idx]
 
 		if chainType == blockchain.FamilySolana {
 			continue
@@ -95,7 +108,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
 
-		uniqueWorkflowName := baseWorkflowTestConfig.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4] // e.g. 'por-workflow-1337-5f37_config'
+		uniqueWorkflowName := cfg.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4] // e.g. 'por-workflow-1337-5f37_config'
 		configInput := &cre.ConfigureDataFeedsCacheInput{
 			CldEnv:                fullCldEnvOutput.Environment,
 			ChainSelector:         chainSelector,
@@ -111,12 +124,18 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 		require.NoError(t, dfConfigErr, "failed to configure Data Feeds Cache contract")
 		testLogger.Info().Msg("Data Feeds Cache contract configured successfully.")
 
+		// reset to avoid incrementing on each iteration
+		amountToFund = big.NewInt(0).SetUint64(10) // 10 wei
+		addressesToRead, addrErr := createAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, perChainSethClient)
+		require.NoError(t, addrErr, "failed to create and fund addresses to read")
+
 		testLogger.Info().Msg("Creating PoR workflow configuration file...")
 		workflowConfig := portypes.WorkflowConfig{
 			ChainFamily: chainFamily,
 			ChainID:     strconv.FormatUint(chainID, 10),
 			BalanceReaderConfig: portypes.BalanceReaderConfig{
 				BalanceReaderAddress: readBalancesAddress.Hex(),
+				AddressesToRead:      addressesToRead,
 			},
 			ComputeConfig: portypes.ComputeConfig{
 				FeedID:                feedID,
@@ -125,14 +144,42 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment) {
 				WriteTargetName:       corevm.GenerateWriteTargetName(chainID),
 			},
 		}
-		workflowFileLocation := baseWorkflowTestConfig.WorkflowFileLocation
+		workflowFileLocation := cfg.WorkflowFileLocation
+
 		compileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
 	}
 	/*
 		START THE VALIDATION PHASE
 		Check whether each feed has been updated with the expected prices, which workflow fetches from the price provider
 	*/
-	validatePoRPrices(t, testEnv, priceProvider, baseWorkflowTestConfig)
+	// multiply amount by the number of desired addresses to get correct expected final result written on-chain in the workflow
+	amountToFund.Mul(amountToFund, big.NewInt(int64(numberOfAddressesToCreate)))
+	validatePoRPrices(t, testEnv, priceProvider, &cfg, *amountToFund)
+}
+
+func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client) ([]common.Address, error) {
+	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
+	var addressesToRead []common.Address
+
+	for i := 0; i < numberOfAddressesToCreate; i++ {
+		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
+		require.NoError(t, addrErr, "failed to generate address to read")
+		orderNum := i + 1
+		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addressToRead.Hex())
+
+		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
+		receipt, funErr := crefunding.SendFunds(t.Context(), testLogger, sethClient, crefunding.FundsToSend{
+			ToAddress:  addressToRead,
+			Amount:     amountToFund,
+			PrivateKey: sethClient.MustGetRootPrivateKey(),
+		})
+		require.NoError(t, funErr, "failed to send funds")
+		testLogger.Info().Msgf("Funds sent successfully to address '%s': txHash='%s'", addressToRead.Hex(), receipt.TxHash)
+
+		addressesToRead = append(addressesToRead, addressToRead)
+	}
+
+	return addressesToRead, nil
 }
 
 /*
@@ -166,7 +213,7 @@ func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.W
 		}
 	}
 
-	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
+	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
 		return "", errors.Wrap(err, "failed to write output file")
 	}
 
@@ -198,7 +245,7 @@ func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, e
 }
 
 // validatePoRPrices validates that all feeds receive the expected prices from the price provider
-func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig) {
+func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig, additionalPrice big.Int) {
 	t.Helper()
 	eg := &errgroup.Group{}
 
@@ -206,6 +253,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 		if bcOutput.BlockchainOutput.Type == blockchain.FamilySolana {
 			continue
 		}
+
 		eg.Go(func() error {
 			feedID := config.FeedIDs[idx]
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
@@ -216,12 +264,12 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 				df_changeset.DataFeedsCache.String(),
 			)
 			if dataFeedsCacheErr != nil {
-				return fmt.Errorf("failed to find data feeds cache address for chain %d: %w", bcOutput.ChainID, dataFeedsCacheErr)
+				return fmt.Errorf("failed to find Data Feeds Cache address for chain %d: %w", bcOutput.ChainID, dataFeedsCacheErr)
 			}
 
 			dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, bcOutput.SethClient.Client)
 			if instanceErr != nil {
-				return fmt.Errorf("failed to create data feeds cache instance: %w", instanceErr)
+				return fmt.Errorf("failed to create Data Feeds Cache instance: %w", instanceErr)
 			}
 
 			startTime := time.Now()
@@ -239,7 +287,8 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 				return !priceProvider.NextPrice(feedID, price, elapsed)
 			}, waitFor, tick, "feed %s did not update, timeout after: %s", feedID, waitFor.String())
 
-			expected := priceProvider.ExpectedPrices(feedID)
+			ppExpectedPrices := priceProvider.ExpectedPrices(feedID)
+			expected := totalPoRExpectedPrices(ppExpectedPrices, &additionalPrice)
 			actual := priceProvider.ActualPrices(feedID)
 
 			if len(expected) != len(actual) {
@@ -261,4 +310,13 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 	require.NoError(t, err, "price validation failed")
 
 	testEnv.Logger.Info().Msgf("All prices were found for all feeds")
+}
+
+// Adds the additional price (if any) to each expected price since it's included in actual prices
+func totalPoRExpectedPrices(ppExpectedPrices []*big.Int, additionalPrice *big.Int) []*big.Int {
+	expected := make([]*big.Int, len(ppExpectedPrices))
+	for i, price := range ppExpectedPrices {
+		expected[i] = new(big.Int).Add(price, additionalPrice)
+	}
+	return expected
 }

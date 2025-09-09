@@ -8,8 +8,6 @@ import (
 type WorkflowConfig struct {
 	// name of the secret that stores authentication key
 	AuthKeySecretName string `yaml:"auth_key_secret_name"`
-	ChainFamily       string `yaml:"chain_family,omitempty"`
-	ChainID           string `yaml:"chain_id,omitempty"`
 	BalanceReaderConfig
 	ComputeConfig
 }

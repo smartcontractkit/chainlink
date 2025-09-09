@@ -26,10 +26,10 @@ import (
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 type KeystoneChainView struct {
@@ -338,7 +338,7 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, 
 		// If we don't have previous views, we will start from the deployment block number
 		// which is stored in the forwarder's type and version labels.
 		var deploymentBlock uint64
-		lblPrefix := internal.DeploymentBlockLabel + ": "
+		lblPrefix := creforwarder.DeploymentBlockLabel + ": "
 		tvStr, err := f.TypeAndVersion(nil)
 		if err != nil {
 			return nil, fmt.Errorf("error getting TypeAndVersion for forwarder: %w", err)

@@ -141,6 +141,65 @@ func (_c *SecretsService_DeleteSecrets_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// GetPublicKey provides a mock function with given fields: ctx, request
+func (_m *SecretsService) GetPublicKey(ctx context.Context, request *vault.GetPublicKeyRequest) (*vault.GetPublicKeyResponse, error) {
+	ret := _m.Called(ctx, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPublicKey")
+	}
+
+	var r0 *vault.GetPublicKeyResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *vault.GetPublicKeyRequest) (*vault.GetPublicKeyResponse, error)); ok {
+		return rf(ctx, request)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *vault.GetPublicKeyRequest) *vault.GetPublicKeyResponse); ok {
+		r0 = rf(ctx, request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*vault.GetPublicKeyResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *vault.GetPublicKeyRequest) error); ok {
+		r1 = rf(ctx, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SecretsService_GetPublicKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPublicKey'
+type SecretsService_GetPublicKey_Call struct {
+	*mock.Call
+}
+
+// GetPublicKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - request *vault.GetPublicKeyRequest
+func (_e *SecretsService_Expecter) GetPublicKey(ctx interface{}, request interface{}) *SecretsService_GetPublicKey_Call {
+	return &SecretsService_GetPublicKey_Call{Call: _e.mock.On("GetPublicKey", ctx, request)}
+}
+
+func (_c *SecretsService_GetPublicKey_Call) Run(run func(ctx context.Context, request *vault.GetPublicKeyRequest)) *SecretsService_GetPublicKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*vault.GetPublicKeyRequest))
+	})
+	return _c
+}
+
+func (_c *SecretsService_GetPublicKey_Call) Return(_a0 *vault.GetPublicKeyResponse, _a1 error) *SecretsService_GetPublicKey_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *SecretsService_GetPublicKey_Call) RunAndReturn(run func(context.Context, *vault.GetPublicKeyRequest) (*vault.GetPublicKeyResponse, error)) *SecretsService_GetPublicKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetSecrets provides a mock function with given fields: ctx, requestID, request
 func (_m *SecretsService) GetSecrets(ctx context.Context, requestID string, request *vault.GetSecretsRequest) (*vaulttypes.Response, error) {
 	ret := _m.Called(ctx, requestID, request)
