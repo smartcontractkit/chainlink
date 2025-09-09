@@ -210,8 +210,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			FeeToken:  feeToken,
 		}
 
-		fmt.Printf("feeToken: %s\n", feeToken.String())
-
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}

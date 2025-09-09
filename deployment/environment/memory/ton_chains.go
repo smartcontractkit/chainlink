@@ -44,8 +44,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		if !ok {
 			t.Fatalf("expected cldf_ton.Chain, got %T", c)
 		}
-
-		t.Log("In generate ton chains, Deployer: ", tonChain.WalletAddress.String())
+		
 		// memory environment doesn't block on funding so changesets can execute before the env is fully ready, manually call fund so we block here
 		utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{tlb.MustFromTON("1000")})
 	}
