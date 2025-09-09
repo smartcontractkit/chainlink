@@ -29,7 +29,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.Test(t)
 	chainID := chainSelector(16015286601757825753)
-	seqNr := uint64(1)
+	seqNr := uint64(123456789)
 
 	// setup the trigger sink that will receive the trigger event in the securemint-specific format
 	triggerSink := framework.NewTriggerSink(t, "securemint-trigger", "1.0.0")
@@ -79,7 +79,7 @@ func Test_runSecureMintWorkflow(t *testing.T) {
 			blockNumber:    blockNumber,
 		},
 	}
-	h := newSecureMintHandler(expectedUpdates, blockNumber) // currently the secure mint aggregator uses the block number as timestamp
+	h := newSecureMintHandler(expectedUpdates, big.NewInt(int64(seqNr))) // currently the secure mint aggregator uses the reports' sequence number as timestamp
 	waitForDataFeedsCacheReports(t, dataFeedsCache, h)
 }
 

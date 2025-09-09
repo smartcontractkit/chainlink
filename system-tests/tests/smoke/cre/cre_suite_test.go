@@ -2,29 +2,18 @@ package cre
 
 import (
 	"testing"
-	"time"
-)
-
-// TODO: Where to move these constants? Is it appropriate place for keeping defaults here?
-const (
-	AuthorizationKeySecretName = "AUTH_KEY"
-	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
-	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
-	// It is needed for FakePriceProvider
-	AuthorizationKey = ""
-
-	// Test configuration constants
-	DefaultVerificationTimeout = 5 * time.Minute
-	DefaultRetryInterval       = 2 * time.Second
-	DefaultValidationInterval  = 10 * time.Second
 )
 
 /*
 To execute tests locally start the local CRE first:
 Inside `core/scripts/cre/environment` directory
  1. Ensure the necessary capabilities (i.e. readcontract, http-trigger, http-action) are listed in the environment configuration
- 2. Run: `go run . env start && ctf obs up && ctf bs up` to start env + observability + blockscout.
- 3. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run ^Test_CRE_Suite$`.
+ 2. Identify the appropriate topology that you want to test
+ 3. Stop and clear any existing environment: `go run . env stop -a`
+ 4. Run: `go run . env start -t <topology> && ./bin/ctf obs up` to start env + observability
+ 5. Optionally run blockscout `./bin/ctf bs up`
+ 6. Execute the tests in `system-tests/tests/smoke/cre` with CTF_CONFIG set to the corresponding topology file:
+    `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
 func Test_CRE_Suite(t *testing.T) {
 	testEnv := SetupTestEnvironment(t)
@@ -40,6 +29,8 @@ func Test_CRE_Suite(t *testing.T) {
 
 	t.Run("[v2] CRE Suite", func(t *testing.T) {
 		t.Run("[v2] vault DON test", func(t *testing.T) {
+			// Skip till we figure out and fix the issues with environment startup on this test
+			t.Skip("Skipping test for the following reason: Skip till the errors with topology TopologyWorkflowGatewayCapabilities are fixed: https://smartcontract-it.atlassian.net/browse/PRIV-160")
 			ExecuteVaultTest(t, testEnv)
 		})
 
@@ -49,12 +40,25 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] DON Time test", func(t *testing.T) {
-			const skipReason = "Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028"
-			t.Skipf("Skipping test for the following reason: %s", skipReason)
+			t.Skipf("Skipping test for the following reason: Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028")
 		})
 
 		t.Run("[v2] Beholder test", func(t *testing.T) {
 			ExecuteBeholderTest(t, testEnv)
 		})
+
+		t.Run("[v2] Consensus test", func(t *testing.T) {
+			executeConsensusTest(t, testEnv)
+		})
+	})
+}
+
+func Test_withV2Registries(t *testing.T) {
+	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
+		const skipReason = "Integrate v2 registry contracts in local CRE/test setup - https://smartcontract-it.atlassian.net/browse/CRE-635"
+		t.Skipf("Skipping test for the following reason: %s", skipReason)
+		flags := []string{"--with-contracts-version", "v2"}
+		testEnv := SetupTestEnvironment(t, flags...)
+		ExecutePoRTest(t, testEnv)
 	})
 }

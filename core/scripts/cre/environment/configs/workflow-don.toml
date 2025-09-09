@@ -2,13 +2,13 @@
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
-  docker_cmd_params = ["-b", "2"]
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [[blockchains]]
   type = "anvil"
   chain_id = "2337"
   port = "8546"
-  docker_cmd_params = ["-b", "5"]
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [jd]
   # change to your version
@@ -39,11 +39,10 @@
   override_mode = "each"
   http_port_range_start = 10100
 
-
   bootstrap_node_index = 0 # added for visibility, index of the node in the nodeset that will act as a bootstrap
   gateway_node_index = 0 # added for visibility, required when don_types include "gateway"
   env_vars = { CL_EVM_CMD = "" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger"]
+  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus"]
 
   # Enable capabilities per chain with optional per-chain overrides
   [nodesets.chain_capabilities]
@@ -70,13 +69,16 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = false
+      Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       ChipIngressInsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -94,13 +96,16 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = false
+      Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -118,13 +123,16 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = false
+      Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -142,13 +150,16 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = false
+      Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -166,13 +177,16 @@
       JSONConsole = true
 
       [Telemetry]
-      Enabled = false
+      Enabled = true
       Endpoint = 'host.docker.internal:4317'
       ChipIngressEndpoint = 'chip-ingress:50051'
       ChipIngressInsecureConnection = true
       InsecureConnection = true
       TraceSampleRatio = 1
       HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]

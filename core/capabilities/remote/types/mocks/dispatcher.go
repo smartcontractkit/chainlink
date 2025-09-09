@@ -240,6 +240,41 @@ func (_c *Dispatcher_RemoveReceiver_Call) RunAndReturn(run func(string, uint32))
 	return _c
 }
 
+// RemoveReceiverForMethod provides a mock function with given fields: capabilityID, donID, method
+func (_m *Dispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, method string) {
+	_m.Called(capabilityID, donID, method)
+}
+
+// Dispatcher_RemoveReceiverForMethod_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveReceiverForMethod'
+type Dispatcher_RemoveReceiverForMethod_Call struct {
+	*mock.Call
+}
+
+// RemoveReceiverForMethod is a helper method to define mock.On call
+//   - capabilityID string
+//   - donID uint32
+//   - method string
+func (_e *Dispatcher_Expecter) RemoveReceiverForMethod(capabilityID interface{}, donID interface{}, method interface{}) *Dispatcher_RemoveReceiverForMethod_Call {
+	return &Dispatcher_RemoveReceiverForMethod_Call{Call: _e.mock.On("RemoveReceiverForMethod", capabilityID, donID, method)}
+}
+
+func (_c *Dispatcher_RemoveReceiverForMethod_Call) Run(run func(capabilityID string, donID uint32, method string)) *Dispatcher_RemoveReceiverForMethod_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(uint32), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *Dispatcher_RemoveReceiverForMethod_Call) Return() *Dispatcher_RemoveReceiverForMethod_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Dispatcher_RemoveReceiverForMethod_Call) RunAndReturn(run func(string, uint32, string)) *Dispatcher_RemoveReceiverForMethod_Call {
+	_c.Run(run)
+	return _c
+}
+
 // Send provides a mock function with given fields: peerID, msgBody
 func (_m *Dispatcher) Send(peerID ragep2ptypes.PeerID, msgBody *types.MessageBody) error {
 	ret := _m.Called(peerID, msgBody)
@@ -331,6 +366,55 @@ func (_c *Dispatcher_SetReceiver_Call) Return(_a0 error) *Dispatcher_SetReceiver
 }
 
 func (_c *Dispatcher_SetReceiver_Call) RunAndReturn(run func(string, uint32, types.Receiver) error) *Dispatcher_SetReceiver_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetReceiverForMethod provides a mock function with given fields: capabilityID, donID, method, receiver
+func (_m *Dispatcher) SetReceiverForMethod(capabilityID string, donID uint32, method string, receiver types.Receiver) error {
+	ret := _m.Called(capabilityID, donID, method, receiver)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetReceiverForMethod")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, uint32, string, types.Receiver) error); ok {
+		r0 = rf(capabilityID, donID, method, receiver)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Dispatcher_SetReceiverForMethod_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetReceiverForMethod'
+type Dispatcher_SetReceiverForMethod_Call struct {
+	*mock.Call
+}
+
+// SetReceiverForMethod is a helper method to define mock.On call
+//   - capabilityID string
+//   - donID uint32
+//   - method string
+//   - receiver types.Receiver
+func (_e *Dispatcher_Expecter) SetReceiverForMethod(capabilityID interface{}, donID interface{}, method interface{}, receiver interface{}) *Dispatcher_SetReceiverForMethod_Call {
+	return &Dispatcher_SetReceiverForMethod_Call{Call: _e.mock.On("SetReceiverForMethod", capabilityID, donID, method, receiver)}
+}
+
+func (_c *Dispatcher_SetReceiverForMethod_Call) Run(run func(capabilityID string, donID uint32, method string, receiver types.Receiver)) *Dispatcher_SetReceiverForMethod_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string), args[1].(uint32), args[2].(string), args[3].(types.Receiver))
+	})
+	return _c
+}
+
+func (_c *Dispatcher_SetReceiverForMethod_Call) Return(_a0 error) *Dispatcher_SetReceiverForMethod_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Dispatcher_SetReceiverForMethod_Call) RunAndReturn(run func(string, uint32, string, types.Receiver) error) *Dispatcher_SetReceiverForMethod_Call {
 	_c.Call.Return(run)
 	return _c
 }

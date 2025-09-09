@@ -115,7 +115,7 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
+	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID()).Named(spec.Name.ValueOrZero())
 
 	kvStore := job.NewKVStore(spec.ID, d.ds)
 

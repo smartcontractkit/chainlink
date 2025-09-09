@@ -1529,6 +1529,7 @@ ContractVersion identifies semantic version of the CapabilitiesRegistry contract
 [Capabilities.Dispatcher]
 SupportedVersion = 1 # Default
 ReceiverBufferSize = 10000 # Default
+SendToSharedPeer = false # Default
 ```
 
 
@@ -1543,6 +1544,12 @@ SupportedVersion is the version of the version of message schema.
 ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
+
+### SendToSharedPeer
+```toml
+SendToSharedPeer = false # Default
+```
+SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
 
 ## Capabilities.Dispatcher.RateLimit
 ```toml
@@ -1744,6 +1751,81 @@ ID of the Gateway
 URL = 'wss://localhost:8081/node' # Example
 ```
 URL of the Gateway
+
+## Capabilities.SharedPeering
+```toml
+[Capabilities.SharedPeering]
+Enabled = false # Default
+Bootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled enabled SharedPeer
+
+### Bootstrappers
+```toml
+Bootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+```
+Bootstrappers overrides bootstrap nodes for SharedPeer peer groups. If empty, default bootstrappers from P2P.V2 will be used.
+
+## Capabilities.SharedPeering.StreamConfig
+```toml
+[Capabilities.SharedPeering.StreamConfig]
+IncomingMessageBufferSize = 500 # Default
+OutgoingMessageBufferSize = 500 # Default
+MaxMessageLenBytes = 500000 # Default
+MessageRateLimiterRate = 100.0 # Default
+MessageRateLimiterCapacity = 500 # Default
+BytesRateLimiterRate = 5000000.0 # Default
+BytesRateLimiterCapacity = 10000000 # Default
+```
+
+
+### IncomingMessageBufferSize
+```toml
+IncomingMessageBufferSize = 500 # Default
+```
+IncomingMessageBufferSize is the max number of enqueued incoming messages awaiting processing.
+
+### OutgoingMessageBufferSize
+```toml
+OutgoingMessageBufferSize = 500 # Default
+```
+OutgoingMessageBufferSize is the max number of outgoing messages.
+
+### MaxMessageLenBytes
+```toml
+MaxMessageLenBytes = 500000 # Default
+```
+MaxMessageLenBytes is the max size of a message in bytes.
+
+### MessageRateLimiterRate
+```toml
+MessageRateLimiterRate = 100.0 # Default
+```
+MessageRateLimiterRate is the max number of processed messages per second.
+
+### MessageRateLimiterCapacity
+```toml
+MessageRateLimiterCapacity = 500 # Default
+```
+MessageRateLimiterCapacity is the "burst" of the message rate limiter.
+
+### BytesRateLimiterRate
+```toml
+BytesRateLimiterRate = 5000000.0 # Default
+```
+BytesRateLimiterRate is the max size of precessed messages per second.
+
+### BytesRateLimiterCapacity
+```toml
+BytesRateLimiterCapacity = 10000000 # Default
+```
+BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 
 ## Keeper
 ```toml
@@ -2350,6 +2432,26 @@ URL = '' # Default
 ```
 URL is override URL for the workflow fetcher service.
 
+## CRE.Linking
+```toml
+[CRE.Linking]
+URL = "" # Default
+TLSEnabled = true # Default
+```
+
+
+### URL
+```toml
+URL = "" # Default
+```
+URL is the locator for the Chainlink linking service.
+
+### TLSEnabled
+```toml
+TLSEnabled = true # Default
+```
+TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+
 ## Billing
 ```toml
 [Billing]
@@ -2415,6 +2517,7 @@ IgnoreJoblessBridges skips bridges that have no associated jobs.
 ```toml
 [CRE]
 UseLocalTimeProvider = true # Default
+EnableDKGRecipient = false # Default
 ```
 
 
@@ -2423,6 +2526,12 @@ UseLocalTimeProvider = true # Default
 UseLocalTimeProvider = true # Default
 ```
 UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
+
+### EnableDKGRecipient
+```toml
+EnableDKGRecipient = false # Default
+```
+EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
 
 ## EVM
 EVM defaults depend on ChainID:
@@ -18210,6 +18319,68 @@ FinalityTagEnabled enables the use of finality tags.
 FinalizedBlockOffset = 0 # Default
 ```
 FinalizedBlockOffset is the offset from the finalized block to use for finality tags.
+
+## Solana.Workflow
+```toml
+[Solana.Workflow]
+AcceptanceTimeout = '45s' # Default
+PollPeriod = '3s' # Default
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
+GasLimitDefault = 300_000 # Default
+TxAcceptanceState = 3 # Default
+Local = false # Default
+```
+
+
+### AcceptanceTimeout
+```toml
+AcceptanceTimeout = '45s' # Default
+```
+AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+
+### PollPeriod
+```toml
+PollPeriod = '3s' # Default
+```
+PollPeriod is the default poll period for checking transmission state
+
+### ForwarderAddress
+```toml
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+```
+ForwarderAddress is the keystone forwarder program address on chain.
+
+### ForwarderState
+```toml
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+```
+ForwarderState is the keystone forwarder program state account on chain.
+
+### FromAddress
+```toml
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
+```
+FromAddress is Address of the transmitter key to use for workflow writes.
+
+### GasLimitDefault
+```toml
+GasLimitDefault = 300_000 # Default
+```
+GasLimitDefault is the default gas limit for workflow transactions.
+
+### TxAcceptanceState
+```toml
+TxAcceptanceState = 3 # Default
+```
+TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+
+### Local
+```toml
+Local = false # Default
+```
+Local determines whether Relayer runs against a local devnet
 
 ## Solana.Nodes
 ```toml

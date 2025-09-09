@@ -84,7 +84,7 @@ CL_EVM_CMD=""
 # ----- CAPABILITIES NODES CONFIGURATION -----
 # Setup for a 3-node Capabilities cluster with individual configurations
 [[nodesets]]
-nodes = 3
+nodes = 4
 override_mode = "each"          # Apply different configuration to each node
 http_port_range_start = 10200   # Starting port for HTTP endpoints
 name = "capabilities"
@@ -131,6 +131,22 @@ CL_EVM_CMD=""
 [nodesets.node_specs.node]
 image = "localhost:5001/chainlink-plugins"
 custom_ports = ["13403:7777"]   # External:internal port mapping
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+      """
+[nodesets.node_specs.node.env_vars]
+CL_EVM_CMD=""
+
+# Capability node 3 configuration
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "localhost:5001/chainlink-plugins"
+custom_ports = ["13404:7777"]   # External:internal port mapping
 user_config_overrides = """
         [Feature]
         LogPoller = true
