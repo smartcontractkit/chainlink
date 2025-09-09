@@ -58,6 +58,7 @@ func BuildTopology(
 		GenerateEVMKeysForChainIDs: evmChainIDs,
 		GenerateSolKeysForChainIDs: solChainIDs,
 		GenerateP2PKeys:            true,
+		GenerateDKGRecipientKeys:   true,
 		Topology:                   topology,
 		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
 		Out:                        keysOutput,
@@ -155,6 +156,10 @@ func BuildTopology(
 
 			if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
 				secretsInput.P2PKeys = p2pKeys
+			}
+
+			if dkgKeys, ok := keys.DKGRecipientKeys[donMetadata.ID]; ok {
+				secretsInput.DKGRecipientKeys = dkgKeys
 			}
 
 			// EVM, Solana and P2P keys will be provided to nodes as secrets

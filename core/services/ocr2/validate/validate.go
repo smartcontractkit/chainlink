@@ -132,6 +132,8 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		return validateVaultPluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.DonTimePlugin:
 		return validateDonTimePluginSpec(spec.OCR2OracleSpec.PluginConfig)
+	case "dkg-plugin":
+		return nil
 	case "":
 		return errors.New("no plugin specified")
 	default:

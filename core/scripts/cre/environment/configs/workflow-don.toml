@@ -65,7 +65,7 @@
       custom_ports = ["5002:5002","15002:15002"]
       user_config_overrides = """
       [Log]
-      Level = 'debug'
+      Level = 'info'
       JSONConsole = true
 
       [Telemetry]
@@ -92,7 +92,7 @@
       #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
-      Level = 'debug'
+      Level = 'info'
       JSONConsole = true
 
       [Telemetry]
@@ -119,7 +119,7 @@
       #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
-      Level = 'debug'
+      Level = 'info'
       JSONConsole = true
 
       [Telemetry]
@@ -146,7 +146,7 @@
       #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
-      Level = 'debug'
+      Level = 'info'
       JSONConsole = true
 
       [Telemetry]
@@ -173,7 +173,7 @@
       #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
-      Level = 'debug'
+      Level = 'info'
       JSONConsole = true
 
       [Telemetry]

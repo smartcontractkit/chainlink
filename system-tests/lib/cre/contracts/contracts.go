@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -352,6 +354,26 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		if err != nil {
 			return errors.Wrap(err, "failed to configure Vault OCR3 contract")
 		}
+
+		fmt.Printf("DOING DKG NOW %v\n", *input.DKGReportingPluginConfig)
+		_, err = operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureDKGOp,
+			ks_contracts_op.ConfigureDKGOpDeps{
+				Env: input.CldEnv,
+			},
+			ks_contracts_op.ConfigureDKGOpInput{
+				ContractAddress:       input.DKGAddress,
+				ChainSelector:         input.ChainSelector,
+				DON:                   vaultDON.keystoneDonConfig(),
+				Config:                vaultDON.resolveOcr3Config(input.DKGOCR3Config),
+				DryRun:                false,
+				ReportingPluginConfig: *input.DKGReportingPluginConfig,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure DKG OCR3 contract")
+		}
 	}
 
 	for chainSelector, evmOCR3Address := range *input.EVMOCR3Addresses {
@@ -457,6 +479,29 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 	}
 
 	return oracleConfig, nil
+}
+
+func DKGReportingPluginConfig(topology *cre.Topology, set *cre.CapabilitiesAwareNodeSet) (*dkgocrtypes.ReportingPluginConfig, error) {
+	cfg := &dkgocrtypes.ReportingPluginConfig{
+		T: 1,
+	}
+	for i, nmd := range topology.DonsMetadata[0].NodesMetadata {
+		if i == set.BootstrapNodeIndex {
+			continue
+		}
+		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, crenode.NodeDKGRecipientKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to find DKG recipient key label")
+		}
+		pubKey, err := hex.DecodeString(dkgRecipientKeyStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode DKG recipient key")
+		}
+		cfg.DealerPublicKeys = append(cfg.DealerPublicKeys, pubKey)
+		cfg.RecipientPublicKeys = append(cfg.RecipientPublicKeys, pubKey)
+	}
+
+	return cfg, nil
 }
 
 func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, cldf.TypeAndVersion, error) {

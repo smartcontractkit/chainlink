@@ -412,6 +412,10 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Solana"))
 	}
 
+	if err2 := s.DKGRecipientKey.SetFrom(&f.DKGRecipientKey); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "DKGRecipientKey"))
+	}
+
 	if err2 := s.CRE.SetFrom(&f.CRE); err2 != nil {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "CRE"))
 	}

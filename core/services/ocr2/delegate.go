@@ -37,6 +37,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 
+	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
@@ -77,6 +79,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -573,6 +576,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesCCIPCommit(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.CCIPExecution:
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
+	case "dkg-plugin":
+		return d.newServicesDKGPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer)
 
 	case types.VaultPlugin:
 		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer)
@@ -819,6 +824,159 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, err
 	}
 	srvs = append(srvs, job.NewServiceAdapter(oracle))
+
+	// lggr2 := logger.Sugared(lggr.With("plugin", "dkg", "contractID", "0x0165878A594ca255338adfa4d48449f69242Eb8F"))
+	// ocrLogger2 := ocrcommon.NewOCRWrapper(lggr2, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+	// 	lggr2.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	// })
+	// srvs = append(srvs, ocrLogger2)
+
+	// fmt.Printf("DOING SECOND OCR ORACLE %s %s %s\n%x %x\n", spec.RelayConfig, spec.TransmitterID.String, spec.PluginConfig, onchainKeyringAdapter.PublicKey(), kb.OffchainPublicKey())
+	// provider2, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+	// 	ExternalJobID: jb.ExternalJobID,
+	// 	JobID:         jb.ID,
+	// 	OracleSpecID:  spec.ID,
+	// 	ContractID:    "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+	// 	New:           d.isNewlyCreatedJob,
+	// 	RelayConfig:   spec.RelayConfig.Bytes(),
+	// 	ProviderType:  string(types.OCR3Capability),
+	// }, types.PluginArgs{
+	// 	TransmitterID: spec.TransmitterID.String,
+	// 	PluginConfig:  []byte{},
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// srvs = append(srvs, provider2)
+
+	// fullPathDKG := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String(), "_dkg")
+	// err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0700))
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create key value store directory: %w", err)
+	// }
+	// oracleEndpoint2 := d.monitoringEndpointGen.GenMonitoringEndpoint(
+	// 	rid.Network,
+	// 	rid.ChainID,
+	// 	"0x0165878A594ca255338adfa4d48449f69242Eb8F",
+	// 	synchronization.TelemetryType("dkg-plugin"),
+	// )
+
+	// oracleArgs2 := oracleargs.OCR3_1OracleArgsForSanMarinoDKG(
+	// 	d.peerWrapper.Peer3_1,
+	// 	bootstrapPeers,
+	// 	provider2.ContractConfigTracker(),
+	// 	ocrDB,
+	// 	kvdb.NewBadgerKeyValueDatabaseFactory(fullPathDKG),
+	// 	lc,
+	// 	ocrLogger2,
+	// 	prometheus.WrapRegistererWith(map[string]string{"job_name": "dkg_job"}, prometheus.DefaultRegisterer),
+	// 	oracleEndpoint2,
+	// 	provider2.OffchainConfigDigester(),
+	// 	kb,
+	// 	dkgRecipientKey,
+	// 	vault.NewVaultORM(d.ds),
+	// 	common.HexToAddress("0x0165878A594ca255338adfa4d48449f69242Eb8F"),
+	// )
+	// oracle2, err := libocr2.NewOracle(oracleArgs2)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// srvs = append(srvs, job.NewServiceAdapter(oracle2))
+
+	return srvs, nil
+}
+
+func (d *Delegate) newServicesDKGPlugin(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+	capabilitiesRegistry core.CapabilitiesRegistry,
+	wrapper *gatewayconnector.ServiceWrapper,
+	syncer syncerV2.WorkflowRegistrySyncer,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	dkgRecipientKeys, err := d.dkgRecipientKs.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DKG recipient keys: %w", err)
+	}
+	if len(dkgRecipientKeys) == 0 {
+		return nil, errors.New("failed to instantiate vault plugin: no DKG recipient keys found")
+	}
+	dkgRecipientKey := dkgRecipientKeys[0]
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{PluginName: string(types.VaultPlugin), Err: err}
+	}
+
+	relayer, err := d.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
+	}
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
+	fmt.Printf("DOING SECOND OCR ORACLE %s\n", spec.ContractID)
+	lc.BlockchainTimeout = 5 * time.Second
+	lc.SkipContractConfigConfirmations = true
+	provider2, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string("dkg-plugin"),
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  []byte{},
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider2)
+
+	fullPathDKG := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String(), "_dkg")
+	err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0700))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
+	}
+	oracleEndpoint2 := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		rid.Network,
+		rid.ChainID,
+		spec.ContractID,
+		synchronization.TelemetryType("dkg-plugin"),
+	)
+
+	oracleArgs2 := oracleargs.OCR3_1OracleArgsForSanMarinoDKG(
+		d.peerWrapper.Peer3_1,
+		bootstrapPeers,
+		provider2.ContractConfigTracker(),
+		ocrDB,
+		kvdb.NewBadgerKeyValueDatabaseFactory(fullPathDKG),
+		lc,
+		ocrLogger,
+		prometheus.WrapRegistererWith(map[string]string{"job_name": "dkg_job"}, prometheus.DefaultRegisterer),
+		oracleEndpoint2,
+		provider2.OffchainConfigDigester(),
+		kb,
+		dkgRecipientKey,
+		vault.NewVaultORM(d.ds),
+		common.HexToAddress(spec.ContractID),
+	)
+	oracle2, err := libocr2.NewOracle(oracleArgs2)
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, job.NewServiceAdapter(oracle2))
 
 	return srvs, nil
 }

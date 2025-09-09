@@ -105,6 +105,17 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get Vault capability address")
 		}
 
+		dkgKey := datastore.NewAddressRefKey(
+			input.DonTopology.HomeChainSelector,
+			datastore.ContractType(keystone_changeset.DKG.String()),
+			semver.MustParse("1.0.0"),
+			"capability_vault_dkg",
+		)
+		dkgAddress, err := input.CldEnvironment.DataStore.Addresses().Get(dkgKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get DKG address")
+		}
+
 		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
 			if !flags.HasFlag(donWithMetadata.Flags, flag) {
 				continue
@@ -180,6 +191,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 				}
 
 				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, input.DonTopology.OCRPeeringData, chainID, pk, encryptedShare))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerDKGOCR3(nodeID, dkgAddress.Address, nodeEthAddr, ocr2KeyBundleID, input.DonTopology.OCRPeeringData, chainID))
 			}
 		}
 

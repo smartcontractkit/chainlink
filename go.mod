@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.24.5
 
+replace github.com/smartcontractkit/libocr => github.com/vreff/libocr v0.0.0-20250908190212-aa4481f4687d
+
 require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.4.0

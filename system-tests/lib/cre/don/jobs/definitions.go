@@ -333,3 +333,42 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2
 		),
 	}
 }
+
+func WorkerDKGOCR3(nodeID string, dkgContractAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec: fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "%s"
+	contractID = "%s"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	relay = "evm"
+	pluginType = "%s"
+	transmitterID = "%s"
+	[relayConfig]
+	chainID = "%d"
+	[pluginConfig]
+	requestExpiryDuration = "60s"
+	[pluginConfig.dkg]
+	masterPublicKey = "%s"
+	encryptedPrivateKeyShare = "%s"
+`,
+			uuid,
+			"DKG Plugin",
+			dkgContractAddress,
+			ocr2KeyBundleID,
+			ocrPeeringData.OCRBootstraperPeerID,
+			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+			types.DKGPlugin,
+			nodeEthAddress,
+			chainID,
+		),
+	}
+}
