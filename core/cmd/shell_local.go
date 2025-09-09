@@ -528,16 +528,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 			} else if err2 != nil {
 				return s.errorOut(errors.Wrap(err2, "error importing dkg recipient key"))
 			}
-		} else {
-			panic("Testing-only: DKG recipient key must be imported via config when CRE.DKGRecipient.EnableDKGRecipient is true")
 		}
 
 		err2 := app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure dkg recipient key")
 		}
-	} else {
-		panic("Testing-only: CRE.DKGRecipient.EnableDKGRecipient must be true to use DKG recipient keys")
 	}
 
 	err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
