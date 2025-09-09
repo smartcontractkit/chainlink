@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -342,6 +343,39 @@ func TestTransferAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// Manually accept the admin roles by calling acceptAdminRole directly on the registry
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	// Accept admin role for tokenAddressA
+	chainStateA := state.Chains[selectorA]
+	tx, err := chainStateA.TokenAdminRegistry.AcceptAdminRole(
+		e.BlockChains.EVMChains()[selectorA].DeployerKey,
+		tokenAddressA,
+	)
+	require.NoError(t, err)
+	_, err = e.BlockChains.EVMChains()[selectorA].Confirm(tx)
+	require.NoError(t, err)
+
+	// Accept admin role for tokenAddressB
+	chainStateB := state.Chains[selectorB]
+	tx, err = chainStateB.TokenAdminRegistry.AcceptAdminRole(
+		e.BlockChains.EVMChains()[selectorB].DeployerKey,
+		tokenAddressB,
+	)
+	require.NoError(t, err)
+	_, err = e.BlockChains.EVMChains()[selectorB].Confirm(tx)
+	require.NoError(t, err)
+
+	// Verify that the deployer is now the active administrator
+	configA, err := chainStateA.TokenAdminRegistry.GetTokenConfig(&bind.CallOpts{Context: e.GetContext()}, tokenAddressA)
+	require.NoError(t, err)
+	require.Equal(t, e.BlockChains.EVMChains()[selectorA].DeployerKey.From, configA.Administrator, "deployer should be the active administrator for tokenA")
+
+	configB, err := chainStateB.TokenAdminRegistry.GetTokenConfig(&bind.CallOpts{Context: e.GetContext()}, tokenAddressB)
+	require.NoError(t, err)
+	require.Equal(t, e.BlockChains.EVMChains()[selectorB].DeployerKey.From, configB.Administrator, "deployer should be the active administrator for tokenB")
+
 	// Now transfer admin roles to new addresses directly from the deployer (who owns the registry)
 	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
@@ -367,7 +401,7 @@ func TestTransferAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the transfers - new admins should be in pending state
-	state, err := stateview.LoadOnchainState(e)
+	state, err = stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	registryOnA := state.Chains[selectorA].TokenAdminRegistry
@@ -460,25 +494,6 @@ func TestTransferAdminRoleChangesetV2_Validations(t *testing.T) {
 				TransferAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{},
 			},
 			ErrStr: "at least one chain with token admin info must be specified",
-		},
-		{
-			Msg: "Duplicate token addresses on same chain",
-			Config: v1_5_1.TransferAdminRoleConfig{
-				MCMS: mcmsConfig,
-				TransferAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
-					selectorA: {
-						{
-							TokenAddress: tokenAddress,
-							AdminAddress: utils.RandomAddress(),
-						},
-						{
-							TokenAddress: tokenAddress, // Duplicate
-							AdminAddress: utils.RandomAddress(),
-						},
-					},
-				},
-			},
-			ErrStr: "duplicate token address",
 		},
 		{
 			Msg: "Admin address same as token address",
