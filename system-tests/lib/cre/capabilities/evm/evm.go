@@ -95,7 +95,6 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 // getEvmMethodConfigs returns the method configs for all EVM methods we want to support, if any method is missing it
 // will not be reached by the node when running evm capability in remote don
 func getEvmMethodConfigs(nodeSetInput *cre.CapabilitiesAwareNodeSet) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {
-
 	evmMethodConfigs := map[string]*capabilitiespb.CapabilityMethodConfig{}
 
 	// the read actions should be all defined in the proto that are neither a LogTrigger type, not a WriteReport type
