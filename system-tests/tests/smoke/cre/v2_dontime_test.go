@@ -133,5 +133,5 @@ func ExecuteDonTimeTest(t *testing.T, testEnv *TestEnvironment) {
 		require.Fail(t, "Kafka listener failed", err.Error())
 	}
 
-	testLogger.Info().Msg("Beholder test completed")
+	testLogger.Info().Msg("DON Time test completed")
 }
