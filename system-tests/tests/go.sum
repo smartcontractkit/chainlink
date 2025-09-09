@@ -1783,8 +1783,8 @@ github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-7549
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335/go.mod h1:ccjEgNeqOO+bjPddnL4lUrNLzyCvGCxgBjJdhFX3wa8=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250422175525-b7575d96bd4d h1:qLmSOOtB/Ogn79eIDkuujOu8M5Jd747V1H7Brk/nTvo=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20250422175525-b7575d96bd4d/go.mod h1:4WhGgCA0smBbBud5mK+jnDb2wwndMvoqaWBJ3OV/7Bw=
-github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250818141131-0b979c98bab0 h1:cahx93+ayyS9j5kAjNG2bQq2hisQRHrDIkaKugmgRA4=
-github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250818141131-0b979c98bab0/go.mod h1:C1KXVcxUy89lFVqJ335pEPeeC/wJy0jCF0ZztwWdCmU=
+github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250818135829-9ea58491207f h1:pgupmqPyAqfl2xgqHaRwfI/Kd6HtGbB8WeMt9XPM5L0=
+github.com/smartcontractkit/cre-sdk-go v0.5.1-0.20250818135829-9ea58491207f/go.mod h1:C1KXVcxUy89lFVqJ335pEPeeC/wJy0jCF0ZztwWdCmU=
 github.com/smartcontractkit/crib-sdk v0.4.0 h1:in97WjiveVY1cz1LZOcLGVwnkRucfCipPeOpjkJ1QJM=
 github.com/smartcontractkit/crib-sdk v0.4.0/go.mod h1:L8/7tmnAwtgfaXGPgq4Ujrlkevd7rfqS7Zf3wgE84bk=
 github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e h1:Hv9Mww35LrufCdM9wtS9yVi/rEWGI1UnjHbcKKU0nVY=
