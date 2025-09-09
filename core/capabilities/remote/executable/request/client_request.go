@@ -57,7 +57,7 @@ type ClientRequest struct {
 // TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig) (*ClientRequest, error) {
+	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
@@ -83,7 +83,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = logger.With(lggr, "requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName)
 }
 
 var (
@@ -92,7 +92,7 @@ var (
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string) (*ClientRequest, error) {
+	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
@@ -163,12 +163,13 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		go func(innerCtx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
 			defer wg.Done()
 			message := &types.MessageBody{
-				CapabilityId:    remoteCapabilityInfo.ID,
-				CapabilityDonId: remoteCapabilityDonInfo.ID,
-				CallerDonId:     localDonInfo.ID,
-				Method:          methodType,
-				Payload:         rawRequest,
-				MessageId:       []byte(requestID),
+				CapabilityId:     remoteCapabilityInfo.ID,
+				CapabilityDonId:  remoteCapabilityDonInfo.ID,
+				CallerDonId:      localDonInfo.ID,
+				Method:           methodType,
+				Payload:          rawRequest,
+				MessageId:        []byte(requestID),
+				CapabilityMethod: capMethodName,
 			}
 
 			select {

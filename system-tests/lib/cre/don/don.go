@@ -60,6 +60,32 @@ func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput i
 		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
 	}
 
+	isGatewayRequired := false
+	for _, nodeSet := range nodeSetInput {
+		if NodeNeedsAnyGateway(nodeSet.ComputedCapabilities) {
+			isGatewayRequired = true
+			break
+		}
+	}
+
+	if !isGatewayRequired {
+		return nil
+	}
+
+	anyDONHasGatewayConfigured := false
+	for _, nodeSet := range nodeSetInput {
+		if isGatewayRequired {
+			if flags.HasFlag(nodeSet.DONTypes, cre.GatewayDON) && nodeSet.GatewayNodeIndex != -1 {
+				anyDONHasGatewayConfigured = true
+				break
+			}
+		}
+	}
+
+	if !anyDONHasGatewayConfigured {
+		return errors.New("at least one DON must be configured with gateway DON type and have a gateway node index set, because at least one DON requires gateway due to its capabilities")
+	}
+
 	return nil
 }
 
@@ -74,7 +100,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 		}
 
 		donsWithMetadata[i] = &cre.DonMetadata{
-			ID:              libc.MustSafeUint64FromInt(i + 1),
+			ID:              libc.MustSafeUint64FromInt(i + 1), // optimistically set the id to the that which the capabilities registry will assign it
 			Flags:           flags,
 			NodesMetadata:   make([]*cre.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
 			Name:            nodeSetInput[i].Name,

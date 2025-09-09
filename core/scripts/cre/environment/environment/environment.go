@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -35,6 +34,7 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -54,7 +54,6 @@ var (
 	binDir string
 
 	defaultCapabilitiesConfigFile = "configs/capability_defaults.toml"
-	defaultArtifactsPathFile      = "artifact_paths.json"
 )
 
 // DX tracking
@@ -85,6 +84,7 @@ func init() {
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
 	EnvironmentCmd.AddCommand(swapCmds())
+	EnvironmentCmd.AddCommand(stateCmd())
 
 	rootPath, rootPathErr := os.Getwd()
 	if rootPathErr != nil {
@@ -105,6 +105,7 @@ func waitToCleanUp(d time.Duration) {
 }
 
 var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
+	globalPreRunFunc(cmd, args)
 	provisioningStartTime = time.Now()
 
 	// ensure non-nil dxTracker by default
@@ -157,6 +158,10 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 		}
 
 		waitToCleanUp(cleanupWait)
+		_, saveErr := framework.SaveContainerLogs("./logs")
+		if saveErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
+		}
 
 		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
@@ -256,7 +261,7 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(pkErr, "failed to set default private key")
 			}
 
-			cleanUpErr := removeAllEnvironmentStateFiles()
+			cleanUpErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
 			if cleanUpErr != nil {
 				return errors.Wrap(cleanUpErr, "failed to clean up environment state files")
 			}
@@ -269,7 +274,8 @@ func startCmd() *cobra.Command {
 
 			cmdContext := cmd.Context()
 			in := &envconfig.Config{}
-			if err := in.Load(); err != nil {
+
+			if err := in.Load(os.Getenv("CTF_CONFIGS")); err != nil {
 				return errors.Wrap(err, "failed to load environment configuration")
 			}
 
@@ -281,7 +287,7 @@ func startCmd() *cobra.Command {
 			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
 				flags.NewDefaultCapabilityFlagsProvider(),
-				cre.NewContractVersionsProvider(envconfig.GetDefaultContractSet(withV2Registries)),
+				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
 				cre.NewCLIFlagsProvider(withV2Registries),
 			)
 
@@ -294,7 +300,7 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 			}
 
-			defaultCapabilities, defaultCapabilitiesErr := sets.NewDefaultSet(libc.MustSafeUint64FromInt(homeChainIDInt), append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"})
+			defaultCapabilities, defaultCapabilitiesErr := sets.NewDefaultSet(libc.MustSafeUint64FromInt(homeChainIDInt))
 			if defaultCapabilitiesErr != nil {
 				return errors.Wrap(defaultCapabilitiesErr, "failed to create default capabilities")
 			}
@@ -303,7 +309,13 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
-			output, startErr := StartCLIEnvironment(cmdContext, in, topology, withPluginsDockerImage, defaultCapabilities, envDependencies)
+			extraJobSpecFunctions := []cre.JobSpecFn{
+				// temporary solution until we figure out where that jobspec should live. Gateway is not a capability, it's more of a role
+				// but we don't have a good expression of that abstraction yet
+				gateway.JobSpec(append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"}),
+			}
+
+			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, defaultCapabilities, extraJobSpecFunctions, envDependencies)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -314,6 +326,11 @@ func startCmd() *cobra.Command {
 				}
 
 				waitToCleanUp(cleanupWait)
+				_, saveErr := framework.SaveContainerLogs("./logs")
+				if saveErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
+				}
+
 				removeErr := framework.RemoveTestContainers()
 				if removeErr != nil {
 					return errors.Wrap(removeErr, manualCtfCleanupMsg)
@@ -400,8 +417,9 @@ func startCmd() *cobra.Command {
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
-			if err := storeArtifacts(in); err != nil {
-				return errors.Wrap(err, "failed to store artifacts")
+			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
+			if storeErr != nil {
+				return errors.Wrap(storeErr, "failed to store local CRE state")
 			}
 
 			return nil
@@ -420,123 +438,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	return cmd
-}
-
-// Store the config with cached output so subsequent runs can reuse the
-// environment without full setup. Then persist absolute paths to the
-// generated artifacts (env artifact JSON and the cached CTF config) in
-// `artifact_paths.json`. System tests use these to reload environment
-// state across runs (see `system-tests/tests/smoke/cre/cre_suite_test.go`),
-// where the cached config and env artifact are consumed to reconstruct
-// the in-memory CLDF environment without re-provisioning.
-//
-// This makes local iteration and CI reruns faster and deterministic.
-func storeArtifacts(in *envconfig.Config) error {
-	if err := storeCTFConfigs(in); err != nil {
-		return err
-	}
-
-	return saveArtifactPaths()
-}
-
-func storeCTFConfigs(config cre.PersistentConfig) error {
-	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file
-	// which we add, when environment starts, as the first one (that way it can be overridden by other configs)
-	previousCtfConfigs := os.Getenv("CTF_CONFIGS")
-	defer func() {
-		setErr := os.Setenv("CTF_CONFIGS", previousCtfConfigs)
-		if setErr != nil {
-			framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
-		}
-	}()
-
-	// remove cache file, if it exists
-	ctfConfigFileName := addCachePrefix(findCtfConfigFile())
-	if _, err := os.Stat(ctfConfigFileName); err == nil {
-		removeErr := os.Remove(ctfConfigFileName)
-		if removeErr != nil {
-			return errors.Wrap(removeErr, "failed to remove cached config file")
-		}
-	}
-
-	// just in case remove "-cache.toml" suffix, because if it's present in the env var name
-	// config won't be saved as the CTF logic assumes it already exists
-	setErr := os.Setenv("CTF_CONFIGS", removeCachePrefix(ctfConfigFileName))
-	if setErr != nil {
-		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-	}
-
-	storeErr := config.Store()
-	if storeErr != nil {
-		return errors.Wrap(storeErr, "failed to store environment cached config")
-	}
-
-	return nil
-}
-
-func addCachePrefix(configFile string) string {
-	if !strings.HasSuffix(configFile, "-cache.toml") {
-		return strings.ReplaceAll(configFile, ".toml", "-cache.toml")
-	}
-	return configFile
-}
-
-func removeCachePrefix(configFile string) string {
-	if strings.HasSuffix(configFile, "-cache.toml") {
-		return strings.ReplaceAll(configFile, "-cache.toml", ".toml")
-	}
-	return configFile
-}
-
-type artifactPaths struct {
-	EnvArtifact string `json:"env_artifact"`
-	EnvConfig   string `json:"env_config"`
-}
-
-func findCtfConfigFile() string {
-	ctfConfigs := os.Getenv("CTF_CONFIGS")
-	defer func() {
-		setErr := os.Setenv("CTF_CONFIGS", ctfConfigs)
-		if setErr != nil {
-			framework.L.Warn().Msgf("failed to restore CTF_CONFIGS env var: %s", setErr)
-		}
-	}()
-
-	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file
-	// which we add, when environment starts, as adding it as the first one, allows other configs to override it if needed
-	splitConfigs := strings.Split(ctfConfigs, ",")
-	if len(splitConfigs) > 1 {
-		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
-			splitConfigs = splitConfigs[1:]
-		}
-	}
-
-	return splitConfigs[0]
-}
-
-func saveArtifactPaths() error {
-	artifactAbsPath, artifactAbsPathErr := filepath.Abs(filepath.Join(creenv.ArtifactDirName, creenv.ArtifactFileName))
-	if artifactAbsPathErr != nil {
-		return artifactAbsPathErr
-	}
-
-	ctfConfigFile := removeCachePrefix(findCtfConfigFile())
-	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(ctfConfigFile)
-	if ctfConfigsAbsPathErr != nil {
-		return ctfConfigsAbsPathErr
-	}
-
-	ap := artifactPaths{
-		EnvArtifact: artifactAbsPath,
-		EnvConfig:   ctfConfigsAbsPath,
-	}
-
-	marshalled, mErr := json.Marshal(ap)
-	if mErr != nil {
-		return errors.Wrap(mErr, "failed to marshal artifact paths")
-	}
-
-	return os.WriteFile(defaultArtifactsPathFile, marshalled, 0o600)
 }
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
@@ -575,38 +476,42 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 func stopCmd() *cobra.Command {
 	var allFlag bool
 	cmd := &cobra.Command{
-		Use:   "stop",
-		Short: "Stops the environment",
-		Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
+		Use:              "stop",
+		Short:            "Stops the environment",
+		Long:             `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			removeErr := framework.RemoveTestContainers()
 			if removeErr != nil {
 				return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
 			}
 
-			stopBeholderErr := stopBeholder()
-			if stopBeholderErr != nil {
-				return errors.Wrap(stopBeholderErr, "failed to stop beholder")
-			}
-
-			var shouldRemove shouldRemove
 			if allFlag {
-				shouldRemove = removeAll
+				stopBeholderErr := stopBeholder()
+				if stopBeholderErr != nil {
+					return errors.Wrap(stopBeholderErr, "failed to stop beholder")
+				}
+
+				removeCacheErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
+				if removeCacheErr != nil {
+					framework.L.Warn().Msgf("failed to remove local CRE state files: %s", removeCacheErr)
+				}
 			} else {
-				shouldRemove = removeCurrentCtfConfigs
-			}
+				creStateFile := envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)
+				cErr := os.Remove(creStateFile)
+				if cErr != nil {
+					framework.L.Warn().Msgf("failed to remove local CRE state file: %s", cErr)
+				} else {
+					framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
+				}
 
-			removeCacheErr := removeCtfConfigsCacheFiles(shouldRemove)
-			if removeCacheErr != nil {
-				framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
-			}
-
-			if removeDirErr := os.RemoveAll(creenv.ArtifactDirName); removeDirErr != nil {
-				framework.L.Warn().Msgf("failed to remove %s folder: %s\n", creenv.ArtifactDirName, removeDirErr)
-			}
-
-			if removeDirErr := os.RemoveAll(defaultArtifactsPathFile); removeDirErr != nil {
-				framework.L.Warn().Msgf("failed to remove %s file: %s\n", defaultArtifactsPathFile, removeDirErr)
+				envArtifactFile := creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot)
+				eErr := os.Remove(envArtifactFile)
+				if eErr != nil {
+					framework.L.Warn().Msgf("failed to remove local CRE environment artifact file: %s", eErr)
+				} else {
+					framework.L.Info().Msgf("removed local CRE environment artifact file: %s", envArtifactFile)
+				}
 			}
 
 			fmt.Println("Environment stopped successfully")
@@ -621,10 +526,12 @@ func stopCmd() *cobra.Command {
 
 func StartCLIEnvironment(
 	cmdContext context.Context,
+	relativePathToRepoRoot string,
 	in *envconfig.Config,
 	topologyFlag string,
 	withPluginsDockerImageFlag string,
 	capabilities []cre.InstallableCapability,
+	extraJobSpecFunctions []cre.JobSpecFn,
 	env cre.CLIEnvironmentDependencies,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
@@ -675,20 +582,44 @@ func StartCLIEnvironment(
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets: in.NodeSets,
 		BlockchainsInput:          in.Blockchains,
-		ContractVersions:          env.GetContractVersions(),
-		JdInput:                   *in.JD,
-		InfraInput:                *in.Infra,
+		ContractVersions:          env.ContractVersions(),
+		WithV2Registries:          env.WithV2Registries(),
+		JdInput:                   in.JD,
+		InfraInput:                in.Infra,
 		S3ProviderInput:           in.S3ProviderInput,
 		CapabilityConfigs:         in.CapabilityConfigs,
 		CopyCapabilityBinaries:    withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
 		Capabilities:              capabilities,
+		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
 	defer cancel()
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), &universalSetupInput)
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
+	}
+
+	capabilitiesContractFactoryFunctions := []cre.CapabilityRegistryConfigFn{}
+	for _, cap := range capabilities {
+		capabilitiesContractFactoryFunctions = append(capabilitiesContractFactoryFunctions, cap.CapabilityRegistryV1ConfigFn())
+	}
+
+	artifactPath, artifactErr := creenv.DumpArtifact(
+		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
+		universalSetupOutput.CldEnvironment.DataStore.Addresses(),
+		universalSetupOutput.CldEnvironment.ExistingAddresses,
+		*in.JD.Out,
+		*universalSetupOutput.DonTopology,
+		universalSetupOutput.CldEnvironment.Offchain,
+		capabilitiesContractFactoryFunctions,
+		in.NodeSets,
+	)
+
+	if artifactErr != nil {
+		testLogger.Error().Err(artifactErr).Msg("failed to generate env artifact")
+	} else {
+		testLogger.Info().Msgf("Environment artifact saved to %s", artifactPath)
 	}
 
 	return universalSetupOutput, nil
@@ -891,78 +822,158 @@ func ensureDockerImageExists(ctx context.Context, logger zerolog.Logger, imageNa
 	return nil
 }
 
-type shouldRemove = func(file string) bool
-
-var removeAll = func(_ string) bool {
-	return true
+func globalPreRunFunc(cmd *cobra.Command, args []string) {
+	if err := cobra.NoArgs(cmd, args); err != nil {
+		fmt.Fprint(os.Stderr, libformat.RedText("\n%v. Please use flags to parameterise the command\n\n", err))
+		os.Exit(1)
+	}
 }
 
-var removeCurrentCtfConfigs = func(file string) bool {
-	ctfConfigs := os.Getenv("CTF_CONFIGS")
-	if ctfConfigs != "" {
-		for config := range strings.SplitSeq(ctfConfigs, ",") {
-			if strings.Contains(file, addCachePrefix(config)) {
-				return true
-			}
-		}
-
-		return false
+func stateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:              "state",
+		Short:            "State commands",
+		Long:             `Commands to manage and view the state of the environment`,
+		PersistentPreRun: globalPreRunFunc,
 	}
 
-	content, readErr := os.ReadFile(defaultArtifactsPathFile)
-	if readErr != nil {
-		return false
-	}
-
-	var paths artifactPaths
-	if err := json.Unmarshal(content, &paths); err != nil {
-		return false
-	}
-
-	if paths.EnvConfig == file {
-		return true
-	}
-
-	return false
+	cmd.AddCommand(listCmd())
+	cmd.AddCommand(purgeStateCmd())
+	return cmd
 }
 
-func removeAllEnvironmentStateFiles() error {
-	removeCacheErr := removeCtfConfigsCacheFiles(removeAll)
-	if removeCacheErr != nil {
-		return errors.Wrap(removeCacheErr, "failed to remove cache files")
-	}
-
-	if removeDirErr := os.RemoveAll(creenv.ArtifactDirName); removeDirErr != nil {
-		return errors.Wrap(removeDirErr, "failed to remove env_artifact folder")
-	}
-
-	return os.RemoveAll(defaultArtifactsPathFile)
-}
-
-func removeCtfConfigsCacheFiles(shouldRemove shouldRemove) error {
-	framework.L.Info().Msg("Removing environment state files")
-
-	cacheConfigPattern := "configs/*-cache.toml"
-	cacheFiles, globErr := filepath.Glob(cacheConfigPattern)
-	if globErr != nil {
-		fmt.Fprintf(os.Stderr, "failed to find cache config files: %s\n", globErr)
-	} else {
-		for _, file := range cacheFiles {
-			absFile, absFileErr := filepath.Abs(file)
-			if absFileErr != nil {
-				framework.L.Warn().Msgf("failed to get absolute path of cache config file %s: %s\n", file, absFileErr)
-				continue
+func listCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all state files in the environment",
+		Long:  `List all state files in the environment`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			envStateFilenames, sErr := allEnvironmentStateFiles()
+			if sErr != nil {
+				return errors.Wrap(sErr, "failed to get environment state files")
 			}
 
-			if shouldRemove(absFile) {
-				if removeFileErr := os.Remove(file); removeFileErr != nil {
-					framework.L.Warn().Msgf("failed to remove cache config file %s: %s\n", file, removeFileErr)
+			fmt.Println()
+			fmt.Println("Environment state files:")
+			for _, file := range envStateFilenames {
+				fmt.Println("- " + file)
+			}
+			if len(envStateFilenames) == 0 {
+				fmt.Println("- no state files found")
+			}
+
+			fmt.Println()
+			fmt.Println("Cache folders:")
+			cacheDirs, cErr := allCacheFolders()
+			if cErr != nil {
+				return errors.Wrap(cErr, "failed to get cache folders")
+			}
+			for _, dir := range cacheDirs {
+				fmt.Println("- " + dir)
+			}
+
+			fmt.Println()
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func purgeStateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "purge",
+		Short: "Purge all state and cache files in the environment",
+		Long:  `Purge all state and cache files in the environment`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Print()
+			remErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
+			if remErr != nil {
+				return errors.Wrap(remErr, "failed to remove environment state files")
+			}
+
+			fmt.Println()
+			fmt.Println("Removing cache folders:")
+			cacheDirs, cErr := allCacheFolders()
+			if cErr != nil {
+				return errors.Wrap(cErr, "failed to get cache folders")
+			}
+
+			for _, dir := range cacheDirs {
+				rErr := os.RemoveAll(dir)
+				if rErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to remove cache folder %s: %s\n", dir, rErr)
 				} else {
-					framework.L.Debug().Msgf("Removed cache config file: %s\n", file)
+					fmt.Printf("\n- removed cache folder: %s\n", dir)
 				}
 			}
+
+			if len(cacheDirs) == 0 {
+				fmt.Println("- no cache folders found")
+			}
+
+			fmt.Println()
+			fmt.Println("Purge completed successfully")
+			fmt.Println()
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func allCacheFolders() ([]string, error) {
+	// TODO get this path from Beholder in the CTF
+	knownCacheDirRoots := []string{"~/.local/share/beholder"}
+
+	cacheDirs := []string{}
+	for _, root := range knownCacheDirRoots {
+		rootPath := strings.ReplaceAll(root, "~", os.Getenv("HOME"))
+		entries, err := os.ReadDir(rootPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, errors.Wrapf(err, "failed to read cache directory root: %s", rootPath)
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				cacheDirs = append(cacheDirs, filepath.Join(rootPath, entry.Name()))
+			}
 		}
 	}
 
-	return nil
+	return cacheDirs, nil
+}
+
+func allEnvironmentStateFiles() ([]string, error) {
+	stateDirAbs, absErr := filepath.Abs(filepath.Join(relativePathToRepoRoot, envconfig.StateDirname))
+	if absErr != nil {
+		return nil, errors.Wrap(absErr, "failed to get absolute path for state directory")
+	}
+
+	if _, statErr := os.Stat(stateDirAbs); os.IsNotExist(statErr) {
+		return nil, nil
+	}
+
+	files, err := os.ReadDir(stateDirAbs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read state directory")
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no state files found in %s", stateDirAbs)
+	}
+
+	stateFiles := []string{}
+	for _, file := range files {
+		if !file.IsDir() {
+			stateFiles = append(stateFiles, filepath.Join(stateDirAbs, file.Name()))
+		}
+	}
+
+	return stateFiles, nil
 }

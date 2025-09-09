@@ -26,6 +26,7 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -201,7 +202,7 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecrets) (OCR2OracleConfig, error) {
+func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
 		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
@@ -363,7 +364,7 @@ type ConfigureOCR3Request struct {
 	Contract   *ocr3_capability.OCR3Capability
 	Nodes      []deployment.Node
 	DryRun     bool
-	OcrSecrets cldf.OCRSecrets
+	OcrSecrets focr.OCRSecrets
 
 	UseMCMS bool
 }

@@ -85,6 +85,7 @@ type ConfigureForwarderContractsResponse struct {
 	// or will be configured (MCMS).
 	ForwarderAddresses map[uint64]common.Address
 	OpsPerChain        map[uint64]mcmstypes.BatchOperation
+	Config             map[uint64]ForwarderConfig
 }
 
 // Depreciated: use [changeset.ConfigureForwardContracts] instead
@@ -102,6 +103,7 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 
 	opPerChain := make(map[uint64]mcmstypes.BatchOperation)
 	forwarderAddresses := make(map[uint64]common.Address)
+	configs := make(map[uint64]ForwarderConfig)
 	// configure forwarders on all chains
 	for _, chain := range evmChains {
 		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {
@@ -112,11 +114,12 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 		if !ok {
 			return nil, fmt.Errorf("failed to get contract set for chain %d", chain.Selector)
 		}
-		ops, err := ConfigureForwarder(env.Logger, chain, contracts.Forwarder, req.Dons, req.UseMCMS)
+		r, err := ConfigureForwarder(env.Logger, chain, contracts.Forwarder, req.Dons, req.UseMCMS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
-		for k, op := range ops {
+		configs[chain.Selector] = r.Config
+		for k, op := range r.Ops {
 			opPerChain[k] = op
 		}
 		forwarderAddresses[chain.Selector] = contracts.Forwarder.Address()
@@ -124,5 +127,6 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 	return &ConfigureForwarderContractsResponse{
 		ForwarderAddresses: forwarderAddresses,
 		OpsPerChain:        opPerChain,
+		Config:             configs,
 	}, nil
 }

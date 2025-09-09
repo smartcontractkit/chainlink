@@ -26,7 +26,7 @@ message MessageBody {
   int64 timestamp = 4;
   bytes message_id = 5; // scoped to sender
   string capability_id = 6;
-  string method = 9;
+  string method = 9; // Capability API method ("RegisterTrigger", "Execute", etc)
   Error error = 10;
   string errorMsg = 11;
 
@@ -39,6 +39,7 @@ message MessageBody {
 
   uint32 capability_don_id = 15;
   uint32 caller_don_id = 16;
+  string capability_method = 17; // method name defined by the capability (empty for legacy "v1" calls)
 }
 
 message TriggerRegistrationMetadata {

@@ -11,9 +11,13 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/mcms"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -266,6 +270,7 @@ type TokenAuthorityConfig struct {
 type SetTokenAuthorityConfig struct {
 	ChainSelector         uint64
 	TokenAuthorityConfigs []TokenAuthorityConfig
+	MCMS                  *proposalutils.TimelockConfig
 }
 
 func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
@@ -282,17 +287,44 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
 
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
+	}
+	e.Logger.Infow("Fetched timelock signer PDA", "timelockSignerPDA", timelockSignerPDA.String())
+	mcmsTxs := []mcmsTypes.Transaction{}
+
 	for _, tokenAuthorityConfig := range cfg.TokenAuthorityConfigs {
 		tokenprogramID, err := chainState.TokenToTokenProgram(tokenAuthorityConfig.TokenPubkey)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
+		var tokenMint solToken.Mint
+		if err = chain.GetAccountDataBorshInto(e.GetContext(), tokenAuthorityConfig.TokenPubkey, &tokenMint); err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		e.Logger.Infow("Fetched token mint", "MintAuthority", tokenMint.MintAuthority.String(), "tokenMintFreezeAuthority", tokenMint.FreezeAuthority.String())
+		authority := chain.DeployerKey.PublicKey()
+		switch tokenAuthorityConfig.AuthorityType {
+		case solToken.AuthorityMintTokens:
+			if tokenMint.MintAuthority != nil {
+				authority = *tokenMint.MintAuthority
+			}
+		case solToken.AuthorityFreezeAccount:
+			if tokenMint.FreezeAuthority != nil {
+				authority = *tokenMint.FreezeAuthority
+			}
+		default:
+			return cldf.ChangesetOutput{}, fmt.Errorf("unsupported authority type: %d", tokenAuthorityConfig.AuthorityType)
+		}
+		e.Logger.Infow("Setting token authority", "tokenPubkey", tokenAuthorityConfig.TokenPubkey.String(), "authorityType", tokenAuthorityConfig.AuthorityType, "currentAuthority", authority.String(), "newAuthority", tokenAuthorityConfig.NewAuthority.String())
+		isAuthorityTimelockSigner := authority.Equals(timelockSignerPDA)
 
 		ix, err := solToken.NewSetAuthorityInstruction(
 			tokenAuthorityConfig.AuthorityType,
 			tokenAuthorityConfig.NewAuthority,
 			tokenAuthorityConfig.TokenPubkey,
-			chain.DeployerKey.PublicKey(),
+			authority,
 			solana.PublicKeySlice{},
 		).ValidateAndBuild()
 		if err != nil {
@@ -300,12 +332,30 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 		}
 		tokenIx := &solTokenUtil.TokenInstruction{Instruction: ix, Program: tokenprogramID}
 
-		// confirm instructions
-		if err = chain.Confirm([]solana.Instruction{tokenIx}); err != nil {
-			e.Logger.Errorw("Failed to confirm instructions for SetTokenAuthority", "chain", chain.String(), "err", err)
-			return cldf.ChangesetOutput{}, err
+		if isAuthorityTimelockSigner {
+			tx, err := BuildMCMSTxn(tokenIx, tokenprogramID.String(), shared.SPLTokens)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			mcmsTxs = append(mcmsTxs, *tx)
+		} else {
+			if err = chain.Confirm([]solana.Instruction{tokenIx}); err != nil {
+				e.Logger.Errorw("Failed to confirm instructions for SetTokenAuthority", "chain", chain.String(), "err", err)
+				return cldf.ChangesetOutput{}, err
+			}
 		}
 		e.Logger.Infow("Set token authority on", "chain", cfg.ChainSelector, "for token", tokenAuthorityConfig.TokenPubkey.String(), "newAuthority", tokenAuthorityConfig.NewAuthority.String(), "authorityType", tokenAuthorityConfig.AuthorityType)
+	}
+
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to SetTokenAuthority in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
 	}
 
 	return cldf.ChangesetOutput{}, nil
