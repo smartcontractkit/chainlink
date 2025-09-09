@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -40,14 +41,19 @@ type eventHandler struct {
 
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
+	donTimeStore           *dontime.Store
+	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
+	engineLimiters         *v2.EngineLimiters
 	ratelimiter            limits.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
 	billingClient          metering.BillingClient
+	linkingURL             string
+	linkingTLSEnabled      bool
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -88,8 +94,15 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 	}
 }
 
+func WithLinking(url string, tlsEnabled bool) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.linkingURL = url
+		e.linkingTLSEnabled = tlsEnabled
+	}
+}
+
 type WorkflowArtifactsStore interface {
-	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error)
+	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
@@ -99,9 +112,12 @@ type WorkflowArtifactsStore interface {
 func NewEventHandler(
 	lggr logger.Logger,
 	workflowStore store.Store,
+	donTimeStore *dontime.Store,
+	useLocalTimeProvider bool,
 	capRegistry core.CapabilitiesRegistry,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
+	engineLimiters *v2.EngineLimiters,
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
@@ -117,13 +133,19 @@ func NewEventHandler(
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
+	if donTimeStore == nil && !useLocalTimeProvider {
+		return nil, errors.New("donTimeStore must be provided")
+	}
 
 	eh := &eventHandler{
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		donTimeStore:           donTimeStore,
+		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
+		engineLimiters:         engineLimiters,
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
@@ -281,6 +303,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	wfID := payload.WorkflowID.Hex()
 	owner := hex.EncodeToString(payload.WorkflowOwner)
 
+	// With Workflow Registry contract v2 the BinaryURL and ConfigURL are expected to be identifiers that put through the Storage Service.
 	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
 	if err != nil {
 		return nil, err
@@ -288,7 +311,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 
 	status := toSpecStatus(payload.Status)
 
-	// Create a new entry in the workflow_spec table corresponding for the new workflow, with the contents of the binaryURL + configURL in the table
+	// Create a new entry in the workflow_specs_v2 table corresponding for the new workflow, with the contents of the binaryIdentifier + configIdentifier in the table
 	entry := &job.WorkflowSpec{
 		Workflow:      hex.EncodeToString(decodedBinary),
 		Config:        string(config),
@@ -343,18 +366,21 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			SecretsFetcher: emptySecretsFetcher,
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
-			BillingClient:  h.billingClient,
+
+			BillingClient: h.billingClient,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
 
 	// V2 aka "NoDAG"
 	cfg := &v2.EngineConfig{
-		Lggr:            h.lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     h.capRegistry,
-		ExecutionsStore: h.workflowStore,
+		Lggr:                 h.lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          h.capRegistry,
+		UseLocalTimeProvider: h.useLocalTimeProvider,
+		DonTimeStore:         h.donTimeStore,
+		ExecutionsStore:      h.workflowStore,
 
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,
@@ -362,9 +388,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowTag:           tag,
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:          v2.EngineLimits{}, // all defaults
-		GlobalLimits:         h.workflowLimits,
-		ExecutionRateLimiter: h.ratelimiter,
+		LocalLimits:                       v2.EngineLimits{}, // all defaults
+		LocalLimiters:                     h.engineLimiters,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+		GlobalExecutionRateLimiter:        h.ratelimiter,
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,

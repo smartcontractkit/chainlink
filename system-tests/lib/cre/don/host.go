@@ -47,5 +47,5 @@ func ExternalGatewayPort(infraInput infra.Input) int {
 		return 80
 	}
 
-	return 5002
+	return GatewayIncomingPort
 }

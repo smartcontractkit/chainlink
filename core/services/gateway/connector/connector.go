@@ -50,6 +50,8 @@ type GatewayConnectorHandler interface {
 }
 
 type gatewayConnector struct {
+	core.UnimplementedGatewayConnector
+
 	services.StateMachine
 
 	config      *ConnectorConfig
@@ -220,7 +222,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break
 			}
-			handler, exists := c.handlers[req.ServiceName()]
+			handler, exists := c.handlers[req.Method]
 			if !exists {
 				c.lggr.Errorw("no handler for method", "id", gatewayState.config.Id, "method", req.Method)
 				break
@@ -228,7 +230,9 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 			// do not break on error. HandleGatewayMessage handles errors
 			// by sending a response back to the Gateway.
 			err = handler.HandleGatewayMessage(ctx, gatewayState.config.Id, &req)
-			c.lggr.Warnw("failed to handle message from Gateway", "id", gatewayState.config.Id, "method", req.Method, "err", err)
+			if err != nil {
+				c.lggr.Warnw("failed to handle message from Gateway", "id", gatewayState.config.Id, "method", req.Method, "err", err)
+			}
 		}
 	}
 }

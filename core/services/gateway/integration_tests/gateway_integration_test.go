@@ -126,6 +126,7 @@ func (c *client) HandleGatewayMessage(ctx context.Context, gatewayID string, req
 		Version: "2.0",
 		ID:      msg.Body.MessageId,
 		Result:  &rawPayload,
+		Method:  req.Method,
 	}
 	// send back user's message without re-signing - should be ignored by the Gateway
 	_ = c.connector.SendToGateway(ctx, gatewayID, resp)
@@ -181,7 +182,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 		MaxResponseBytes: 1000,
 	}, lggr)
 	require.NoError(t, err)
-	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, lggr), lggr)
+	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, nil, nil, lggr), lggr)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()

@@ -2,30 +2,35 @@ package environment
 
 import (
 	"fmt"
+	"maps"
 	"os"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	creflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func BuildTopology(
+func PrepareConfiguration(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	infraInput infra.Input,
-	chainIDs []int,
-	blockchainOutput map[uint64]*cre.WrappedBlockchainOutput,
+	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
-	configFactoryFunctions []cre.ConfigFactoryFn,
-	customBinariesPaths map[cre.CapabilityFlag]string,
+	datastore datastore.DataStore,
+	capabilities []cre.InstallableCapability,
+	capabilityConfigs cre.CapabilityConfigs,
+	copyCapabilityBinaries bool,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
 	topologyErr := libdon.ValidateTopology(nodeSets, infraInput)
 	if topologyErr != nil {
@@ -48,8 +53,26 @@ func BuildTopology(
 		return nil, nil, errors.Wrap(keysOutputErr, "failed to generate keys output")
 	}
 
+	evmChainIDs := make([]int, 0)
+	solChainIDs := make([]string, 0)
+	chainPerSelector := make(map[uint64]*cre.WrappedBlockchainOutput)
+	for _, bcOut := range blockchainOutputs {
+		if bcOut.SolChain != nil {
+			sel := bcOut.SolChain.ChainSelector
+			chainPerSelector[sel] = bcOut
+			chainPerSelector[sel].ChainSelector = sel
+			chainPerSelector[sel].SolChain = bcOut.SolChain
+			chainPerSelector[sel].SolChain.ArtifactsDir = bcOut.SolChain.ArtifactsDir
+			solChainIDs = append(solChainIDs, bcOut.SolChain.ChainID)
+			continue
+		}
+		chainPerSelector[bcOut.ChainSelector] = bcOut
+		evmChainIDs = append(evmChainIDs, libc.MustSafeInt(bcOut.ChainID))
+	}
+
 	generateKeysInput := &cre.GenerateKeysInput{
-		GenerateEVMKeysForChainIDs: chainIDs,
+		GenerateEVMKeysForChainIDs: evmChainIDs,
+		GenerateSolKeysForChainIDs: solChainIDs,
 		GenerateP2PKeys:            true,
 		Topology:                   topology,
 		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
@@ -65,10 +88,13 @@ func BuildTopology(
 		return nil, nil, errors.Wrap(addKeysErr, "failed to add keys to topology")
 	}
 
-	peeringData, peeringErr := libdon.FindPeeringData(topology)
+	capabilitiesPeeringData, ocrPeeringData, peeringErr := libdon.FindPeeringData(topology)
 	if peeringErr != nil {
 		return nil, nil, errors.Wrap(peeringErr, "failed to find peering data")
 	}
+
+	topology.CapabilitiesPeeringData = capabilitiesPeeringData
+	topology.OCRPeeringData = ocrPeeringData
 
 	for i, donMetadata := range topology.DonsMetadata {
 		configsFound := 0
@@ -97,17 +123,26 @@ func BuildTopology(
 			return nil, nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
+		configFactoryFunctions := make([]cre.NodeConfigTransformerFn, 0)
+		for _, capability := range capabilities {
+			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigTransformerFn())
+		}
+
 		// generate configs only if they are not provided
 		if configsFound == 0 {
 			config, configErr := creconfig.Generate(
 				cre.GenerateConfigsInput{
-					DonMetadata:            donMetadata,
-					BlockchainOutput:       blockchainOutput,
-					Flags:                  donMetadata.Flags,
-					PeeringData:            peeringData,
-					AddressBook:            addressBook,
-					HomeChainSelector:      topology.HomeChainSelector,
-					GatewayConnectorOutput: topology.GatewayConnectorOutput,
+					AddressBook:             addressBook,
+					Datastore:               datastore,
+					DonMetadata:             donMetadata,
+					BlockchainOutput:        chainPerSelector,
+					Flags:                   donMetadata.Flags,
+					CapabilitiesPeeringData: capabilitiesPeeringData,
+					OCRPeeringData:          ocrPeeringData,
+					HomeChainSelector:       topology.HomeChainSelector,
+					GatewayConnectorOutput:  topology.GatewayConnectorOutput,
+					NodeSet:                 localNodeSets[i],
+					CapabilityConfigs:       capabilityConfigs,
 				},
 				configFactoryFunctions,
 			)
@@ -130,11 +165,15 @@ func BuildTopology(
 				secretsInput.EVMKeys = evmKeys
 			}
 
+			if solKeys, ok := keys.SolKeys[donMetadata.ID]; ok {
+				secretsInput.SolKeys = solKeys
+			}
+
 			if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
 				secretsInput.P2PKeys = p2pKeys
 			}
 
-			// EVM and P2P keys will be provided to nodes as secrets
+			// EVM, Solana and P2P keys will be provided to nodes as secrets
 			secrets, secretsErr := cresecrets.GenerateSecrets(
 				secretsInput,
 			)
@@ -147,13 +186,24 @@ func BuildTopology(
 			}
 		}
 
-		executableErr := libcaps.MakeBinariesExecutable(customBinariesPaths)
+		if !copyCapabilityBinaries {
+			continue
+		}
+
+		customBinariesPaths := make(map[cre.CapabilityFlag]string)
+		for flag, config := range capabilityConfigs {
+			if creflags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
+				customBinariesPaths[flag] = config.BinaryPath
+			}
+		}
+
+		executableErr := crecapabilities.MakeBinariesExecutable(customBinariesPaths)
 		if executableErr != nil {
 			return nil, nil, errors.Wrap(executableErr, "failed to make binaries executable")
 		}
 
 		var appendErr error
-		localNodeSets[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(localNodeSets[i], donMetadata, customBinariesPaths)
+		localNodeSets[i], appendErr = crecapabilities.AppendBinariesPathsNodeSpec(localNodeSets[i], donMetadata, customBinariesPaths)
 		if appendErr != nil {
 			return nil, nil, errors.Wrapf(appendErr, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
 		}
@@ -222,6 +272,11 @@ func copyCapabilityAwareNodeSets(
 			copy(newNs.Capabilities, originalNs.Capabilities)
 		}
 
+		if originalNs.ComputedCapabilities != nil {
+			newNs.ComputedCapabilities = make([]string, len(originalNs.ComputedCapabilities))
+			copy(newNs.ComputedCapabilities, originalNs.ComputedCapabilities)
+		}
+
 		if originalNs.DONTypes != nil {
 			newNs.DONTypes = make([]string, len(originalNs.DONTypes))
 			copy(newNs.DONTypes, originalNs.DONTypes)
@@ -234,9 +289,17 @@ func copyCapabilityAwareNodeSets(
 
 		if originalNs.EnvVars != nil {
 			newNs.EnvVars = make(map[string]string, len(originalNs.EnvVars))
-			for k, v := range originalNs.EnvVars {
-				newNs.EnvVars[k] = v
-			}
+			maps.Copy(newNs.EnvVars, originalNs.EnvVars)
+		}
+
+		if originalNs.ChainCapabilities != nil {
+			newNs.ChainCapabilities = make(map[string]*cre.ChainCapabilityConfig, len(originalNs.ChainCapabilities))
+			maps.Copy(newNs.ChainCapabilities, originalNs.ChainCapabilities)
+		}
+
+		if originalNs.SupportedSolChains != nil {
+			newNs.SupportedSolChains = make([]string, len(originalNs.SupportedSolChains))
+			copy(newNs.SupportedSolChains, originalNs.SupportedSolChains)
 		}
 
 		copiedNodeSets[i] = newNs

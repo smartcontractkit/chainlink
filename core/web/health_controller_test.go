@@ -110,6 +110,13 @@ var (
 )
 
 func TestHealthController_Health_body(t *testing.T) {
+	bodyJSON = strings.ReplaceAll(bodyJSON, "1399100", testutils.FixtureChainID.String())
+	bodyHTML = strings.ReplaceAll(bodyHTML, "1399100", testutils.FixtureChainID.String())
+	bodyTXT = strings.ReplaceAll(bodyTXT, "1399100", testutils.FixtureChainID.String())
+	bodyJSONFailing = strings.ReplaceAll(bodyJSONFailing, "1399100", testutils.FixtureChainID.String())
+	bodyHTMLFailing = strings.ReplaceAll(bodyHTMLFailing, "1399100", testutils.FixtureChainID.String())
+	bodyTXTFailing = strings.ReplaceAll(bodyTXTFailing, "1399100", testutils.FixtureChainID.String())
+
 	for _, tc := range []struct {
 		name    string
 		path    string

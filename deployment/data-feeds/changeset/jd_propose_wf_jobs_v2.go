@@ -23,10 +23,6 @@ const (
 	timeoutV2 = 240 * time.Second
 )
 
-type WorkflowMetadata struct {
-	Workflows map[string]string
-}
-
 // ProposeWFJobsToJDV2Changeset is a Durable Pipeline compatible changeset that reads a feed state file,
 // creates a workflow job spec from it and proposes it to JD.
 var ProposeWFJobsToJDV2Changeset = cldf.CreateChangeSet(proposeWFJobsToJDV2Logic, proposeWFJobsToJDV2Precondition)
@@ -39,7 +35,7 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 
 	domain := getDomain(c.Domain)
 
-	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", c.NodeFilter.Zone, chainInfo.ChainName+".json")
 	feedState, _ := readFeedStateFile(feedStatePath)
 
 	// Only get feeds that are part of the workflow
@@ -88,7 +84,7 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create workflow spec: %w", err)
 	}
 
-	// log the workflow spec for debugging purposes. We don't yet store it anywhere
+	// log the workflow spec for debugging purposes.
 	fmt.Println(workflowSpec)
 
 	// create workflow job spec TOML
@@ -107,29 +103,7 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 	// Save workflow spec in the datastore
 	ds := datastore.NewMemoryDataStore()
 
-	// environment metadata is overwritten with every Set(), so we need to read the existing metadata first
-	record, err := env.DataStore.EnvMetadata().Get()
-	if err != nil {
-		env.Logger.Errorf("failed to get env datastore: %s", err)
-	}
-
-	metadata, err := datastore.As[WorkflowMetadata](record.Metadata)
-	if err != nil {
-		env.Logger.Errorf("failed to cast env metadata: %s", err)
-	}
-
-	if metadata.Workflows == nil {
-		metadata.Workflows = make(map[string]string)
-	}
-
-	// upsert the workflow spec in the metadata
-	metadata.Workflows[workflowSpecConfig.WorkflowName] = workflowSpec
-
-	err = ds.EnvMetadata().Set(
-		datastore.EnvMetadata{
-			Metadata: metadata,
-		},
-	)
+	err = UpdateWorkflowMetadataDS(env, ds, workflowSpecConfig.WorkflowName, workflowSpec)
 	if err != nil {
 		env.Logger.Errorf("failed to set workflow spec in datastore: %s", err)
 	}
@@ -169,13 +143,29 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 		return fmt.Errorf("failed to get consensus encoder abi: %w", err)
 	}
 
+	if c.NodeFilter == nil {
+		return errors.New("missing node filter")
+	}
+
+	if c.NodeFilter.DONID == 0 {
+		return errors.New("missing DON ID in node filter")
+	}
+
+	if c.NodeFilter.EnvLabel == "" {
+		return errors.New("missing environment label in node filter")
+	}
+
+	if c.NodeFilter.Zone != "zone-a" && c.NodeFilter.Zone != "zone-b" {
+		return errors.New("missing or invalid zone in node filter")
+	}
+
 	domain := getDomain(c.Domain)
 	chainInfo, err := cldf_chain_utils.ChainInfo(c.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain info for chain %d: %w", c.ChainSelector, err)
 	}
 
-	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", chainInfo.ChainName+".json")
+	feedStatePath := filepath.Join("domains", domain, env.Name, "inputs", "feeds", c.NodeFilter.Zone, chainInfo.ChainName+".json")
 
 	feedState, err := readFeedStateFile(feedStatePath)
 	if err != nil {
@@ -199,18 +189,6 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 	cacheAddress := GetDataFeedsCacheAddress(env.ExistingAddresses, env.DataStore.Addresses(), c.ChainSelector, &c.CacheLabel)
 	if cacheAddress == "" {
 		return errors.New("failed to get data feeds cache address")
-	}
-
-	if c.NodeFilter == nil {
-		return errors.New("missing node filter")
-	}
-
-	if c.NodeFilter.DONID == 0 {
-		return errors.New("missing DON ID in node filter")
-	}
-
-	if c.NodeFilter.EnvLabel == "" {
-		return errors.New("missing environment label in node filter")
 	}
 
 	return nil

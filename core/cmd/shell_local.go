@@ -519,6 +519,13 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
+	if s.Config.CRE().EnableDKGRecipient() {
+		err2 := app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure dkg recipient key")
+		}
+	}
+
 	err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
 	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure workflow key")
@@ -832,7 +839,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 
 	force := c.Bool("force")
 
-	if err := store.ResetDatabase(ctx, s.Logger, cfg, force); err != nil {
+	if err := store.ResetDatabase(ctx, s.Logger, cfg, force, false); err != nil {
 		return s.errorOut(err)
 	}
 	return nil

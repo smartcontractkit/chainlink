@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -50,13 +50,13 @@ func Test_Simple_EVMEncoder(t *testing.T) {
 	outputs, err := fakeConsensusNoDAG.Report(t.Context(), metadata, input)
 
 	require.NoError(t, err)
-	require.Len(t, outputs.Sigs, nSigners)
+	require.Len(t, outputs.Response.Sigs, nSigners)
 
 	// validate signatures
-	digest, err := ocr2types.BytesToConfigDigest(outputs.ConfigDigest)
+	digest, err := ocr2types.BytesToConfigDigest(outputs.Response.ConfigDigest)
 	require.NoError(t, err)
-	fullHash := ocr2key.ReportToSigData3(digest, outputs.SeqNr, outputs.RawReport)
-	for idx, sig := range outputs.Sigs {
+	fullHash := ocr2key.ReportToSigData3(digest, outputs.Response.SeqNr, outputs.Response.RawReport)
+	for idx, sig := range outputs.Response.Sigs {
 		signerPubkey, err2 := crypto.SigToPub(fullHash, sig.Signature)
 		require.NoError(t, err2)
 		recoveredAddr := crypto.PubkeyToAddress(*signerPubkey)

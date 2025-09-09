@@ -2,7 +2,9 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
@@ -20,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
@@ -57,6 +60,7 @@ func NewStandaloneEngine(
 	lifecycleHooks v2.LifecycleHooks,
 	workflowName string,
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: defaultOwner, Workflow: defaultWorkflowID})
 	labeler := custmsg.NewLabeler()
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
@@ -81,6 +85,10 @@ func NewStandaloneEngine(
 	}
 
 	lf := limits.Factory{Logger: logger.Named(lggr, "Limits")}
+	limiters, err := v2.NewLimiters(lf, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      defaultRPS,
 		GlobalBurst:    defaultBurst,
@@ -90,7 +98,6 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
@@ -159,9 +166,10 @@ func NewStandaloneEngine(
 		WorkflowName:  name,
 		WorkflowTag:   "workflowTag",
 
-		LocalLimits:          v2.EngineLimits{},
-		GlobalLimits:         workflowLimits,
-		ExecutionRateLimiter: rl,
+		LocalLimits:                       v2.EngineLimits{},
+		LocalLimiters:                     limiters,
+		GlobalExecutionConcurrencyLimiter: workflowLimits,
+		GlobalExecutionRateLimiter:        rl,
 
 		BeholderEmitter: custmsg.NewLabeler(),
 
@@ -177,9 +185,16 @@ func NewStandaloneEngine(
 		return nil, nil, err
 	}
 
+	moduleExecuteMaxResponseSizeBytes, err := cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if moduleExecuteMaxResponseSizeBytes < 0 {
+		return nil, nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+	}
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(cfg.LocalLimits.ModuleExecuteMaxResponseSizeBytes),
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
 		Config:          config,
 	}, v2.NewDisallowedExecutionHelper(lggr, nil, &types.LocalTimeProvider{}, secretsFetcher))
 	if err != nil {
@@ -190,7 +205,16 @@ func NewStandaloneEngine(
 	}
 	triggerSubscriptions := result.GetTriggerSubscriptions()
 
-	return engine, triggerSubscriptions.GetSubscriptions(), nil
+	return &serviceWithClosers{engine, []io.Closer{limiters, workflowLimits, rl}}, triggerSubscriptions.GetSubscriptions(), nil
+}
+
+type serviceWithClosers struct {
+	services.Service
+	closers []io.Closer
+}
+
+func (s *serviceWithClosers) Close() error {
+	return errors.Join(s.Service.Close(), services.MultiCloser(s.closers).Close())
 }
 
 // yamlConfig represents the structure of your secrets.yaml file.

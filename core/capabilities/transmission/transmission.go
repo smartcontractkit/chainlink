@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"golang.org/x/crypto/sha3"
@@ -54,6 +54,17 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 		Schedule:   tc.Schedule,
 		DeltaStage: duration,
 	}, nil
+}
+
+func EnumToString(t capabilities.TransmissionSchedule) string {
+	switch t {
+	case capabilities.Schedule_AllAtOnce:
+		return Schedule_AllAtOnce
+	case capabilities.Schedule_OneAtATime:
+		return Schedule_OneAtATime
+	default:
+		return "unknown"
+	}
 }
 
 // GetPeerIDToTransmissionDelay returns a map of PeerID to the time.Duration that the node with that PeerID should wait

@@ -2,42 +2,71 @@ package vault
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type Transmitter struct {
 	lggr        logger.Logger
-	store       *requests.Store[*Request]
+	handler     *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	fromAccount types.Account
 }
 
-func NewTransmitter(lggr logger.Logger, fromAccount types.Account, store *requests.Store[*Request]) *Transmitter {
+func NewTransmitter(lggr logger.Logger, fromAccount types.Account, handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]) *Transmitter {
 	return &Transmitter{
 		lggr:        lggr.Named("VaultTransmitter"),
-		store:       store,
+		handler:     handler,
 		fromAccount: fromAccount,
 	}
 }
 
-func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte], sigs []types.AttributedOnchainSignature) error {
-	info := &vault.ReportInfo{}
-	err := proto.Unmarshal(rwi.Info, info)
+func extractReportInfo(rwi ocr3types.ReportWithInfo[[]byte]) (*vault.ReportInfo, error) {
+	infoWrapper := &structpb.Struct{}
+	err := proto.Unmarshal(rwi.Info, infoWrapper)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	req := c.store.Get(info.Id)
-	if req == nil {
-		return fmt.Errorf("request with ID %s not found", info.Id)
+	infoWrapper.AsMap()
+	reportInfoString, ok := infoWrapper.AsMap()["reportInfo"]
+	if !ok {
+		return nil, errors.New("reportInfo not found in report info struct")
+	}
+
+	ris, ok := reportInfoString.(string)
+	if !ok {
+		return nil, errors.New("reportInfo is not bytes")
+	}
+
+	rib, err := base64.StdEncoding.DecodeString(ris)
+	if err != nil {
+		return nil, err
+	}
+
+	reportInfo := &vault.ReportInfo{}
+	err = proto.Unmarshal(rib, reportInfo)
+	if err != nil {
+		return nil, fmt.Errorf("could not unmarshal ReportInfo: %w", err)
+	}
+	return reportInfo, nil
+}
+
+func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte], sigs []types.AttributedOnchainSignature) error {
+	info, err := extractReportInfo(rwi)
+	if err != nil {
+		return fmt.Errorf("could not extract report info: %w", err)
 	}
 
 	// Convert the sequence number to the epoch + round number.
@@ -55,7 +84,7 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 	}
 
 	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())
-	req.SendResponse(ctx, &Response{
+	c.handler.SendResponse(ctx, &vaulttypes.Response{
 		ID:         info.Id,
 		Payload:    rwi.Report,
 		Format:     info.Format.String(),

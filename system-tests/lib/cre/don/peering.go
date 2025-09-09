@@ -39,14 +39,19 @@ func globalBootstraperNodeData(topology *cre.Topology) (string, string, error) {
 	return "", "", errors.New("expected at least one workflow DON")
 }
 
-func FindPeeringData(donTopologies *cre.Topology) (cre.CapabilitiesPeeringData, error) {
+func FindPeeringData(donTopologies *cre.Topology) (cre.CapabilitiesPeeringData, cre.OCRPeeringData, error) {
 	globalBootstraperPeerID, globalBootstraperHost, err := globalBootstraperNodeData(donTopologies)
 	if err != nil {
-		return cre.CapabilitiesPeeringData{}, err
+		return cre.CapabilitiesPeeringData{}, cre.OCRPeeringData{}, err
 	}
 
 	return cre.CapabilitiesPeeringData{
-		GlobalBootstraperPeerID: globalBootstraperPeerID,
-		GlobalBootstraperHost:   globalBootstraperHost,
-	}, nil
+			GlobalBootstraperPeerID: globalBootstraperPeerID,
+			GlobalBootstraperHost:   globalBootstraperHost,
+			Port:                    CapabilitiesPeeringPort,
+		}, cre.OCRPeeringData{
+			OCRBootstraperPeerID: globalBootstraperPeerID,
+			OCRBootstraperHost:   globalBootstraperHost,
+			Port:                 OCRPeeringPort,
+		}, nil
 }

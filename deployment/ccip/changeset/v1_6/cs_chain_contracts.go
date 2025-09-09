@@ -82,6 +82,7 @@ var (
 	_ cldf.ChangeSet[UpdateTokenPriceFeedsConfig]              = UpdateTokenPriceFeedsFeeQuoterChangeset
 	_ cldf.ChangeSet[PremiumMultiplierWeiPerEthUpdatesConfig]  = ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset
 	_ cldf.ChangeSet[ApplyTokenTransferFeeConfigUpdatesConfig] = ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
+	_ cldf.ChangeSet[UpdateWrappedNativeOnRouterConfig]        = UpdateWrappedNativeOnRouterChangeset
 )
 
 type UpdateNonceManagerConfig struct {
@@ -1367,6 +1368,7 @@ type SetOCR3OffRampConfig struct {
 	RemoteChainSels    []uint64
 	CCIPHomeConfigType globals.ConfigType
 	MCMS               *proposalutils.TimelockConfig
+	PluginTypes        []cctypes.PluginType // empty plugin type list defaults to both commit and exec
 }
 
 func (c SetOCR3OffRampConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -1381,6 +1383,16 @@ func (c SetOCR3OffRampConfig) Validate(e cldf.Environment, state stateview.CCIPO
 		if err := c.validateRemoteChain(&e, &state, remote); err != nil {
 			return err
 		}
+	}
+	pluginTypeMap := make(map[cctypes.PluginType]bool)
+	for _, pluginType := range c.PluginTypes {
+		if pluginType != cctypes.PluginTypeCCIPCommit && pluginType != cctypes.PluginTypeCCIPExec {
+			return fmt.Errorf("invalid plugin type encountered. plugin type must be either %s or %s", cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec)
+		}
+		if _, ok := pluginTypeMap[pluginType]; ok {
+			return fmt.Errorf("duplicate plugin type found: %s", pluginType.String())
+		}
+		pluginTypeMap[pluginType] = true
 	}
 	return nil
 }
@@ -1441,6 +1453,12 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 
 	xg := new(errgroup.Group)
 
+	pluginTypes := cfg.PluginTypes
+	// Default to both plugins if specific types are not provided
+	if len(pluginTypes) == 0 {
+		pluginTypes = []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec}
+	}
+
 	for _, remote := range cfg.RemoteChainSels {
 		donID, err := internal.DonIDForChain(
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
@@ -1450,7 +1468,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 			return cldf.ChangesetOutput{}, err
 		}
 		args, err := internal.BuildSetOCR3ConfigArgs(
-			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
+			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType, pluginTypes)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -2230,6 +2248,88 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) ToSequenceInput(state statev
 	}
 
 	return ccipseqs.FeeQuoterUpdateTokenTransferConfig{
+		UpdatesByChain: input,
+	}
+}
+
+type UpdateWrappedNativeOnRouterConfig struct {
+	UpdatesByChain map[uint64]common.Address
+	MCMS           *proposalutils.TimelockConfig
+}
+
+func (cfg UpdateWrappedNativeOnRouterConfig) Validate(e cldf.Environment) error {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+
+	for chainSel, newWrappedNativeAddr := range cfg.UpdatesByChain {
+		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+			return err
+		}
+
+		chainState := state.Chains[chainSel]
+		chain, ok := e.BlockChains.EVMChains()[chainSel]
+		if !ok {
+			return fmt.Errorf("missing chain %d in environment", chainSel)
+		}
+
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+			return fmt.Errorf("chain %s: %w", chain.String(), err)
+		}
+
+		if chainState.Router == nil {
+			return fmt.Errorf("missing router for chain %d", chainSel)
+		}
+		wrappedNativeAddr, err := chainState.Router.GetWrappedNative(nil)
+		if err != nil {
+			return fmt.Errorf("error getting wrapped native addresses for chain %d: %w", chainSel, err)
+		}
+
+		if wrappedNativeAddr == (common.Address{}) {
+			return fmt.Errorf("wrapped native address is empty for chain %d", chainSel)
+		}
+
+		if wrappedNativeAddr == newWrappedNativeAddr {
+			return fmt.Errorf("wrapped native address provided in the config is already set to %s for chain %d", wrappedNativeAddr.Hex(), chainSel)
+		}
+	}
+
+	return nil
+}
+
+func UpdateWrappedNativeOnRouterChangeset(e cldf.Environment, cfg UpdateWrappedNativeOnRouterConfig) (cldf.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	report, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ccipseqs.RouterUpdateWrappedNativeSequence,
+		e.BlockChains.EVMChains(),
+		cfg.ToSequenceInput(state),
+	)
+
+	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call UpdateWrappedNativeAddressOnRouterOp on Router")
+}
+
+func (cfg UpdateWrappedNativeOnRouterConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.RouterUpdateWrappedNativeSequenceInput {
+	input := make(map[uint64]opsutil.EVMCallInput[common.Address], len(cfg.UpdatesByChain))
+
+	for chainSel, newWrappedAddress := range cfg.UpdatesByChain {
+		input[chainSel] = opsutil.EVMCallInput[common.Address]{
+			ChainSelector: chainSel,
+			Address:       state.Chains[chainSel].Router.Address(),
+			CallInput:     newWrappedAddress,
+			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
+		}
+	}
+
+	return ccipseqs.RouterUpdateWrappedNativeSequenceInput{
 		UpdatesByChain: input,
 	}
 }

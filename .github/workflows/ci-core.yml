@@ -204,7 +204,7 @@ jobs:
             setup-aptos: "true"
             use-trunk: "true"
 
-    name: Core Tests (${{ matrix.type.cmd }})
+    name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency, runner-config]
@@ -242,7 +242,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
         uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
-          CLI_VERSION: 7.2.0
+          CLI_VERSION: 7.7.0
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
@@ -250,9 +250,10 @@ jobs:
 
       - name: Setup Postgres
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/0.2.0
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           tmpfs: "true"
+          image-tag: "16-alpine"
 
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.type.should-run == 'true' }}
@@ -280,6 +281,22 @@ jobs:
           echo "COUNT=50" >> $GITHUB_ENV
           echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
+      - name: Derive Job/Run URL
+        # Fetch job run url - used for trunk.io uploads, and race test failure notifications
+        if: ${{ matrix.type.should-run == 'true' && ( matrix.type.cmd == 'go_core_race_tests' || matrix.type.use-trunk == 'true' ) }}
+        id: run-url
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
+        run: |
+          run_url=$(
+            gh run view --repo "$GH_REPO" "$GH_RUN_ID" --json jobs |
+              jq -r --arg matrix "($MATRIX_TYPE_CMD)" '.jobs[] | select(.name | contains($matrix)) | .url'
+          )
+          echo "run_url=$run_url" | tee -a "$GITHUB_OUTPUT"
+
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
         timeout-minutes: ${{ github.event_name == 'schedule' && 37 || 22 }} # leave time for remaining steps
@@ -289,19 +306,21 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: ${{ matrix.type.use-trunk }}
+          JUNIT_FILE: ${{ github.workspace }}/junit.xml
         run: |
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
 
-      - name: Upload Test Results to Trunk.io
+      - name: Run branch-out-upload
         if: ${{ matrix.type.should-run == 'true' && matrix.type.use-trunk == 'true' && !cancelled() }}
-        uses: trunk-io/analytics-uploader@f2631c653f9675d391e6e68cc877370db927c64c # v2.0.0
-        continue-on-error: true # TODO: Remove this once ready
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
-          junit-paths: "./junit.xml,*/junit.xml"
-          org-slug: chainlink
-          token: ${{ secrets.TRUNK_API_KEY }}
-          previous-step-outcome: ${{ steps.run-tests.outcome }}
+          junit-file-path: './junit.xml'
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-upload-only: "true"
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-job-url: ${{ steps.run-url.outputs.run_url }}
 
       - name: Print Races
         id: print-races
@@ -311,22 +330,19 @@ jobs:
           GH_RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_url=$(gh run --repo "$GH_REPO" view "$GH_RUN_ID" --json jobs --jq '.jobs[] | select(.name | contains("${{ matrix.type.cmd }}")) | .url')
-          echo "run_url=$run_url" >> $GITHUB_OUTPUT
-
           find race.* | xargs cat > race.txt
           if [[ -s race.txt ]]; then
             cat race.txt
-            echo "post_to_slack=true" >> $GITHUB_OUTPUT
+            echo "post_to_slack=true" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "post_to_slack=false" >> $GITHUB_OUTPUT
+            echo "post_to_slack=false" | tee -a "$GITHUB_OUTPUT"
           fi
           echo "github.event_name: ${{ github.event_name }}"
           echo "github.ref: ${{ github.ref }}"
 
       - name: Print postgres logs
         if: ${{ always() &&  matrix.type.should-run == 'true' }}
-        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           print-logs: "true"
 
@@ -358,7 +374,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TOPIC_DATA_RACES_CHANNEL_ID}}
-            text: "Race Tests Failed: <${{ steps.print-races.outputs.run_url }}|Run>"
+            text: "Race Tests Failed: <${{ steps.run-url.outputs.run_url }}|Run>"
 
   core-scripts-tests:
     name: test-scripts
@@ -560,10 +576,10 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     env:
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/extras=s3-cache+tmpfs
-      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/extras=s3-cache
-      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/extras=s3-cache
-      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/extras=s3-cache
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
       SH_LINT_RUNNER: runs-on=${{ github.run_id }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
       GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB

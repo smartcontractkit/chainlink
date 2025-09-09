@@ -232,8 +232,25 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 			return tokenPool.Address(), true
 		}
 	case shared.HybridLockReleaseUSDCTokenPool:
+		if version == deployment.Version1_6_2 {
+			if tokenPool, ok := chainState.USDCTokenPoolsV1_6[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
 		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
 			return tokenPool.Address(), true
+		}
+	case shared.BurnMintWithExternalMinterTokenPool:
+		if tokenPools, ok := chainState.BurnMintWithExternalMinterTokenPool[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
+		}
+	case shared.HybridWithExternalMinterTokenPool:
+		if tokenPools, ok := chainState.HybridWithExternalMinterTokenPool[symbol]; ok {
+			if tokenPool, ok := tokenPools[version]; ok {
+				return tokenPool.Address(), true
+			}
 		}
 	}
 

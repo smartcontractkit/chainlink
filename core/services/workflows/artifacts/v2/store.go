@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -17,11 +18,12 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -56,10 +58,6 @@ func safeUint32(n uint64) uint32 {
 	return uint32(n)
 }
 
-// FetcherFunc is an abstraction for fetching the contents stored at a URL.
-// TODO: CAPPL-1031 refactor fetcher to use Storage service instead of Gateway
-type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
-
 type ArtifactConfig struct {
 	MaxConfigSize  uint64
 	MaxSecretsSize uint64
@@ -90,6 +88,16 @@ func WithMaxArtifactSize(cfg ArtifactConfig) func(*Store) {
 	}
 }
 
+type StoreConfig struct {
+	ArtifactStorageHost string
+}
+
+func WithConfig(cfg StoreConfig) func(*Store) {
+	return func(a *Store) {
+		a.config = &cfg
+	}
+}
+
 type SerialisedModuleStore interface {
 	StoreModule(workflowID string, binaryID string, module []byte) error
 	GetModulePath(workflowID string) (string, bool, error)
@@ -102,11 +110,14 @@ type Store struct {
 
 	// limits sets max artifact sizes to fetch when handling events
 	limits *ArtifactConfig
+	config *StoreConfig
 
 	orm WorkflowRegistryDS
 
+	// retrieveFunc is a function that retrieves a URL to download an artifact.
+	retrieveFunc types.LocationRetrieverFunc
 	// fetchFn is a function that fetches the contents of a URL with a limit on the size of the response.
-	fetchFn FetcherFunc
+	fetchFn types.FetcherFunc
 
 	lastFetchedAtMap         *lastFetchedAtMap
 	clock                    clockwork.Clock
@@ -117,18 +128,20 @@ type Store struct {
 	emitter custmsg.MessageEmitter
 }
 
-func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn FetcherFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
-	emitter custmsg.MessageEmitter, opts ...func(*Store)) *Store {
+func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, retrieveFunc types.LocationRetrieverFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
+	emitter custmsg.MessageEmitter, opts ...func(*Store)) (*Store, error) {
 	limits := &ArtifactConfig{}
 	limits.ApplyDefaults()
 
 	artifactsStore := &Store{
 		lggr:                     lggr,
 		orm:                      orm,
+		retrieveFunc:             retrieveFunc,
 		fetchFn:                  fetchFn,
 		lastFetchedAtMap:         newLastFetchedAtMap(),
 		clock:                    clock,
 		limits:                   limits,
+		config:                   &StoreConfig{},
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
 		emitter:                  emitter,
@@ -138,7 +151,11 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn FetcherFunc, c
 		o(artifactsStore)
 	}
 
-	return artifactsStore
+	if retrieveFunc != nil && artifactsStore.config.ArtifactStorageHost == "" {
+		return nil, errors.New("storage service URL prefix must be set in the store config")
+	}
+
+	return artifactsStore, nil
 }
 
 // FetchWorkflowArtifacts fetches the workflow spec and config from a cache or the specified URLs if the artifacts have not
@@ -155,10 +172,29 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 		return decodedBinary, []byte(spec.Config), nil
 	}
 
-	// Fetch the binary and config files from the specified URLs.
+	// Determine which URL to retrieve workflow binary artifacts from
+	parsedBinaryURL, err := url.Parse(binaryURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid binary URL: %w", err)
+	}
+
+	// If the binary URL points to the artifact storage host, use the retrieve function to get the signed URL.
+	// NOTE: retrieveFunc may be nil if the fetcherFunc was overridden.
+	// TODO CRE-632: retrieverFunc should enforced made to always be set, once local CRE can support it.
+	if h.retrieveFunc != nil && parsedBinaryURL.Host == h.config.ArtifactStorageHost {
+		signedBinaryURL, err2 := h.retrieveFunc(ctx, &storage_service.DownloadArtifactRequest{
+			Id:   workflowID,
+			Type: storage_service.ArtifactType_ARTIFACT_TYPE_BINARY,
+		})
+		if err2 != nil {
+			return nil, nil, fmt.Errorf("failed to get binary artifact URL: %w", err2)
+		}
+		binaryURL = signedBinaryURL
+	}
+
+	// Fetch the binary files from the specified URLs.
 	var (
 		binary, decodedBinary, config []byte
-		err                           error
 	)
 
 	req := ghcapabilities.Request{
@@ -177,15 +213,37 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	}
 
 	if configURL != "" {
+		// Determine which URL to retrieve config binary artifacts from
+		parsedConfigURL, err2 := url.Parse(configURL)
+		if err2 != nil {
+			return nil, nil, fmt.Errorf("invalid config URL: %w", err2)
+		}
+
+		// If the config URL points to the artifact storage host, use the retrieve function to get the signed URL.
+		// NOTE: retrieveFunc may be nil if the fetcherFunc was overridden.
+		// TODO CRE-632: retrieverFunc should enforced made to always be set, once local CRE can support it.
+		if h.retrieveFunc != nil && parsedConfigURL.Host == h.config.ArtifactStorageHost {
+			signedConfigURL, configErr := h.retrieveFunc(ctx, &storage_service.DownloadArtifactRequest{
+				Id:   workflowID,
+				Type: storage_service.ArtifactType_ARTIFACT_TYPE_CONFIG,
+			})
+			if configErr != nil {
+				return nil, nil, fmt.Errorf("failed to get config artifact URL: %w", configErr)
+			}
+			configURL = signedConfigURL
+		}
+
+		// Fetch the config files from the specified URLs.
 		req := ghcapabilities.Request{
 			URL:              configURL,
 			Method:           http.MethodGet,
 			MaxResponseBytes: safeUint32(h.limits.MaxConfigSize),
 			WorkflowID:       workflowID,
 		}
-		config, err = h.fetchFn(ctx, messageID(configURL, workflowID), req)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", configURL, err)
+
+		config, err2 = h.fetchFn(ctx, messageID(configURL, workflowID), req)
+		if err2 != nil {
+			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", configURL, err2)
 		}
 	}
 	return decodedBinary, config, nil

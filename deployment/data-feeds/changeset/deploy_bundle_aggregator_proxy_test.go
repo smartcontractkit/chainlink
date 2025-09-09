@@ -45,7 +45,7 @@ func TestBundleAggregatorProxy(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	addrs, err := resp.ExistingAddresses.AddressesForChain(chainSelector) // TODO: replace with DataStore when ready
+	addrs, err := resp.DataStore.Addresses().Fetch()
 	require.NoError(t, err)
 	require.Len(t, addrs, 2) // BundleAggregatorProxy and DataFeedsCache
 }

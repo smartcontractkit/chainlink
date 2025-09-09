@@ -2,17 +2,15 @@ package environment
 
 import (
 	"context"
-	"fmt"
 	"slices"
-	"strconv"
-	"strings"
 	"time"
 
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -30,37 +28,21 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
+	sethClients := make(map[uint64]*seth.Client)
+	solClients := make(map[uint64]*solrpc.Client)
+	for _, bcOut := range input.BlockchainOutputs {
+		if bcOut.SolChain != nil {
+			sel := bcOut.SolChain.ChainSelector
+			solClients[sel] = bcOut.SolClient
+			continue
+		}
+		sethClients[bcOut.ChainSelector] = bcOut.SethClient
+	}
+
 	envs := make([]*cldf.Environment, len(input.NodeSetOutput))
 	dons := make([]*devenv.DON, len(input.NodeSetOutput))
 
 	var allNodesInfo []devenv.NodeInfo
-	var buildChain = func(chainSelector uint64, bcOut *blockchain.Output) (*devenv.ChainConfig, error) {
-		cID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse chain ID: %w", err)
-		}
-
-		sethClient, ok := input.SethClients[chainSelector]
-		if !ok {
-			return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)
-		}
-
-		return &devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(cID, 10),
-			ChainName: sethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(bcOut.Family),
-			WSRPCs: []devenv.CribRPCs{{
-				External: bcOut.Nodes[0].ExternalWSUrl,
-				Internal: bcOut.Nodes[0].InternalWSUrl,
-			}},
-			HTTPRPCs: []devenv.CribRPCs{{
-				External: bcOut.Nodes[0].ExternalHTTPUrl,
-				Internal: bcOut.Nodes[0].InternalHTTPUrl,
-			}},
-			DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-		}, nil
-	}
-
 	for idx, nodeOutput := range input.NodeSetOutput {
 		// check how many bootstrap nodes we have in each DON
 		bootstrapNodes, err := libnode.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &cre.Label{Key: libnode.NodeTypeKey, Value: cre.BootstrapNode}, libnode.EqualLabels)
@@ -68,7 +50,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 		}
 
-		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, uint64(input.Topology.DonsMetadata[idx].ID), len(bootstrapNodes))
+		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata[idx].ID, len(bootstrapNodes))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get node info")
 		}
@@ -81,17 +63,12 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 				continue
 			}
 
-			chainConfig, err := buildChain(chainSelector, bcOut.BlockchainOutput)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to build chain config")
+			cfg, cfgErr := cre.ChainConfigFromWrapped(bcOut)
+			if cfgErr != nil {
+				return nil, errors.Wrapf(err, "failed to build chain config for chain selector %d", chainSelector)
 			}
-			chains = append(chains, *chainConfig)
-		}
 
-		// if DON has no capabilities we don't need to create chain configs (e.g. for gateway nodes)
-		// we indicate to `devenv.NewEnvironment` that it should skip chain creation by passing an empty chain config
-		if len(nodeOutput.Capabilities) == 0 {
-			chains = []devenv.ChainConfig{}
+			chains = append(chains, cfg)
 		}
 
 		jdConfig := devenv.JDConfig{
@@ -141,7 +118,7 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 		}
 	}
 
-	var jd cldf.OffchainClient
+	var jd cldf_offchain.Client
 
 	if len(input.NodeSetOutput) > 0 {
 		// We create a new instance of JD client using `allNodesInfo` instead of `nodeInfo` to ensure that it can interact with all nodes.
@@ -167,25 +144,12 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	// create chains for all chains that are supported by any of the DONs, so that changeset can be applied to all chains
 	allChainsConfigs := make([]devenv.ChainConfig, 0)
 	for chainSelector, bcOut := range input.BlockchainOutputs {
-		sethClient, ok := input.SethClients[chainSelector]
-		if !ok {
-			return nil, fmt.Errorf("seth client not found for chain selector: %d", chainSelector)
+		cfg, cfgErr := cre.ChainConfigFromWrapped(bcOut)
+		if cfgErr != nil {
+			return nil, errors.Wrapf(cfgErr, "failed to build chain config for chain selector %d", chainSelector)
 		}
 
-		allChainsConfigs = append(allChainsConfigs, devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(bcOut.ChainID, 10),
-			ChainName: sethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
-			WSRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-			}},
-			HTTPRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			}},
-			DeployerKey: sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-		})
+		allChainsConfigs = append(allChainsConfigs, cfg)
 	}
 
 	blockChains, allChainsErr := devenv.NewChains(lgr, allChainsConfigs)
@@ -212,6 +176,8 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 	donTopology := &cre.DonTopology{}
 	donTopology.WorkflowDonID = input.Topology.WorkflowDONID
 	donTopology.HomeChainSelector = input.Topology.HomeChainSelector
+	donTopology.CapabilitiesPeeringData = input.Topology.CapabilitiesPeeringData
+	donTopology.OCRPeeringData = input.Topology.OCRPeeringData
 
 	for i, donMetadata := range input.Topology.DonsMetadata {
 		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &cre.DonWithMetadata{

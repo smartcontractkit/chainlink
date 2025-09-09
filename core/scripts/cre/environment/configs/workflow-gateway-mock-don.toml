@@ -1,0 +1,130 @@
+[[blockchains]]
+    chain_id = "1337"
+    docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+    type = "anvil"
+
+[infra]
+    type = "docker"
+
+#[infra.crib]
+    #folder_location = "/your/absolute/path/to/crib/deployments/cre"
+    #namespace = "crib-local"
+    #provider = "kind"
+
+# Fields below are required, check guidelines.md for details
+# [infra.crib.team_input]
+#  team = "your-team"
+#  product = "product-name"
+#  component = "crib"
+#  cost_center = "crib"
+
+[s3provider]
+    port = 16000
+    console_port = 16001
+
+[fake]
+port = 7891
+
+[jd]
+    csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+    image = "localhost:5001/job-distributor:0.12.7"
+
+[[nodesets]]
+    nodes = 5
+    name = "workflow"
+    don_types = ["workflow"]
+    override_mode = "all"
+    http_port_range_start = 10100
+
+      env_vars = { CL_EVM_CMD = "" }
+
+    # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
+    bootstrap_node_index = 0
+    # added for visiblity, required always, when don_types include "gateway"
+    gateway_node_index = -1
+
+    capabilities = ["ocr3", "custom-compute", "web-api-trigger"]
+
+   [nodesets.chain_capabilities]
+    write-evm = ["1337"]
+
+  # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
+
+    [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+    [[nodesets.node_specs]]
+
+        [nodesets.node_specs.node]
+        image = "localhost:5001/chainlink-plugins:latest"
+        user_config_overrides = """
+            [Log]
+            Level = 'info'
+            JSONConsole = true
+            [WebServer.TLS]
+            HTTPSPort=0
+            """
+
+[[nodesets]]
+    nodes = 3
+    name = "capabilities"
+    don_types = ["capabilities"]
+    override_mode = "all"
+    http_port_range_start = 10200
+
+    env_vars = { CL_EVM_CMD = "" }
+
+    bootstrap_node_index = -1
+    gateway_node_index = -1
+
+    capabilities = ["mock"]
+
+    [nodesets.db]
+        image = "postgres:12.0"
+        port = 19000
+
+        [[nodesets.node_specs]]
+
+        [nodesets.node_specs.node]
+            image = "localhost:5001/chainlink-plugins:latest"
+            user_config_overrides = """
+                [Log]
+                Level = 'info'
+                JSONConsole = true
+                [WebServer.TLS]
+                HTTPSPort=0
+                """
+
+[[nodesets]]
+    nodes = 1
+    name = "gateway"
+    override_mode = "each"
+    http_port_range_start = 10300
+
+    env_vars = { CL_EVM_CMD = "" }
+
+    bootstrap_node_index = -1
+    gateway_node_index = 0
+
+    [nodesets.db]
+        image = "postgres:12.0"
+        port = 15000
+
+        [[nodesets.node_specs]]
+
+        [nodesets.node_specs.node]
+        image = "localhost:5001/chainlink-plugins:latest"
+        custom_ports = ["5002:5002"]
+        user_config_overrides = """
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+            [Telemetry]
+            Enabled = true
+            Endpoint = 'host.docker.internal:4317'
+            ChipIngressEndpoint = 'chip-ingress:50051'
+            InsecureConnection = true
+            TraceSampleRatio = 1
+            """

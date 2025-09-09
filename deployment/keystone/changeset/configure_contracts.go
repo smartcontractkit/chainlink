@@ -8,19 +8,20 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ cldf.ChangeSet[InitialContractsCfg] = ConfigureInitialContractsChangeset
 
 type InitialContractsCfg struct {
 	RegistryChainSel uint64
-	Dons             []kslib.DonCapabilities
-	OCR3Config       *kslib.OracleConfig
+	Dons             []internal.DonCapabilities
+	OCR3Config       *ocr3.OracleConfig
 }
 
 func ConfigureInitialContractsChangeset(e cldf.Environment, cfg InitialContractsCfg) (cldf.ChangesetOutput, error) {
-	req := &kslib.ConfigureContractsRequest{
+	req := &internal.ConfigureContractsRequest{
 		Env:              &e,
 		RegistryChainSel: cfg.RegistryChainSel,
 		Dons:             cfg.Dons,
@@ -30,7 +31,7 @@ func ConfigureInitialContractsChangeset(e cldf.Environment, cfg InitialContracts
 }
 
 // Deprecated: Use ConfigureInitialContractsChangeset instead.
-func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContractsRequest) (cldf.ChangesetOutput, error) {
+func ConfigureInitialContracts(lggr logger.Logger, req *internal.ConfigureContractsRequest) (cldf.ChangesetOutput, error) {
 	if err := req.Validate(); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)
 	}
@@ -44,11 +45,11 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 	foundForwarder := false
 	for _, addr := range regAddrs {
 		switch addr.Type {
-		case kslib.CapabilitiesRegistry:
+		case internal.CapabilitiesRegistry:
 			foundRegistry = true
-		case kslib.OCR3Capability:
+		case internal.OCR3Capability:
 			foundOCR3 = true
-		case kslib.KeystoneForwarder:
+		case internal.KeystoneForwarder:
 			foundForwarder = true
 		}
 	}
@@ -64,7 +65,7 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 			return cldf.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.Selector, err2)
 		}
 		for _, addr := range addrs {
-			if addr.Type == kslib.KeystoneForwarder {
+			if addr.Type == internal.KeystoneForwarder {
 				foundForwarder = true
 				break
 			}
@@ -74,7 +75,7 @@ func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContracts
 		}
 	}
 
-	resp, err := kslib.ConfigureContracts(context.TODO(), lggr, *req)
+	resp, err := internal.ConfigureContracts(context.TODO(), lggr, *req)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure contracts: %w", err)
 	}

@@ -38,8 +38,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -92,6 +92,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -342,9 +343,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	var syncerFetcherFunc artifacts.FetcherFunc
+	var syncerFetcherFunc wftypes.FetcherFunc
 	for _, dep := range flagsAndDeps {
-		syncerFetcherFunc, _ = dep.(artifacts.FetcherFunc)
+		syncerFetcherFunc, _ = dep.(wftypes.FetcherFunc)
 		if syncerFetcherFunc != nil {
 			break
 		}
@@ -410,15 +411,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	var evmFactoryConfigFn func(config *chainlink.EVMFactoryConfig)
 	// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
-	if cfg.EVMEnabled() {
+	if cfg.EVMEnabled() && env.EVMPlugin.Cmd.Get() == "" {
 		if ethClient == nil {
 			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
 		}
-		chainId := ethClient.ConfiguredChainID()
+		chainID := ethClient.ConfiguredChainID()
 		evmFactoryConfigFn = func(fc *chainlink.EVMFactoryConfig) {
 			fc.GenEthClient = func(_ *big.Int) evmclient.Client {
-				if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+				if chainID.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainID, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
 				}
 				return ethClient
 			}
@@ -447,6 +448,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			FetcherFunc:             syncerFetcherFunc,
 			FetcherFactoryFn:        computeFetcherFactory,
 			BillingClient:           billingClient,
+			UseLocalTimeProvider:    cfg.CRE().UseLocalTimeProvider(),
 		},
 		Config:   cfg,
 		DS:       ds,

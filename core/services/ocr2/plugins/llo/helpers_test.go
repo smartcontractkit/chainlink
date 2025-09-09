@@ -98,9 +98,13 @@ func NewMercuryServer(t *testing.T, csaSigner crypto.Signer, packetsCh chan *pac
 }
 
 func (s *mercuryServer) Transmit(ctx context.Context, req *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
-	s.packetsCh <- &packet{
+	select {
+	case s.packetsCh <- &packet{
 		req: req,
 		ctx: ctx,
+	}:
+
+	default:
 	}
 
 	return &rpc.TransmitResponse{
@@ -252,6 +256,9 @@ func setupNode(
 
 		// [Log]
 		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
+
+		// [CRE]
+		c.CRE.UseLocalTimeProvider = ptr(true)
 
 		// [EVM.Transactions]
 		for _, evmCfg := range c.EVM {

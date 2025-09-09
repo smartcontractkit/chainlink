@@ -242,7 +242,7 @@ type NodeChainConfigsLister interface {
 var ErrMissingNodeMetadata = errors.New("missing node metadata")
 
 // Gathers all the node info through JD required to be able to set
-// OCR config for example. nodeIDs can be JD IDs or PeerIDs
+// OCR config for example. nodeIDs can be JD IDs or PeerIDs starting with `p2p_`.
 //
 // It is optimistic execution and will attempt to return an element for all
 // nodes in the input list that exists in JD
@@ -406,6 +406,8 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 		family = chain_selectors.FamilyStarknet
 	case nodev1.ChainType_CHAIN_TYPE_TON:
 		family = chain_selectors.FamilyTon
+	case nodev1.ChainType_CHAIN_TYPE_TRON:
+		family = chain_selectors.FamilyTron
 	default:
 		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
 	}
@@ -447,6 +449,8 @@ func detailsToChain(details chain_selectors.ChainDetails) (*nodev1.Chain, error)
 		t = nodev1.ChainType_CHAIN_TYPE_APTOS
 	case chain_selectors.FamilySolana:
 		t = nodev1.ChainType_CHAIN_TYPE_SOLANA
+	case chain_selectors.FamilyTron:
+		t = nodev1.ChainType_CHAIN_TYPE_TRON
 	case chain_selectors.FamilyStarknet:
 		t = nodev1.ChainType_CHAIN_TYPE_STARKNET
 	default:

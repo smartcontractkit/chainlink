@@ -64,6 +64,7 @@ func (*JsonRPCCodec) EncodeLegacyResponse(msg *Message) []byte {
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      msg.Body.MessageId,
 		Result:  msg,
+		Method:  msg.Body.Method,
 	}
 	rawMsg, err := json.Marshal(response)
 	if err != nil {
@@ -73,7 +74,7 @@ func (*JsonRPCCodec) EncodeLegacyResponse(msg *Message) []byte {
 }
 
 func (*JsonRPCCodec) EncodeNewErrorResponse(id string, code int64, message string, data []byte) []byte {
-	response := jsonrpc2.Response[any]{
+	response := jsonrpc2.Response[json.RawMessage]{
 		Version: jsonrpc2.JsonRpcVersion,
 		ID:      id,
 		Error: &jsonrpc2.WireError{

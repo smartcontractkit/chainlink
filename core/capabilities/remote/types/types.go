@@ -23,6 +23,8 @@ type Dispatcher interface {
 	services.Service
 	SetReceiver(capabilityID string, donID uint32, receiver Receiver) error
 	RemoveReceiver(capabilityID string, donID uint32)
+	SetReceiverForMethod(capabilityID string, donID uint32, method string, receiver Receiver) error
+	RemoveReceiverForMethod(capabilityID string, donID uint32, method string)
 	Send(peerID p2ptypes.PeerID, msgBody *MessageBody) error
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
 
 type WorkflowMetadataAggregator struct {
@@ -25,9 +26,10 @@ type WorkflowMetadataAggregator struct {
 	// This is used to clean up old observations that are no longer relevant.
 	observedAt      map[string]map[string]time.Time
 	cleanupInterval time.Duration
+	metrics         *metrics.Metrics
 }
 
-func NewWorkflowMetadataAggregator(lggr logger.Logger, threshold int, cleanupInterval time.Duration) *WorkflowMetadataAggregator {
+func NewWorkflowMetadataAggregator(lggr logger.Logger, threshold int, cleanupInterval time.Duration, metrics *metrics.Metrics) *WorkflowMetadataAggregator {
 	if threshold <= 0 {
 		panic(fmt.Sprintf("threshold must be greater than 0, got %d", threshold))
 	}
@@ -38,10 +40,11 @@ func NewWorkflowMetadataAggregator(lggr logger.Logger, threshold int, cleanupInt
 		observedAt:      make(map[string]map[string]time.Time),
 		stopCh:          make(services.StopChan),
 		cleanupInterval: cleanupInterval,
+		metrics:         metrics,
 	}
 }
 
-func (agg *WorkflowMetadataAggregator) reapObservations() {
+func (agg *WorkflowMetadataAggregator) reapObservations(ctx context.Context) {
 	agg.mu.Lock()
 	defer agg.mu.Unlock()
 	now := time.Now()
@@ -67,11 +70,13 @@ func (agg *WorkflowMetadataAggregator) reapObservations() {
 		}
 	}
 	if expiredCount > 0 {
+		agg.metrics.Trigger.IncrementMetadataObservationsCleanUpCount(ctx, int64(expiredCount), agg.lggr)
 		agg.lggr.Debugw("Removed expired callbacks", "count", expiredCount)
 	}
+	agg.metrics.Trigger.RecordMetadataObservationsCount(ctx, int64(len(agg.observations)), agg.lggr)
 }
 
-func (agg *WorkflowMetadataAggregator) Start(context.Context) error {
+func (agg *WorkflowMetadataAggregator) Start(ctx context.Context) error {
 	return agg.StartOnce("WorkflowMetadataAggregator", func() error {
 		agg.lggr.Info("Starting WorkflowMetadataAggregator")
 		go func() {
@@ -80,7 +85,7 @@ func (agg *WorkflowMetadataAggregator) Start(context.Context) error {
 			for {
 				select {
 				case <-ticker.C:
-					agg.reapObservations()
+					agg.reapObservations(ctx)
 				case <-agg.stopCh:
 					return
 				}

@@ -31,6 +31,7 @@ import (
 	// anything from "github.com/smartcontractkit/chainlink/v2/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 )
 
 const (
@@ -38,10 +39,7 @@ const (
 	Password = "16charlengthp4SsW0rD1!@#_"
 )
 
-// FixtureChainID matches the chain always added by fixtures.sql
-// It is set to 0 since no real chain ever has this ID and allows a virtual
-// "test" chain ID to be used without clashes
-var FixtureChainID = big.NewInt(0)
+var FixtureChainID = evmtestutils.FixtureChainID
 
 // SimulatedChainID is the chain ID for the go-ethereum simulated backend
 var SimulatedChainID = big.NewInt(1337)

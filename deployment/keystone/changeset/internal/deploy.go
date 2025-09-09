@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
@@ -23,22 +24,23 @@ import (
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
-	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 type ConfigureContractsRequest struct {
 	RegistryChainSel uint64
 	Env              *cldf.Environment
 
-	Dons       []DonCapabilities // externally sourced based on the environment
-	OCR3Config *OracleConfig     // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
+	Dons       []DonCapabilities  // externally sourced based on the environment
+	OCR3Config *ocr3.OracleConfig // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 }
 
 func (r ConfigureContractsRequest) Validate() error {
@@ -67,6 +69,7 @@ type ConfigureContractsResponse struct {
 
 // ConfigureContracts configures contracts them with the given DONS and their capabilities. It optionally deploys the contracts
 // but best practice is to deploy them separately and pass the address book in the request
+// TODO: refactor to use cre sequences
 func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest) (*ConfigureContractsResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid request: %w", err)
@@ -98,8 +101,9 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 	if err != nil {
 		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
 	}
+
 	// ignore response because we are not using mcms here and therefore no proposals are returned
-	_, err = ConfigureForwardContracts(req.Env, ConfigureForwarderContractsRequest{
+	_, err = configureForwardContracts(req.Env, configureForwarderContractsRequest{
 		Dons: dons,
 	})
 	if err != nil {
@@ -125,7 +129,7 @@ type DonInfo struct {
 	Capabilities []DONCapabilityWithConfig // every capability is hosted on each node
 }
 
-func DonInfos(dons []DonCapabilities, jd cldf.OffchainClient) ([]DonInfo, error) {
+func DonInfos(dons []DonCapabilities, jd cldf_offchain.Client) ([]DonInfo, error) {
 	var donInfos []DonInfo
 	for _, don := range dons {
 		var nodeIDs []string
@@ -295,7 +299,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 
 // Depreciated: use changeset.ConfigureOCR3Contract instead
 // ocr3 contract on the registry chain for the wf dons
-func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []RegisteredDon, cfg *OracleConfig) error {
+func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []RegisteredDon, cfg *ocr3.OracleConfig) error {
 	evmChains := env.BlockChains.EVMChains()
 	registryChain, ok := evmChains[chainSel]
 	if !ok {
@@ -326,74 +330,18 @@ func ConfigureOCR3Contract(env *cldf.Environment, chainSel uint64, dons []Regist
 			return fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
-		_, err = configureOCR3contract(configureOCR3Request{
-			cfg:        cfg,
-			chain:      registryChain,
-			contract:   contract,
-			nodes:      don.Nodes,
-			ocrSecrets: env.OCRSecrets,
+		_, err = ocr3.ConfigureOCR3contract(ocr3.ConfigureOCR3Request{
+			Cfg:        cfg,
+			Chain:      registryChain,
+			Contract:   contract,
+			Nodes:      don.Nodes,
+			OcrSecrets: env.OCRSecrets,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
 		}
 	}
 	return nil
-}
-
-type ConfigureOCR3Resp struct {
-	OCR2OracleConfig
-	Ops *mcmstypes.BatchOperation
-}
-
-type ConfigureOCR3Config struct {
-	ChainSel   uint64
-	NodeIDs    []string
-	Contract   *ocr3_capability.OCR3Capability
-	OCR3Config *OracleConfig
-	DryRun     bool
-
-	UseMCMS bool
-}
-
-// Depreciated: use changeset.ConfigureOCR3Contract instead
-func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config) (*ConfigureOCR3Resp, error) {
-	prefix := ""
-	if cfg.DryRun {
-		prefix = "DRY RUN: "
-	}
-	env.Logger.Infof("%sconfiguring OCR3 contract for chain %d", prefix, cfg.ChainSel)
-	if cfg.Contract == nil {
-		return nil, errors.New("OCR3 contract is required")
-	}
-
-	evmChains := env.BlockChains.EVMChains()
-	registryChain, ok := evmChains[cfg.ChainSel]
-	if !ok {
-		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
-	}
-
-	contract := cfg.Contract
-
-	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
-	if err != nil {
-		return nil, err
-	}
-	r, err := configureOCR3contract(configureOCR3Request{
-		cfg:        cfg.OCR3Config,
-		chain:      registryChain,
-		contract:   contract,
-		nodes:      nodes,
-		dryRun:     cfg.DryRun,
-		useMCMS:    cfg.UseMCMS,
-		ocrSecrets: env.OCRSecrets,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &ConfigureOCR3Resp{
-		OCR2OracleConfig: r.ocrConfig,
-		Ops:              r.ops,
-	}, nil
 }
 
 type RegisteredCapability struct {
@@ -1027,15 +975,28 @@ func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInf
 	return len(found) == len(p2pIdsToDon)
 }
 
-// ConfigureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
+type ForwarderConfig struct {
+	DonID         uint32           // the DON id as registered in the capabilities registry. Is an id corresponding to a DON that run consensus capability
+	F             uint8            // the F value for the DON
+	ConfigVersion uint32           // the config version for the DON
+	Signers       []common.Address // the onchain public keys of the nodes in the DON corresponding to DonID
+}
+
+type ConfiguredForwarderResponse struct {
+	Ops    map[uint64]mcmstypes.BatchOperation // if UseMCMS is true, a map of chain selector to batch operation is returned
+	Config ForwarderConfig
+}
+
+// configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]mcmstypes.BatchOperation, error) {
+func configureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (*ConfiguredForwarderResponse, error) {
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
 	var (
 		opMap = make(map[uint64]mcmstypes.BatchOperation)
 	)
+	cfg := ForwarderConfig{}
 	for _, dn := range dons {
 		if !dn.Info.AcceptsWorkflows {
 			continue
@@ -1046,6 +1007,13 @@ func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.Keyst
 		if useMCMS {
 			txOpts = cldf.SimTransactOpts()
 		}
+		cfg = ForwarderConfig{
+			DonID:         dn.Info.Id,
+			F:             dn.Info.F,
+			ConfigVersion: ver,
+			Signers:       signers,
+		}
+		lggr.Debugw("setting forwarder config", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 		tx, err := fwdr.SetConfig(txOpts, dn.Info.Id, ver, dn.Info.F, signers)
 		if err != nil {
 			err = cldf.DecodeErr(kf.KeystoneForwarderABI, err)
@@ -1067,5 +1035,8 @@ func ConfigureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.Keyst
 		}
 		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
-	return opMap, nil
+	return &ConfiguredForwarderResponse{
+		Ops:    opMap,
+		Config: cfg,
+	}, nil
 }

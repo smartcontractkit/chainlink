@@ -16,12 +16,15 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -127,15 +130,15 @@ func (te EnvWrapper) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo 
 	return caps
 }
 
-func (te EnvWrapper) OwnedCapabilityRegistry() *changeset.OwnedContract[*kcr.CapabilitiesRegistry] {
+func (te EnvWrapper) OwnedCapabilityRegistry() *contracts.OwnedContract[*kcr.CapabilitiesRegistry] {
 	return loadOneContract[*kcr.CapabilitiesRegistry](te.t, te.Env, te.Env.BlockChains.EVMChains()[te.RegistrySelector], registryQualifier)
 }
 
-func loadOneContract[T changeset.Ownable](t *testing.T, env cldf.Environment, chain cldf_evm.Chain, qualifier string) *changeset.OwnedContract[T] {
+func loadOneContract[T contracts.Ownable](t *testing.T, env cldf.Environment, chain cldf_evm.Chain, qualifier string) *contracts.OwnedContract[T] {
 	t.Helper()
 	addrs := env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))
 	require.Len(t, addrs, 1)
-	c, err := changeset.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
+	c, err := contracts.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	return c
@@ -157,12 +160,12 @@ func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
 	return out
 }
 
-func (te EnvWrapper) OwnedForwarders() map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
+func (te EnvWrapper) OwnedForwarders() map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
 	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
 	require.NotEmpty(te.t, addrs)
-	out := make(map[uint64][]*changeset.OwnedContract[*forwarder.KeystoneForwarder])
+	out := make(map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 	for _, addr := range addrs {
-		c, err := changeset.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address)
+		c, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address)
 		require.NoError(te.t, err)
 		require.NotNil(te.t, c)
 		out[addr.ChainSelector] = append(out[addr.ChainSelector], c)
@@ -333,7 +336,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		},
 	}
 
-	var ocr3Config = internal.OracleConfig{
+	var ocr3Config = ocr3.OracleConfig{
 		MaxFaultyOracles:     dons.Get(c.WFDonConfig.Name).F(),
 		TransmissionSchedule: []int{dons.Get(c.WFDonConfig.Name).N()},
 	}
@@ -456,7 +459,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		dons.NodeList().IDs(),
 		envtest.NewJDService(dons.NodeList()),
 		t.Context,
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		cldf_chain.NewBlockChains(blockChains),
 	)
 

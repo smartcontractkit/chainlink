@@ -27,6 +27,22 @@ var DeployPermissionlessFeedsConsumerCmd = &cobra.Command{
 	},
 }
 
+var DeployBalanceReaderCmd = &cobra.Command{
+	Use:   "deploy-balance-reader",
+	Short: "Deploy a Balance Reader contract",
+	Long:  `Deploy a Balance Reader contract to the specified blockchain network using the provided RPC URL.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		address, deployErr := deploy.BalanceReader(rpcURL)
+		if deployErr != nil {
+			return errors.Wrap(deployErr, "failed to deploy Balance Reader contract")
+		}
+
+		fmt.Printf("\033[35m\nDeployed Balance Reader contract to: %s\033[0m\n\n", address.Hex())
+
+		return nil
+	},
+}
+
 var contractsCmd = &cobra.Command{
 	Use:   "contracts",
 	Short: "Deploy example contracts",
@@ -41,5 +57,6 @@ func init() {
 	DeployPermissionlessFeedsConsumerCmd.Flags().StringVarP(&rpcURL, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 
 	contractsCmd.AddCommand(DeployPermissionlessFeedsConsumerCmd)
+	contractsCmd.AddCommand(DeployBalanceReaderCmd)
 	ExamplesCmd.AddCommand(contractsCmd)
 }

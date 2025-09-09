@@ -283,9 +283,23 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
+[Capabilities.SharedPeering]
+Enabled = false
+Bootstrappers = []
+
+[Capabilities.SharedPeering.StreamConfig]
+IncomingMessageBufferSize = 500
+OutgoingMessageBufferSize = 500
+MaxMessageLenBytes = 500000
+MessageRateLimiterRate = 100.0
+MessageRateLimiterCapacity = 500
+BytesRateLimiterRate = 5000000.0
+BytesRateLimiterCapacity = 10000000
+
 [Capabilities.Dispatcher]
 SupportedVersion = 1
 ReceiverBufferSize = 10000
+SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -309,6 +323,11 @@ MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+ArtifactStorageHost = ''
+URL = ''
+TLSEnabled = true
+
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
 NodeAddress = ''
@@ -330,7 +349,9 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 ChipIngressEndpoint = ''
+ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
+LogStreamingEnabled = false
 
 [Workflows]
 [Workflows.Limits]
@@ -338,12 +359,19 @@ Global = 200
 PerOwner = 200
 
 [CRE]
+UseLocalTimeProvider = true
+EnableDKGRecipient = false
+
 [CRE.Streams]
 WsURL = ''
 RestURL = ''
 
 [CRE.WorkflowFetcher]
 URL = ''
+
+[CRE.Linking]
+URL = ''
+TLSEnabled = true
 
 [Billing]
 URL = 'localhost:4319'
@@ -449,6 +477,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -570,6 +599,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -685,6 +715,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
+ExternalRequestMaxResponseSize = 0
 
 [EVM.OCR]
 ContractConfirmations = 4

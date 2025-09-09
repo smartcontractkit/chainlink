@@ -299,7 +299,7 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 				tokenPools, ok := cs.BurnMintFastTransferTokenPools[testhelpers.TestTokenSymbol]
 				require.True(t, ok)
 				require.Len(t, tokenPools, 1)
-				return tokenPools[deployment.Version1_6_1]
+				return tokenPools[deployment.Version1_6_3Dev]
 			},
 		},
 		{

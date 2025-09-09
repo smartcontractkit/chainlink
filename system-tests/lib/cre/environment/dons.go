@@ -12,10 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 )
 
-func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cre.Topology, infraInput infra.Input, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) ([]*cre.WrappedNodeOutput, error) {
+func StartDONs(lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Input, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) ([]*cre.WrappedNodeOutput, error) {
 	startTime := time.Now()
 	lggr.Info().Msgf("Starting %d DONs", len(capabilitiesAwareNodeSets))
 
@@ -24,7 +23,6 @@ func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cre.Topology,
 		deployCribDonsInput := &cre.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  capabilitiesAwareNodeSets,
-			NixShell:       nixShell,
 			CribConfigsDir: cribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
@@ -48,7 +46,7 @@ func StartDONs(lggr zerolog.Logger, nixShell *nix.Shell, topology *cre.Topology,
 		nodeSetOutput = append(nodeSetOutput, &cre.WrappedNodeOutput{
 			Output:       nodeset,
 			NodeSetName:  nodeSetInput.Name,
-			Capabilities: nodeSetInput.Capabilities,
+			Capabilities: nodeSetInput.ComputedCapabilities,
 		})
 	}
 

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -18,15 +18,16 @@ import (
 )
 
 var CurrentTokenPoolVersion = deployment.Version1_5_1
-var FastTransferTokenPoolVersion = deployment.Version1_6_1
+var FastTransferTokenPoolVersion = deployment.Version1_6_3Dev
 var BurnMintWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 var HybridWithExternalMinterFastTransferTokenPoolVersion = deployment.Version1_6_0
 
 var TokenTypes = map[cldf.ContractType]struct{}{
-	BurnMintToken:     {},
-	ERC20Token:        {},
-	ERC677Token:       {},
-	ERC677TokenHelper: {},
+	BurnMintToken:      {},
+	ERC20Token:         {},
+	ERC677Token:        {},
+	ERC677TokenHelper:  {},
+	BurnMintERC20Token: {},
 }
 
 var TokenPoolTypes = map[cldf.ContractType]struct{}{
@@ -39,12 +40,15 @@ var TokenPoolTypes = map[cldf.ContractType]struct{}{
 	HybridLockReleaseUSDCTokenPool:                  {},
 	BurnMintWithExternalMinterFastTransferTokenPool: {},
 	HybridWithExternalMinterFastTransferTokenPool:   {},
+	BurnMintWithExternalMinterTokenPool:             {},
+	HybridWithExternalMinterTokenPool:               {},
 }
 
 var TokenPoolVersions = map[semver.Version]struct{}{
 	deployment.Version1_5_1:      {},
 	FastTransferTokenPoolVersion: {},
 	deployment.Version1_6_0:      {},
+	deployment.Version1_6_2:      {},
 }
 
 // tokenPool defines behavior common to all token pools.

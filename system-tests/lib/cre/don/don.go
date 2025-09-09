@@ -23,7 +23,7 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 
 	for _, don := range input.DonTopology.DonsWithMetadata {
 		if jobSpecs, ok := input.DonToJobSpecs[don.ID]; ok {
-			createErr := jobs.Create(ctx, input.CldEnv.Offchain, don.DON, don.Flags, jobSpecs)
+			createErr := jobs.Create(ctx, input.CldEnv.Offchain, jobSpecs)
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
 			}
@@ -36,6 +36,10 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 }
 
 func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infra.Input) error {
+	if len(nodeSetInput) == 0 {
+		return errors.New("at least one nodeset is required")
+	}
+
 	hasAtLeastOneBootstrapNode := false
 	for _, nodeSet := range nodeSetInput {
 		if nodeSet.BootstrapNodeIndex != -1 {
@@ -60,6 +64,32 @@ func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput i
 		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
 	}
 
+	isGatewayRequired := false
+	for _, nodeSet := range nodeSetInput {
+		if NodeNeedsAnyGateway(nodeSet.ComputedCapabilities) {
+			isGatewayRequired = true
+			break
+		}
+	}
+
+	if !isGatewayRequired {
+		return nil
+	}
+
+	anyDONHasGatewayConfigured := false
+	for _, nodeSet := range nodeSetInput {
+		if isGatewayRequired {
+			if flags.HasFlag(nodeSet.DONTypes, cre.GatewayDON) && nodeSet.GatewayNodeIndex != -1 {
+				anyDONHasGatewayConfigured = true
+				break
+			}
+		}
+	}
+
+	if !anyDONHasGatewayConfigured {
+		return errors.New("at least one DON must be configured with gateway DON type and have a gateway node index set, because at least one DON requires gateway due to its capabilities")
+	}
+
 	return nil
 }
 
@@ -74,7 +104,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 		}
 
 		donsWithMetadata[i] = &cre.DonMetadata{
-			ID:              libc.MustSafeUint32(i + 1),
+			ID:              libc.MustSafeUint64FromInt(i + 1), // optimistically set the id to the that which the capabilities registry will assign it
 			Flags:           flags,
 			NodesMetadata:   make([]*cre.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
 			Name:            nodeSetInput[i].Name,
@@ -107,21 +137,28 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 
 					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
-					topology.GatewayConnectorOutput = &cre.GatewayConnectorOutput{
+					if topology.GatewayConnectorOutput == nil {
+						topology.GatewayConnectorOutput = &cre.GatewayConnectorOutput{
+							Configurations: make([]*cre.GatewayConfiguration, 0),
+						}
+					}
+
+					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
 						Outgoing: cre.Outgoing{
 							Path: "/node",
-							Port: 5003,
+							Port: GatewayOutgoingPort,
 							Host: gatewayInternalHost,
 						},
 						Incoming: cre.Incoming{
 							Protocol:     "http",
 							Path:         "/",
-							InternalPort: 5002,
+							InternalPort: GatewayIncomingPort,
 							ExternalPort: ExternalGatewayPort(infraInput),
 							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
+						AuthGatewayID: "cre-gateway",
 						// do not set gateway connector dons, they will be resolved automatically
-					}
+					})
 				}
 			}
 
@@ -151,10 +188,27 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 	return topology, nil
 }
 
-func NodeNeedsGateway(nodeFlags []cre.CapabilityFlag) bool {
+func AnyDonHasCapability(donMetadata []*cre.DonMetadata, capability cre.CapabilityFlag) bool {
+	for _, don := range donMetadata {
+		if flags.HasFlagForAnyChain(don.Flags, capability) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func NodeNeedsAnyGateway(nodeFlags []cre.CapabilityFlag) bool {
 	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
 		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability) ||
+		flags.HasFlag(nodeFlags, cre.VaultCapability) ||
 		flags.HasFlag(nodeFlags, cre.HTTPActionCapability) ||
 		flags.HasFlag(nodeFlags, cre.HTTPTriggerCapability)
+}
+
+func NodeNeedsWebAPIGateway(nodeFlags []cre.CapabilityFlag) bool {
+	return flags.HasFlag(nodeFlags, cre.CustomComputeCapability) ||
+		flags.HasFlag(nodeFlags, cre.WebAPITriggerCapability) ||
+		flags.HasFlag(nodeFlags, cre.WebAPITargetCapability)
 }

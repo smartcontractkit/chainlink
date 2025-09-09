@@ -1,6 +1,7 @@
 package aggregation
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -10,11 +11,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
+
+func createTestMetrics(t *testing.T) *metrics.Metrics {
+	m, err := metrics.NewMetrics()
+	require.NoError(t, err)
+	return m
+}
 
 func TestWorkflowMetadataAggregator_StartStop(t *testing.T) {
 	lggr := logger.Test(t)
-	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond, testMetrics)
 
 	ctx := testutils.Context(t)
 
@@ -56,10 +65,11 @@ func createTestWorkflowMetadata(workflowID, workflowName, workflowOwner, workflo
 
 func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
 	lggr := logger.Test(t)
-	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
 
 	authorizedKey := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: getRandomECDSAPublicKey(t),
 	}
 
@@ -113,15 +123,16 @@ func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
 
 func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 	lggr := logger.Test(t)
-	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
 
 	authorizedKey1 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: getRandomECDSAPublicKey(t),
 	}
 
 	authorizedKey2 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: getRandomECDSAPublicKey(t),
 	}
 
@@ -157,24 +168,25 @@ func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 	lggr := logger.Test(t)
 	threshold := 2
-	agg := NewWorkflowMetadataAggregator(lggr, threshold, 10*time.Second)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, threshold, 10*time.Second, testMetrics)
 
 	publicKey1 := getRandomECDSAPublicKey(t)
 	publicKey2 := getRandomECDSAPublicKey(t)
 	publicKey3 := getRandomECDSAPublicKey(t)
 
 	authorizedKey1 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: publicKey1,
 	}
 
 	authorizedKey2 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: publicKey2,
 	}
 
 	authorizedKey3 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: publicKey3,
 	}
 
@@ -221,15 +233,16 @@ func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
-	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval, testMetrics)
 
 	authorizedKey1 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "test-public-key-1",
 	}
 
 	authorizedKey2 := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "test-public-key-2",
 	}
 
@@ -255,10 +268,11 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *testing.T) {
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
-	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval)
+	testMetrics := createTestMetrics(t)
+	agg := NewWorkflowMetadataAggregator(lggr, 2, cleanupInterval, testMetrics)
 
 	authorizedKey := gateway_common.AuthorizedKey{
-		KeyType:   gateway_common.KeyTypeECDSA,
+		KeyType:   gateway_common.KeyTypeECDSAEVM,
 		PublicKey: "test-public-key-1",
 	}
 
@@ -277,7 +291,7 @@ func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *tes
 	err = agg.Collect(observation, "node3")
 	require.NoError(t, err)
 	// Manually trigger cleanup
-	agg.reapObservations()
+	agg.reapObservations(context.Background())
 
 	require.Len(t, agg.observations, 1)
 	digest, err := observation.Digest()
@@ -292,10 +306,11 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("empty workflow ID", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
@@ -306,10 +321,11 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow name", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
@@ -320,10 +336,11 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow owner", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
@@ -334,10 +351,11 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow tag", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 
@@ -348,10 +366,11 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty node address", func(t *testing.T) {
-		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second)
+		testMetrics := createTestMetrics(t)
+		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
 		authorizedKey := gateway_common.AuthorizedKey{
-			KeyType:   gateway_common.KeyTypeECDSA,
+			KeyType:   gateway_common.KeyTypeECDSAEVM,
 			PublicKey: getRandomECDSAPublicKey(t),
 		}
 

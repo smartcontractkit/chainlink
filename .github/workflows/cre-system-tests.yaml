@@ -36,7 +36,7 @@ on:
 
 jobs:
   define-test-matrix:
-    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -65,8 +65,10 @@ jobs:
         shell: bash
         working-directory: system-tests/tests/smoke/cre
         run: |
-          # Get the list of tests and convert to JSON format
-          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map({"test_name": .})')
+          # Get the list of tests, for each test add each of supported DON topologies and convert to JSON format
+          # This only needs to be updated if we want to run all tests on a new DON topology.
+          # Otherwise tests are auto-discovered and run on all topologies.
+          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml"}]) | flatten')
           tests=$(echo $tests | jq -c .)
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
@@ -80,9 +82,9 @@ jobs:
       matrix:
         tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
     needs: [define-test-matrix]
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
@@ -93,6 +95,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.chainlink_version }}
+          persist-credentials: false
 
       - name: Set up Go
         id: setup-go
@@ -101,12 +104,12 @@ jobs:
           go-version-file: system-tests/tests/go.mod
           cache: true
 
-      # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
+      # We need to login to ECR to allow the test to pull the Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) images
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
-          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
           role-duration-seconds: 1800
           mask-aws-account-id: true
 
@@ -121,42 +124,57 @@ jobs:
       # gotestloghelper gives us pretty test output
       - name: Set Up gotestloghelper
         shell: bash
-        run:
-          go install
+        run: go install
           github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
 
-      - name: Download test dependencies
-        uses: ./.github/actions/setup-cre-e2e-test-dependencies
-        with:
-          capability-version: "v1.0.2-alpha"
-          capability-names: "cron"
-          gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          gati-region: ${{ secrets.AWS_REGION }}
-
-      # TODO
-      # Add Flakeguard support
-
-      - name: Run CRE system tests
+      - name: Start local CRE
         shell: bash
-        working-directory: system-tests/tests
+        id: start-local-cre
         env:
           E2E_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor"
           E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
+          CTF_CONFIGS: ${{ matrix.tests.configs }}
+        run: |
+          cd core/scripts/cre/environment
+          go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
+          exit_code=$?
+
+          if [ $exit_code -ne 0 ]; then
+            echo "Error: failed to start local CRE, exit code $exit_code"
+            exit $exit_code
+          fi
+
+      - name: Run CRE system tests
+        shell: bash
+        working-directory: system-tests/tests
+        env:
           TEST_NAME: ${{ matrix.tests.test_name }}
+          # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
+          # Beholder stack will be started only for the Beholder test
+          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:qa-latest
+          TEST_TIMEOUT: 30m
         run: |
           # Sleep to allow testcontainers to stop
           # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
-          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout 30m -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
+          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
+
+      - name: Save Docker logs
+        if: failure()
+        shell: bash
+        working-directory: system-tests/tests/smoke/cre
+        run: |
+          mkdir -p logs
+          for c in $(docker ps -a --filter "label=framework=ctf" --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
+          done
 
       - name: Upload all artifacts as single package
         if: failure()
         uses: actions/upload-artifact@v4.6.2
         with:
-          name:
-            test-logs-${{ matrix.tests.test_name }}
+          name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/

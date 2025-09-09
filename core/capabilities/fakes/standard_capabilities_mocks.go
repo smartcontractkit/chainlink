@@ -3,6 +3,7 @@ package fakes
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -15,7 +16,9 @@ func (t *TelemetryServiceMock) Send(ctx context.Context, network string, chainID
 	return nil
 }
 
-type KVStoreMock struct{}
+type KVStoreMock struct {
+	core.UnimplementedKeystore
+}
 
 func (k *KVStoreMock) Store(ctx context.Context, key string, val []byte) error {
 	return nil
@@ -23,8 +26,13 @@ func (k *KVStoreMock) Store(ctx context.Context, key string, val []byte) error {
 func (k *KVStoreMock) Get(ctx context.Context, key string) ([]byte, error) {
 	return nil, nil
 }
+func (k *KVStoreMock) PruneExpiredEntries(ctx context.Context, maxAge time.Duration) (int64, error) {
+	return 0, nil
+}
 
-type KeystoreMock struct{}
+type KeystoreMock struct {
+	core.UnimplementedKeystore
+}
 
 func (k *KeystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
 	return nil, nil
@@ -65,7 +73,9 @@ type OracleMock struct{}
 func (o *OracleMock) Start(ctx context.Context) error { return nil }
 func (o *OracleMock) Close(ctx context.Context) error { return nil }
 
-type GatewayConnectorMock struct{}
+type GatewayConnectorMock struct {
+	core.UnimplementedGatewayConnector
+}
 
 func (g *GatewayConnectorMock) Start(context.Context) error {
 	return nil

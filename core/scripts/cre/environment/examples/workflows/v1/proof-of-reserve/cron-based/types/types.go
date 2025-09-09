@@ -1,11 +1,22 @@
 package types
 
-import "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+import (
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+)
 
 type WorkflowConfig struct {
 	// name of the secret that stores authentication key
 	AuthKeySecretName string `yaml:"auth_key_secret_name"`
+	ChainFamily       string `yaml:"chain_family,omitempty"`
+	ChainID           string `yaml:"chain_id,omitempty"`
+	BalanceReaderConfig
 	ComputeConfig
+}
+
+type BalanceReaderConfig struct {
+	BalanceReaderAddress string           `yaml:"balance_reader_address"`
+	AddressesToRead      []common.Address `yaml:"addresses_to_read,omitempty"`
 }
 
 type ComputeConfig struct {
