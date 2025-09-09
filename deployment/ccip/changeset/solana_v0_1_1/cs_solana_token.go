@@ -653,7 +653,7 @@ func createTokenMetadataAccountIx(tokenMint, authority solana.PublicKey) (solana
 		solana.Meta(authority).WRITE().SIGNER(), // payer
 		solana.Meta(authority),                  // updateAuthority
 		solana.Meta(solana.SystemProgramID),
-		//solana.Meta(rent), // rent info optional account
+		// solana.Meta(rent), // rent info optional account
 	}
 
 	instruction := solana.NewInstruction(

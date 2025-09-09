@@ -6,16 +6,14 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	chainSelectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	solToken "github.com/gagliardetto/solana-go/programs/token"
-
-	chainSelectors "github.com/smartcontractkit/chain-selectors"
-	cldfChain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldfSolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment"
+
+	cldfChain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
+	solToken "github.com/gagliardetto/solana-go/programs/token"
 
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
@@ -25,6 +23,10 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -32,8 +34,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 // token setup
