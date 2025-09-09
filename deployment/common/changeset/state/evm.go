@@ -106,7 +106,7 @@ func mergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSe
 	// Try to load addresses from DataStore with qualifier
 	// Only try if DataStore is available
 	if env.DataStore != nil {
-		dataStoreAddresses, err := loadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
+		dataStoreAddresses, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
 		if err != nil {
 			// If DataStore has no addresses, just return AddressBook addresses
 			if strings.Contains(err.Error(), "no addresses found") {
@@ -149,7 +149,7 @@ func MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(env cldf.Environment, 
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
 
-		addressesChain, err := loadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
+		addressesChain, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
 		if err != nil {
 			return nil, err
 		}
@@ -163,8 +163,9 @@ func MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(env cldf.Environment, 
 	return result, nil
 }
 
-// TODO there should be some common utility/adapter for this
-func loadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+// LoadAddressesFromDataStore loads addresses from DataStore with optional qualifier.
+// This is a public utility function that can be used by other packages to avoid duplication.
+func LoadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
 	addressesChain := make(map[string]cldf.TypeAndVersion)
 
 	// Build filter list starting with chain selector

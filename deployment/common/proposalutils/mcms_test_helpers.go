@@ -25,9 +25,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -411,7 +411,7 @@ func mergeAddressesFromBothSources(env cldf.Environment, chainSelector uint64) (
 	// Try to load addresses from DataStore (without qualifier for general case)
 	// Only try if DataStore is available
 	if env.DataStore != nil {
-		dataStoreAddresses, err := loadAddressesFromDataStoreLocal(env.DataStore, chainSelector, "")
+		dataStoreAddresses, err := state.LoadAddressesFromDataStore(env.DataStore, chainSelector, "")
 		if err != nil {
 			// If DataStore has no addresses, just return AddressBook addresses
 			return addressBookAddresses, nil
@@ -435,35 +435,4 @@ func mergeAddressesFromBothSources(env cldf.Environment, chainSelector uint64) (
 
 	// If no DataStore, just return AddressBook addresses
 	return addressBookAddresses, nil
-}
-
-// loadAddressesFromDataStoreLocal loads addresses from DataStore with optional qualifier
-func loadAddressesFromDataStoreLocal(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	addressesChain := make(map[string]cldf.TypeAndVersion)
-
-	// Build filter list starting with chain selector
-	filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{datastore.AddressRefByChainSelector(chainSelector)}
-
-	// Add qualifier filter if provided
-	if qualifier != "" {
-		filters = append(filters, datastore.AddressRefByQualifier(qualifier))
-	}
-
-	addresses := ds.Addresses().Filter(filters...)
-	if len(addresses) == 0 {
-		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
-	}
-
-	for _, addressRef := range addresses {
-		tv := cldf.TypeAndVersion{
-			Type:    cldf.ContractType(addressRef.Type),
-			Version: *addressRef.Version,
-		}
-		// Preserve labels from DataStore
-		if !addressRef.Labels.IsEmpty() {
-			tv.Labels = cldf.NewLabelSet(addressRef.Labels.List()...)
-		}
-		addressesChain[addressRef.Address] = tv
-	}
-	return addressesChain, nil
 }
