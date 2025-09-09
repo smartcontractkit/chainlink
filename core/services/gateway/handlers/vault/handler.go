@@ -204,7 +204,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 		for nodeKey, nodeResponse := range er.responses {
 			nodeResponses += fmt.Sprintf("%s ---::: %v               ", nodeKey, nodeResponse)
 		}
-		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting quorum of responses from nodes. Available responses: "+nodeResponses)))
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting quorum of responses from nodes. Available responses: "+nodeResponses), []byte(nodeResponses)))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "request_id", er.req.ID, "error", err)
 		}
@@ -258,7 +258,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	case vaulttypes.MethodSecretsList:
 		return h.handleSecretsList(ctx, ar)
 	default:
-		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method)))
+		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method), nil))
 	}
 }
 
@@ -302,7 +302,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	case err != nil:
 		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
 	}
 
 	return h.sendSuccessResponse(ctx, l, ar, resp)
@@ -318,7 +318,7 @@ func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
 	}
 
 	var errorCode api.ErrorCode
@@ -341,7 +341,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 
 	createSecretsRequest := &vaultcommon.CreateSecretsRequest{}
 	if err := json.Unmarshal(*ar.req.Params, &createSecretsRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
 	}
 	createSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range createSecretsRequest.EncryptedSecrets {
@@ -352,13 +352,13 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	err := vaultcap.ValidateCreateSecretsRequest(createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
 	}
 
 	reqBytes, err := json.Marshal(createSecretsRequest)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
@@ -371,7 +371,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 
 	updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{}
 	if err := json.Unmarshal(*ar.req.Params, updateSecretsRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
 	}
 
 	updateSecretsRequest.RequestId = ar.req.ID
@@ -383,13 +383,13 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	vaultcapErr := vaultcap.ValidateUpdateSecretsRequest(updateSecretsRequest)
 	if vaultcapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultcapErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultcapErr)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultcapErr), nil))
 	}
 
 	reqBytes, err := json.Marshal(updateSecretsRequest)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
@@ -401,7 +401,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 
 	deleteSecretsRequest := &vaultcommon.DeleteSecretsRequest{}
 	if err := json.Unmarshal(*ar.req.Params, deleteSecretsRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
 	}
 
 	deleteSecretsRequest.RequestId = ar.req.ID
@@ -413,13 +413,13 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	err := vaultcap.ValidateDeleteSecretsRequest(deleteSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate delete secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err), nil))
 	}
 
 	reqBytes, err := json.Marshal(deleteSecretsRequest)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
@@ -431,7 +431,7 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 
 	secretsGetRequest := &vaultcommon.GetSecretsRequest{}
 	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
 	}
 	for _, getRequest := range secretsGetRequest.Requests {
 		if getRequest.Id.Namespace == "" {
@@ -441,7 +441,7 @@ func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error
 	err := vaultcap.ValidateGetSecretsRequest(secretsGetRequest)
 	if err != nil {
 		l.Warnw("failed to validate get secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err), nil))
 	}
 
 	return h.fanOutToVaultNodes(ctx, l, ar)
@@ -452,7 +452,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 
 	req := &vaultcommon.ListSecretIdentifiersRequest{}
 	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
 	}
 
 	req.RequestId = ar.req.ID
@@ -462,13 +462,13 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	err := vaultcap.ValidateListSecretIdentifiersRequest(req)
 	if err != nil {
 		l.Warnw("failed to validate list secret identifiers request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err), nil))
 	}
 
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err)))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
@@ -486,7 +486,7 @@ func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar *a
 	}
 
 	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
 	}
 
 	l.Debugw("successfully forwarded request to Vault nodes")
@@ -496,13 +496,9 @@ func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar *a
 func (h *handler) errorResponse(
 	req jsonrpc.Request[json.RawMessage],
 	errorCode api.ErrorCode,
-	errs ...error,
+	err error,
+	data []byte,
 ) gwhandlers.UserCallbackPayload {
-	err := errors.New("unknown error")
-	if len(errs) > 0 && errs[0] != nil {
-		err = errs[0]
-	}
-
 	switch errorCode {
 	case api.FatalError:
 	case api.NodeReponseEncodingError:
@@ -538,7 +534,7 @@ func (h *handler) errorResponse(
 			req.ID,
 			api.ToJSONRPCErrorCode(errorCode),
 			err.Error(),
-			nil,
+			data,
 		),
 		ErrorCode: errorCode,
 	}

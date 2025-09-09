@@ -61,7 +61,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeReq
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
 	if len(ar.responses) < requiredQuorum {
-		l.Infow("received response but still not enough for quorum", "requestID", ar.req.ID, "responses", len(ar.responses), "requiredQuorum", requiredQuorum)
+		l.Infow("received response but still not enough for quorum", "responses", len(ar.responses), "requiredQuorum", requiredQuorum)
 		return nil, errInsufficientResponsesForQuorum
 	}
 
@@ -70,7 +70,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, ar *activeReq
 	for _, r := range ar.responses {
 		sha, err := a.sha(r)
 		if err != nil {
-			l.Errorw("failed to compute digest of response during quorum validation, skipping...", "requestID", r.ID, "error", err)
+			l.Errorw("failed to compute digest of response during quorum validation, skipping...", "error", err)
 			continue
 		}
 		shaToCount[sha]++
