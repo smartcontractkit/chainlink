@@ -29,7 +29,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
 
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
@@ -518,7 +519,16 @@ func SendRequest(
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
 	case chainsel.FamilyTon:
-		return ops.SendTonRequest(e, state, cfg)
+		seq, raw, err := tonOps.SendTonRequest(e, state.TonChains[0], cfg.SourceChain, cfg.DestChain, cfg.Message.(tonOps.TonSendRequest))
+		if err != nil {
+			return nil, err
+		}
+
+		return &ccipclient.AnyMsgSentEvent{
+			SequenceNumber: seq,
+			RawEvent:       raw,
+		}, nil
+
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
@@ -1104,7 +1114,12 @@ func AddLane(
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
 	case chainsel.FamilyTon:
-		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, from, to, fromFamily, toFamily, gasPrices))
+		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, from, to, fromFamily, toFamily, gasPrices)
+		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
+			tonCfg.UpdateTonLanesConfig{
+				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
+				TestRouter: false,
+			}))
 	}
 
 	switch toFamily {
@@ -1115,7 +1130,12 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		changesets = append(changesets, ops.AddLaneTONChangesets(&e.Env, from, to, fromFamily, toFamily, gasPrices))
+		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, from, to, fromFamily, toFamily, gasPrices)
+		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
+			tonCfg.UpdateTonLanesConfig{
+				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
+				TestRouter: false,
+			}))
 	}
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
 	if err != nil {
@@ -2266,7 +2286,7 @@ func TransferMultiple(
 			seqNr, ok := expectedSeqNums[pairId]
 			if ok {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
-					seqNr.Start(), cciptypes.SeqNum(msg.SequenceNumber),
+					cciptypes.SeqNum(seqNr.Start()), cciptypes.SeqNum(msg.SequenceNumber),
 				)
 			} else {
 				expectedSeqNums[pairId] = cciptypes.NewSeqNumRange(
