@@ -46,7 +46,7 @@ require (
 	github.com/graph-gophers/dataloader v5.0.0+incompatible
 	github.com/graph-gophers/graphql-go v1.5.0
 	github.com/hashicorp/go-envparse v0.1.0
-	github.com/hashicorp/go-plugin v1.7.0
+	github.com/hashicorp/go-plugin v1.6.3
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/hdevalence/ed25519consensus v0.2.0
 	github.com/holiman/uint256 v1.3.2
