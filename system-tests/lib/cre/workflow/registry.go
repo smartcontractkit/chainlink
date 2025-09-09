@@ -148,7 +148,7 @@ func ConfigureWorkflowRegistry(
 			wf_reg_v2_op.SetDONLimitOpInput{
 				ChainSelector: input.ChainSelector,
 				DONFamily:     config.DefaultDONFamily,
-				Limit:         uint32(len(allowedDonIDs)),
+				Limit:         libc.MustSafeUint32(len(allowedDonIDs)),
 				Enabled:       true,
 			},
 		)
@@ -161,7 +161,6 @@ func ConfigureWorkflowRegistry(
 			AllowedDonIDs:  allowedDonIDs,
 			WorkflowOwners: input.WorkflowOwners,
 		}, nil
-
 	}
 
 	report, err := operations.ExecuteSequence(
