@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
@@ -37,10 +38,10 @@ func onTrigger(cfg None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
 		return "", errors.New("DON time not increasing")
 	}
 	promise := cre.RunInNodeMode(cfg, runtime,
-		func(cfg None, nodeRuntime cre.NodeRuntime) (string, error) {
-			return dontime1.String(), nil
+		func(cfg None, nodeRuntime cre.NodeRuntime) (time.Time, error) {
+			return dontime1, nil
 		},
-		cre.ConsensusIdenticalAggregation[string](),
+		cre.ConsensusIdenticalAggregation[time.Time](),
 	)
 
 	_, err := promise.Await()
