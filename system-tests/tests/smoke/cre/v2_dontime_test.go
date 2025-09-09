@@ -19,7 +19,7 @@ import (
 func ExecuteDonTimeTest(t *testing.T, testEnv *TestEnvironment) {
 	testLogger := framework.L
 	timeout := 2 * time.Minute
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time/main.go"
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time_consensus/main.go"
 	workflowName := "timebeholder"
 
 	testLogger.Info().Msg("Starting Beholder...")
@@ -58,7 +58,7 @@ func ExecuteDonTimeTest(t *testing.T, testEnv *TestEnvironment) {
 		listenForKafkaMessages(listenerCtx, testLogger, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, chipConfig.Kafka.Topics[0], messageTypes, messageChan, kafkaErrChan)
 	}()
 
-	expectedUserLog := "Requested DON Time"
+	expectedUserLog := "Verified consensus on DON Time"
 
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
