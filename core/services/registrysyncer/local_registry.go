@@ -63,12 +63,54 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
 	}
 
+	var methodConfigs map[string]capabilities.CapabilityMethodConfig
+	if cconf.MethodConfigs != nil {
+		methodConfigs = make(map[string]capabilities.CapabilityMethodConfig, len(cconf.MethodConfigs))
+		for method, methodConfig := range cconf.MethodConfigs {
+			var config capabilities.CapabilityMethodConfig
+			switch remoteCfg := methodConfig.RemoteConfig.(type) {
+			case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
+				config = capabilities.CapabilityMethodConfig{
+					RemoteTriggerConfig: &capabilities.RemoteTriggerConfig{
+						RegistrationRefresh:     remoteCfg.RemoteTriggerConfig.RegistrationRefresh.AsDuration(),
+						RegistrationExpiry:      remoteCfg.RemoteTriggerConfig.RegistrationExpiry.AsDuration(),
+						MinResponsesToAggregate: remoteCfg.RemoteTriggerConfig.MinResponsesToAggregate,
+						MessageExpiry:           remoteCfg.RemoteTriggerConfig.MessageExpiry.AsDuration(),
+						MaxBatchSize:            remoteCfg.RemoteTriggerConfig.MaxBatchSize,
+						BatchCollectionPeriod:   remoteCfg.RemoteTriggerConfig.BatchCollectionPeriod.AsDuration(),
+					},
+				}
+			case *capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig:
+				config = capabilities.CapabilityMethodConfig{
+					RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{
+						TransmissionSchedule:      capabilities.TransmissionSchedule(remoteCfg.RemoteExecutableConfig.TransmissionSchedule),
+						DeltaStage:                remoteCfg.RemoteExecutableConfig.DeltaStage.AsDuration(),
+						RequestTimeout:            remoteCfg.RemoteExecutableConfig.RequestTimeout.AsDuration(),
+						ServerMaxParallelRequests: remoteCfg.RemoteExecutableConfig.ServerMaxParallelRequests,
+						RequestHasherType:         capabilities.RequestHasherType(remoteCfg.RemoteExecutableConfig.RequestHasherType),
+					},
+				}
+			default:
+				return capabilities.CapabilityConfiguration{}, fmt.Errorf("unknown method config type for method %s", method)
+			}
+
+			if methodConfig.AggregatorConfig != nil {
+				config.AggregatorConfig = &capabilities.AggregatorConfig{
+					AggregatorType: capabilities.AggregatorType(methodConfig.AggregatorConfig.AggregatorType),
+				}
+			}
+
+			methodConfigs[method] = config
+		}
+	}
+
 	return capabilities.CapabilityConfiguration{
-		DefaultConfig:       dc,
-		RestrictedKeys:      cconf.RestrictedKeys,
-		RestrictedConfig:    rc,
-		RemoteTriggerConfig: remoteTriggerConfig,
-		RemoteTargetConfig:  remoteTargetConfig,
+		DefaultConfig:          dc,
+		RestrictedKeys:         cconf.RestrictedKeys,
+		RestrictedConfig:       rc,
+		RemoteTriggerConfig:    remoteTriggerConfig,
+		RemoteTargetConfig:     remoteTargetConfig,
+		CapabilityMethodConfig: methodConfigs,
 	}, nil
 }
 

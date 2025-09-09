@@ -397,6 +397,8 @@ type ConfigureKeystoneInput struct {
 	ConsensusV2OCR3Address *common.Address
 
 	CapabilitiesRegistryAddress *common.Address
+
+	WithV2Registries bool
 }
 
 func (c *ConfigureKeystoneInput) Validate() error {
@@ -1105,6 +1107,6 @@ type InstallableCapability interface {
 }
 
 type PersistentConfig interface {
-	Load() error
-	Store() error
+	Load(absPath string) error
+	Store(absPath string) error
 }

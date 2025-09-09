@@ -31,6 +31,7 @@ type triggerSubscriber struct {
 	capDonMembers       map[p2ptypes.PeerID]struct{}
 	localDonInfo        commoncap.DON
 	dispatcher          types.Dispatcher
+	capMethodName       string
 	aggregator          types.Aggregator
 	messageCache        *messagecache.MessageCache[triggerEventKey, p2ptypes.PeerID]
 	registeredWorkflows map[string]*subRegState
@@ -65,7 +66,7 @@ const (
 	maxBatchedWorkflowIDs        = 1000
 )
 
-func NewTriggerSubscriber(config *commoncap.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, localDonInfo commoncap.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(config *commoncap.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, localDonInfo commoncap.DON, dispatcher types.Dispatcher, aggregator types.Aggregator, capMethodName string, lggr logger.Logger) *triggerSubscriber {
 	if aggregator == nil {
 		lggr.Warnw("no aggregator provided, using default MODE aggregator", "capabilityId", capInfo.ID)
 		aggregator = aggregation.NewDefaultModeAggregator(uint32(capDonInfo.F + 1))
@@ -86,6 +87,7 @@ func NewTriggerSubscriber(config *commoncap.RemoteTriggerConfig, capInfo commonc
 		capDonMembers:       capDonMembers,
 		localDonInfo:        localDonInfo,
 		dispatcher:          dispatcher,
+		capMethodName:       capMethodName,
 		aggregator:          aggregator,
 		messageCache:        messagecache.NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
 		registeredWorkflows: make(map[string]*subRegState),
@@ -151,11 +153,12 @@ func (s *triggerSubscriber) registrationLoop() {
 				// NOTE: send to all by default, introduce different strategies later (KS-76)
 				for _, peerID := range s.capDonInfo.Members {
 					m := &types.MessageBody{
-						CapabilityId:    s.capInfo.ID,
-						CapabilityDonId: s.capDonInfo.ID,
-						CallerDonId:     s.localDonInfo.ID,
-						Method:          types.MethodRegisterTrigger,
-						Payload:         registration.rawRequest,
+						CapabilityId:     s.capInfo.ID,
+						CapabilityDonId:  s.capDonInfo.ID,
+						CallerDonId:      s.localDonInfo.ID,
+						Method:           types.MethodRegisterTrigger,
+						Payload:          registration.rawRequest,
+						CapabilityMethod: s.capMethodName,
 					}
 					err := s.dispatcher.Send(peerID, m)
 					if err != nil {

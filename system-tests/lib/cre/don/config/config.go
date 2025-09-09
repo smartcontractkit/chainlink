@@ -83,7 +83,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeC
 				}
 			case cre.WorkerNode:
 				var cErr error
-				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs, input.GatewayConnectorOutput.Configurations, input.DonMetadata.Name, input.DonMetadata.Flags, nodeMetadata.Labels)
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs, input.GatewayConnectorOutput, input.DonMetadata.Name, input.DonMetadata.Flags, nodeMetadata.Labels)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -210,7 +210,7 @@ func addWorkerNodeConfig(
 	ocrPeeringData cre.OCRPeeringData,
 	capabilitiesPeeringData cre.CapabilitiesPeeringData,
 	commonInputs *commonInputs,
-	gatewayConfigurations []*cre.GatewayConfiguration,
+	gatewayConnector *cre.GatewayConnectorOutput,
 	donName string,
 	donFlags []string,
 	nodeLabels []*cre.Label,
@@ -303,21 +303,23 @@ func addWorkerNodeConfig(
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
-		for _, gateway := range gatewayConfigurations {
-			gateways = append(gateways, coretoml.ConnectorGateway{
-				ID: ptr.Ptr(gateway.AuthGatewayID),
-				URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
-					gateway.Outgoing.Host,
-					gateway.Outgoing.Port,
-					gateway.Outgoing.Path)),
-			})
-		}
+		if gatewayConnector != nil && len(gatewayConnector.Configurations) > 0 {
+			for _, gateway := range gatewayConnector.Configurations {
+				gateways = append(gateways, coretoml.ConnectorGateway{
+					ID: ptr.Ptr(gateway.AuthGatewayID),
+					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
+						gateway.Outgoing.Host,
+						gateway.Outgoing.Port,
+						gateway.Outgoing.Path)),
+				})
+			}
 
-		existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
-			DonID:             ptr.Ptr(donName),
-			ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-			NodeAddress:       ptr.Ptr(nodeEthAddr),
-			Gateways:          gateways,
+			existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
+				DonID:             ptr.Ptr(donName),
+				ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+				NodeAddress:       ptr.Ptr(nodeEthAddr),
+				Gateways:          gateways,
+			}
 		}
 	}
 

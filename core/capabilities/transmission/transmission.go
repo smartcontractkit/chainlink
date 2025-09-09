@@ -56,6 +56,17 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 	}, nil
 }
 
+func EnumToString(t capabilities.TransmissionSchedule) string {
+	switch t {
+	case capabilities.Schedule_AllAtOnce:
+		return Schedule_AllAtOnce
+	case capabilities.Schedule_OneAtATime:
+		return Schedule_OneAtATime
+	default:
+		return "unknown"
+	}
+}
+
 // GetPeerIDToTransmissionDelay returns a map of PeerID to the time.Duration that the node with that PeerID should wait
 // before transmitting the capability request. If a node is not in the map, it should not transmit.
 func GetPeerIDToTransmissionDelay(donPeerIDs []types.PeerID, req capabilities.CapabilityRequest) (map[types.PeerID]time.Duration, error) {

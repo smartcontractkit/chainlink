@@ -33,6 +33,7 @@ type triggerPublisher struct {
 	workflowDONs    map[uint32]commoncap.DON
 	membersCache    map[uint32]map[p2ptypes.PeerID]bool
 	dispatcher      types.Dispatcher
+	capMethodName   string
 	messageCache    *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
 	registrations   map[registrationKey]*pubRegState
 	mu              sync.RWMutex // protects messageCache and registrations
@@ -66,7 +67,7 @@ var _ types.ReceiverService = &triggerPublisher{}
 
 const minAllowedBatchCollectionPeriod = 10 * time.Millisecond
 
-func NewTriggerPublisher(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, capMethodName string, lggr logger.Logger) *triggerPublisher {
 	if config == nil {
 		lggr.Info("no config provided, using default values")
 		config = &commoncap.RemoteTriggerConfig{}
@@ -88,6 +89,7 @@ func NewTriggerPublisher(config *commoncap.RemoteTriggerConfig, underlying commo
 		workflowDONs:    workflowDONs,
 		membersCache:    membersCache,
 		dispatcher:      dispatcher,
+		capMethodName:   capMethodName,
 		messageCache:    messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations:   make(map[registrationKey]*pubRegState),
 		batchingQueue:   make(map[[32]byte]*batchedResponse),
@@ -301,6 +303,7 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 					TriggerEventId: resp.triggerEventID,
 				},
 			},
+			CapabilityMethod: p.capMethodName,
 		}
 		// NOTE: send to all nodes by default, introduce different strategies later (KS-76)
 		for _, peerID := range p.workflowDONs[resp.callerDonID].Members {

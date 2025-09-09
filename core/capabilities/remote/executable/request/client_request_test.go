@@ -84,7 +84,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		defer req.Cancel(errors.New("test end"))
 
 		require.NoError(t, err)
@@ -135,7 +135,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -169,7 +169,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -200,7 +200,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -238,7 +238,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -299,7 +299,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -357,6 +357,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			dispatcher,
 			10*time.Minute,
 			nil,
+			"",
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -477,6 +478,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			dispatcher,
 			10*time.Minute,
 			nil,
+			"",
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -569,7 +571,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -633,6 +635,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 				Schedule:   transmission.Schedule_OneAtATime,
 				DeltaStage: 1000 * time.Millisecond,
 			},
+			"",
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
