@@ -73,6 +73,7 @@ func TestRMN_IncorrectSig(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
+	t.Skipf("Skipping because of flakiness, see https://github.com/smartcontractkit/chainlink/actions/runs/17501544765/job/49716888508#logs")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching one lane RMN-enabled the other RMN-disabled",
 		waitForExec: true,

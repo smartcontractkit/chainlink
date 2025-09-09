@@ -48,7 +48,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 	}
-	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDon, workflowDon, dispatcher, nil, lggr)
+	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDon, workflowDon, dispatcher, nil, "", lggr)
 	require.NoError(t, subscriber.Start(t.Context()))
 
 	req := commoncap.TriggerRegistrationRequest{
@@ -95,7 +95,7 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 		MinResponsesToAggregate: 2,
 		MessageExpiry:           10 * time.Second,
 	}
-	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDon, workflowDon, dispatcher, nil, lggr)
+	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDon, workflowDon, dispatcher, nil, "", lggr)
 
 	require.NoError(t, subscriber.Start(t.Context()))
 	regReq := commoncap.TriggerRegistrationRequest{

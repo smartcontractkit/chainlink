@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -73,7 +74,7 @@ func NewNoopEnvironment(t *testing.T) cldf.Environment {
 		[]string{},
 		nil,
 		t.Context,
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		chain.NewBlockChains(map[uint64]chain.BlockChain{}),
 	)
 }

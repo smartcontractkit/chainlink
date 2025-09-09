@@ -412,6 +412,7 @@ PerOwner = 200
 
 [CRE]
 UseLocalTimeProvider = true
+EnableDKGRecipient = false
 
 [CRE.Streams]
 WsURL = ''
@@ -528,7 +529,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 0
+ExternalRequestMaxResponseSize = 15000
 
 [EVM.OCR]
 ContractConfirmations = 4

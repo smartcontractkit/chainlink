@@ -36,9 +36,10 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 		workflowRegistryAddressFlag string
 	)
 	cmd := &cobra.Command{
-		Use:   "run-por-example",
-		Short: "Runs v1 Proof-of-Reserve example workflow",
-		Long:  `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
+		Use:              "run-por-example",
+		Short:            "Runs v1 Proof-of-Reserve example workflow",
+		Long:             `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
 			if timeoutErr != nil {
