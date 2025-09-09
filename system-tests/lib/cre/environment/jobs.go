@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func StartJD(lggr zerolog.Logger, jdInput *jd.Input, infraInput *infra.Input) (*jd.Output, error) {
+func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Input) (*jd.Output, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
@@ -56,14 +56,14 @@ func StartJD(lggr zerolog.Logger, jdInput *jd.Input, infraInput *infra.Input) (*
 	return jdOutput, nil
 }
 
-func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
+func CreateJobDistributor(input jd.Input) (*jd.Output, error) {
 	if os.Getenv("CI") == "true" {
 		jdImage := ctfconfig.MustReadEnvVar_String(E2eJobDistributorImageEnvVarName)
 		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
 		input.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
 	}
 
-	jdOutput, err := jd.NewJD(input)
+	jdOutput, err := jd.NewJD(&input)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
 	}
@@ -71,12 +71,9 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 	return jdOutput, nil
 }
 
-func StartDONsAndJD(lggr zerolog.Logger, jdInput *jd.Input, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput *infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
+func StartDONsAndJD(lggr zerolog.Logger, jdInput *jd.Input, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
 	if jdInput == nil {
 		return nil, nil, errors.New("jd input is nil")
-	}
-	if infraInput == nil {
-		return nil, nil, errors.New("infra input is nil")
 	}
 	if registryChainBlockchainOutput == nil {
 		return nil, nil, errors.New("registry chain blockchain output is nil")
@@ -84,15 +81,12 @@ func StartDONsAndJD(lggr zerolog.Logger, jdInput *jd.Input, registryChainBlockch
 	if topology == nil {
 		return nil, nil, errors.New("topology is nil")
 	}
-	if len(capabilitiesAwareNodeSets) == 0 {
-		return nil, nil, errors.New("no capabilities aware node sets provided")
-	}
 	var jdOutput *jd.Output
 	jdAndDonsErrGroup := &errgroup.Group{}
 
 	jdAndDonsErrGroup.Go(func() error {
 		var startJDErr error
-		jdOutput, startJDErr = StartJD(lggr, jdInput, infraInput)
+		jdOutput, startJDErr = StartJD(lggr, *jdInput, infraInput)
 		if startJDErr != nil {
 			return pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}

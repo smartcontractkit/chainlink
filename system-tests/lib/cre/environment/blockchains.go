@@ -33,7 +33,7 @@ import (
 
 type BlockchainsInput struct {
 	blockchainsInput []blockchain.Input
-	infra            *infra.Input
+	infra            infra.Input
 }
 
 type BlockchainOutput struct {
@@ -102,7 +102,7 @@ func initSolanaInput(bi *blockchain.Input) error {
 	return nil
 }
 
-func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, bi blockchain.Input) (*blockchain.Output, error) {
+func deployBlockchain(testLogger zerolog.Logger, infraIn infra.Input, bi blockchain.Input) (*blockchain.Output, error) {
 	if infraIn.Type != infra.CRIB {
 		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
 		if err != nil {
@@ -205,6 +205,10 @@ type BlockchainLoggers struct {
 type StartBlockchainsOutput struct {
 	BlockChainOutputs []*cre.WrappedBlockchainOutput
 	BlockChains       map[uint64]chain.BlockChain
+}
+
+func (s *StartBlockchainsOutput) RegistryChain() *cre.WrappedBlockchainOutput {
+	return s.BlockChainOutputs[0]
 }
 
 func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartBlockchainsOutput, error) {

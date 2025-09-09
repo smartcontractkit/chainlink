@@ -32,6 +32,7 @@ import (
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -57,7 +58,7 @@ type SetupInput struct {
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	BlockchainsInput          []blockchain.Input
 	JdInput                   *jd.Input
-	InfraInput                *infra.Input
+	InfraInput                infra.Input
 	ContractVersions          map[string]string
 	WithV2Registries          bool
 	OCR3Config                *keystone_changeset.OracleConfig
@@ -95,10 +96,6 @@ func (s *SetupInput) Validate() error {
 		return pkgerrors.New("jd input is nil")
 	}
 
-	if s.InfraInput == nil {
-		return pkgerrors.New("infra input is nil")
-	}
-
 	return nil
 }
 
@@ -108,7 +105,6 @@ func SetupTestEnvironment(
 	singleFileLogger logger.Logger,
 	input *SetupInput,
 ) (*SetupOutput, error) {
-	// Validations and boostraps
 	if input == nil {
 		return nil, pkgerrors.New("input is nil")
 	}
@@ -122,20 +118,20 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topologyErr, "failed to validate topology")
 	}
 
-	cribErr := crib.Bootstrap(input.InfraInput)
-	if cribErr != nil {
-		return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
+	if input.InfraInput.Type == infra.CRIB {
+		cribErr := crib.Bootstrap(input.InfraInput)
+		if cribErr != nil {
+			return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
+		}
 	}
 
-	// Start S3 | MinoIO (optional)
-	s3Output, s3Err := infra.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
+	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
 	if s3Err != nil {
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
 
-	// Start blockchains
 	startBlockchainsOutput, bcOutErr := StartBlockchains(BlockchainLoggers{
 		lggr:       testLogger,
 		singleFile: singleFileLogger,
@@ -148,8 +144,6 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
-	// Deploy Keystone contracts
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Deploying Keystone contracts")))
 
 	deployKeystoneContractsOutput, deployErr := crecontracts.DeployKeystoneContracts(
@@ -169,12 +163,10 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Keystone contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
-	// Prepare DON topology and node configurations, secrets and keys
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
 	topology, updatedNodeSets, topoErr := PrepareConfiguration(
-		startBlockchainsOutput.BlockChainOutputs[0].ChainSelector,
+		startBlockchainsOutput.RegistryChain().ChainSelector,
 		input.CapabilitiesAwareNodeSets,
 		input.InfraInput,
 		startBlockchainsOutput.BlockChainOutputs,
@@ -189,35 +181,12 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
-	// Configure Workflow Registry contract in the background
-	// This cannot overlap with any other on-chain operations
-	wfPool := pond.NewResultPool[*cre.WorkflowRegistryOutput](1)
-	wfTask := wfPool.SubmitErr(func() (*cre.WorkflowRegistryOutput, error) {
-		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Starting Workflow Registry Contract Configuration\n\n"))
-		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Workflow Registry Contract Configuration\n\n"))
-
-		return crecontracts.ConfigureWorkflowRegistry(
-			ctx,
-			testLogger,
-			singleFileLogger,
-			&cre.WorkflowRegistryInput{
-				ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, startBlockchainsOutput.BlockChainOutputs[0].ChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
-				ChainSelector:   startBlockchainsOutput.BlockChainOutputs[0].ChainSelector,
-				CldEnv:          deployKeystoneContractsOutput.Env,
-				AllowedDonIDs:   []uint64{topology.WorkflowDONID},
-				WorkflowOwners:  []common.Address{startBlockchainsOutput.BlockChainOutputs[0].SethClient.MustGetRootKeyAddress()},
-			},
-		)
-	})
-
-	// Start DONs and Job Distributor
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
 
 	jdOutput, nodeSetOutput, donJDErr := StartDONsAndJD(
 		testLogger,
 		input.JdInput,
-		startBlockchainsOutput.BlockChainOutputs[0].BlockchainOutput,
+		startBlockchainsOutput.RegistryChain().BlockchainOutput,
 		topology,
 		input.InfraInput,
 		updatedNodeSets,
@@ -240,9 +209,8 @@ func SetupTestEnvironment(
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	// Create jobs with Job Distributor
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
 	jobSpecFactoryFunctions := make([]cre.JobSpecFn, 0)
@@ -252,11 +220,11 @@ func SetupTestEnvironment(
 
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...) // Deprecated, use Capabilities instead
 
-	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
+	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the OCR3 contracts.
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: startBlockchainsOutput.BlockChainOutputs[0].BlockchainOutput,
+		HomeChainBlockchainOutput: startBlockchainsOutput.RegistryChain().BlockchainOutput,
 		AddressBook:               deployKeystoneContractsOutput.Env.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		FullCLDEnvOutput:          fullCldOutput,
@@ -271,10 +239,10 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Jobs created in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
-	// Prepare stage for funding the nodes
-	// This operation cannot execute in the background, because it uses master private key and we want to avoid nonce issues
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing Chainlink Node funding")))
+
+	// This operation cannot execute in the background, because it uses master private key and we want to avoid nonce issues
+	// Once we have generated and funded new private keys for each chain, we can execute fanning out of funds to nodes in the background
 	preFundingOutput, prefundErr := operations.ExecuteOperation(fullCldOutput.Environment.OperationsBundle, PrepareCLNodesFundingOp, PrepareFundCLNodesOpDeps{
 		TestLogger:        testLogger,
 		Env:               fullCldOutput.Environment,
@@ -287,9 +255,7 @@ func SetupTestEnvironment(
 	if prefundErr != nil {
 		return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
 	}
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink Node funding prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	// Fund the nodes in the background
 	bkgErrPool := pond.NewPool(10)
 	fundNodesTaskErr := bkgErrPool.SubmitErr(func() error {
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Funding Chainlink nodes\n\n"))
@@ -308,29 +274,50 @@ func SetupTestEnvironment(
 		return fundErr
 	})
 
-	// Wait for Log Poller to be up and running. If it misses the ConfigSet event, OCR protocol will not start.
-	// TODO: we might want to add similar checks for other OCR3 contracts.
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink Node funding prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
 
+	// Wait for Log Poller to be up and running. If it misses the ConfigSet event, OCR protocol will not start.
+	// TODO: we might want to add similar checks for other OCR3 contracts.
 	if err := waitForLogPollerToBeHealthy(updatedNodeSets, nodeSetOutput); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for Log Poller to become healthy")
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Log Poller started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	// Wait for Workflow Registry filters to be registered in the Log Poller in the background
-	// Without it we might miss workflow-related events
-	filterRegErr := bkgErrPool.SubmitErr(func() error {
-		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Waiting for all nodes to have expected LogPoller filters registered\n\n"))
-		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] All nodes have expected LogPoller filters registered\n\n"))
+	wfPool := pond.NewResultPool[*cre.WorkflowRegistryOutput](1)
+	wfTask := wfPool.SubmitErr(func() (*cre.WorkflowRegistryOutput, error) {
+		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Starting Workflow Registry Contract Configuration\n\n"))
+		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Workflow Registry Contract Configuration\n\n"))
 
-		return crecontracts.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.InfraInput.Type, startBlockchainsOutput.BlockChainOutputs[0].ChainID, fullCldOutput.DonTopology, updatedNodeSets)
+		// if this operation overlaps with other on-chain operations, then it might randomly fail due to nonce issues,
+		// because we use the same master private key for all on-chain operations. We do not have any client-side nonce management
+		// and always use the next pending nonce from the node.
+		// in case of failures, it should be moved out of the background tasks and executed in the main thread
+		wfOutput, wfErr := workflow.ConfigureWorkflowRegistry(
+			ctx,
+			testLogger,
+			singleFileLogger,
+			&cre.WorkflowRegistryInput{
+				ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, startBlockchainsOutput.RegistryChain().ChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
+				ChainSelector:   startBlockchainsOutput.RegistryChain().ChainSelector,
+				CldEnv:          deployKeystoneContractsOutput.Env,
+				AllowedDonIDs:   []uint64{topology.WorkflowDONID},
+				WorkflowOwners:  []common.Address{startBlockchainsOutput.RegistryChain().SethClient.MustGetRootKeyAddress()},
+			},
+		)
+
+		if wfErr != nil {
+			return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
+		}
+
+		// this operation can always safely run in the background, since it doesn't change on-chain state, it only reads data from databases
+		return wfOutput, workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.InfraInput.Type, startBlockchainsOutput.RegistryChain().ChainID, fullCldOutput.DonTopology, updatedNodeSets)
 	})
 
-	// Configure OCR3 and Keystone contracts
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring OCR3 and Keystone contracts")))
 
-	configureKeystoneInput, ksErr := prepareKeystoneConfigurationInput(*input, startBlockchainsOutput.BlockChainOutputs[0].ChainSelector, topology, updatedNodeSets, fullCldOutput.Environment, deployKeystoneContractsOutput, startBlockchainsOutput)
+	configureKeystoneInput, ksErr := prepareKeystoneConfigurationInput(*input, startBlockchainsOutput.RegistryChain().ChainSelector, topology, updatedNodeSets, fullCldOutput.Environment, deployKeystoneContractsOutput, startBlockchainsOutput)
 	if ksErr != nil {
 		return nil, pkgerrors.Wrap(ksErr, "failed to prepare keystone configuration input")
 	}
@@ -341,7 +328,6 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Writing bootstrapping data into disk (address book, data store, etc...)")))
 
 	wfPool.StopAndWait()
 	workflowRegistryConfigurationOutput, wfRegistrationErr := wfTask.Wait()
@@ -352,9 +338,6 @@ func SetupTestEnvironment(
 	bkgErrPool.StopAndWait()
 	if err := fundNodesTaskErr.Wait(); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to fund chainlink nodes")
-	}
-	if err := filterRegErr.Wait(); err != nil {
-		return nil, pkgerrors.Wrap(err, "failed while waiting for Workflow Registry filters to be registered")
 	}
 
 	appendOutputsToInput(input, nodeSetOutput, startBlockchainsOutput, jdOutput)

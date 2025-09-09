@@ -35,11 +35,7 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 	return nil
 }
 
-func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput *infra.Input) error {
-	if infraInput == nil {
-		return errors.New("infra input is nil")
-	}
-
+func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infra.Input) error {
 	if len(nodeSetInput) == 0 {
 		return errors.New("at least one nodeset is required")
 	}
@@ -97,13 +93,9 @@ func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput *
 	return nil
 }
 
-func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput *infra.Input, homeChainSelector uint64) (*cre.Topology, error) {
+func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infra.Input, homeChainSelector uint64) (*cre.Topology, error) {
 	topology := &cre.Topology{}
 	donsWithMetadata := make([]*cre.DonMetadata, len(nodeSetInput))
-
-	if infraInput == nil {
-		return nil, errors.New("infra input is nil")
-	}
 
 	for i := range nodeSetInput {
 		flags, err := flags.NodeSetFlags(nodeSetInput[i])
@@ -134,7 +126,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput *inf
 
 			// TODO think whether it would make sense for infraInput to also hold functions that resolve hostnames for various infra and node types
 			// and use it with some default, so that we can easily modify it with little effort
-			internalHost := InternalHost(nodeIdx, nodeType, donMetadata.Name, *infraInput)
+			internalHost := InternalHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
 			if flags.HasFlag(donMetadata.Flags, cre.GatewayDON) {
 				if nodeSetInput[donIdx].GatewayNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].GatewayNodeIndex {
@@ -143,7 +135,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput *inf
 						Value: cre.GatewayNode,
 					})
 
-					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, *infraInput)
+					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
 
 					if topology.GatewayConnectorOutput == nil {
 						topology.GatewayConnectorOutput = &cre.GatewayConnectorOutput{
@@ -161,8 +153,8 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput *inf
 							Protocol:     "http",
 							Path:         "/",
 							InternalPort: GatewayIncomingPort,
-							ExternalPort: ExternalGatewayPort(*infraInput),
-							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, *infraInput),
+							ExternalPort: ExternalGatewayPort(infraInput),
+							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
 						},
 						AuthGatewayID: "cre-gateway",
 						// do not set gateway connector dons, they will be resolved automatically

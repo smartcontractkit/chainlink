@@ -28,20 +28,14 @@ func BuildFullCLDEnvironment(ctx context.Context, lgr logger.Logger, input *cre.
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	bcOuts := make(map[uint64]*cre.WrappedBlockchainOutput)
 	sethClients := make(map[uint64]*seth.Client)
 	solClients := make(map[uint64]*solrpc.Client)
 	for _, bcOut := range input.BlockchainOutputs {
 		if bcOut.SolChain != nil {
 			sel := bcOut.SolChain.ChainSelector
-			bcOuts[sel] = bcOut
 			solClients[sel] = bcOut.SolClient
-			bcOuts[sel].ChainSelector = sel
-			bcOuts[sel].SolChain = bcOut.SolChain
-			bcOuts[sel].SolChain.ArtifactsDir = bcOut.SolChain.ArtifactsDir
 			continue
 		}
-		bcOuts[bcOut.ChainSelector] = bcOut
 		sethClients[bcOut.ChainSelector] = bcOut.SethClient
 	}
 

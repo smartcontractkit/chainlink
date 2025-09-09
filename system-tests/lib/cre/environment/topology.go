@@ -24,7 +24,7 @@ import (
 func PrepareConfiguration(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
-	infraInput *infra.Input,
+	infraInput infra.Input,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
 	datastore datastore.DataStore,

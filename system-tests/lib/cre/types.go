@@ -929,15 +929,12 @@ func (d *DeployCribDonsInput) Validate() error {
 }
 
 type DeployCribJdInput struct {
-	JDInput        *jd.Input
+	JDInput        jd.Input
 	CribConfigsDir string
 	Namespace      string
 }
 
 func (d *DeployCribJdInput) Validate() error {
-	if d.JDInput == nil {
-		return errors.New("jd input not set")
-	}
 	if d.CribConfigsDir == "" {
 		return errors.New("crib configs dir not set")
 	}
@@ -989,7 +986,7 @@ type JobSpecInput struct {
 	CldEnvironment            *cldf.Environment
 	BlockchainOutput          *blockchain.Output
 	DonTopology               *DonTopology
-	InfraInput                *infra.Input
+	InfraInput                infra.Input
 	CapabilityConfigs         map[string]CapabilityConfig
 	Capabilities              []InstallableCapability
 	CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet
