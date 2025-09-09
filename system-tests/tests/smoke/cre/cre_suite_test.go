@@ -45,6 +45,7 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] Beholder test", func(t *testing.T) {
+			t.Skipf("Skipping test broken by external dependencies - https://chainlink-core.slack.com/archives/C07GQNPVBB5/p1757375569881989")
 			ExecuteBeholderTest(t, testEnv)
 		})
 
