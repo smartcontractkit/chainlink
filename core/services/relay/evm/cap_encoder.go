@@ -36,9 +36,6 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
 	selectorStr, ok := wrappedSelector.(string)
 	if !ok {
 		return nil, fmt.Errorf("expected %s to be a string", abiConfigFieldName)
