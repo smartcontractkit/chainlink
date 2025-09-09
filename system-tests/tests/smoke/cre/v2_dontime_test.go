@@ -29,10 +29,10 @@ func ExecuteDonTimeTest(t *testing.T, testEnv *TestEnvironment) {
 	workflowName := "timebeholder"
 
 	testLogger.Info().Msg("Starting Beholder...")
-	bErr := startBeholderStackIfIsNotRunning(DefaultBeholderStackCacheFile, DefaultEnvironmentDir)
+	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.BeholderConfigPath, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, bErr, "failed to start Beholder")
 
-	chipConfig, chipErr := loadBeholderStackCache()
+	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.BeholderConfigPath)
 	require.NoError(t, chipErr, "failed to load chip ingress cache")
 	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
 	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
