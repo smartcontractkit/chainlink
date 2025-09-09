@@ -14,6 +14,10 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -173,12 +177,18 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		wfID := payload.WorkflowID.Hex()
+		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
+		orgID, err := h.fetchOrganizationID(ctx, wfOwner)
+		if err != nil {
+			h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", err)
+		}
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 			platform.KeyWorkflowTag, payload.WorkflowTag,
+			platform.KeyOrganizationID, orgID,
 		)
 
 		if err := h.workflowRegisteredEvent(ctx, payload); err != nil {
@@ -186,7 +196,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.Name)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, cma.Labels(), string(event.Name)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -201,8 +211,29 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		wfID := payload.WorkflowID.Hex()
 
+		// Get workflow spec from database to get owner and name info for organization lookup
+		// Alternative: wire through workflowOwner into the Event, but that requires a lot more surgery
+		spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, wfID)
+		var wfOwner, wfName, orgID string
+		if err != nil {
+			// Workflow spec not found, proceed with deletion but without event metadata
+			h.lggr.Warnw("Workflow spec not found during deletion, proceeding without org info", "workflowID", wfID, "error", err)
+		} else {
+			wfOwner = spec.WorkflowOwner
+			wfName = spec.WorkflowName
+			if wfOwner != "" {
+				orgID, err = h.fetchOrganizationID(ctx, wfOwner)
+				if err != nil {
+					h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", err)
+				}
+			}
+		}
+
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, wfName,
+			platform.KeyWorkflowOwner, wfOwner,
+			platform.KeyOrganizationID, orgID,
 		)
 
 		if err := h.workflowDeletedEvent(ctx, payload); err != nil {
@@ -210,11 +241,11 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.Name)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEvent(ctx, cma.Labels(), string(event.Name)); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
-		h.lggr.Debugw("handled event", "workflowID", wfID, "type", event.Name)
+		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", wfName, "workflowOwner", wfOwner, "organizationID", orgID, "type", event.Name)
 		return nil
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.Name)
@@ -332,6 +363,51 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	return entry, nil
 }
 
+// fetchOrganizationID tries to fetch the organization ID from the linking service for the given workflow owner
+// If the linking service is unavailable, it returns an empty string
+// TODO update to return an error
+func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner string) (string, error) {
+	if h.linkingURL == "" {
+		return "", errors.New("linking URL is not set")
+	}
+
+	// Create gRPC connection
+	var opts []grpc.DialOption
+	if h.linkingTLSEnabled {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	conn, err := grpc.NewClient(h.linkingURL, opts...)
+	if err != nil {
+		h.lggr.Warnw("Failed to connect to linking service", "url", h.linkingURL, "error", err)
+		return "", err
+	}
+	defer conn.Close()
+
+	client := linkingclient.NewLinkingServiceClient(conn)
+
+	// the linking service is permanently flexible to the format of the workflow owner
+	// we don't need to have handling for "0x" prefix
+	resp, err := client.GetOrganizationFromWorkflowOwner(ctx, &linkingclient.GetOrganizationFromWorkflowOwnerRequest{
+		WorkflowOwner: workflowOwner,
+	})
+	if err != nil {
+		h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", workflowOwner, "error", err)
+		return "", err
+	}
+
+	if resp == nil || resp.GetOrganizationId() == "" {
+		h.lggr.Debugw("No organization ID returned from linking service", "workflowOwner", workflowOwner)
+		return "", errors.New("no organization ID returned from linking service")
+	}
+
+	organizationID := resp.GetOrganizationId()
+	h.lggr.Debugw("Successfully retrieved organization ID from linking service", "workflowOwner", workflowOwner, "organizationId", organizationID)
+	return organizationID, nil
+}
+
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
 
@@ -381,7 +457,6 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		UseLocalTimeProvider: h.useLocalTimeProvider,
 		DonTimeStore:         h.donTimeStore,
 		ExecutionsStore:      h.workflowStore,
-
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,
 		WorkflowName:          name,

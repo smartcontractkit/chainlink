@@ -1130,6 +1130,8 @@ github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250722175102-6d
 github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250722175102-6dcdf5122683/go.mod h1:HHGeDUpAsPa0pmOx7wrByCitjQ0mbUxf0R9v+g67uCA=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250819150450-95ef563f6e6d h1:MJS8HTB1h3w7qV+70ueWnTQlMG8mxDUV/GdQH54Rg6g=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250819150450-95ef563f6e6d/go.mod h1:jUC52kZzEnWF9tddHh85zolKybmLpbQ1oNA4FjOHt1Q=
+github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20250903120418-25d11e43d98d h1:GmqKzUePZghy7tUvVJaOIK2jWmOwMmjj5235zcNq9zY=
+github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20250903120418-25d11e43d98d/go.mod h1:qSTSwX3cBP3FKQwQacdjArqv0g6QnukjV4XuzO6UyoY=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.8.1 h1:VcFo27MBPTMB1d1Tp3q3RzJNqwErKR+z9QLQZ6KBSXo=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.8.1/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
 github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 h1:L6KJ4kGv/yNNoCk8affk7Y1vAY0qglPMXC/hevV/IsA=

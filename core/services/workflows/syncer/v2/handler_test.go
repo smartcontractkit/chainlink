@@ -887,8 +887,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
-		err =
-			h.workflowRegisteredEvent(ctx, active)
+		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
