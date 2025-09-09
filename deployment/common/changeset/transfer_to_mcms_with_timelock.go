@@ -2,10 +2,8 @@ package changeset
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -56,7 +54,7 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 // Returns the address if found in either source (similar to cldf.SearchAddressBook)
 func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contractType cldf.ContractType) (string, error) {
 	// Use the merged address loading from the EVM state function
-	addressesChain, err := mergeAddressesFromBothSourcesEVMWithQualifier(e, chainSelector, "")
+	addressesChain, err := state.MergeAddressesFromBothSourcesEVMWithQualifier(e, chainSelector, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to load addresses: %w", err)
 	}
@@ -69,49 +67,6 @@ func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contr
 	}
 
 	return "", fmt.Errorf("%s not found", contractType)
-}
-
-// mergeAddressesFromBothSourcesEVMWithQualifier combines addresses from both DataStore and AddressBook making it backward compatible.
-func mergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	// Start with addresses from AddressBook for backward compatibility
-	addressBookAddresses := make(map[string]cldf.TypeAndVersion)
-	if addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector); err == nil {
-		addressBookAddresses = addresses
-	} else if !errors.Is(err, cldf.ErrChainNotFound) {
-		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
-	}
-
-	// Try to load addresses from DataStore with qualifier
-	// Only try if DataStore is available
-	if env.DataStore != nil {
-		dataStoreAddresses, err := state.LoadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
-		if err != nil {
-			// If DataStore has no addresses, just return AddressBook addresses
-			if strings.Contains(err.Error(), "no addresses found") {
-				return addressBookAddresses, nil
-			}
-			// Don't fail if DataStore is not working - fall back to AddressBook
-			return addressBookAddresses, nil
-		}
-
-		// Merge the two maps - DataStore addresses take precedence
-		mergedAddresses := make(map[string]cldf.TypeAndVersion)
-
-		// First add all AddressBook addresses
-		for addr, tv := range addressBookAddresses {
-			mergedAddresses[addr] = tv
-		}
-
-		// Then add DataStore addresses (overwriting any conflicts)
-		for addr, tv := range dataStoreAddresses {
-			mergedAddresses[addr] = tv
-		}
-
-		return mergedAddresses, nil
-	}
-
-	// If no DataStore, just return AddressBook addresses
-	return addressBookAddresses, nil
 }
 
 func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {

@@ -78,7 +78,7 @@ func MaybeLoadMCMSWithTimelockStateWithQualifier(env cldf.Environment, chainSele
 		}
 
 		// Use merged addresses from both AddressBook and DataStore for backward compatibility
-		addressesChain, err := mergeAddressesFromBothSourcesEVMWithQualifier(env, chainSelector, qualifier)
+		addressesChain, err := MergeAddressesFromBothSourcesEVMWithQualifier(env, chainSelector, qualifier)
 		if err != nil {
 			return nil, err
 		}
@@ -92,11 +92,11 @@ func MaybeLoadMCMSWithTimelockStateWithQualifier(env cldf.Environment, chainSele
 	return result, nil
 }
 
-// mergeAddressesFromBothSourcesEVMWithQualifier combines addresses from both DataStore and AddressBook making it backward compatible.
+// MergeAddressesFromBothSourcesEVMWithQualifier combines addresses from both DataStore and AddressBook making it backward compatible.
 // This version supports qualifiers for filtering DataStore addresses.
 // When a qualifier is specified, only DataStore addresses with that qualifier are returned (no AddressBook merge)
 // to ensure isolation between different deployments.
-func mergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+func MergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
 	// If a qualifier is specified, only use DataStore to ensure isolation between deployments
 	if qualifier != "" {
 		if env.DataStore != nil {
@@ -145,6 +145,12 @@ func mergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSe
 
 	// If no DataStore, just return AddressBook addresses
 	return addressBookAddresses, nil
+}
+
+// MergeAddressesFromBothSources is a convenience function that calls MergeAddressesFromBothSourcesEVMWithQualifier with an empty qualifier.
+// This is useful for general cases where no qualifier isolation is needed.
+func MergeAddressesFromBothSources(env cldf.Environment, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
+	return MergeAddressesFromBothSourcesEVMWithQualifier(env, chainSelector, "")
 }
 
 // MaybeLoadMCMSWithTimelockStateDataStore loads the MCMSWithTimelockState state for each chain in the given environment from the DataStore.

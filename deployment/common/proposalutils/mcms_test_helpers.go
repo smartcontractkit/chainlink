@@ -2,7 +2,6 @@ package proposalutils
 
 import (
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -384,7 +383,7 @@ func SingleGroupTimelockConfigV2(t *testing.T) commontypes.MCMSWithTimelockConfi
 
 func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint64) string {
 	// Use merged addresses from both AddressBook and DataStore for backward compatibility
-	addressesForChain, err := mergeAddressesFromBothSources(env, chainSelector)
+	addressesForChain, err := state.MergeAddressesFromBothSources(env, chainSelector)
 	require.NoError(t, err)
 
 	for address, tvStr := range addressesForChain {
@@ -395,44 +394,4 @@ func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint
 
 	require.FailNow(t, "unable to find call proxy address")
 	return ""
-}
-
-// mergeAddressesFromBothSources combines addresses from both DataStore and AddressBook making it backward compatible.
-// This follows the same pattern used in CCIP stateview and EVM state implementations
-func mergeAddressesFromBothSources(env cldf.Environment, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
-	// Start with addresses from AddressBook for backward compatibility
-	addressBookAddresses := make(map[string]cldf.TypeAndVersion)
-	if addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector); err == nil {
-		addressBookAddresses = addresses
-	} else if !errors.Is(err, cldf.ErrChainNotFound) {
-		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
-	}
-
-	// Try to load addresses from DataStore (without qualifier for general case)
-	// Only try if DataStore is available
-	if env.DataStore != nil {
-		dataStoreAddresses, err := state.LoadAddressesFromDataStore(env.DataStore, chainSelector, "")
-		if err != nil {
-			// If DataStore has no addresses, just return AddressBook addresses
-			return addressBookAddresses, nil
-		}
-
-		// Merge the two maps - DataStore addresses take precedence
-		mergedAddresses := make(map[string]cldf.TypeAndVersion)
-
-		// First add all AddressBook addresses
-		for addr, tv := range addressBookAddresses {
-			mergedAddresses[addr] = tv
-		}
-
-		// Then add DataStore addresses (overwriting any conflicts)
-		for addr, tv := range dataStoreAddresses {
-			mergedAddresses[addr] = tv
-		}
-
-		return mergedAddresses, nil
-	}
-
-	// If no DataStore, just return AddressBook addresses
-	return addressBookAddresses, nil
 }
