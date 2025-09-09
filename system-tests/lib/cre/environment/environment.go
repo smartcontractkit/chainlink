@@ -421,6 +421,7 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		return nil, pkgerrors.Wrap(defaultOcr3ConfigErr, "failed to generate default OCR3 config for EVM")
 	}
 	configureKeystoneInput.EVMOCR3Config = *defaultOcr3Config
+	configureKeystoneInput.EVMOCR3Config.DeltaRoundMillis = 1000 // set delta round millis to 1 second for EVM OCR3
 	configureKeystoneInput.ConsensusV2OCR3Config = *defaultOcr3Config
 
 	for _, capability := range input.Capabilities {

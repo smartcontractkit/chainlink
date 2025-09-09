@@ -71,7 +71,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 		capabilityConfig, ok := capabilitiesConfig[flag]
 		if !ok {
-			return nil, errors.New("evm config not found in capabilities config")
+			return nil, fmt.Errorf("%s config not found in capabilities config: %v", flag, capabilitiesConfig)
 		}
 
 		containerPath, pathErr := crecapabilities.DefaultContainerDirectory(infraInput.Type)

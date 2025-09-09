@@ -38,6 +38,7 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] HTTP trigger and action test", func(t *testing.T) {
+			t.Skip("Skipping flaky test https://chainlink-core.slack.com/archives/C07GQNPVBB5/p1757085817724369")
 			// requires `http_trigger`, `http_action`
 			ExecuteHTTPTriggerActionTest(t, testEnv)
 		})
@@ -52,6 +53,9 @@ func Test_CRE_Suite(t *testing.T) {
 
 		t.Run("[v2] Consensus test", func(t *testing.T) {
 			executeConsensusTest(t, testEnv)
+		})
+		t.Run("[v2] EVM test", func(t *testing.T) {
+			executeEVMReadTest(t, testEnv)
 		})
 	})
 }

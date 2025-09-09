@@ -197,6 +197,13 @@ func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.W
 	}
 	workflowConfig.FeedID = feedIDToUse
 
+	return createWorkflowYamlConfigFile(workflowName, workflowConfig)
+}
+
+/*
+Creates .yaml workflow configuration file and returns the absolute path to the created config file.
+*/
+func createWorkflowYamlConfigFile(workflowName string, workflowConfig any) (string, error) {
 	// Write workflow config to a .yaml file
 	configMarshalled, err := yaml.Marshal(workflowConfig)
 	if err != nil {
