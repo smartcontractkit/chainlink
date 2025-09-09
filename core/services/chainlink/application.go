@@ -1223,7 +1223,6 @@ func newCREServices(
 		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
 		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	}
-
 	return &CREServices{
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,

@@ -149,7 +149,6 @@ func NewMedianServices(ctx context.Context,
 	}
 
 	if cmdName := env.MedianPlugin.Cmd.Get(); cmdName != "" {
-		lggr.Infof("Median plugin loop configured")
 		// use unique logger names so we can use it to register a loop
 		medianLggr := lggr.Named("Median").Named(spec.ContractID).Named(spec.GetID())
 		envVars, err2 := plugins.ParseEnvFile(env.MedianPlugin.Env.Get())
@@ -172,7 +171,6 @@ func NewMedianServices(ctx context.Context,
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
-		lggr.Infof("Median plugin configured without loop")
 		argsNoPlugin.ReportingPluginFactory, err = median.NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, spec.ContractID, dataSource, juelsPerFeeCoinSource, gasPriceSubunitsDataSource, errorLog, pluginConfig.DeviationFunctionDefinition)
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)

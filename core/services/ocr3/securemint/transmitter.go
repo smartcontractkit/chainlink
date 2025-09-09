@@ -18,6 +18,8 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
+// TODO(gg): add doc comments
+
 const (
 	defaultCapabilityName        = "securemint-trigger"
 	defaultCapabilityVersion     = "1.0.0"
@@ -89,7 +91,6 @@ func (c TransmitterConfig) newTransmitter(lggr logger.Logger, transmitterID stri
 	}
 
 	capInfo, err := capabilities.NewCapabilityInfo(
-		// TODO(CAPPL-645): add labels
 		t.config.TriggerCapabilityName+"@"+t.config.TriggerCapabilityVersion,
 		capabilities.CapabilityTypeTrigger,
 		"Secure Mint Trigger",

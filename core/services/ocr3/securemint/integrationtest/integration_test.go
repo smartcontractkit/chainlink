@@ -23,6 +23,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	smtypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/securemint"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
@@ -42,7 +43,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/por_mock_ocr3plugin/por"
 )
 
 var (
@@ -264,7 +264,7 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 		require.NoError(t, err, "Failed to extract report bytes from event %d with event id %s", i, event.Event.ID)
 
 		// Parse the OCR3 report
-		var ocr3Report ocr3types.ReportWithInfo[por.ChainSelector]
+		var ocr3Report ocr3types.ReportWithInfo[smtypes.ChainSelector]
 		err = json.Unmarshal(reportBytes, &ocr3Report)
 		require.NoError(t, err, "Failed to unmarshal OCR3 report from event %d", i)
 
@@ -289,17 +289,17 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 			},
 		}
 
-		var porReport por.PorReport
-		err = json.Unmarshal(ocr3Report.Report, &porReport)
-		require.NoError(t, err, "failed to unmarshal to PorReport: %+v", ocr3Report.Report)
+		var smReport secureMintReport
+		err = json.Unmarshal(ocr3Report.Report, &smReport)
+		require.NoError(t, err, "failed to unmarshal to secureMintReport: %+v", ocr3Report.Report)
 
 		expectedReport, ok := expectedReports[fmt.Sprintf("%d", ocr3Report.Info)]
-		require.True(t, ok, "expected report not found for chain selector %s (report was %+v)", ocr3Report.Info, porReport)
+		require.True(t, ok, "expected report not found for chain selector %s (report was %+v)", ocr3Report.Info, smReport)
 
-		assert.Equal(t, expectedReport.configDigest, porReport.ConfigDigest, "configDigest mismatch")
-		assert.Equal(t, expectedReport.mintable, porReport.Mintable, "mintable mismatch")
-		assert.Equal(t, expectedReport.block, int64(porReport.Block), "block number mismatch") //nolint:gosec // disable G115 since we control the data we won't encounter an overflow here
-		assert.Positive(t, porReport.SeqNr, "sequence number should be greater than 0")
+		assert.Equal(t, expectedReport.configDigest, smReport.ConfigDigest, "configDigest mismatch")
+		assert.Equal(t, expectedReport.mintable, smReport.Mintable, "mintable mismatch")
+		assert.Equal(t, expectedReport.block, int64(smReport.Block), "block number mismatch") //nolint:gosec // disable G115 since we control the data we won't encounter an overflow here
+		assert.Positive(t, smReport.SeqNr, "sequence number should be greater than 0")
 	}
 }
 
@@ -317,7 +317,7 @@ func setSecureMintOnchainConfigUsingOCR3Configurator(t *testing.T, steve *bind.T
 	t.Logf("Deployed OCR3Configurator contract at: %s", configuratorAddress.Hex())
 
 	// 2. Get the oracle config
-	smPluginConfig := por.PorOffchainConfig{MaxChains: 5}
+	smPluginConfig := secureMintOffchainConfig{MaxChains: 5}
 	smPluginConfigBytes, err := smPluginConfig.Serialize()
 	require.NoError(t, err)
 

@@ -1,6 +1,8 @@
 # SecureMint Plugin
 
-TODO(gg): make sure that the two secure mint integration tests run successfully in CI.
+TODO(gg): make sure that the two secure mint integration tests and all added unit tests run successfully in CI.
+TODO(gg): update this file
+TODO(gg): make sure the plugin is included in the Docker image.
 
 ## Overview
 

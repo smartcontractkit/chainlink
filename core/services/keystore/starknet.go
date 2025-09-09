@@ -159,10 +159,6 @@ type StarknetLooppSigner struct {
 
 var _ core.Keystore = &StarknetLooppSigner{}
 
-func (lk *StarknetLooppSigner) Decrypt(ctx context.Context, id string, ciphertext []byte) ([]byte, error) {
-	return nil, nil
-}
-
 // Sign implements [loop.Keystore]
 // hash is expected to be the byte representation of big.Int
 // the returned []byte is an encoded [github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/starknet.Signature].

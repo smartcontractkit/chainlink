@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 )
 
@@ -351,4 +352,21 @@ func createSecureMintBridge(t *testing.T, name string, i int, borm bridges.ORM) 
 	}))
 
 	return bridgeName
+}
+
+// secureMintReport mimics por.PorReport in the securemint plugin.
+type secureMintReport struct {
+	ConfigDigest ocr2types.ConfigDigest `json:"configDigest"`
+	SeqNr        uint64                 `json:"seqNr"`
+	Block        uint64                 `json:"block"`
+	Mintable     *big.Int               `json:"mintable"`
+}
+
+// secureMintOffchainConfig mimics por.PorOffchainConfig in the securemint plugin.
+type secureMintOffchainConfig struct {
+	MaxChains uint32 // The maximum number of chains that can be tracked by the external adapter.
+}
+
+func (c *secureMintOffchainConfig) Serialize() ([]byte, error) {
+	return json.Marshal(c)
 }
