@@ -32,6 +32,28 @@ import (
 	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
 )
 
+const balanceReaderABIJson = `[
+   {
+      "inputs":[
+         {
+            "internalType":"address[]",
+            "name":"addresses",
+            "type":"address[]"
+         }
+      ],
+      "name":"getNativeBalances",
+      "outputs":[
+         {
+            "internalType":"uint256[]",
+            "name":"",
+            "type":"uint256[]"
+         }
+      ],
+      "stateMutability":"view",
+      "type":"function"
+   }
+]`
+
 func RunProofOfReservesWorkflow(config types.WorkflowConfig, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[types.WorkflowConfig], error) {
 	return cre.Workflow[types.WorkflowConfig]{
 		cre.Handler(
@@ -47,6 +69,12 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	// get balance with BalanceAt()
 	evmClient := evm.Client{ChainSelector: chain_selectors.GETH_TESTNET.Selector}
 	addressesToRead := config.BalanceReaderConfig.AddressesToRead
+
+	// For testing purposes, there is no handling of index out of range or nil cases.
+	// It allows for the configuration of empty addresses, a single address, or zero balances.
+	// The happy-path scenario in the system tests guarantees there are at least two addresses present.
+	// However, in real-world usage, it is advisable to implement
+	// proper validation for the configuration and handle possible errors.
 	addressToRead_1 := addressesToRead[0]
 	balanceAtOutput, err := evmClient.BalanceAt(runtime, &evm.BalanceAtRequest{
 		Account:     addressToRead_1.Bytes(),
@@ -60,20 +88,24 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead_1, balanceAtResult.String()))
 
 	// get balance with CallContract
-	readBalancesABI, err := abi.JSON(strings.NewReader(`[{"inputs":[{"internalType":"address[]","name":"addresses","type":"address[]"}],"name":"getNativeBalances","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"}]`))
+	readBalancesParsedABI, err := getReadBalancesContractABI(runtime, balanceReaderABIJson)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse ABI: %w", err)
+		runtime.Logger().Error(fmt.Sprintf("failed to get ReadBalances ABI: %v", err))
+		return "", fmt.Errorf("failed to get ReadBalances ABI: %w", err)
 	}
 
-	addressToRead_2 := addressesToRead[1] // it is enough to read the second address for validation
-	readBalancesOutput, err := readBalancesFromContract([]common.Address{addressToRead_2}, readBalancesABI, evmClient, runtime, config)
+	// To test that reading the contract is operational, it is sufficient to use 1 address.
+	// For testing purposes, there is no index out of range or nil handling,
+	// see comments above for more details (TL:DR; implement your own proper validation)
+	addressToRead_2 := addressesToRead[1]
+	readBalancesOutput, err := readBalancesFromContract([]common.Address{addressToRead_2}, readBalancesParsedABI, evmClient, runtime, config)
 	if err != nil {
 		return "", fmt.Errorf("failed to read balances from contract: %w", err)
 	}
 
 	var readBalancePrices []*big.Int
 	methodName := "getNativeBalances"
-	err = readBalancesABI.UnpackIntoInterface(&readBalancePrices, methodName, readBalancesOutput.Data)
+	err = readBalancesParsedABI.UnpackIntoInterface(&readBalancePrices, methodName, readBalancesOutput.Data)
 	if err != nil {
 		return "", fmt.Errorf("failed to read CallContract output: %w", err)
 	}
@@ -141,6 +173,16 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	}
 
 	return message, nil
+}
+
+func getReadBalancesContractABI(runtime cre.Runtime, balanceReaderABI string) (abi.ABI, error) {
+	parsedABI, err := abi.JSON(strings.NewReader(balanceReaderABI))
+	if err != nil {
+		runtime.Logger().Error(fmt.Sprintf("failed to parse ABI: %v", err))
+		return abi.ABI{}, fmt.Errorf("failed to parse ABI: %w", err)
+	}
+	runtime.Logger().With().Info(fmt.Sprintln("Parsed ABI successfully"))
+	return parsedABI, nil
 }
 
 func readBalancesFromContract(addresses []common.Address, readBalancesABI abi.ABI, evmClient evm.Client, runtime cre.Runtime, config types.WorkflowConfig) (*evm.CallContractReply, error) {
