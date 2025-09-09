@@ -45,6 +45,18 @@ func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error 
 		return errors.New("jd.csa_encryption_key must be provided")
 	}
 
+	if len(c.Blockchains) == 0 {
+		return errors.New("at least one blockchain must be configured")
+	}
+
+	if len(c.NodeSets) == 0 {
+		return errors.New("at least one nodeset must be configured")
+	}
+
+	if c.Infra == nil {
+		return errors.New("infra configuration must be provided")
+	}
+
 	for _, nodeSet := range c.NodeSets {
 		for _, capability := range nodeSet.Capabilities {
 			if !slices.Contains(envDependencies.GlobalCapabilityFlags(), capability) {

@@ -26,6 +26,7 @@ const (
 	MethodSecretsUpdate = "vault.secrets.update"
 	MethodSecretsDelete = "vault.secrets.delete"
 	MethodSecretsList   = "vault.secrets.list"
+	MethodPublicKeyGet  = "vault.publicKey.get"
 
 	MaxBatchSize = 10
 )
@@ -39,6 +40,7 @@ var (
 		MethodSecretsUpdate,
 		MethodSecretsDelete,
 		MethodSecretsList,
+		MethodPublicKeyGet,
 	}
 )
 
@@ -63,6 +65,8 @@ type SecretsService interface {
 	GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*Response, error)
 	DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*Response, error)
 	ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*Response, error)
+
+	GetPublicKey(ctx context.Context, request *vaultcommon.GetPublicKeyRequest) (*vaultcommon.GetPublicKeyResponse, error)
 }
 
 func KeyFor(id *vaultcommon.SecretIdentifier) string {
