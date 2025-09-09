@@ -2,6 +2,7 @@ package securemint
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	sm_plugin_config "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/config"
 	sm_ea "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/securemint/ea"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -132,9 +134,9 @@ func NewSecureMintServices(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create secure mint transmitter: %w", err)
 	}
+	srvs = append(srvs, transmitter)
 	argsNoPlugin.ContractTransmitter = transmitter
 	XXX_SingletonTransmitter.Store(transmitter)
-	srvs = append(srvs, transmitter)
 
 	abort := func() {
 		if cerr := services.MultiCloser(srvs).Close(); cerr != nil {
@@ -146,25 +148,25 @@ func NewSecureMintServices(ctx context.Context,
 	cmdName := env.SecureMintPlugin.Cmd.Get()
 	if cmdName == "" {
 		abort()
-		return nil, fmt.Errorf("secure mint plugin loop is not configured, non-loopp mode is not supported for secure mint")
+		return nil, errors.New("secure mint plugin loop is not configured, non-loopp mode is not supported for secure mint")
 	}
 	lggr.Infof("Configuration indicates loopp usage for secure mint")
 
 	// use unique logger names so we can use it to register a loop
 	secureMintLggr := lggr.Named("SecureMint").Named(spec.ContractID).Named(spec.GetID())
-	envVars, err2 := plugins.ParseEnvFile(env.SecureMintPlugin.Env.Get())
-	if err2 != nil {
-		err = fmt.Errorf("failed to parse secure mint env file: %w", err2)
+	envVars, err := plugins.ParseEnvFile(env.SecureMintPlugin.Env.Get())
+	if err != nil {
+		err = fmt.Errorf("failed to parse secure mint env file: %w", err)
 		abort()
 		return
 	}
-	cmdFn, telem, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
+	cmdFn, telem, err := cfg.RegisterLOOP(plugins.CmdConfig{
 		ID:  secureMintLggr.Name(),
 		Cmd: cmdName,
 		Env: envVars,
 	})
-	if err2 != nil {
-		err = fmt.Errorf("failed to register loop: %w", err2)
+	if err != nil {
+		err = fmt.Errorf("failed to register loop: %w", err)
 		abort()
 		return
 	}
@@ -175,23 +177,17 @@ func NewSecureMintServices(ctx context.Context,
 	}
 
 	secureMintPluginFactory := loop.NewPluginSecureMintService(lggr, telem, cmdFn, ea)
-	argsNoPlugin.ReportingPluginFactory = secureMintPluginFactory // TODO(gg): wrap in promwrapper.NewReportingPluginFactory?
 	srvs = append(srvs, secureMintPluginFactory)
 
-	// Get relay ID for chain identification
-	// rid, err := spec.RelayID()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get relay ID: %w", err)
-	// }
-
 	// Wrap the factory with prometheus metrics monitoring
-	// argsNoPlugin.ReportingPluginFactory = promwrapper.NewReportingPluginFactory(
-	// 	smPluginFactory,
-	// 	lggr,
-	// 	"evm",
-	// 	rid.ChainID,
-	// 	"secure-mint",
-	// )
+	promPluginFactory := promwrapper.NewReportingPluginFactory(
+		secureMintPluginFactory,
+		lggr,
+		"",
+		spec.ChainID,
+		"secure-mint",
+	)
+	argsNoPlugin.ReportingPluginFactory = promPluginFactory
 
 	// Create the oracle
 	var oracle libocr.Oracle
