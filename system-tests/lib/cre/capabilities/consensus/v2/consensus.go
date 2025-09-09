@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/donlevel"
@@ -97,7 +98,7 @@ func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		input.InfraInput,
 		flag,
 		func(_ uint64) string {
-			return "capability_consensus"
+			return contracts.ConsensusV2ContractQualifier
 		},
 		dataStoreOCR3ContractKeyProvider,
 		donlevel.CapabilityEnabler,

@@ -632,6 +632,14 @@ type connProvider interface {
 }
 
 func dkgKeys(key workflowkey.Key, dkgConfig *vaultocrplugin.DKGConfig) (*tdh2easy.PublicKey, *tdh2easy.PrivateShare, error) {
+	if dkgConfig == nil {
+		return nil, nil, nil
+	}
+
+	if dkgConfig.MasterPublicKey == "" || dkgConfig.EncryptedPrivateKeyShare == "" {
+		return nil, nil, nil
+	}
+
 	masterPublicKeyHex := dkgConfig.MasterPublicKey
 	masterPublicKey, err := hex.DecodeString(masterPublicKeyHex)
 	if err != nil {
@@ -706,7 +714,8 @@ func (d *Delegate) newServicesVaultPlugin(
 	clock := clockwork.NewRealClock()
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
-	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer))
+	lpk := vaultcap.NewLazyPublicKey()
+	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer), lpk)
 	srvs = append(srvs, vaultCapability)
 
 	err = capabilitiesRegistry.Add(ctx, vaultCapability)
@@ -808,7 +817,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get DKG keys: %w", err)
 	}
-	rpf, err := vaultocrplugin.NewReportingPluginFactory(lggr, requestStore, nil, &dkgRecipientKey, pk, secKeyShare)
+	rpf, err := vaultocrplugin.NewReportingPluginFactory(lggr, requestStore, nil, &dkgRecipientKey, pk, secKeyShare, lpk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}

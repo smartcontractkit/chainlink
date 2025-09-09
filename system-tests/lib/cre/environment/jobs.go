@@ -3,6 +3,7 @@ package environment
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -12,22 +13,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 )
 
-func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraInput infra.Input) (*jd.Output, error) {
+func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Input) (*jd.Output, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
 	var jdOutput *jd.Output
 	if infraInput.Type == infra.CRIB {
 		deployCribJdInput := &cre.DeployCribJdInput{
-			JDInput:        &jdInput,
-			NixShell:       nixShell,
+			JDInput:        jdInput,
 			CribConfigsDir: cribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
@@ -40,7 +40,7 @@ func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraIn
 	}
 
 	var jdErr error
-	jdOutput, jdErr = CreateJobDistributor(&jdInput)
+	jdOutput, jdErr = CreateJobDistributor(jdInput)
 	if jdErr != nil {
 		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
 
@@ -56,13 +56,37 @@ func StartJD(lggr zerolog.Logger, nixShell *nix.Shell, jdInput jd.Input, infraIn
 	return jdOutput, nil
 }
 
-func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
+func CreateJobDistributor(input jd.Input) (*jd.Output, error) {
+	if os.Getenv("CI") == "true" {
+		jdImage := ctfconfig.MustReadEnvVar_String(E2eJobDistributorImageEnvVarName)
+		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
+		input.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
+	}
+
+	jdOutput, err := jd.NewJD(&input)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
+	}
+
+	return jdOutput, nil
+}
+
+func StartDONsAndJD(lggr zerolog.Logger, jdInput *jd.Input, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
+	if jdInput == nil {
+		return nil, nil, errors.New("jd input is nil")
+	}
+	if registryChainBlockchainOutput == nil {
+		return nil, nil, errors.New("registry chain blockchain output is nil")
+	}
+	if topology == nil {
+		return nil, nil, errors.New("topology is nil")
+	}
 	var jdOutput *jd.Output
 	jdAndDonsErrGroup := &errgroup.Group{}
 
 	jdAndDonsErrGroup.Go(func() error {
 		var startJDErr error
-		jdOutput, startJDErr = StartJD(lggr, nixShell, jdInput, infraInput)
+		jdOutput, startJDErr = StartJD(lggr, *jdInput, infraInput)
 		if startJDErr != nil {
 			return pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}
@@ -74,7 +98,7 @@ func SetupJobs(lggr zerolog.Logger, jdInput jd.Input, nixShell *nix.Shell, regis
 
 	jdAndDonsErrGroup.Go(func() error {
 		var startDonsErr error
-		nodeSetOutput, startDonsErr = StartDONs(lggr, nixShell, topology, infraInput, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
+		nodeSetOutput, startDonsErr = StartDONs(lggr, topology, infraInput, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
 		if startDonsErr != nil {
 			return pkgerrors.Wrap(startDonsErr, "failed to start DONs")
 		}

@@ -31,7 +31,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	donTopology *cre.DonTopology,
 	ds datastore.DataStore,
 	nodeSetInput []*cre.CapabilitiesAwareNodeSet,
-	infraInput *infra.Input,
+	infraInput infra.Input,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
 	dataStoreOCR3ContractKeyProvider DataStoreOCR3ContractKeyProvider,
@@ -43,9 +43,6 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 ) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
-	}
-	if infraInput == nil {
-		return nil, errors.New("infra input is nil")
 	}
 	if configMerger == nil {
 		return nil, errors.New("config merger is nil")
@@ -254,7 +251,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	return donToJobSpecs, nil
 }
 
-func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput *infra.Input) ([]string, error) {
+func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput infra.Input) ([]string, error) {
 	nodeIndexStr, nErr := node.FindLabelValue(bootstrapNode, node.IndexKey)
 	if nErr != nil {
 		return nil, errors.Wrap(nErr, "failed to find index label")
@@ -265,7 +262,7 @@ func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, i
 		return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
 	}
 
-	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donName, *infraInput)
+	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donName, infraInput)
 	return []string{internalHostBS}, nil
 }
 
