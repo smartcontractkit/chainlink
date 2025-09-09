@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
@@ -99,7 +100,7 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		panic(err)
 	}
 
-	ocrConfig, err := changeset.GenerateOCR3Config(cfg, pubKeys, deployment.XXXGenerateTestOCRSecrets())
+	ocrConfig, err := changeset.GenerateOCR3Config(cfg, pubKeys, focr.XXXGenerateTestOCRSecrets())
 	if err != nil {
 		panic(err)
 	}

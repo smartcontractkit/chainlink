@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -160,7 +161,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		func() context.Context {
 			return ctx
 		},
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		blockChains,
 	)
 
