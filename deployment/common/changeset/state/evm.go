@@ -94,8 +94,19 @@ func MaybeLoadMCMSWithTimelockStateWithQualifier(env cldf.Environment, chainSele
 
 // mergeAddressesFromBothSourcesEVMWithQualifier combines addresses from both DataStore and AddressBook making it backward compatible.
 // This version supports qualifiers for filtering DataStore addresses.
+// When a qualifier is specified, only DataStore addresses with that qualifier are returned (no AddressBook merge)
+// to ensure isolation between different deployments.
 func mergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	// Start with addresses from AddressBook for backward compatibility
+	// If a qualifier is specified, only use DataStore to ensure isolation between deployments
+	if qualifier != "" {
+		if env.DataStore != nil {
+			return LoadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
+		}
+		return nil, fmt.Errorf("DataStore not available but qualifier %s specified", qualifier)
+	}
+
+	// For backward compatibility without qualifier, merge both sources
+	// Start with addresses from AddressBook
 	addressBookAddresses := make(map[string]cldf.TypeAndVersion)
 	if addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector); err == nil {
 		addressBookAddresses = addresses
@@ -103,10 +114,10 @@ func mergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSe
 		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
 	}
 
-	// Try to load addresses from DataStore with qualifier
+	// Try to load addresses from DataStore (without qualifier for general case)
 	// Only try if DataStore is available
 	if env.DataStore != nil {
-		dataStoreAddresses, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
+		dataStoreAddresses, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, "")
 		if err != nil {
 			// If DataStore has no addresses, just return AddressBook addresses
 			if strings.Contains(err.Error(), "no addresses found") {
