@@ -1391,7 +1391,7 @@ func Test_FindJob(t *testing.T) {
 		ctx := testutils.Context(t)
 		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
 		_, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID2, contractID, nil)
-		assert.EqualError(t, err2, "Find returned 2 > 1 job results")
+		assert.ErrorContains(t, err2, "find returned > 1 job results")
 	})
 }
 

@@ -1088,7 +1088,7 @@ WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 		return 0, errors.Wrapf(err, "error searching for job by contract id=%s and feed id=%s", contractID, feedID)
 	}
 	if len(results) > 1 {
-		return 0, errors.Errorf("Find returned %d > 1 job results", len(results))
+		return 0, errors.Errorf("For contract id=%s, feed id=%s, find returned > 1 job results with ids = %v", contractID, feedID, results)
 	}
 	if len(results) == 0 {
 		return 0, nil
