@@ -439,7 +439,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	} else {
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
-	i.lggr.Info("Finished creating factory and transmitter")
 	return factory, transmitter, nil
 }
 
@@ -456,10 +455,16 @@ func (i *pluginOracleCreator) createChainAccessors(
 			return nil, fmt.Errorf("failed to get chain selector from relay ID %s and family %s: %w", relayID.ChainID, relayID.Network, err)
 		}
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
-		// check if CCIP provider exist, otherwise create default chain accessor
+		// check if CCIP provider is supported, otherwise create default chain accessor
 		var ca cciptypes.ChainAccessor
-		chainAccessorSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
-		if !chainAccessorSupported || !ok {
+		ccipProviderSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
+		if ccipProviderSupported && ok {
+			provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
+			}
+			ca = provider.ChainAccessor()
+		} else {
 			// use default chain accessor if cr and cw exist
 			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
 				return nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
@@ -474,12 +479,6 @@ func (i *pluginOracleCreator) createChainAccessors(
 			if err != nil {
 				return nil, fmt.Errorf("failed to create default chain accessor for relay ID %s: %w", relayID, err)
 			}
-		} else {
-			provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
-			}
-			ca = provider.ChainAccessor()
 		}
 
 		chainAccessors[chainSelector] = ca
