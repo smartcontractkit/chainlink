@@ -57,20 +57,17 @@ func (s *Capability) Start(ctx context.Context) error {
 }
 
 func (s *Capability) Close() error {
-	closeHandler := func() {
-		ierr := s.handler.Close()
-		if ierr != nil {
-			s.lggr.Errorf("error closing vault DON request handler after failed unregistration: %v", ierr)
-		}
-	}
-
 	err := s.capabilitiesRegistry.Remove(context.Background(), vaultcommon.CapabilityID)
 	if err != nil {
-		closeHandler()
-		return fmt.Errorf("error unregistering vault capability: %w", err)
+		err = fmt.Errorf("error unregistering vault capability: %w", err)
 	}
 
-	return s.handler.Close()
+	err = s.handler.Close()
+	if err != nil {
+		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", err))
+	}
+
+	return err
 }
 
 func (s *Capability) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
