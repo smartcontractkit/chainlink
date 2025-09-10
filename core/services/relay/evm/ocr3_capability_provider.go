@@ -63,7 +63,6 @@ func (d *ocr3CapabilityLogDecoder) Decode(rawLog []byte) (ocrtypes.ContractConfi
 		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.Hex()))
 	}
 	var signers []ocrtypes.OnchainPublicKey
-
 	allPubKeys := map[string]any{}
 	for _, pubKey := range unpacked.Signers {
 		pubKey := pubKey

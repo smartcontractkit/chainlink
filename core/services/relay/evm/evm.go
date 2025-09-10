@@ -728,7 +728,6 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
 		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
-	// case "functions":
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}

@@ -26,10 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-var (
-	DKG cldf.ContractType = "DKG" // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/DKG.sol#L12
-)
-
 const offchainPublicKeyType byte = 0x8
 
 func OCR3CapabilityCompatibleOnchainPublicKey(offchainPublicKey types.OffchainPublicKey) types.OnchainPublicKey {

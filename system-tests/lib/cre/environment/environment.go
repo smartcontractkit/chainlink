@@ -677,7 +677,7 @@ func SetupTestEnvironment(
 	}
 	configureKeystoneInput.VaultOCR3Config = *ocr3Config
 
-	dkgReportingPluginConfig, err := crecontracts.DKGReportingPluginConfig(topology, input.CapabilitiesAwareNodeSets[0])
+	dkgReportingPluginConfig, err := crecontracts.DKGReportingPluginConfig(topology, input.CapabilitiesAwareNodeSets)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to generate DKG reporting plugin config")
 	}

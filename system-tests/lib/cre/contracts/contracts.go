@@ -480,12 +480,12 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 	return oracleConfig, nil
 }
 
-func DKGReportingPluginConfig(topology *cre.Topology, set *cre.CapabilitiesAwareNodeSet) (*dkgocrtypes.ReportingPluginConfig, error) {
+func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.CapabilitiesAwareNodeSet) (*dkgocrtypes.ReportingPluginConfig, error) {
 	cfg := &dkgocrtypes.ReportingPluginConfig{
 		T: 1,
 	}
 	for i, nmd := range topology.DonsMetadata[0].NodesMetadata {
-		if i == set.BootstrapNodeIndex {
+		if i == nodeSets[0].BootstrapNodeIndex {
 			continue
 		}
 		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, crenode.NodeDKGRecipientKey)

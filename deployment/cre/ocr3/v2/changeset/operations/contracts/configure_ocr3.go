@@ -36,7 +36,6 @@ type ConfigureOCR3Input struct {
 	DryRun          bool
 
 	MCMSConfig *ocr3.MCMSConfig
-	DKG        bool
 }
 
 func (i ConfigureOCR3Input) UseMCMS() bool {
