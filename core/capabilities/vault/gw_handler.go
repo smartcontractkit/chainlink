@@ -69,7 +69,7 @@ type GatewayHandler struct {
 	metrics          *metrics
 }
 
-func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, gwsender gatewayConnector, lggr logger.Logger) (*GatewayHandler, error) {
+func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, connector gatewayConnector, lggr logger.Logger) (*GatewayHandler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -78,7 +78,7 @@ func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsSe
 	gh := &GatewayHandler{
 		capRegistry:      capabilitiesRegistry,
 		secretsService:   secretsService,
-		gatewayConnector: gwsender,
+		gatewayConnector: connector,
 		lggr:             lggr.Named(HandlerName),
 		metrics:          metrics,
 	}
