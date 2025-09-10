@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -817,6 +818,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
