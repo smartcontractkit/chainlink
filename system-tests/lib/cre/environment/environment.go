@@ -413,18 +413,20 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		configureKeystoneInput.DONTimeConfig = *donTimeConfig
 	}
 
-	ocr3Config, ocr3ConfigErr := crecontracts.DefaultOCR3Config(topology)
-	if ocr3ConfigErr != nil {
-		return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
-	}
-	configureKeystoneInput.VaultOCR3Config = *ocr3Config
+	if configureKeystoneInput.VaultOCR3Address.Cmp(common.Address{}) != 0 {
+		ocr3Config, ocr3ConfigErr := crecontracts.DefaultOCR3Config(topology)
+		if ocr3ConfigErr != nil {
+			return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
+		}
+		configureKeystoneInput.VaultOCR3Config = *ocr3Config
 
-	dkgReportingPluginConfig, err := crecontracts.DKGReportingPluginConfig(topology, input.CapabilitiesAwareNodeSets)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to generate DKG reporting plugin config")
+		dkgReportingPluginConfig, err := crecontracts.DKGReportingPluginConfig(topology, input.CapabilitiesAwareNodeSets)
+		if err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to generate DKG reporting plugin config")
+		}
+		configureKeystoneInput.DKGReportingPluginConfig = dkgReportingPluginConfig
+		configureKeystoneInput.DKGOCR3Config = *ocr3Config
 	}
-	configureKeystoneInput.DKGReportingPluginConfig = dkgReportingPluginConfig
-	configureKeystoneInput.DKGOCR3Config = *ocr3Config
 
 	defaultOcr3Config, defaultOcr3ConfigErr := crecontracts.DefaultOCR3Config(topology)
 	if defaultOcr3ConfigErr != nil {

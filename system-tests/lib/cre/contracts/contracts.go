@@ -577,8 +577,20 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 	cfg := &dkgocrtypes.ReportingPluginConfig{
 		T: 1,
 	}
-	for i, nmd := range topology.DonsMetadata[0].NodesMetadata {
-		if i == nodeSets[0].BootstrapNodeIndex {
+
+	var vaultIndex = -1
+	for i, don := range topology.DonsMetadata {
+		if flags.HasFlag(don.Flags, cre.VaultCapability) {
+			vaultIndex = i
+			break
+		}
+	}
+	if vaultIndex == -1 {
+		return nil, errors.New("no vault DON found in the topology")
+	}
+
+	for i, nmd := range topology.DonsMetadata[vaultIndex].NodesMetadata {
+		if i == nodeSets[vaultIndex].BootstrapNodeIndex {
 			continue
 		}
 		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, crenode.NodeDKGRecipientKey)

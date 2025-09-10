@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
