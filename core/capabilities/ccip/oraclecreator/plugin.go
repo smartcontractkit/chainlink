@@ -457,9 +457,10 @@ func (i *pluginOracleCreator) createChainAccessors(
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		// check if CCIP provider is supported, otherwise create default chain accessor
 		var ca cciptypes.ChainAccessor
+		var provider types.CCIPProvider
 		ccipProviderSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
 		if ccipProviderSupported && ok {
-			provider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
+			provider, err = relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
 			}
