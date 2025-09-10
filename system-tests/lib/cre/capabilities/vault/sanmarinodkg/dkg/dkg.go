@@ -1,5 +1,4 @@
-// nolint
-//
+//nolint
 //nolint:nolintlint
 package dkg
 
