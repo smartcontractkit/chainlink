@@ -1,9 +1,10 @@
 package crypto
 
 import (
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 )
 
 type DKGRecipientKeys struct {

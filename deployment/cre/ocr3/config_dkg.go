@@ -28,7 +28,7 @@ import (
 
 const offchainPublicKeyType byte = 0x8
 
-func OCR3CapabilityCompatibleOnchainPublicKey(offchainPublicKey types.OffchainPublicKey) types.OnchainPublicKey {
+func oCR3CapabilityCompatibleOnchainPublicKey(offchainPublicKey types.OffchainPublicKey) types.OnchainPublicKey {
 	result := make([]byte, 0, 1+2+len(offchainPublicKey))
 	result = append(result, offchainPublicKeyType)
 	result = binary.LittleEndian.AppendUint16(result, uint16(len(offchainPublicKey)))
@@ -61,7 +61,7 @@ func GenerateDKGConfig(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecrets
 
 	onChainPublicKeys := make([]types.OnchainPublicKey, 0, len(offchainPubKeysBytes))
 	for _, pk := range offchainPubKeysBytes {
-		onChainPublicKeys = append(onChainPublicKeys, OCR3CapabilityCompatibleOnchainPublicKey(pk))
+		onChainPublicKeys = append(onChainPublicKeys, oCR3CapabilityCompatibleOnchainPublicKey(pk))
 	}
 
 	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
