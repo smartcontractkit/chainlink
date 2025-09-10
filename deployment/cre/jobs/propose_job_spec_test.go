@@ -2,6 +2,7 @@ package jobs_test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -249,7 +250,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			},
 			Inputs: job_types.JobSpecInput{
 				"contract_id":    "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-				"chain_selector": chainSelector,
+				"chain_selector": strconv.FormatUint(chainSelector, 10),
 			},
 		}
 
@@ -296,6 +297,6 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to convert inputs to OCR3 bootstrap job input")
-		assert.Contains(t, err.Error(), "chain_selector is required and must be an uint64")
+		assert.Contains(t, err.Error(), "chain_selector is required and must be a string")
 	})
 }

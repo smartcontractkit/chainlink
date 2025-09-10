@@ -69,7 +69,7 @@ func (j JobSpecInput) ToOCR3BootstrapJobInput() (pkg.BootstrapJobInput, error) {
 
 	chainSelector, ok := j["chain_selector"].(string)
 	if !ok {
-		return pkg.BootstrapJobInput{}, errors.New("chain_selector is required and must be a number")
+		return pkg.BootstrapJobInput{}, errors.New("chain_selector is required and must be a string")
 	}
 
 	chainSel, err := parse.Uint64(chainSelector)
