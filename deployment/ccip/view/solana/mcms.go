@@ -65,11 +65,11 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 		return view, fmt.Errorf("failed to load mcms with timelock solana chain state: %w", err)
 	}
 	timelockConfigPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, context.Background(), mcmState.TimelockProgram)
+	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, mcmState.TimelockProgram)
 	if err != nil {
 		return view, fmt.Errorf("failed to get program data address for program %s: %w", mcmState.TimelockProgram.String(), err)
 	}
-	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, context.Background(), progDataAddr)
+	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
 	if err != nil {
 		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 	}
@@ -89,11 +89,11 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 		BypasserRoleAccessController:  timelockData.BypasserRoleAccessController.String(),
 		MinDelay:                      timelockData.MinDelay,
 	}
-	progDataAddr, err = solanashared.GetProgramDataAddress(chain.Client, context.Background(), mcmState.McmProgram)
+	progDataAddr, err = solanashared.GetProgramDataAddress(chain.Client, mcmState.McmProgram)
 	if err != nil {
 		return view, fmt.Errorf("failed to get program data address for program %s: %w", mcmState.McmProgram.String(), err)
 	}
-	authority, _, err = solanashared.GetUpgradeAuthority(chain.Client, context.Background(), progDataAddr)
+	authority, _, err = solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
 	if err != nil {
 		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 	}

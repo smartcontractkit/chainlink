@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -62,7 +63,7 @@ type ProgramData struct {
 
 func decodeUpgradeableLoaderState(data []byte) (*UpgradeableLoaderState, error) {
 	if len(data) < 4 {
-		return nil, fmt.Errorf("data too short")
+		return nil, errors.New("data too short")
 	}
 	state := &UpgradeableLoaderState{}
 	state.Type = binary.LittleEndian.Uint32(data[:4])
@@ -70,7 +71,7 @@ func decodeUpgradeableLoaderState(data []byte) (*UpgradeableLoaderState, error) 
 	switch state.Type {
 	case 2: // Program
 		if len(data) < 36 {
-			return nil, fmt.Errorf("program data too short")
+			return nil, errors.New("program data too short")
 		}
 		state.Program = &Program{
 			ProgramData: solana.PublicKeyFromBytes(data[4:36]),
@@ -81,7 +82,7 @@ func decodeUpgradeableLoaderState(data []byte) (*UpgradeableLoaderState, error) 
 		var auth *solana.PublicKey
 		if opt == 1 {
 			if len(data) < 45 {
-				return nil, fmt.Errorf("missing authority pubkey")
+				return nil, errors.New("missing authority pubkey")
 			}
 			pk := solana.PublicKeyFromBytes(data[13:45])
 			auth = &pk
@@ -99,40 +100,42 @@ func decodeUpgradeableLoaderState(data []byte) (*UpgradeableLoaderState, error) 
 	return state, nil
 }
 
-func GetProgramDataAddress(client *solRpc.Client, ctx context.Context, progPubkey solana.PublicKey) (solana.PublicKey, error) {
-	resp, err := client.GetAccountInfo(ctx, progPubkey)
+func getUpgradeableLoaderState(client *solRpc.Client, progPubkey solana.PublicKey) (*UpgradeableLoaderState, error) {
+	resp, err := client.GetAccountInfo(context.Background(), progPubkey)
 	if err != nil {
-		return solana.PublicKey{}, fmt.Errorf("failed to fetch program account: %w", err)
+		return nil, fmt.Errorf("failed to fetch program account: %w", err)
 	}
 	if resp.Value == nil {
-		return solana.PublicKey{}, fmt.Errorf("program account does not exist")
+		return nil, errors.New("program account does not exist")
 	}
 
 	state, err := decodeUpgradeableLoaderState(resp.Value.Data.GetBinary())
 	if err != nil {
-		return solana.PublicKey{}, fmt.Errorf("decode error: %w", err)
+		return nil, fmt.Errorf("decode error: %w", err)
 	}
+	return state, nil
+}
+
+func GetProgramDataAddress(client *solRpc.Client, progPubkey solana.PublicKey) (solana.PublicKey, error) {
+	state, err := getUpgradeableLoaderState(client, progPubkey)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to get program data address for program %s: %w", progPubkey.String(), err)
+	}
+
 	if state.Program == nil {
-		return solana.PublicKey{}, fmt.Errorf("account is not an upgradeable program")
+		return solana.PublicKey{}, errors.New("account is not an upgradeable program")
 	}
 	return state.Program.ProgramData, nil
 }
 
-func GetUpgradeAuthority(client *solRpc.Client, ctx context.Context, progDataPubkey solana.PublicKey) (solana.PublicKey, bool, error) {
-	resp, err := client.GetAccountInfo(ctx, progDataPubkey)
+func GetUpgradeAuthority(client *solRpc.Client, progDataPubkey solana.PublicKey) (solana.PublicKey, bool, error) {
+	state, err := getUpgradeableLoaderState(client, progDataPubkey)
 	if err != nil {
-		return solana.PublicKey{}, false, fmt.Errorf("failed to fetch programdata account: %w", err)
-	}
-	if resp.Value == nil {
-		return solana.PublicKey{}, false, fmt.Errorf("programdata account does not exist")
+		return solana.PublicKey{}, false, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataPubkey.String(), err)
 	}
 
-	state, err := decodeUpgradeableLoaderState(resp.Value.Data.GetBinary())
-	if err != nil {
-		return solana.PublicKey{}, false, fmt.Errorf("decode error: %w", err)
-	}
 	if state.ProgramData == nil {
-		return solana.PublicKey{}, false, fmt.Errorf("unexpected state: not programdata")
+		return solana.PublicKey{}, false, errors.New("unexpected state: not programdata")
 	}
 
 	if state.ProgramData.AuthorityOption == 0 {

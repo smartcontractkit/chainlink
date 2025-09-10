@@ -47,11 +47,11 @@ type OffRampSourceChainConfig struct {
 
 func GenerateOffRampView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (OffRampView, error) {
 	view := OffRampView{}
-	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, context.Background(), program)
+	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, program)
 	if err != nil {
 		return view, fmt.Errorf("failed to get program data address for program %s: %w", program.String(), err)
 	}
-	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, context.Background(), progDataAddr)
+	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
 	if err != nil {
 		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 	}
