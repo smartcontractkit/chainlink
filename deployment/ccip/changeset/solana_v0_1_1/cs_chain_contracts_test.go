@@ -598,6 +598,7 @@ func TestBillingWithoutMcms(t *testing.T) {
 
 func TestSetTokenAuthority(t *testing.T) {
 	quarantine.Flaky(t, "DX-1778")
+	quarantine.Flaky(t, "DX-1778")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
