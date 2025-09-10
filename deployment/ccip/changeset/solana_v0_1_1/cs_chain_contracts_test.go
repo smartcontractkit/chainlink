@@ -819,6 +819,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
 	quarantine.Flaky(t, "DX-1720")
+	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
