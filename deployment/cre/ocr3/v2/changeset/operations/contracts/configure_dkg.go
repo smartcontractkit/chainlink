@@ -9,6 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
@@ -17,7 +18,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/dkg"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -62,7 +62,7 @@ var ConfigureDKG = operations.NewOperation[ConfigureDKGInput, ConfigureDKGOpOutp
 			return ConfigureDKGOpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
 		}
 
-		contract, err := contracts.GetOwnedContractV2[*dkg.DKG](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
+		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
 		if err != nil {
 			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to get DKG contract: %w", err)
 		}

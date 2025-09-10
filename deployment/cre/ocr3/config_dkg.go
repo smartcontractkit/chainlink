@@ -2,14 +2,14 @@ package ocr3
 
 import (
 	"crypto/ed25519"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/dkg"
+	"github.com/ethereum/go-ethereum/common"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -29,6 +29,17 @@ import (
 var (
 	DKG cldf.ContractType = "DKG" // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/DKG.sol#L12
 )
+
+const offchainPublicKeyType byte = 0x8
+
+func OCR3CapabilityCompatibleOnchainPublicKey(offchainPublicKey types.OffchainPublicKey) types.OnchainPublicKey {
+	result := make([]byte, 0, 1+2+len(offchainPublicKey))
+	result = append(result, offchainPublicKeyType)
+	result = binary.LittleEndian.AppendUint16(result, uint16(len(offchainPublicKey)))
+	result = append(result, offchainPublicKey[:]...)
+
+	return result
+}
 
 func GenerateDKGConfig(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
@@ -52,6 +63,11 @@ func GenerateDKGConfig(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecrets
 		offchainPubKeysBytes = append(offchainPubKeysBytes, pkBytesFixed)
 	}
 
+	onChainPublicKeys := make([]types.OnchainPublicKey, 0, len(offchainPubKeysBytes))
+	for _, pk := range offchainPubKeysBytes {
+		onChainPublicKeys = append(onChainPublicKeys, OCR3CapabilityCompatibleOnchainPublicKey(pk))
+	}
+
 	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
 	for _, n := range nca {
 		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
@@ -72,10 +88,10 @@ func GenerateDKGConfig(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecrets
 	for index := range nca {
 		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  offchainPubKeysBytes[index][:],
+				OnchainPublicKey:  onChainPublicKeys[index],
 				OffchainPublicKey: offchainPubKeysBytes[index],
 				PeerID:            nca[index].P2PPeerID,
-				TransmitAccount:   types.Account(strings.ToLower(fmt.Sprintf("0xc1c1c1c1%x", offchainPubKeysBytes[index][:16]))),
+				TransmitAccount:   types.Account(common.HexToAddress(fmt.Sprintf("0xc1c1c1c1%x", offchainPubKeysBytes[index][:16])).Hex()),
 			},
 			ConfigEncryptionPublicKey: configPubKeysBytes[index],
 		})
@@ -137,7 +153,7 @@ func GenerateDKGConfig(cfg OracleConfig, nca []NodeKeys, secrets cldf.OCRSecrets
 type ConfigureDKGRequest struct {
 	Cfg                   *OracleConfig
 	Chain                 cldf_evm.Chain
-	Contract              *dkg.DKG
+	Contract              *ocr3_capability.OCR3Capability
 	Nodes                 []deployment.Node
 	DryRun                bool
 	OcrSecrets            cldf.OCRSecrets
@@ -161,7 +177,7 @@ type ConfigureDKGResponse struct {
 type ConfigureDKGConfig struct {
 	ChainSel              uint64
 	NodeIDs               []string
-	Contract              *dkg.DKG
+	Contract              *ocr3_capability.OCR3Capability
 	OCR3Config            *OracleConfig
 	DryRun                bool
 	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig

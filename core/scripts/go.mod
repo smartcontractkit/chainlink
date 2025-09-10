@@ -9,8 +9,6 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../../system-tests/lib
 
-replace github.com/smartcontractkit/chainlink-evm/gethwrappers => ../../../chainlink-evm/gethwrappers
-
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based => ./cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based => ./cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based
@@ -53,7 +51,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.42.0
 	github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250908163340-462bedeaabd5
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.17
@@ -498,7 +496,7 @@ require (
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/mcms v0.21.1 // indirect
-	github.com/smartcontractkit/smdkg v0.0.0-20250905122113-4057e4fe4b25 // indirect
+	github.com/smartcontractkit/smdkg v0.0.0-20250910095332-fcfc37af3920 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect

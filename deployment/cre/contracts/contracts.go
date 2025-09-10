@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/dkg"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
@@ -133,7 +132,6 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf
 	case *capabilities_registry.CapabilitiesRegistry:
 	case *capabilities_registry_v2.CapabilitiesRegistry:
 	case *ocr3_capability.OCR3Capability:
-	case *dkg.DKG:
 	case *workflow_registry.WorkflowRegistry:
 	default:
 		return nil, fmt.Errorf("unsupported contract type %T", *new(T))
@@ -172,9 +170,6 @@ func createContractInstance[T Ownable](addr string, chain cldf_evm.Chain) (*T, e
 		instance, err = any(c).(T), e
 	case *ocr3_capability.OCR3Capability:
 		c, e := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.Client)
-		instance, err = any(c).(T), e
-	case *dkg.DKG:
-		c, e := dkg.NewDKG(common.HexToAddress(addr), chain.Client)
 		instance, err = any(c).(T), e
 	case *workflow_registry.WorkflowRegistry:
 		c, e := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)

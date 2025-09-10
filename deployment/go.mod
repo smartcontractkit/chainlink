@@ -5,8 +5,6 @@ go 1.24.5
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
-replace github.com/smartcontractkit/chainlink-evm/gethwrappers => ../../chainlink-evm/gethwrappers
-
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250826151008-ae5ec0ee6f2c
@@ -42,7 +40,7 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250905131850-7713941a6848
 	github.com/smartcontractkit/chainlink-deployments-framework v0.42.0
 	github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250908163340-462bedeaabd5
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250729142306-508e798f6a5d
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
@@ -52,7 +50,7 @@ require (
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/smartcontractkit/mcms v0.21.1
-	github.com/smartcontractkit/smdkg v0.0.0-20250905122113-4057e4fe4b25
+	github.com/smartcontractkit/smdkg v0.0.0-20250910095332-fcfc37af3920
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cast v1.7.1
 	github.com/spf13/cobra v1.9.1

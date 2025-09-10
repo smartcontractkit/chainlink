@@ -924,7 +924,6 @@ func (d *Delegate) newServicesDKGPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
-	fmt.Printf("DOING SECOND OCR ORACLE %s\n", spec.ContractID)
 	lc.BlockchainTimeout = 5 * time.Second
 	lc.SkipContractConfigConfirmations = true
 	provider2, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -934,7 +933,7 @@ func (d *Delegate) newServicesDKGPlugin(
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
-		ProviderType:  string("dkg-plugin"),
+		ProviderType:  string(types.OCR3Capability),
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
 		PluginConfig:  []byte{},

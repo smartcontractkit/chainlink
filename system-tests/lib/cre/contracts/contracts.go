@@ -355,7 +355,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 			return errors.Wrap(err, "failed to configure Vault OCR3 contract")
 		}
 
-		fmt.Printf("DOING DKG NOW %v\n", *input.DKGReportingPluginConfig)
 		_, err = operations.ExecuteOperation(
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureDKGOp,
@@ -363,7 +362,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 				Env: input.CldEnv,
 			},
 			ks_contracts_op.ConfigureDKGOpInput{
-				ContractAddress:       input.DKGAddress,
+				ContractAddress:       input.DKGOCR3Address,
 				ChainSelector:         input.ChainSelector,
 				DON:                   vaultDON.keystoneDonConfig(),
 				Config:                vaultDON.resolveOcr3Config(input.DKGOCR3Config),

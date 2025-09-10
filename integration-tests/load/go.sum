@@ -1514,6 +1514,8 @@ github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea h
 github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea/go.mod h1:s+4876jB9bAnX+b46t/Q757IixXHiwtgW82GO0fdsqw=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be h1:NRldnH+Q6v8TjO3sBGo1mL/VRGeaPVneY2L13tCx114=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be/go.mod h1:3Lsp38qxen9PABVF+O5eocveQev+hyo9HLAgRodBD4Q=
+github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250908163340-462bedeaabd5 h1:GMTdXsF/hw7lMtL6ZZ0SSXO5YCgmcrUC3M+bidVsuuU=
+github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250908163340-462bedeaabd5/go.mod h1:oyfOm4k0uqmgZIfxk1elI/59B02shbbJQiiUdPdbMgI=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 h1:8u9xUrC+yHrTDexOKDd+jrA6LCzFFHeX1G82oj2fsSI=
 github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135/go.mod h1:NkvE4iQgiT7dMCP6U3xPELHhWhN5Xr6rHC0axRebyMU=
 github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250818175541-3389ac08a563 h1:ACpDbAxG4fa4sA83dbtYcrnlpE/y7thNIZfHxTv2ZLs=
@@ -1572,8 +1574,8 @@ github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d h1:/0/80Ic
 github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d/go.mod h1:Acy3BTBxou83ooMESLO90s8PKSu7RvLCzwSTbxxfOK0=
 github.com/smartcontractkit/mcms v0.21.1 h1:vbM1c45Hd526XTKdXy2G1YKlMyzyc+ybdPTK79UlkKg=
 github.com/smartcontractkit/mcms v0.21.1/go.mod h1:7bg4JECK7UHvXAJ7/kzvCNLzUu8JxKvvti3ko9y3FpI=
-github.com/smartcontractkit/smdkg v0.0.0-20250905122113-4057e4fe4b25 h1:zxZHMnCEjSfQYq9vzWUZncikyAy971yU7GsviXVGmLM=
-github.com/smartcontractkit/smdkg v0.0.0-20250905122113-4057e4fe4b25/go.mod h1:Cxtf6GUlIhyQRT6BSl39VhPOySGgsB85nmYGiICDnAs=
+github.com/smartcontractkit/smdkg v0.0.0-20250910095332-fcfc37af3920 h1:jPVBYcBq2RCMBns5nf8MR5CSAi7qfbJh0vCxkvcSg7s=
+github.com/smartcontractkit/smdkg v0.0.0-20250910095332-fcfc37af3920/go.mod h1:LruPoZcjytOUK4mjQ92dZ0XfXu7pkr+fg8Y58XKkKC8=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de h1:n0w0rKF+SVM+S3WNlup6uabXj2zFlFNfrlsKCMMb/co=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de/go.mod h1:Sl2MF/Fp3fgJIVzhdGhmZZX2BlnM0oUUyBP4s4xYb6o=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20250624150019-e49f7e125e6b h1:hN0Aqc20PTMGkYzqJGKIZCZMR4RoFlI85WpbK9fKIns=

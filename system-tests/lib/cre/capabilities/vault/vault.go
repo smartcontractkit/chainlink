@@ -107,7 +107,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 
 		dkgKey := datastore.NewAddressRefKey(
 			input.DonTopology.HomeChainSelector,
-			datastore.ContractType(keystone_changeset.DKG.String()),
+			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
 			"capability_vault_dkg",
 		)

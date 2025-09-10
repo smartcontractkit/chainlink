@@ -346,7 +346,7 @@ func SetupTestEnvironment(
 		if seqErr != nil {
 			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", seqErr)
 		}
-		_, seqErr = deployDKGContract("capability_vault_dkg", homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
+		_, seqErr = deployOCR3Contract("capability_vault_dkg", homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
 		if seqErr != nil {
 			return nil, fmt.Errorf("failed to deploy DKG contract %w", seqErr)
 		}
@@ -387,8 +387,8 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultOCR3Addr)
 		vaultOCR3CommonAddr = common.HexToAddress(vaultOCR3Addr)
 
-		dkgAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.DKG.String(), input.ContractVersions[keystone_changeset.DKG.String()], "capability_vault_dkg")
-		testLogger.Info().Msgf("Deployed %s (DKG) contract on chain %d at %s", input.ContractVersions[keystone_changeset.DKG.String()], homeChainSelector, dkgAddr)
+		dkgAddr := mustGetAddress(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], "capability_vault_dkg")
+		testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, dkgAddr)
 		dkgCommonAddr = common.HexToAddress(dkgAddr)
 	}
 
@@ -644,7 +644,7 @@ func SetupTestEnvironment(
 		OCR3Address:                 &ocr3CommonAddr,
 		DONTimeAddress:              &donTimeCommonAddr,
 		VaultOCR3Address:            &vaultOCR3CommonAddr,
-		DKGAddress:                  &dkgCommonAddr,
+		DKGOCR3Address:              &dkgCommonAddr,
 		EVMOCR3Addresses:            &evmOCR3CommonAddresses,
 		ConsensusV2OCR3Address:      &consensusV2OCR3CommonAddr,
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
@@ -801,25 +801,4 @@ func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment
 		return nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
 	}
 	return &ocr3DeployReport.Output, nil
-}
-
-func deployDKGContract(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*ks_contracts_op.DeployDKGContractSequenceOutput, error) {
-	dkgDeployReport, err := operations.ExecuteSequence(
-		env.OperationsBundle,
-		ks_contracts_op.DeployDKGContractsSequence,
-		ks_contracts_op.DeployDKGContractSequenceDeps{
-			Env: env,
-		},
-		ks_contracts_op.DeployDKGContractSequenceInput{
-			ChainSelector: selector,
-			Qualifier:     qualifier,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy DKG contract '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	if err = ds.Merge(dkgDeployReport.Output.Datastore); err != nil {
-		return nil, fmt.Errorf("failed to merge datastore with DKG contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	return &dkgDeployReport.Output, nil
 }

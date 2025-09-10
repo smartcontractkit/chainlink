@@ -113,7 +113,6 @@ func NewContractVersionsProvider(overrides map[string]string) *contractVersionsP
 			keystone_changeset.WorkflowRegistry.String():     "1.0.0",
 			keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
 			keystone_changeset.KeystoneForwarder.String():    "1.0.0",
-			keystone_changeset.DKG.String():                  "1.0.0",
 			ks_sol.ForwarderContract.String():                "1.0.0",
 			ks_sol.ForwarderState.String():                   "1.0.0",
 		},
@@ -394,7 +393,7 @@ type ConfigureKeystoneInput struct {
 
 	DKGReportingPluginConfig *dkgocrtypes.ReportingPluginConfig
 	DKGOCR3Config            keystone_changeset.OracleConfig
-	DKGAddress               *common.Address
+	DKGOCR3Address           *common.Address
 
 	EVMOCR3Config    keystone_changeset.OracleConfig
 	EVMOCR3Addresses *map[uint64]common.Address // chain selector to address map
