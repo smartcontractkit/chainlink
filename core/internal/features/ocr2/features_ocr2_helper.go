@@ -46,7 +46,7 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 
-	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -632,7 +632,7 @@ updateInterval = "1m"
 				contractABI, err2 := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 				require.NoError(t, err2)
 				store := keys.NewStore(keystore.NewEthSigner(apps[0].KeyStore.Eth(), testutils.SimulatedChainID))
-				mp := lpmocks.NewLogPoller(t)
+				mp := mocks.NewLogPoller(t)
 				mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 				ct, err2 := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, b.Client(), contractABI, nil, mp, lggr, store)
 				require.NoError(t, err2)
