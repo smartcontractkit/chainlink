@@ -260,29 +260,18 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	// We'll also construct a set to record what DONs the current node is a part of,
 	// regardless of any modifiers (public/acceptsWorkflows etc).
 	myID := w.peerWrapper.GetPeer().ID()
-
-	w.lggr.Debugf("DID: My ID: %s ", myID.String())
-
 	myWorkflowDONs := []registrysyncer.DON{}
 	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
 	for _, id := range allDONIDs {
-
-		w.lggr.Debugf("DID: DON ID: %s", id)
-
 		d := localRegistry.IDsToDONs[id]
 		for _, peerID := range d.Members {
-			w.lggr.Debugf("DID: DON PEER: %s", peerID)
-
 			if peerID == myID {
 				myDONs[d.ID] = true
-				w.lggr.Debugf("DID:Added My DON: %d", d.ID)
 			}
 		}
 
 		if d.AcceptsWorkflows {
-			w.lggr.Debugf("DID:Accepts workflows: %v", d)
-
 			if myDONs[d.ID] {
 				myWorkflowDONs = append(myWorkflowDONs, d)
 			} else {
@@ -307,11 +296,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 
 	belongsToAWorkflowDON := len(myWorkflowDONs) > 0
 	if belongsToAWorkflowDON {
-		w.lggr.Debugf("DID:BelongsToAWorkflowDON: %d", myID)
-
 		myDON := myWorkflowDONs[0]
-
-		w.lggr.Debugf("DID:Setting workflow don to: %v", myDON)
 
 		// NOTE: this is enforced on-chain and so should never happen.
 		if len(myWorkflowDONs) > 1 {
