@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,10 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -37,7 +40,10 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
+
+const DonFamily = "test-don-family"
 
 type donConfig struct {
 	id uint32 // the DON id as registered in the capabilities registry
@@ -154,13 +160,17 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 
 	for _, don := range d.donsOrderedByID() {
 		// Extract capabilities
-		for _, cap := range don.Capabilities {
-			capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
+		for _, myCap := range don.Capabilities {
+			capID := fmt.Sprintf("%s@%s", myCap.Capability.LabelledName, myCap.Capability.Version)
 			if _, exists := capabilityMap[capID]; !exists {
+				metadataJSON, _ := json.Marshal(syncer_v2.CapabilityMetadata{
+					CapabilityType: myCap.Capability.CapabilityType,
+					ResponseType:   myCap.Capability.ResponseType,
+				})
 				capabilityMap[capID] = capabilities_registry_v2.CapabilitiesRegistryCapability{
 					CapabilityId:          capID,
 					ConfigurationContract: common.Address{},
-					Metadata:              []byte("{}"),
+					Metadata:              metadataJSON,
 				}
 			}
 		}
@@ -181,7 +191,7 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 						continue // Skip invalid peer IDs
 					}
 					// Safe conversion: len(nops) is controlled and small
-					nodeOperatorID := uint32(len(nops)) //nolint:gosec // G115: len(nops) is small and controlled
+					nodeOperatorID := conversions.MustSafeUint32(len(nops))
 					nodes = append(nodes, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
 						NodeOperatorId:      nodeOperatorID,
 						P2pId:               peerID,
@@ -222,7 +232,7 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 
 		donParams = append(donParams, capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 			Name:                     don.Name,
-			DonFamilies:              []string{}, // Default empty
+			DonFamilies:              []string{DonFamily}, // Default empty
 			Config:                   []byte("{}"),
 			CapabilityConfigurations: capConfigs,
 			Nodes:                    donNodes,
