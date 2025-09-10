@@ -143,15 +143,15 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 }
 
 func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
-	var nops []capabilities_registry_v2.CapabilitiesRegistryNodeOperator
-	var nodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams  
-	var capabilities []capabilities_registry_v2.CapabilitiesRegistryCapability
-	var donParams []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
-	
+	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperator, 0)
+	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0)
+	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
+	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
+
 	// Collect unique capabilities and NOPs
 	capabilityMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapability)
 	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperator)
-	
+
 	for _, don := range d.donsOrderedByID() {
 		// Extract capabilities
 		for _, cap := range don.Capabilities {
@@ -164,7 +164,7 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 				}
 			}
 		}
-		
+
 		// Extract NOPs and nodes
 		for _, nop := range don.Nops {
 			nopName := nop.Name
@@ -173,23 +173,25 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 					Admin: common.Address{}, // Will be set by the deployment framework
 					Name:  nopName,
 				}
-				
+
 				// Add nodes for this NOP
 				for _, nodeID := range nop.Nodes {
 					peerID, err := p2pkey.MakePeerID(nodeID)
 					if err != nil {
 						continue // Skip invalid peer IDs
 					}
+					// Safe conversion: len(nops) is controlled and small
+					nodeOperatorID := uint32(len(nops)) //nolint:gosec // G115: len(nops) is small and controlled
 					nodes = append(nodes, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
-						NodeOperatorId:      uint32(len(nops)), // Will be the index of the NOP
-						P2pId:              peerID,
-						Signer:             [32]byte{}, // Will be set by the deployment framework
+						NodeOperatorId:      nodeOperatorID,
+						P2pId:               peerID,
+						Signer:              [32]byte{}, // Will be set by the deployment framework
 						EncryptionPublicKey: [32]byte{}, // Will be set by the deployment framework
 					})
 				}
 			}
 		}
-		
+
 		// Create DON parameters
 		var capConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
 		for _, cap := range don.Capabilities {
@@ -206,7 +208,7 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 				Config:       configBytes,
 			})
 		}
-		
+
 		var donNodes [][32]byte
 		for _, nop := range don.Nops {
 			for _, nodeID := range nop.Nodes {
@@ -217,7 +219,7 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 				donNodes = append(donNodes, peerID)
 			}
 		}
-		
+
 		donParams = append(donParams, capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 			Name:                     don.Name,
 			DonFamilies:              []string{}, // Default empty
@@ -229,7 +231,7 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 			AcceptsWorkflows:         true,
 		})
 	}
-	
+
 	// Convert maps to slices
 	for _, cap := range capabilityMap {
 		capabilities = append(capabilities, cap)
@@ -237,7 +239,7 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 	for _, nop := range nopMap {
 		nops = append(nops, nop)
 	}
-	
+
 	return cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{
 		RegistryChainSel: chainSelector,
 		ContractAddress:  contractAddress,
