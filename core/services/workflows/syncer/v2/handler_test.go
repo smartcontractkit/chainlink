@@ -7,17 +7,22 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
+	"google.golang.org/grpc"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 
@@ -916,5 +921,230 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		// Verify the engine is still running
 		_, ok = h.engineRegistry.Get(giveWFID)
 		assert.True(t, ok)
+	})
+}
+
+// mockLinkingService implements the LinkingServiceServer interface for testing
+type mockLinkingService struct {
+	linkingclient.UnimplementedLinkingServiceServer
+	orgID string
+}
+
+func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Context, req *linkingclient.GetOrganizationFromWorkflowOwnerRequest) (*linkingclient.GetOrganizationFromWorkflowOwnerResponse, error) {
+	return &linkingclient.GetOrganizationFromWorkflowOwnerResponse{
+		OrganizationId: m.orgID,
+	}, nil
+}
+
+// inspectableEmitter captures labels when With() is called so we can inspect them
+// we can't use beholdertest.Observer directly because it will require a hack to add
+// the orgID as an unstructured label, which is not what we want. once we have the v2
+// deployment events in, we can use beholdertest.Observer directly.
+type inspectableEmitter struct {
+	observer   beholdertest.Observer
+	lastLabels map[string]string
+	withCalled bool
+	labels     map[string]string
+}
+
+func newInspectableEmitter(t *testing.T) *inspectableEmitter {
+	return &inspectableEmitter{
+		observer:   beholdertest.NewObserver(t),
+		lastLabels: make(map[string]string),
+		labels:     make(map[string]string),
+	}
+}
+
+func (i *inspectableEmitter) With(keyvals ...string) custmsg.MessageEmitter {
+	i.withCalled = true
+	// Capture the labels
+	for j := 0; j < len(keyvals)-1; j += 2 {
+		key := keyvals[j]
+		value := keyvals[j+1]
+		i.lastLabels[key] = value
+		i.labels[key] = value
+	}
+	// Create a new inspectable emitter with the updated labels
+	newEmitter := &inspectableEmitter{
+		observer:   i.observer,
+		lastLabels: make(map[string]string),
+		withCalled: true,
+		labels:     make(map[string]string),
+	}
+	// Copy all labels
+	for k, v := range i.labels {
+		newEmitter.labels[k] = v
+	}
+	return newEmitter
+}
+
+func (i *inspectableEmitter) Emit(ctx context.Context, msg string) error {
+	return nil
+}
+
+func (i *inspectableEmitter) Labels() map[string]string {
+	return i.labels
+}
+
+func (i *inspectableEmitter) WithMapLabels(labels map[string]string) custmsg.MessageEmitter {
+	i.withCalled = true
+	// Create a new inspectable emitter with the updated labels
+	newEmitter := &inspectableEmitter{
+		observer:   i.observer,
+		lastLabels: make(map[string]string),
+		withCalled: true,
+		labels:     make(map[string]string),
+	}
+	// Copy existing labels
+	for k, v := range i.labels {
+		newEmitter.labels[k] = v
+		newEmitter.lastLabels[k] = v
+	}
+	// Add new labels
+	for k, v := range labels {
+		newEmitter.labels[k] = v
+		newEmitter.lastLabels[k] = v
+	}
+	return newEmitter
+}
+
+func Test_Handler_OrganizationID(t *testing.T) {
+	emitterInspector := newInspectableEmitter(t)
+	ctx := testutils.Context(t)
+
+	// Set up mock gRPC server for linking service
+	mockLinking := &mockLinkingService{orgID: "test-org"}
+	lis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "localhost:0")
+	require.NoError(t, err)
+	s := grpc.NewServer()
+	linkingclient.RegisterLinkingServiceServer(s, mockLinking)
+	go func() {
+		assert.NoError(t, s.Serve(lis))
+	}()
+	defer s.Stop()
+	linkingURL := lis.Addr().String()
+
+	var (
+		lggr                  = logger.TestLogger(t)
+		mockORM               = mocks.NewORM(t)
+		binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+		encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+		config                = []byte("")
+		wfOwner               = []byte("0xOwner")
+		workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	)
+
+	giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+	require.NoError(t, err)
+	wfIDString := hex.EncodeToString(giveWFID[:])
+
+	// Set up artifact fetcher using existing mockFetcher pattern
+	signedBinaryURL := "http://example.com/" + wfIDString + "/binary?auth=abc123"
+	signedConfigURL := "http://example.com/" + wfIDString + "/config?auth=abc123"
+
+	fetcher := newMockFetcher(map[string]mockFetchResp{
+		wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+		wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+		signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+		signedConfigURL:                      {Body: config, Err: nil},
+	})
+
+	// Mock ORM responses
+	mockORM.EXPECT().GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex()).Return(nil, errors.New("not found"))
+	mockORM.EXPECT().UpsertWorkflowSpec(ctx, mock.AnythingOfType("*job.WorkflowSpec")).Return(int64(1), nil)
+
+	// Set up handler
+	er := NewEngineRegistry()
+	store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+	registry := capabilities.NewRegistry(lggr)
+	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
+	require.NoError(t, err)
+
+	artifactStore, err := artifacts.NewStore(lggr, mockORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), artifacts.WithConfig(artifacts.StoreConfig{
+		ArtifactStorageHost: "example.com",
+	}))
+	require.NoError(t, err)
+
+	h, err := NewEventHandler(lggr, store, nil, true, registry, er, emitterInspector, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey,
+		WithEngineRegistry(er),
+		WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+			return &mockEngine{}, nil
+		}),
+		WithLinking(linkingURL, false),
+	)
+	require.NoError(t, err)
+
+	// Handle workflow registered event
+	event := WorkflowRegisteredEvent{
+		Status:        WorkflowStatusActive,
+		WorkflowID:    giveWFID,
+		WorkflowOwner: wfOwner,
+		WorkflowName:  "workflow-name",
+		WorkflowTag:   "workflow-tag",
+		BinaryURL:     "http://example.com/" + wfIDString + "/binary",
+		ConfigURL:     "http://example.com/" + wfIDString + "/config",
+	}
+
+	err = h.Handle(ctx, Event{
+		Name: WorkflowRegistered,
+		Data: event,
+	})
+	require.NoError(t, err)
+
+	// Verify that With() was called on the emitter and organization ID is present
+	require.True(t, emitterInspector.withCalled, "Expected With() to be called on the emitter")
+	require.Contains(t, emitterInspector.lastLabels, "orgID", "Expected orgID in emitter labels")
+	require.Equal(t, "test-org", emitterInspector.lastLabels["orgID"], "Expected correct organization ID in emitter labels")
+
+	// Also verify that the WorkflowStatusChanged message was emitted
+	statusChangedMessages := emitterInspector.observer.Messages(t, "beholder_entity", "workflows.v1.WorkflowStatusChanged")
+	require.Len(t, statusChangedMessages, 1, "Expected one WorkflowStatusChanged message")
+
+	// Test deletion event
+	t.Run("WorkflowDeleted event includes org ID in labels", func(t *testing.T) {
+		deleteEmitterInspector := newInspectableEmitter(t)
+
+		mockDeleteORM := mocks.NewORM(t)
+		spec := &job.WorkflowSpec{
+			WorkflowID:    hex.EncodeToString(giveWFID[:]),
+			WorkflowOwner: hex.EncodeToString(wfOwner),
+			WorkflowName:  "workflow-name",
+		}
+		mockDeleteORM.EXPECT().GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex()).Return(spec, nil)
+		mockDeleteORM.EXPECT().DeleteWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex()).Return(nil)
+
+		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), artifacts.WithConfig(artifacts.StoreConfig{
+			ArtifactStorageHost: "example.com",
+		}))
+		require.NoError(t, err)
+
+		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, er, deleteEmitterInspector, limiters, rl, workflowLimits, deleteArtifactStore, workflowEncryptionKey,
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+				return &mockEngine{}, nil
+			}),
+			WithLinking(linkingURL, false),
+		)
+		require.NoError(t, err)
+
+		err = hDelete.Handle(ctx, Event{
+			Name: WorkflowDeleted,
+			Data: WorkflowDeletedEvent{WorkflowID: giveWFID},
+		})
+		require.NoError(t, err)
+
+		// Verify that With() was called on the deletion emitter and organization ID is present
+		require.True(t, deleteEmitterInspector.withCalled, "Expected With() to be called on the deletion emitter")
+		require.Contains(t, deleteEmitterInspector.lastLabels, "orgID", "Expected orgID in deletion emitter labels")
+		require.Equal(t, "test-org", deleteEmitterInspector.lastLabels["orgID"], "Expected correct organization ID in deletion emitter labels")
+
+		// Also verify that the WorkflowStatusChanged message was emitted for deletion
+		statusChangedMessages := deleteEmitterInspector.observer.Messages(t, "beholder_entity", "workflows.v1.WorkflowStatusChanged")
+		require.Len(t, statusChangedMessages, 1, "Expected one WorkflowStatusChanged message for deletion")
 	})
 }
