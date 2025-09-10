@@ -3,6 +3,8 @@ schemaVersion = 1
 name = "{{ .JobName }}"
 externalJobID = "{{ .ExternalJobID }}"
 contractID = "{{ .ContractID }}"
+contractConfigTrackerPollInterval = "1s"
+contractConfigConfirmations = 1
 relay = "evm"
 
 [relayConfig]
