@@ -185,10 +185,14 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
 				ccipChangesetSolana.TokenPoolConfigWithMCM{
 					ChainSelector: solChain,
-					TokenPubKey:   tokenAddress,
-					PoolType:      testCase.poolType,
-					Metadata:      tokenMetadata,
 					MCMS:          mcmsConfig,
+					TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
+						{
+							TokenPubKey: tokenAddress,
+							PoolType:    testCase.poolType,
+							Metadata:    tokenMetadata,
+						},
+					},
 				},
 			),
 			commonchangeset.Configure(
@@ -769,8 +773,8 @@ func TestPartnerTokenPools(t *testing.T) {
 					BuildLocally: true,
 				},
 			},
-			LockReleaseTokenPoolMetadata: PartnerMetadata,
-			BurnMintTokenPoolMetadata:    PartnerMetadata,
+			LockReleaseTokenPoolMetadata: []string{PartnerMetadata},
+			BurnMintTokenPoolMetadata:    []string{PartnerMetadata},
 		},
 	)})
 	require.NoError(t, err)

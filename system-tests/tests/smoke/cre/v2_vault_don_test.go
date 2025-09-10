@@ -31,29 +31,26 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
 	var testLogger = framework.L
-	testLogger.Info().Msg("Getting gateway configuration...")
-	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
-	require.NoError(t, err, "failed to parse gateway URL")
-
-	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
-
 	framework.L.Info().Msgf("Sleeping 1 minute to allow the Vault DON to start...")
 	// TODO: Remove this sleep https://smartcontract-it.atlassian.net/browse/PRIV-154
 	time.Sleep(1 * time.Minute)
 	testLogger.Info().Msgf("Sleep over. Executing test now...")
+
+	testLogger.Info().Msg("Getting gateway configuration...")
+	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
+	gatewayURL, err := url.Parse(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+	require.NoError(t, err, "failed to parse gateway URL")
+	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	owner := "Owner1"
 	secretValue := "Secret Value to be stored"
 
 	executeVaultSecretsCreateTest(t, secretValue, secretID, owner, gatewayURL.String())
-
-	divider := "------------------------------------------------------"
-	testLogger.Info().Msgf("%s \n%s \n%s \n%s \n%s", divider, divider, divider, divider, divider)
-
-	executeVaultSecretsGetTest(t, secretValue, secretID, owner, gatewayURL.String())
+	// executeVaultSecretsGetTest(t, secretValue, secretID, owner, gatewayURL.String())
 	executeVaultSecretsUpdateTest(t, secretValue, secretID, owner, gatewayURL.String())
+	executeVaultSecretsListTest(t, secretValue, secretID, owner, gatewayURL.String())
+	executeVaultSecretsDeleteTest(t, secretValue, secretID, owner, gatewayURL.String())
 }
 
 func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, gatewayURL string) {
@@ -110,6 +107,7 @@ func executeVaultSecretsCreateTest(t *testing.T, secretValue, secretID, owner, g
 	require.Empty(t, result0.GetError())
 	require.Equal(t, secretID, result0.GetId().Key)
 	require.Equal(t, owner, result0.GetId().Owner)
+	require.Equal(t, vaulttypes.DefaultNamespace, result0.GetId().Namespace)
 
 	framework.L.Info().Msg("Secret created successfully")
 }
@@ -171,11 +169,12 @@ func executeVaultSecretsUpdateTest(t *testing.T, secretValue, secretID, owner, g
 	require.NoError(t, err, "failed to decode payload into UpdateSecretsResponse proto")
 	framework.L.Info().Msgf("UpdateSecretsResponse decoded as: %s", updateSecretsResponse.String())
 
-	require.Len(t, updateSecretsResponse.Responses, 2, "Expected one item in the response")
+	require.Len(t, updateSecretsResponse.Responses, 2, "Expected 2 items in the response")
 	result0 := updateSecretsResponse.GetResponses()[0]
 	require.Empty(t, result0.GetError())
 	require.Equal(t, secretID, result0.GetId().Key)
 	require.Equal(t, owner, result0.GetId().Owner)
+	require.Equal(t, vaulttypes.DefaultNamespace, result0.GetId().Namespace)
 
 	result1 := updateSecretsResponse.GetResponses()[1]
 	require.Contains(t, result1.Error, "key does not exist")
@@ -254,8 +253,119 @@ func executeVaultSecretsGetTest(t *testing.T, secretValue, secretID, owner, gate
 	require.Empty(t, result0.Error)
 	require.Equal(t, secretID, result0.ID.Key)
 	require.Equal(t, owner, result0.ID.Owner)
+	require.Equal(t, vaulttypes.DefaultNamespace, result0.ID.Namespace)
 
 	framework.L.Info().Msg("Secret get successful")
+}
+
+func executeVaultSecretsListTest(t *testing.T, secretValue, secretID, owner, gatewayURL string) {
+	framework.L.Info().Msg("Listing secret...")
+	uniqueRequestID := uuid.New().String()
+
+	secretsListRequest := jsonrpc.Request[vaultcommon.ListSecretIdentifiersRequest]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestID,
+		Method:  vaulttypes.MethodSecretsList,
+		Params: &vaultcommon.ListSecretIdentifiersRequest{
+			RequestId: uniqueRequestID,
+			Owner:     owner,
+		},
+	}
+	requestBody, err := json.Marshal(secretsListRequest)
+	require.NoError(t, err, "failed to marshal secrets request")
+
+	httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	err = json.Unmarshal(httpResponseBody, &jsonResponse)
+	require.NoError(t, err, "failed to unmarshal getResponse")
+	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
+	if jsonResponse.Error != nil {
+		require.Empty(t, jsonResponse.Error.Error())
+	}
+
+	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
+	require.Equal(t, vaulttypes.MethodSecretsList, jsonResponse.Method)
+
+	signedOCRResponse := jsonResponse.Result
+	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
+
+	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
+
+	listSecretsResponse := vaultcommon.ListSecretIdentifiersResponse{}
+	err = protojson.Unmarshal(signedOCRResponse.Payload, &listSecretsResponse)
+	require.NoError(t, err, "failed to decode payload into ListSecretIdentifiersResponse proto")
+	framework.L.Info().Msgf("ListSecretIdentifiersResponse decoded as: %s", listSecretsResponse.String())
+
+	require.True(t, listSecretsResponse.Success, err)
+	require.GreaterOrEqual(t, len(listSecretsResponse.Identifiers), 1, "Expected at least one item in the response")
+	var keys = make([]string, 0, len(listSecretsResponse.Identifiers))
+	for _, identifier := range listSecretsResponse.Identifiers {
+		keys = append(keys, identifier.Key)
+		require.Equal(t, owner, identifier.Owner)
+		require.Equal(t, vaulttypes.DefaultNamespace, identifier.Namespace)
+	}
+	require.Contains(t, keys, secretID)
+	framework.L.Info().Msg("Secrets listed successfully")
+}
+
+func executeVaultSecretsDeleteTest(t *testing.T, secretValue, secretID, owner, gatewayURL string) {
+	framework.L.Info().Msg("Deleting secret...")
+	uniqueRequestID := uuid.New().String()
+
+	secretsUpdateRequest := jsonrpc.Request[vaultcommon.DeleteSecretsRequest]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestID,
+		Method:  vaulttypes.MethodSecretsDelete,
+		Params: &vaultcommon.DeleteSecretsRequest{
+			RequestId: uniqueRequestID,
+			Ids: []*vaultcommon.SecretIdentifier{
+				{
+					Key:   secretID,
+					Owner: owner,
+				},
+				{
+					Key:   "invalid",
+					Owner: "invalid",
+				},
+			},
+		},
+	}
+	requestBody, err := json.Marshal(secretsUpdateRequest)
+	require.NoError(t, err, "failed to marshal secrets request")
+
+	httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	framework.L.Info().Msg("Checking jsonResponse structure...")
+	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	err = json.Unmarshal(httpResponseBody, &jsonResponse)
+	require.NoError(t, err, "failed to unmarshal getResponse")
+	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
+	if jsonResponse.Error != nil {
+		require.Empty(t, jsonResponse.Error.Error())
+	}
+
+	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
+	require.Equal(t, vaulttypes.MethodSecretsDelete, jsonResponse.Method)
+
+	signedOCRResponse := jsonResponse.Result
+	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
+
+	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
+
+	deleteSecretsResponse := vaultcommon.DeleteSecretsResponse{}
+	err = protojson.Unmarshal(signedOCRResponse.Payload, &deleteSecretsResponse)
+	require.NoError(t, err, "failed to decode payload into DeleteSecretResponse proto")
+	framework.L.Info().Msgf("DeleteSecretResponse decoded as: %s", deleteSecretsResponse.String())
+
+	require.Len(t, deleteSecretsResponse.Responses, 2, "Expected 2 items in the response")
+	result0 := deleteSecretsResponse.GetResponses()[0]
+	require.True(t, result0.Success, result0.Error)
+	require.Equal(t, result0.Id.Owner, owner)
+	require.Equal(t, result0.Id.Key, secretID)
+
+	result1 := deleteSecretsResponse.GetResponses()[1]
+	require.Contains(t, result1.Error, "key does not exist")
+
+	framework.L.Info().Msg("Secrets deleted successfully")
 }
 
 func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) []byte {

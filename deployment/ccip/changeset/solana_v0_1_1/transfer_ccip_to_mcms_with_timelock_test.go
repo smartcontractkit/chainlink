@@ -284,18 +284,18 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
 			ccipChangesetSolana.TokenPoolConfigWithMCM{
 				ChainSelector: solChain1,
-				TokenPubKey:   tokenAddressLockRelease,
-				PoolType:      shared.LockReleaseTokenPool,
-				Metadata:      shared.CLLMetadata,
-			},
-		),
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.InitGlobalConfigTokenPoolProgram),
-			ccipChangesetSolana.TokenPoolConfigWithMCM{
-				ChainSelector: solChain1,
-				TokenPubKey:   tokenAddressBurnMint,
-				PoolType:      shared.BurnMintTokenPool,
-				Metadata:      shared.CLLMetadata,
+				TokenPoolConfigs: []ccipChangesetSolana.TokenPoolConfig{
+					{
+						TokenPubKey: tokenAddressLockRelease,
+						PoolType:    shared.LockReleaseTokenPool,
+						Metadata:    shared.CLLMetadata,
+					},
+					{
+						TokenPubKey: tokenAddressBurnMint,
+						PoolType:    shared.BurnMintTokenPool,
+						Metadata:    shared.CLLMetadata,
+					},
+				},
 			},
 		),
 		commonchangeset.Configure(
