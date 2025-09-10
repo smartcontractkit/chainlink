@@ -139,10 +139,10 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			c := cli.NewContext(nil, set, nil)
 
-			run := func() error { //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
+			run := func() error {
 				// Set up what the Before hooks would do
 				rootCtx, cancelRootCtx := context.WithCancel(context.Background())
-				client.RootCtx = rootCtx
+				client.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
 				client.CancelRootCtx = cancelRootCtx
 				defer cancelRootCtx()
 
@@ -262,6 +262,12 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			require.NoError(t, set.Set("api", test.apiFile))
 
 			c := cli.NewContext(nil, set, nil)
+
+			// Set up what the Before hooks would do
+			rootCtx, cancelRootCtx := context.WithCancel(context.Background())
+			client.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
+			client.CancelRootCtx = cancelRootCtx
+			defer cancelRootCtx()
 
 			if test.wantError {
 				err = client.RunNode(c)
