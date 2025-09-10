@@ -89,7 +89,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              c.ToBOC(),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // state would be failed
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
 	})

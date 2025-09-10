@@ -3,7 +3,6 @@ package changeset
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
@@ -14,14 +13,13 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-type MCMSConfig struct {
-	MinDuration time.Duration
-}
+type MCMSConfig = contracts.MCMSConfig
 
 var _ cldf.ChangeSet[*UpdateNodesRequest] = UpdateNodes
 

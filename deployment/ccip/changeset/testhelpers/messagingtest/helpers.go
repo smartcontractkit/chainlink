@@ -1,7 +1,7 @@
 package messagingtest
 
 import (
-	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -203,13 +203,12 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		require.NoError(tc.T, err)
 
 		msg = ops.TonSendRequest{
+			QueryID:   rand.Uint64(),
 			Data:      tc.MsgData,
 			Receiver:  tc.Receiver,
 			ExtraArgs: c, // TODO handle ExtraArgs properly
 			FeeToken:  feeToken,
 		}
-
-		fmt.Printf("feeToken: %s\n", feeToken.String())
 
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)

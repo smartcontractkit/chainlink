@@ -16,7 +16,6 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 require (
 	dario.cat/mergo v1.0.2
-	github.com/BurntSushi/toml v1.4.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/alitto/pond/v2 v2.5.0
 	github.com/andybalholm/brotli v1.1.1
@@ -33,14 +32,14 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/smartcontractkit/chain-selectors v1.0.67
-	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250905131850-7713941a6848
+	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250908082700-aa3f5927af8c
 	github.com/smartcontractkit/chainlink-deployments-framework v0.43.0
 	github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250905170534-87e867e6cf31
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.15
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.23
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.13
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
@@ -78,6 +77,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
+	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/DataDog/zstd v1.5.6 // indirect
 	github.com/DefangLabs/secret-detector v0.0.0-20250403165618-22662109213e // indirect
 	github.com/Khan/genqlient v0.7.0 // indirect
@@ -461,8 +461,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250822025801-598d3d86f873 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250904183752-4ea5c19ee886 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250908172835-06d5969f3bc2 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250910183153-c26d4436b0db // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250910183153-c26d4436b0db // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect

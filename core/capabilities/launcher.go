@@ -343,9 +343,9 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	return nil
 }
 
-func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, state *registrysyncer.LocalRegistry) error {
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
 	for cid, c := range remoteDON.CapabilityConfigurations {
-		capability, ok := state.IDsToCapabilities[cid]
+		capability, ok := localRegistry.IDsToCapabilities[cid]
 		if !ok {
 			return fmt.Errorf("could not find capability matching id %s", cid)
 		}
@@ -379,7 +379,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 					case 1: // legacy streams trigger
 						codec := streams.NewCodec(w.lggr)
 
-						signers, err := signersFor(remoteDON, state)
+						signers, err := signersFor(remoteDON, localRegistry)
 						if err != nil {
 							return nil, err
 						}
@@ -394,7 +394,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 					case 2: // LLO
 						// TODO: add a flag in capability onchain config to indicate whether it's OCR based
 						// the "SignedReport" aggregator is generic
-						signers, err := signersFor(remoteDON, state)
+						signers, err := signersFor(remoteDON, localRegistry)
 						if err != nil {
 							return nil, err
 						}
@@ -539,14 +539,14 @@ var (
 	defaultMaxParallelCapabilityExecuteRequests = 1000
 )
 
-func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, state *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {
+func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {
 	idsToDONs := map[uint32]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[d.ID] = d.DON
 	}
 
 	for cid, c := range don.CapabilityConfigurations {
-		capability, ok := state.IDsToCapabilities[cid]
+		capability, ok := localRegistry.IDsToCapabilities[cid]
 		if !ok {
 			return fmt.Errorf("could not find capability matching id %s", cid)
 		}
@@ -707,10 +707,10 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 	return nil
 }
 
-func signersFor(don registrysyncer.DON, state *registrysyncer.LocalRegistry) ([][]byte, error) {
+func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) ([][]byte, error) {
 	s := [][]byte{}
 	for _, nodeID := range don.Members {
-		node, ok := state.IDsToNodes[nodeID]
+		node, ok := localRegistry.IDsToNodes[nodeID]
 		if !ok {
 			return nil, fmt.Errorf("could not find node for id %s", nodeID)
 		}
@@ -729,7 +729,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		capID,
 		capabilities.CapabilityTypeCombined,
 		"Remote Capability for "+capID,
-		&myDON.DON,
+		&remoteDON.DON,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create remote capability info: %w", err)
@@ -773,7 +773,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if receiver == nil {
 			return fmt.Errorf("no remote config found for method %s of capability %s", method, capID)
 		}
-		if err = w.dispatcher.SetReceiverForMethod(capID, myDON.ID, method, receiver); err != nil {
+		if err = w.dispatcher.SetReceiverForMethod(capID, remoteDON.ID, method, receiver); err != nil {
 			return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
 		}
 		err = receiver.Start(ctx)

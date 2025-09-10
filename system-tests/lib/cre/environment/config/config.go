@@ -45,6 +45,18 @@ func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error 
 		return errors.New("jd.csa_encryption_key must be provided")
 	}
 
+	if len(c.Blockchains) == 0 {
+		return errors.New("at least one blockchain must be configured")
+	}
+
+	if len(c.NodeSets) == 0 {
+		return errors.New("at least one nodeset must be configured")
+	}
+
+	if c.Infra == nil {
+		return errors.New("infra configuration must be provided")
+	}
+
 	for _, nodeSet := range c.NodeSets {
 		for _, capability := range nodeSet.Capabilities {
 			if !slices.Contains(envDependencies.GlobalCapabilityFlags(), capability) {
@@ -82,6 +94,12 @@ func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) er
 	return nil
 }
 
+const (
+	WorkflowRegistryV2Semver   = "2.0.0-dev"
+	CapabilityRegistryV2Semver = "2.0.0"
+	DefaultDONFamily           = "test-don-family"
+)
+
 func DefaultContractSet(withV2Registries bool) map[string]string {
 	supportedSet := map[string]string{
 		keystone_changeset.OCR3Capability.String():       "1.0.0",
@@ -91,8 +109,8 @@ func DefaultContractSet(withV2Registries bool) map[string]string {
 	}
 
 	if withV2Registries {
-		supportedSet[keystone_changeset.WorkflowRegistry.String()] = "2.0.0-dev"
-		supportedSet[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
+		supportedSet[keystone_changeset.WorkflowRegistry.String()] = WorkflowRegistryV2Semver
+		supportedSet[keystone_changeset.CapabilitiesRegistry.String()] = CapabilityRegistryV2Semver
 	}
 
 	return supportedSet
@@ -291,7 +309,7 @@ func ChipIngressStateFileExists(relativePathToRepoRoot string) bool {
 }
 
 func storeLocalArtifact(artifact any, absPath string) error {
-	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0o755)
 	if dErr != nil {
 		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
 	}
@@ -301,7 +319,7 @@ func storeLocalArtifact(artifact any, absPath string) error {
 		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
 	}
 
-	return os.WriteFile(absPath, d, 0600)
+	return os.WriteFile(absPath, d, 0o600)
 }
 
 func RemoveAllEnvironmentStateDir(relativePathToRepoRoot string) error {

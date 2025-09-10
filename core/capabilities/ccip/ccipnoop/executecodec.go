@@ -4,14 +4,13 @@ import (
 	"context"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
-	extraDataCodec common.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
 func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodec) *ExecutePluginCodecV1 {

@@ -102,6 +102,7 @@
   # Runtime values below are typically filled at runtime, but may be overridden
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
+
 [capability_configs.write-solana.config]
   # Solana Workflow configuration for write capabilities
   TxAcceptanceState = 3

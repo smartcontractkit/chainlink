@@ -48,6 +48,7 @@
   [nodesets.chain_capabilities]
     write-evm = ["1337", "2337"]
     read-contract = ["1337", "2337"]
+    evm = ["1337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
