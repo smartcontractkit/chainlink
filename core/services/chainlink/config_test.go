@@ -493,6 +493,22 @@ func TestConfig_Marshal(t *testing.T) {
 				ListenAddresses: &[]string{"foo", "bar"},
 			},
 		},
+		SharedPeering: toml.SharedPeering{
+			Enabled: ptr(false),
+			Bootstrappers: &[]ocrcommontypes.BootstrapperLocator{
+				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
+				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
+			},
+			StreamConfig: toml.StreamConfig{
+				IncomingMessageBufferSize:  ptr(500),
+				OutgoingMessageBufferSize:  ptr(500),
+				MaxMessageLenBytes:         ptr(500000),
+				MessageRateLimiterRate:     ptr(100.0),
+				MessageRateLimiterCapacity: ptr(uint32(500)),
+				BytesRateLimiterRate:       ptr(5000000.0),
+				BytesRateLimiterCapacity:   ptr(uint32(10000000)),
+			},
+		},
 		ExternalRegistry: toml.ExternalRegistry{
 			Address:         ptr(""),
 			ChainID:         ptr("1"),
@@ -523,6 +539,7 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderRPS:   ptr(10.0),
 				PerSenderBurst: ptr(50),
 			},
+			SendToSharedPeer: ptr(false),
 		},
 		GatewayConnector: toml.GatewayConnector{
 			ChainIDForNodeKey:         ptr("11155111"),
@@ -597,12 +614,17 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
+		EnableDKGRecipient:   ptr(false),
 		Streams: &toml.StreamsConfig{
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),
 		},
 		WorkflowFetcher: &toml.WorkflowFetcherConfig{
 			URL: ptr("https://workflow.fetcher.url"),
+		},
+		Linking: &toml.LinkingConfig{
+			URL:        ptr(""),
+			TLSEnabled: ptr(true),
 		},
 	}
 	full.Billing = toml.Billing{
@@ -856,6 +878,16 @@ func TestConfig_Marshal(t *testing.T) {
 				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web"), Order: ptr(int32(1))},
 				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true, Order: ptr(int32(2))},
 				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true, Order: ptr(int32(3))},
+			},
+			Workflow: &solcfg.WorkflowConfig{
+				AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 45),
+				FromAddress:       ptr("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e"),
+				ForwarderAddress:  ptr("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5"),
+				ForwarderState:    ptr("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5"),
+				TxAcceptanceState: ptr(commontypes.Finalized),
+				PollPeriod:        commoncfg.MustNewDuration(time.Second * 3),
+				Local:             true,
+				GasLimitDefault:   ptr(uint64(0)),
 			},
 		},
 	}
@@ -1334,6 +1366,16 @@ BlockHistoryBatchLoadSize = 20
 ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
+
+[Solana.Workflow]
+AcceptanceTimeout = '45s'
+PollPeriod = '3s'
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+GasLimitDefault = 0
+TxAcceptanceState = 3
+Local = true
 
 [Solana.MultiNode]
 Enabled = false

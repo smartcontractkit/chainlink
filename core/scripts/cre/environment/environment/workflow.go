@@ -24,8 +24,8 @@ import (
 
 const (
 	// Might change if deployment sequence changes or if different config file than 'configs/workflow-don.toml' is used
-	DefaultWorkflowRegistryAddress     = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
-	DefaultCapabilitiesRegistryAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+	DefaultWorkflowRegistryAddress     = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+	DefaultCapabilitiesRegistryAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 
 	DefaultWorkflowOwnerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 )
@@ -80,9 +80,10 @@ func compileWorkflowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "compile",
-		Short: "Compiles a workflow",
-		Long:  `Compiles, compresses with Brotli and encodes with base64 a workflow`,
+		Use:              "compile",
+		Short:            "Compiles a workflow",
+		Long:             `Compiles, compresses with Brotli and encodes with base64 a workflow`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, compileErr := compileWorkflow(workflowFilePathFlag, workflowNameFlag)
 			if compileErr != nil {
@@ -122,9 +123,10 @@ func deployWorkflowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "deploy",
-		Short: "Deploys a workflow to the environment",
-		Long:  `Deploys a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
+		Use:              "deploy",
+		Short:            "Deploys a workflow to the environment",
+		Long:             `Deploys a workflow to the environment by copying it to workflow nodes and registering with the workflow registry`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initDxTracker()
 			var regErr error
@@ -208,10 +210,11 @@ func compileDeployWorkflowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:    "compile-deploy",
-		Short:  "DEPRECATED: Use 'go run . env workflow deploy --compile' instead",
-		Long:   `DEPRECATED: Use 'go run . env workflow deploy --compile' instead`,
-		Hidden: true,
+		Use:              "compile-deploy",
+		Short:            "DEPRECATED: Use 'go run . env workflow deploy --compile' instead",
+		Long:             `DEPRECATED: Use 'go run . env workflow deploy --compile' instead`,
+		Hidden:           true,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️\n\n")
 			fmt.Printf("\033[31m'go run . env workflow compile-deploy' is DEPRECATED. Use 'go run . env workflow deploy --compile' instead\033[0m\n")
@@ -271,9 +274,10 @@ func deleteWorkflowCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Deletes a workflow from the workflow registry contract",
-		Long:  `Deletes a workflow from the workflow registry contract (but doesn't remove it from the Docker containers)`,
+		Use:              "delete",
+		Short:            "Deletes a workflow from the workflow registry contract",
+		Long:             `Deletes a workflow from the workflow registry contract (but doesn't remove it from the Docker containers)`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n⚙️ Deleting workflow '%s' from the workflow registry\n\n", workflowNameFlag)
 
@@ -337,9 +341,10 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete-all",
-		Short: "Deletes all workflows from the workflow registry contract",
-		Long:  `Deletes all workflows from the workflow registry contract (but doesn't remove them from the Docker containers)`,
+		Use:              "delete-all",
+		Short:            "Deletes all workflows from the workflow registry contract",
+		Long:             `Deletes all workflows from the workflow registry contract (but doesn't remove them from the Docker containers)`,
+		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
 

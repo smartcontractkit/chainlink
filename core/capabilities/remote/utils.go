@@ -18,7 +18,7 @@ const (
 	maxLoggedStringLen = 256
 )
 
-func ValidateMessage(msg p2ptypes.Message, expectedReceiver p2ptypes.PeerID) (*remotetypes.MessageBody, error) {
+func ValidateMessage(msg *p2ptypes.Message, expectedReceiver p2ptypes.PeerID) (*remotetypes.MessageBody, error) {
 	var topLevelMessage remotetypes.Message
 	err := proto.Unmarshal(msg.Payload, &topLevelMessage)
 	if err != nil {

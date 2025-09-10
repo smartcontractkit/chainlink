@@ -25,10 +25,13 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -52,7 +55,7 @@ See an example in a test using PoR workflow.
 func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvironment) []uint64 {
 	t.Helper()
 
-	var testLogger = framework.L
+	testLogger := framework.L
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
@@ -75,7 +78,7 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 // Generic WorkflowConfig interface for creation of different workflow configurations
 // Register your workflow configuration types here
 type WorkflowConfig interface {
-	None | portypes.WorkflowConfig | HTTPWorkflowConfig
+	None | portypes.WorkflowConfig | HTTPWorkflowConfig | evmread_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -150,7 +153,11 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create HTTP workflow config file")
 			testLogger.Info().Msg("HTTP Workflow config file created.")
-
+		case *evmread_config.Config:
+			var configErr error
+			workflowConfigFilePath, configErr = createWorkflowYamlConfigFile(workflowName, cfg)
+			require.NoError(t, configErr, "failed to create evmread workflow config file")
+			testLogger.Info().Msg("EVM Read Workflow config file created.")
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
 		}
@@ -202,7 +209,7 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFile
 	t.Helper()
 
 	var testLogger = framework.L
-	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.\n", uniqueWorkflowName)
+	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.", uniqueWorkflowName)
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
@@ -219,7 +226,7 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvir
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
+	workflowRegistryAddress, _, workflowRegistryErr := crecontracts.FindAddressesForChain(
 		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //lint:ignore SA1019 ignoring deprecation warning for this usage
 		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)

@@ -27,7 +27,7 @@ type CreateJobsWithJdOpDeps struct {
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	CapabilitiesConfigs       cre.CapabilityConfigs
 	Capabilities              []cre.InstallableCapability
-	InfraInput                *infra.Input
+	InfraInput                infra.Input
 }
 
 type CreateJobsWithJdOpInput struct {
@@ -36,14 +36,11 @@ type CreateJobsWithJdOpInput struct {
 type CreateJobsWithJdOpOutput struct {
 }
 
-var CreateJobsWithJdOp = operations.NewOperation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps](
+var CreateJobsWithJdOp = operations.NewOperation(
 	"create-jobs-op",
 	semver.MustParse("1.0.0"),
 	"Create Jobs",
 	func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
-		createJobsStartTime := time.Now()
-		deps.Logger.Info().Msg("Creating jobs with Job Distributor")
-
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
 		for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
@@ -76,22 +73,18 @@ var CreateJobsWithJdOp = operations.NewOperation[CreateJobsWithJdOpInput, Create
 			return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobsErr, "failed to create jobs")
 		}
 
-		deps.Logger.Info().Msgf("Jobs created in %.2f seconds", time.Since(createJobsStartTime).Seconds())
-
 		return CreateJobsWithJdOpOutput{}, nil
 	},
 )
 
 // CreateJobsWithJdOpFactory creates a new operation with user-specified ID and version
 func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps] {
-	return operations.NewOperation[CreateJobsWithJdOpInput, CreateJobsWithJdOpOutput, CreateJobsWithJdOpDeps](
+	return operations.NewOperation(
 		id,
 		semver.MustParse(version),
 		"Create Jobs",
 		func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
 			createJobsStartTime := time.Now()
-			deps.Logger.Info().Msg("Creating jobs with Job Distributor")
-
 			donToJobSpecs := make(cre.DonsToJobSpecs)
 
 			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {

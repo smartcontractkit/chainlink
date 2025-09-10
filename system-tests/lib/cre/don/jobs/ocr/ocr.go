@@ -31,7 +31,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	donTopology *cre.DonTopology,
 	ds datastore.DataStore,
 	nodeSetInput []*cre.CapabilitiesAwareNodeSet,
-	infraInput *infra.Input,
+	infraInput infra.Input,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
 	dataStoreOCR3ContractKeyProvider DataStoreOCR3ContractKeyProvider,
@@ -43,9 +43,6 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 ) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
-	}
-	if infraInput == nil {
-		return nil, errors.New("infra input is nil")
 	}
 	if configMerger == nil {
 		return nil, errors.New("config merger is nil")
@@ -74,7 +71,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 		capabilityConfig, ok := capabilitiesConfig[flag]
 		if !ok {
-			return nil, errors.New("evm config not found in capabilities config")
+			return nil, fmt.Errorf("%s config not found in capabilities config: %v", flag, capabilitiesConfig)
 		}
 
 		containerPath, pathErr := crecapabilities.DefaultContainerDirectory(infraInput.Type)
@@ -89,6 +86,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			return nil, errors.Wrap(err, "failed to find worker nodes")
 		}
 
+		donName := donWithMetadata.Name
 		// look for boostrap node and then for required values in its labels
 		bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 		if bootErr != nil {
@@ -103,6 +101,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 					if strings.Contains(p2pValue, donTopology.OCRPeeringData.OCRBootstraperPeerID) {
 						bootstrapNode = n
+						donName = don.Name
 						found = true
 						break
 					}
@@ -119,9 +118,9 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
 		}
 
-		internalHostsBS, err := getBoostrapWorkflowNames(bootstrapNode, donWithMetadata, infraInput)
+		internalHostsBS, err := getBoostrapWorkflowNames(bootstrapNode, donName, infraInput)
 		if err != nil {
-			return nil, fmt.Errorf("no bootstrap node found for DON %s", donWithMetadata.Name)
+			return nil, fmt.Errorf("couldn't generate bootstrap node host for DON %s: %w", donName, err)
 		}
 
 		chainIDs, err := enabledChainsProvider(donTopology, nodeSetInput[donIdx], flag)
@@ -252,7 +251,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	return donToJobSpecs, nil
 }
 
-func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donWithMetadata *cre.DonWithMetadata, infraInput *infra.Input) ([]string, error) {
+func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput infra.Input) ([]string, error) {
 	nodeIndexStr, nErr := node.FindLabelValue(bootstrapNode, node.IndexKey)
 	if nErr != nil {
 		return nil, errors.Wrap(nErr, "failed to find index label")
@@ -263,7 +262,7 @@ func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donWithMetadata *
 		return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
 	}
 
-	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donWithMetadata.Name, *infraInput)
+	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donName, infraInput)
 	return []string{internalHostBS}, nil
 }
 
