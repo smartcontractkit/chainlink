@@ -139,9 +139,8 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			c := cli.NewContext(nil, set, nil)
 
-			run := func() error {
+			run := func() error { //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
 				// Set up what the Before hooks would do
-				//nolint:fatcontext // rootCtx is shared
 				rootCtx, cancelRootCtx := context.WithCancel(context.Background())
 				client.RootCtx = rootCtx
 				client.CancelRootCtx = cancelRootCtx
