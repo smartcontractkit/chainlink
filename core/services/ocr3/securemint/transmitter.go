@@ -18,8 +18,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-// TODO(gg): add doc comments
-
+// These constants are used to identify the secure mint trigger capability.
 const (
 	defaultCapabilityName        = "securemint-trigger"
 	defaultCapabilityVersion     = "1.0.0"
@@ -27,11 +26,13 @@ const (
 	defaultSendChannelBufferSize = 1000
 )
 
+// Transmitter is a wrapper for ocr3types.ContractTransmitter[securemint.ChainSelector] to add the Service interface to it.
 type Transmitter interface {
 	ocr3types.ContractTransmitter[securemint.ChainSelector]
 	services.Service
 }
 
+// TransmitterConfig is the configuration for the secure mint transmitter capability.
 type TransmitterConfig struct {
 	Logger               logger.Logger                  `json:"-"`
 	CapabilitiesRegistry coretypes.CapabilitiesRegistry `json:"-"`
@@ -43,40 +44,18 @@ type TransmitterConfig struct {
 	TriggerSendChannelBufferSize int    `json:"triggerSendChannelBufferSize"`
 }
 
-var _ Transmitter = &transmitter{}
-var _ capabilities.TriggerCapability = &transmitter{}
-
-type transmitter struct {
-	services.Service
-	eng *services.Engine
-	capabilities.CapabilityInfo
-
-	config      TransmitterConfig
-	fromAccount ocr2types.Account
-	registry    coretypes.CapabilitiesRegistry
-
-	subscribers map[string]*subscriber
-	mu          sync.Mutex
-}
-
-type subscriber struct {
-	ch         chan<- capabilities.TriggerResponse
-	workflowID string
-	config     config.SecureMintTriggerConfig
-}
-
+// NewTransmitter creates a new secure mint transmitter.
 func (c TransmitterConfig) NewTransmitter(transmitterID string) (*transmitter, error) {
-	return c.newTransmitter(c.Logger, transmitterID)
-}
+	c.Logger.Infow("Initializing SecureMintTransmitter", "triggerCapabilityName", c.TriggerCapabilityName, "triggerCapabilityVersion", c.TriggerCapabilityVersion)
 
-func (c TransmitterConfig) newTransmitter(lggr logger.Logger, transmitterID string) (*transmitter, error) {
-	lggr.Infow("Initializing SecureMintTransmitter", "triggerCapabilityName", c.TriggerCapabilityName, "triggerCapabilityVersion", c.TriggerCapabilityVersion)
 	t := &transmitter{
 		config:      c,
 		fromAccount: ocr2types.Account(transmitterID),
 		registry:    c.CapabilitiesRegistry,
 		subscribers: make(map[string]*subscriber),
 	}
+
+	// set default values if not provided
 	if t.config.TriggerCapabilityName == "" {
 		t.config.TriggerCapabilityName = defaultCapabilityName
 	}
@@ -104,11 +83,27 @@ func (c TransmitterConfig) newTransmitter(lggr logger.Logger, transmitterID stri
 		Name:  "SecureMintTransmitter",
 		Start: t.start,
 		Close: t.close,
-	}.NewServiceEngine(lggr)
+	}.NewServiceEngine(c.Logger)
 
-	t.eng.Infow("SecureMintTransmitter initialized", "triggerCapabilityName", t.config.TriggerCapabilityName, "triggerCapabilityVersion", t.config.TriggerCapabilityVersion)
+	t.eng.Infow("SecureMintTransmitter initialized", "triggerCapabilityName", c.TriggerCapabilityName, "triggerCapabilityVersion", c.TriggerCapabilityVersion)
 	return t, nil
 }
+
+type transmitter struct {
+	services.Service
+	eng *services.Engine
+	capabilities.CapabilityInfo
+
+	config      TransmitterConfig
+	fromAccount ocr2types.Account
+	registry    coretypes.CapabilitiesRegistry
+
+	subscribers map[string]*subscriber
+	mu          sync.Mutex
+}
+
+var _ Transmitter = &transmitter{}
+var _ capabilities.TriggerCapability = &transmitter{}
 
 func (t *transmitter) start(ctx context.Context) error {
 	t.eng.Infow("Starting SecureMintTransmitter", "triggerCapabilityName", t.config.TriggerCapabilityName, "triggerCapabilityVersion", t.config.TriggerCapabilityVersion)
@@ -116,7 +111,6 @@ func (t *transmitter) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to add transmitter to registry: %w", err)
 	}
-	t.eng.Infow("SecureMintTransmitter registered", "triggerCapabilityInfo", t.CapabilityInfo)
 	return nil
 }
 
@@ -125,11 +119,13 @@ func (t *transmitter) close() error {
 	return t.registry.Remove(context.Background(), t.CapabilityInfo.ID)
 }
 
+// FromAccount returns the CSA public key of this node.
 func (t *transmitter) FromAccount(context.Context) (ocr2types.Account, error) {
 	t.eng.Debugw("FromAccount", "fromAccount", t.fromAccount)
 	return t.fromAccount, nil
 }
 
+// Transmit processes the secure mint report and transmits it as a trigger event to any subscribed workflows.
 func (t *transmitter) Transmit(
 	ctx context.Context,
 	cd ocr2types.ConfigDigest,
@@ -138,7 +134,8 @@ func (t *transmitter) Transmit(
 	sigs []types.AttributedOnchainSignature,
 ) error {
 	t.eng.Debugw("Transmit called", "cd", cd, "seqNr", seqNr, "report", ocr3Report, "sigs", sigs)
-	// Process the secure mint report and convert it to a trigger event
+
+	// convert the secure mint report to a trigger event
 	capSigs := make([]capabilities.OCRAttributedOnchainSignature, len(sigs))
 	for i, sig := range sigs {
 		capSigs[i] = capabilities.OCRAttributedOnchainSignature{
@@ -162,7 +159,8 @@ func (t *transmitter) Transmit(
 		return fmt.Errorf("failed to create outputs map: %w", err)
 	}
 
-	// use the seqNr as eventID
+	// use the seqNr as eventID to make sure we have unique event ids per report
+	// and that nodes sending the same report use the same event id (to enable consensus in the Workflow DON to work properly).
 	eventID := fmt.Sprintf("securemint_%d", seqNr)
 
 	ev := &capabilities.TriggerEvent{
@@ -173,53 +171,58 @@ func (t *transmitter) Transmit(
 	return t.processNewEvent(ctx, ev)
 }
 
+// processNewEvent sends the trigger event to any subscribed workflows.
 func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.TriggerEvent) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.eng.Debugw("processNewEvent pushing event", "eventID", event.ID)
 
 	capResponse := capabilities.TriggerResponse{
 		Event: *event,
 	}
 
-	t.eng.Debugw("ProcessReport pushing event", "eventID", event.ID)
-	nIncludedSubscribers := 0
+	numIncludedSubscribers := 0
 	for _, sub := range t.subscribers {
-		// include this subscriber (no frequency limiting as requested)
+		// include all subscribers (no frequency limiting for now)
 		select {
 		case sub.ch <- capResponse:
 		case <-ctx.Done():
-			t.eng.Error("context done, dropping event")
+			t.eng.Errorw("context done, dropping event", "eventID", event.ID)
 			return ctx.Err()
 		default:
 			// drop event if channel is full - processNewEvent() should be non-blocking
 			t.eng.Errorw("subscriber channel full, dropping event", "eventID", event.ID, "workflowID", sub.workflowID)
 		}
-		nIncludedSubscribers++
+		numIncludedSubscribers++
 	}
-	t.eng.Debugw("ProcessReport done", "eventID", event.ID, "nIncludedSubscribers", nIncludedSubscribers)
+
+	t.eng.Debugw("ProcessReport done", "eventID", event.ID, "numIncludedSubscribers", numIncludedSubscribers)
 	return nil
 }
 
+// RegisterTrigger registers a new subscription to the secure mint trigger capability.
+// This means that the workflow will receive a trigger event for each secure mint report.
 func (t *transmitter) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	t.eng.Debugw("RegisterTrigger", "triggerID", req.TriggerID, "metadata", req.Metadata)
-	t.mu.Lock()
-	defer t.mu.Unlock()
 
 	config, err := validateConfig(req.Config, &t.config)
 	if err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if _, ok := t.subscribers[req.TriggerID]; ok {
 		return nil, fmt.Errorf("triggerId %s already registered", t.ID)
 	}
 
 	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
-	t.subscribers[req.TriggerID] =
-		&subscriber{
-			ch:         ch,
-			workflowID: req.Metadata.WorkflowID,
-			config:     *config,
-		}
+	t.subscribers[req.TriggerID] = &subscriber{
+		ch:         ch,
+		workflowID: req.Metadata.WorkflowID,
+		config:     *config,
+	}
 	return ch, nil
 }
 
@@ -234,6 +237,8 @@ func validateConfig(registerConfig *values.Map, capabilityConfig *TransmitterCon
 	return cfg, nil
 }
 
+// UnregisterTrigger unregisters a subscription to the secure mint trigger capability.
+// This means that the workflow will no longer receive a trigger event for each secure mint report.
 func (t *transmitter) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
 	t.eng.Debugw("UnregisterTrigger", "triggerID", req.TriggerID)
 	t.mu.Lock()
@@ -246,4 +251,11 @@ func (t *transmitter) UnregisterTrigger(ctx context.Context, req capabilities.Tr
 	close(subscriber.ch)
 	delete(t.subscribers, req.TriggerID)
 	return nil
+}
+
+// subscriber contains the channel to send a trigger response to (normally a CRE workflow).
+type subscriber struct {
+	ch         chan<- capabilities.TriggerResponse
+	workflowID string
+	config     config.SecureMintTriggerConfig
 }

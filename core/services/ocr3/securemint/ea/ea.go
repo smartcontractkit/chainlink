@@ -111,7 +111,7 @@ func (ea *externalAdapter) GetPayload(ctx context.Context, blocks securemint.Blo
 		if len(blocks) == 0 {
 			ea.lggr.Debugw("Plugin does not know about any chains or blocks yet, not returning any mintables")
 			// set Mintables to empty map - plugin will error out if it's not empty when it hasn't requested any mintables yet
-			// TODO(gg): we should probably update the plugin to handle this case
+			// NB: this will be fixed in v0.5 of the plugin.
 			payload.Mintables = make(securemint.Mintables)
 		}
 		ea.lggr.Debugw("GetPayload returning", "payload", payload)

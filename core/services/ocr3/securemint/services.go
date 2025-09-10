@@ -55,7 +55,7 @@ func (m *smJobConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return m.jobPipelineResultWriteQueueDepth
 }
 
-// TODO(gg): this is a hack to allow the integration tests to access the transmitter to assert on the number of transmissions
+// XXX_SingletonTransmitter is a hack to allow the secure mint integration test to access the transmitter in order to verify the sent reports.
 var XXX_SingletonTransmitter atomic.Value // capabilities.TriggerCapability
 
 // NewSecureMintServices creates all securemint plugin specific services.
