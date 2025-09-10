@@ -86,16 +86,30 @@ type DeploySolanaTokenConfig struct {
 	MintPrivateKey      solana.PrivateKey // optional, if not provided, a new key will be generated
 	ATAList             []string          // addresses to create ATAs for
 	MintAmountToAddress map[string]uint64 // address -> amount
+	// if true, sets token freeze authority to nil otherwise sets to timelock
+	// WARNING: IF WE DISABLE THE FREEZE AUTHORITY IT IS IRREVERSIBLE
+	DisableFreezeAuthority bool
 }
 
-func NewTokenInstruction(chain cldf_solana.Chain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
+func NewTokenInstruction(e *cldf.Environment, chain cldf_solana.Chain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
 	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgramName)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	// token mint authority
 	// can accept a private key in config and pass in pub key here and private key as signer
+	timelockSignerPDA, err := FetchTimelockSigner(*e, cfg.ChainSelector)
+	if err != nil {
+		return nil, nil, err
+	}
+	freezeAuthority := timelockSignerPDA
 	tokenAdminPubKey := chain.DeployerKey.PublicKey()
+	// if we're disabling the freeze authority, we first set it to the deployer key so it can
+	// immediately revoke it
+	if cfg.DisableFreezeAuthority {
+		freezeAuthority = chain.DeployerKey.PublicKey()
+	}
 	var mint solana.PublicKey
 	var mintPrivKey solana.PrivateKey
 	privKey := cfg.MintPrivateKey
@@ -109,14 +123,16 @@ func NewTokenInstruction(chain cldf_solana.Chain, cfg DeploySolanaTokenConfig) (
 		}
 		mint = mintPrivKey.PublicKey()
 	}
-	instructions, err := solTokenUtil.CreateToken(
+	instructions, err := solTokenUtil.CreateTokenWith(
 		context.Background(),
 		tokenprogramID,
 		mint,
 		tokenAdminPubKey,
+		freezeAuthority,
 		cfg.TokenDecimals,
 		chain.Client,
 		cldf_solana.SolDefaultCommitment,
+		false,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -135,7 +151,7 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 	}
 
 	// create token ix
-	instructions, mintPrivKey, err := NewTokenInstruction(chain, cfg)
+	instructions, mintPrivKey, err := NewTokenInstruction(&e, chain, cfg)
 	mint := mintPrivKey.PublicKey()
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -169,6 +185,15 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 	}
 
 	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.String(), "chain", chain.String())
+	if cfg.DisableFreezeAuthority {
+		_, err := DisableFreezeAuthority(e, DisableFreezeAuthorityConfig{
+			ChainSelector: cfg.ChainSelector,
+			TokenPubkeys:  []solana.PublicKey{mint},
+		})
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+	}
 
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
