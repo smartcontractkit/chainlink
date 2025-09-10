@@ -190,8 +190,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 					return nil, errors.Wrap(encErr, "failed to encrypt private share")
 				}
 
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, input.DonTopology.OCRPeeringData, chainID, pk, encryptedShare))
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerDKGOCR3(nodeID, dkgAddress.Address, nodeEthAddr, ocr2KeyBundleID, input.DonTopology.OCRPeeringData, chainID))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, nodeEthAddr, ocr2KeyBundleID, input.DonTopology.OCRPeeringData, chainID, pk, encryptedShare))
 			}
 		}
 

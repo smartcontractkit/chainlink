@@ -10,6 +10,7 @@ import (
 type DKGConfig struct {
 	MasterPublicKey          string `json:"masterPublicKey"`
 	EncryptedPrivateKeyShare string `json:"encryptedPrivateKeyShare"`
+	ContractID               string `json:"dkgContractID"`
 }
 
 type Config struct {

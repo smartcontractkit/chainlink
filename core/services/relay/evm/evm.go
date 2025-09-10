@@ -67,7 +67,6 @@ var (
 	OCR2AggregatorTransmissionContractABI abi.ABI
 	OCR2AggregatorLogDecoder              LogDecoder
 	OCR3CapabilityLogDecoder              LogDecoder
-	DKGOCR3CapabilityLogDecoder           LogDecoder
 )
 
 func init() {
@@ -81,10 +80,6 @@ func init() {
 		panic(err)
 	}
 	OCR3CapabilityLogDecoder, err = newOCR3CapabilityLogDecoder()
-	if err != nil {
-		panic(err)
-	}
-	DKGOCR3CapabilityLogDecoder, err = newDKGOCR3CapabilityLogDecoder()
 	if err != nil {
 		panic(err)
 	}
@@ -334,11 +329,7 @@ func NewOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, ch
 		ContractAddress: aggregatorAddress,
 	}
 
-	logDecoder := OCR3CapabilityLogDecoder
-	if opts != nil && opts.ProviderType == "dkg-plugin" {
-		logDecoder = DKGOCR3CapabilityLogDecoder
-	}
-	return newContractConfigProvider(ctx, lggr, chain, opts, aggregatorAddress, logDecoder, offchainConfigDigester)
+	return newContractConfigProvider(ctx, lggr, chain, opts, aggregatorAddress, OCR3CapabilityLogDecoder, offchainConfigDigester)
 }
 
 // NewPluginProvider, but customized to use a different config provider
@@ -736,8 +727,6 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		// performance hit no matter how minor.
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
-		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
-	case "dkg-plugin":
 		configProvider, err = NewOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
 	// case "functions":
 	default:

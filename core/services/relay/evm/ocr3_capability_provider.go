@@ -35,7 +35,6 @@ type ocr3CapabilityLogDecoder struct {
 	eventName string
 	eventSig  common.Hash
 	abi       *abi.ABI
-	isDKG     bool
 }
 
 // Modified newOCR2AggregatorLogDecoder to use OCR3Capability ABI
@@ -49,21 +48,6 @@ func newOCR3CapabilityLogDecoder() (*ocr3CapabilityLogDecoder, error) {
 		eventName: eventName,
 		eventSig:  abi.Events[eventName].ID,
 		abi:       abi,
-		isDKG:     false,
-	}, nil
-}
-
-func newDKGOCR3CapabilityLogDecoder() (*ocr3CapabilityLogDecoder, error) {
-	const eventName = "ConfigSet"
-	abi, err := ocr3_capability.OCR3CapabilityMetaData.GetAbi()
-	if err != nil {
-		return nil, err
-	}
-	return &ocr3CapabilityLogDecoder{
-		eventName: eventName,
-		eventSig:  abi.Events[eventName].ID,
-		abi:       abi,
-		isDKG:     true,
 	}, nil
 }
 
@@ -79,31 +63,26 @@ func (d *ocr3CapabilityLogDecoder) Decode(rawLog []byte) (ocrtypes.ContractConfi
 		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.Hex()))
 	}
 	var signers []ocrtypes.OnchainPublicKey
-	if d.isDKG {
-		for _, pubKey := range unpacked.Signers {
-			signers = append(signers, pubKey)
-		}
-	} else {
-		allPubKeys := map[string]any{}
-		for _, pubKey := range unpacked.Signers {
-			pubKey := pubKey
 
-			// validate uniqueness of each individual key
-			pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(pubKey)
-			if err != nil {
-				return ocrtypes.ContractConfig{}, err
-			}
-			for _, key := range pubKeys {
-				raw := hex.EncodeToString(key)
-				_, exists := allPubKeys[raw]
-				if exists {
-					return ocrtypes.ContractConfig{}, fmt.Errorf("Duplicate onchain public key: %v", raw)
-				}
-				allPubKeys[raw] = struct{}{}
-			}
+	allPubKeys := map[string]any{}
+	for _, pubKey := range unpacked.Signers {
+		pubKey := pubKey
 
-			signers = append(signers, pubKey)
+		// validate uniqueness of each individual key
+		pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(pubKey)
+		if err != nil {
+			return ocrtypes.ContractConfig{}, err
 		}
+		for _, key := range pubKeys {
+			raw := hex.EncodeToString(key)
+			_, exists := allPubKeys[raw]
+			if exists {
+				return ocrtypes.ContractConfig{}, fmt.Errorf("Duplicate onchain public key: %v", raw)
+			}
+			allPubKeys[raw] = struct{}{}
+		}
+
+		signers = append(signers, pubKey)
 	}
 
 	return ocrtypes.ContractConfig{
