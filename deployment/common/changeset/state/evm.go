@@ -3,7 +3,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -78,7 +77,7 @@ func MaybeLoadMCMSWithTimelockStateWithQualifier(env cldf.Environment, chainSele
 		}
 
 		// Use merged addresses from both AddressBook and DataStore for backward compatibility
-		addressesChain, err := MergeAddressesFromBothSourcesEVMWithQualifier(env, chainSelector, qualifier)
+		addressesChain, err := AddressesForChain(env, chainSelector, qualifier)
 		if err != nil {
 			return nil, err
 		}
@@ -92,11 +91,11 @@ func MaybeLoadMCMSWithTimelockStateWithQualifier(env cldf.Environment, chainSele
 	return result, nil
 }
 
-// MergeAddressesFromBothSourcesEVMWithQualifier combines addresses from both DataStore and AddressBook making it backward compatible.
+// AddressesForChain combines addresses from both DataStore and AddressBook making it backward compatible.
 // This version supports qualifiers for filtering DataStore addresses.
 // When a qualifier is specified, only DataStore addresses with that qualifier are returned (no AddressBook merge)
 // to ensure isolation between different deployments.
-func MergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+func AddressesForChain(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
 	// If a qualifier is specified, only use DataStore to ensure isolation between deployments
 	if qualifier != "" {
 		if env.DataStore != nil {
@@ -114,43 +113,32 @@ func MergeAddressesFromBothSourcesEVMWithQualifier(env cldf.Environment, chainSe
 		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
 	}
 
-	// Try to load addresses from DataStore (without qualifier for general case)
-	// Only try if DataStore is available
-	if env.DataStore != nil {
-		dataStoreAddresses, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, "")
-		if err != nil {
-			// If DataStore has no addresses, just return AddressBook addresses
-			if strings.Contains(err.Error(), "no addresses found") {
-				return addressBookAddresses, nil
-			}
-			// Don't fail if DataStore is not working - fall back to AddressBook
-			return addressBookAddresses, nil
-		}
-
-		// Merge the two maps - DataStore addresses take precedence
-		mergedAddresses := make(map[string]cldf.TypeAndVersion)
-
-		// First add all AddressBook addresses
-		for addr, tv := range addressBookAddresses {
-			mergedAddresses[addr] = tv
-		}
-
-		// Then add DataStore addresses (overwriting any conflicts)
-		for addr, tv := range dataStoreAddresses {
-			mergedAddresses[addr] = tv
-		}
-
-		return mergedAddresses, nil
+	// If no DataStore, just return AddressBook addresses
+	if env.DataStore == nil {
+		return addressBookAddresses, nil
 	}
 
-	// If no DataStore, just return AddressBook addresses
-	return addressBookAddresses, nil
-}
+	// Try to load addresses from DataStore (without qualifier for general case)
+	dataStoreAddresses, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, "")
+	if err != nil {
+		// If DataStore has no addresses or returns an error, fall back to AddressBook addresses only
+		return addressBookAddresses, nil
+	}
 
-// MergeAddressesFromBothSources is a convenience function that calls MergeAddressesFromBothSourcesEVMWithQualifier with an empty qualifier.
-// This is useful for general cases where no qualifier isolation is needed.
-func MergeAddressesFromBothSources(env cldf.Environment, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
-	return MergeAddressesFromBothSourcesEVMWithQualifier(env, chainSelector, "")
+	// Merge the two maps - DataStore addresses take precedence
+	mergedAddresses := make(map[string]cldf.TypeAndVersion)
+
+	// First add all AddressBook addresses
+	for addr, tv := range addressBookAddresses {
+		mergedAddresses[addr] = tv
+	}
+
+	// Then add DataStore addresses (overwriting any conflicts)
+	for addr, tv := range dataStoreAddresses {
+		mergedAddresses[addr] = tv
+	}
+
+	return mergedAddresses, nil
 }
 
 // MaybeLoadMCMSWithTimelockStateDataStore loads the MCMSWithTimelockState state for each chain in the given environment from the DataStore.

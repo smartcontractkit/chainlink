@@ -54,7 +54,7 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 // Returns the address if found in either source (similar to cldf.SearchAddressBook)
 func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contractType cldf.ContractType) (string, error) {
 	// Use the merged address loading from the EVM state function
-	addressesChain, err := state.MergeAddressesFromBothSourcesEVMWithQualifier(e, chainSelector, "")
+	addressesChain, err := state.AddressesForChain(e, chainSelector, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to load addresses: %w", err)
 	}

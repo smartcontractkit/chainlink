@@ -131,7 +131,7 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewV2(t *testing.T) {
 	}
 }
 
-func TestMergeAddressesFromBothSources(t *testing.T) {
+func TestAddressesForChain(t *testing.T) {
 	chainSelector := chain_selectors.ETHEREUM_MAINNET.Selector
 
 	// Create a mock environment with both AddressBook and DataStore
@@ -155,7 +155,7 @@ func TestMergeAddressesFromBothSources(t *testing.T) {
 	}
 
 	// Test the merge function
-	mergedAddresses, err := MergeAddressesFromBothSources(env, chainSelector)
+	mergedAddresses, err := AddressesForChain(env, chainSelector, "")
 	require.NoError(t, err)
 
 	// Should have addresses from both sources
@@ -164,7 +164,7 @@ func TestMergeAddressesFromBothSources(t *testing.T) {
 	require.Contains(t, mergedAddresses, "0xABCDEF1234567890123456789012345678901234")
 }
 
-func TestMergeAddressesOnlyAddressBook(t *testing.T) {
+func TestAddressesForChainOnlyAddressBook(t *testing.T) {
 	chainSelector := chain_selectors.ETHEREUM_MAINNET.Selector
 
 	// Create environment with only AddressBook
@@ -179,7 +179,7 @@ func TestMergeAddressesOnlyAddressBook(t *testing.T) {
 	}
 
 	// Test the merge function
-	mergedAddresses, err := MergeAddressesFromBothSources(env, chainSelector)
+	mergedAddresses, err := AddressesForChain(env, chainSelector, "")
 	require.NoError(t, err)
 
 	// Should have address from AddressBook only
@@ -187,7 +187,7 @@ func TestMergeAddressesOnlyAddressBook(t *testing.T) {
 	require.Contains(t, mergedAddresses, "0x1234567890123456789012345678901234567890")
 }
 
-func TestMergeAddressesOnlyDataStore(t *testing.T) {
+func TestAddressesForChainOnlyDataStore(t *testing.T) {
 	chainSelector := chain_selectors.ETHEREUM_MAINNET.Selector
 
 	// Create environment with only DataStore
@@ -208,7 +208,7 @@ func TestMergeAddressesOnlyDataStore(t *testing.T) {
 	}
 
 	// Test the merge function
-	mergedAddresses, err := MergeAddressesFromBothSources(env, chainSelector)
+	mergedAddresses, err := AddressesForChain(env, chainSelector, "")
 	require.NoError(t, err)
 
 	// Should have address from DataStore only

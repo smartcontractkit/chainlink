@@ -383,7 +383,7 @@ func SingleGroupTimelockConfigV2(t *testing.T) commontypes.MCMSWithTimelockConfi
 
 func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint64) string {
 	// Use merged addresses from both AddressBook and DataStore for backward compatibility
-	addressesForChain, err := state.MergeAddressesFromBothSources(env, chainSelector)
+	addressesForChain, err := state.AddressesForChain(env, chainSelector, "")
 	require.NoError(t, err)
 
 	for address, tvStr := range addressesForChain {

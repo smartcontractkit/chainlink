@@ -791,7 +791,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 		evmMu:       &sync.RWMutex{},
 	}
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
-		addresses, err := commonstate.MergeAddressesFromBothSources(e, chainSelector)
+		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
 		if err != nil {
 			return state, fmt.Errorf("failed to merge addresses for chain %d: %w", chainSelector, err)
 		}
