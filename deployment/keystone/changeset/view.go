@@ -15,6 +15,7 @@ import (
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	commonview "github.com/smartcontractkit/chainlink/deployment/common/view"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -137,7 +138,7 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 
 		switch contractAddress.Type {
 		case datastore.ContractType(internal.CapabilitiesRegistry):
-			ownedContract, err := GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
+			ownedContract, err := crecontracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
 				e.DataStore.Addresses(), chain, contractAddress.Address,
 			)
 			if err != nil {
@@ -148,7 +149,7 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 			set.CapabilitiesRegistry[ownedContract.Contract.Address()] = ownedContract.Contract
 
 		case datastore.ContractType(internal.OCR3Capability):
-			ownedContract, err := GetOwnedContractV2[*ocr3_capability.OCR3Capability](
+			ownedContract, err := crecontracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](
 				e.DataStore.Addresses(), chain, contractAddress.Address,
 			)
 			if err != nil {
@@ -159,7 +160,7 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 			set.OCR3[ownedContract.Contract.Address()] = ownedContract.Contract
 
 		case datastore.ContractType(internal.KeystoneForwarder):
-			ownedContract, err := GetOwnedContractV2[*forwarder.KeystoneForwarder](
+			ownedContract, err := crecontracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](
 				e.DataStore.Addresses(), chain, contractAddress.Address,
 			)
 			if err != nil {
@@ -170,7 +171,7 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 			set.Forwarder[ownedContract.Contract.Address()] = ownedContract.Contract
 
 		case datastore.ContractType(internal.WorkflowRegistry):
-			ownedContract, err := GetOwnedContractV2[*workflow_registry.WorkflowRegistry](
+			ownedContract, err := crecontracts.GetOwnedContractV2[*workflow_registry.WorkflowRegistry](
 				e.DataStore.Addresses(), chain, contractAddress.Address,
 			)
 			if err != nil {

@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common" //nolint:depguard
 	"gopkg.in/yaml.v3"
 
+	readcontractcap "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/readcontract"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/aggregators"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/ocr3cap"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/targets/chainwriter"
@@ -24,6 +27,12 @@ func main() {
 	runner.Run(workflow)
 }
 
+func convertBigIntToFloat64(bi *big.Int) float64 {
+	bigFloat := new(big.Float).SetInt(bi)
+	f, _ := bigFloat.Float64()
+	return f
+}
+
 func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 	workflow := sdk.NewWorkflowSpecFactory()
 
@@ -36,6 +45,36 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 	if err != nil {
 		runner.ExitWithError(errors.New("cannot unmarshal config : %w"))
 	}
+
+	// Configure Read Contract capability
+	balanceReaderAddr := workflowConfig.BalanceReaderAddress
+	// You may put/read from any addresses with real values
+	// In this example, we are using the one with 0 balances
+	addresses := []common.Address{
+		common.HexToAddress(balanceReaderAddr),
+	}
+
+	chainFamily := workflowConfig.ChainFamily
+	chainID := workflowConfig.ChainID
+	readcontractCapID := fmt.Sprintf("read-contract-%s-%s@1.0.0", chainFamily, chainID)
+	readcontractCapReaderConfig := `{"contracts":{"BalanceReader":{"contractABI":"[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"addresses\",\"type\":\"address[]\"}],\"name\":\"getNativeBalances\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]","contractPollingFilter":{"genericEventNames":null,"pollingFilter":{"topic2":null,"topic3":null,"topic4":null,"retention":"0s","maxLogsKept":0,"logsPerBlock":0}},"configs":{"getNativeBalances":"{  \"chainSpecificName\": \"getNativeBalances\"}"}}}}`
+	readcontractCapReadIdentifier := fmt.Sprintf("%s-%s-%s", balanceReaderAddr, "BalanceReader", "getNativeBalances")
+	readcontractCapConfig := readcontractcap.Config{
+		ContractReaderConfig: readcontractCapReaderConfig,
+		ContractAddress:      balanceReaderAddr,
+		ContractName:         "BalanceReader",
+		ReadIdentifier:       readcontractCapReadIdentifier,
+	}
+	readcontractCapRef := "readSmokeTest"
+	readcontractCapActionInput := readcontractcap.ActionInput{
+		ConfidenceLevel: sdk.ConstantDefinition("unconfirmed"),
+		Params: sdk.ConstantDefinition(readcontractcap.InputParams{
+			"addresses": addresses,
+		}),
+		StepDependency: sdk.ConstantDefinition(cron.Ref()),
+	}
+
+	chainRead := readcontractCapConfig.New(workflow, readcontractCapID, readcontractCapRef, readcontractCapActionInput)
 
 	if workflowConfig.FeedID == "" {
 		runner.ExitWithError(fmt.Errorf("feedID is empty in the config: %+v", workflowConfig))
@@ -59,12 +98,36 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 		workflow,
 		"compute",
 		&sdk.ComputeConfig[types.ComputeConfig]{Config: computeConfig},
-		sdk.Compute1Inputs[croncap.Payload]{Arg0: cron},
-		func(runtime sdk.Runtime, config types.ComputeConfig, outputs croncap.Payload) (computeOutput, error) {
+		sdk.Compute1Inputs[readcontractcap.Output]{Arg0: chainRead},
+		func(runtime sdk.Runtime, config types.ComputeConfig, output readcontractcap.Output) (computeOutput, error) {
 			feedID, err := convertFeedIDtoBytes(config.FeedID)
 			if err != nil {
 				return computeOutput{}, fmt.Errorf("cannot convert feedID to bytes : %w : %b", err, feedID)
 			}
+
+			// READ THE BALANCES
+			balances, ok := output.LatestValue.([]any)
+			if !ok {
+				return computeOutput{}, fmt.Errorf("cannot convert latest value to []*big.Int, got type %T", output.LatestValue)
+			}
+
+			runtime.Emitter().With(
+				"feedID", config.FeedID,
+			).Emit(fmt.Sprintf("Balances read, %s", config.FeedID))
+
+			totalBalance := &big.Int{}
+			for _, bal := range balances {
+				bi, ok := bal.(*big.Int)
+				if !ok {
+					return computeOutput{}, fmt.Errorf("cannot convert value to *big.Int, got %T", bi)
+				}
+
+				totalBalance = totalBalance.Add(totalBalance, bi)
+			}
+
+			runtime.Emitter().With(
+				"feedID", config.FeedID,
+			).Emit(fmt.Sprintf("Total Balances: %s", totalBalance.String()))
 
 			fetchRequest := sdk.FetchRequest{
 				URL:       config.URL + "?feedID=" + config.FeedID,
@@ -100,8 +163,15 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 				return computeOutput{}, sdk.BreakErr
 			}
 
+			// COMPUTE THE TOTAL (by adding the balances to the total value)
+			total := resp.TotalTrust + convertBigIntToFloat64(totalBalance)
+
+			runtime.Emitter().With(
+				"feedID", config.FeedID,
+			).Emit(fmt.Sprintf("Total computed for feed ID %s", config.FeedID))
+
 			return computeOutput{
-				Price:     int(resp.TotalTrust * 100),
+				Price:     int(total * 100),
 				FeedID:    feedID, // TrueUSD
 				Timestamp: resp.UpdatedAt.Unix(),
 			}, nil
@@ -154,9 +224,10 @@ func BuildWorkflow(runner *wasm.Runner) *sdk.WorkflowSpecFactory {
 	}
 
 	chainwriter.TargetConfig{
-		Address:    workflowConfig.DataFeedsCacheAddress, // KeystoneConsumer contract address
-		DeltaStage: "15s",
-		Schedule:   "oneAtATime",
+		Address:        workflowConfig.DataFeedsCacheAddress, // KeystoneConsumer contract address
+		DeltaStage:     "15s",
+		Schedule:       "oneAtATime",
+		CreStepTimeout: 40,
 	}.New(workflow, writeTargetName, targetInput)
 
 	return workflow

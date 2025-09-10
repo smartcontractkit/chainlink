@@ -706,13 +706,13 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	t.Run("returns error when key exists but has never been enabled (no state) for the given chain", func(t *testing.T) {
 		err := ks.CheckEnabled(ctx, addr3, testutils.FixtureChainID)
 		assert.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is has not been enabled for chain 0 (enabled only for chain IDs: 1337)", addr3.Hex()))
+		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is has not been enabled for chain %s (enabled only for chain IDs: 1337)", addr3.Hex(), testutils.FixtureChainID.String()))
 	})
 
 	t.Run("returns error when key exists but is disabled for the given chain", func(t *testing.T) {
 		err := ks.CheckEnabled(ctx, addr2, testutils.SimulatedChainID)
 		assert.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is disabled for chain 1337 (enabled only for chain IDs: 0)", addr2.Hex()))
+		require.Contains(t, err.Error(), fmt.Sprintf("eth key with address %s exists but is disabled for chain 1337 (enabled only for chain IDs: %s)", addr2.Hex(), testutils.FixtureChainID.String()))
 	})
 }
 

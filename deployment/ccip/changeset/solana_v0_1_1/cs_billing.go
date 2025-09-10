@@ -198,12 +198,10 @@ func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.
 
 // ADD BILLING TOKEN FOR REMOTE CHAIN
 type TokenTransferFeeForRemoteChainConfig struct {
-	ChainSelector       uint64
-	RemoteChainSelector uint64
-	// need to provide complete config, onchain does not do an upsert, it does a overwrite
-	Config      solFeeQuoter.TokenTransferFeeConfig
-	TokenPubKey solana.PublicKey
-	MCMS        *proposalutils.TimelockConfig
+	ChainSelector      uint64
+	RemoteChainConfigs map[uint64]solFeeQuoter.TokenTransferFeeConfig
+	TokenPubKey        solana.PublicKey
+	MCMS               *proposalutils.TimelockConfig
 }
 
 const MinDestBytesOverhead = 32
@@ -218,14 +216,16 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment, sta
 	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
 		return fmt.Errorf("fee quoter validation failed: %w", err)
 	}
-	if cfg.Config.DestBytesOverhead < 32 {
-		e.Logger.Infow("dest bytes overhead is less than minimum. Setting to minimum value",
-			"destBytesOverhead", cfg.Config.DestBytesOverhead,
-			"minDestBytesOverhead", MinDestBytesOverhead)
-		cfg.Config.DestBytesOverhead = MinDestBytesOverhead
-	}
-	if cfg.Config.MinFeeUsdcents > cfg.Config.MaxFeeUsdcents {
-		return fmt.Errorf("min fee %d cannot be greater than max fee %d", cfg.Config.MinFeeUsdcents, cfg.Config.MaxFeeUsdcents)
+	for _, config := range cfg.RemoteChainConfigs {
+		if config.DestBytesOverhead < 32 {
+			e.Logger.Infow("dest bytes overhead is less than minimum. Setting to minimum value",
+				"destBytesOverhead", config.DestBytesOverhead,
+				"minDestBytesOverhead", MinDestBytesOverhead)
+			config.DestBytesOverhead = MinDestBytesOverhead
+		}
+		if config.MinFeeUsdcents > config.MaxFeeUsdcents {
+			return fmt.Errorf("min fee %d cannot be greater than max fee %d", config.MinFeeUsdcents, config.MaxFeeUsdcents)
+		}
 	}
 
 	return ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.FeeQuoter: true})
@@ -243,7 +243,6 @@ func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeF
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := cfg.TokenPubKey
-	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.FeeQuoter)
 	feeQuoterUsingMCMS := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -260,36 +259,45 @@ func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeF
 		solana.PublicKey{},
 		"")
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
-	ix, err := solFeeQuoter.NewSetTokenTransferFeeConfigInstruction(
-		cfg.RemoteChainSelector,
-		tokenPubKey,
-		cfg.Config,
-		chainState.FeeQuoterConfigPDA,
-		remoteBillingPDA,
-		authority,
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
-	}
-	if !feeQuoterUsingMCMS {
-		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-		}
-	}
-	if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{remoteBillingPDA}); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
-	}
+	txns := make([]mcmsTypes.Transaction, 0)
+	for remoteChainSelector, config := range cfg.RemoteChainConfigs {
+		remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(remoteChainSelector, tokenPubKey, chainState.FeeQuoter)
 
-	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
-
-	if feeQuoterUsingMCMS {
-		tx, err := BuildMCMSTxn(ix, chainState.FeeQuoter.String(), shared.FeeQuoter)
+		ix, err := solFeeQuoter.NewSetTokenTransferFeeConfigInstruction(
+			remoteChainSelector,
+			tokenPubKey,
+			config,
+			chainState.FeeQuoterConfigPDA,
+			remoteBillingPDA,
+			authority,
+			solana.SystemProgramID,
+		).ValidateAndBuild()
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
+		if !feeQuoterUsingMCMS {
+			if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			}
+		}
+		if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{remoteBillingPDA}); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
+		}
+
+		e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", remoteChainSelector, "tokenPubKey", tokenPubKey.String())
+
+		if feeQuoterUsingMCMS {
+			tx, err := BuildMCMSTxn(ix, chainState.FeeQuoter.String(), shared.FeeQuoter)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			txns = append(txns, *tx)
+		}
+	}
+
+	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to set billing token for remote chain to Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+			e, cfg.ChainSelector, "proposal to set billing token for remote chain to Solana", cfg.MCMS.MinDelay, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

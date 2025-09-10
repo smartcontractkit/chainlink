@@ -516,9 +516,11 @@ SyncStrategy = 'event' # Default
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 # URL is the location for the workflow storage service to be communicated with.
-URL = "localhost:4566" # Default
+URL = "localhost:4566" # Example
 # TLSEnabled enables TLS to be used to secure communication with the workflow storage service. This is enabled by default.
 TLSEnabled = true # Default
+# ArtifactStorageHost is the host name that, when present within the workflow metadata binary or config URL, designates that a signed URL should be retrieved from the workflow storage service.
+ArtifactStorageHost = 'artifact.cre.chain.link' # Example
 
 [Workflows]
 [Workflows.Limits]
@@ -542,6 +544,8 @@ ContractVersion = '1.0.0' # Default
 SupportedVersion = 1 # Default
 # ReceiverBufferSize is the size of the buffer for incoming messages.
 ReceiverBufferSize = 10000 # Default
+# SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
+SendToSharedPeer = false # Default
 
 [Capabilities.Dispatcher.RateLimit]
 # GlobalRPS is the global rate limit for the dispatcher.
@@ -613,6 +617,28 @@ AuthTimestampToleranceSec = 10 # Example
 ID = 'example_gateway' # Example
 # URL of the Gateway
 URL = 'wss://localhost:8081/node' # Example
+
+[Capabilities.SharedPeering]
+# Enabled enabled SharedPeer
+Enabled = false # Default
+# Bootstrappers overrides bootstrap nodes for SharedPeer peer groups. If empty, default bootstrappers from P2P.V2 will be used.
+Bootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+
+[Capabilities.SharedPeering.StreamConfig]
+# IncomingMessageBufferSize is the max number of enqueued incoming messages awaiting processing.
+IncomingMessageBufferSize = 500 # Default
+# OutgoingMessageBufferSize is the max number of outgoing messages.
+OutgoingMessageBufferSize = 500 # Default
+# MaxMessageLenBytes is the max size of a message in bytes.
+MaxMessageLenBytes = 500000 # Default
+# MessageRateLimiterRate is the max number of processed messages per second.
+MessageRateLimiterRate = 100.0 # Default
+# MessageRateLimiterCapacity is the "burst" of the message rate limiter.
+MessageRateLimiterCapacity = 500 # Default
+# BytesRateLimiterRate is the max size of precessed messages per second.
+BytesRateLimiterRate = 5000000.0 # Default
+# BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
+BytesRateLimiterCapacity = 10000000 # Default
 
 [Keeper]
 # **ADVANCED**
@@ -813,8 +839,13 @@ EmitterBatchProcessor = true # Default
 EmitterExportTimeout = '1s' # Default
 # ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 ChipIngressEndpoint = '' # Default
+# ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
+ChipIngressInsecureConnection = false # Default
+
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
+# LogStreamingEnabled enables log streaming to the OTel log exporter
+LogStreamingEnabled = false # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]
@@ -830,6 +861,12 @@ RestURL = "streams.url" # Example
 [CRE.WorkflowFetcher]
 # URL is override URL for the workflow fetcher service. 
 URL = '' # Default
+
+[CRE.Linking]
+# URL is the locator for the Chainlink linking service.
+URL = "" # Default
+# TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+TLSEnabled = true # Default
 
 # Billing holds settings for connecting to the billing service.
 [Billing]
@@ -850,3 +887,9 @@ PollingInterval = "5m" # Default
 IgnoreInvalidBridges = true # Default
 # IgnoreJoblessBridges skips bridges that have no associated jobs.
 IgnoreJoblessBridges = false # Default
+
+[CRE]
+# UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
+UseLocalTimeProvider = true # Default
+# EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
+EnableDKGRecipient = false # Default

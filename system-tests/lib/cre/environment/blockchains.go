@@ -2,19 +2,22 @@ package environment
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"maps"
-	"math/big"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -22,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -31,6 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
+
+	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 )
 
 type BlockchainsInput struct {
@@ -57,143 +61,227 @@ func CreateBlockchains(
 	}
 
 	blockchainOutput := make([]*cre.WrappedBlockchainOutput, 0)
-	for _, bi := range input.blockchainsInput {
-		var bcOut *blockchain.Output
-		var bcErr error
-		if input.infra.Type == infra.CRIB {
-			if input.nixShell == nil {
-				return nil, pkgerrors.New("nix shell is nil")
-			}
 
-			deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
-				BlockchainInput: &bi,
-				NixShell:        input.nixShell,
-				CribConfigsDir:  cribConfigsDir,
-				Namespace:       input.infra.CRIB.Namespace,
-			}
-			bcOut, bcErr = crib.DeployBlockchain(deployCribBlockchainInput)
-			if bcErr != nil {
-				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
-			}
-			err := infra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	for _, bi := range input.blockchainsInput {
+		isSolana := bi.Type == blockchain.FamilySolana
+		isTron := bi.Type == blockchain.FamilyTron
+
+		if isSolana {
+			err := initSolanaInput(&bi)
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
 			}
-		} else if bi.Type == "tron" {
-			chainID, err := strconv.ParseUint(bi.ChainID, 10, 64)
-			if err != nil {
-				return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bi.ChainID)
-			}
-			selector, err := chainselectors.SelectorFromChainId(chainID)
-			if err != nil {
-				return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", bi.ChainID)
-			}
-			signerGen, err := tronprovider.SignerGenCTFDefault()
-			if err != nil {
-				return nil, pkgerrors.Wrap(err, "failed to create signer generator")
-			}
-			config := tronprovider.CTFChainProviderConfig{
-				DeployerSignerGen: signerGen,
-				Once:              &sync.Once{},
-			}
-			ctfProvider := tronprovider.NewCTFChainProvider(selector, config)
-			_, err = ctfProvider.Initialize(ctx)
-			if err != nil {
-				return nil, pkgerrors.Wrap(err, "failed to initialize blockchain")
-			}
-			chain := ctfProvider.BlockChain()
-			tronChain, ok := chain.(tron.Chain)
-			if !ok {
-				return nil, pkgerrors.New("failed to cast chain to tron.Chain")
-			}
-			// For Tron chains, we need to use host.docker.internal to access the host's localhost
-			// The external URL is typically like "http://localhost:50555/wallet"
-			// We need to convert it to use host.docker.internal for internal connections
-			externalHTTPURL := strings.Replace(tronChain.URL, "wallet", "jsonrpc", 1)
-			internalHTTPURL := ""
+		}
 
-			// Extract the port from the external URL dynamically
-			if strings.Contains(externalHTTPURL, "localhost:") {
-				// Use host.docker.internal to access the host's localhost from within the container
-				// This works regardless of the port number
-				internalHTTPURL = strings.Replace(externalHTTPURL, "localhost", "host.docker.internal", 1)
-			} else {
-				// Fallback to external URL if we can't determine the internal URL
-				internalHTTPURL = externalHTTPURL
-			}
+		bcOut, err := deployBlockchain(testLogger, input.infra, input.nixShell, bi)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s", bi.Type)
+		}
 
-			bcOut = &blockchain.Output{
-				ChainID: bi.ChainID,
-				Family:  "tron",
-				Nodes: []*blockchain.Node{
-					{
-						InternalHTTPUrl: internalHTTPURL,
-						ExternalHTTPUrl: externalHTTPURL,
-					},
-				},
+		if isTron {
+			w, err := initTron(ctx, &bi)
+			if err != nil {
+				return nil, pkgerrors.Wrap(err, "failed to init Tron")
 			}
-			blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
-				ChainSelector:      selector,
-				ChainID:            chainID,
-				BlockchainOutput:   bcOut,
-				SethClient:         nil,
-				DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
-				TronChain:          &tronChain,
-			})
+			blockchainOutput = append(blockchainOutput, w)
 			continue
-		} else {
-			bcOut, bcErr = blockchain.NewBlockchainNetwork(&bi)
-			if bcErr != nil {
-				return nil, pkgerrors.Wrap(bcErr, "failed to deploy blockchain")
+		}
+
+		if isSolana {
+			w, wrapErr := wrapSolana(&bi, bcOut)
+			if wrapErr != nil {
+				return nil, pkgerrors.Wrap(wrapErr, "failed to wrap Solana")
 			}
+
+			blockchainOutput = append(blockchainOutput, w)
+			continue
 		}
 
-		if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
-			return nil, pkErr
+		w, wrapErr := wrapEVM(bcOut)
+		if wrapErr != nil {
+			return nil, pkgerrors.Wrap(wrapErr, "failed to wrap EVM")
 		}
 
-		privateKey := os.Getenv("PRIVATE_KEY")
+		blockchainOutput = append(blockchainOutput, w)
+	}
+	return blockchainOutput, nil
+}
 
-		sethClient, err := seth.NewClientBuilder().
-			WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
-			WithPrivateKeys([]string{privateKey}).
-			// do not check if there's a pending nonce nor check node's health
-			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-			Build()
+// Will be set as --mint when spin up local solana validator, unless env variable with a different key provided
+var defaultSolanaPrivateKey = solana.MustPrivateKeyFromBase58("4u2itaM9r5kxsmoti3GMSDZrQEFpX14o6qPWY9ZrrYTR6kduDBr4YAZJsjawKzGP3wDzyXqterFmfcLUmSBro5AT")
+
+func initSolanaInput(bi *blockchain.Input) error {
+	err := SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey)
+	if err != nil {
+		return errors.New("failed to set default solana private key")
+	}
+	bi.PublicKey = defaultSolanaPrivateKey.PublicKey().String()
+	bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
+	return nil
+}
+
+func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell *libnix.Shell, bi blockchain.Input) (*blockchain.Output, error) {
+	if infraIn.Type != infra.CRIB {
+		if bi.Type == blockchain.FamilyTron {
+
+		}
+		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
 		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to create seth client")
+			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", bi.Type, bi.ChainID)
 		}
 
-		chainID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
-		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
-		}
-
-		chainSelector, err := chainselectors.SelectorFromChainId(chainID)
-		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", chainID)
-		}
-
-		sethClient, err = seth.NewClientBuilder().
-			WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
-			WithPrivateKeys([]string{privateKey}).
-			// do not check if there's a pending nonce nor check node's health
-			WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-			Build()
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to create seth client")
-		}
-
-		blockchainOutput = append(blockchainOutput, &cre.WrappedBlockchainOutput{
-			ChainSelector:      chainSelector,
-			ChainID:            chainID,
-			BlockchainOutput:   bcOut,
-			SethClient:         sethClient,
-			DeployerPrivateKey: privateKey,
-		})
+		return bcOut, nil
 	}
 
-	return blockchainOutput, nil
+	if nixShell == nil {
+		return nil, pkgerrors.New("nix shell is nil")
+	}
+
+	deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
+		BlockchainInput: &bi,
+		NixShell:        nixShell,
+		CribConfigsDir:  cribConfigsDir,
+		Namespace:       infraIn.CRIB.Namespace,
+	}
+	bcOut, err := crib.DeployBlockchain(deployCribBlockchainInput)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to deploy blockchain")
+	}
+
+	err = infra.WaitForRPCEndpoint(testLogger, bcOut.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "RPC endpoint is not available")
+	}
+
+	return bcOut, nil
+}
+
+func initTron(ctx context.Context, bi *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
+	chainID, err := strconv.ParseUint(bi.ChainID, 10, 64)
+	if err != nil {
+	}
+	selector, err := chainselectors.SelectorFromChainId(chainID)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", bi.ChainID)
+	}
+	signerGen, err := tronprovider.SignerGenCTFDefault()
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to create signer generator")
+	}
+	config := tronprovider.CTFChainProviderConfig{
+		DeployerSignerGen: signerGen,
+		Once:              &sync.Once{},
+	}
+	ctfProvider := tronprovider.NewCTFChainProvider(selector, config)
+	_, err = ctfProvider.Initialize(ctx)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to initialize blockchain")
+	}
+	chain := ctfProvider.BlockChain()
+	tronChain, ok := chain.(tron.Chain)
+	if !ok {
+		return nil, pkgerrors.New("failed to cast chain to tron.Chain")
+	}
+	// For Tron chains, we need to use host.docker.internal to access the host's localhost
+	// The external URL is typically like "http://localhost:50555/wallet"
+	// We need to convert it to use host.docker.internal for internal connections
+	externalHTTPURL := strings.Replace(tronChain.URL, "wallet", "jsonrpc", 1)
+	internalHTTPURL := ""
+
+	// Extract the port from the external URL dynamically
+	if strings.Contains(externalHTTPURL, "localhost:") {
+		// Use host.docker.internal to access the host's localhost from within the container
+		// This works regardless of the port number
+		internalHTTPURL = strings.Replace(externalHTTPURL, "localhost", "host.docker.internal", 1)
+	} else {
+		// Fallback to external URL if we can't determine the internal URL
+		internalHTTPURL = externalHTTPURL
+	}
+
+	return &cre.WrappedBlockchainOutput{
+		ChainSelector: selector,
+		ChainID:       chainID,
+		BlockchainOutput: &blockchain.Output{
+			ChainID: bi.ChainID,
+			Family:  "tron",
+			Nodes: []*blockchain.Node{
+				{
+					InternalHTTPUrl: internalHTTPURL,
+					ExternalHTTPUrl: externalHTTPURL,
+				},
+			},
+		},
+		SethClient:         nil,
+		DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
+		TronChain:          &tronChain,
+	}, nil
+}
+
+func wrapSolana(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
+	sel, ok := chainselectors.SolanaChainIdToChainSelector()[bi.ChainID]
+	if !ok {
+		return nil, fmt.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
+	}
+	// shouldn't be empty, since we call initSolana before wrap, but just in case
+	setErr := SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey)
+	if setErr != nil {
+		return nil, fmt.Errorf("set default private key solana failed: %w", setErr)
+	}
+
+	envp := os.Getenv("SOLANA_PRIVATE_KEY")
+	pk, err := solana.PrivateKeyFromBase58(envp)
+	if err != nil {
+		return nil, errors.New("failed to decode private key for solana")
+	}
+
+	if err := cldf_solana_provider.WritePrivateKeyToPath(filepath.Join(bi.ContractsDir, "deploy-keypair.json"), pk); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to save private key for solana")
+	}
+
+	return &cre.WrappedBlockchainOutput{
+		BlockchainOutput: bcOut,
+		SolClient:        rpc.New(bcOut.Nodes[0].ExternalHTTPUrl),
+		SolChain: &cre.SolChain{
+			ChainSelector: sel,
+			ChainID:       bi.ChainID,
+			PrivateKey:    pk,
+			ArtifactsDir:  bi.ContractsDir,
+		},
+	}, nil
+}
+
+func wrapEVM(bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
+	if err := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); err != nil {
+		return nil, err
+	}
+
+	priv := os.Getenv("PRIVATE_KEY")
+	sethClient, err := seth.NewClientBuilder().
+		WithRpcUrl(bcOut.Nodes[0].ExternalWSUrl).
+		WithPrivateKeys([]string{priv}).
+		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+		Build()
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to create seth client")
+	}
+
+	selector, err := chainselectors.SelectorFromChainId(sethClient.Cfg.Network.ChainID)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
+	}
+
+	chainID, err := strconv.ParseUint(bcOut.ChainID, 10, 64)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
+	}
+
+	return &cre.WrappedBlockchainOutput{
+		ChainSelector:      selector,
+		ChainID:            chainID,
+		BlockchainOutput:   bcOut,
+		SethClient:         sethClient,
+		DeployerPrivateKey: priv,
+	}, nil
 }
 
 type BlockchainLoggers struct {
@@ -213,53 +301,12 @@ func StartBlockchains(ctx context.Context, loggers BlockchainLoggers, input Bloc
 	}
 
 	chainsConfigs := make([]devenv.ChainConfig, 0)
-
 	for _, bcOut := range blockchainsOutput {
-		if bcOut.TronChain != nil {
-			privateKey, err := crypto.HexToECDSA(bcOut.DeployerPrivateKey)
-			if err != nil {
-				return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to parse private key for Tron")
-			}
-
-			chainID, err := strconv.ParseInt(bcOut.BlockchainOutput.ChainID, 10, 64)
-			if err != nil {
-				return StartBlockchainsOutput{}, pkgerrors.Wrapf(err, "failed to parse Tron chain ID %s", bcOut.BlockchainOutput.ChainID)
-			}
-
-			deployerKey, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(chainID))
-			if err != nil {
-				return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create transactor for Tron")
-			}
-
-			chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
-				ChainID:   bcOut.BlockchainOutput.ChainID,
-				ChainName: "Tron",
-				ChainType: "EVM",
-				WSRPCs:    []devenv.CribRPCs{{}},
-				HTTPRPCs: []devenv.CribRPCs{{
-					External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-					Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-				}},
-				DeployerKey:        deployerKey,
-				PreferredURLScheme: deployment.URLSchemePreferenceHTTP,
-			})
-			continue
+		cfg, cfgErr := cre.ChainConfigFromWrapped(bcOut)
+		if cfgErr != nil {
+			return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to wrap blockchain output to chain config")
 		}
-
-		chainsConfigs = append(chainsConfigs, devenv.ChainConfig{
-			ChainID:   strconv.FormatUint(bcOut.SethClient.Cfg.Network.ChainID, 10),
-			ChainName: bcOut.SethClient.Cfg.Network.Name,
-			ChainType: strings.ToUpper(bcOut.BlockchainOutput.Family),
-			WSRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalWSUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
-			}},
-			HTTPRPCs: []devenv.CribRPCs{{
-				External: bcOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
-				Internal: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			}},
-			DeployerKey: bcOut.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
-		})
+		chainsConfigs = append(chainsConfigs, cfg)
 	}
 
 	blockChains, err := devenv.NewChains(loggers.singleFile, chainsConfigs)
@@ -271,4 +318,13 @@ func StartBlockchains(ctx context.Context, loggers BlockchainLoggers, input Bloc
 		BlockChainOutputs: blockchainsOutput,
 		BlockChains:       maps.Collect(blockChains.All()),
 	}, nil
+}
+
+func getSolProgramsPath(path string) string {
+	// Get the directory of the current file (environment.go)
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Go up to the root of the deployment package
+	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
+	// Construct the absolute path
+	return filepath.Join(rootDir, path)
 }

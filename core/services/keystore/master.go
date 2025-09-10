@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -51,24 +52,26 @@ type Master interface {
 	TON() TON
 	VRF() VRF
 	Workflow() Workflow
+	DKGRecipient() DKGRecipient
 	Unlock(ctx context.Context, password string) error
 	IsEmpty(ctx context.Context) (bool, error)
 }
 type master struct {
 	*keyManager
-	cosmos   *cosmos
-	csa      *csa
-	eth      *eth
-	ocr      *ocr
-	ocr2     ocr2
-	p2p      *p2p
-	solana   *solana
-	starknet *starknet
-	aptos    *aptos
-	tron     *tron
-	ton      *ton
-	vrf      *vrf
-	workflow *workflow
+	cosmos       *cosmos
+	csa          *csa
+	eth          *eth
+	ocr          *ocr
+	ocr2         ocr2
+	p2p          *p2p
+	solana       *solana
+	starknet     *starknet
+	aptos        *aptos
+	tron         *tron
+	ton          *ton
+	vrf          *vrf
+	workflow     *workflow
+	dkgRecipient *dkgRecipient
 }
 
 type Logf func(string, ...any)
@@ -88,20 +91,21 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, announce 
 	}
 
 	return &master{
-		keyManager: km,
-		cosmos:     newCosmosKeyStore(km),
-		csa:        newCSAKeyStore(km),
-		eth:        newEthKeyStore(km, orm, orm.ds),
-		ocr:        newOCRKeyStore(km),
-		ocr2:       newOCR2KeyStore(km),
-		p2p:        newP2PKeyStore(km),
-		solana:     newSolanaKeyStore(km),
-		starknet:   newStarkNetKeyStore(km),
-		aptos:      newAptosKeyStore(km),
-		tron:       newTronKeyStore(km),
-		ton:        newTONKeyStore(km),
-		vrf:        newVRFKeyStore(km),
-		workflow:   newWorkflowKeyStore(km),
+		keyManager:   km,
+		cosmos:       newCosmosKeyStore(km),
+		csa:          newCSAKeyStore(km),
+		eth:          newEthKeyStore(km, orm, orm.ds),
+		ocr:          newOCRKeyStore(km),
+		ocr2:         newOCR2KeyStore(km),
+		p2p:          newP2PKeyStore(km),
+		solana:       newSolanaKeyStore(km),
+		starknet:     newStarkNetKeyStore(km),
+		aptos:        newAptosKeyStore(km),
+		tron:         newTronKeyStore(km),
+		ton:          newTONKeyStore(km),
+		vrf:          newVRFKeyStore(km),
+		workflow:     newWorkflowKeyStore(km),
+		dkgRecipient: newDKGRecipientKeyStore(km),
 	}
 }
 
@@ -155,6 +159,10 @@ func (ks *master) VRF() VRF {
 
 func (ks *master) Workflow() Workflow {
 	return ks.workflow
+}
+
+func (ks *master) DKGRecipient() DKGRecipient {
+	return ks.dkgRecipient
 }
 
 type ORM interface {
@@ -297,6 +305,8 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "VRF", nil
 	case workflowkey.Key:
 		return "Workflow", nil
+	case dkgrecipientkey.Key:
+		return "DKGRecipient", nil
 	}
 	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }

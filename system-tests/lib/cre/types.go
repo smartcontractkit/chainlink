@@ -2,6 +2,7 @@ package cre
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -28,6 +30,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 )
 
 type CapabilityFlag = string
@@ -47,7 +52,7 @@ const (
 	EVMCapability           CapabilityFlag = "evm"
 	CustomComputeCapability CapabilityFlag = "custom-compute"
 	WriteEVMCapability      CapabilityFlag = "write-evm"
-
+	WriteSolanaCapability   CapabilityFlag = "write-solana"
 	ReadContractCapability  CapabilityFlag = "read-contract"
 	LogTriggerCapability    CapabilityFlag = "log-event-trigger"
 	WebAPITargetCapability  CapabilityFlag = "web-api-target"
@@ -59,8 +64,105 @@ const (
 	// Add more capabilities as needed
 )
 
+type CLIEnvironmentDependencies interface {
+	CapabilityFlagsProvider
+	ContractVersionsProvider
+	CLIFlagsProvider
+}
+
+// CLIFlagsProvider provides access to select command line flags passed to the
+// start command of the environment script.
+type CLIFlagsProvider interface {
+	// If true, then use V2 Capability and Workflow Registries.
+	WithV2Registries() bool
+}
+
+func NewCLIFlagsProvider(withV2Registries bool) *cliFlagsProvider {
+	return &cliFlagsProvider{
+		withV2Registries: withV2Registries,
+	}
+}
+
+type cliFlagsProvider struct {
+	withV2Registries bool
+}
+
+func (cfp *cliFlagsProvider) WithV2Registries() bool {
+	return cfp.withV2Registries
+}
+
+type ContractVersionsProvider interface {
+	// ContractVersions returns a map of contract name to semver
+	ContractVersions() map[string]string
+}
+
+type contractVersionsProvider struct {
+	contracts map[string]string
+}
+
+func (cvp *contractVersionsProvider) ContractVersions() map[string]string {
+	cv := make(map[string]string, 0)
+	maps.Copy(cv, cvp.contracts)
+	return cv
+}
+
+func NewContractVersionsProvider(overrides map[string]string) *contractVersionsProvider {
+	cvp := &contractVersionsProvider{
+		contracts: map[string]string{
+			keystone_changeset.OCR3Capability.String():       "1.0.0",
+			keystone_changeset.WorkflowRegistry.String():     "1.0.0",
+			keystone_changeset.CapabilitiesRegistry.String(): "1.1.0",
+			keystone_changeset.KeystoneForwarder.String():    "1.0.0",
+			ks_sol.ForwarderContract.String():                "1.0.0",
+			ks_sol.ForwarderState.String():                   "1.0.0",
+		},
+	}
+	maps.Copy(cvp.contracts, overrides)
+	return cvp
+}
+
 type CapabilityFlagsProvider interface {
 	SupportedCapabilityFlags() []CapabilityFlag
+	GlobalCapabilityFlags() []CapabilityFlag
+	ChainSpecificCapabilityFlags() []CapabilityFlag
+}
+
+func NewEnvironmentDependencies(
+	cfp CapabilityFlagsProvider,
+	cvp ContractVersionsProvider,
+	cliFlagsProvider CLIFlagsProvider,
+) *envionmentDependencies {
+	return &envionmentDependencies{
+		flagsProvider:       cfp,
+		contractSetProvider: cvp,
+		cliFlagsProvider:    cliFlagsProvider,
+	}
+}
+
+type envionmentDependencies struct {
+	flagsProvider       CapabilityFlagsProvider
+	contractSetProvider ContractVersionsProvider
+	cliFlagsProvider    CLIFlagsProvider
+}
+
+func (e *envionmentDependencies) WithV2Registries() bool {
+	return e.cliFlagsProvider.WithV2Registries()
+}
+
+func (e *envionmentDependencies) ContractVersions() map[string]string {
+	return e.contractSetProvider.ContractVersions()
+}
+
+func (e *envionmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
+	return e.flagsProvider.SupportedCapabilityFlags()
+}
+
+func (e *envionmentDependencies) GlobalCapabilityFlags() []CapabilityFlag {
+	return e.flagsProvider.GlobalCapabilityFlags()
+}
+
+func (e *envionmentDependencies) ChainSpecificCapabilityFlags() []CapabilityFlag {
+	return e.flagsProvider.ChainSpecificCapabilityFlags()
 }
 
 type NodeType = string
@@ -74,11 +176,19 @@ const (
 	WorkerNode NodeType = "plugin"
 )
 
-type DonJobs = []*jobv1.ProposeJobRequest
-type DonsToJobSpecs = map[uint64]DonJobs
+type (
+	DonJobs        = []*jobv1.ProposeJobRequest
+	DonsToJobSpecs = map[uint64]DonJobs
+)
 
-type NodeIndexToConfigOverride = map[int]string
-type NodeIndexToSecretsOverride = map[int]string
+const (
+	CapabilityLabelKey = "capability"
+)
+
+type (
+	NodeIndexToConfigOverride  = map[int]string
+	NodeIndexToSecretsOverride = map[int]string
+)
 
 type CapabilityConfigs = map[string]CapabilityConfig
 
@@ -191,7 +301,17 @@ type WrappedBlockchainOutput struct {
 	BlockchainOutput   *blockchain.Output
 	SethClient         *seth.Client
 	TronChain          *tron.Chain
+	SolClient          *solrpc.Client
 	DeployerPrivateKey string
+	SolChain           *SolChain
+}
+
+type SolChain struct {
+	ChainSelector uint64
+	ChainID       string
+	ChainName     string
+	PrivateKey    solana.PrivateKey
+	ArtifactsDir  string
 }
 
 type CreateJobsInput struct {
@@ -264,7 +384,7 @@ type ConfigureKeystoneInput struct {
 	NodeSets      []*CapabilitiesAwareNodeSet
 
 	OCR3Config  keystone_changeset.OracleConfig
-	OCR3Address *common.Address
+	OCR3Address *common.Address // v1 consensus contract address
 
 	DONTimeConfig  keystone_changeset.OracleConfig
 	DONTimeAddress *common.Address
@@ -273,9 +393,9 @@ type ConfigureKeystoneInput struct {
 	VaultOCR3Address *common.Address
 
 	EVMOCR3Config    keystone_changeset.OracleConfig
-	EVMOCR3Addresses *map[uint64]common.Address
+	EVMOCR3Addresses *map[uint64]common.Address // chain selector to address map
 
-	ConsensusV2OCR3Config  keystone_changeset.OracleConfig
+	ConsensusV2OCR3Config  keystone_changeset.OracleConfig // v2 consensus contract config
 	ConsensusV2OCR3Address *common.Address
 
 	CapabilitiesRegistryAddress *common.Address
@@ -303,8 +423,6 @@ func (c *ConfigureKeystoneInput) Validate() error {
 
 	return nil
 }
-
-const VaultGatewayDonID = "vault"
 
 type GatewayConnectorDons struct {
 	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
@@ -336,12 +454,15 @@ type Incoming struct {
 	ExternalPort int    `toml:"external_port" json:"external_port"`
 }
 
-type NodeConfigFn = func(input GenerateConfigsInput) (NodeIndexToConfigOverride, error)
+type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs NodeIndexToConfigOverride) (NodeIndexToConfigOverride, error)
 
-type HandlerTypeToConfig = map[string]string
-type GatewayHandlerConfigFn = func(donMetadata *DonMetadata) (HandlerTypeToConfig, error)
+type (
+	HandlerTypeToConfig    = map[string]string
+	GatewayHandlerConfigFn = func(donMetadata *DonMetadata) (HandlerTypeToConfig, error)
+)
 
 type GenerateConfigsInput struct {
+	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
 	BlockchainOutput        map[uint64]*WrappedBlockchainOutput
 	HomeChainSelector       uint64
@@ -377,6 +498,15 @@ func (g *GenerateConfigsInput) Validate() error {
 	if addrErr != nil {
 		return fmt.Errorf("failed to get addresses for chain %d: %w", g.HomeChainSelector, addrErr)
 	}
+	_, dsErr := g.Datastore.Addresses().Fetch()
+	if dsErr != nil {
+		return fmt.Errorf("failed to get addresses from datastore: %w", dsErr)
+	}
+	h := g.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(g.HomeChainSelector))
+	if len(h) == 0 {
+		return fmt.Errorf("no addresses found for home chain %d in datastore", g.HomeChainSelector)
+	}
+	// TODO check for required registry contracts by type and version
 	return nil
 }
 
@@ -396,6 +526,11 @@ type DonMetadata struct {
 	ID              uint64          `toml:"id" json:"id"`
 	Name            string          `toml:"name" json:"name"`
 	SupportedChains []uint64        `toml:"supported_chains" json:"supported_chains"` // chain IDs that the DON supports, empty means all chains
+}
+
+func (m *DonMetadata) RequiresOCR() bool {
+	return slices.Contains(m.Flags, ConsensusCapability) || slices.Contains(m.Flags, ConsensusCapabilityV2) ||
+		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability)
 }
 
 type Label struct {
@@ -435,6 +570,14 @@ type DonTopology struct {
 	GatewayConnectorOutput  *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
 }
 
+func (t *DonTopology) ToDonMetadata() []*DonMetadata {
+	metadata := []*DonMetadata{}
+	for _, don := range t.DonsWithMetadata {
+		metadata = append(metadata, don.DonMetadata)
+	}
+	return metadata
+}
+
 type CapabilitiesAwareNodeSet struct {
 	*ns.Input
 	Capabilities         []string          `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
@@ -454,8 +597,9 @@ type CapabilitiesAwareNodeSet struct {
 	// Example: [nodesets.capability_overrides.web-api-target] GlobalRPS = 2000.0
 	CapabilityOverrides map[string]map[string]any `toml:"capability_overrides"`
 
+	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
 	// Merged list of global and chain-specific capabilities. The latter ones are transformed to the format "capability-chainID", e.g. "evm-1337" for the evm capability on chain 1337.
-	ComputedCapabilities []string `toml:"-"`
+	ComputedCapabilities []string `toml:"computed_capabilities"`
 }
 
 type CapabilitiesPeeringData struct {
@@ -494,7 +638,7 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 		return fmt.Errorf("chain_capabilities must be a map, but got %T", c.RawChainCapabilities)
 	}
 
-	var parseChainID = func(v any) (uint64, error) {
+	parseChainID := func(v any) (uint64, error) {
 		var chainID uint64
 		var err error
 
@@ -595,6 +739,9 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchain.Input) error {
 	knownChains := []uint64{}
 	for _, bc := range bcInput {
+		if bc.Type == blockchain.FamilySolana {
+			continue
+		}
 		chainIDUint64, convErr := strconv.ParseUint(bc.ChainID, 10, 64)
 		if convErr != nil {
 			return errors.Wrapf(convErr, "failed to convert chain ID %s to uint64", bc.ChainID)
@@ -613,8 +760,22 @@ func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchai
 	return nil
 }
 
+// MaxFaultyNodes returns the maximum number of faulty (Byzantine) nodes
+// that a network of `n` total nodes can tolerate while still maintaining
+// consensus safety under the standard BFT assumption (n >= 3f + 1).
+//
+// For example, with 4 nodes, at most 1 can be faulty.
+// With 7 nodes, at most 2 can be faulty.
+func (c *CapabilitiesAwareNodeSet) MaxFaultyNodes() (uint32, error) {
+	if c.Nodes <= 0 {
+		return 0, fmt.Errorf("total nodes must be greater than 0, got %d", c.Nodes)
+	}
+	return uint32((c.Nodes - 1) / 3), nil //nolint:gosec // disable G115
+}
+
 type GenerateKeysInput struct {
 	GenerateEVMKeysForChainIDs []int
+	GenerateSolKeysForChainIDs []string
 	GenerateP2PKeys            bool
 	Topology                   *Topology
 	Password                   string
@@ -637,20 +798,28 @@ func (g *GenerateKeysInput) Validate() error {
 // chainID -> EVMKeys
 type ChainIDToEVMKeys = map[int]*crypto.EVMKeys
 
+// chainID -> SolKeys
+type ChainIDToSolKeys = map[string]*crypto.SolKeys
+
 // donID -> chainID -> EVMKeys
 type DonsToEVMKeys = map[uint64]ChainIDToEVMKeys
+
+// donID -> chainID -> SolKeys
+type DonsToSolKeys = map[uint64]ChainIDToSolKeys
 
 // donID -> P2PKeys
 type DonsToP2PKeys = map[uint64]*crypto.P2PKeys
 
 type GenerateKeysOutput struct {
 	EVMKeys DonsToEVMKeys
+	SolKeys DonsToSolKeys
 	P2PKeys DonsToP2PKeys
 }
 
 type GenerateSecretsInput struct {
 	DonMetadata *DonMetadata
 	EVMKeys     ChainIDToEVMKeys
+	SolKeys     ChainIDToSolKeys
 	P2PKeys     *crypto.P2PKeys
 }
 
@@ -696,6 +865,7 @@ type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
 	BlockchainOutputs map[uint64]*WrappedBlockchainOutput
 	SethClients       map[uint64]*seth.Client
+	SolClients        map[uint64]*solrpc.Client
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses cldf.AddressBook
 	Datastore         datastore.DataStore
@@ -713,8 +883,21 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 	if len(f.SethClients) == 0 {
 		return errors.New("seth clients are not set")
 	}
-	if len(f.BlockchainOutputs) != len(f.SethClients) {
-		return errors.New("blockchain outputs and seth clients must have the same length")
+
+	var expectedSeth, expectedSols int
+	for _, chain := range f.BlockchainOutputs {
+		if chain.SolChain != nil {
+			expectedSols++
+			continue
+		}
+		expectedSeth++
+	}
+
+	if expectedSeth != len(f.SethClients) {
+		return errors.Errorf("expected '%d' got '%d' unexpected number of seth clients", expectedSeth, len(f.SethClients))
+	}
+	if expectedSols != len(f.SolClients) {
+		return errors.Errorf("expected '%d' got '%d' unexpected number of sol clients", expectedSols, len(f.SolClients))
 	}
 	if len(f.NodeSetOutput) == 0 {
 		return errors.New("node set output not set")
@@ -826,8 +1009,10 @@ func (s *StartNixShellInput) Validate() error {
 	return nil
 }
 
-type CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
-type JobSpecFn = func(input *JobSpecInput) (DonsToJobSpecs, error)
+type (
+	CapabilityRegistryConfigFn = func(donFlags []CapabilityFlag, nodeSetInput *CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error)
+	JobSpecFn                  = func(input *JobSpecInput) (DonsToJobSpecs, error)
+)
 
 type JobSpecInput struct {
 	CldEnvironment            *cldf.Environment
@@ -903,9 +1088,9 @@ type InstallableCapability interface {
 	// Exceptions include capabilities that are configured via the node config, like write-evm, aptos, tron or solana.
 	JobSpecFn() JobSpecFn
 
-	// NodeConfigFn returns a function to generate node-level configuration,
-	// or nil if no node-specific config is needed. Most capabilities don't need this.
-	NodeConfigFn() NodeConfigFn
+	// NodeConfigTransformerFn returns a function to modify node-level configuration,
+	// or nil if node config modification is not needed. Most capabilities don't need this.
+	NodeConfigTransformerFn() NodeConfigTransformerFn
 
 	// GatewayJobHandlerConfigFn returns a function to configure gateway handlers in the gateway jobspec,
 	// or nil if no gateway handler configuration is required for this capability. Only capabilities
@@ -915,4 +1100,13 @@ type InstallableCapability interface {
 	// CapabilityRegistryV1ConfigFn returns a function to generate capability registry
 	// configuration for the v1 registry format
 	CapabilityRegistryV1ConfigFn() CapabilityRegistryConfigFn
+
+	// CapabilityRegistryV2ConfigFn returns a function to generate capability registry
+	// configuration for the v2 registry format
+	CapabilityRegistryV2ConfigFn() CapabilityRegistryConfigFn
+}
+
+type PersistentConfig interface {
+	Load(absPath string) error
+	Store(absPath string) error
 }

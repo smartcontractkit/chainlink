@@ -7,19 +7,21 @@ import (
 	"math/big"
 	"testing"
 
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -164,7 +166,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
-		NewSemaphore[[]*sdkpb.SecretResponse](5),
+		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
 		workflowEncryptionKey,
@@ -218,7 +220,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
-		NewSemaphore[[]*sdkpb.SecretResponse](5),
+		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
@@ -258,7 +260,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
-		NewSemaphore[[]*sdkpb.SecretResponse](5),
+		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
@@ -299,7 +301,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
-		NewSemaphore[[]*sdkpb.SecretResponse](5),
+		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
@@ -362,7 +364,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
-		NewSemaphore[[]*sdkpb.SecretResponse](5),
+		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
@@ -455,7 +457,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
-		NewSemaphore[[]*sdkpb.SecretResponse](5),
+		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
 		workflowEncryptionKey,

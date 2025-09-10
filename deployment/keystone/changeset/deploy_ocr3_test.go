@@ -19,6 +19,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -60,7 +61,7 @@ func TestConfigureOCR3(t *testing.T) {
 	t.Parallel()
 
 	nWfNodes := 4
-	c := internal.OracleConfig{
+	c := ocr3.OracleConfig{
 		MaxFaultyOracles:     1,
 		DeltaProgressMillis:  12345,
 		TransmissionSchedule: []int{nWfNodes},
@@ -100,7 +101,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.NoError(t, err)
-		var got internal.OCR2OracleConfig
+		var got ocr3.OCR2OracleConfig
 		err = json.Unmarshal(w.Bytes(), &got)
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)
@@ -168,7 +169,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.NoError(t, err)
-		var got internal.OCR2OracleConfig
+		var got ocr3.OCR2OracleConfig
 		err = json.Unmarshal(w.Bytes(), &got)
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)
@@ -300,7 +301,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		csOut, err := changeset.ConfigureOCR3Contract(te.Env, cfg)
 		require.NoError(t, err)
-		var got internal.OCR2OracleConfig
+		var got ocr3.OCR2OracleConfig
 		err = json.Unmarshal(w.Bytes(), &got)
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)

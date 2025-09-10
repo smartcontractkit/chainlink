@@ -2,14 +2,18 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -155,7 +159,12 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, events, 2)
-		require.Equal(t, WorkflowRegistered, events[0].Name)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+		expectedDeletedEvent := WorkflowDeletedEvent{
+			WorkflowID: wfID,
+		}
+		require.Equal(t, expectedDeletedEvent, events[0].Data)
+		require.Equal(t, WorkflowRegistered, events[1].Name)
 		expectedRegisteredEvent := WorkflowRegisteredEvent{
 			WorkflowID:    wfID2,
 			WorkflowOwner: owner,
@@ -167,12 +176,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Tag:           tag,
 			Attributes:    attributes,
 		}
-		require.Equal(t, expectedRegisteredEvent, events[0].Data)
-		require.Equal(t, WorkflowDeleted, events[1].Name)
-		expectedDeletedEvent := WorkflowDeletedEvent{
-			WorkflowID: wfID,
-		}
-		require.Equal(t, expectedDeletedEvent, events[1].Data)
+		require.Equal(t, expectedRegisteredEvent, events[1].Data)
 	})
 
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
@@ -581,4 +585,259 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Empty(t, pendingEvents)
 		require.Empty(t, events)
 	})
+
+	t.Run("delete events are handled before any other events", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		// Engine already in the workflow registry
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		owner := []byte{1}
+		wfName := "wf name 1"
+		err := er.Add(wfID, &mockService{})
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// The workflow gets a new version with updated metadata, which changes the workflow ID
+		wfID2 := [32]byte{2}
+		binaryURL := "b1"
+		configURL := "c1"
+		createdAt := uint64(1000000)
+		tag := "tag1"
+		attributes := []byte{}
+		donFamily := "A"
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   wfID2,
+				Owner:        owner,
+				CreatedAt:    createdAt,
+				Status:       WorkflowStatusActive,
+				WorkflowName: wfName,
+				BinaryURL:    binaryURL,
+				ConfigURL:    configURL,
+				Tag:          tag,
+				Attributes:   attributes,
+				DonFamily:    donFamily,
+			},
+		}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		require.NoError(t, err)
+
+		// Delete event happens before create event
+		require.Equal(t, events[0].Name, WorkflowDeleted)
+		require.Equal(t, events[1].Name, WorkflowRegistered)
+	})
+
+	t.Run("pending delete events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		// Engine already in the workflow registry
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		err := er.Add(wfID, &mockService{})
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// A workflow is to be removed, but hits a failure, causing it to stay pending
+		event := WorkflowDeletedEvent{
+			WorkflowID: wfID,
+		}
+		pendingEvents := map[string]*reconciliationEvent{
+			hex.EncodeToString(wfID[:]): {
+				Event: Event{
+					Data: event,
+					Name: WorkflowDeleted,
+				},
+				id:          hex.EncodeToString(wfID[:]),
+				signature:   fmt.Sprintf("%s-%s-%s", WorkflowDeleted, hex.EncodeToString(wfID[:]), toSpecStatus(WorkflowStatusActive)),
+				nextRetryAt: time.Now(),
+				retryCount:  5,
+			},
+		}
+
+		// No workflows in metadata
+		metadata := []WorkflowMetadataView{}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		require.NoError(t, err)
+		require.Len(t, events, 1)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+		require.Empty(t, pendingEvents)
+	})
+
+	t.Run("pending create events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// A workflow is added, but hits a failure during creation, causing it to stay pending
+		binaryURL := "b1"
+		configURL := "c1"
+		wfID := [32]byte{1}
+		owner := []byte{}
+		wfName := "wf name 1"
+		createdAt := uint64(1000000)
+		tag := "tag1"
+		attributes := []byte{}
+		event := WorkflowRegisteredEvent{
+			WorkflowID:    wfID,
+			WorkflowOwner: owner,
+			CreatedAt:     createdAt,
+			Status:        WorkflowStatusActive,
+			WorkflowName:  wfName,
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			Tag:           tag,
+			Attributes:    attributes,
+		}
+		pendingEvents := map[string]*reconciliationEvent{
+			hex.EncodeToString(wfID[:]): {
+				Event: Event{
+					Data: event,
+					Name: WorkflowRegistered,
+				},
+				id:          hex.EncodeToString(wfID[:]),
+				signature:   fmt.Sprintf("%s-%s-%s", WorkflowRegistered, hex.EncodeToString(wfID[:]), toSpecStatus(WorkflowStatusActive)),
+				nextRetryAt: time.Now(),
+				retryCount:  5,
+			},
+		}
+
+		// The workflow then gets removed
+		metadata := []WorkflowMetadataView{}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		require.NoError(t, err)
+		require.Empty(t, events)
+		require.Empty(t, pendingEvents)
+	})
+}
+
+func Test_GetAllowlistedRequests(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+	workflowDonNotifier := capabilities.NewDonNotifier()
+	er := NewEngineRegistry()
+
+	// Mock allowlisted requests
+	expectedRequests := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
+		{
+			RequestDigest:   [32]byte{1, 2, 3},
+			Owner:           common.Address{4, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			ExpiryTimestamp: 123456789,
+		},
+		{
+			RequestDigest:   [32]byte{7, 8, 9},
+			Owner:           common.Address{10, 11, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			ExpiryTimestamp: 987654321,
+		},
+	}
+
+	// Mock contract reader to return expectedRequests
+	mockContractReader := &mockContractReader{
+		allowlistedRequests: expectedRequests,
+	}
+
+	wr, err := NewWorkflowRegistry(
+		lggr,
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return mockContractReader, nil
+		},
+		"",
+		Config{
+			QueryCount:   20,
+			SyncStrategy: SyncStrategyReconciliation,
+		},
+		&eventHandler{},
+		workflowDonNotifier,
+		er,
+	)
+	require.NoError(t, err)
+
+	// Simulate syncAllowlistedRequests updating the field
+	wr.allowListedMu.Lock()
+	wr.allowListedRequests = expectedRequests
+	wr.allowListedMu.Unlock()
+
+	// Test GetAllowlistedRequests returns the correct data
+	got := wr.GetAllowlistedRequests(ctx)
+	require.Equal(t, expectedRequests, got)
+}
+
+// Mock contract reader implementation
+type mockContractReader struct {
+	types.ContractReader
+	allowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+}
+
+func (m *mockContractReader) GetLatestValueWithHeadData(
+	_ context.Context,
+	_ string,
+	_ primitives.ConfidenceLevel,
+	_ interface{},
+	result interface{},
+) (*types.Head, error) {
+	// Simulate returning allowlisted requests
+	if res, ok := result.(*struct {
+		Requests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+		err      error
+	}); ok {
+		res.Requests = m.allowlistedRequests
+		return &types.Head{Height: "123"}, nil
+	}
+	return &types.Head{Height: "0"}, nil
 }

@@ -28,6 +28,7 @@ var (
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
 	DonIDClaimer         deployment.ContractType = "DonIDClaimer"
 	PriceFeed            deployment.ContractType = "PriceFeed"
+	TokenGovernor        deployment.ContractType = "TokenGovernor"
 
 	// Test contracts. Note test router maps to a regular router contract.
 	TestRouter             deployment.ContractType = "TestRouter"
@@ -55,6 +56,8 @@ var (
 	CCTPMessageTransmitterProxy                     deployment.ContractType = "CCTPMessageTransmitterProxy"
 	HybridLockReleaseUSDCTokenPool                  deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 	HybridWithExternalMinterFastTransferTokenPool   deployment.ContractType = "HybridWithExternalMinterFastTransferTokenPool"
+	BurnMintWithExternalMinterTokenPool             deployment.ContractType = "BurnMintWithExternalMinterTokenPool"
+	HybridWithExternalMinterTokenPool               deployment.ContractType = "HybridWithExternalMinterTokenPool"
 
 	// Firedrill
 	FiredrillEntrypointType deployment.ContractType = "FiredrillEntrypoint"

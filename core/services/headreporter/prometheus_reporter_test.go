@@ -2,7 +2,6 @@ package headreporter_test
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 	"time"
 
@@ -33,9 +32,9 @@ func Test_PrometheusReporter(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 
 		backend := headreporter.NewMockPrometheusBackend(t)
-		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
-		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
-		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(0)).Return()
+		backend.On("SetUnconfirmedTransactions", evmtestutils.FixtureChainID, int64(0)).Return()
+		backend.On("SetMaxUnconfirmedAge", evmtestutils.FixtureChainID, float64(0)).Return()
+		backend.On("SetMaxUnconfirmedBlocks", evmtestutils.FixtureChainID, int64(0)).Return()
 
 		reporter := headreporter.NewLegacyEVMPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)
@@ -74,11 +73,11 @@ func Test_PrometheusReporter(t *testing.T) {
 		require.NoError(t, txStore.UpdateTxAttemptBroadcastBeforeBlockNum(testutils.Context(t), etx.ID, 7))
 
 		backend := headreporter.NewMockPrometheusBackend(t)
-		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(3)).Return()
-		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), mock.MatchedBy(func(s float64) bool {
+		backend.On("SetUnconfirmedTransactions", evmtestutils.FixtureChainID, int64(3)).Return()
+		backend.On("SetMaxUnconfirmedAge", evmtestutils.FixtureChainID, mock.MatchedBy(func(s float64) bool {
 			return s > 0
 		})).Return()
-		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(35)).Return()
+		backend.On("SetMaxUnconfirmedBlocks", evmtestutils.FixtureChainID, int64(35)).Return()
 
 		reporter := headreporter.NewLegacyEVMPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)
@@ -103,9 +102,9 @@ func Test_PrometheusReporter(t *testing.T) {
 		evmtestutils.MustInsertUnfinishedPipelineTaskRun(t, db, 2)
 
 		backend := headreporter.NewMockPrometheusBackend(t)
-		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
-		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
-		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(0)).Return()
+		backend.On("SetUnconfirmedTransactions", evmtestutils.FixtureChainID, int64(0)).Return()
+		backend.On("SetMaxUnconfirmedAge", evmtestutils.FixtureChainID, float64(0)).Return()
+		backend.On("SetMaxUnconfirmedBlocks", evmtestutils.FixtureChainID, int64(0)).Return()
 
 		reporter := headreporter.NewLegacyEVMPrometheusReporter(db, newLegacyChainContainer(t, db))
 		reporter.SetBackend(backend)

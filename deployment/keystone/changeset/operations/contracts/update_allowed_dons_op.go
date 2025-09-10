@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 )
@@ -49,7 +50,7 @@ var UpdateAllowedDonsOp = operations.NewOperation[UpdateAllowedDonsOpInput, Upda
 			return UpdateAllowedDonsOpOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", input.RegistryChainSel)
 		}
 
-		registry, err := changeset.GetOwnedContractV2[*workflow_registry.WorkflowRegistry](deps.Env.DataStore.Addresses(), chain, input.ContractAddress)
+		registry, err := contracts.GetOwnedContractV2[*workflow_registry.WorkflowRegistry](deps.Env.DataStore.Addresses(), chain, input.ContractAddress)
 		if err != nil {
 			return UpdateAllowedDonsOpOutput{}, fmt.Errorf("failed to get workflow registry contract: %w", err)
 		}

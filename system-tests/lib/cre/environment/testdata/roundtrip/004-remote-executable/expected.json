@@ -1,0 +1,17 @@
+{
+  "config": {
+    "RemoteConfig": {
+      "RemoteExecutableConfig": {
+        "registrationExpiry": {
+          "seconds": 60
+        },
+        "registrationRefresh": {
+          "seconds": 20
+        },
+        "requestHashExcludedAttributes": [
+          "data1"
+        ]
+      }
+    }
+  }
+}

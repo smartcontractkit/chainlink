@@ -21,9 +21,10 @@ var (
 
 // DeployCacheSeqInput defines the input for deploying the DataFeeds Cache program.
 type DeployCacheSeqInput struct {
-	ChainSel    uint64
-	ProgramName string
-	FeedAdmins  []solana.PublicKey // Feed admins to be added to the cache
+	ChainSel           uint64
+	ProgramName        string
+	ForwarderProgramID solana.PublicKey   // ForwarderProgram that is allowed to write to this cache
+	FeedAdmins         []solana.PublicKey // Feed admins to be added to the cache
 }
 
 // DeployCacheSeqOutput defines the output of the deployment sequence.
@@ -48,9 +49,10 @@ func deployCache(b operations.Bundle, deps operation.Deps, in DeployCacheSeqInpu
 
 	// 2. Initialize the DataFeeds Cache state
 	initOut, err := operations.ExecuteOperation(b, operation.InitCacheOp, deps, operation.InitCacheInput{
-		ProgramID:  out.ProgramID,
-		ChainSel:   in.ChainSel,
-		FeedAdmins: in.FeedAdmins,
+		ProgramID:          out.ProgramID,
+		ChainSel:           in.ChainSel,
+		FeedAdmins:         in.FeedAdmins,
+		ForwarderProgramID: in.ForwarderProgramID,
 	})
 	if err != nil {
 		return DeployCacheSeqOutput{}, err

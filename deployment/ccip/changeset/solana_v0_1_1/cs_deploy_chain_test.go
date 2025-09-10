@@ -35,7 +35,7 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	ShaV0_1_0 = "0ee732e80586c2e9df5e9b0c3b5e9a19ee66b3a1"
+	ShaV0_1_0 = "d1f5f0be212a94abe514fd3bb1baf13af25c3b61"
 	ShaV0_1_1 = "7f8a0f403c3acbf740fa6d50d71bfb80a8b12ab8"
 )
 
@@ -266,7 +266,6 @@ func TestUpgrade(t *testing.T) {
 					NewAccessControllerVersion:     &deployment.Version1_1_0,
 					NewTimelockVersion:             &deployment.Version1_1_0,
 					UpgradeAuthority:               upgradeAuthority,
-					SpillAddress:                   upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -323,7 +322,6 @@ func TestUpgrade(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewOffRampVersion: &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
-					SpillAddress:      upgradeAuthority,
 					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -370,6 +368,23 @@ func TestUpgrade(t *testing.T) {
 	// solana verification
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
+	// test closing the old buffers
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseBuffersChangeset),
+			ccipChangesetSolana.CloseBuffersConfig{
+				ChainSelector: solChainSelectors[0],
+				Buffers: []string{
+					state.SolChains[solChainSelectors[0]].BurnMintTokenPools[shared.CLLMetadata].String(),
+					state.SolChains[solChainSelectors[0]].Router.String(),
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
 }
 
 func TestIDL(t *testing.T) {
@@ -415,6 +430,9 @@ func TestIDL(t *testing.T) {
 				ChainSelector: solChain,
 				Router:        true,
 				FeeQuoter:     true,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
 			},
 		),
 		commonchangeset.Configure(
@@ -424,6 +442,9 @@ func TestIDL(t *testing.T) {
 				GitCommitSha:  "",
 				Router:        true,
 				FeeQuoter:     true,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
 				MCMS: &proposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
@@ -440,9 +461,6 @@ func TestIDL(t *testing.T) {
 				GitCommitSha:  "",
 				OffRamp:       true,
 				RMNRemote:     true,
-				BurnMintTokenPoolMetadata: []string{
-					shared.CLLMetadata,
-				},
 				LockReleaseTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
@@ -450,6 +468,78 @@ func TestIDL(t *testing.T) {
 				AccessController: true,
 				Timelock:         true,
 				MCM:              true,
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// Test transferring ownership of the IDL back to the deployer key and then close and recreate the PDA
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDLByMCMs),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// close idl account
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseIDLs),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// deploy idl
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				GitCommitSha:  "ee587a6c0562",
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UpgradeIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				GitCommitSha:  "ee587a6c0562",
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
 			},
 		),
 	})

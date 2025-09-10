@@ -9,25 +9,26 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 )
 
-type DeployWorkflowRegistryOpDeps struct {
-	Env *cldf.Environment
-}
-
+// DeployWorkflowRegistryOp Operation
 type DeployWorkflowRegistryOpInput struct {
-	ChainSelector uint64
-	Qualifier     string
+	ChainSelector uint64 `json:"chainSelector"`
+	Qualifier     string `json:"qualifier,omitempty"`
 }
 
 type DeployWorkflowRegistryOpOutput struct {
-	Address       string
-	ChainSelector uint64
-	Qualifier     string
-	Type          string
-	Version       string
-	Labels        []string
+	Address       string   `json:"address"`
+	ChainSelector uint64   `json:"chainSelector"`
+	Labels        []string `json:"labels"`
+	Qualifier     string   `json:"qualifier"`
+	Type          string   `json:"type"`
+	Version       string   `json:"version"`
+}
+
+type DeployWorkflowRegistryOpDeps struct {
+	Env *cldf.Environment
 }
 
 // DeployWorkflowRegistryOp is an operation that deploys the V2 Workflow Registry contract.
@@ -37,8 +38,6 @@ var DeployWorkflowRegistryOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Deploy WorkflowRegistry V2 Contract",
 	func(b operations.Bundle, deps DeployWorkflowRegistryOpDeps, input DeployWorkflowRegistryOpInput) (DeployWorkflowRegistryOpOutput, error) {
-		lggr := deps.Env.Logger
-
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
@@ -46,12 +45,12 @@ var DeployWorkflowRegistryOp = operations.NewOperation(
 		}
 
 		// Deploy the V2 WorkflowRegistry contract
-		workflowRegistryAddr, tx, workflowRegistry, err := workflow_registry_wrapper_v2.DeployWorkflowRegistry(
+		workflowRegistryAddr, tx, workflowRegistry, err := workflow_registry_wrapper.DeployWorkflowRegistry(
 			chain.DeployerKey,
 			chain.Client,
 		)
 		if err != nil {
-			return DeployWorkflowRegistryOpOutput{}, fmt.Errorf("failed to deploy WorkflowRegistry V2: %w", err)
+			return DeployWorkflowRegistryOpOutput{}, cldf.DecodeErr(workflow_registry_wrapper.WorkflowRegistryABI, err)
 		}
 
 		// Wait for deployment confirmation
@@ -71,15 +70,15 @@ var DeployWorkflowRegistryOp = operations.NewOperation(
 			return DeployWorkflowRegistryOpOutput{}, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 		}
 
-		lggr.Infof("Deployed %s on chain selector %d at address %s", tv.String(), chain.Selector, workflowRegistryAddr.String())
+		deps.Env.Logger.Infof("Deployed %s on chain selector %d at address %s", tv.String(), chain.Selector, workflowRegistryAddr.String())
 
 		return DeployWorkflowRegistryOpOutput{
 			Address:       workflowRegistryAddr.String(),
 			ChainSelector: input.ChainSelector,
+			Labels:        tv.Labels.List(),
 			Qualifier:     input.Qualifier,
 			Type:          string(tv.Type),
 			Version:       tv.Version.String(),
-			Labels:        tv.Labels.List(),
 		}, nil
 	},
 )

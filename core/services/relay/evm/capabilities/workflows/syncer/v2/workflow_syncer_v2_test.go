@@ -40,6 +40,8 @@ import (
 	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -251,6 +253,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
+	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
 
@@ -259,9 +263,12 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-	store := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, artifacts.WithConfig(artifacts.StoreConfig{
+		ArtifactStorageHost: "storage.chain.link",
+	}))
+	require.NoError(t, err)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er, emitter, rl, wl, store, workflowEncryptionKey)
+	handler, err := syncer.NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(
@@ -349,6 +356,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
+	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
@@ -356,10 +365,13 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
 	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-	store := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, artifacts.WithConfig(artifacts.StoreConfig{
+		ArtifactStorageHost: "storage.chain.link",
+	}))
+	require.NoError(t, err)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, er,
-		emitter, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
+	handler, err := syncer.NewEventHandler(lggr, wfStore, nil, true, capRegistry, er,
+		emitter, limiters, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := syncer.NewWorkflowRegistry(

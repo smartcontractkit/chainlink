@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	sdkpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -362,7 +362,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(config, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout, 10, messageHasher, lggr)
+			capabilityNodeResponseTimeout, 10, messageHasher, "", lggr)
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
