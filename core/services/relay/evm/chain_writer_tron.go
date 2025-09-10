@@ -20,9 +20,6 @@ func (w *chainWriter) buildMethodSignature(abiMethod abi.Method) string {
 // convertArgsToTronParams converts Go args to Tron's parameter format
 // Simply extracts the raw values and lets the Tron SDK handle type conversion
 func (w *chainWriter) convertArgsToTronParams(abiMethod abi.Method, args any) ([]any, error) {
-	w.logger.Debugf("Converting args for method %s with %d inputs", abiMethod.Name, len(abiMethod.Inputs))
-	w.logger.Debugf("Raw args type: %T, value: %+v", args, args)
-
 	argsValue := reflect.ValueOf(args)
 
 	// Handle slice/array of arguments

@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -354,11 +355,11 @@ func newMockResponseCache() *mockResponseCache {
 func (m *mockResponseCache) Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse) {
 }
 
-func (m *mockResponseCache) CachedFetch(workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse) gateway_common.OutboundHTTPResponse {
+func (m *mockResponseCache) CachedFetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse) gateway_common.OutboundHTTPResponse {
 	return fetchFn()
 }
 
-func (m *mockResponseCache) DeleteExpired() int {
+func (m *mockResponseCache) DeleteExpired(ctx context.Context) int {
 	select {
 	case m.deleteExpiredCh <- struct{}{}:
 	default:

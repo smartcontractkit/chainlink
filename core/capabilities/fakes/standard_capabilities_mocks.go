@@ -30,7 +30,9 @@ func (k *KVStoreMock) PruneExpiredEntries(ctx context.Context, maxAge time.Durat
 	return 0, nil
 }
 
-type KeystoreMock struct{}
+type KeystoreMock struct {
+	core.UnimplementedKeystore
+}
 
 func (k *KeystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
 	return nil, nil
@@ -71,7 +73,9 @@ type OracleMock struct{}
 func (o *OracleMock) Start(ctx context.Context) error { return nil }
 func (o *OracleMock) Close(ctx context.Context) error { return nil }
 
-type GatewayConnectorMock struct{}
+type GatewayConnectorMock struct {
+	core.UnimplementedGatewayConnector
+}
 
 func (g *GatewayConnectorMock) Start(context.Context) error {
 	return nil

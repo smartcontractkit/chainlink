@@ -15,6 +15,7 @@ import (
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -33,7 +34,9 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 	}
 
 	cfg := WithDefaults(ServiceConfig{})
-	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig)
+	testMetrics, err := metrics.NewMetrics()
+	require.NoError(t, err)
+	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
 	return handler, mockDon, donConfig
 }
 
@@ -144,19 +147,17 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 
 func TestSendMetadataPullRequest(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
 	for _, member := range donConfig.Members {
-		mockDon.EXPECT().SendToNode(ctx, member.Address, mock.Anything).Return(nil).Once()
+		mockDon.EXPECT().SendToNode(mock.Anything, member.Address, mock.Anything).Return(nil).Once()
 	}
 
-	err := handler.sendMetadataPullRequest(ctx)
+	err := handler.sendMetadataPullRequest()
 	require.NoError(t, err)
 	mockDon.AssertExpectations(t)
 }
 
 func TestSendMetadataPullRequestWithErrors(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
 
 	// Mock errors for some nodes
 	expectedErrors := []error{
@@ -166,10 +167,10 @@ func TestSendMetadataPullRequestWithErrors(t *testing.T) {
 	}
 
 	for i, member := range donConfig.Members {
-		mockDon.EXPECT().SendToNode(ctx, member.Address, mock.Anything).Return(expectedErrors[i]).Once()
+		mockDon.EXPECT().SendToNode(mock.Anything, member.Address, mock.Anything).Return(expectedErrors[i]).Once()
 	}
 
-	err := handler.sendMetadataPullRequest(ctx)
+	err := handler.sendMetadataPullRequest()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "connection failed")
 	require.Contains(t, err.Error(), "timeout")
@@ -179,15 +180,14 @@ func TestSendMetadataPullRequestWithErrors(t *testing.T) {
 
 func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
 	// Capture the request payload
 	var capturedReq *jsonrpc.Request[json.RawMessage]
-	mockDon.On("SendToNode", ctx, mock.AnythingOfType("string"), mock.Anything).
+	mockDon.On("SendToNode", mock.Anything, mock.AnythingOfType("string"), mock.Anything).
 		Run(func(args mock.Arguments) {
 			capturedReq = args.Get(2).(*jsonrpc.Request[json.RawMessage])
 		}).Return(nil)
 
-	err := handler.sendMetadataPullRequest(ctx)
+	err := handler.sendMetadataPullRequest()
 	require.NoError(t, err)
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, capturedReq.Version)

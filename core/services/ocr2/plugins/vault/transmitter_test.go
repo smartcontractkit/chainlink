@@ -15,13 +15,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestTransmitter(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*Request]()
-	handler := requests.NewHandler[*Request, *Response](lggr, store, clockwork.NewFakeClock(), time.Hour)
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clockwork.NewFakeClock(), time.Hour)
 	servicetest.Run(t, handler)
 	transmitter := NewTransmitter(lggr, types.Account("0x1"), handler)
 
@@ -38,11 +39,11 @@ func TestTransmitter(t *testing.T) {
 		},
 	}
 
-	ch := make(chan *Response, 1)
-	err := store.Add(&Request{
+	ch := make(chan *vaulttypes.Response, 1)
+	err := store.Add(&vaulttypes.Request{
 		Payload:      req1,
 		ResponseChan: ch,
-		id:           keyFor(id1),
+		IDVal:        vaulttypes.KeyFor(id1),
 	})
 	require.NoError(t, err)
 
@@ -56,7 +57,7 @@ func TestTransmitter(t *testing.T) {
 		},
 	}
 	expectedOutcome1 := &vault.Outcome{
-		Id:          keyFor(id1),
+		Id:          vaulttypes.KeyFor(id1),
 		RequestType: vault.RequestType_GET_SECRETS,
 		Request: &vault.Outcome_GetSecretsRequest{
 			GetSecretsRequest: req1,
@@ -111,5 +112,5 @@ func TestTransmitter(t *testing.T) {
 	resp := <-ch
 	assert.Equal(t, report.ReportWithInfo.Report, types.Report(resp.Payload))
 	assert.Equal(t, "REPORT_FORMAT_PROTOBUF", resp.Format)
-	assert.Equal(t, keyFor(id1), resp.ID)
+	assert.Equal(t, vaulttypes.KeyFor(id1), resp.ID)
 }

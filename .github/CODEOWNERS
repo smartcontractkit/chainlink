@@ -29,7 +29,7 @@
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @smartcontractkit/foundations @smartcontractkit/core
 /core/services/job @smartcontractkit/foundations @smartcontractkit/core
-/core/services/keystore @smartcontractkit/foundations @smartcontractkit/core
+/core/services/keystore @smartcontractkit/foundations
 /core/services/ocr* @smartcontractkit/foundations @smartcontractkit/core
 /core/services/periodicbackup @smartcontractkit/foundations @smartcontractkit/core
 /core/services/pg @smartcontractkit/foundations @smartcontractkit/core

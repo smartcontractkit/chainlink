@@ -7,6 +7,7 @@ Slack: #topic-local-dev-environments
 
 1. [Using the CLI](#using-the-cli)
    - [Prerequisites](#prerequisites-for-docker)
+   - [Setup](#setup)
    - [Start Environment](#start-environment)
     - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
     - [Beholder](#beholder)
@@ -16,7 +17,7 @@ Slack: #topic-local-dev-environments
    - [DX Tracing](#dx-tracing)
 2. [Job Distributor Image](#job-distributor-image)
 3. [Example Workflows](#example-workflows)
-3. [Adding a New Standard Capability](#10-adding-a-new-standard-capability)
+3. [Adding a New Standard Capability](#adding-a-new-standard-capability)
     - [Capability Types](#capability-types)
     - [Step 1: Define the Capability Flag](#step-1-define-the-capability-flag)
     - [Step 2: Create the Capability Implementation](#step-2-create-the-capability-implementation)
@@ -27,30 +28,31 @@ Slack: #topic-local-dev-environments
     - [Step 7: Add to Environment Configurations](#step-7-add-to-environment-configurations)
     - [Configuration Templates](#configuration-templates)
     - [Important Notes](#important-notes)
-5. [Multiple DONs](#14-multiple-dons)
-  - [Supported Capabilities](#supported-capabilities)
+5. [Multiple DONs](#multiple-dons)
+    - [Supported Capabilities](#supported-capabilities)
     - [DON-level Capabilities](#don-level-capabilities)
     - [Chain-level Capabilities](#chain-level-capabilities)
-  - [DON Types](#don-types)
-  - [TOML Configuration Structure](#toml-configuration-structure)
-  - [Example: Adding a New Topology](#example-adding-a-new-topology)
-  - [Configuration Modes](#configuration-modes)
-  - [Port Management](#port-management)
-  - [Important Notes](#important-notes)
+    - [DON Types](#don-types)
+    - [TOML Configuration Structure](#toml-configuration-structure)
+    - [Example: Adding a New Topology](#example-adding-a-new-topology)
+    - [Configuration Modes](#configuration-modes)
+    - [Port Management](#port-management)
+    - [Important Notes](#important-notes)
 6. [Enabling Already Implemented Capabilities](#enabling-already-implemented-capabilities)
-  - [Available Configuration Files](#available-configuration-files)
-  - [Capability Types and Configuration](#capability-types-and-configuration)
+    - [Available Configuration Files](#available-configuration-files)
+    - [Capability Types and Configuration](#capability-types-and-configuration)
     - [DON-level Capabilities](#don-level-capabilities-1)
     - [Chain-level Capabilities](#chain-level-capabilities-1)
-  - [Binary Requirements](#binary-requirements)
-  - [Enabling Capabilities in Your Topology](#enabling-capabilities-in-your-topology)
-  - [Configuration Examples](#configuration-examples)
-  - [Custom Capability Configuration](#custom-capability-configuration)
-  - [Important Notes](#important-notes-1)
-  - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
+    - [Binary Requirements](#binary-requirements)
+    - [Enabling Capabilities in Your Topology](#enabling-capabilities-in-your-topology)
+    - [Configuration Examples](#configuration-examples)
+    - [Custom Capability Configuration](#custom-capability-configuration)
+    - [Important Notes](#important-notes-1)
+    - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
 7. [Binary Location and Naming](#binary-location-and-naming)
-8. [Telemetry Configuration](#telemetry-configuration)
-9. [Troubleshooting](#troubleshooting)
+8. [Hot swapping](#hot-swapping)
+9. [Telemetry Configuration](#telemetry-configuration)
+10. [Troubleshooting](#troubleshooting)
 
 # Using the CLI
 
@@ -82,6 +84,14 @@ If you are missing requirements, you may need to fix the errors and re-run.
 
 Refer to [this document](https://docs.google.com/document/d/1HtVLv2ipx2jvU15WYOijQ-R-5BIZrTdAaumlquQVZ48/edit?tab=t.0#heading=h.wqgcsrk9ncjs) for troubleshooting and FAQ. Use `#topic-local-dev-environments` for help.
 
+## Setup
+
+Environment can be setup by running `go run . env setup` inside `fdf` folder. Its configuration is defined in [configs/setup.toml](configs/setup.toml) file. It will make sure that:
+- you have AWS CLI installed and configured
+- you have GH CLI installed and authenticated
+- you have required Job Distributor and Chip Ingress (Beholder) images
+- build and copy all capability binaries to expected location
+
 ## Start Environment
 ```bash
 # while in core/scripts/cre/environment
@@ -90,7 +100,7 @@ go run . env start [--auto-setup]
 # to start environment with an example workflow web API-based workflow
 go run . env start --with-example
 
- # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary to be setup in the `extra_capabilities` section of the TOML config)
+ # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary present in `/binaries` folder)
 go run . env start --with-example --example-workflow-trigger cron
 
 # to start environment using image with all supported capabilities
@@ -112,6 +122,15 @@ Optional parameters:
 - `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
 - `-c`: List of configuration files for `.proto` files that will be registered in Beholder (only if `--with-beholder/-b` flag is used). Defaults to [./proto-configs/default.toml](./proto-configs/default.toml)
+
+## Purging environment state
+To remove all state and cache files used by the environment execute:
+```bash
+# while in core/scripts/cre/environment
+go run . env state purge
+```
+
+This might be helpful if you suspect that state files might be corrupt and you're unable to start the environment.
 
 ### Using existing Docker Plugins image
 
@@ -185,7 +204,7 @@ go run . workflow deploy [flags]
 - `-n, --workflow-name`: Workflow name (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-b, --capabilities-registry-address`: Capabilities registry address (default: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 - `-e, --don-id`: DON ID (default: `1`)
@@ -207,7 +226,7 @@ go run . workflow delete [flags]
 - `-n, --name`: Workflow name to delete (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 
 **Example:**
@@ -226,7 +245,7 @@ go run . workflow delete-all [flags]
 **Key flags:**
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 - `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
+- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 
 **Example:**
@@ -269,14 +288,7 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
       - Cloning [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repository (Make sure they are built for `linux/amd64`!)
       - Building each capability manually by running `GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o evm` inside capability's folder or building all of them at once with `./nx run-many -t build` in root of `capabilities` folder
 
-     Once that is done reference them in your TOML like:
-       ```toml
-       [extra_capabilities]
-       cron_capability_binary_path = "./cron" # remember to adjust binary name and path
-       # log even trigger and read-contract binaries go here
-       # they are all commented out by default
-       ```
-     Do make sure that the path to the binary is either relative to the `environment` folder or absolute. Then the binary will be copied to the Docker image.
+     **Once that is done copy them to `core/scripts/cre/environment/binaries` folder.**  Each binary will be copied to the Docker image (if the DON has that capability enabled).
    - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
 3.  **Decide whether to build or reuse Chainlink Docker Image**
      - By default, the config builds the Docker image from your local branch. To use an existing image change to:
@@ -440,7 +452,7 @@ go run . workflow deploy-and-verify-example [flags]
 - `-u, --example-workflow-timeout`: Time to wait for workflow execution (default: `5m`)
 - `-g, --gateway-url`: Gateway URL for web API trigger (default: `http://localhost:5002`)
 - `-d, --don-id`: DON ID for web API trigger (default: `vault`)
-- `-w, --workflow-registry-address`: Workflow registry address (default: `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`)
+- `-w, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 
 **Examples:**
@@ -1097,10 +1109,6 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
-
-# Ensure cron binary is available or use plugins image
-[extra_capabilities]
-cron_capability_binary_path = "./binaries/cron"
 ```
 
 #### Example 2: Full Capability Setup
@@ -1208,6 +1216,79 @@ core/scripts/cre/environment/
 ```
 
 To check expected filenames, refer to the `binary_path` field in `capability_defaults.toml` for each capability.
+
+---
+
+## Hot swapping
+
+### Chainlink nodes' Docker image
+
+Swap the Docker images of all Chainlink nodes in the environment without completely restarting the environment. If the environment is configured to build Docker images from source, images will be rebuilt if changes are detected.
+
+**Usage:**
+```bash
+go run . env swap nodes [flags]
+```
+
+**Key flags:**
+- `-f, --force`: Force removal of Docker containers (default: `true`). Set to `false` for graceful shutdown
+- `-w, --wait-time`: Time to wait for container removal after failed restart (default: `2m`)
+
+**Example:**
+```bash
+# Force restart all nodes (faster)
+go run . env swap n
+
+# Graceful restart with longer wait time
+go run . env swap n --force=false --wait-time=5m
+```
+
+### Capability binary
+
+Swap individual capability binaries in running Chainlink nodes without restarting the entire environment. This targets only the DONs that have the specified capability enabled.
+
+**Usage:**
+```bash
+go run . env swap capability [flags]
+```
+
+**Key flags:**
+- `-n, --name`: Name of the capability to swap (required)
+- `-b, --binary`: Path to the new binary on the host machine (required)
+- `-f, --force`: Force container restart (default: `true`)
+
+**Example:**
+```bash
+go run . env swap c --name cron --binary ./new-cron-binary
+```
+
+**Supported capabilities for hot swapping:**
+Run `go run . env swap capability --name unsupported-cap` to see the current list of swappable capabilities.
+
+### Automated Hot Swapping with fswatch
+
+For development workflows, you can automate capability hot swapping using `fswatch` to monitor file changes:
+
+**Install fswatch:**
+```bash
+brew install fswatch
+```
+
+**Example usage:**
+```bash
+# Monitor cron capability source directory and auto-rebuild + hot swap
+# (from within your capability source directory)
+fswatch -o . | xargs -n1 sh -c '
+  export PATH="$HOME/.asdf/shims:$PATH" &&
+  GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o /tmp/cron &&
+  cd /path/to/chainlink/core/scripts/cre/environment &&
+  go run . env swap c --name cron --binary /tmp/cron
+'
+```
+
+**⚠️ Important:** Pay attention to the binary output location in the build command. In the example above, the binary is compiled to `/tmp/cron` (outside the source directory). If you compile to the current directory (`.`), it would trigger an infinite loop as `fswatch` would detect the newly created binary as a change.
+
+**⚠️ Important:** If you are using ASDF it is crucial to add `export PATH="$HOME/.asdf/shims:$PATH"` to avoid using system's Go binary and resulting download of all `go.mod` dependencies (both for the capability and the whole local CRE).
 
 ---
 

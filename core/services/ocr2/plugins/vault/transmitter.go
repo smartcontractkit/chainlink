@@ -14,16 +14,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type Transmitter struct {
 	lggr        logger.Logger
-	handler     *requests.Handler[*Request, *Response]
+	handler     *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	fromAccount types.Account
 }
 
-func NewTransmitter(lggr logger.Logger, fromAccount types.Account, handler *requests.Handler[*Request, *Response]) *Transmitter {
+func NewTransmitter(lggr logger.Logger, fromAccount types.Account, handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]) *Transmitter {
 	return &Transmitter{
 		lggr:        lggr.Named("VaultTransmitter"),
 		handler:     handler,
@@ -83,7 +84,7 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 	}
 
 	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())
-	c.handler.SendResponse(ctx, &Response{
+	c.handler.SendResponse(ctx, &vaulttypes.Response{
 		ID:         info.Id,
 		Payload:    rwi.Report,
 		Format:     info.Format.String(),

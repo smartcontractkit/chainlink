@@ -166,6 +166,8 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 	require.NoError(t, err)
 
 	tokenAddress := newTokenAddress
+	timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
+	require.NoError(t, err)
 
 	// svm deployment
 	for _, testCase := range testCases {
@@ -231,6 +233,48 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 									},
 								},
 							},
+						},
+					},
+					MCMS: mcmsConfig,
+				},
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetRateLimitAdmin),
+				ccipChangesetSolana.SetRateLimitAdminConfig{
+					SolChainSelector: solChain,
+					RateLimitAdminConfigs: []ccipChangesetSolana.RateLimitAdminConfig{
+						{
+							SolTokenPubKey:    tokenAddress.String(),
+							PoolType:          testCase.poolType,
+							Metadata:          tokenMetadata,
+							NewRateLimitAdmin: timelockSignerPDA,
+						},
+						{
+							SolTokenPubKey:    newTokenAddress2.String(),
+							PoolType:          testCase.poolType,
+							Metadata:          tokenMetadata,
+							NewRateLimitAdmin: timelockSignerPDA,
+						},
+					},
+					MCMS: mcmsConfig,
+				},
+			),
+			commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetRateLimitAdmin),
+				ccipChangesetSolana.SetRateLimitAdminConfig{
+					SolChainSelector: solChain,
+					RateLimitAdminConfigs: []ccipChangesetSolana.RateLimitAdminConfig{
+						{
+							SolTokenPubKey:    tokenAddress.String(),
+							PoolType:          testCase.poolType,
+							Metadata:          tokenMetadata,
+							NewRateLimitAdmin: deployerKey,
+						},
+						{
+							SolTokenPubKey:    newTokenAddress2.String(),
+							PoolType:          testCase.poolType,
+							Metadata:          tokenMetadata,
+							NewRateLimitAdmin: deployerKey,
 						},
 					},
 					MCMS: mcmsConfig,
@@ -420,7 +464,6 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 
 			// transfer away from timelock if metadata is set and not ccipChangeset.CLLMetadata
 			if mcms && tokenMetadata != "" && tokenMetadata != shared.CLLMetadata {
-				timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 				require.NoError(t, err)
 				e.Logger.Debugf("Transferring away from MCMS for token pool %v", testCase.poolType)
 				switch testCase.poolType {
@@ -529,6 +572,22 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 
 			multisig1 := createMultiSig(ctx, t, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
 			multisig2 := createMultiSig(ctx, t, deployerKey, tokenPoolSignerPDA, solanaRPCClient, deployerPrivKey)
+
+			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
+				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ExtendTokenPoolLookupTable),
+				ccipChangesetSolana.ExtendTokenPoolLookupTableConfig{
+					SkipValidationsForDuplicates: false,
+					ChainSelector:                solChain,
+					TokenPubKey:                  tokenAddress,
+					PoolType:                     testCase.poolType,
+					Metadata:                     tokenMetadata,
+					Accounts: []solana.PublicKey{
+						multisig1.PublicKey(),
+						multisig2.PublicKey(),
+					},
+				},
+			)})
+			require.NoError(t, err)
 
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(ccipChangesetSolana.ModifyMintAuthority),

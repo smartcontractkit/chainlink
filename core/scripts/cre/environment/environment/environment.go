@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -17,9 +16,11 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -33,6 +34,7 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -40,12 +42,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
-const manualCtfCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
-const manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
+const (
+	manualCtfCleanupMsg      = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
+	manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
+)
 
 var (
 	binDir string
@@ -69,11 +72,19 @@ const (
 	WorkflowTriggerCron       = "cron"
 )
 
+var EnvironmentCmd = &cobra.Command{
+	Use:   "env",
+	Short: "Environment commands",
+	Long:  `Commands to manage the environment`,
+}
+
 func init() {
 	EnvironmentCmd.AddCommand(startCmd())
-	EnvironmentCmd.AddCommand(stopCmd)
+	EnvironmentCmd.AddCommand(stopCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
+	EnvironmentCmd.AddCommand(swapCmds())
+	EnvironmentCmd.AddCommand(stateCmd())
 
 	rootPath, rootPathErr := os.Getwd()
 	if rootPathErr != nil {
@@ -82,7 +93,7 @@ func init() {
 	}
 	binDir = filepath.Join(rootPath, "bin")
 	if _, err := os.Stat(binDir); os.IsNotExist(err) {
-		if err := os.Mkdir(binDir, 0755); err != nil {
+		if err := os.Mkdir(binDir, 0o755); err != nil {
 			panic(fmt.Errorf("failed to create bin directory: %w", err))
 		}
 	}
@@ -93,13 +104,8 @@ func waitToCleanUp(d time.Duration) {
 	time.Sleep(d)
 }
 
-var EnvironmentCmd = &cobra.Command{
-	Use:   "env",
-	Short: "Environment commands",
-	Long:  `Commands to manage the environment`,
-}
-
 var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
+	globalPreRunFunc(cmd, args)
 	provisioningStartTime = time.Now()
 
 	// ensure non-nil dxTracker by default
@@ -152,11 +158,18 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupWait time.Duration) {
 		}
 
 		waitToCleanUp(cleanupWait)
+		_, saveErr := framework.SaveContainerLogs("./logs")
+		if saveErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
+		}
 
 		removeErr := framework.RemoveTestContainers()
 		if removeErr != nil {
 			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCtfCleanupMsg).Error())
 		}
+
+		// signal that the environment failed to start
+		os.Exit(1)
 	}
 }
 
@@ -191,7 +204,7 @@ var StartCmdGenerateSettingsFile = func(homeChainOut *cre.WrappedBlockchainOutpu
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(targetPath, input, 0600)
+	err = os.WriteFile(targetPath, input, 0o600)
 	if err != nil {
 		return err
 	}
@@ -209,6 +222,7 @@ func startCmd() *cobra.Command {
 		exampleWorkflowTrigger   string
 		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
+		withContractsVersion     string
 		doSetup                  bool
 		cleanupWait              time.Duration
 		withBeholder             bool
@@ -227,7 +241,7 @@ func startCmd() *cobra.Command {
 			}()
 
 			if doSetup {
-				setupErr := RunSetup(cmd.Context(), SetupConfig{}, false, false)
+				setupErr := RunSetup(cmd.Context(), SetupConfig{ConfigPath: DefaultSetupConfigPath}, true, false)
 				if setupErr != nil {
 					return errors.Wrap(setupErr, "failed to run setup")
 				}
@@ -247,6 +261,11 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(pkErr, "failed to set default private key")
 			}
 
+			cleanUpErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
+			if cleanUpErr != nil {
+				return errors.Wrap(cleanUpErr, "failed to clean up environment state files")
+			}
+
 			// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
 			setErr := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 			if setErr != nil {
@@ -254,27 +273,25 @@ func startCmd() *cobra.Command {
 			}
 
 			cmdContext := cmd.Context()
-			// Load and validate test configuration
-			in, err := framework.Load[envconfig.Config](nil)
-			if err != nil {
-				return errors.Wrap(err, "failed to load test configuration")
+			in := &envconfig.Config{}
+
+			if err := in.Load(os.Getenv("CTF_CONFIGS")); err != nil {
+				return errors.Wrap(err, "failed to load environment configuration")
 			}
 
-			// TODO since UnmarshalTOML is not supported by the TOML library we use :head_exploding:
-			// we need to parse chain capabilities manually, but we need to handle it properly, maybe by adding hooks to Load()?
-			for _, nodeSet := range in.NodeSets {
-				if err := nodeSet.ParseChainCapabilities(); err != nil {
-					return errors.Wrap(err, "failed to parse chain capabilities")
-				}
-
-				if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
-					return errors.Wrap(err, "failed to validate chain capabilities")
-				}
+			// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
+			if err := ensureDockerImagesExist(cmdContext, framework.L, in, withPluginsDockerImage); err != nil {
+				return err
 			}
 
-			capabilityFlagsProvider := flags.NewDefaultCapabilityFlagsProvider()
+			withV2Registries := withContractsVersion == "v2"
+			envDependencies := cre.NewEnvironmentDependencies(
+				flags.NewDefaultCapabilityFlagsProvider(),
+				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
+				cre.NewCLIFlagsProvider(withV2Registries),
+			)
 
-			if err := in.Validate(capabilityFlagsProvider); err != nil {
+			if err := in.Validate(envDependencies); err != nil {
 				return errors.Wrap(err, "failed to validate test configuration")
 			}
 
@@ -283,7 +300,7 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 			}
 
-			defaultCapabilities, defaultCapabilitiesErr := sets.NewDefaultSet(libc.MustSafeUint64FromInt(homeChainIDInt), append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"})
+			defaultCapabilities, defaultCapabilitiesErr := sets.NewDefaultSet(libc.MustSafeUint64FromInt(homeChainIDInt))
 			if defaultCapabilitiesErr != nil {
 				return errors.Wrap(defaultCapabilitiesErr, "failed to create default capabilities")
 			}
@@ -292,7 +309,13 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
-			output, startErr := StartCLIEnvironment(cmdContext, in, topology, withPluginsDockerImage, defaultCapabilities, capabilityFlagsProvider)
+			extraJobSpecFunctions := []cre.JobSpecFn{
+				// temporary solution until we figure out where that jobspec should live. Gateway is not a capability, it's more of a role
+				// but we don't have a good expression of that abstraction yet
+				gateway.JobSpec(append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"}),
+			}
+
+			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, defaultCapabilities, extraJobSpecFunctions, envDependencies)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -303,6 +326,11 @@ func startCmd() *cobra.Command {
 				}
 
 				waitToCleanUp(cleanupWait)
+				_, saveErr := framework.SaveContainerLogs("./logs")
+				if saveErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to save container logs: %s\n", saveErr)
+				}
+
 				removeErr := framework.RemoveTestContainers()
 				if removeErr != nil {
 					return errors.Wrap(removeErr, manualCtfCleanupMsg)
@@ -329,6 +357,20 @@ func startCmd() *cobra.Command {
 					cleanupWait,
 					protoConfigs,
 				)
+
+				metaData := map[string]any{}
+				if startBeholderErr != nil {
+					metaData["result"] = "failure"
+					metaData["error"] = oneLineErrorMessage(startBeholderErr)
+				} else {
+					metaData["result"] = "success"
+				}
+
+				trackingErr := dxTracker.Track(tracking.MetricBeholderStart, metaData)
+				if trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
+				}
+
 				if startBeholderErr != nil {
 					if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
 						beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
@@ -354,7 +396,20 @@ func startCmd() *cobra.Command {
 					output.CldEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 					output.BlockchainOutput[0].ChainSelector,
 					keystone_changeset.WorkflowRegistry.String())
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
+
+				var workflowDonID uint32
+				for idx, don := range output.DonTopology.DonsWithMetadata {
+					if flags.HasFlag(don.Flags, cre.WorkflowDON) {
+						workflowDonID = libc.MustSafeUint32(idx + 1)
+						break
+					}
+				}
+
+				if workflowDonID == 0 {
+					return errors.New("no workflow DON found")
+				}
+
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, homeChainOut.BlockchainOutput.Nodes[0].ExternalHTTPUrl, gatewayURL, output.DonTopology.GatewayConnectorOutput.Configurations[0].Dons[0].ID, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, wfRegAddr.Hex())
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -362,8 +417,9 @@ func startCmd() *cobra.Command {
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
-			if err := storeArtifacts(in); err != nil {
-				return errors.Wrap(err, "failed to store artifacts")
+			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
+			if storeErr != nil {
+				return errors.Wrap(storeErr, "failed to store local CRE state")
 			}
 
 			return nil
@@ -380,73 +436,8 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
+	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	return cmd
-}
-
-// Store the config with cached output so subsequent runs can reuse the
-// environment without full setup. Then persist absolute paths to the
-// generated artifacts (env artifact JSON and the cached CTF config) in
-// `artifact_paths.json`. System tests use these to reload environment
-// state across runs (see `system-tests/tests/smoke/cre/capabilities_test.go`),
-// where the cached config and env artifact are consumed to reconstruct
-// the in-memory CLDF environment without re-provisioning.
-//
-// This makes local iteration and CI reruns faster and deterministic.
-func storeArtifacts(in *envconfig.Config) error {
-	// hack, because CTF takes the first config file from the list to select the name of the cache file, we need to remove the default capabilities config file (which we added as the first one, so that other configs can override it)
-	ctfConfigs := os.Getenv("CTF_CONFIGS")
-	splitConfigs := strings.Split(ctfConfigs, ",")
-	if len(splitConfigs) > 1 {
-		if strings.Contains(splitConfigs[0], defaultCapabilitiesConfigFile) {
-			splitConfigs = splitConfigs[1:]
-		}
-
-		setErr := os.Setenv("CTF_CONFIGS", strings.Join(splitConfigs, ","))
-		if setErr != nil {
-			return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
-		}
-	}
-
-	_ = framework.Store(in)
-
-	return saveArtifactPaths()
-}
-
-func saveArtifactPaths() error {
-	artifactAbsPath, artifactAbsPathErr := filepath.Abs(filepath.Join(creenv.ArtifactDirName, creenv.ArtifactFileName))
-	if artifactAbsPathErr != nil {
-		return artifactAbsPathErr
-	}
-
-	ctfConfigs := os.Getenv("CTF_CONFIGS")
-	if ctfConfigs == "" {
-		return errors.New("CTF_CONFIGS env var is not set")
-	}
-
-	splitConfigs := strings.Split(ctfConfigs, ",")
-	baseConfigPath := splitConfigs[0]
-	newCacheName := strings.ReplaceAll(baseConfigPath, ".toml", "")
-	if strings.Contains(newCacheName, "cache") {
-		return nil
-	}
-	cachedOutName := strings.ReplaceAll(baseConfigPath, ".toml", "") + "-cache.toml"
-
-	ctfConfigsAbsPath, ctfConfigsAbsPathErr := filepath.Abs(cachedOutName)
-	if ctfConfigsAbsPathErr != nil {
-		return ctfConfigsAbsPathErr
-	}
-
-	artifactPaths := map[string]string{
-		"env_artifact": artifactAbsPath,
-		"env_config":   ctfConfigsAbsPath,
-	}
-
-	marshalled, mErr := json.Marshal(artifactPaths)
-	if mErr != nil {
-		return errors.Wrap(mErr, "failed to marshal artifact paths")
-	}
-
-	return os.WriteFile("artifact_paths.json", marshalled, 0600)
 }
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
@@ -463,13 +454,13 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 		metadata["panicked"] = *panicked
 	}
 
-	dxStartupErr := dxTracker.Track("cre.local.startup.result", metadata)
+	dxStartupErr := dxTracker.Track(tracking.MetricStartupResult, metadata)
 	if dxStartupErr != nil {
 		fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxStartupErr)
 	}
 
 	if success {
-		dxTimeErr := dxTracker.Track("cre.local.startup.time", map[string]any{
+		dxTimeErr := dxTracker.Track(tracking.MetricStartupTime, map[string]any{
 			"duration_seconds":       time.Since(provisioningStartTime).Seconds(),
 			"has_built_docker_image": hasBuiltDockerImage,
 		})
@@ -482,50 +473,66 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 	return nil
 }
 
-var stopCmd = &cobra.Command{
-	Use:   "stop",
-	Short: "Stops the environment",
-	Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		removeErr := framework.RemoveTestContainers()
-		if removeErr != nil {
-			return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
-		}
+func stopCmd() *cobra.Command {
+	var allFlag bool
+	cmd := &cobra.Command{
+		Use:              "stop",
+		Short:            "Stops the environment",
+		Long:             `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
+		PersistentPreRun: globalPreRunFunc,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			removeErr := framework.RemoveTestContainers()
+			if removeErr != nil {
+				return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
+			}
 
-		framework.L.Info().Msg("Removing environment state files")
-		// remove cache config files
-		cacheConfigPattern := "configs/*-cache.toml"
-		cacheFiles, globErr := filepath.Glob(cacheConfigPattern)
-		if globErr != nil {
-			fmt.Fprintf(os.Stderr, "failed to find cache config files: %s\n", globErr)
-		} else {
-			for _, file := range cacheFiles {
-				if removeFileErr := os.Remove(file); removeFileErr != nil {
-					framework.L.Warn().Msgf("failed to remove cache config file %s: %s\n", file, removeFileErr)
+			if allFlag {
+				stopBeholderErr := stopBeholder()
+				if stopBeholderErr != nil {
+					return errors.Wrap(stopBeholderErr, "failed to stop beholder")
+				}
+
+				removeCacheErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
+				if removeCacheErr != nil {
+					framework.L.Warn().Msgf("failed to remove local CRE state files: %s", removeCacheErr)
+				}
+			} else {
+				creStateFile := envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)
+				cErr := os.Remove(creStateFile)
+				if cErr != nil {
+					framework.L.Warn().Msgf("failed to remove local CRE state file: %s", cErr)
 				} else {
-					framework.L.Debug().Msgf("Removed cache config file: %s\n", file)
+					framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
+				}
+
+				envArtifactFile := creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot)
+				eErr := os.Remove(envArtifactFile)
+				if eErr != nil {
+					framework.L.Warn().Msgf("failed to remove local CRE environment artifact file: %s", eErr)
+				} else {
+					framework.L.Info().Msgf("removed local CRE environment artifact file: %s", envArtifactFile)
 				}
 			}
-		}
 
-		if removeDirErr := os.RemoveAll("env_artifact"); removeDirErr != nil {
-			framework.L.Warn().Msgf("failed to remove env_artifact folder: %s\n", removeDirErr)
-		} else {
-			framework.L.Debug().Msg("Removed env_artifact folder")
-		}
+			fmt.Println("Environment stopped successfully")
+			return nil
+		},
+	}
 
-		fmt.Println("Environment stopped successfully")
-		return nil
-	},
+	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove all environment state files")
+
+	return cmd
 }
 
 func StartCLIEnvironment(
 	cmdContext context.Context,
+	relativePathToRepoRoot string,
 	in *envconfig.Config,
 	topologyFlag string,
 	withPluginsDockerImageFlag string,
 	capabilities []cre.InstallableCapability,
-	capabilityFlagsProvider cre.CapabilityFlagsProvider,
+	extraJobSpecFunctions []cre.JobSpecFn,
+	env cre.CLIEnvironmentDependencies,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
@@ -575,19 +582,44 @@ func StartCLIEnvironment(
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets: in.NodeSets,
 		BlockchainsInput:          in.Blockchains,
-		JdInput:                   *in.JD,
-		InfraInput:                *in.Infra,
+		ContractVersions:          env.ContractVersions(),
+		WithV2Registries:          env.WithV2Registries(),
+		JdInput:                   in.JD,
+		InfraInput:                in.Infra,
 		S3ProviderInput:           in.S3ProviderInput,
 		CapabilityConfigs:         in.CapabilityConfigs,
 		CopyCapabilityBinaries:    withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
 		Capabilities:              capabilities,
+		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
 	defer cancel()
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), &universalSetupInput)
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
+	}
+
+	capabilitiesContractFactoryFunctions := []cre.CapabilityRegistryConfigFn{}
+	for _, cap := range capabilities {
+		capabilitiesContractFactoryFunctions = append(capabilitiesContractFactoryFunctions, cap.CapabilityRegistryV1ConfigFn())
+	}
+
+	artifactPath, artifactErr := creenv.DumpArtifact(
+		creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot),
+		universalSetupOutput.CldEnvironment.DataStore.Addresses(),
+		universalSetupOutput.CldEnvironment.ExistingAddresses,
+		*in.JD.Out,
+		*universalSetupOutput.DonTopology,
+		universalSetupOutput.CldEnvironment.Offchain,
+		capabilitiesContractFactoryFunctions,
+		in.NodeSets,
+	)
+
+	if artifactErr != nil {
+		testLogger.Error().Err(artifactErr).Msg("failed to generate env artifact")
+	} else {
+		testLogger.Info().Msgf("Environment artifact saved to %s", artifactPath)
 	}
 
 	return universalSetupOutput, nil
@@ -727,4 +759,221 @@ func validateWorkflowTriggerAndCapabilities(in *envconfig.Config, withExampleFla
 	}
 
 	return nil
+}
+
+func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *envconfig.Config, withPluginsDockerImageFlag string) error {
+	// skip this check in CI, as we inject images at runtime and this check would fail
+	if os.Getenv("CI") == "true" {
+		return nil
+	}
+
+	if withPluginsDockerImageFlag != "" {
+		if err := ensureDockerImageExists(ctx, logger, withPluginsDockerImageFlag); err != nil {
+			return errors.Wrapf(err, "Plugins image '%s' not found. Make sure it exists locally", withPluginsDockerImageFlag)
+		}
+	}
+
+	if in.JD != nil {
+		if err := ensureDockerImageExists(ctx, logger, in.JD.Image); err != nil {
+			return errors.Wrapf(err, "Job Distributor image '%s' not found. Make sure it exists locally or run 'go run . env setup' to pull it and other dependencies that also might be missing", in.JD.Image)
+		}
+	}
+
+	for _, nodeSet := range in.NodeSets {
+		for _, nodeSpec := range nodeSet.NodeSpecs {
+			if nodeSpec.Node != nil && nodeSpec.Node.Image != "" {
+				if err := ensureDockerImageExists(ctx, logger, nodeSpec.Node.Image); err != nil {
+					return errors.Wrapf(err, "Node image '%s' not found. Make sure it exists locally", nodeSpec.Node.Image)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// ensureDockerImageExists checks if the image exists locally, if not, it pulls it
+// it returns nil if the image exists locally or was pulled successfully
+// it returns an error if the image does not exist locally and pulling fails
+// it doesn't handle registries that require authentication
+func ensureDockerImageExists(ctx context.Context, logger zerolog.Logger, imageName string) error {
+	dockerClient, dErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if dErr != nil {
+		return errors.Wrap(dErr, "failed to create Docker client")
+	}
+
+	logger.Debug().Msgf("Checking if image '%s' exists locally", imageName)
+
+	_, err := dockerClient.ImageInspect(ctx, imageName)
+	if err != nil {
+		logger.Debug().Msgf("Image '%s' not found locally, trying to pull it", imageName)
+
+		ioRead, pullErr := dockerClient.ImagePull(ctx, imageName, image.PullOptions{})
+		if pullErr != nil {
+			return fmt.Errorf("image '%s' not found locally and pulling failed", imageName)
+		}
+		defer ioRead.Close()
+
+		logger.Debug().Msgf("Image '%s' pulled successfully", imageName)
+
+		return nil
+	}
+
+	return nil
+}
+
+func globalPreRunFunc(cmd *cobra.Command, args []string) {
+	if err := cobra.NoArgs(cmd, args); err != nil {
+		fmt.Fprint(os.Stderr, libformat.RedText("\n%v. Please use flags to parameterise the command\n\n", err))
+		os.Exit(1)
+	}
+}
+
+func stateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:              "state",
+		Short:            "State commands",
+		Long:             `Commands to manage and view the state of the environment`,
+		PersistentPreRun: globalPreRunFunc,
+	}
+
+	cmd.AddCommand(listCmd())
+	cmd.AddCommand(purgeStateCmd())
+	return cmd
+}
+
+func listCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all state files in the environment",
+		Long:  `List all state files in the environment`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			envStateFilenames, sErr := allEnvironmentStateFiles()
+			if sErr != nil {
+				return errors.Wrap(sErr, "failed to get environment state files")
+			}
+
+			fmt.Println()
+			fmt.Println("Environment state files:")
+			for _, file := range envStateFilenames {
+				fmt.Println("- " + file)
+			}
+			if len(envStateFilenames) == 0 {
+				fmt.Println("- no state files found")
+			}
+
+			fmt.Println()
+			fmt.Println("Cache folders:")
+			cacheDirs, cErr := allCacheFolders()
+			if cErr != nil {
+				return errors.Wrap(cErr, "failed to get cache folders")
+			}
+			for _, dir := range cacheDirs {
+				fmt.Println("- " + dir)
+			}
+
+			fmt.Println()
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func purgeStateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "purge",
+		Short: "Purge all state and cache files in the environment",
+		Long:  `Purge all state and cache files in the environment`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Print()
+			remErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
+			if remErr != nil {
+				return errors.Wrap(remErr, "failed to remove environment state files")
+			}
+
+			fmt.Println()
+			fmt.Println("Removing cache folders:")
+			cacheDirs, cErr := allCacheFolders()
+			if cErr != nil {
+				return errors.Wrap(cErr, "failed to get cache folders")
+			}
+
+			for _, dir := range cacheDirs {
+				rErr := os.RemoveAll(dir)
+				if rErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to remove cache folder %s: %s\n", dir, rErr)
+				} else {
+					fmt.Printf("\n- removed cache folder: %s\n", dir)
+				}
+			}
+
+			if len(cacheDirs) == 0 {
+				fmt.Println("- no cache folders found")
+			}
+
+			fmt.Println()
+			fmt.Println("Purge completed successfully")
+			fmt.Println()
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func allCacheFolders() ([]string, error) {
+	// TODO get this path from Beholder in the CTF
+	knownCacheDirRoots := []string{"~/.local/share/beholder"}
+
+	cacheDirs := []string{}
+	for _, root := range knownCacheDirRoots {
+		rootPath := strings.ReplaceAll(root, "~", os.Getenv("HOME"))
+		entries, err := os.ReadDir(rootPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, errors.Wrapf(err, "failed to read cache directory root: %s", rootPath)
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				cacheDirs = append(cacheDirs, filepath.Join(rootPath, entry.Name()))
+			}
+		}
+	}
+
+	return cacheDirs, nil
+}
+
+func allEnvironmentStateFiles() ([]string, error) {
+	stateDirAbs, absErr := filepath.Abs(filepath.Join(relativePathToRepoRoot, envconfig.StateDirname))
+	if absErr != nil {
+		return nil, errors.Wrap(absErr, "failed to get absolute path for state directory")
+	}
+
+	if _, statErr := os.Stat(stateDirAbs); os.IsNotExist(statErr) {
+		return nil, nil
+	}
+
+	files, err := os.ReadDir(stateDirAbs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read state directory")
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no state files found in %s", stateDirAbs)
+	}
+
+	stateFiles := []string{}
+	for _, file := range files {
+		if !file.IsDir() {
+			stateFiles = append(stateFiles, filepath.Join(stateDirAbs, file.Name()))
+		}
+	}
+
+	return stateFiles, nil
 }

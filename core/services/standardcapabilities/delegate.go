@@ -2,6 +2,7 @@ package standardcapabilities
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -114,26 +115,33 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
+	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID()).Named(spec.Name.ValueOrZero())
 
 	kvStore := job.NewKVStore(spec.ID, d.ds)
 
-	var keystore core.Keystore
+	// Enable signing and decryption for the capability, if available.
+	var ks core.Keystore
+	var decrypter core.Decrypter
+	var signer crypto.Signer
+	if d.ks.Workflow() != nil {
+		workflowKeys, err := d.ks.Workflow().GetAll()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow keys: %w", err)
+		}
+		if len(workflowKeys) > 0 {
+			decrypter = &workflowKeys[0]
+		}
+	}
 	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
-		key, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
+		p2pKey, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
 		if err != nil {
 			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
 		}
-		keystore, err = core.NewSingleAccountSigner(&core.P2PAccountKey, key)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create single account signer for P2P key: %w", err)
-		}
-	} else {
-		var err error
-		keystore, err = core.NewSingleAccountSigner(nil, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create empty single account signer: %w", err)
-		}
+		signer = p2pKey
+	}
+	ks, err := core.NewSignerDecrypter(core.StandardCapabilityAccount, signer, decrypter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signer decrypter: %w", err)
 	}
 
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
@@ -293,7 +301,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
-		pr, relayerSet, oracleFactory, connector, keystore)
+		pr, relayerSet, oracleFactory, connector, ks)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }

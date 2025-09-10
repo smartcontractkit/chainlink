@@ -1,9 +1,12 @@
 package types
 
 import (
+	"context"
+
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
@@ -20,12 +23,19 @@ type Peer interface {
 	IsBootstrap() bool
 }
 
+type DonPair [2]capabilities.DON
+type SharedPeer interface {
+	Peer
+	UpdateConnectionsByDONs(ctx context.Context, donPairs []DonPair, streamConfig StreamConfig) error
+}
+
 type PeerWrapper interface {
 	services.Service
 	GetPeer() Peer
 }
 
 type Signer interface {
+	Initialize() error
 	Sign(data []byte) ([]byte, error)
 }
 

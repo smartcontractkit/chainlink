@@ -119,9 +119,11 @@ type eventHandler struct {
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
 	dontimeStore           *dontime.Store
+	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
 	emitter                custmsg.MessageEmitter
 	engineFactory          engineFactoryFn
+	engineLimiters         *v2.EngineLimiters
 	ratelimiter            limits.RateLimiter
 	workflowLimits         limits.ResourceLimiter[int]
 	workflowArtifactsStore WorkflowArtifactsStore
@@ -195,8 +197,10 @@ func NewEventHandler(
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
 	dontimeStore *dontime.Store,
+	useLocalTimeProvider bool,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
+	engineLimiters *v2.EngineLimiters,
 	ratelimiter limits.RateLimiter,
 	workflowLimits limits.ResourceLimiter[int],
 	workflowArtifacts WorkflowArtifactsStore,
@@ -218,8 +222,10 @@ func NewEventHandler(
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
 		dontimeStore:           dontimeStore,
+		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
 		emitter:                emitter,
+		engineLimiters:         engineLimiters,
 		ratelimiter:            ratelimiter,
 		workflowLimits:         workflowLimits,
 		workflowArtifactsStore: workflowArtifacts,
@@ -553,12 +559,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 	// V2 aka "NoDAG"
 	cfg := &v2.EngineConfig{
-		Lggr:            h.lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     h.capRegistry,
-		DonTimeStore:    h.dontimeStore,
-		ExecutionsStore: h.workflowStore,
+		Lggr:                 h.lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          h.capRegistry,
+		DonTimeStore:         h.dontimeStore,
+		UseLocalTimeProvider: h.useLocalTimeProvider,
+		ExecutionsStore:      h.workflowStore,
 
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,
@@ -566,9 +573,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowTag:           "", // V1 workflows don't have tags, so set empty string
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:          v2.EngineLimits{}, // all defaults
-		GlobalLimits:         h.workflowLimits,
-		ExecutionRateLimiter: h.ratelimiter,
+		LocalLimits:                       v2.EngineLimits{}, // all defaults
+		LocalLimiters:                     h.engineLimiters,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+		GlobalExecutionRateLimiter:        h.ratelimiter,
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,
