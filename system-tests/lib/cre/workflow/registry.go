@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -21,11 +22,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	wf_reg_v2_op "github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -117,6 +120,47 @@ func ConfigureWorkflowRegistry(
 	allowedDonIDs := make([]uint32, len(input.AllowedDonIDs))
 	for i, donID := range input.AllowedDonIDs {
 		allowedDonIDs[i] = libc.MustSafeUint32FromUint64(donID)
+	}
+
+	if input.ContractVersion.Version.Equal(semver.MustParse(config.WorkflowRegistryV2Semver)) {
+		updateSignersReport, err := operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			wf_reg_v2_op.UpdateAllowedSignersOp,
+			wf_reg_v2_op.WorkflowRegistryOpDeps{
+				Env: nonEmptyChainsCLDEnvironment,
+			},
+			wf_reg_v2_op.UpdateAllowedSignersOpInput{
+				ChainSelector: input.ChainSelector,
+				Signers:       input.WorkflowOwners,
+				Allowed:       true,
+			},
+		)
+		if err != nil || !updateSignersReport.Output.Success {
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to update allowed signers on workflow registry %s", input.ContractVersion.Version))
+		}
+
+		donLimitReport, err := operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			wf_reg_v2_op.SetDONLimitOp,
+			wf_reg_v2_op.WorkflowRegistryOpDeps{
+				Env: nonEmptyChainsCLDEnvironment,
+			},
+			wf_reg_v2_op.SetDONLimitOpInput{
+				ChainSelector: input.ChainSelector,
+				DONFamily:     config.DefaultDONFamily,
+				Limit:         libc.MustSafeUint32(len(allowedDonIDs)),
+				Enabled:       true,
+			},
+		)
+		if err != nil || !donLimitReport.Output.Success {
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to set DON Limit on workflow registry %s", input.ContractVersion.Version))
+		}
+
+		return &cre.WorkflowRegistryOutput{
+			ChainSelector:  input.ChainSelector,
+			AllowedDonIDs:  allowedDonIDs,
+			WorkflowOwners: input.WorkflowOwners,
+		}, nil
 	}
 
 	report, err := operations.ExecuteSequence(

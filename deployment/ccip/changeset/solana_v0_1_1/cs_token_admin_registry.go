@@ -551,19 +551,10 @@ func (cfg UpgradeTokenAdminRegistryConfig) Validate(e cldf.Environment, chainSta
 	if err := chainState.ValidateRouterConfig(chain); err != nil {
 		return err
 	}
-	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 
 	for _, tokenPubKey := range cfg.TokenPubKeys {
 		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 			return err
-		}
-		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
-		if err != nil {
-			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
-		}
-		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
-		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
-			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot transfer admin role", tokenPubKey.String(), routerProgramAddress.String())
 		}
 	}
 
