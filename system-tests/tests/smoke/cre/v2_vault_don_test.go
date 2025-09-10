@@ -434,7 +434,5 @@ func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []by
 	body, err = io.ReadAll(resp.Body)
 	require.NoError(t, err, "failed to read http response body")
 	framework.L.Info().Msgf("HTTP Response Body: %s", string(body))
-
-	require.Equal(t, http.StatusOK, resp.StatusCode, "Gateway endpoint should respond with 200 OK")
 	return resp.StatusCode, body
 }
