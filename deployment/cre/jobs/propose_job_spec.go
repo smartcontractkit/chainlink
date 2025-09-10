@@ -54,7 +54,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 	}
 
 	switch config.Template {
-	case job_types.Cron:
+	case job_types.Cron, job_types.BootstrapOCR3:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}

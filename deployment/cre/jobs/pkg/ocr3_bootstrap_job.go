@@ -10,8 +10,8 @@ import (
 const bootstrapPth = "ocr3_bootstrap.tmpl"
 
 type BootstrapJobInput struct {
-	ContractID    string // OCR contract address
-	ChainSelector uint64
+	ContractID    string `json:"contract_id" yaml:"contract_id"` // OCR contract address
+	ChainSelector uint64 `json:"chain_selector" yaml:"chain_selector"`
 }
 
 type BootstrapCfg struct {
