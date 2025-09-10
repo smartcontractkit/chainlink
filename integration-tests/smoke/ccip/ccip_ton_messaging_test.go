@@ -3,7 +3,7 @@ package ccip
 import (
 	"encoding/base64"
 	"math/big"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
@@ -23,7 +23,6 @@ import (
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
-	t.Skip(" Skip the test for now, re-enable after supporting compiled contract fetching setup in integration tests")
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
 
 	t.Logf("Environment: %+v", e.Env)
@@ -35,7 +34,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 
 	// make evm chains sorted for deterministic test results
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
-	sort.Slice(evmChainSelectors, func(i, j int) bool { return evmChainSelectors[i] < evmChainSelectors[j] })
+	slices.Sort(evmChainSelectors)
 
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := allTonChainSelectors[0]
@@ -73,7 +72,6 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	)
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		//  t.Skip("Skipping test for now, re-enable after supporting compiled contract fetching setup in integration tests")
 		receiver := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), 32)
 		require.NoError(t, err)
 
