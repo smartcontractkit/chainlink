@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -16,6 +15,7 @@ import (
 
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
+	solanashared "github.com/smartcontractkit/chainlink/deployment"
 )
 
 type TokenPoolView struct {
@@ -66,13 +66,15 @@ type TokenPoolRateLimitTokenBucket struct {
 func GenerateTokenPoolView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string, poolMetadata string) (TokenPoolView, error) {
 	view := TokenPoolView{}
 	view.PoolType = poolType
-	accountInfo, err := chain.Client.GetAccountInfoWithOpts(context.Background(), program, &rpc.GetAccountInfoOpts{
-		Commitment: cldf_solana.SolDefaultCommitment,
-	})
+	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, context.Background(), program)
 	if err != nil {
-		return view, fmt.Errorf("failed to get account info for program %s: %w", program.String(), err)
+		return view, fmt.Errorf("failed to get program data address for program %s: %w", program.String(), err)
 	}
-	view.UpgradeAuthority = accountInfo.Value.Owner.String()
+	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, context.Background(), progDataAddr)
+	if err != nil {
+		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
+	}
+	view.UpgradeAuthority = authority.String()
 	view.PoolMetadata = poolMetadata
 	view.TokenPoolState = make(map[string]TokenPoolState)
 	view.TokenPoolChainConfig = make(map[uint64]map[string]TokenPoolChainConfig)
