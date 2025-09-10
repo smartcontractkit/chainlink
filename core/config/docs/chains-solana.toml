@@ -2,7 +2,7 @@
 # ChainID is the Solana chain ID. Must be one of: mainnet, testnet, devnet, localnet. Mandatory.
 ChainID = 'mainnet' # Example
 # Enabled enables this chain.
-Enabled = false # Default
+Enabled = true # Default
 # BlockTime specifies the average time between blocks on this chain
 BlockTime = '500ms' # Default
 # BalancePollPeriod is the rate to poll for SOL balance and update Prometheus metrics.
@@ -98,8 +98,6 @@ FinalizedBlockOffset = 0 # Default
 [Solana.Workflow]
 # AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
 AcceptanceTimeout = '45s' # Default
-# PollPeriod is the default poll period for checking transmission state
-PollPeriod = '3s' # Default
 # ForwarderAddress is the keystone forwarder program address on chain.
 ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 # ForwarderState is the keystone forwarder program state account on chain.
@@ -108,10 +106,12 @@ ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
 # GasLimitDefault is the default gas limit for workflow transactions.
 GasLimitDefault = 300_000 # Default
+# Local defines if relayer runs against local devnet
+Local = false # Default
+# PollPeriod is the default poll period for checking transmission state
+PollPeriod = '3s' # Default
 # TxAcceptanceState is the default acceptance state for writer DON tranmissions.
 TxAcceptanceState = 3 # Default
-# Local determines whether Relayer runs against a local devnet
-Local = false # Default
 
 [[Solana.Nodes]]
 # Name is a unique (per-chain) identifier for this node.

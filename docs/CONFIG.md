@@ -18004,7 +18004,7 @@ TendermintURL is the HTTP(S) tendermint endpoint for this node.
 ```toml
 [[Solana]]
 ChainID = 'mainnet' # Example
-Enabled = false # Default
+Enabled = true # Default
 BlockTime = '500ms' # Default
 BalancePollPeriod = '5s' # Default
 ConfirmPollPeriod = '500ms' # Default
@@ -18040,7 +18040,7 @@ ChainID is the Solana chain ID. Must be one of: mainnet, testnet, devnet, localn
 
 ### Enabled
 ```toml
-Enabled = false # Default
+Enabled = true # Default
 ```
 Enabled enables this chain.
 
@@ -18324,13 +18324,13 @@ FinalizedBlockOffset is the offset from the finalized block to use for finality 
 ```toml
 [Solana.Workflow]
 AcceptanceTimeout = '45s' # Default
-PollPeriod = '3s' # Default
 ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
 GasLimitDefault = 300_000 # Default
-TxAcceptanceState = 3 # Default
 Local = false # Default
+PollPeriod = '3s' # Default
+TxAcceptanceState = 3 # Default
 ```
 
 
@@ -18339,12 +18339,6 @@ Local = false # Default
 AcceptanceTimeout = '45s' # Default
 ```
 AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
-
-### PollPeriod
-```toml
-PollPeriod = '3s' # Default
-```
-PollPeriod is the default poll period for checking transmission state
 
 ### ForwarderAddress
 ```toml
@@ -18370,17 +18364,23 @@ GasLimitDefault = 300_000 # Default
 ```
 GasLimitDefault is the default gas limit for workflow transactions.
 
+### Local
+```toml
+Local = false # Default
+```
+Local defines if relayer runs against local devnet
+
+### PollPeriod
+```toml
+PollPeriod = '3s' # Default
+```
+PollPeriod is the default poll period for checking transmission state
+
 ### TxAcceptanceState
 ```toml
 TxAcceptanceState = 3 # Default
 ```
 TxAcceptanceState is the default acceptance state for writer DON tranmissions.
-
-### Local
-```toml
-Local = false # Default
-```
-Local determines whether Relayer runs against a local devnet
 
 ## Solana.Nodes
 ```toml
