@@ -186,9 +186,13 @@ func DeployTransferableTokenSolanaV0_1_1(
 				InitializeGlobalTokenPoolConfig: []ccipChangeSetSolanaV0_1_1.TokenPoolConfigWithMCM{
 					{
 						ChainSelector: solChainSel,
-						TokenPubKey:   solTokenAddress,
-						PoolType:      bnm,
-						Metadata:      shared.CLLMetadata,
+						TokenPoolConfigs: []ccipChangeSetSolanaV0_1_1.TokenPoolConfig{
+							{
+								TokenPubKey: solTokenAddress,
+								PoolType:    bnm,
+								Metadata:    shared.CLLMetadata,
+							},
+						},
 					},
 				},
 				AddTokenPoolAndLookupTable: []ccipChangeSetSolanaV0_1_1.AddTokenPoolAndLookupTableConfig{

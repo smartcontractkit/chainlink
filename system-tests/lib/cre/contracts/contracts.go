@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
@@ -62,6 +63,20 @@ type dons struct {
 	c map[string]donConfig
 }
 
+func (d *dons) donsOrderedByID() []donConfig {
+	out := make([]donConfig, 0, len(d.c))
+	for _, don := range d.c {
+		out = append(out, don)
+	}
+
+	// Use sort library to sort by ID
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].id < out[j].id
+	})
+
+	return out
+}
+
 func (d *dons) GetByName(name string) (donConfig, error) {
 	c, ok := d.c[name]
 	if !ok {
@@ -72,7 +87,7 @@ func (d *dons) GetByName(name string) (donConfig, error) {
 
 func (d *dons) ListByFlag(flag cre.CapabilityFlag) ([]donConfig, error) {
 	out := make([]donConfig, 0)
-	for _, don := range d.c {
+	for _, don := range d.donsOrderedByID() {
 		if flags.HasFlag(don.flags, flag) {
 			out = append(out, don)
 		}
@@ -85,7 +100,7 @@ func (d *dons) ListByFlag(flag cre.CapabilityFlag) ([]donConfig, error) {
 
 func (d *dons) ListByCapability(capName, capVersion string) ([]donConfig, error) {
 	out := make([]donConfig, 0)
-	for _, don := range d.c {
+	for _, don := range d.donsOrderedByID() {
 		for _, cap := range don.Capabilities {
 			if strings.EqualFold(cap.Capability.LabelledName, capName) && strings.EqualFold(cap.Capability.Version, capVersion) {
 				out = append(out, don)
@@ -112,7 +127,7 @@ func (d *dons) shouldBeOneDon(flag cre.CapabilityFlag) (donConfig, error) {
 
 func (d *dons) donNodesets() []ks_contracts_op.ConfigureKeystoneDON {
 	out := make([]ks_contracts_op.ConfigureKeystoneDON, 0, len(d.c))
-	for _, don := range d.c {
+	for _, don := range d.donsOrderedByID() {
 		out = append(out, don.keystoneDonConfig())
 	}
 	return out
@@ -120,13 +135,13 @@ func (d *dons) donNodesets() []ks_contracts_op.ConfigureKeystoneDON {
 
 func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 	out := make([]keystone_changeset.DonCapabilities, 0, len(d.c))
-	for _, don := range d.c {
+	for _, don := range d.donsOrderedByID() {
 		out = append(out, don.DonCapabilities)
 	}
 	return out
 }
 
-func toDons(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) (*dons, error) {
+func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 	dons := &dons{
 		c: make(map[string]donConfig),
 	}
@@ -141,7 +156,7 @@ func toDons(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		// check what capabilities each DON has and register them with Capabilities Registry contract
-		for _, configFn := range capabilityRegistryConfigFns {
+		for _, configFn := range input.CapabilityRegistryConfigFns {
 			if configFn == nil {
 				continue
 			}
@@ -260,12 +275,12 @@ func ConfigureCapabilityRegistry(input cre.ConfigureKeystoneInput, dons *dons) (
 	return &registryWrapper{V2: capReg.Contract}, nil
 }
 
-func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) error {
+func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	if err := input.Validate(); err != nil {
 		return errors.Wrap(err, "input validation failed")
 	}
 
-	dons, err := toDons(input, capabilityRegistryConfigFns)
+	dons, err := toDons(input)
 	if err != nil {
 		return errors.Wrap(err, "failed to map input to dons")
 	}
@@ -407,7 +422,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 	}
 
-	for chainSelector, evmOCR3Address := range *input.EVMOCR3Addresses {
+	for chainSelector, evmOCR3Address := range input.EVMOCR3Addresses {
 		// not sure how to map EVM chains to DONs, so for now we assume that there's only one DON that supports EVM chains
 		evmDON, err := dons.shouldBeOneDon(cre.EVMCapability)
 		if err != nil {

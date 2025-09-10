@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
-	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
@@ -165,7 +165,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, protoC
 		}
 	}()
 
-	stageGen := creenv.NewStageGen(3, "STAGE")
+	stageGen := stagegen.NewStageGen(3, "STAGE")
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Chip Ingress stack")))
 
 	// we want to restore previous configs, because Beholder might be started within the context of a different command,
