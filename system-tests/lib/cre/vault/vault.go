@@ -6,11 +6,12 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/scylladb/go-reflectx"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 )
 
-func newVaultORM(nodeIndex, externalPort int) (vault.VaultORM, *sqlx.DB, error) {
+func newVaultORM(nodeIndex, externalPort int) (vault.ORM, *sqlx.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", externalPort, postgres.User, postgres.Password, fmt.Sprintf("db_%d", nodeIndex))
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {

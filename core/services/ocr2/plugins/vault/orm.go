@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-type VaultORM interface {
+type ORM interface {
 	dkgocrtypes.ResultPackageDatabase
 	GetResultPackageCount(ctx context.Context) (int64, error)
 }
@@ -22,9 +22,9 @@ type orm struct {
 	ds sqlutil.DataSource
 }
 
-var _ VaultORM = (*orm)(nil)
+var _ ORM = (*orm)(nil)
 
-func NewVaultORM(ds sqlutil.DataSource) VaultORM {
+func NewVaultORM(ds sqlutil.DataSource) ORM {
 	return &orm{ds: ds}
 }
 
