@@ -793,7 +793,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
 		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
 		if err != nil {
-			return state, fmt.Errorf("failed to merge addresses for chain %d: %w", chainSelector, err)
+			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
 		}
 		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
 		if err != nil {
