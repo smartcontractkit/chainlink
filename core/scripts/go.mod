@@ -20,7 +20,7 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 // creating potential merge conflicts.
 require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250906212935-a1521d24f47f
-	github.com/smartcontractkit/chainlink/v2 v2.26.0-debug-tracing.0.20250905133554-bded0f7a3131
+	github.com/smartcontractkit/chainlink/v2 v2.27.3-0.20250908153844-03478edcd69f
 )
 
 require (
@@ -49,12 +49,12 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250903115155-a68d8c28ae1d
 	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250908133421-f9b356d61ca9
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
-	github.com/smartcontractkit/chainlink-deployments-framework v0.42.0
+	github.com/smartcontractkit/chainlink-deployments-framework v0.44.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250909183314-c46f62fb74f6
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250908151016-bf310cf85379
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.17
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.23
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.13
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
@@ -473,7 +473,7 @@ require (
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826190403-aed7f5f33cde // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.67 // indirect
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250818164129-fa2e60d95157 // indirect
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250905094443-ac02b032b32b // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.1 // indirect
@@ -491,8 +491,8 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250905170534-87e867e6cf31 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250909194136-3b6bb5487aa9 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250909194136-3b6bb5487aa9 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250910174956-fe0f498d4212 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250910174956-fe0f498d4212 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335 // indirect
 	github.com/smartcontractkit/cre-sdk-go v0.7.0 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect

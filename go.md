@@ -249,6 +249,7 @@ flowchart LR
 	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
+	chainlink-deployments-framework --> ccip-owner-contracts
 	chainlink-deployments-framework --> chainlink-protos/chainlink-catalog
 	chainlink-deployments-framework --> chainlink-protos/job-distributor
 	chainlink-deployments-framework --> chainlink-testing-framework/seth
@@ -334,7 +335,11 @@ flowchart LR
 	chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based --> chainlink/v2
 	click chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-contract-examples/chains/evm
+<<<<<<< HEAD
 	chainlink/deployment --> ccip-owner-contracts
+=======
+	chainlink/deployment --> chainlink-deployments-framework
+>>>>>>> 9ad532208b795d348725e7e910609efcf314fa72
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink-ton/deployment
 	chainlink/deployment --> chainlink/v2
