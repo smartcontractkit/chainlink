@@ -6,6 +6,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
