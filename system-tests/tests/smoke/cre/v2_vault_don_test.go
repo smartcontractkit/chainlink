@@ -21,7 +21,9 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
@@ -35,6 +37,28 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 	// TODO: Remove this sleep https://smartcontract-it.atlassian.net/browse/PRIV-154
 	time.Sleep(1 * time.Minute)
 	testLogger.Info().Msgf("Sleep over. Executing test now...")
+
+	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
+	var vaultFound bool
+	for _, nodeSet := range testEnv.Config.NodeSets {
+		for _, cap := range nodeSet.Capabilities {
+			if cap == cre.VaultCapability {
+				vaultFound = true
+				break
+			}
+		}
+		if vaultFound {
+			for i := range nodeSet.Nodes {
+				if i != nodeSet.BootstrapNodeIndex {
+					packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
+					require.NoError(t, err, "failed to get result package count")
+					require.Equal(t, int64(1), packageCount, "expected one result package in the database")
+				}
+			}
+			break
+		}
+	}
+	require.True(t, vaultFound, "no node set with vault capability found in topology")
 
 	testLogger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
