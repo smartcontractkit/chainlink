@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -191,7 +190,7 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 						continue // Skip invalid peer IDs
 					}
 					// Safe conversion: len(nops) is controlled and small
-					nodeOperatorID := conversions.MustSafeUint32(len(nops))
+					nodeOperatorID := libc.MustSafeUint32(len(nops))
 					nodes = append(nodes, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
 						NodeOperatorId:      nodeOperatorID,
 						P2pId:               peerID,
