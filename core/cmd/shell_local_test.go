@@ -141,6 +141,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			run := func() error {
 				// Set up what the Before hooks would do
+				//nolint:fatcontext // rootCtx is shared
 				rootCtx, cancelRootCtx := context.WithCancel(context.Background())
 				client.RootCtx = rootCtx
 				client.CancelRootCtx = cancelRootCtx
