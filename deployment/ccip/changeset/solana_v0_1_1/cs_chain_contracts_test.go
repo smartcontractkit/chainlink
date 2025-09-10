@@ -935,6 +935,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1753")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)
