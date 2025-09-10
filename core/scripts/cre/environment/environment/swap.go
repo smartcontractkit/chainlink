@@ -2,7 +2,6 @@ package environment
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	net "net/url"
@@ -31,6 +30,8 @@ import (
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
+const relativePathToRepoRoot = "../../../../"
+
 func swapCmds() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "swap",
@@ -51,10 +52,11 @@ func capabilitySwapCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "capability",
-		Short:   "Swaps the capability binary of the Chainlink nodes in the environment",
-		Long:    "Swaps the capability binary of the Chainlink nodes in the environment. Capability flag is used to find jobs with names containing the capability name, which are cancelled and approved, so that capability binary is reloaded. Only DONs that have the capability are impacted.",
-		Aliases: []string{"c", "cap"},
+		Use:              "capability",
+		Short:            "Swaps the capability binary of the Chainlink nodes in the environment",
+		Long:             "Swaps the capability binary of the Chainlink nodes in the environment. Capability flag is used to find jobs with names containing the capability name, which are cancelled and approved, so that capability binary is reloaded. Only DONs that have the capability are impacted.",
+		Aliases:          []string{"c", "cap"},
+		PersistentPreRun: joinPreRunFuncs(globalPreRunFunc, envIsRunningPreRunFunc),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initDxTracker()
 			var swapErr error
@@ -96,17 +98,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return fmt.Errorf("capability %s cannot be hot-reloaded. Supported capabilities: %s", capabilityFlag, strings.Join(swappableapabilities.SupportedCapabilityFlags(), ", "))
 	}
 
-	content, readErr := os.ReadFile(defaultArtifactsPathFile)
-	if readErr != nil {
-		return errors.Wrapf(readErr, "failed to read artifact paths file from %s. Make sure that local CRE environment is running", defaultArtifactsPathFile)
-	}
-
-	var paths artifactPaths
-	if err := json.Unmarshal(content, &paths); err != nil {
-		return errors.Wrap(err, "failed to unmarshal artifact paths file")
-	}
-
-	setErr := os.Setenv("CTF_CONFIGS", addCachePrefix(paths.EnvConfig))
+	setErr := os.Setenv("CTF_CONFIGS", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 	if setErr != nil {
 		return errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
 	}
@@ -116,14 +108,9 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		return errors.Wrap(loadErr, "failed to load CTF config")
 	}
 
-	var envArtifact creenv.EnvArtifact
-	artFile, artErr := os.ReadFile(paths.EnvArtifact)
+	envArtifact, artErr := creenv.ReadEnvArtifact(creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot))
 	if artErr != nil {
-		return errors.Wrap(artErr, "failed to read artifact file")
-	}
-	unmarshalErr := json.Unmarshal(artFile, &envArtifact)
-	if unmarshalErr != nil {
-		return errors.Wrap(unmarshalErr, "failed to unmarshal artifact file")
+		return errors.Wrap(artErr, "failed to read environment artifact")
 	}
 
 	cldLogger := cldlogger.NewSingleFileLogger(nil)
@@ -271,7 +258,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 		}
 	}
 
-	return storeArtifacts(config)
+	return config.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 }
 
 func waitForURL(ctx context.Context, url string, interval time.Duration) error {
@@ -313,10 +300,11 @@ func nodesSwapCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "nodes",
-		Short:   "Swaps the Docker images of the Chainlink nodes in the environment",
-		Long:    "Swaps the Docker images of the Chainlink nodes in the environment. If environment is configured to build the Docker image, it will be rebuilt if any change is detected in the source code.",
-		Aliases: []string{"n", "node"},
+		Use:              "nodes",
+		Short:            "Swaps the Docker images of the Chainlink nodes in the environment",
+		Long:             "Swaps the Docker images of the Chainlink nodes in the environment. If environment is configured to build the Docker image, it will be rebuilt if any change is detected in the source code.",
+		Aliases:          []string{"n", "node"},
+		PersistentPreRun: joinPreRunFuncs(globalPreRunFunc, envIsRunningPreRunFunc),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initDxTracker()
 			var swapErr error
@@ -350,17 +338,7 @@ func nodesSwapCmd() *cobra.Command {
 }
 
 func swapNodes(ctx context.Context, forceFlag bool, waitTime time.Duration) error {
-	content, readErr := os.ReadFile(defaultArtifactsPathFile)
-	if readErr != nil {
-		return errors.Wrap(readErr, "failed to read artifact paths file. Make sure that local CRE environment is running")
-	}
-
-	var paths artifactPaths
-	if err := json.Unmarshal(content, &paths); err != nil {
-		return errors.Wrap(err, "failed to unmarshal artifact paths file")
-	}
-
-	setErr := os.Setenv("CTF_CONFIGS", addCachePrefix(paths.EnvConfig))
+	setErr := os.Setenv("CTF_CONFIGS", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 	if setErr != nil {
 		return errors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
 	}
@@ -429,7 +407,7 @@ func swapNodes(ctx context.Context, forceFlag bool, waitTime time.Duration) erro
 		return errors.Wrapf(err, "failed to restart nodeSets")
 	}
 
-	return storeArtifacts(config)
+	return config.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 }
 
 func findAllDockerContainerIDs(ctx context.Context, pattern string) ([]string, error) {
@@ -453,4 +431,22 @@ func findAllDockerContainerIDs(ctx context.Context, pattern string) ([]string, e
 	}
 
 	return containerIDs, nil
+}
+
+func joinPreRunFuncs(funcs ...func(cmd *cobra.Command, args []string)) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		for _, f := range funcs {
+			f(cmd, args)
+		}
+	}
+}
+
+func envIsRunningPreRunFunc(cmd *cobra.Command, args []string) {
+	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
+		framework.L.Fatal().Str("Expected location", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist. Please start the environment first.")
+	}
+
+	if !creenv.EnvArtifactFileExists(relativePathToRepoRoot) {
+		framework.L.Fatal().Str("Expected location", creenv.MustEnvArtifactAbsPath(relativePathToRepoRoot)).Msg("Environment artifact file does not exist. Please start the environment first.")
+	}
 }
