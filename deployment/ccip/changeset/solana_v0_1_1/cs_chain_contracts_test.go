@@ -954,6 +954,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 func TestSetOcr3Active(t *testing.T) {
 	quarantine.Flaky(t, "DX-1775")
 	quarantine.Flaky(t, "DX-1775")
+	quarantine.Flaky(t, "DX-1775")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
