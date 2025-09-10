@@ -4,6 +4,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
@@ -14,11 +16,11 @@ import (
 )
 
 type contractTransmitterFactory struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
 // NewContractTransmitterFactory constructs a Noop transmitter.
-func NewContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) cciptypes.ContractTransmitterFactory {
+func NewContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodec) cciptypes.ContractTransmitterFactory {
 	return &contractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -66,7 +68,7 @@ func NewNoopCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 		_report ocr3types.ReportWithInfo[[]byte],
 		_rs, _ss [][32]byte,
 		_vs [32]byte,
-		_ ccipcommon.ExtraDataCodec,
+		_ ccipocr3.ExtraDataCodec,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,

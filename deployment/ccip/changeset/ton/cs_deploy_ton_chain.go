@@ -5,7 +5,7 @@ import (
 
 	tonaddress "github.com/xssnick/tonutils-go/address"
 
-	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 )
 
 type DeployCCIPContractsCfg struct {

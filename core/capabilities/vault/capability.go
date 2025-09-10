@@ -62,9 +62,9 @@ func (s *Capability) Close() error {
 		err = fmt.Errorf("error unregistering vault capability: %w", err)
 	}
 
-	err = s.handler.Close()
-	if err != nil {
-		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", err))
+	ierr := s.handler.Close()
+	if ierr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
 	}
 
 	return err
