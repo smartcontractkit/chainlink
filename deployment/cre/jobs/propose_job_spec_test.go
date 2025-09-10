@@ -1,11 +1,13 @@
 package jobs_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
@@ -155,10 +157,10 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 }
 
 func TestProposeJobSpec_Apply(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
-	env := testEnv.Env
-
 	t.Run("successful cron job distribution", func(t *testing.T) {
+		testEnv := test.SetupEnvV2(t, false)
+		env := testEnv.Env
+
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
@@ -199,6 +201,9 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 	})
 
 	t.Run("failed cron job distribution due to bad input", func(t *testing.T) {
+		testEnv := test.SetupEnvV2(t, false)
+		env := testEnv.Env
+
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
@@ -223,5 +228,73 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
 		assert.Contains(t, err.Error(), "command is required and must be a string")
+	})
+
+	t.Run("successful ocr3 bootstrap job distribution", func(t *testing.T) {
+		testEnv := test.SetupEnvV2(t, false)
+		env := testEnv.Env
+
+		chainSelector := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "ocr3-bootstrap-job",
+			DONName:     test.DONName,
+			Template:    job_types.BootstrapOCR3,
+			DONFilters: []operations.TargetDONFilter{
+				{Key: operations.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"contract_id":    "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+				"chain_selector": chainSelector,
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+		assert.Len(t, reqs, 1)
+
+		expectedChainID := chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID
+
+		for _, req := range reqs {
+			// log each spec in readable yaml format
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `name = "ocr3-bootstrap-job`)
+			assert.Contains(t, req.Spec, `contractID = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
+			assert.Contains(t, req.Spec, fmt.Sprintf("chainID = %d", expectedChainID))
+		}
+	})
+
+	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {
+		testEnv := test.SetupEnvV2(t, false)
+		env := testEnv.Env
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "ocr3-bootstrap-job",
+			DONName:     test.DONName,
+			Template:    job_types.BootstrapOCR3,
+			DONFilters: []operations.TargetDONFilter{
+				{Key: operations.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				// Missing "chain_selector"
+				"contract_id": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			},
+		}
+
+		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to convert inputs to OCR3 bootstrap job input")
+		assert.Contains(t, err.Error(), "chain_selector is required and must be an uint64")
 	})
 }

@@ -27,6 +27,8 @@ type ProposeJobRequest struct {
 	JobLabels      map[string]string
 	OffchainClient cldf_offchain.Client
 	Lggr           logger.Logger
+
+	ExtraSelectors []*ptypes.Selector // optional
 }
 
 func (r ProposeJobRequest) Validate() error {
@@ -76,6 +78,10 @@ func ProposeJob(ctx context.Context, req ProposeJobRequest) error {
 			Value: pointer.To(value),
 		})
 	}
+	for _, sel := range req.ExtraSelectors {
+		selectors = append(selectors, sel)
+	}
+
 	nodes, err := req.OffchainClient.ListNodes(ctx, &nodev1.ListNodesRequest{Filter: &nodev1.ListNodesRequest_Filter{
 		Enabled:   1,
 		Selectors: selectors,

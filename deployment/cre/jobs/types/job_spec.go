@@ -58,3 +58,20 @@ func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapab
 		OracleFactory: oracleFactory,
 	}, nil
 }
+
+func (j JobSpecInput) ToOCR3BootstrapJobInput() (pkg.BootstrapJobInput, error) {
+	contractID, ok := j["contract_id"].(string)
+	if !ok || contractID == "" {
+		return pkg.BootstrapJobInput{}, errors.New("contract_id is required and must be a string")
+	}
+
+	chainSelector, ok := j["chain_selector"].(uint64)
+	if !ok {
+		return pkg.BootstrapJobInput{}, errors.New("chain_selector is required and must be an uint64")
+	}
+
+	return pkg.BootstrapJobInput{
+		ContractID:    contractID,
+		ChainSelector: chainSelector,
+	}, nil
+}

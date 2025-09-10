@@ -32,7 +32,7 @@ type ProposeJobSpecInput struct {
 
 type ProposeJobSpec struct{}
 
-func (u ProposeJobSpec) VerifyPreconditions(e cldf.Environment, config ProposeJobSpecInput) error {
+func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJobSpecInput) error {
 	if config.Environment == "" {
 		return errors.New("environment is required")
 	}
@@ -89,6 +89,32 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 		)
 		if rErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose standard capability job: %w", rErr)
+		}
+
+		report = r.ToGenericReport()
+	case job_types.BootstrapOCR3:
+		jobInput, err := input.Inputs.ToOCR3BootstrapJobInput()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 bootstrap job input: %w", err)
+		}
+
+		r, rErr := operations.ExecuteOperation(
+			e.OperationsBundle,
+			operations2.ProposeOCR3BootstrapJob,
+			operations2.ProposeOCR3BootstrapJobDeps{Env: e},
+			operations2.ProposeOCR3BootstrapJobInput{
+				Domain:           input.Domain,
+				DONName:          input.DONName,
+				ContractID:       jobInput.ContractID,
+				EnvironmentLabel: input.Environment,
+				ChainSelectorEVM: jobInput.ChainSelector,
+				JobName:          input.JobName,
+				DONFilters:       input.DONFilters,
+				ExtraLabels:      input.ExtraLabels,
+			},
+		)
+		if rErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose OCR3 bootstrap job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()
