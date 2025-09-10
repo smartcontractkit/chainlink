@@ -8,7 +8,7 @@ Make sure to install the plugin before running the integration test.
 
 ### Secure mint plugin version
 
-The current code works with [v0.1 of the secure mint plugin](https://github.com/smartcontractkit/chainlink-secure-mint/commit/2bb73cf7536cc90124d6a3c5face62255f93167c).
+The current code works with [v0.1 of the secure mint plugin](https://github.com/smartcontractkit/chainlink-secure-mint/commit/548f7e4753a11b2bcd69f53345ca6a0d696dff9d).
 
 ## Validation
 

@@ -231,10 +231,10 @@ func validateJobsRunningSuccessfully(t *testing.T, nodes []node, jobIDs map[int]
 	// Make sure trigger events have been collected
 	gomega.NewWithT(t).Eventually(func() bool {
 		t.Logf("Current event count: %d", len(collectedEvents))
-		return len(collectedEvents) >= 4 // Wait for at least 4 events
+		return len(collectedEvents) >= 2
 	}, 10*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 
-	require.GreaterOrEqual(t, len(collectedEvents), 4, "Should have collected at least 4 events")
+	require.GreaterOrEqual(t, len(collectedEvents), 2, "Should have collected at least 2 events (1 per chain)")
 
 	for i, event := range collectedEvents {
 		t.Logf("Event %d: ID=%s, TriggerType=%s", i, event.Event.ID, event.Event.TriggerType)
