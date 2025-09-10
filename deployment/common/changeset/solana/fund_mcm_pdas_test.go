@@ -238,6 +238,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 	quarantine.Flaky(t, "DX-1776")
 	quarantine.Flaky(t, "DX-1776")
+	quarantine.Flaky(t, "DX-1776")
 	t.Parallel()
 	env := setupFundingTestEnv(t)
 	cfgAmounts := commonSolana.AmountsToTransfer{
