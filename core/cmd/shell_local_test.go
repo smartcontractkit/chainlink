@@ -373,6 +373,12 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 
 	ctx := cli.NewContext(nil, set, nil)
 
+	// Set up what the Before hooks would do
+	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
+	c.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
+	c.CancelRootCtx = cancelRootCtx
+	defer cancelRootCtx()
+
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -453,6 +459,12 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			ctx := cli.NewContext(nil, set, nil)
 
+			// Set up what the Before hooks would do
+			rootCtx, cancelRootCtx := context.WithCancel(context.Background())
+			c.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
+			c.CancelRootCtx = cancelRootCtx
+			defer cancelRootCtx()
+
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -526,6 +538,12 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			c := cli.NewContext(nil, set, nil)
+
+			// Set up what the Before hooks would do
+			rootCtx, cancelRootCtx := context.WithCancel(context.Background())
+			client.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
+			client.CancelRootCtx = cancelRootCtx
+			defer cancelRootCtx()
 			if test.shouldError {
 				require.ErrorContains(t, client.RebroadcastTransactions(c), test.errorContains)
 			} else {
