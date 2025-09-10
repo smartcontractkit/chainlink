@@ -1,6 +1,7 @@
 package messagingtest
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
@@ -203,6 +204,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		require.NoError(tc.T, err)
 
 		msg = ops.TonSendRequest{
+			QueryID:   rand.Uint64(),
 			Data:      tc.MsgData,
 			Receiver:  tc.Receiver,
 			ExtraArgs: c, // TODO handle ExtraArgs properly
