@@ -273,6 +273,7 @@ func newTriggerSubs(n int) *sdkpb.ExecutionResult {
 
 func TestEngine_Execution(t *testing.T) {
 	quarantine.Flaky(t, "DX-1725")
+	quarantine.Flaky(t, "DX-1725")
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
 	module.EXPECT().Close()
