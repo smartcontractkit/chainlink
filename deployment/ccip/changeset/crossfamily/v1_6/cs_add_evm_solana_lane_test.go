@@ -31,6 +31,7 @@ import (
 
 func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 	quarantine.Flaky(t, "DX-1741")
+	quarantine.Flaky(t, "DX-1741")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
