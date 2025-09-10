@@ -25,6 +25,9 @@ const (
 	Tron ChainType = "tron"
 	// TON for the TON chain
 	TON ChainType = "ton"
+
+	// Offchain is used by the MultichainKeyringAdapter when we are signing for offchain (eg. for DKG).
+	Offchain ChainType = "offchain"
 )
 
 type ChainTypes []ChainType
@@ -56,6 +59,8 @@ func NewChainType(typ uint8) (ChainType, error) {
 		return Tron, nil
 	case 7:
 		return TON, nil
+	case 8:
+		return Offchain, nil
 	default:
 		return "", fmt.Errorf("unexpected chaintype.ChainType: %#v", typ)
 	}
@@ -77,6 +82,8 @@ func (c ChainType) Type() (uint8, error) {
 		return 6, nil
 	case TON:
 		return 7, nil
+	case Offchain:
+		return 8, nil
 	default:
 		return 0, fmt.Errorf("unexpected chaintype.ChainType: %#v", c)
 	}
