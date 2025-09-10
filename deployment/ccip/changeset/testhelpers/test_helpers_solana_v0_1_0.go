@@ -519,7 +519,7 @@ func SendRequest(
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
 	case chainsel.FamilyTon:
-		seq, raw, err := tonOps.SendTonRequest(e, state.TonChains[0], cfg.SourceChain, cfg.DestChain, cfg.Message.(tonOps.TonSendRequest))
+		seq, raw, err := tonOps.SendTonRequest(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, cfg.DestChain, cfg.Message.(tonOps.TonSendRequest))
 		if err != nil {
 			return nil, err
 		}
