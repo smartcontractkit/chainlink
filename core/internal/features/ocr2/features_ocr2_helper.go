@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	ubig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
