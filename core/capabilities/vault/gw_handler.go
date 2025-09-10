@@ -108,6 +108,10 @@ func (h *GatewayHandler) ID(ctx context.Context) (string, error) {
 	return HandlerName, nil
 }
 
+func (h *GatewayHandler) Methods() []string {
+	return vaulttypes.GetSupportedMethods(h.lggr)
+}
+
 func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
 	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "req", req, "requestID", req.ID)
 
@@ -146,6 +150,8 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
+
+	vaultCapRequest.RequestId = req.ID
 
 	vaultCapResponse, err := h.secretsService.CreateSecrets(ctx, &vaultCapRequest)
 	if err != nil {

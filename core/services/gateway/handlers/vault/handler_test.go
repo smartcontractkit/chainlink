@@ -332,7 +332,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Method: vaulttypes.MethodSecretsList,
 			Error: &jsonrpc.WireError{
 				Code:    -32603,
-				Message: "quorum unobtainable",
+				Message: errQuorumUnobtainable.Error(),
 			},
 		}
 
@@ -477,7 +477,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, jsonRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request: secret ID must have both key and owner", "Error message should match")
+			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request", "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 

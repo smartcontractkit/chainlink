@@ -10,8 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/commontypes"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -92,19 +93,18 @@ func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGene
 	return &loopTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints, relays: relayers}
 }
 
-// ReportNewHead is unimplemented on Solana because there is no Headtracker to subscribe to
+// ReportNewHead is unimplemented because there is no Headtracker to subscribe to
 func (t *loopTelemetryReporter) ReportNewHead(_ context.Context, _ *evmtypes.Head) error {
 	return nil
 }
 
-// ReportPeriodic is used on Solana to report the latest head
 func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 	for relayID, endpoint := range t.endpoints {
 		relay, ok := t.relays[relayID]
 		if !ok {
-			return fmt.Errorf("no relay found for Solana chain_id=%s", relayID.ChainID)
+			return fmt.Errorf("no relay found for chain=%s", relayID)
 		}
-		err := reportLatestHead(ctx, endpoint, relayID.ChainID, relay)
+		err := reportLatestHead(ctx, endpoint, relayID, relay)
 		if err != nil {
 			return err
 		}
@@ -113,29 +113,29 @@ func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 	return nil
 }
 
-func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoint, chainID string, relay loop.Relayer) error {
+func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
 	head, err := relay.LatestHead(ctx)
 	if err != nil {
-		return fmt.Errorf("failed getting Solana head for chainID %s: %w", chainID, err)
+		return fmt.Errorf("failed getting head for chain %s: %w", relayID, err)
 	}
 
 	if head.Height == "" {
-		return fmt.Errorf("latest block height returned by relayer is empty for chainID %s", chainID)
+		return fmt.Errorf("latest block height returned by relayer is empty for %s", relayID)
 	}
 
 	blockNum, err := strconv.ParseUint(head.Height, 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse Solana block height %s: %w", head.Height, err)
+		return fmt.Errorf("failed to parse %s block height %s: %w", relayID, head.Height, err)
 	}
 
 	request := &telem.HeadReportRequest{
-		ChainID: chainID,
+		ChainID: relayID.ChainID,
 		Latest: &telem.Block{
 			Timestamp: head.Timestamp,
 			Number:    blockNum,
 			Hash:      hex.EncodeToString(head.Hash),
 		},
-		Finalized: nil, // latest finalized head retrieval not supported by Solana relayer yet
+		Finalized: nil, // latest finalized head retrieval not supported by relayer yet
 	}
 	bytes, err := proto.Marshal(request)
 	if err != nil {
