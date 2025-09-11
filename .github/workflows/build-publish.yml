@@ -195,6 +195,10 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Deploy core
         # Only deploy if this is a final release (not a prerelease).
         if: ${{ needs.checks.outputs.is-release == 'true' }}
