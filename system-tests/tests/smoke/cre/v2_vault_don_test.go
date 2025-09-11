@@ -34,11 +34,10 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 	*/
 	var testLogger = framework.L
 
-	// If the result is never available, the test will time out.
 	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
-	var vaultFound bool
-	for vaultFound == false {
+	require.Eventually(t, func() bool {
 		for _, nodeSet := range testEnv.Config.NodeSets {
+			var vaultFound bool
 			for _, cap := range nodeSet.Capabilities {
 				if cap == cre.VaultCapability {
 					vaultFound = true
@@ -49,15 +48,16 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 				for i := range nodeSet.Nodes {
 					if i != nodeSet.BootstrapNodeIndex {
 						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
-						require.NoError(t, err, "failed to get result package count")
-						require.Equal(t, int64(1), packageCount, "expected one result package in the database")
+						if err != nil || packageCount != 1 {
+							return false
+						}
 					}
 				}
-				break
+				return true
 			}
 		}
-		time.Sleep(10 * time.Second)
-	}
+		return false
+	}, time.Second*300, time.Second*5)
 
 	// Wait a bit to ensure the Vault plugin is ready.
 	time.Sleep(30 * time.Second)
