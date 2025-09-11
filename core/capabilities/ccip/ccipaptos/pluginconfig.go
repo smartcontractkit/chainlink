@@ -7,22 +7,20 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 )
 
 // initializePluginConfig returns a PluginConfig for Aptos chains.
 func initializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		CommitPluginCodec:          NewCommitPluginCodecV1(),
-		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
-		MessageHasher:              NewMessageHasherV1(logger.Sugared(lggr).Named(chainsel.FamilyAptos).Named("MessageHasherV1"), extraDataCodec),
-		TokenDataEncoder:           NewAptosTokenDataEncoder(),
-		GasEstimateProvider:        NewGasEstimateProvider(),
-		RMNCrypto:                  nil,
-		ContractTransmitterFactory: ocrimpls.NewAptosContractTransmitterFactory(extraDataCodec),
-		ChainRW:                    ChainCWProvider{},
-		ExtraDataCodec:             ExtraDataDecoder{},
-		AddressCodec:               AddressCodec{},
+		CommitPluginCodec:   NewCommitPluginCodecV1(),
+		ExecutePluginCodec:  NewExecutePluginCodecV1(extraDataCodec),
+		MessageHasher:       NewMessageHasherV1(logger.Sugared(lggr).Named(chainsel.FamilyAptos).Named("MessageHasherV1"), extraDataCodec),
+		TokenDataEncoder:    NewAptosTokenDataEncoder(),
+		GasEstimateProvider: NewGasEstimateProvider(),
+		RMNCrypto:           nil,
+		ChainRW:             ChainCWProvider{},
+		ExtraDataCodec:      ExtraDataDecoder{},
+		AddressCodec:        AddressCodec{},
 	}
 }
 
