@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
@@ -66,7 +66,8 @@ func (d *donConfig) keystoneDonConfig() ks_contracts_op.ConfigureKeystoneDON {
 }
 
 type dons struct {
-	c map[string]donConfig
+	c        map[string]donConfig
+	offChain offchain.Client
 }
 
 func (d *dons) donsOrderedByID() []donConfig {
@@ -261,7 +262,8 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 
 func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 	dons := &dons{
-		c: make(map[string]donConfig),
+		c:        make(map[string]donConfig),
+		offChain: input.CldEnv.Offchain,
 	}
 
 	for donIdx, donMetadata := range input.Topology.DonsMetadata {

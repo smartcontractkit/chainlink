@@ -95,6 +95,7 @@ type WorkflowRegistrationConfig struct {
 	SecretsURL                  string
 	WorkflowRegistryAddr        common.Address
 	WorkflowRegistryTypeVersion deployment.TypeAndVersion
+	ChainID                     uint64
 	DonID                       uint64
 	ContainerTargetDir          string
 	WrappedBlockchainOutputs    []*cre.WrappedBlockchainOutput
@@ -259,6 +260,7 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		CompressedWasmPath:          compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
+		ChainID:                     homeChainSelector,
 		DonID:                       testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
 		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
