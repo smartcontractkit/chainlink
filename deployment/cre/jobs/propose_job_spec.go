@@ -6,7 +6,9 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 )
 
@@ -97,6 +99,12 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 bootstrap job input: %w", err)
 		}
 
+		addrRefKey := pkg.GetOCR3CapabilityV2AddressRefKey(jobInput.ChainSelector, jobInput.ContractQualifier)
+		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelector, jobInput.ContractQualifier, err)
+		}
+
 		r, rErr := operations.ExecuteOperation(
 			e.OperationsBundle,
 			operations2.ProposeOCR3BootstrapJob,
@@ -104,7 +112,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			operations2.ProposeOCR3BootstrapJobInput{
 				Domain:           input.Domain,
 				DONName:          input.DONName,
-				ContractID:       jobInput.ContractID,
+				ContractID:       contractAddrRef.Address,
 				EnvironmentLabel: input.Environment,
 				ChainSelectorEVM: jobInput.ChainSelector,
 				JobName:          input.JobName,

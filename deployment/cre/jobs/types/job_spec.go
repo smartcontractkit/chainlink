@@ -62,9 +62,9 @@ func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapab
 }
 
 func (j JobSpecInput) ToOCR3BootstrapJobInput() (pkg.BootstrapJobInput, error) {
-	contractID, ok := j["contract_id"].(string)
-	if !ok || contractID == "" {
-		return pkg.BootstrapJobInput{}, errors.New("contract_id is required and must be a string")
+	qualifier, ok := j["contract_qualifier"].(string)
+	if !ok || qualifier == "" {
+		return pkg.BootstrapJobInput{}, errors.New("contract_qualifier is required and must be a string")
 	}
 
 	chainSelector, ok := j["chain_selector"].(string)
@@ -78,7 +78,7 @@ func (j JobSpecInput) ToOCR3BootstrapJobInput() (pkg.BootstrapJobInput, error) {
 	}
 
 	return pkg.BootstrapJobInput{
-		ContractID:    contractID,
-		ChainSelector: chainSel,
+		ContractQualifier: qualifier,
+		ChainSelector:     chainSel,
 	}, nil
 }

@@ -5,17 +5,20 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
@@ -237,6 +240,19 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		env := testEnv.Env
 
 		chainSelector := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("2.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "ocr3-contract-qualifier",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
@@ -249,8 +265,8 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
-				"contract_id":    "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-				"chain_selector": strconv.FormatUint(chainSelector, 10),
+				"contract_qualifier": "ocr3-contract-qualifier",
+				"chain_selector":     strconv.FormatUint(chainSelector, 10),
 			},
 		}
 
@@ -290,7 +306,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			},
 			Inputs: job_types.JobSpecInput{
 				// Missing "chain_selector"
-				"contract_id": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+				"contract_qualifier": "ocr-contract-qualifier",
 			},
 		}
 
