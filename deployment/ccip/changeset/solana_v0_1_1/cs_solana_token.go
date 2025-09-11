@@ -549,9 +549,10 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 				if upgradeTx != nil {
 					mcmsTxs = append(mcmsTxs, *upgradeTx)
 				}
-			}
-			if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			} else {
+				if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+				}
 			}
 		}
 	}
