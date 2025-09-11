@@ -522,40 +522,6 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 	return cldf.ChangesetOutput{}, nil
 }
 
-func CreateMetadataAccount(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error validating upload token metadata config: %w", err)
-	}
-	authority, err := calculateAuthorityForTokenMetadata(e, cfg)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error calculating authority for token metadata: %w", err)
-	}
-	mcmsTxs := make([]mcmsTypes.Transaction, 0)
-	for _, metadata := range cfg.TokenMetadata {
-		tokenMint := metadata.TokenPubkey
-		e.Logger.Infow("Creating Token Metadata Account for ", "tokenMint", tokenMint)
-
-		instruction, err := createTokenMetadataAccountIx(tokenMint, authority)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("error generating set buffer ix: %w", err)
-		}
-		if cfg.MCMS != nil {
-			upgradeTx, err := BuildMCMSTxn(&instruction, MplTokenMetadataID.String(), MplTokenMetadataProgramName)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create upgrade transaction: %w", err)
-			}
-			if upgradeTx != nil {
-				mcmsTxs = append(mcmsTxs, *upgradeTx)
-			}
-		}
-		if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-		}
-	}
-
-	return generateProposalIfMCMS(e, cfg.ChainSelector, cfg.MCMS.MinDelay, mcmsTxs)
-}
-
 func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating upload token metadata config: %w", err)
@@ -612,33 +578,6 @@ func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadat
 		authority = timelockSignerPDA
 	}
 	return authority, err
-}
-
-func createTokenMetadataAccountIx(tokenMint, authority solana.PublicKey) (solana.GenericInstruction, error) {
-	metadataPDA, metadataErr := findMetadataPDA(tokenMint)
-	if metadataErr != nil {
-		return solana.GenericInstruction{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
-	}
-
-	var data []byte
-	data = append(data, byte(CreateMetadataAccountV2Ix)) // Append the numeric ID of the operation
-
-	accountsForIx := solana.AccountMetaSlice{
-		solana.Meta(metadataPDA).WRITE(),
-		solana.Meta(tokenMint),
-		solana.Meta(authority).SIGNER(),         // mintAuthority
-		solana.Meta(authority).WRITE().SIGNER(), // payer
-		solana.Meta(authority),                  // updateAuthority
-		solana.Meta(solana.SystemProgramID),
-		// solana.Meta(rent), // rent info optional account
-	}
-
-	instruction := solana.NewInstruction(
-		MplTokenMetadataID,
-		accountsForIx,
-		data,
-	)
-	return *instruction, nil
 }
 
 func modifyTokenMetadataUpdateAuthorityIx(
