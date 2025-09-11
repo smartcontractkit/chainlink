@@ -59,19 +59,25 @@ func (e Envelope) GetSignerAddress(signature []byte) (address common.Address, er
 }
 
 func (e Envelope) ToJson() ([]byte, error) {
-	address, err := json.Marshal(e.Address)
-	if err != nil {
-		return nil, err
-	}
 	nonNilPayload := e.Payload
 	if nonNilPayload == nil {
 		// prevent unwanted "null" values in JSON representation
 		nonNilPayload = []byte{}
 	}
-	payload, err := json.Marshal(nonNilPayload)
-	if err != nil {
-		return nil, err
+	// Create a struct with the same fields and order as required
+	type envelopeJSON struct {
+		Address    []byte `json:"address"`
+		SlotID     uint   `json:"slotid"`
+		Payload    []byte `json:"payload"`
+		Version    uint64 `json:"version"`
+		Expiration int64  `json:"expiration"`
 	}
-	js := fmt.Sprintf(`{"address":%s,"slotid":%d,"payload":%s,"version":%d,"expiration":%d}`, address, e.SlotID, payload, e.Version, e.Expiration)
-	return []byte(js), nil
+	obj := envelopeJSON{
+		Address:    e.Address,
+		SlotID:     e.SlotID,
+		Payload:    nonNilPayload,
+		Version:    e.Version,
+		Expiration: e.Expiration,
+	}
+	return json.Marshal(obj)
 }
