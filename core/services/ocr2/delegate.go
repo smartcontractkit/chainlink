@@ -79,7 +79,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -822,7 +821,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	rpf, err := vaultocrplugin.NewReportingPluginFactory(
 		lggr,
 		requestStore,
-		vault.NewVaultORM(d.ds),
+		vaultocrplugin.NewVaultORM(d.ds),
 		&dkgRecipientKey,
 		pk,
 		secKeyShare,
