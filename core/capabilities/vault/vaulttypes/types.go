@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -46,7 +47,7 @@ var (
 )
 
 func GetSupportedMethods(lggr logger.Logger) []string {
-	methods := Methods
+	methods := slices.Clone(Methods)
 	forceDevMode := true
 	if !build.IsProd() || forceDevMode {
 		// Allow secrets get in non-prod environments for testing purposes

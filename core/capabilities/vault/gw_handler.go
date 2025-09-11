@@ -91,14 +91,14 @@ func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsSe
 }
 
 func (h *GatewayHandler) start(ctx context.Context) error {
-	if gwerr := h.gatewayConnector.AddHandler(ctx, vaulttypes.Methods, h); gwerr != nil {
+	if gwerr := h.gatewayConnector.AddHandler(ctx, h.Methods(), h); gwerr != nil {
 		return fmt.Errorf("failed to add vault handler to connector: %w", gwerr)
 	}
 	return nil
 }
 
 func (h *GatewayHandler) close() error {
-	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), vaulttypes.Methods); gwerr != nil {
+	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); gwerr != nil {
 		return fmt.Errorf("failed to remove vault handler from connector: %w", gwerr)
 	}
 	return nil
