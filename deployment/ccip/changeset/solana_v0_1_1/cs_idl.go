@@ -534,7 +534,7 @@ func SetAuthorityIDLByMCMs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutpu
 		}
 	}
 
-	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS.MinDelay, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 // changeset to upgrade idl for a program via timelock
@@ -567,7 +567,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS.MinDelay, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 // changeset to close idl account for a program - this is needed when the idl increased so much in size that it no longer fits in the account
@@ -597,7 +597,7 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS.MinDelay, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastateview.CCIPChainState, chain cldfsolana.Chain) (map[solana.PublicKey]string, error) {

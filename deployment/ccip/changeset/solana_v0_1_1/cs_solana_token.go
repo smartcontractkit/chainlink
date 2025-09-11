@@ -555,7 +555,7 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 		}
 	}
 
-	return generateProposalIfMCMS(e, cfg.ChainSelector, cfg.MCMS.MinDelay, mcmsTxs)
+	return generateProposalIfMCMS(e, cfg.ChainSelector, cfg.MCMS, mcmsTxs)
 }
 
 func findMetadataPDA(mint solana.PublicKey) (solana.PublicKey, error) {
