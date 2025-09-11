@@ -10,6 +10,7 @@ import (
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 var _ cldf.ChangeSetV2[ProposeJobSpecInput] = ProposeJobSpec{}
@@ -18,8 +19,8 @@ type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
 
-	DONName    string                        `json:"don_name" yaml:"don_name"`
-	DONFilters []operations2.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
+	DONName    string                     `json:"don_name" yaml:"don_name"`
+	DONFilters []offchain.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
 
 	JobName     string                    `json:"job_name" yaml:"job_name"`
 	Template    job_types.JobSpecTemplate `json:"template" yaml:"template"`

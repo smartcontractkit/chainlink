@@ -1,6 +1,6 @@
-package pkg
+package templates
 
 import "embed"
 
 //go:embed *tmpl
-var tmplFS embed.FS
+var FS embed.FS
