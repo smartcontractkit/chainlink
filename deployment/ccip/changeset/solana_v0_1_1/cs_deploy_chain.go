@@ -1097,18 +1097,40 @@ func generateExtendIxn(
 
 func generateCloseBufferIxn(
 	e *cldf.Environment,
-	bufferAddress solana.PublicKey,
+	programAddress solana.PublicKey,
+	recipient solana.PublicKey,
+	upgradeAuthority solana.PublicKey,
+) (solana.Instruction, error) {
+	keys := solana.AccountMetaSlice{
+		solana.Meta(programAddress).WRITE(),
+		solana.Meta(recipient).WRITE(),
+		solana.Meta(upgradeAuthority).SIGNER(),
+	}
+
+	instruction := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		// https://github.com/solana-playground/solana-playground/blob/2998d4cf381aa319d26477c5d4e6d15059670a75/vscode/src/commands/deploy/bpf-upgradeable/bpf-upgradeable.ts#L78
+		[]byte{5, 0, 0, 0}, // 4-byte Close instruction identifier
+	)
+
+	return instruction, nil
+}
+
+func generateCloseProgramIxn(
+	e *cldf.Environment,
+	programAddress solana.PublicKey,
 	recipient solana.PublicKey,
 	upgradeAuthority solana.PublicKey,
 ) (solana.Instruction, error) {
 	// Derive the program data address
-	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{bufferAddress.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programAddress.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 
 	keys := solana.AccountMetaSlice{
-		solana.NewAccountMeta(bufferAddress, true, false),
-		solana.NewAccountMeta(recipient, true, false),
-		solana.NewAccountMeta(upgradeAuthority, true, true),
-		solana.NewAccountMeta(programDataAccount, true, false),
+		solana.Meta(programDataAccount).WRITE(),
+		solana.Meta(recipient).WRITE(),
+		solana.Meta(upgradeAuthority).SIGNER(),
+		solana.Meta(programAddress).WRITE(),
 	}
 
 	instruction := solana.NewInstruction(
@@ -1161,11 +1183,12 @@ func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID so
 type CloseBuffersConfig struct {
 	ChainSelector uint64
 	Buffers       []string
+	Programs      []string
 	MCMS          *proposalutils.TimelockConfig
 }
 
 func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Closing existing buffers", "chainSelector", cfg.ChainSelector, "buffers", cfg.Buffers)
+	e.Logger.Infow("Closing existing buffers", "chainSelector", cfg.ChainSelector, "buffers", cfg.Buffers, "programs", cfg.Programs)
 	txns := make([]mcmsTypes.Transaction, 0)
 	authority := e.BlockChains.SolanaChains()[cfg.ChainSelector].DeployerKey.PublicKey()
 	if cfg.MCMS != nil {
@@ -1175,6 +1198,7 @@ func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.Cha
 		}
 		authority = timelockSignerPDA
 	}
+	allIxns := make([]solana.Instruction, 0)
 	for _, buffer := range cfg.Buffers {
 		closeIxn, err := generateCloseBufferIxn(
 			&e,
@@ -1185,6 +1209,21 @@ func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate close buffer instruction: %w", err)
 		}
+		allIxns = append(allIxns, closeIxn)
+	}
+	for _, program := range cfg.Programs {
+		closeIxn, err := generateCloseProgramIxn(
+			&e,
+			solana.MustPublicKeyFromBase58(program),
+			e.BlockChains.SolanaChains()[cfg.ChainSelector].DeployerKey.PublicKey(), // always redeem to the deployer key
+			authority,
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate close program instruction: %w", err)
+		}
+		allIxns = append(allIxns, closeIxn)
+	}
+	for _, closeIxn := range allIxns {
 		if cfg.MCMS == nil {
 			if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{closeIxn}); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
