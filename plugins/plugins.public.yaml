@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20250818164129-fa2e60d95157"
+      gitRef: "v0.0.0-20250905094443-ac02b032b32b"
       installPath: "github.com/smartcontractkit/chainlink-aptos/cmd/chainlink-aptos"
 
   cosmos:
@@ -42,3 +42,8 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
       gitRef: "v0.1.2"
       installPath: "github.com/smartcontractkit/chainlink-data-streams/mercury/cmd/chainlink-mercury"
+
+  ton:
+    - moduleURI: "github.com/smartcontractkit/chainlink-ton"
+      gitRef: "c26d4436b0db8e6e8070945aaf0fdd6a9e8913f4"
+      installPath: "github.com/smartcontractkit/chainlink-ton/cmd/chainlink-ton"

@@ -1,86 +1,21 @@
 package internal
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-const (
-	DeploymentBlockLabel = "deployment-block"
-	DeploymentHashLabel  = "deployment-hash"
-)
-
-type KeystoneForwarderDeployer struct {
-	lggr     logger.Logger
-	contract *forwarder.KeystoneForwarder
-}
-
-func NewKeystoneForwarderDeployer() (*KeystoneForwarderDeployer, error) {
-	lggr, err := logger.New()
-	if err != nil {
-		return nil, err
-	}
-	return &KeystoneForwarderDeployer{lggr: lggr}, nil
-}
-func (c *KeystoneForwarderDeployer) deploy(ctx context.Context, req DeployRequest) (*DeployResponse, error) {
-	est, err := estimateDeploymentGas(req.Chain.Client, forwarder.KeystoneForwarderABI)
-	if err != nil {
-		return nil, fmt.Errorf("failed to estimate gas: %w", err)
-	}
-	c.lggr.Debugf("Forwarder estimated gas: %d", est)
-
-	forwarderAddr, tx, forwarder, err := forwarder.DeployKeystoneForwarder(
-		req.Chain.DeployerKey,
-		req.Chain.Client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
-	}
-
-	_, err = req.Chain.Confirm(tx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
-	}
-	tvStr, err := forwarder.TypeAndVersion(&bind.CallOpts{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get type and version: %w", err)
-	}
-	tv, err := cldf.TypeAndVersionFromString(tvStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
-	}
-	txHash := tx.Hash()
-	txReceipt, err := req.Chain.Client.TransactionReceipt(ctx, tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
-	}
-	tv.Labels.Add(fmt.Sprintf("%s: %s", DeploymentHashLabel, txHash.Hex()))
-	tv.Labels.Add(fmt.Sprintf("%s: %s", DeploymentBlockLabel, txReceipt.BlockNumber.String()))
-	resp := &DeployResponse{
-		Address: forwarderAddr,
-		Tx:      txHash,
-		Tv:      tv,
-	}
-	c.contract = forwarder
-	return resp, nil
-}
-
-type ConfigureForwarderContractsRequest struct {
+type configureForwarderContractsRequest struct {
 	Dons []RegisteredDon
 
 	Chains  map[uint64]struct{} // list of chains for which request will be executed. If empty, request is applied to all chains
 	UseMCMS bool
 }
-type ConfigureForwarderContractsResponse struct {
+type configureForwarderContractsResponse struct {
 	// ForwarderAddresses is a map of chain selector to forwarder contract address that has been configured (non-MCMS),
 	// or will be configured (MCMS).
 	ForwarderAddresses map[uint64]common.Address
@@ -88,10 +23,10 @@ type ConfigureForwarderContractsResponse struct {
 	Config             map[uint64]ForwarderConfig
 }
 
-// Depreciated: use [changeset.ConfigureForwardContracts] instead
-// ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
+// Depreciated: use [changeset.configureForwardContracts] instead
+// configureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
-func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
+func configureForwardContracts(env *cldf.Environment, req configureForwarderContractsRequest) (*configureForwarderContractsResponse, error) {
 	evmChains := env.BlockChains.EVMChains()
 	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      evmChains,
@@ -114,7 +49,7 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 		if !ok {
 			return nil, fmt.Errorf("failed to get contract set for chain %d", chain.Selector)
 		}
-		r, err := ConfigureForwarder(env.Logger, chain, contracts.Forwarder, req.Dons, req.UseMCMS)
+		r, err := configureForwarder(env.Logger, chain, contracts.Forwarder, req.Dons, req.UseMCMS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
@@ -124,7 +59,7 @@ func ConfigureForwardContracts(env *cldf.Environment, req ConfigureForwarderCont
 		}
 		forwarderAddresses[chain.Selector] = contracts.Forwarder.Address()
 	}
-	return &ConfigureForwarderContractsResponse{
+	return &configureForwarderContractsResponse{
 		ForwarderAddresses: forwarderAddresses,
 		OpsPerChain:        opPerChain,
 		Config:             configs,

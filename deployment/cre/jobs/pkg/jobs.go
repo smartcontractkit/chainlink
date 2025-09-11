@@ -38,6 +38,7 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 			JobLabels:      req.JobLabels,
 			OffchainClient: e.Offchain,
 			Lggr:           e.Logger,
+			ExtraSelectors: req.DONFilter.GetSelectors(),
 		}
 		err = offchain.ProposeJob(ctx, offchainReq)
 		if err != nil {

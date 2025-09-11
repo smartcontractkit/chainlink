@@ -27,7 +27,7 @@ type CreateJobsWithJdOpDeps struct {
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	CapabilitiesConfigs       cre.CapabilityConfigs
 	Capabilities              []cre.InstallableCapability
-	InfraInput                *infra.Input
+	InfraInput                infra.Input
 }
 
 type CreateJobsWithJdOpInput struct {
@@ -41,9 +41,6 @@ var CreateJobsWithJdOp = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Create Jobs",
 	func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
-		createJobsStartTime := time.Now()
-		deps.Logger.Info().Msg("Creating jobs with Job Distributor")
-
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
 		for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
@@ -76,8 +73,6 @@ var CreateJobsWithJdOp = operations.NewOperation(
 			return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobsErr, "failed to create jobs")
 		}
 
-		deps.Logger.Info().Msgf("Jobs created in %.2f seconds", time.Since(createJobsStartTime).Seconds())
-
 		return CreateJobsWithJdOpOutput{}, nil
 	},
 )
@@ -90,8 +85,6 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 		"Create Jobs",
 		func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
 			createJobsStartTime := time.Now()
-			deps.Logger.Info().Msg("Creating jobs with Job Distributor")
-
 			donToJobSpecs := make(cre.DonsToJobSpecs)
 
 			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {

@@ -8,7 +8,6 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -18,22 +17,26 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestSolanaTokenOps(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		SolChains: 1,
-	})
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(changeset_solana.SolanaContractV0_1_1))
+	e := tenv.Env
 	solChain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain1, true,
+		changeset_solana.CCIPContractsToTransfer{
+			Router:    true,
+			FeeQuoter: true,
+			OffRamp:   true,
+		})
 	e, err := commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
 			// deployer creates token
