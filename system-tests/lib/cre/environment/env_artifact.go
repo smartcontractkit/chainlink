@@ -84,7 +84,7 @@ func (c *DONCapabilityConfig) UnmarshalJSON(data []byte) error {
 
 		// use a map to hold any nested shape: RemoteTriggerConfig/RemoteTargetConfig/RemoteExecutableConfig
 		RemoteConfig map[string]json.RawMessage `json:"RemoteConfig,omitempty"`
-		//use a map to hold any methods, if present, to iterate later
+		// use a map to hold any methods, if present, to iterate later
 		MethodConfigs map[string]json.RawMessage `json:"method_configs,omitempty"`
 	}
 
@@ -95,7 +95,7 @@ func (c *DONCapabilityConfig) UnmarshalJSON(data []byte) error {
 	}
 
 	if aux.RemoteConfig != nil {
-		//parse the remote config based on the key
+		// parse the remote config based on the key
 		switch {
 		case aux.RemoteConfig["RemoteTriggerConfig"] != nil:
 			var rt capabilitiespb.RemoteTriggerConfig
