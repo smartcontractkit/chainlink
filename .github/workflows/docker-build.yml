@@ -242,7 +242,9 @@ jobs:
     secrets: inherit
 
   deploy-nightly-core:
-    if: ${{ github.event_name == 'schedule' }}
+    if: false
+    # temporarily disabled
+    # if: ${{ github.event_name == 'schedule' }}
     needs: [docker-core]
     permissions:
       contents: read
