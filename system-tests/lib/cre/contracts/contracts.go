@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -157,11 +159,12 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 	// Collect unique capabilities and NOPs
 	capabilityMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapability)
 	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperator)
-
 	for _, don := range d.donsOrderedByID() {
 		// Extract capabilities
+		capIDs := make([]string, 0, len(don.Capabilities))
 		for _, myCap := range don.Capabilities {
 			capID := fmt.Sprintf("%s@%s", myCap.Capability.LabelledName, myCap.Capability.Version)
+			capIDs = append(capIDs, capID)
 			if _, exists := capabilityMap[capID]; !exists {
 				metadataJSON, _ := json.Marshal(syncer_v2.CapabilityMetadata{
 					CapabilityType: myCap.Capability.CapabilityType,
@@ -176,27 +179,43 @@ func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) 
 		}
 
 		// Extract NOPs and nodes
-		for _, nop := range don.Nops {
+		for i, nop := range don.Nops {
 			nopName := nop.Name
 			if _, exists := nopMap[nopName]; !exists {
 				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
-					Admin: common.Address{}, // Will be set by the deployment framework
+					Admin: common.HexToAddress(fmt.Sprintf("0xaadd00000000000000000000000000000000000%d", i+1)),
 					Name:  nopName,
 				}
 
+				ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
+				if err != nil {
+					panic(err)
+				}
+
 				// Add nodes for this NOP
-				for _, nodeID := range nop.Nodes {
-					peerID, err := p2pkey.MakePeerID(nodeID)
-					if err != nil {
-						continue // Skip invalid peer IDs
+				for _, n := range ns {
+					ocrCfg, ok := n.OCRConfigForChainSelector(chainSelector)
+					if !ok {
+						continue
 					}
-					// Safe conversion: len(nops) is controlled and small
-					nodeOperatorID := libc.MustSafeUint32(len(nops))
+
+					wfKey, err := hex.DecodeString(n.WorkflowKey)
+					if err != nil {
+						panic(err)
+					}
+
+					csKey, err := hex.DecodeString(n.CSAKey)
+					if err != nil {
+						panic(fmt.Errorf("failed to decode csa key: %w", err))
+					}
+
 					nodes = append(nodes, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
-						NodeOperatorId:      nodeOperatorID,
-						P2pId:               peerID,
-						Signer:              [32]byte{}, // Will be set by the deployment framework
-						EncryptionPublicKey: [32]byte{}, // Will be set by the deployment framework
+						NodeOperatorId:      libc.MustSafeUint32(i + 1),
+						P2pId:               n.PeerID,
+						Signer:              ocrCfg.OffchainPublicKey,
+						EncryptionPublicKey: [32]byte(wfKey),
+						CsaKey:              [32]byte(csKey),
+						CapabilityIds:       capIDs,
 					})
 				}
 			}
