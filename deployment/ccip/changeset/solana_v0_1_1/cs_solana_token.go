@@ -9,10 +9,11 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -583,7 +584,6 @@ func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadat
 func modifyTokenMetadataUpdateAuthorityIx(
 	tokenMint, authority, newAuthority solana.PublicKey,
 ) (solana.GenericInstruction, error) {
-
 	metadataPDA, metadataErr := findMetadataPDA(tokenMint)
 	if metadataErr != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
