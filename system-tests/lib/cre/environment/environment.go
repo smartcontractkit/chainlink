@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/alitto/pond/v2"
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
@@ -300,6 +301,7 @@ func SetupTestEnvironment(
 			singleFileLogger,
 			&cre.WorkflowRegistryInput{
 				ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, startBlockchainsOutput.RegistryChain().ChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
+				ContractVersion: cldf.TypeAndVersion{Version: *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])},
 				ChainSelector:   startBlockchainsOutput.RegistryChain().ChainSelector,
 				CldEnv:          deployKeystoneContractsOutput.Env,
 				AllowedDonIDs:   []uint64{topology.WorkflowDONID},
@@ -387,6 +389,7 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		EVMOCR3Addresses:            evmOCR3AddressesFromDataStore(startBlockchainsOutput.BlockChainOutputs, updatedNodeSets, deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector),
 		ConsensusV2OCR3Address:      crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
+		WithV2Registries:            input.WithV2Registries,
 	}
 
 	if input.OCR3Config != nil {

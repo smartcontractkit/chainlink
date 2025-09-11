@@ -116,13 +116,20 @@ type BuildConfig struct {
 	RepoURL    string `toml:"repository"`
 	LocalRepo  string `toml:"local_repo"`
 	Branch     string `toml:"branch"`
+	Commit     string `toml:"commit"`
 	Dockerfile string `toml:"dockerfile"`
 	DockerCtx  string `toml:"docker_ctx"`
 	LocalImage string `toml:"local_image"`
 	PreRun     string `toml:"pre_run"` // Optional function to run before building
 }
 
-func checkoutAndBuildRepo(ctx context.Context, logger zerolog.Logger, repo, reference string) (string, bool, error) {
+// setupRepo clones the repository if it's a remote URL or uses the local path if it's a directory.
+// It returns the working directory path, a boolean indicating if it's a local repo, and an error if any.
+// It will checkout the specified reference branch/tag and commit if provided.
+func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, commit string) (string, bool, error) {
+	if repo == "" {
+		return "", false, errors.New("repository URL or path is empty")
+	}
 	// Check if repo is a local directory
 	isLocalRepo := false
 	if _, err2 := os.Stat(repo); err2 == nil {
@@ -139,6 +146,9 @@ func checkoutAndBuildRepo(ctx context.Context, logger zerolog.Logger, repo, refe
 		// Use the local repo path directly
 		workingDir = repo
 	} else {
+		if reference == "" {
+			return "", false, errors.New("branch or tag reference is required for remote repositories")
+		}
 		// Create a temporary directory for cloning the remote repo
 		tempDir, err2 := os.MkdirTemp("", filepath.Base(repo)+"-*")
 		if err2 != nil {
@@ -154,6 +164,24 @@ func checkoutAndBuildRepo(ctx context.Context, logger zerolog.Logger, repo, refe
 		if err2 := cmd.Run(); err2 != nil {
 			return "", false, fmt.Errorf("failed to clone repository: %w", err2)
 		}
+		if commit != "" {
+			// Checkout the specific commit if provided
+			logger.Info().Msgf("Checking out commit %s", commit)
+			cmd := exec.CommandContext(ctx, "git", "fetch", "--depth", "1", "origin", commit)
+			cmd.Dir = tempDir
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err2 := cmd.Run(); err2 != nil {
+				return "", false, fmt.Errorf("failed to checkout commit %s: %w", commit, err2)
+			}
+			cmd = exec.CommandContext(ctx, "git", "checkout", commit)
+			cmd.Dir = tempDir
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err2 := cmd.Run(); err2 != nil {
+				return "", false, fmt.Errorf("failed to checkout commit %s: %w", commit, err2)
+			}
+		}
 	}
 
 	return workingDir, isLocalRepo, nil
@@ -161,17 +189,18 @@ func checkoutAndBuildRepo(ctx context.Context, logger zerolog.Logger, repo, refe
 
 func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	var (
-		repo = c.RepoURL
-		tag  = c.Branch
+		repo   = c.RepoURL
+		tag    = c.Branch
+		commit = c.Commit
 	)
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(c.LocalImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
 	logger.Info().Msgf("Building %s image...", name)
 
-	workingDir, isLocalRepo, err := checkoutAndBuildRepo(ctx, logger, repo, tag)
+	workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo, tag, commit)
 	if err != nil {
-		return "", fmt.Errorf("failed to checkout and build repository: %w", err)
+		return "", fmt.Errorf("failed to setup repository: %w", err)
 	}
 
 	if !isLocalRepo {
@@ -192,17 +221,6 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	defer func() {
 		_ = os.Chdir(currentDir)
 	}()
-
-	// Only checkout specific version if using a git repo and version is specified
-	if !isLocalRepo && tag != "" {
-		logger.Info().Msgf("Checking out version %s", tag)
-		cmd := exec.CommandContext(ctx, "git", "checkout", tag)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to checkout version %s: %w", tag, err)
-		}
-	}
 
 	// If pre-run function is specified, run it
 	if c.PreRun != "" {
@@ -520,9 +538,9 @@ func buildCapabilityBinaries(ctx context.Context, capabilitiesConfig capabilitie
 	for _, repo := range capabilitiesConfig.Repositories {
 		logger.Info().Msgf("🔍 Building %s...", repo.RepoURL)
 
-		workingDir, isLocalRepo, err := checkoutAndBuildRepo(ctx, logger, repo.RepoURL, repo.Branch)
+		workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo.RepoURL, repo.Branch, "")
 		if err != nil {
-			return fmt.Errorf("failed to checkout and build repository: %w", err)
+			return fmt.Errorf("failed to setup up repository: %w", err)
 		}
 
 		if !isLocalRepo {

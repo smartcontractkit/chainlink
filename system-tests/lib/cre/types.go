@@ -199,6 +199,7 @@ type CapabilityConfig struct {
 
 type WorkflowRegistryInput struct {
 	ContractAddress common.Address          `toml:"_"`
+	ContractVersion cldf.TypeAndVersion     `toml:"_"`
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
 	AllowedDonIDs   []uint64                `toml:"-"`

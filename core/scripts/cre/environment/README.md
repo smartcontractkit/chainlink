@@ -150,7 +150,7 @@ If environment is aready running you can start just the Beholder stack (and regi
 go run . env beholder start
 ```
 
-> This assumes you have `chip-ingress:qa-latest` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:qa-latest .`
+> This assumes you have `chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf .`
 
 ### Storage
 
@@ -182,6 +182,13 @@ If you are using Blockscout and you restart the environment **you need to restar
 ctf bs r
 ```
 ---
+
+## Debugging core nodes 
+Before start the environment set the `CTF_CLNODE_DLV` environment variable to `true`
+```bash
+export CTF_CLNODE_DLV="true"
+```
+Nodes will open a Delve server on port `40000 + node index` (e.g. first node will be on `40000`, second on `40001` etc). You can connect to it using your IDE or `dlv` CLI.
 
 ## Workflow Commands
 
@@ -1138,6 +1145,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
+    evm = ["1337"]
 
 # Capabilities DON for data feeds
 [[nodesets]]
@@ -1148,6 +1156,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   [nodesets.chain_capabilities]
     read-contract = ["1337", "2337"]
     log-event-trigger = ["1337"]
+    evm = ["1337"]
 ```
 
 ### Custom Capability Configuration

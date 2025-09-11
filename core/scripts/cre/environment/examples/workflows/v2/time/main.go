@@ -3,10 +3,10 @@
 package main
 
 import (
-	"time"
+	"log/slog"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
-	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
@@ -18,9 +18,9 @@ func main() {
 	}).Run(RunSimpleCronWorkflow)
 }
 
-func RunSimpleCronWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], error) {
-	workflows := sdk.Workflow[None]{
-		sdk.Handler(
+func RunSimpleCronWorkflow(_ None, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[None], error) {
+	workflows := cre.Workflow[None]{
+		cre.Handler(
 			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
 			onTrigger,
 		),
@@ -28,8 +28,8 @@ func RunSimpleCronWorkflow(wcx *sdk.Environment[None]) (sdk.Workflow[None], erro
 	return workflows, nil
 }
 
-func onTrigger(wcx *sdk.Environment[None], runtime sdk.Runtime, trigger *cron.Payload) (string, error) {
-	donTime := time.Now()
-	wcx.Logger.Info("Requested DON Time", "donTime", donTime)
+func onTrigger(_ None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
+	donTime := runtime.Now()
+	runtime.Logger().Info("Requested DON Time", "donTime", donTime)
 	return "Requested DON Time", nil
 }

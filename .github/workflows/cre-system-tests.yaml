@@ -65,10 +65,28 @@ jobs:
         shell: bash
         working-directory: system-tests/tests/smoke/cre
         run: |
-          # Get the list of tests, for each test add each of supported DON topologies and convert to JSON format
-          # This only needs to be updated if we want to run all tests on a new DON topology.
-          # Otherwise tests are auto-discovered and run on all topologies.
-          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml"}]) | flatten')
+          # Get the list of tests, for each test add each of supported DON topologies and create JSON array to form a job matrix.
+          # - This only needs to be updated if we want to run all tests on a new DON topology.
+          # - Otherwise tests are auto-discovered and run on all topologies.
+
+          TOPOLOGIES_JSON='[
+            {"topology":"workflow","configs":"configs/workflow-don.toml"},
+            {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
+            {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
+          ]'
+
+          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
+          tests=$(echo "$test_names" | jq -R -s --argjson tops "$TOPOLOGIES_JSON" '
+            # split into lines and remove last empty line
+            split("\n")[:-1]
+
+            # create entry for each test name combined with each topology
+            | [ .[] as $name | $tops[] | {test_name:$name} + . ]
+
+            # add unique test_id for each entry (needed for runners below)
+            | to_entries | map(.value + {test_id: .key})
+          ')
+
           tests=$(echo $tests | jq -c .)
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
@@ -82,7 +100,9 @@ jobs:
       matrix:
         tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
     needs: [define-test-matrix]
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    # we need a `test_id` and `run_attempt` here to stop runner stealing
+    # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
+    runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{ github.run_attempt }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
     timeout-minutes: 40
     steps:
@@ -153,7 +173,7 @@ jobs:
           TEST_NAME: ${{ matrix.tests.test_name }}
           # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
           # Beholder stack will be started only for the Beholder test
-          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:qa-latest
+          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
           TEST_TIMEOUT: 30m
         run: |
           # Sleep to allow testcontainers to stop

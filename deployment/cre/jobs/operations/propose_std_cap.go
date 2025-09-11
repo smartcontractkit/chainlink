@@ -7,12 +7,8 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 const FilterKeyDONName = "don_name"
@@ -22,6 +18,7 @@ type ProposeStandardCapabilityJobDeps struct {
 }
 
 type ProposeStandardCapabilityJobInput struct {
+	Domain      string
 	DONName     string
 	Job         pkg.StandardCapabilityJob
 	DONFilters  []TargetDONFilter
@@ -58,44 +55,19 @@ var ProposeStandardCapabilityJob = operations.NewOperation[ProposeStandardCapabi
 			jobLabels[k] = v
 		}
 
-		filter := &node.ListNodesRequest_Filter{
-			Selectors: []*ptypes.Selector{
-				{
-					Key:   "type",
-					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To("plugin"),
-				},
-			},
-		}
-		for _, f := range input.DONFilters {
-			// DON name is a key, so we just check for its existence instead of equality
-			if f.Key == FilterKeyDONName {
-				filter.Selectors = append(filter.Selectors, &ptypes.Selector{
-					Op:  ptypes.SelectorOp_EXIST,
-					Key: f.Value,
-				})
-			} else {
-				filter.Selectors = append(filter.Selectors, &ptypes.Selector{
-					Op:    ptypes.SelectorOp_EQ,
-					Key:   f.Key,
-					Value: &f.Value,
-				})
-			}
-		}
-
-		specs, err := pkg.ProposeJob(b.GetContext(), deps.Env, pkg.ProposeJobRequest{
-			Spec:      spec,
-			DONName:   input.DONName,
-			Env:       deps.Env.Name,
-			JobLabels: jobLabels,
-			DONFilter: filter,
+		report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
+			Domain:     input.Domain,
+			DONName:    input.DONName,
+			Spec:       spec,
+			JobLabels:  jobLabels,
+			DONFilters: input.DONFilters,
 		})
 		if err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose job: %w", err)
 		}
 
 		return ProposeStandardCapabilityJobOutput{
-			Specs: specs,
+			Specs: report.Output.Specs,
 		}, nil
 	},
 )
