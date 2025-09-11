@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
+	tokenMetadata "github.com/gagliardetto/metaplex-go/clients/token-metadata"
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/mcms"
@@ -570,10 +570,9 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 			tokenMint := metadata.TokenPubkey
 			newUpdateAuthority := metadata.UpdateAuthority
 			e.Logger.Infow("Updating token metadata authority", "tokenMint", tokenMint)
-
 			instruction, err := modifyTokenMetadataUpdateAuthorityIx(tokenMint, authority, newUpdateAuthority)
 			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error generating set buffer ix: %w", err)
+				return cldf.ChangesetOutput{}, fmt.Errorf("error generating modify metadata ix: %w", err)
 			}
 			if cfg.MCMS != nil {
 				upgradeTx, err := BuildMCMSTxn(&instruction, MplTokenMetadataID.String(), MplTokenMetadataProgramName)
@@ -615,53 +614,6 @@ func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadat
 	return authority, err
 }
 
-type DataV2 struct {
-	Name                 string
-	Symbol               string
-	URI                  string
-	SellerFeeBasisPoints uint16
-	Creators             *[]Creator
-	Collection           *Collection
-	Uses                 *Uses
-}
-
-type Creator struct {
-	Address  solana.PublicKey
-	Verified bool
-	Share    uint8
-}
-
-type Collection struct {
-	Verified bool
-	Key      solana.PublicKey
-}
-
-type Uses struct {
-	UseMethod UseMethod
-	Remaining uint64
-	Total     uint64
-}
-
-type UseMethod uint8
-
-const (
-	UseMethodBurn     UseMethod = 0
-	UseMethodMultiple UseMethod = 1
-	UseMethodSingle   UseMethod = 2
-)
-
-type UpdateMetadataAccountV2InstructionArgs struct {
-	Data                *DataV2
-	NewUpdateAuthority  *solana.PublicKey
-	PrimarySaleHappened *bool
-	IsMutable           *bool
-}
-
-func (metadata UpdateMetadataAccountV2InstructionArgs) Bytes() []byte {
-	// TODO: When migrating all the update we need to serialize the entire struct
-	return metadata.NewUpdateAuthority.Bytes()
-}
-
 func createTokenMetadataAccountIx(tokenMint, authority solana.PublicKey) (solana.GenericInstruction, error) {
 	metadataPDA, metadataErr := findMetadataPDA(tokenMint)
 	if metadataErr != nil {
@@ -689,27 +641,30 @@ func createTokenMetadataAccountIx(tokenMint, authority solana.PublicKey) (solana
 	return *instruction, nil
 }
 
-func modifyTokenMetadataUpdateAuthorityIx(tokenMint, authority, newAuthority solana.PublicKey) (solana.GenericInstruction, error) {
+func modifyTokenMetadataUpdateAuthorityIx(
+	tokenMint, authority, newAuthority solana.PublicKey,
+) (solana.GenericInstruction, error) {
+
 	metadataPDA, metadataErr := findMetadataPDA(tokenMint)
 	if metadataErr != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
 	}
 
-	var data []byte
-	data = append(data, byte(UpdateMetadataAccountV2Ix)) // Append the numeric ID of the operation
-	params := UpdateMetadataAccountV2InstructionArgs{
-		NewUpdateAuthority: &newAuthority,
-	}.Bytes()
-	data = append(data, params...) // Append any additional parameters
+	fmt.Println("Metadata", metadataPDA)
 
-	accountsForIx := solana.AccountMetaSlice{
-		solana.Meta(metadataPDA).WRITE(),
-		solana.Meta(authority).SIGNER(),
+	args := tokenMetadata.UpdateMetadataAccountArgsV2{
+		UpdateAuthority: &newAuthority,
+	}
+
+	ix := tokenMetadata.NewUpdateMetadataAccountV2Instruction(args, metadataPDA, authority).Build()
+	data, err := ix.Data()
+	if err != nil {
+		return solana.GenericInstruction{}, fmt.Errorf("error building update metadata account data: %w", err)
 	}
 
 	instruction := solana.NewInstruction(
 		MplTokenMetadataID,
-		accountsForIx,
+		ix.Accounts(),
 		data,
 	)
 	return *instruction, nil
