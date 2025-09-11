@@ -1,0 +1,26 @@
+{
+  "config": {
+    "method_configs": {
+      "LogTrigger": {
+        "RemoteConfig": {
+          "RemoteTriggerConfig": {
+            "registrationRefresh": {
+              "seconds": 20
+            },
+            "registrationExpiry": {
+              "seconds": 60
+            },
+            "minResponsesToAggregate": 2,
+            "messageExpiry": {
+              "seconds": 120
+            },
+            "maxBatchSize": 25,
+            "batchCollectionPeriod": {
+              "nanos": 200000000
+            }
+          }
+        }
+      }
+    }
+  }
+}
