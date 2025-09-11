@@ -1102,9 +1102,9 @@ func generateCloseBufferIxn(
 	upgradeAuthority solana.PublicKey,
 ) (solana.Instruction, error) {
 	keys := solana.AccountMetaSlice{
-		solana.NewAccountMeta(programAddress, true, false),
-		solana.NewAccountMeta(recipient, true, false),
-		solana.NewAccountMeta(upgradeAuthority, false, true),
+		solana.Meta(programAddress).WRITE(),
+		solana.Meta(recipient).WRITE(),
+		solana.Meta(upgradeAuthority).SIGNER(),
 	}
 
 	instruction := solana.NewInstruction(
@@ -1127,10 +1127,10 @@ func generateCloseProgramIxn(
 	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programAddress.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 
 	keys := solana.AccountMetaSlice{
-		solana.NewAccountMeta(programDataAccount, true, false),
-		solana.NewAccountMeta(recipient, true, false),
-		solana.NewAccountMeta(upgradeAuthority, false, true),
-		solana.NewAccountMeta(programAddress, true, false),
+		solana.Meta(programDataAccount).WRITE(),
+		solana.Meta(recipient).WRITE(),
+		solana.Meta(upgradeAuthority).SIGNER(),
+		solana.Meta(programAddress).WRITE(),
 	}
 
 	instruction := solana.NewInstruction(
