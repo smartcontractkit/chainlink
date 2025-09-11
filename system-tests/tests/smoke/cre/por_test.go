@@ -36,14 +36,21 @@ import (
 	crefunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 )
 
+const PoRWFV1Location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
+const PoRWFV2Location = "../../../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/main.go"
+
 type WorkflowTestConfig struct {
 	WorkflowName         string
 	WorkflowFileLocation string
 	FeedIDs              []string
 }
 
-func beforePoRTest(t *testing.T, testEnv *TestEnvironment) (PriceProvider, WorkflowTestConfig) {
-	porWfCfg := WorkflowTestConfig{FeedIDs: []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"}}
+func beforePoRTest(t *testing.T, testEnv *TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
+	porWfCfg := WorkflowTestConfig{
+		FeedIDs:              []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"},
+		WorkflowName:         workflowName,
+		WorkflowFileLocation: workflowLocation,
+	}
 	// AuthorizationKeySecretName := "AUTH_KEY"
 	// TODO: use once we can run these tests in CI (https://smartcontract-it.atlassian.net/browse/DX-589)
 	// AuthorizationKey           = "12a-281j&@91.sj1:_}"
@@ -131,8 +138,9 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 
 		testLogger.Info().Msg("Creating PoR workflow configuration file...")
 		workflowConfig := portypes.WorkflowConfig{
-			ChainFamily: chainFamily,
-			ChainID:     strconv.FormatUint(chainID, 10),
+			ChainFamily:   chainFamily,
+			ChainID:       strconv.FormatUint(chainID, 10),
+			ChainSelector: chainSelector,
 			BalanceReaderConfig: portypes.BalanceReaderConfig{
 				BalanceReaderAddress: readBalancesAddress.Hex(),
 				AddressesToRead:      addressesToRead,
@@ -220,7 +228,7 @@ func createWorkflowYamlConfigFile(workflowName string, workflowConfig any) (stri
 		}
 	}
 
-	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
+	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
 		return "", errors.Wrap(err, "failed to write output file")
 	}
 

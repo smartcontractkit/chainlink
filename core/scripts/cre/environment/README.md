@@ -183,6 +183,13 @@ ctf bs r
 ```
 ---
 
+## Debugging core nodes 
+Before start the environment set the `CTF_CLNODE_DLV` environment variable to `true`
+```bash
+export CTF_CLNODE_DLV="true"
+```
+Nodes will open a Delve server on port `40000 + node index` (e.g. first node will be on `40000`, second on `40001` etc). You can connect to it using your IDE or `dlv` CLI.
+
 ## Workflow Commands
 
 The environment provides workflow management commands defined in `core/scripts/cre/environment/environment/workflow.go`:
@@ -1138,6 +1145,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
+    evm = ["1337"]
 
 # Capabilities DON for data feeds
 [[nodesets]]
@@ -1148,6 +1156,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   [nodesets.chain_capabilities]
     read-contract = ["1337", "2337"]
     log-event-trigger = ["1337"]
+    evm = ["1337"]
 ```
 
 ### Custom Capability Configuration
