@@ -106,67 +106,6 @@ func mustGetAddress(dataStore datastore.MutableDataStore, chainSel uint64, contr
 	return addrRef.Address
 }
 
-func createTronEnvironmentForDeployment(blockchainOutputs []*cre.WrappedBlockchainOutput, tronChainSelectors []uint64, originalEnv *cldf.Environment) (*cldf.Environment, error) {
-	tronChains := make(map[uint64]cldf_chain.BlockChain)
-
-	for _, bcOut := range blockchainOutputs {
-		if bcOut.TronChain != nil && slices.Contains(tronChainSelectors, bcOut.ChainSelector) {
-			tronChains[bcOut.ChainSelector] = *bcOut.TronChain
-		}
-	}
-
-	if len(tronChains) == 0 {
-		return nil, fmt.Errorf("no Tron chains found for selectors %v", tronChainSelectors)
-	}
-
-	return &cldf.Environment{
-		Name:              originalEnv.Name + "-tron-deploy",
-		Logger:            originalEnv.Logger,
-		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		DataStore:         datastore.NewMemoryDataStore().Seal(),
-		GetContext:        originalEnv.GetContext,
-		BlockChains:       cldf_chain.NewBlockChains(tronChains),
-		OperationsBundle:  originalEnv.OperationsBundle,
-	}, nil
-}
-
-func createTronEnvironmentForConfiguration(blockchainOutputs []*cre.WrappedBlockchainOutput, tronChainSelectors []uint64, homeChainSelector uint64, fullEnv *cldf.Environment, allChainsEnv *cldf.Environment) (*cldf.Environment, error) {
-	configChains := make(map[uint64]cldf_chain.BlockChain)
-
-	// Add the home chain (where capabilities registry is deployed)
-	for chainSelector, chain := range fullEnv.BlockChains.EVMChains() {
-		if chainSelector == homeChainSelector {
-			configChains[chainSelector] = chain
-			break
-		}
-	}
-
-	// Add Tron chains from blockchainOutputs
-	for _, bcOut := range blockchainOutputs {
-		if bcOut.TronChain != nil && slices.Contains(tronChainSelectors, bcOut.ChainSelector) {
-			configChains[bcOut.ChainSelector] = *bcOut.TronChain
-		}
-	}
-
-	if len(configChains) == 0 {
-		return nil, fmt.Errorf("no chains found for configuration (home: %d, tron: %v)", homeChainSelector, tronChainSelectors)
-	}
-
-	// Use all the DON registry info from fullEnv, include home chain + Tron chains
-	return &cldf.Environment{
-		Name:              fullEnv.Name + "-tron-config",
-		Logger:            fullEnv.Logger,
-		ExistingAddresses: fullEnv.ExistingAddresses, // Preserve capabilities registry addresses
-		DataStore:         fullEnv.DataStore,         // Preserve DON registry info
-		GetContext:        fullEnv.GetContext,
-		BlockChains:       cldf_chain.NewBlockChains(configChains),
-		Offchain:          fullEnv.Offchain,   // Preserve JD connections
-		OCRSecrets:        fullEnv.OCRSecrets, // Preserve DON metadata
-		NodeIDs:           fullEnv.NodeIDs,    // Preserve node info
-		OperationsBundle:  fullEnv.OperationsBundle,
-	}, nil
-}
-
 func deployTronForwardersWithChangesets(env *cldf.Environment, chainSelectors []uint64, blockchainOutputs []*cre.WrappedBlockchainOutput) error {
 	tronChains := make([]uint64, 0)
 	for _, chainSelector := range chainSelectors {
@@ -185,28 +124,18 @@ func deployTronForwardersWithChangesets(env *cldf.Environment, chainSelectors []
 	deployOptions := cldf_tron.DefaultDeployOptions()
 	deployOptions.FeeLimit = 1_000_000_000
 
-	tronEnv, err := createTronEnvironmentForDeployment(blockchainOutputs, tronChains, env)
-	if err != nil {
-		return fmt.Errorf("failed to create Tron environment: %w", err)
-	}
-
 	deployChangeset := commonchangeset.Configure(tronchangeset.DeployForwarder{}, &tronchangeset.DeployForwarderRequest{
 		ChainSelectors: tronChains,
 		Qualifier:      "",
 		DeployOptions:  deployOptions,
 	})
 
-	updatedEnv, err := commonchangeset.Apply(nil, *tronEnv, deployChangeset)
+	updatedEnv, err := commonchangeset.Apply(nil, *env, deployChangeset)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
 	}
 
-	if updatedEnv.ExistingAddresses != nil {
-		err = env.ExistingAddresses.Merge(updatedEnv.ExistingAddresses)
-		if err != nil {
-			return fmt.Errorf("failed to merge address book: %w", err)
-		}
-	}
+	env.ExistingAddresses = updatedEnv.ExistingAddresses
 
 	if updatedEnv.DataStore != nil {
 		memoryDS := datastore.NewMemoryDataStore()
@@ -756,6 +685,7 @@ func SetupTestEnvironment(
 	}, PrepareFundCLNodesOpInput{FundingPerChainFamilyForEachNode: map[string]uint64{
 		"evm":    10000000000000000, // 0.01 ETH
 		"solana": 50_000_000,        // 0.05 SOL
+		"tron":   100_000_000,       // 100 TRX in SUN
 	}})
 	if prefundErr != nil {
 		return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
@@ -776,27 +706,7 @@ func SetupTestEnvironment(
 			FundingAmountPerChainFamily: preFundingOutput.Output.FundingPerChainFamilyForEachNode,
 			PrivateKeyPerChainFamily:    preFundingOutput.Output.PrivateKeysPerChainFamily,
 		})
-		if fundErr != nil {
-			return fundErr
-		}
-
-		tronChains := make([]*cre.WrappedBlockchainOutput, 0)
-		for _, bcOut := range blockchainOutputs {
-			if bcOut.TronChain != nil {
-				tronChains = append(tronChains, bcOut)
-			}
-		}
-
-		// Fund Tron nodes with 5 TRX each (5 * 1_000_000 SUN)
-		if len(tronChains) > 0 {
-			_, tronFundErr := operations.ExecuteOperation(fullCldOutput.Environment.OperationsBundle, FundTronNodesOp, FundTronNodesOpDeps{
-				Env:               fullCldOutput.Environment,
-				BlockchainOutputs: tronChains, // Use the pre-filtered Tron chains
-				DonTopology:       fullCldOutput.DonTopology,
-			}, FundTronNodesOpInput{FundAmount: 100_000_000}) // 5 TRX in SUN
-			return tronFundErr
-		}
-		return nil
+		return fundErr
 	})
 
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
@@ -904,12 +814,7 @@ func SetupTestEnvironment(
 	}
 
 	if len(tronForwardersSelectors) > 0 {
-		tronConfigEnv, tronConfigEnvErr := createTronEnvironmentForConfiguration(blockchainOutputs, tronForwardersSelectors, homeChainOutput.ChainSelector, fullCldOutput.Environment, allChainsCLDEnvironment)
-		if tronConfigEnvErr != nil {
-			return nil, pkgerrors.Wrap(tronConfigEnvErr, "failed to create Tron environment for configuration")
-		}
-
-		tronConfigErr := configureTronForwardersWithChangesets(tronConfigEnv, homeChainOutput.ChainSelector, tronForwardersSelectors, fullCldOutput.DonTopology, blockchainOutputs)
+		tronConfigErr := configureTronForwardersWithChangesets(fullCldOutput.Environment, homeChainOutput.ChainSelector, tronForwardersSelectors, fullCldOutput.DonTopology, blockchainOutputs)
 		if tronConfigErr != nil {
 			return nil, pkgerrors.Wrap(tronConfigErr, "failed to configure Tron forwarders using changesets")
 		}

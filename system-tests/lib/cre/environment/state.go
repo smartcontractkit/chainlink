@@ -81,10 +81,10 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		// Handle Tron chains differently - they don't use Seth clients
 		if bc.Type == blockchain.FamilyTron {
 			// For Tron chains, reconstruct the TronChain from cached configuration
-			tronChain, tronErr := reconstructTronChain(ctx, bc, chainSelector, chainID)
-			if tronErr != nil {
-				return nil, nil, errors.Wrapf(tronErr, "failed to reconstruct Tron chain for chain ID %d", chainID)
-			}
+			// tronChain, tronErr := reconstructTronChain(ctx, bc, chainSelector, chainID)
+			// if tronErr != nil {
+			// 	return nil, nil, errors.Wrapf(tronErr, "failed to reconstruct Tron chain for chain ID %d", chainID)
+			// }
 
 			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, &cre.WrappedBlockchainOutput{
 				BlockchainOutput:   bc.Out,
@@ -92,7 +92,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 				ChainSelector:      chainSelector,
 				ChainID:            chainID,
 				DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
-				TronChain:          tronChain,
+				// TronChain:          tronChain,
 			})
 			continue
 		}
@@ -203,19 +203,19 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	// Create a map of chain.BlockChain objects for both EVM and Tron chains
 	// This matches the same pattern used in the original environment setup
 	blockChainsMap := make(map[uint64]chain.BlockChain)
-	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(wrappedBlockchainOutputs))
+	// chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(wrappedBlockchainOutputs))
 
-	for _, output := range wrappedBlockchainOutputs {
-		if output.TronChain != nil {
-			// Add Tron chains directly to the map
-			blockChainsMap[output.ChainSelector] = *output.TronChain
-		}
-		cfg, cfgErr := cre.ChainConfigFromWrapped(output)
-		if cfgErr != nil {
-			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.BlockchainOutput.Family)
-		}
-		chainConfigs = append(chainConfigs, cfg)
-	}
+	// // for _, output := range wrappedBlockchainOutputs {
+	// // 	if output.TronChain != nil {
+	// // 		// Add Tron chains directly to the map
+	// // 		blockChainsMap[output.ChainSelector] = *output.TronChain
+	// // 	}
+	// // 	cfg, cfgErr := cre.ChainConfigFromWrapped(output)
+	// // 	if cfgErr != nil {
+	// // 		return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.BlockchainOutput.Family)
+	// // 	}
+	// // 	chainConfigs = append(chainConfigs, cfg)
+	// // }
 
 	// Create BlockChains object using the same pattern as original environment setup
 	blockChains := chain.NewBlockChains(blockChainsMap)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -23,6 +24,7 @@ import (
 
 	aptosCrypto "github.com/aptos-labs/aptos-go-sdk/crypto"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-tron/relayer/sdk"
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
 
@@ -33,6 +35,8 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_client "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
+	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -41,6 +45,7 @@ const (
 	EVMChainType   = "EVM"
 	SolChainType   = "SOLANA"
 	AptosChainType = "APTOS"
+	TronChainType  = "TRON"
 )
 
 type CribRPCs struct {
@@ -152,12 +157,17 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 	var evmSyncMap sync.Map
 	var solSyncMap sync.Map
 	var aptosSyncMap sync.Map
+	var tronSyncMap sync.Map
 
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
 		chainCfg := chainCfg // capture loop variable
 		g.Go(func() error {
-			chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, strings.ToLower(chainCfg.ChainType))
+			family := chainCfg.ChainType
+			if chainCfg.ChainType == TronChainType {
+				family = "EVM"
+			} 
+			chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, strings.ToLower(family))
 			if err != nil {
 				return fmt.Errorf("failed to get selector from chain id %s: %w", chainCfg.ChainID, err)
 			}
@@ -284,6 +294,37 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 					},
 				})
 				return nil
+			case TronChainType:
+				signerGen, err := tronprovider.SignerGenCTFDefault()
+				if err != nil {
+					return fmt.Errorf("failed to create signer generator: %w", err)
+				}
+
+				fullNodeURL := strings.Replace(chainCfg.HTTPRPCs[0].External, "/jsonrpc", "/wallet", 1)
+				solidityNodeURL := strings.Replace(chainCfg.HTTPRPCs[0].External, "/jsonrpc", "/walletsolidity", 1)
+
+				// Parse URLs for node connections
+				fullNodeUrlObj, err := url.Parse(fullNodeURL)
+				if err != nil {
+					return fmt.Errorf("failed to parse full node URL: %w", err)
+				}
+				solidityNodeUrlObj, err := url.Parse(solidityNodeURL)
+				if err != nil {
+					return fmt.Errorf("failed to parse solidity node URL: %w", err)
+				}
+
+				// Create a client that wraps both full node and solidity node connections
+				combinedClient, err := sdk.CreateCombinedClient(fullNodeUrlObj, solidityNodeUrlObj)
+				if err != nil {
+					return fmt.Errorf("failed to create combined client: %w", err)
+				}
+
+				tronChain, err := tronprovider.GetTronChain(chainDetails.ChainSelector, combinedClient, signerGen)
+				if err != nil {
+					return fmt.Errorf("failed to get tron chain: %w", err)
+				}
+				tronSyncMap.Store(chainDetails.ChainSelector, tronChain)
+				return nil
 			default:
 				return fmt.Errorf("chain type %s is not supported", chainCfg.ChainType)
 			}
@@ -308,6 +349,11 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 
 	aptosSyncMap.Range(func(sel, value interface{}) bool {
 		blockChains = append(blockChains, value.(cldf_aptos.Chain))
+		return true
+	})
+
+	tronSyncMap.Range(func(sel, value interface{}) bool {
+		blockChains = append(blockChains, value.(cldf_tron.Chain))
 		return true
 	})
 

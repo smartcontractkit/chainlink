@@ -27,16 +27,16 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
-	github.com/smartcontractkit/chain-selectors v1.0.67
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250818164129-fa2e60d95157
+	github.com/smartcontractkit/chain-selectors v1.0.68-0.20250827161155-187425c680c3
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250905094443-ac02b032b32b
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250825135846-84f0d5167f8f
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250805210128-7f8a0f403c3a
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250805210128-7f8a0f403c3a
 	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250905131850-7713941a6848
-	github.com/smartcontractkit/chainlink-deployments-framework v0.42.0
+	github.com/smartcontractkit/chainlink-deployments-framework v0.45.2-0.20250911173337-0a90b47a695a
 	github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.15
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.23
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2

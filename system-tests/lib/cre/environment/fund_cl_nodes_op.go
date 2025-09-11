@@ -11,6 +11,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/gagliardetto/solana-go"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -66,6 +67,11 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 					continue
 				}
 
+				if bcOut.BlockchainOutput.Family == "tron" {
+					requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["tron"] * uint64(len(metaDon.DON.Nodes))
+					continue
+				}
+
 				requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["evm"] * uint64(len(metaDon.DON.Nodes))
 			}
 		}
@@ -78,6 +84,8 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 			chainFamily := "evm"
 			if bcOut.SolChain != nil {
 				chainFamily = "solana"
+			} else if bcOut.BlockchainOutput.Family == "tron" {
+				chainFamily = "tron"
 			}
 
 			switch chainFamily {
@@ -110,6 +118,9 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 			case "solana":
 				// TODO implement creation of new key and funding it
 				panic("funding Solana nodes not implemented")
+			case "tron":
+				// TRON uses its own built-in funding account, no preparation needed
+				continue
 			default:
 				return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 			}
@@ -166,6 +177,8 @@ var FundCLNodesOp = operations.NewOperation(
 					chainFamily := "evm"
 					if bcOut.SolChain != nil {
 						chainFamily = "solana"
+					} else if bcOut.BlockchainOutput.Family == "tron" {
+						chainFamily = "tron"
 					}
 
 					fundingAmount, ok := input.FundingAmountPerChainFamily[chainFamily]
@@ -180,6 +193,10 @@ var FundCLNodesOp = operations.NewOperation(
 						}
 					case "solana":
 						if err := fundSolanaAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily); err != nil {
+							return nil, err
+						}
+					case "tron":
+						if err := fundTronAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily, deps.Env); err != nil {
 							return nil, err
 						}
 					default:
@@ -241,6 +258,37 @@ func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node deve
 		return fmt.Errorf("failed to fund Solana node: %w", err)
 	}
 	testLogger.Info().Msgf("Successfully funded Solana account %s", recipient.String())
+
+	return nil
+}
+
+func fundTronAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, _ map[string]map[uint64][]byte, env *cldf.Environment) error {
+	nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
+	if nodeAddress == "" {
+		return nil // Skip nodes without addresses for this chain
+	}
+
+	testLogger.Info().Msgf("Attempting to fund TRON account %s", nodeAddress)
+
+	receiverAddress := address.EVMAddressToAddress(common.HexToAddress(nodeAddress))
+
+	tronChains := env.BlockChains.TronChains()
+	tronChain, exists := tronChains[bcOut.ChainSelector]
+	if !exists {
+		return fmt.Errorf("TRON chain not found for selector %d", bcOut.ChainSelector)
+	}
+
+	tx, err := tronChain.Client.Transfer(tronChain.Address, receiverAddress, int64(fundingAmount))
+	if err != nil {
+		return pkgerrors.Wrapf(err, "failed to create transfer transaction for TRON node %s", nodeAddress)
+	}
+
+	txInfo, err := tronChain.SendAndConfirm(ctx, tx, nil)
+	if err != nil {
+		return pkgerrors.Wrapf(err, "failed to send and confirm transfer to TRON node %s", nodeAddress)
+	}
+
+	testLogger.Info().Msgf("Successfully funded TRON account %s with %d SUN, txHash: %s", receiverAddress.String(), fundingAmount, txInfo.ID)
 
 	return nil
 }

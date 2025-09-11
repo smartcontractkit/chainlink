@@ -258,7 +258,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		}
 
 		switch chain.ChainType {
-		case "EVM":
+		case "EVM", "TRON":
 			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
@@ -290,7 +290,11 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			return fmt.Errorf("no peer id found for node %s", n.Name)
 		}
 
-		ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
+		chainType := chain.ChainType
+		if chain.ChainType == "TRON" {
+			chainType = "EVM"
+		}
+		ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chainType)
 		if err != nil {
 			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, err)
 		}
@@ -332,7 +336,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JDId,
 				ChainID:          chain.ChainID,
-				ChainType:        chain.ChainType,
+				ChainType:        chainType,
 				AccountAddr:      account,
 				AdminAddr:        n.adminAddr,
 				Ocr2Enabled:      true,

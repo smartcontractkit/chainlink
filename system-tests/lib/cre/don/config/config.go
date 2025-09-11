@@ -21,6 +21,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -180,19 +181,7 @@ func addBootstrapNodeConfig(
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
-				},
-			},
-		})
+		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
@@ -244,19 +233,7 @@ func addWorkerNodeConfig(
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
-				},
-			},
-		})
+		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
 	if commonInputs.solanaChain != nil {
@@ -338,20 +315,7 @@ OUTER:
 				continue OUTER
 			}
 		}
-
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
-				},
-			},
-		})
+		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
@@ -489,4 +453,47 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	}
 
 	return solChain, nil
+}
+
+func newTronEVMWorkerConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
+	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
+	return evmconfigtoml.EVMConfig{
+		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		Chain: evmconfigtoml.Chain{
+			AutoCreateKey:         ptr.Ptr(false),
+			ChainType:             chaintype.NewConfig("tron"),
+			LogBroadcasterEnabled: ptr.Ptr(false),
+			NodePool: evmconfigtoml.NodePool{
+				NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
+			},
+		},
+		Nodes: []*evmconfigtoml.Node{
+			{
+				Name:              ptr.Ptr(evmChain.Name),
+				HTTPURL:           commonconfig.MustParseURL(evmChain.HTTPRPC),
+				HTTPURLExtraWrite: commonconfig.MustParseURL(tronRPC),
+			},
+		},
+	}
+}
+
+func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain) {
+	if evmChain.ChainID == 3360022319 {
+		cfg := newTronEVMWorkerConfig(evmChain)
+		*existingConfig = append(*existingConfig, &cfg)
+		return
+	}
+	*existingConfig = append(*existingConfig, &evmconfigtoml.EVMConfig{
+		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		Chain: evmconfigtoml.Chain{
+			AutoCreateKey: ptr.Ptr(false),
+		},
+		Nodes: []*evmconfigtoml.Node{
+			{
+				Name:    ptr.Ptr(evmChain.Name),
+				WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
+				HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
+			},
+		},
+	})
 }

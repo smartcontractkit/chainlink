@@ -2,9 +2,12 @@ package cre
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -34,6 +37,21 @@ func ChainConfigFromWrapped(w *WrappedBlockchainOutput) (devenv.ChainConfig, err
 		cfg.ChainID = w.SolChain.ChainID
 		cfg.SolDeployerKey = w.SolChain.PrivateKey
 		cfg.SolArtifactDir = w.SolChain.ArtifactsDir
+		return cfg, nil
+	}
+
+	if cfg.ChainType == "TRON" {
+		cfg.ChainID = strconv.FormatUint(w.ChainID, 10)
+		privateKey, err := crypto.HexToECDSA(w.DeployerPrivateKey)
+		if err != nil {
+			return devenv.ChainConfig{}, errors.Wrap(err, "failed to parse private key for Tron")
+		}
+
+		deployerKey, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(int64(w.ChainID)))
+		if err != nil {
+			return devenv.ChainConfig{}, errors.Wrap(err, "failed to create transactor for Tron")
+		}
+		cfg.DeployerKey = deployerKey
 		return cfg, nil
 	}
 

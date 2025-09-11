@@ -14,7 +14,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -300,7 +299,6 @@ type WrappedBlockchainOutput struct {
 	ChainID            uint64
 	BlockchainOutput   *blockchain.Output
 	SethClient         *seth.Client
-	TronChain          *tron.Chain
 	SolClient          *solrpc.Client
 	DeployerPrivateKey string
 	SolChain           *SolChain

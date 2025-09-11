@@ -23,6 +23,7 @@ require (
 	github.com/cockroachdb/errors v1.11.3
 	github.com/docker/docker v28.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.16.2
+	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
 	github.com/gagliardetto/solana-go v1.13.0
 	github.com/goccy/go-yaml v1.18.0
 	github.com/google/go-cmp v0.7.0
@@ -32,9 +33,9 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/scylladb/go-reflectx v1.0.1
-	github.com/smartcontractkit/chain-selectors v1.0.67
+	github.com/smartcontractkit/chain-selectors v1.0.68-0.20250827161155-187425c680c3
 	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250905131850-7713941a6848
-	github.com/smartcontractkit/chainlink-deployments-framework v0.45.2-0.20250910150210-959d35d519ce
+	github.com/smartcontractkit/chainlink-deployments-framework v0.45.2-0.20250911173337-0a90b47a695a
 	github.com/smartcontractkit/chainlink-evm v0.3.3-0.20250903140346-aacd485a7dea
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605
@@ -45,6 +46,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
+	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250826151008-ae5ec0ee6f2c
 	github.com/smartcontractkit/crib-sdk v0.4.0
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d

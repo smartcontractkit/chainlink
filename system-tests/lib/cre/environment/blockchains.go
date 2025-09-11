@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 
 	"time"
 
@@ -23,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
-	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -79,9 +76,9 @@ func CreateBlockchains(
 		}
 
 		if isTron {
-			w, err := initTron(ctx, &bi)
+			w, err := wrapTron(&bi)
 			if err != nil {
-				return nil, pkgerrors.Wrap(err, "failed to init Tron")
+				return nil, pkgerrors.Wrap(err, "failed to wrap Tron")
 			}
 			blockchainOutput = append(blockchainOutput, w)
 			continue
@@ -122,9 +119,6 @@ func initSolanaInput(bi *blockchain.Input) error {
 
 func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell *libnix.Shell, bi blockchain.Input) (*blockchain.Output, error) {
 	if infraIn.Type != infra.CRIB {
-		if bi.Type == blockchain.FamilyTron {
-
-		}
 		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", bi.Type, bi.ChainID)
@@ -156,7 +150,7 @@ func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell 
 	return bcOut, nil
 }
 
-func initTron(ctx context.Context, bi *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
+func wrapTron(bi *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
 	chainID, err := strconv.ParseUint(bi.ChainID, 10, 64)
 	if err != nil {
 	}
@@ -164,39 +158,9 @@ func initTron(ctx context.Context, bi *blockchain.Input) (*cre.WrappedBlockchain
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", bi.ChainID)
 	}
-	signerGen, err := tronprovider.SignerGenCTFDefault()
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create signer generator")
-	}
-	config := tronprovider.CTFChainProviderConfig{
-		DeployerSignerGen: signerGen,
-		Once:              &sync.Once{},
-	}
-	ctfProvider := tronprovider.NewCTFChainProvider(selector, config)
-	_, err = ctfProvider.Initialize(ctx)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to initialize blockchain")
-	}
-	chain := ctfProvider.BlockChain()
-	tronChain, ok := chain.(tron.Chain)
-	if !ok {
-		return nil, pkgerrors.New("failed to cast chain to tron.Chain")
-	}
-	// For Tron chains, we need to use host.docker.internal to access the host's localhost
-	// The external URL is typically like "http://localhost:50555/wallet"
-	// We need to convert it to use host.docker.internal for internal connections
-	externalHTTPURL := strings.Replace(tronChain.URL, "wallet", "jsonrpc", 1)
-	internalHTTPURL := ""
 
-	// Extract the port from the external URL dynamically
-	if strings.Contains(externalHTTPURL, "localhost:") {
-		// Use host.docker.internal to access the host's localhost from within the container
-		// This works regardless of the port number
-		internalHTTPURL = strings.Replace(externalHTTPURL, "localhost", "host.docker.internal", 1)
-	} else {
-		// Fallback to external URL if we can't determine the internal URL
-		internalHTTPURL = externalHTTPURL
-	}
+	externalHTTPURL := fmt.Sprintf("http://localhost:%s/jsonrpc", bi.Port)
+	internalHTTPURL := strings.Replace(externalHTTPURL, "localhost", "host.docker.internal", 1)
 
 	return &cre.WrappedBlockchainOutput{
 		ChainSelector: selector,
@@ -213,7 +177,6 @@ func initTron(ctx context.Context, bi *blockchain.Input) (*cre.WrappedBlockchain
 		},
 		SethClient:         nil,
 		DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
-		TronChain:          &tronChain,
 	}, nil
 }
 
@@ -304,7 +267,7 @@ func StartBlockchains(ctx context.Context, loggers BlockchainLoggers, input Bloc
 	for _, bcOut := range blockchainsOutput {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(bcOut)
 		if cfgErr != nil {
-			return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to wrap blockchain output to chain config")
+			return StartBlockchainsOutput{}, pkgerrors.Wrap(cfgErr, "failed to wrap blockchain output to chain config")
 		}
 		chainsConfigs = append(chainsConfigs, cfg)
 	}
