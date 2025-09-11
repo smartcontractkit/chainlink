@@ -1138,6 +1138,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
+    evm = ["1337"]
 
 # Capabilities DON for data feeds
 [[nodesets]]
@@ -1148,6 +1149,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   [nodesets.chain_capabilities]
     read-contract = ["1337", "2337"]
     log-event-trigger = ["1337"]
+    evm = ["1337"]
 ```
 
 ### Custom Capability Configuration
