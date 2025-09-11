@@ -46,6 +46,7 @@ func New(registryChainID uint64) (*capabilities.Capability, error) {
 		flag,
 		capabilities.WithJobSpecFn(jobSpecWithRegistryChainSelector(registryChainSelector)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 

@@ -16,8 +16,9 @@ import (
 	chainlevel "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/chainlevel"
 )
 
-const flag = cre.LogTriggerCapability
-const configTemplate = `"""
+const (
+	flag           = cre.LogTriggerCapability
+	configTemplate = `"""
 {
 	"chainId": "{{.ChainID}}",
 	"network": "{{.NetworkFamily}}",
@@ -25,6 +26,7 @@ const configTemplate = `"""
 	"pollPeriod": {{.PollPeriod}}
 }
 """`
+)
 
 func New() (*capabilities.Capability, error) {
 	perChainJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
@@ -52,6 +54,7 @@ func New() (*capabilities.Capability, error) {
 			factory.BinaryPathBuilder,
 		)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 

@@ -31,6 +31,7 @@ func New() (*capabilities.Capability, error) {
 	return capabilities.New(
 		flag,
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 		capabilities.WithNodeConfigTransformerFn(transformNodeConfig),
 	)
 }

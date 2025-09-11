@@ -53,6 +53,8 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 	func(b operations.Bundle, deps ConfigureCapabilitiesRegistryDeps, input ConfigureCapabilitiesRegistryInput) (ConfigureCapabilitiesRegistryOutput, error) {
 		var allProposals []mcmslib.TimelockProposal
 
+		deps.Env.Logger.Debugw("v2 config cap reg sequence")
+
 		// Register Node Operators
 		registerNopsReport, err := operations.ExecuteOperation(b, contracts.RegisterNops, contracts.RegisterNopsDeps{
 			Env:           deps.Env,
@@ -64,8 +66,11 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			MCMSConfig:    input.MCMSConfig,
 		})
 		if err != nil {
+			deps.Env.Logger.Errorw("failed to register nops", "error", err, "nops", input.Nops)
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
+
+		deps.Env.Logger.Debugw("registered nops on contract", "report", registerNopsReport.Output.Nops)
 		allProposals = append(allProposals, registerNopsReport.Output.Proposals...)
 
 		// Register capabilities
@@ -79,8 +84,11 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			MCMSConfig:    input.MCMSConfig,
 		})
 		if err != nil {
+			deps.Env.Logger.Errorw("failed to register capabilities", "error", err, "caps", input.Capabilities)
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
+
+		deps.Env.Logger.Debugw("registered capabilities", "report", registerCapabilitiesReport.Output.Capabilities)
 		allProposals = append(allProposals, registerCapabilitiesReport.Output.Proposals...)
 
 		// Register Nodes
@@ -94,8 +102,10 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			MCMSConfig:    input.MCMSConfig,
 		})
 		if err != nil {
+			deps.Env.Logger.Errorw("failed to register nodes", "error", err, "nodes", input.Nodes)
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
+		deps.Env.Logger.Debugw("registered nodes", "report", registerNodesReport.Output.Nodes)
 		allProposals = append(allProposals, registerNodesReport.Output.Proposals...)
 
 		// Register DONs
@@ -109,8 +119,11 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			MCMSConfig:    input.MCMSConfig,
 		})
 		if err != nil {
+			deps.Env.Logger.Errorw("failed to register DONs", "error", err, "dons", input.DONs)
 			return ConfigureCapabilitiesRegistryOutput{}, err
 		}
+
+		deps.Env.Logger.Debugw("registered DONs", "report", registerDONsReport.Output.DONs)
 		allProposals = append(allProposals, registerDONsReport.Output.Proposals...)
 
 		return ConfigureCapabilitiesRegistryOutput{

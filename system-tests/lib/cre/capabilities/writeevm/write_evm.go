@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
-	"text/template"
-
 	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
@@ -40,6 +39,7 @@ func New() (*capabilities.Capability, error) {
 	return capabilities.New(
 		flag,
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 		capabilities.WithNodeConfigTransformerFn(transformNodeConfig),
 	)
 }

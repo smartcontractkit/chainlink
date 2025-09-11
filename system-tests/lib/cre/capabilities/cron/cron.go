@@ -15,8 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const flag = cre.CronCapability
-const cronConfigTemplate = `""` // Empty config by default
+const (
+	flag               = cre.CronCapability
+	cronConfigTemplate = `""` // Empty config by default
+)
 
 func New() (*capabilities.Capability, error) {
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
@@ -39,6 +41,7 @@ func New() (*capabilities.Capability, error) {
 			factory.BinaryPathBuilder,
 		)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 

@@ -44,6 +44,7 @@ func New(chainID uint64) (*capabilities.Capability, error) {
 		capabilities.WithJobSpecFn(jobSpec(chainID)),
 		capabilities.WithGatewayJobHandlerConfigFn(handlerConfig),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 		capabilities.WithValidateFn(func(c *capabilities.Capability) error {
 			if chainID == 0 {
 				return fmt.Errorf("chainID is required, got %d", chainID)

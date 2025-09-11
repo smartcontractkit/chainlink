@@ -17,8 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const flag = cre.HTTPActionCapability
-const httpActionConfigTemplate = `"""
+const (
+	flag                     = cre.HTTPActionCapability
+	httpActionConfigTemplate = `"""
 {
 	"proxyMode": "{{.ProxyMode}}",
 	"incomingRateLimiter": {
@@ -35,6 +36,7 @@ const httpActionConfigTemplate = `"""
 	}
 }
 """`
+)
 
 func New() (*capabilities.Capability, error) {
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
@@ -58,6 +60,7 @@ func New() (*capabilities.Capability, error) {
 		)),
 		capabilities.WithGatewayJobHandlerConfigFn(handlerConfig),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 

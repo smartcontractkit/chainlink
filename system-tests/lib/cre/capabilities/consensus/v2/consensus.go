@@ -23,14 +23,17 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const flag = cre.ConsensusCapabilityV2
-const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}","nodeAddress":"{{.NodeAddress}}"}'`
+const (
+	flag           = cre.ConsensusCapabilityV2
+	configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}","nodeAddress":"{{.NodeAddress}}"}'`
+)
 
 func New() (*capabilities.Capability, error) {
 	return capabilities.New(
 		flag,
 		capabilities.WithJobSpecFn(jobSpec),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 
@@ -61,7 +64,7 @@ func buildRuntimeValues(chainID uint64, networkFamily, nodeAddress string) map[s
 }
 
 func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
-	var generateJobSpec = func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
+	generateJobSpec := func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
 		runtimeFallbacks := buildRuntimeValues(chainID, "evm", nodeAddress)
 
 		templateData, aErr := don.ApplyRuntimeValues(mergedConfig, runtimeFallbacks)
@@ -82,7 +85,7 @@ func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 		return configBuffer.String(), nil
 	}
 
-	var dataStoreOCR3ContractKeyProvider = func(contractName string, chainSelector uint64) datastore.AddressRefKey {
+	dataStoreOCR3ContractKeyProvider := func(contractName string, chainSelector uint64) datastore.AddressRefKey {
 		return datastore.NewAddressRefKey(
 			chainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
