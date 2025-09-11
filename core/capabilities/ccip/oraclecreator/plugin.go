@@ -188,7 +188,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 
 	// Create chain accessors
-	chainAccessors, contractTransmitters, err := i.createChainAccessors(ctx, extendedReaders, chainWriters, pluginServices, offrampAddrStr, pluginType)
+	chainAccessors, contractTransmitters, err := i.createChainAccessorsAndContractTransmitters(ctx, extendedReaders, chainWriters, pluginServices, offrampAddrStr, pluginType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain accessors: %w", err)
 	}
@@ -345,9 +345,9 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			"CCIPCommit",
 		)
 
-		// there're three cases:
+		// there are three cases:
 		//	1. contract transmitter is provided by the CCIP provider
-		//  2. CCIP doesn't provides contract transmitter, we use CT factory with CW to create one
+		//  2. CCIP doesn't provide contract transmitter, we use CT factory with CW to create one
 		//  3. Contract transmitter not supported, use noop transmitter
 		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
 		if exist && ct != nil {
@@ -466,7 +466,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	return factory, transmitter, nil
 }
 
-func (i *pluginOracleCreator) createChainAccessors(
+func (i *pluginOracleCreator) createChainAccessorsAndContractTransmitters(
 	ctx context.Context,
 	extendedReaders map[cciptypes.ChainSelector]contractreader.Extended,
 	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
@@ -488,7 +488,10 @@ func (i *pluginOracleCreator) createChainAccessors(
 		var provider types.CCIPProvider
 		ccipProviderSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
 		if ccipProviderSupported && ok {
-			provider, err = relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
+			provider, err = relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{
+				OffRampAddress: offrampAddrStr,
+				PluginType:     uint32(pluginType),
+			})
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
 			}
@@ -512,6 +515,7 @@ func (i *pluginOracleCreator) createChainAccessors(
 		}
 
 		chainAccessors[chainSelector] = ca
+		// TODO ct can be nil, which is considered in createFactoryAndTransmitter case 1 check. But maybe better to move to if clause and remove the nil check
 		contractTransmitters[chainSelector] = ct
 	}
 	return chainAccessors, contractTransmitters, nil
@@ -599,7 +603,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			DestChainFamily: destChainFamily,
 		})
 		if err1 != nil {
-			// Some Chain family might not need crcw to be created, and if createChainAccessors will catch error if it does
+			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
 			i.lggr.Debugf("skipping creating reader and writers for chain %s, reader creation: %v", chainID, err1)
 			continue
 		}
@@ -635,7 +639,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			SolanaChainWriterConfigVersion: solanaChainWriterConfigVersion,
 		})
 		if err1 != nil {
-			// Some Chain family might not need crcw to be created, and if createChainAccessors will catch error if it does
+			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
 			i.lggr.Debugf("skipping creating chain writer for chain %s, writer creation: %v", chainID, err1)
 			continue
 		}
