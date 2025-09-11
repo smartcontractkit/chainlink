@@ -1114,7 +1114,11 @@ func AddLane(
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
 	case chainsel.FamilyTon:
-		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, from, to, fromFamily, toFamily, gasPrices)
+		onRamp, err := state.GetOnRampAddressBytes(to)
+		if err != nil {
+			return err
+		}
+		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, onRamp, from, to, fromFamily, toFamily, gasPrices)
 		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
 			tonCfg.UpdateTonLanesConfig{
 				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
@@ -1130,7 +1134,11 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, from, to, fromFamily, toFamily, gasPrices)
+		onRamp, err := state.GetOnRampAddressBytes(to)
+		if err != nil {
+			return err
+		}
+		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, onRamp, from, to, fromFamily, toFamily, gasPrices)
 		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
 			tonCfg.UpdateTonLanesConfig{
 				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
