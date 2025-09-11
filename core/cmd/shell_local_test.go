@@ -1,7 +1,6 @@
 package cmd_test
 
 import (
-	"context"
 	"flag"
 	"math/big"
 	"os"
@@ -140,48 +139,10 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			run := func() error {
-				// Set up what the Before hooks would do
-				rootCtx, cancelRootCtx := context.WithCancel(context.Background())
-				client.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
-				client.CancelRootCtx = cancelRootCtx
-				defer cancelRootCtx()
-
-				// Initialize config
-				client.Config = cfg
-				client.Logger = logger.TestLogger(t)
-				client.DS = db
-
-				// Read password from file and update config (like runNode does)
-				if passwordFile := c.String("password"); passwordFile != "" {
-					p, err := utils.PasswordFromFile(passwordFile)
-					if err != nil {
-						return errors.Wrap(err, "error reading password from file")
-					}
-					cfg.SetPasswords(&p, nil)
-				}
-
-				// Create and authenticate keystore
-				keyStore := keystore.NewInMemory(db, utils.FastScryptParams, logger.TestLogger(t).Infof)
-				client.KeyStore = keyStore
-
-				// First, set up the keystore with the correct password
-				err := keyStore.Unlock(rootCtx, "16charlengthp4SsW0rD1!@#_")
-				if err != nil {
+				cli := cmd.NewApp(&client)
+				if err := cli.Before(c); err != nil {
 					return err
 				}
-
-				// Create a dummy key to make the keystore non-empty and save it
-				_, err = keyStore.Eth().Create(rootCtx, &cltest.FixtureChainID)
-				if err != nil {
-					return err
-				}
-
-				// Try to authenticate with the password from the file
-				err = client.KeyStoreAuthenticator.Authenticate(rootCtx, keyStore, cfg.Password())
-				if err != nil {
-					return err
-				}
-
 				return client.RunNode(c)
 			}
 
@@ -262,12 +223,6 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			require.NoError(t, set.Set("api", test.apiFile))
 
 			c := cli.NewContext(nil, set, nil)
-
-			// Set up what the Before hooks would do
-			rootCtx, cancelRootCtx := context.WithCancel(context.Background())
-			client.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
-			client.CancelRootCtx = cancelRootCtx
-			defer cancelRootCtx()
 
 			if test.wantError {
 				err = client.RunNode(c)
@@ -373,12 +328,6 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 
 	ctx := cli.NewContext(nil, set, nil)
 
-	// Set up what the Before hooks would do
-	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
-	c.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
-	c.CancelRootCtx = cancelRootCtx
-	defer cancelRootCtx()
-
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -459,12 +408,6 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			ctx := cli.NewContext(nil, set, nil)
 
-			// Set up what the Before hooks would do
-			rootCtx, cancelRootCtx := context.WithCancel(context.Background())
-			c.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
-			c.CancelRootCtx = cancelRootCtx
-			defer cancelRootCtx()
-
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
 				ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -539,11 +482,6 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			c := cli.NewContext(nil, set, nil)
 
-			// Set up what the Before hooks would do
-			rootCtx, cancelRootCtx := context.WithCancel(context.Background())
-			client.RootCtx = rootCtx //nolint:fatcontext // test function needs to create context to simulate Before hook behavior
-			client.CancelRootCtx = cancelRootCtx
-			defer cancelRootCtx()
 			if test.shouldError {
 				require.ErrorContains(t, client.RebroadcastTransactions(c), test.errorContains)
 			} else {

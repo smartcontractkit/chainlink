@@ -149,6 +149,7 @@ var (
 type Shell struct {
 	Renderer
 	Config                         chainlink.GeneralConfig // initialized in Before
+	LoggerConfig                   logger.Config           // initialized in Before
 	Logger                         logger.Logger           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
@@ -171,10 +172,6 @@ type Shell struct {
 	LDB      pg.LockedDB
 	DS       sqlutil.DataSource
 	KeyStore keystore.Master
-
-	//nolint:containedctx // the root context is passed to other components
-	RootCtx       context.Context    // initialized in Before
-	CancelRootCtx context.CancelFunc // called in After
 }
 
 func (s *Shell) errorOut(err error) cli.ExitCoder {

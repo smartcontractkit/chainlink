@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	otellog "go.opentelemetry.io/otel/log"
+
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
@@ -24,6 +26,8 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -36,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -73,6 +78,17 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 			},
 			Usage:  "Run the Chainlink node",
 			Action: s.RunNode,
+			Before: s.initStartComponents,
+			After: func(c *cli.Context) error {
+				if s.LDB != nil {
+					if err := s.LDB.Close(); err != nil {
+						s.Logger.Error("Error closing db", "err", err)
+					}
+					s.LDB = nil
+				}
+
+				return nil
+			},
 		},
 		{
 			Name:   "rebroadcast-transactions",
@@ -285,7 +301,7 @@ func (s *Shell) RunNode(c *cli.Context) error {
 }
 
 func (s *Shell) runNode(c *cli.Context) error {
-	ctx := s.RootCtx
+	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
 	var pwd, vrfpwd *string
@@ -323,8 +339,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received
-	rootCtx := s.RootCtx
-	cancelRootCtx := s.CancelRootCtx
+	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
 
 	// cleanExit is used to skip "fail fast" routine
 	cleanExit := make(chan struct{})
@@ -643,7 +658,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
-	ctx := s.RootCtx
+	ctx := s.ctx()
 	beginningNonce := c.Int64("beginningNonce")
 	endingNonce := c.Int64("endingNonce")
 	gasPriceWei := c.Uint64("gasPriceWei")
@@ -1020,6 +1035,7 @@ func migrateDB(ctx context.Context, config store.Config) error {
 
 // RemoveBlocks - removes blocks after the specified blocks number
 func (s *Shell) RemoveBlocks(c *cli.Context) error {
+	ctx := s.ctx()
 	start := c.Int64("start")
 	if start <= 0 {
 		return s.errorOut(errors.New("Must pass a positive value in '--start' parameter"))
@@ -1041,17 +1057,85 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 
 	lggr := logger.Sugared(s.Logger.Named("RemoveBlocks"))
 
-	app, err := s.AppFactory.NewApplication(s.RootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	err = app.DeleteLogPollerDataAfter(s.RootCtx, chainID, start)
+	err = app.DeleteLogPollerDataAfter(ctx, chainID, start)
 	if err != nil {
 		return s.errorOut(err)
 	}
 
 	lggr.Infof("RemoveBlocks: successfully removed blocks")
+
+	return nil
+}
+
+func (s *Shell) initStartComponents(c *cli.Context) error {
+	ctx := s.ctx()
+
+	lggr := s.Logger
+	cfg := s.Config
+
+	ldb := pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+	s.LDB = ldb
+
+	// Try opening DB connection and acquiring DB locks at once
+	if err := ldb.Open(ctx); err != nil {
+		// If not successful, we know neither locks nor connection remains opened
+		return s.errorOut(errors.Wrap(err, "opening db"))
+	}
+	db := ldb.DB()
+	// From now on, DB locks and DB connection will be released on every return.
+	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
+
+	err := handleNodeVersioning(ctx, db, lggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
+	if err != nil {
+		return err
+	}
+
+	ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout), sqlutil.MonitorHook(cfg.Database().LogSQL))
+	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), lggr.Infof)
+	s.DS = ds
+	s.KeyStore = keyStore
+
+	err = s.KeyStoreAuthenticator.Authenticate(ctx, keyStore, cfg.Password())
+	if err != nil {
+		return errors.Wrap(err, "error authenticating keystore")
+	}
+
+	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(ctx, keyStore.CSA())
+	if err != nil {
+		return errors.Wrap(err, "failed to build Beholder auth")
+	}
+
+	// Initialize globals with beholder and telemetry
+	err = initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
+	if err != nil {
+		return errors.Wrap(err, "failed initializing globals")
+	}
+
+	// Swap out the logger, replacing the old one.
+	err = s.CloseLogger()
+	if err != nil {
+		return err
+	}
+
+	var otelLogger otellog.Logger
+	if s.Config.Telemetry().LogStreamingEnabled() {
+		otelLogger = beholder.GetLogger()
+	}
+
+	// Configure a new logger with otel
+	lggrCfg := s.LoggerConfig
+	lggrCfg.OtelLogger = otelLogger
+
+	l, closeFn := lggrCfg.New()
+
+	s.Logger = l
+	s.CloseLogger = closeFn
+	s.LoggerConfig = lggrCfg
 
 	return nil
 }
