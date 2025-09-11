@@ -183,6 +183,13 @@ ctf bs r
 ```
 ---
 
+## Debugging core nodes 
+Before start the environment set the `CTF_CLNODE_DLV` environment variable to `true`
+```bash
+export CTF_CLNODE_DLV="true"
+```
+Nodes will open a Delve server on port `40000 + node index` (e.g. first node will be on `40000`, second on `40001` etc). You can connect to it using your IDE or `dlv` CLI.
+
 ## Workflow Commands
 
 The environment provides workflow management commands defined in `core/scripts/cre/environment/environment/workflow.go`:
