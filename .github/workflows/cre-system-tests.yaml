@@ -173,7 +173,7 @@ jobs:
           TEST_NAME: ${{ matrix.tests.test_name }}
           # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
           # Beholder stack will be started only for the Beholder test
-          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:qa-latest
+          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
           TEST_TIMEOUT: 30m
         run: |
           # Sleep to allow testcontainers to stop
