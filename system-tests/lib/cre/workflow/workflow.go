@@ -74,15 +74,14 @@ func LinkOwner(
 			return fmt.Errorf("failed to prepare payload for signing: %w", err)
 		}
 
-		// The produced signature is in the [R || S || V] format where V is 0 or 1.
-		signature, err := crypto.Sign(messageDigest, sc.PrivateKeys[1])
+		signature, err := crypto.Sign(messageDigest, sc.MustGetRootPrivateKey())
 		if err != nil {
 			return fmt.Errorf("failed to sign ownership proof: %w", err)
 		}
 
 		signature[64] += 27
 
-		_, err = sc.Decode(wr.LinkOwner(sc.NewTXKeyOpts(2), validityTimestamp, common.HexToHash(ownershipProof), signature))
+		_, err = sc.Decode(wr.LinkOwner(sc.NewTXOpts(), validityTimestamp, common.HexToHash(ownershipProof), signature))
 		if err != nil {
 			return err
 		}
