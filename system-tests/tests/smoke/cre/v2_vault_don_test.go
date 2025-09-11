@@ -56,6 +56,9 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 	}
 	require.True(t, vaultFound, "no node set with vault capability found in topology")
 
+	// Wait a bit to ensure the Vault plugin is ready.
+	time.Sleep(30 * time.Second)
+
 	testLogger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
 	gatewayURL, err := url.Parse(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
