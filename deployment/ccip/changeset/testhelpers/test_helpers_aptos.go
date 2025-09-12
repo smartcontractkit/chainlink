@@ -389,7 +389,7 @@ func DeployRegulatedTransferableTokenAptos(
 		require.NoError(t, err)
 		data, err := client.WaitForTransaction(tx.Hash)
 		require.NoError(t, err)
-		require.True(t, data.Success, fmt.Sprintf("%s: %s", fmt.Sprintf(msg, args...), data.VmStatus))
+		require.True(t, data.Success, "%s: %s", fmt.Sprintf(msg, args...), data.VmStatus)
 	}
 	mcmsAddress := aptosstate.FindAptosAddress(
 		cldf.TypeAndVersion{

@@ -74,7 +74,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	}
 	deployTokenPoolModuleReport, err := operations.ExecuteOperation(b, operation.DeployTokenPoolModuleOp, deps, deployTokenPoolModuleInput)
 	if err != nil {
-		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute DeployTokenPoolModuleOp: %v", err)
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute DeployTokenPoolModuleOp: %w", err)
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolModuleReport.Output)...)
 
