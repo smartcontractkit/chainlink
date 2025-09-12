@@ -168,26 +168,37 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
 		ctx, cancel := w.stopCh.NewCtx()
 
-		contractReader, err := w.newWorkflowRegistryContractReader(context.Background())
-		if err != nil {
-			w.lggr.Criticalf("contract reader unavailable : %s", err)
-			return errors.New("failed to create contract reader: " + err.Error())
-		}
+		donReceivedCh := make(chan struct{})
+		w.wg.Add(1)
+		go func() {
+			defer w.lggr.Debugw("closed donReceivedCh")
+			defer close(donReceivedCh)
+
+			w.lggr.Debugw("Waiting for DON...")
+			_, err := w.workflowDonNotifier.WaitForDon(ctx)
+			if err != nil {
+				w.lggr.Errorw("failed to wait for don", "err", err)
+				return
+			}
+			w.lggr.Debug("Received DON")
+		}()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
 			defer cancel()
 
-			w.lggr.Debugw("Waiting for DON...")
-			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			// Start goroutines to gather changes from Workflow Registry contract
+			<-donReceivedCh
+			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
+			don, _ := w.workflowDonNotifier.WaitForDon(ctx)
+
+			reader, err := w.newWorkflowRegistryContractReader(ctx)
 			if err != nil {
-				w.lggr.Errorw("failed to wait for don", "err", err)
+				w.lggr.Criticalf("contract reader unavailable : %s", err)
 				return
 			}
-
-			// Start goroutines to gather changes from Workflow Registry contract
-			w.syncUsingReconciliationStrategy(ctx, don, contractReader)
+			w.syncUsingReconciliationStrategy(ctx, don, reader)
 		}()
 
 		w.wg.Add(1)
@@ -195,8 +206,19 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 			// Start goroutines to gather allowlisted requests from Workflow Registry contract
-			w.syncAllowlistedRequests(ctx, contractReader)
+			<-donReceivedCh
+			w.lggr.Debug("read from don received channel while waiting to start sync allow listed requests")
+			/* reader, err := w.newWorkflowRegistryContractReader(ctx)
+			if err != nil {
+				w.lggr.Criticalf("contract reader unavailable : %s", err)
+				// return errors.New("failed to create contract reader: " + err.Error())
+				return
+			}
+			w.syncAllowlistedRequests(ctx, reader)
+			*/
 		}()
+
+		w.lggr.Debug("launched all routines in start function")
 
 		return nil
 	})
