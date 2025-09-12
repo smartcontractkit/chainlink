@@ -31,6 +31,13 @@ type DeployOCR3Input struct {
 }
 
 func (c DeployOCR3Input) Validate() error {
+	if c.OracleConfig == nil {
+		return fmt.Errorf("OracleConfig is required")
+	}
+
+	if c.OracleConfig.OffchainConfigType == "" {
+		return fmt.Errorf("OracleConfig.OffchainConfigType is required")
+	}
 	return nil
 }
 
@@ -49,8 +56,9 @@ var DeployOCR3 = operations.NewSequence(
 	func(b operations.Bundle, deps DeployOCR3Deps, input DeployOCR3Input) (DeployOCR3Output, error) {
 		// Step 1: Deploy OCR3 Contract for Consensus Capability
 		ocr3DeploymentReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps{Env: deps.Env}, contracts.DeployOCR3Input{
-			ChainSelector: input.ChainSelector,
-			Qualifier:     input.Qualifier,
+			ChainSelector:      input.ChainSelector,
+			Qualifier:          input.Qualifier,
+			OffchainConfigType: input.OracleConfig.OffchainConfigType,
 		})
 		if err != nil {
 			return DeployOCR3Output{}, err

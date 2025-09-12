@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 )
@@ -18,8 +19,9 @@ type DeployOCR3Deps struct {
 }
 
 type DeployOCR3Input struct {
-	ChainSelector uint64
-	Qualifier     string
+	ChainSelector      uint64
+	Qualifier          string
+	OffchainConfigType ocr3.OffchainConfigType
 }
 
 type DeployOCR3Output struct {
@@ -41,6 +43,10 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 	"Deploy OCR3 Contract",
 	func(b operations.Bundle, deps DeployOCR3Deps, input DeployOCR3Input) (DeployOCR3Output, error) {
 		lggr := deps.Env.Logger
+
+		if input.OffchainConfigType == "" {
+			return DeployOCR3Output{}, fmt.Errorf("OffchainConfigType is required")
+		}
 
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
@@ -76,9 +82,11 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 
 		// Create labels from the operation output
 		labels := datastore.NewLabelSet()
-		for _, label := range tv.Labels.List() {
+		for _, label := range append(tv.Labels.List()) {
 			labels.Add(label)
 		}
+
+		labels.Add(input.OffchainConfigType.String())
 
 		addressRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
