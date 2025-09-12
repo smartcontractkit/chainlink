@@ -28,7 +28,11 @@ var _ consensustypes.Encoder = (*capEncoder)(nil)
 
 func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	// parse the "inner" encoder config - user-defined fields
-	wrappedSelector, err := config.Underlying[abiConfigFieldName].Unwrap()
+	abiConfig, ok := config.Underlying[abiConfigFieldName]
+	if !ok {
+		return nil, fmt.Errorf("required field %s is missing", abiConfigFieldName)
+	}
+	wrappedSelector, err := abiConfig.Unwrap()
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package ccipaptos
 
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -10,7 +11,7 @@ import (
 )
 
 // initializePluginConfig returns a PluginConfig for Aptos chains.
-func initializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) ccipcommon.PluginConfig {
+func initializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:          NewCommitPluginCodecV1(),
 		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
@@ -19,7 +20,6 @@ func initializePluginConfig(lggr logger.Logger, extraDataCodec ccipcommon.ExtraD
 		GasEstimateProvider:        NewGasEstimateProvider(),
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewAptosContractTransmitterFactory(extraDataCodec),
-		ChainAccessorFactory:       AptosChainAccessorFactory{},
 		ChainRW:                    ChainCWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},
 		AddressCodec:               AddressCodec{},

@@ -777,7 +777,6 @@ func ConfirmExecWithSeqNrsForAll(
 	)
 	executionStates = make(map[SourceDestPair]map[uint64]int)
 	for sourceDest, seqRange := range expectedSeqNums {
-		seqRange := seqRange
 		srcChain := sourceDest.SourceChainSelector
 		dstChain := sourceDest.DestChainSelector
 

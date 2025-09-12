@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/mr-tron/base58"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	solanashared "github.com/smartcontractkit/chainlink/deployment"
 
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -27,13 +27,15 @@ type RMNRemoteView struct {
 
 func GenerateRMNRemoteView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (RMNRemoteView, error) {
 	view := RMNRemoteView{}
-	accountInfo, err := chain.Client.GetAccountInfoWithOpts(context.Background(), program, &rpc.GetAccountInfoOpts{
-		Commitment: cldf_solana.SolDefaultCommitment,
-	})
+	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, program)
 	if err != nil {
-		return view, fmt.Errorf("failed to get account info for program %s: %w", program.String(), err)
+		return view, fmt.Errorf("failed to get program data address for program %s: %w", program.String(), err)
 	}
-	view.UpgradeAuthority = accountInfo.Value.Owner.String()
+	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
+	if err != nil {
+		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
+	}
+	view.UpgradeAuthority = authority.String()
 	var config solRmnRemote.Config
 	configPDA, _, _ := solState.FindRMNRemoteConfigPDA(program)
 	err = chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)

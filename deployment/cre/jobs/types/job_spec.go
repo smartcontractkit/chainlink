@@ -2,8 +2,10 @@ package job_types
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 )
 
 type JobSpecInput map[string]interface{}
@@ -56,5 +58,27 @@ func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapab
 		Config:        config,
 		ExternalJobID: externalJobID,
 		OracleFactory: oracleFactory,
+	}, nil
+}
+
+func (j JobSpecInput) ToOCR3BootstrapJobInput() (pkg.BootstrapJobInput, error) {
+	qualifier, ok := j["contract_qualifier"].(string)
+	if !ok || qualifier == "" {
+		return pkg.BootstrapJobInput{}, errors.New("contract_qualifier is required and must be a string")
+	}
+
+	chainSelector, ok := j["chain_selector"].(string)
+	if !ok {
+		return pkg.BootstrapJobInput{}, errors.New("chain_selector is required and must be a string")
+	}
+
+	chainSel, err := parse.Uint64(chainSelector)
+	if err != nil {
+		return pkg.BootstrapJobInput{}, fmt.Errorf("failed to parse chain_selector: %w", err)
+	}
+
+	return pkg.BootstrapJobInput{
+		ContractQualifier: qualifier,
+		ChainSelector:     chainSel,
 	}, nil
 }

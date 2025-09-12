@@ -2,12 +2,14 @@ package types
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 )
 
 type WorkflowConfig struct {
 	// name of the secret that stores authentication key
 	AuthKeySecretName string `yaml:"auth_key_secret_name"`
+	ChainSelector     uint64 `yaml:"chain_selector,omitempty"`
 	BalanceReaderConfig
 	ComputeConfig
 }
