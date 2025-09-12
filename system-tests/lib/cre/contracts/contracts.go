@@ -20,7 +20,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
+	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -526,24 +528,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 
 		_, err = operations.ExecuteOperation(
 			input.CldEnv.OperationsBundle,
-			ks_contracts_op.ConfigureOCR3Op,
-			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env: input.CldEnv,
-			},
-			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress: input.VaultOCR3Address,
-				ChainSelector:   input.ChainSelector,
-				DON:             vaultDON.keystoneDonConfig(),
-				Config:          vaultDON.resolveOcr3Config(input.VaultOCR3Config),
-				DryRun:          false,
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "failed to configure Vault OCR3 contract")
-		}
-
-		_, err = operations.ExecuteOperation(
-			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureDKGOp,
 			ks_contracts_op.ConfigureDKGOpDeps{
 				Env: input.CldEnv,
@@ -559,6 +543,42 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 		)
 		if err != nil {
 			return errors.Wrap(err, "failed to configure DKG OCR3 contract")
+		}
+
+		client := input.CldEnv.BlockChains.EVMChains()[input.ChainSelector].Client
+		dkgContract, err := ocr3_capability.NewOCR3Capability(*input.DKGOCR3Address, client)
+		if err != nil {
+			return errors.Wrap(err, "failed to create OCR3 capability contract")
+		}
+		details, err := dkgContract.LatestConfigDetails(nil)
+		if err != nil {
+			return errors.Wrap(err, "failed to get latest config details from OCR3 capability contract")
+		}
+		instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
+		cfg := vaultprotos.ReportingPluginConfig{
+			DKGInstanceID: &instanceID,
+		}
+		cfgb, err := proto.Marshal(&cfg)
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal vault reporting plugin config")
+		}
+		_, err = operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureOCR3Op,
+			ks_contracts_op.ConfigureOCR3OpDeps{
+				Env: input.CldEnv,
+			},
+			ks_contracts_op.ConfigureOCR3OpInput{
+				ContractAddress:               input.VaultOCR3Address,
+				ChainSelector:                 input.ChainSelector,
+				DON:                           vaultDON.keystoneDonConfig(),
+				Config:                        vaultDON.resolveOcr3Config(input.VaultOCR3Config),
+				DryRun:                        false,
+				ReportingPluginConfigOverride: cfgb,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure Vault OCR3 contract")
 		}
 	}
 

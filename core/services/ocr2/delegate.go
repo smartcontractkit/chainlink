@@ -821,7 +821,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	rpf, err := vaultocrplugin.NewReportingPluginFactory(
 		lggr,
 		requestStore,
-		nil, // PRIV-153: pass in `vault.NewVaultORM(d.ds) as db`
+		vaultocrplugin.NewVaultORM(d.ds),
 		&dkgRecipientKey,
 		pk,
 		secKeyShare,
