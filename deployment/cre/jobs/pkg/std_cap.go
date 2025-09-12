@@ -2,20 +2,17 @@ package pkg
 
 import (
 	"bytes"
-	"embed"
 	"errors"
 	"fmt"
 	"text/template"
 
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg/templates"
 )
 
 const (
 	ErrorEmptyJobName = "job name cannot be empty"
 )
-
-//go:embed *tmpl
-var tmplFS embed.FS
 
 type StandardCapabilityJob struct {
 	JobName string // Must be alphanumeric, with _, -, ., no spaces.
@@ -48,7 +45,7 @@ func (s *StandardCapabilityJob) Resolve() (string, error) {
 		s.ExternalJobID = externalJobID.String()
 	}
 
-	t, err := template.New("s").ParseFS(tmplFS, "stdcap.tmpl")
+	t, err := template.New("s").ParseFS(templates.FS, "stdcap.tmpl")
 	if err != nil {
 		return "", fmt.Errorf("failed to parse stdcap.tmpl: %w", err)
 	}

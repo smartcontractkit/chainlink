@@ -396,9 +396,9 @@ func TestClose(t *testing.T) {
 	require.NoError(t, err)
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
-	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChainSelectors[0], true,
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
-			FeeQuoter: true,
+			OffRamp: true,
 		})
 
 	state, err := stateview.LoadOnchainStateSolana(e)
@@ -410,10 +410,19 @@ func TestClose(t *testing.T) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseBuffersChangeset),
 			ccipChangesetSolana.CloseBuffersConfig{
 				ChainSelector: solChainSelectors[0],
-				Buffers: []string{
+				Programs: []string{
 					state.SolChains[solChainSelectors[0]].BurnMintTokenPools[shared.CLLMetadata].String(),
 					state.SolChains[solChainSelectors[0]].Router.String(),
 				},
+			},
+		),
+		// upgrade authority
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+			ccipChangesetSolana.SetUpgradeAuthorityConfig{
+				ChainSelector:       solChainSelectors[0],
+				NewUpgradeAuthority: timelockSignerPDA,
+				SetOffRamp:          true,
 			},
 		),
 		commonchangeset.Configure(
@@ -423,8 +432,8 @@ func TestClose(t *testing.T) {
 				MCMS: &proposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
-				Buffers: []string{
-					state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
+				Programs: []string{
+					state.SolChains[solChainSelectors[0]].OffRamp.String(),
 				},
 			},
 		),
