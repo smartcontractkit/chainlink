@@ -29,6 +29,9 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 	}
 
+	// Initial cleanup to ensure clean state at start
+	reset()
+
 	t.Run("initializes with an empty state", func(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll()
