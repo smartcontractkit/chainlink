@@ -57,18 +57,18 @@ type donConfig struct {
 	RegistryChainSel uint64
 }
 
-func initEnv(t *testing.T, lggr logger.Logger) (uint64, uint64, *cldf.Environment) {
+func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel uint64, env *cldf.Environment) {
 	evmChains := memory.NewMemoryChainsEVM(t, 1, 1)
 	aptosChains := memory.NewMemoryChainsAptos(t, 1)
 	chains := cldf_chain.NewBlockChainsFromSlice([]cldf_chain.BlockChain{
 		evmChains[0],
 		aptosChains[0],
 	})
-	registryChainSel := evmChains[0].ChainSelector()
-	aptosChainSel := aptosChains[0].ChainSelector()
+	registryChainSel = evmChains[0].ChainSelector()
+	aptosChainSel = aptosChains[0].ChainSelector()
 
 	ds := datastore.NewMemoryDataStore()
-	env := cldf.Environment{
+	localEnv := cldf.Environment{
 		Logger:           lggr,
 		GetContext:       t.Context,
 		DataStore:        ds.Seal(),
@@ -87,13 +87,15 @@ func initEnv(t *testing.T, lggr logger.Logger) (uint64, uint64, *cldf.Environmen
 		),
 	}
 
-	env, _, err := changeset.ApplyChangesets(t, env, changes)
+	localEnv, _, err := changeset.ApplyChangesets(t, localEnv, changes)
 	require.NoError(t, err)
+
+	env = &localEnv
 	require.NotNil(t, env)
 	require.Len(t, env.BlockChains.EVMChains(), 1)
 	require.Len(t, env.BlockChains.AptosChains(), 1)
 
-	return registryChainSel, aptosChainSel, &env
+	return registryChainSel, aptosChainSel, env
 }
 
 // SetupEnvV2 starts an environment with a single DON, 4 nodes and a capabilities registry v2 deployed and configured.
