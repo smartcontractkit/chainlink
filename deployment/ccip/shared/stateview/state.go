@@ -580,6 +580,16 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					chainView.ChainSelector = chainSelector
 					chainView.ChainID = id
 					am.Store(name, chainView)
+				//case chain_selectors.FamilyTon:
+				//	if _, ok := c.TonChains[chainSelector]; !ok {
+				//		return fmt.Errorf("chain not supported %d", chainSelector)
+				//	}
+				//	chainState := c.TonChains[chainSelector]
+				//	chainView, err := chainState.(e, chainSelector, name)
+				//	if err != nil {
+				//		return err
+				//	}
+
 				default:
 					return fmt.Errorf("unsupported chain family %s", family)
 				}
@@ -1395,6 +1405,16 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 				return err
 			}
 		}
+	case chain_selectors.FamilyTon:
+		chain, ok := env.BlockChains.TonChains()[chainSel]
+		if !ok {
+			return fmt.Errorf("ton chain with selector %d does not exist in environment", chainSel)
+		}
+		_, ok = state.TonChains[chainSel]
+		if !ok {
+			return fmt.Errorf("%s does not exist in state", chain)
+		}
+		// TODO validate ton mcms
 	default:
 		return fmt.Errorf("%s family not support", family)
 	}
