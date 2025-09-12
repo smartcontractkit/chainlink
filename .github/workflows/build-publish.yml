@@ -225,3 +225,4 @@ jobs:
     with:
       chainlink_version: ${{ github.ref_name }}
       team: CRE
+    secrets: inherit
