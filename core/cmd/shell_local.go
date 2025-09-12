@@ -78,7 +78,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 			},
 			Usage:  "Run the Chainlink node",
 			Action: s.RunNode,
-			Before: s.initStartComponents,
+			Before: s.InitStartComponents,
 			After: func(c *cli.Context) error {
 				if s.LDB != nil {
 					if err := s.LDB.Close(); err != nil {
@@ -304,24 +304,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 	ctx := s.ctx()
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 
-	var pwd, vrfpwd *string
-	if passwordFile := c.String("password"); passwordFile != "" {
-		p, err := utils.PasswordFromFile(passwordFile)
-		if err != nil {
-			return errors.Wrap(err, "error reading password from file")
-		}
-		pwd = &p
-	}
-	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
-		p, err := utils.PasswordFromFile(vrfPasswordFile)
-		if err != nil {
-			return errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
-		}
-		vrfpwd = &p
-	}
-
-	s.Config.SetPasswords(pwd, vrfpwd)
-
 	s.Config.LogConfiguration(lggr.Debugf, lggr.Warnf)
 
 	if err := s.Config.Validate(); err != nil {
@@ -345,6 +327,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	cleanExit := make(chan struct{})
 	var shutdownStartTime time.Time
 	defer func() {
+		cancelRootCtx() // Ensure context is always cancelled
 		close(cleanExit)
 		if !shutdownStartTime.IsZero() {
 			log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
@@ -1072,8 +1055,34 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	return nil
 }
 
+// InitStartComponents initializes database, keystore, logger, and beholder for node startup
+func (s *Shell) InitStartComponents(c *cli.Context) error {
+	if err := s.initStartComponents(c); err != nil {
+		return s.errorOut(err)
+	}
+	return nil
+}
+
 func (s *Shell) initStartComponents(c *cli.Context) error {
 	ctx := s.ctx()
+
+	var pwd, vrfpwd *string
+	if passwordFile := c.String("password"); passwordFile != "" {
+		p, err := utils.PasswordFromFile(passwordFile)
+		if err != nil {
+			return errors.Wrap(err, "error reading password from file")
+		}
+		pwd = &p
+	}
+	if vrfPasswordFile := c.String("vrfpassword"); len(vrfPasswordFile) != 0 {
+		p, err := utils.PasswordFromFile(vrfPasswordFile)
+		if err != nil {
+			return errors.Wrapf(err, "error reading VRF password from vrfpassword file \"%s\"", vrfPasswordFile)
+		}
+		vrfpwd = &p
+	}
+
+	s.Config.SetPasswords(pwd, vrfpwd)
 
 	lggr := s.Logger
 	cfg := s.Config

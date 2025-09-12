@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"errors"
 	"flag"
 	"math/big"
 	"os"
@@ -10,7 +11,6 @@ import (
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -95,8 +95,6 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
-
-			// Create a pre-unlocked keystore for the mock app (for relayers, etc.)
 			keyStore := cltest.NewKeyStore(t, db)
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
@@ -129,6 +127,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{},
 				Logger:                 logger.TestLogger(t),
+				KeyStore:               keyStore,
 			}
 
 			set := flag.NewFlagSet("test", 0)
@@ -143,6 +142,12 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				if err := cli.Before(c); err != nil {
 					return err
 				}
+
+				err := cmd.TerminalKeyStoreAuthenticator{}.Authenticate(testutils.Context(t), client.KeyStore, cfg.Password())
+				if err != nil {
+					return err
+				}
+
 				return client.RunNode(c)
 			}
 
@@ -481,7 +486,6 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			c := cli.NewContext(nil, set, nil)
-
 			if test.shouldError {
 				require.ErrorContains(t, client.RebroadcastTransactions(c), test.errorContains)
 			} else {
@@ -565,4 +569,171 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		err := shell.RemoveBlocks(c)
 		require.NoError(t, err)
 	})
+}
+
+func TestShell_InitStartComponents(t *testing.T) {
+	tests := []struct {
+		name         string
+		pwdfile      string
+		wantUnlocked bool
+	}{
+		{"correct password", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
+		{"wrong file", "doesntexist.txt", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.Password.Keystore = models.NewSecret("dummy")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
+				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
+				c.Insecure.OCRDevelopmentMode = nil
+			})
+
+			shell := cmd.Shell{
+				Config: cfg,
+				KeyStoreAuthenticator: cmd.TerminalKeyStoreAuthenticator{
+					Prompter: &cltest.MockCountingPrompter{T: t, NotTerminal: true},
+				},
+				Logger: logger.TestLogger(t),
+			}
+
+			set := flag.NewFlagSet("test", 0)
+			flagSetApplyFromAction(shell.RunNode, set, "")
+			require.NoError(t, set.Set("password", test.pwdfile))
+
+			c := cli.NewContext(nil, set, nil)
+
+			// Create full CLI app and run the Before hook first
+			app := cmd.NewApp(&shell)
+			err := app.Before(c)
+			if err != nil && test.wantUnlocked {
+				t.Fatalf("CLI Before hook failed: %v", err)
+			}
+
+			// Run before hook to initialize components with authentication
+			err = shell.InitStartComponents(c)
+
+			if test.wantUnlocked {
+				assert.NoError(t, err)
+				// Verify that shell components were initialized
+				assert.NotNil(t, shell.KeyStore)
+				assert.NotNil(t, shell.DS)
+				assert.NotNil(t, shell.LDB)
+
+				// Verify keystore is unlocked by checking if we can access keys
+				ctx := testutils.Context(t)
+				isEmpty, err := shell.KeyStore.IsEmpty(ctx)
+				assert.NoError(t, err)
+				if !isEmpty {
+					keys, err := shell.KeyStore.CSA().GetAll()
+					assert.NoError(t, err)
+					assert.NotEmpty(t, keys)
+				}
+			} else {
+				assert.Error(t, err)
+			}
+
+			// Clean up
+			if shell.LDB != nil {
+				shell.LDB.Close()
+			}
+		})
+	}
+}
+
+func TestShell_RunNodeWithInitializedComponents(t *testing.T) {
+	tests := []struct {
+		name        string
+		pwdfile     string
+		expectStart bool
+	}{
+		{"correct password", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.Password.Keystore = models.NewSecret("dummy")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
+				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
+				// seems to be needed for config validate
+				c.Insecure.OCRDevelopmentMode = nil
+			})
+
+			db := pgtest.NewSqlxDB(t)
+			keyStore := cltest.NewKeyStore(t, db)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
+
+			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore.Eth(), &keystore.CSASigner{CSA: keyStore.CSA()})
+
+			// Purge fixture users to test assumption of single admin
+			pgtest.MustExec(t, db, "DELETE FROM users;")
+
+			app := mocks.NewApplication(t)
+			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
+			app.On("BasicAdminUsersORM").Return(authProviderORM).Maybe()
+			app.On("GetKeyStore").Return(keyStore).Maybe()
+			app.On("GetRelayers").Return(testRelayers).Maybe()
+			app.On("Start", mock.Anything).Maybe().Return(nil)
+			app.On("Stop").Maybe().Return(nil)
+			app.On("ID").Maybe().Return(uuid.New())
+
+			ethClient := evmtest.NewEthClientMock(t)
+			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
+
+			cltest.MustInsertRandomKey(t, keyStore.Eth())
+			apiPrompt := cltest.NewMockAPIInitializer(t)
+
+			shell := cmd.Shell{
+				Config:                 cfg,
+				FallbackAPIInitializer: apiPrompt,
+				Runner:                 cltest.EmptyRunner{},
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				KeyStoreAuthenticator: cmd.TerminalKeyStoreAuthenticator{
+					Prompter: &cltest.MockCountingPrompter{T: t, NotTerminal: true},
+				},
+				Logger: logger.TestLogger(t),
+			}
+
+			set := flag.NewFlagSet("test", 0)
+			flagSetApplyFromAction(shell.RunNode, set, "")
+			require.NoError(t, set.Set("password", test.pwdfile))
+
+			c := cli.NewContext(nil, set, nil)
+
+			// First initialize components (this includes authentication)
+			cliApp := cmd.NewApp(&shell)
+			err := cliApp.Before(c)
+			require.NoError(t, err)
+
+			err = shell.InitStartComponents(c)
+			if test.expectStart {
+				assert.NoError(t, err, "InitStartComponents should succeed")
+				// Verify components are initialized
+				assert.NotNil(t, shell.KeyStore)
+				assert.NotNil(t, shell.DS)
+				assert.NotNil(t, shell.LDB)
+
+				// Now test RunNode with pre-authenticated keystore
+				// Note: RunNode will start the app but we expect it to work since keystore is authenticated
+				err = shell.RunNode(c)
+				assert.NoError(t, err, "RunNode should succeed with authenticated keystore")
+				assert.Equal(t, 1, apiPrompt.Count, "API should be initialized")
+			} else {
+				assert.Error(t, err, "InitStartComponents should fail with incorrect password")
+				// Don't test RunNode if InitStartComponents failed
+			}
+
+			// Clean up
+			if shell.LDB != nil {
+				shell.LDB.Close()
+			}
+		})
+	}
 }
