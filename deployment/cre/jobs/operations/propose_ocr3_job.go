@@ -20,14 +20,17 @@ type ProposeOCR3JobInput struct {
 	Domain  string
 	EnvName string
 
-	DONName      string
-	JobName      string
-	TemplateName string
+	DONName string
+	JobName string
 
+	TemplateName         string
 	ContractAddress      string
 	ChainSelectorEVM     uint64
 	ChainSelectorAptos   uint64
 	BootstrapperOCR3Urls []string
+	// Optionals: specific to the worker vault OCR3 Job spec
+	MasterPublicKey          string
+	EncryptedPrivateKeyShare string
 
 	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
@@ -42,12 +45,22 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 	semver.MustParse("1.0.0"),
 	"Propose OCR3 Job",
 	func(b operations.Bundle, deps ProposeOCR3JobDeps, input ProposeOCR3JobInput) (ProposeOCR3JobOutput, error) {
+		// We only want to target plugin nodes for OCR3 jobs.
+		input.DONFilters = append(input.DONFilters, offchain.TargetDONFilter{
+			Key:   "type",
+			Value: "plugin",
+		})
 		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
 			Domain:  input.Domain,
 			Filters: input.DONFilters,
 		})
 		if err != nil {
 			return ProposeOCR3JobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
+		}
+
+		nodeIDToP2PID := make(map[string]string)
+		for _, n := range nodes {
+			nodeIDToP2PID[n.Id] = offchain.GetP2pLabel(n.GetLabels())
 		}
 
 		specs, err := pkg.BuildOCR3JobConfigSpecs(
@@ -62,11 +75,19 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 
 		var mergedErrs error
 		for _, spec := range specs {
+			// Let's limit the target to the specific node for this spec.
+			filters := []offchain.TargetDONFilter{
+				{
+					Key:   offchain.P2pIDLabel,
+					Value: nodeIDToP2PID[spec.NodeID],
+				},
+			}
+			filters = append(filters, input.DONFilters...)
 			opReport, opErr := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
 				Domain:     input.Domain,
 				DONName:    input.DONName,
 				Spec:       spec.Spec,
-				DONFilters: input.DONFilters,
+				DONFilters: filters,
 				JobLabels:  input.ExtraLabels,
 			})
 			if opErr != nil {

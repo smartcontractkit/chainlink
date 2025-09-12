@@ -69,7 +69,6 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 }
 
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
-	e.Logger.Debugw("environment", "name", e.Name)
 	var report operations.Report[any, any]
 	switch input.Template {
 	case job_types.Cron: // This will hold all standard capabilities jobs as we add support for them.
@@ -123,6 +122,43 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 		)
 		if rErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose OCR3 bootstrap job: %w", rErr)
+		}
+
+		report = r.ToGenericReport()
+	case job_types.OCR3:
+		jobInput, err := input.Inputs.ToOCR3JobConfigInput()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 job input: %w", err)
+		}
+
+		addrRefKey := pkg.GetOCR3CapabilityV2AddressRefKey(jobInput.ChainSelectorEVM, jobInput.ContractQualifier)
+		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
+		}
+
+		r, rErr := operations.ExecuteSequence(
+			e.OperationsBundle,
+			operations2.ProposeOCR3Job,
+			operations2.ProposeOCR3JobDeps{Env: e},
+			operations2.ProposeOCR3JobInput{
+				Domain:                   input.Domain,
+				EnvName:                  input.Environment,
+				DONName:                  input.DONName,
+				JobName:                  input.JobName,
+				TemplateName:             jobInput.TemplateName,
+				ContractAddress:          contractAddrRef.Address,
+				ChainSelectorEVM:         jobInput.ChainSelectorEVM,
+				ChainSelectorAptos:       jobInput.ChainSelectorAptos,
+				BootstrapperOCR3Urls:     jobInput.BootstrapperOCR3Urls,
+				MasterPublicKey:          jobInput.MasterPublicKey,
+				EncryptedPrivateKeyShare: jobInput.EncryptedPrivateKeyShare,
+				DONFilters:               input.DONFilters,
+				ExtraLabels:              input.ExtraLabels,
+			},
+		)
+		if rErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose OCR3 job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()

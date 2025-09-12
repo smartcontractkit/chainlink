@@ -9,14 +9,26 @@ import (
 	"text/template"
 
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg/templates"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg/templates"
 )
+
+type OCR3JobConfigInput struct {
+	TemplateName         string
+	ContractQualifier    string
+	ChainSelectorEVM     uint64
+	ChainSelectorAptos   uint64
+	BootstrapperOCR3Urls []string
+
+	// Optionals: specific to the worker vault OCR3 Job spec
+	MasterPublicKey          string
+	EncryptedPrivateKeyShare string
+}
 
 type OCR3JobConfig struct {
 	JobName              string
@@ -172,6 +184,7 @@ func BuildOCR3JobConfigSpecs(
 			JobName: jobConfig.JobName,
 		})
 	}
+	fmt.Printf("specs len: %d\n", len(specs))
 
 	return specs, nil
 }
