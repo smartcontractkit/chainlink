@@ -19,7 +19,7 @@ import (
 
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_dummy_receiver"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
+	module_onramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
