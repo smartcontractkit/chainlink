@@ -745,7 +745,6 @@ func deployTokenPoolFactory(
 	*lock_release_token_pool.LockReleaseTokenPool,
 	error,
 ) {
-
 	if tokenPoolFactory == nil {
 		tokenPoolFactoryContractDeploy, err := cldf.DeployContract(lggr, chain, addresses,
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
