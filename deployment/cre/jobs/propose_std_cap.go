@@ -9,6 +9,7 @@ import (
 
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 var _ cldf.ChangeSetV2[ProposeStandardCapabilityJobInput] = ProposeStandardCapabilityJob{}
@@ -22,8 +23,8 @@ type ProposeStandardCapabilityJobInput struct {
 	ExternalJobID string            `json:"external_job_id" yaml:"external_job_id"` // Optional
 	OracleFactory pkg.OracleFactory `json:"oracle_factory" yaml:"oracle_factory"`   // Optional
 
-	DONFilters  []operations2.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
-	ExtraLabels map[string]string             `json:"extra_labels,omitempty" yaml:"extra_labels,omitempty"`
+	DONFilters  []offchain.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
+	ExtraLabels map[string]string          `json:"extra_labels,omitempty" yaml:"extra_labels,omitempty"`
 }
 
 type ProposeStandardCapabilityJob struct{}

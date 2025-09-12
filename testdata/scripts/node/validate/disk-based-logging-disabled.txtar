@@ -388,13 +388,10 @@ TLSEnabled = true
 ChainIDForNodeKey = ''
 NodeAddress = ''
 DonID = ''
+Gateways = []
 WSHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
-
-[[Capabilities.GatewayConnector.Gateways]]
-ID = ''
-URL = ''
 
 [Telemetry]
 Enabled = false

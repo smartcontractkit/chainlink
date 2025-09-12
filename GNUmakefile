@@ -39,7 +39,7 @@ gomodtidy: gomods ## Run go mod tidy on all modules.
 
 .PHONY: tidy
 tidy: gomodtidy ## Tidy all modules and add to git.
-	git add '**go.*'
+	git add '**go.*' 'plugins/plugins.public.yaml'
 
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs

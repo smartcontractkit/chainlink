@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"text/template"
+
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg/templates"
 )
 
 const bootstrapPth = "ocr3_bootstrap.tmpl"
@@ -38,7 +40,7 @@ func (cfg BootstrapCfg) Validate() error {
 }
 
 func (cfg BootstrapCfg) ResolveSpec() (string, error) {
-	t, err := template.New("s").ParseFS(tmplFS, bootstrapPth)
+	t, err := template.New("s").ParseFS(templates.FS, bootstrapPth)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse %s: %w", bootstrapPth, err)
 	}
