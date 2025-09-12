@@ -28,13 +28,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector uint64) commonchangeset.ConfiguredChangeSet {
+func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector uint64) commoncs.ConfiguredChangeSet {
 	ccipConfig := config.DeployAptosChainConfig{
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			chainSelector: {
@@ -79,7 +78,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 		},
 	}
 
-	return commonchangeset.Configure(aptoscs.DeployAptosChain{}, ccipConfig)
+	return commoncs.Configure(aptoscs.DeployAptosChain{}, ccipConfig)
 }
 
 // MakeBCSEVMExtraArgsV2 makes the BCS encoded extra args for a message sent from a Move based chain that is destined for an EVM chain.
@@ -234,7 +233,7 @@ func DeployRegulatedTransferableTokenAptos(
 		},
 		aptosAddresses,
 	)
-	require.Falsef(t, mcmsAddress == aptos.AccountAddress{}, "Aptos mcms address not found")
+	require.NotEqualf(t, aptos.AccountAddress{}, mcmsAddress, "Aptos mcms address not found")
 
 	// Only admin can grant roles
 	adminAddress := signer.AccountAddress()
