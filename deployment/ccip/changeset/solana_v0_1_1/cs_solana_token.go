@@ -41,9 +41,6 @@ var _ cldf.ChangeSet[UploadTokenMetadataConfig] = UploadTokenMetadata
 
 const MplTokenMetadataProgramName = "MplTokenMetadataProgramName"
 
-// PROGRAM ID for Metaplex Metadata Program
-var MplTokenMetadataID solana.PublicKey = solana.MustPublicKeyFromBase58("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
-
 // discriminator for update_metadata_account_v2 ix
 const UpdateMetadataAccountV2Ix = 15
 
@@ -542,7 +539,7 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 				return cldf.ChangesetOutput{}, fmt.Errorf("error generating modify metadata ix: %w", err)
 			}
 			if cfg.MCMS != nil {
-				upgradeTx, err := BuildMCMSTxn(&instruction, MplTokenMetadataID.String(), MplTokenMetadataProgramName)
+				upgradeTx, err := BuildMCMSTxn(&instruction, deployment.MplTokenMetadataID.String(), MplTokenMetadataProgramName)
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create upgrade transaction: %w", err)
 				}
@@ -560,16 +557,6 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 	return generateProposalIfMCMS(e, cfg.ChainSelector, cfg.MCMS, mcmsTxs)
 }
 
-func findMetadataPDA(mint solana.PublicKey) (solana.PublicKey, error) {
-	seeds := [][]byte{
-		[]byte("metadata"),
-		MplTokenMetadataID.Bytes(),
-		mint.Bytes(),
-	}
-	pda, _, err := solana.FindProgramAddress(seeds, MplTokenMetadataID)
-	return pda, err
-}
-
 func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadataConfig) (solana.PublicKey, error) {
 	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
 	if err != nil {
@@ -585,7 +572,7 @@ func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadat
 func modifyTokenMetadataUpdateAuthorityIx(
 	tokenMint, authority, newAuthority solana.PublicKey,
 ) (solana.GenericInstruction, error) {
-	metadataPDA, metadataErr := findMetadataPDA(tokenMint)
+	metadataPDA, metadataErr := deployment.FindMplTokenMetadataPDA(tokenMint)
 	if metadataErr != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
 	}
@@ -603,7 +590,7 @@ func modifyTokenMetadataUpdateAuthorityIx(
 	}
 
 	instruction := solana.NewInstruction(
-		MplTokenMetadataID,
+		deployment.MplTokenMetadataID,
 		ix.Accounts(),
 		data,
 	)
