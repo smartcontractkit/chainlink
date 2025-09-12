@@ -572,7 +572,7 @@ func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadat
 func modifyTokenMetadataUpdateAuthorityIx(
 	tokenMint, authority, newAuthority solana.PublicKey,
 ) (solana.GenericInstruction, error) {
-	metadataPDA, metadataErr := deployment.FindMetadataPDA(tokenMint)
+	metadataPDA, metadataErr := deployment.FindMplTokenMetadataPDA(tokenMint)
 	if metadataErr != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
 	}

@@ -148,7 +148,7 @@ func GetUpgradeAuthority(client *solRpc.Client, progDataPubkey solana.PublicKey)
 	return state.ProgramData.Authority, true, nil
 }
 
-func FindMetadataPDA(mint solana.PublicKey) (solana.PublicKey, error) {
+func FindMplTokenMetadataPDA(mint solana.PublicKey) (solana.PublicKey, error) {
 	seeds := [][]byte{
 		[]byte("metadata"),
 		MplTokenMetadataID.Bytes(),

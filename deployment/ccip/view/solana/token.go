@@ -55,7 +55,7 @@ func GenerateTokenView(chain cldf_solana.Chain, tokenAddress solana.PublicKey, t
 		view.FreezeAuthority = tokenMint.FreezeAuthority.String()
 	}
 	var tokenMetadata solTokenMetadata.Metadata
-	metadataPDA, err := solanashared.FindMetadataPDA(tokenAddress)
+	metadataPDA, err := solanashared.FindMplTokenMetadataPDA(tokenAddress)
 	if err != nil {
 		return view, fmt.Errorf("failed to find metadata PDA: %w", err)
 	}
