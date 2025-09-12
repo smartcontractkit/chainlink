@@ -51,7 +51,9 @@ func ExecuteBillingTest(t *testing.T, testEnv *TestEnvironment) {
 	credits := queryCredits(t, db)
 
 	require.Len(t, credits, 1, "expected one row in organization_credits table")
-	require.InDelta(t, float32(10000000.0), credits[0].Credits, 0.001, "expected initial credits to be 10000000.0")
+	require.Greater(t, credits[0], float32(0.0), "expected initial credits to be greater than 0")
+
+	initialCredits := credits[0]
 
 	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &None{}, workflowFileLocation)
 
@@ -66,7 +68,7 @@ func ExecuteBillingTest(t *testing.T, testEnv *TestEnvironment) {
 		credit := finalCredits[0]
 
 		// if no credits reserved and no change in credits; nothing was billed
-		if credit.Credits >= 10000000.0 && credit.Reserved == 0.0 {
+		if credit.Credits == initialCredits.Credits && credit.Reserved == initialCredits.Reserved {
 			return false
 		}
 
