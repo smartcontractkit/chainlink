@@ -51,7 +51,7 @@ func ExecuteBillingTest(t *testing.T, testEnv *TestEnvironment) {
 	credits := queryCredits(t, db)
 
 	require.Len(t, credits, 1, "expected one row in organization_credits table")
-	require.Greater(t, credits[0], float32(0.0), "expected initial credits to be greater than 0")
+	require.Greater(t, credits[0].Credits, float32(0.0), "expected initial credits to be greater than 0")
 
 	initialCredits := credits[0]
 
