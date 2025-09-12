@@ -228,12 +228,10 @@ func (w *WorkflowRegistryInput) Validate() error {
 }
 
 type WorkflowRegistryOutput struct {
-	UseCache                    bool             `toml:"use_cache"`
-	ChainSelector               uint64           `toml:"chain_selector"`
-	AllowedDonIDs               []uint32         `toml:"allowed_don_ids"`
-	WorkflowOwners              []common.Address `toml:"workflow_owners"`
-	Address                     common.Address   `toml:"-"`
-	CapabilitiesRegistryAddress common.Address   `toml:"-"`
+	UseCache       bool             `toml:"use_cache"`
+	ChainSelector  uint64           `toml:"chain_selector"`
+	AllowedDonIDs  []uint32         `toml:"allowed_don_ids"`
+	WorkflowOwners []common.Address `toml:"workflow_owners"`
 }
 
 func (c *WorkflowRegistryOutput) Store(absPath string) error {

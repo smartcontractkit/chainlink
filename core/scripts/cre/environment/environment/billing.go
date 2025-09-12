@@ -177,8 +177,25 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 
 	if setupOutput != nil {
 		in.BillingService.ChainSelector = setupOutput.WorkflowRegistryConfigurationOutput.ChainSelector
-		in.BillingService.WorkflowRegistryAddress = setupOutput.WorkflowRegistryConfigurationOutput.Address.Hex()
-		in.BillingService.CapabilitiesRegistryAddress = setupOutput.WorkflowRegistryConfigurationOutput.CapabilitiesRegistryAddress.Hex()
+		addressRefs, err := setupOutput.CldEnvironment.DataStore.Addresses().Fetch()
+		if err != nil {
+			return errors.Wrap(err, "failed to fetch address references")
+		}
+
+		for _, ref := range addressRefs {
+			switch ref.Type {
+			case "WorkflowRegistry":
+				if in.BillingService.ChainSelector == ref.ChainSelector {
+					in.BillingService.WorkflowRegistryAddress = ref.Address
+				}
+			case "CapabilitiesRegistry":
+				if in.BillingService.ChainSelector == ref.ChainSelector {
+					in.BillingService.CapabilitiesRegistryAddress = ref.Address
+				}
+			default:
+				continue
+			}
+		}
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone
@@ -203,12 +220,6 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 			in.BillingService.WorkflowOwners[idx] = owner.Hex()
 		}
 	}
-
-	/*
-		if in.BillingService.RPCURL == "" {
-			return fmt.Errorf("RPC URL must be provided either in the config file or by running against an environment with the appropriate chain selector")
-		}
-	*/
 
 	out, startErr := billingplatformservice.New(in.BillingService)
 	if startErr != nil {
