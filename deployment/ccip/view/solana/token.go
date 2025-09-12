@@ -59,6 +59,9 @@ func GenerateTokenView(chain cldf_solana.Chain, tokenAddress solana.PublicKey, t
 		return view, fmt.Errorf("failed to find metadata PDA: %w", err)
 	}
 	err = chain.GetAccountDataBorshInto(context.Background(), metadataPDA, &tokenMetadata)
+	if err != nil {
+		return view, fmt.Errorf("failed to get token metadata: %w", err)
+	}
 	view.TokenMetadata = TokenMetadata{}
 	view.TokenMetadata.UpdateAuthority = tokenMetadata.UpdateAuthority.String()
 	view.TokenMetadata.Name = tokenMetadata.Data.Name
