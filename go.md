@@ -29,7 +29,6 @@ flowchart LR
 	chainlink-automation --> chainlink-common
 	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-ccip --> chainlink-common
-	chainlink-ccip --> chainlink-common/pkg/values
 	chainlink-ccip --> chainlink-protos/rmn/v1.6/go
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/solana --> chainlink-ccip

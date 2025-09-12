@@ -41,6 +41,9 @@ var SolanaProgramBytes = map[string]int{
 	CCTPTokenPoolProgramName:        3 * 1024 * 1024,
 }
 
+// PROGRAM ID for Metaplex Metadata Program
+var MplTokenMetadataID solana.PublicKey = solana.MustPublicKeyFromBase58("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
+
 // UpgradeableLoaderState mirrors the Rust enum in the Solana SDK.
 type UpgradeableLoaderState struct {
 	Type          uint32
@@ -143,4 +146,14 @@ func GetUpgradeAuthority(client *solRpc.Client, progDataPubkey solana.PublicKey)
 		return solana.PublicKey{}, false, nil
 	}
 	return state.ProgramData.Authority, true, nil
+}
+
+func FindMplTokenMetadataPDA(mint solana.PublicKey) (solana.PublicKey, error) {
+	seeds := [][]byte{
+		[]byte("metadata"),
+		MplTokenMetadataID.Bytes(),
+		mint.Bytes(),
+	}
+	pda, _, err := solana.FindProgramAddress(seeds, MplTokenMetadataID)
+	return pda, err
 }

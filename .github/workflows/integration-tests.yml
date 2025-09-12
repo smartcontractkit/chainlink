@@ -858,7 +858,7 @@ jobs:
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Image
         if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0 
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get-solana-sha.outputs.sha }}

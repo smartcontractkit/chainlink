@@ -13,18 +13,17 @@ import (
 	"github.com/pkg/errors"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-
-	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
