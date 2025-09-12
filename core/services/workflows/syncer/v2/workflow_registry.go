@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -74,6 +75,7 @@ type workflowRegistry struct {
 	allowListedMu       sync.RWMutex
 
 	contractReaderFn versioning.ContractReaderFactory
+	contractReader   commontypes.ContractReader
 
 	config Config
 
@@ -168,36 +170,39 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
 		ctx, cancel := w.stopCh.NewCtx()
 
-		donReceivedCh := make(chan struct{})
+		var (
+			donReceivedCh = make(chan struct{})
+			reader        commontypes.ContractReader
+			err           error
+		)
+
 		w.wg.Add(1)
 		go func() {
 			defer w.lggr.Debugw("closed donReceivedCh")
 			defer close(donReceivedCh)
 
 			w.lggr.Debugw("Waiting for DON...")
-			_, err := w.workflowDonNotifier.WaitForDon(ctx)
-			if err != nil {
+			if _, err = w.workflowDonNotifier.WaitForDon(ctx); err != nil {
 				w.lggr.Errorw("failed to wait for don", "err", err)
 				return
 			}
-			w.lggr.Debug("Received DON")
+
+			reader, err = w.newWorkflowRegistryContractReader(ctx)
+			if err != nil {
+				w.lggr.Criticalf("contract reader unavailable : %s", err)
+				return
+			}
+			w.lggr.Debug("Received DON and set contract reader")
 		}()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
 			defer cancel()
-
 			// Start goroutines to gather changes from Workflow Registry contract
 			<-donReceivedCh
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
 			don, _ := w.workflowDonNotifier.WaitForDon(ctx)
-
-			reader, err := w.newWorkflowRegistryContractReader(ctx)
-			if err != nil {
-				w.lggr.Criticalf("contract reader unavailable : %s", err)
-				return
-			}
 			w.syncUsingReconciliationStrategy(ctx, don, reader)
 		}()
 
@@ -208,14 +213,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			// Start goroutines to gather allowlisted requests from Workflow Registry contract
 			<-donReceivedCh
 			w.lggr.Debug("read from don received channel while waiting to start sync allow listed requests")
-			/* reader, err := w.newWorkflowRegistryContractReader(ctx)
-			if err != nil {
-				w.lggr.Criticalf("contract reader unavailable : %s", err)
-				// return errors.New("failed to create contract reader: " + err.Error())
-				return
-			}
 			w.syncAllowlistedRequests(ctx, reader)
-			*/
 		}()
 
 		w.lggr.Debug("launched all routines in start function")
