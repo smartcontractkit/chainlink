@@ -128,10 +128,10 @@ func DeployMCMSWithTimelockV2(
 				}
 
 				// load mcms state with qualifier awareness
-				// we load the state one by one to avoid early return from MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier
+				// we load the state one by one to avoid early return from MaybeLoadMCMSWithTimelockStateWithQualifier
 				// due to one of the chain not found
 				var chainstate *state.MCMSWithTimelockState
-				s, err := state.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(env, []uint64{chainSel}, qualifier)
+				s, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSel}, qualifier)
 				if err != nil {
 					// if the state is not found for chain, we assume it's a fresh deployment
 					// this includes "no addresses found" which is expected for new qualifiers
@@ -180,7 +180,7 @@ type GrantRoleInput struct {
 }
 
 func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateDataStore(e, maps.Keys(cfg.ExistingProposerByChain))
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
 }
 
 func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutput, error) {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateDataStore(e, maps.Keys(cfg.ExistingProposerByChain))
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
