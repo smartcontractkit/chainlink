@@ -226,6 +226,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
 	github.com/gagliardetto/binary v0.8.0 // indirect
+	github.com/gagliardetto/metaplex-go v0.2.1 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gagliardetto/utilz v0.1.3 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
