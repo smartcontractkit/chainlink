@@ -47,10 +47,10 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.70
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250905094443-ac02b032b32b
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250903115155-a68d8c28ae1d
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250910210251-724af8ee41ad
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5
-	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250909131852-9a21f8fe7215
+	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250911130849-88895489a3a7
 	github.com/smartcontractkit/chainlink-deployments-framework v0.44.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250909183314-c46f62fb74f6
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
@@ -238,6 +238,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gagliardetto/binary v0.8.0 // indirect
+	github.com/gagliardetto/metaplex-go v0.2.1 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gagliardetto/utilz v0.1.3 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
@@ -487,7 +488,7 @@ require (
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250717121125-2350c82883e2 // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250729142306-508e798f6a5d // indirect
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250722225531-876fd6b94976 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250908151016-bf310cf85379 // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250911124514-5874cc6d62b2 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect

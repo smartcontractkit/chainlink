@@ -41,7 +41,7 @@ func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keyst
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "consensus",
-				Version:        "1.0.0",
+				Version:        "1.0.0-alpha",
 				CapabilityType: 2, // CONSENSUS
 				ResponseType:   0, // REPORT
 			},

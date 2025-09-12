@@ -14,7 +14,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -535,7 +534,7 @@ func SetAuthorityIDLByMCMs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutpu
 		}
 	}
 
-	return generateProposalIfMCMS(e, c, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 // changeset to upgrade idl for a program via timelock
@@ -568,7 +567,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	return generateProposalIfMCMS(e, c, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 // changeset to close idl account for a program - this is needed when the idl increased so much in size that it no longer fits in the account
@@ -598,7 +597,7 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	return generateProposalIfMCMS(e, c, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastateview.CCIPChainState, chain cldfsolana.Chain) (map[solana.PublicKey]string, error) {
@@ -645,22 +644,6 @@ func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastate
 		programs[mcmState.McmProgram] = deployment.McmProgramName
 	}
 	return programs, nil
-}
-
-func generateProposalIfMCMS(e cldf.Environment, c IDLConfig, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
-	if len(mcmsTxs) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, c.ChainSelector, "proposal to upgrade CCIP contracts", c.MCMS.MinDelay, mcmsTxs)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{}, nil
 }
 
 // Build instruction to interact with Anchor IDL using the list of ids above for each message

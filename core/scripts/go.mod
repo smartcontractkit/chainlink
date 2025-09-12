@@ -46,13 +46,13 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250903115155-a68d8c28ae1d
-	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250909131852-9a21f8fe7215
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250910210251-724af8ee41ad
+	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250911130849-88895489a3a7
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.44.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250909183314-c46f62fb74f6
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250908151016-bf310cf85379
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250911124514-5874cc6d62b2
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.23
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.13

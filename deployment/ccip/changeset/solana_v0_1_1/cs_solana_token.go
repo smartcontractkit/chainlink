@@ -5,14 +5,15 @@ import (
 	"errors"
 	"fmt"
 
+	tokenMetadata "github.com/gagliardetto/metaplex-go/clients/token-metadata"
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/smartcontractkit/mcms"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/mcms"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -37,6 +38,17 @@ var _ cldf.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
 // use this changeset to upload or update token metadata
 var _ cldf.ChangeSet[UploadTokenMetadataConfig] = UploadTokenMetadata
+
+const MplTokenMetadataProgramName = "MplTokenMetadataProgramName"
+
+// PROGRAM ID for Metaplex Metadata Program
+var MplTokenMetadataID solana.PublicKey = solana.MustPublicKeyFromBase58("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
+
+// discriminator for update_metadata_account_v2 ix
+const UpdateMetadataAccountV2Ix = 15
+
+// discriminator for create_metadata_account
+const CreateMetadataAccountV2Ix = 16
 
 func getMintIxs(e cldf.Environment, chain cldf_solana.Chain, tokenprogramID, mint solana.PublicKey, amountToAddress map[string]uint64) error {
 	for toAddress, amount := range amountToAddress {
@@ -405,6 +417,17 @@ type TokenMetadata struct {
 type UploadTokenMetadataConfig struct {
 	ChainSelector uint64
 	TokenMetadata []TokenMetadata
+	MCMS          *proposalutils.TimelockConfig // timelock config for mcms
+}
+
+func (cfg UploadTokenMetadataConfig) Validate(e cldf.Environment) error {
+	for _, metadata := range cfg.TokenMetadata {
+		if metadata.TokenPubkey.IsZero() {
+			e.Logger.Errorw("Token pubkey is zero", "tokenPubkey", metadata.TokenPubkey.String())
+			return errors.New("token pubkey is zero")
+		}
+	}
+	return nil
 }
 
 func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
@@ -497,8 +520,94 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Token metadata update authority set", "tokenPubkey", metadata.TokenPubkey.String(), "updateAuthority", metadata.UpdateAuthority.String())
 		}
 	}
-
 	return cldf.ChangesetOutput{}, nil
+}
+
+func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error validating upload token metadata config: %w", err)
+	}
+	authority, err := calculateAuthorityForTokenMetadata(e, cfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error calculating authority for token metadata: %w", err)
+	}
+	mcmsTxs := make([]mcmsTypes.Transaction, 0)
+	for _, metadata := range cfg.TokenMetadata {
+		if !metadata.UpdateAuthority.IsZero() {
+			tokenMint := metadata.TokenPubkey
+			newUpdateAuthority := metadata.UpdateAuthority
+			e.Logger.Infow("Updating token metadata authority", "tokenMint", tokenMint)
+			instruction, err := modifyTokenMetadataUpdateAuthorityIx(tokenMint, authority, newUpdateAuthority)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("error generating modify metadata ix: %w", err)
+			}
+			if cfg.MCMS != nil {
+				upgradeTx, err := BuildMCMSTxn(&instruction, MplTokenMetadataID.String(), MplTokenMetadataProgramName)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create upgrade transaction: %w", err)
+				}
+				if upgradeTx != nil {
+					mcmsTxs = append(mcmsTxs, *upgradeTx)
+				}
+			} else {
+				if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+				}
+			}
+		}
+	}
+
+	return generateProposalIfMCMS(e, cfg.ChainSelector, cfg.MCMS, mcmsTxs)
+}
+
+func findMetadataPDA(mint solana.PublicKey) (solana.PublicKey, error) {
+	seeds := [][]byte{
+		[]byte("metadata"),
+		MplTokenMetadataID.Bytes(),
+		mint.Bytes(),
+	}
+	pda, _, err := solana.FindProgramAddress(seeds, MplTokenMetadataID)
+	return pda, err
+}
+
+func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadataConfig) (solana.PublicKey, error) {
+	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
+	}
+	authority := e.BlockChains.SolanaChains()[c.ChainSelector].DeployerKey.PublicKey()
+	if c.MCMS != nil {
+		authority = timelockSignerPDA
+	}
+	return authority, err
+}
+
+func modifyTokenMetadataUpdateAuthorityIx(
+	tokenMint, authority, newAuthority solana.PublicKey,
+) (solana.GenericInstruction, error) {
+	metadataPDA, metadataErr := findMetadataPDA(tokenMint)
+	if metadataErr != nil {
+		return solana.GenericInstruction{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
+	}
+
+	fmt.Println("Metadata", metadataPDA)
+
+	args := tokenMetadata.UpdateMetadataAccountArgsV2{
+		UpdateAuthority: &newAuthority,
+	}
+
+	ix := tokenMetadata.NewUpdateMetadataAccountV2Instruction(args, metadataPDA, authority).Build()
+	data, err := ix.Data()
+	if err != nil {
+		return solana.GenericInstruction{}, fmt.Errorf("error building update metadata account data: %w", err)
+	}
+
+	instruction := solana.NewInstruction(
+		MplTokenMetadataID,
+		ix.Accounts(),
+		data,
+	)
+	return *instruction, nil
 }
 
 type DisableFreezeAuthorityConfig struct {
