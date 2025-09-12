@@ -136,9 +136,9 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockCo
 			return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)
 		}
 	}
-
+	const emptyQualifier = ""
 	for chainSelector := range transfersByChain {
-		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, "")
+		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, emptyQualifier)
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}
