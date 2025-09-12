@@ -59,17 +59,16 @@ func GenerateTokenView(chain cldf_solana.Chain, tokenAddress solana.PublicKey, t
 	if err != nil {
 		return view, fmt.Errorf("failed to find metadata PDA: %w", err)
 	}
-	err = chain.GetAccountDataBorshInto(context.Background(), metadataPDA, &tokenMetadata)
-	if err != nil {
-		return view, fmt.Errorf("failed to get token metadata: %w", err)
+	// if no metadata, don't return an error
+	if err = chain.GetAccountDataBorshInto(context.Background(), metadataPDA, &tokenMetadata); err == nil {
+		view.TokenMetadata = TokenMetadata{}
+		view.TokenMetadata.UpdateAuthority = tokenMetadata.UpdateAuthority.String()
+		view.TokenMetadata.Name = tokenMetadata.Data.Name
+		view.TokenMetadata.Symbol = tokenMetadata.Data.Symbol
+		view.TokenMetadata.URI = tokenMetadata.Data.Uri
+		view.TokenMetadata.SellerFeeBasisPoints = tokenMetadata.Data.SellerFeeBasisPoints
+		view.TokenMetadata.PrimarySaleHappened = tokenMetadata.PrimarySaleHappened
+		view.TokenMetadata.IsMutable = tokenMetadata.IsMutable
 	}
-	view.TokenMetadata = TokenMetadata{}
-	view.TokenMetadata.UpdateAuthority = tokenMetadata.UpdateAuthority.String()
-	view.TokenMetadata.Name = tokenMetadata.Data.Name
-	view.TokenMetadata.Symbol = tokenMetadata.Data.Symbol
-	view.TokenMetadata.URI = tokenMetadata.Data.Uri
-	view.TokenMetadata.SellerFeeBasisPoints = tokenMetadata.Data.SellerFeeBasisPoints
-	view.TokenMetadata.PrimarySaleHappened = tokenMetadata.PrimarySaleHappened
-	view.TokenMetadata.IsMutable = tokenMetadata.IsMutable
 	return view, nil
 }
