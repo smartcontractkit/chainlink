@@ -544,7 +544,7 @@ func TestShell_InitStartComponents(t *testing.T) {
 					assert.NotEmpty(t, keys)
 				}
 			} else {
-				assert.Error(t, err)
+				require.Error(t, err)
 			}
 
 			// Clean up
@@ -637,7 +637,7 @@ func TestShell_RunNodeWithInitializedComponents(t *testing.T) {
 				require.NoError(t, err, "RunNode should succeed with authenticated keystore")
 				assert.Equal(t, 1, apiPrompt.Count, "API should be initialized")
 			} else {
-				assert.Error(t, err, "InitStartComponents should fail with incorrect password")
+				require.Error(t, err, "InitStartComponents should fail with incorrect password")
 				// Don't test RunNode if InitStartComponents failed
 			}
 
