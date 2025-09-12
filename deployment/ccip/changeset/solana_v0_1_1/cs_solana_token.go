@@ -397,12 +397,8 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 
 type TokenMetadata struct {
 	TokenPubkey solana.PublicKey
-	// https://metaboss.dev/create.html#metadata
-	// only to be provided on initial upload, it takes in name, symbol, uri
-	// after initial upload, those fields can be updated using the update inputs
-	// put the json in ccip/env/input dir in CLD
-	MetadataJSONPath string
-	UpdateAuthority  solana.PublicKey // used to set update authority of the token metadata PDA after initial upload
+	// used to set update authority of the token metadata PDA after initial upload
+	UpdateAuthority  solana.PublicKey
 	// https://metaboss.dev/update.html#update-name
 	UpdateName string // used to update the name of the token metadata PDA after initial upload
 	// https://metaboss.dev/update.html#update-symbol
@@ -423,104 +419,35 @@ func (cfg UploadTokenMetadataConfig) Validate(e cldf.Environment) error {
 			e.Logger.Errorw("Token pubkey is zero", "tokenPubkey", metadata.TokenPubkey.String())
 			return errors.New("token pubkey is zero")
 		}
+		var tokenMetadata tokenMetadata.Metadata
+		metadataPDA, err := deployment.FindMplTokenMetadataPDA(metadata.TokenPubkey)
+		if err != nil {
+			return fmt.Errorf("failed to find metadata PDA: %w", err)
+		}
+		if err = e.BlockChains.SolanaChains()[cfg.ChainSelector].GetAccountDataBorshInto(context.Background(), metadataPDA, &tokenMetadata); err != nil {
+			// PDA does not exist. We need to create it. Validate all fields
+			if metadata.UpdateAuthority.IsZero() {
+				e.Logger.Errorw("Update authority is zero", "tokenPubkey", metadata.TokenPubkey.String())
+				return errors.New("update authority is zero")
+			}
+			if metadata.UpdateName == "" {
+				e.Logger.Errorw("Name is empty", "tokenPubkey", metadata.TokenPubkey.String())
+				return errors.New("name is empty")
+			}
+			if metadata.UpdateSymbol == "" {
+				e.Logger.Errorw("Symbol is empty", "tokenPubkey", metadata.TokenPubkey.String())
+				return errors.New("symbol is empty")
+			}
+			if metadata.UpdateURI == "" {
+				e.Logger.Errorw("URI is empty", "tokenPubkey", metadata.TokenPubkey.String())
+				return errors.New("uri is empty")
+			}
+		}
 	}
 	return nil
 }
 
 func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
-	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	out1, err1 := runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
-	e.Logger.Infow("solana config set url output", "output", out1)
-	if err1 != nil {
-		e.Logger.Errorw("solana config set url error", "error", err1)
-		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
-	}
-	out2, err2 := runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
-	e.Logger.Infow("solana config set keypair output", "output", out2)
-	if err2 != nil {
-		e.Logger.Errorw("solana config set keypair error", "error", err2)
-		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana keypair: %w", err2)
-	}
-	for _, metadata := range cfg.TokenMetadata {
-		if metadata.TokenPubkey.IsZero() {
-			e.Logger.Errorw("Token pubkey is zero", "tokenPubkey", metadata.TokenPubkey.String())
-			return cldf.ChangesetOutput{}, errors.New("token pubkey is zero")
-		}
-
-		// initial upload
-		if metadata.MetadataJSONPath != "" {
-			e.Logger.Infow("Uploading token metadata", "tokenPubkey", metadata.TokenPubkey.String())
-			args := []string{"create", "metadata", "--mint", metadata.TokenPubkey.String(), "--metadata", metadata.MetadataJSONPath}
-			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Infow("metaboss output", "output", output)
-			if err != nil {
-				e.Logger.Errorw("metaboss create error", "error", err)
-				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
-			}
-			e.Logger.Infow("Token metadata uploaded", "tokenPubkey", metadata.TokenPubkey.String())
-		}
-
-		// update name
-		if metadata.MetadataJSONPath == "" && metadata.UpdateName != "" {
-			e.Logger.Infow("Updating token metadata name", "tokenPubkey", metadata.TokenPubkey.String())
-			args := []string{"update", "name", "--account", metadata.TokenPubkey.String(), "--new-name", metadata.UpdateName}
-			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Infow("metaboss output", "output", output)
-			if err != nil {
-				e.Logger.Errorw("metaboss update name error", "error", err)
-				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
-			}
-			e.Logger.Infow("Token metadata name set", "tokenPubkey", metadata.TokenPubkey.String(), "name", metadata.UpdateName)
-		}
-
-		// update symbol
-		if metadata.MetadataJSONPath == "" && metadata.UpdateSymbol != "" {
-			e.Logger.Infow("Updating token metadata symbol", "tokenPubkey", metadata.TokenPubkey.String())
-			args := []string{"update", "symbol", "--account", metadata.TokenPubkey.String(), "--new-symbol", metadata.UpdateSymbol}
-			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Infow("metaboss output", "output", output)
-			if err != nil {
-				e.Logger.Errorw("metaboss update symbol error", "error", err)
-				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
-			}
-			e.Logger.Infow("Token metadata symbol set", "tokenPubkey", metadata.TokenPubkey.String(), "symbol", metadata.UpdateSymbol)
-		}
-
-		// update uri
-		if metadata.MetadataJSONPath == "" && metadata.UpdateURI != "" {
-			e.Logger.Infow("Updating token metadata uri", "tokenPubkey", metadata.TokenPubkey.String())
-			args := []string{"update", "uri", "--account", metadata.TokenPubkey.String(), "--new-uri", metadata.UpdateURI}
-			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Infow("metaboss output", "output", output)
-			if err != nil {
-				e.Logger.Errorw("metaboss update uri error", "error", err)
-				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
-			}
-			e.Logger.Infow("Token metadata uri set", "tokenPubkey", metadata.TokenPubkey.String(), "uri", metadata.UpdateURI)
-		}
-
-		// update authority after initial upload
-		if !metadata.UpdateAuthority.IsZero() {
-			e.Logger.Infow("Updating token metadata authority", "tokenPubkey", metadata.TokenPubkey.String())
-			args := []string{"set", "update-authority", "--account", metadata.TokenPubkey.String(), "--new-update-authority", metadata.UpdateAuthority.String()}
-			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
-			e.Logger.Infow("metaboss output", "output", output)
-			if err != nil {
-				e.Logger.Errorw("metaboss set error", "error", err)
-				return cldf.ChangesetOutput{}, fmt.Errorf("error uploading token metadata: %w", err)
-			}
-			e.Logger.Infow("Token metadata update authority set", "tokenPubkey", metadata.TokenPubkey.String(), "updateAuthority", metadata.UpdateAuthority.String())
-		}
-	}
-	return cldf.ChangesetOutput{}, nil
-}
-
-func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating upload token metadata config: %w", err)
 	}
@@ -530,26 +457,47 @@ func ModifyUpdateAuthority(e cldf.Environment, cfg UploadTokenMetadataConfig) (c
 	}
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 	for _, metadata := range cfg.TokenMetadata {
+		tokenMint := metadata.TokenPubkey
+		var newUpdateAuthority *solana.PublicKey
+		var newData *tokenMetadata.DataV2
 		if !metadata.UpdateAuthority.IsZero() {
-			tokenMint := metadata.TokenPubkey
-			newUpdateAuthority := metadata.UpdateAuthority
-			e.Logger.Infow("Updating token metadata authority", "tokenMint", tokenMint)
-			instruction, err := modifyTokenMetadataUpdateAuthorityIx(tokenMint, authority, newUpdateAuthority)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("error generating modify metadata ix: %w", err)
+			newUpdateAuthority = &metadata.UpdateAuthority
+		}
+		if metadata.UpdateName != "" || metadata.UpdateSymbol != "" || metadata.UpdateURI != "" {
+			newData = &tokenMetadata.DataV2{
+				Name:   metadata.UpdateName,
+				Symbol: metadata.UpdateSymbol,
+				Uri:    metadata.UpdateURI,
 			}
-			if cfg.MCMS != nil {
-				upgradeTx, err := BuildMCMSTxn(&instruction, deployment.MplTokenMetadataID.String(), MplTokenMetadataProgramName)
-				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create upgrade transaction: %w", err)
-				}
-				if upgradeTx != nil {
-					mcmsTxs = append(mcmsTxs, *upgradeTx)
-				}
-			} else {
-				if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-				}
+		}
+		var tokenMetadata tokenMetadata.Metadata
+		metadataPDA, metadataErr := deployment.FindMplTokenMetadataPDA(tokenMint)
+		if metadataErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
+		}
+		fmt.Println("Metadata", metadataPDA)
+		isUpdate := true
+		if err = e.BlockChains.SolanaChains()[cfg.ChainSelector].GetAccountDataBorshInto(context.Background(), metadataPDA, &tokenMetadata); err != nil {
+			e.Logger.Infow("Token metadata account does not exist, creating instead", "metadataPDA", metadataPDA)
+			isUpdate = false
+		}
+		e.Logger.Infow("Updating token metadata authority", "metadataPDA", metadataPDA)
+		instruction, err := createOrModifyTokenMetadataIx(
+			tokenMint, metadataPDA, authority, newUpdateAuthority, newData, isUpdate)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating modify metadata ix: %w", err)
+		}
+		if cfg.MCMS != nil {
+			upgradeTx, err := BuildMCMSTxn(&instruction, deployment.MplTokenMetadataID.String(), MplTokenMetadataProgramName)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create upgrade transaction: %w", err)
+			}
+			if upgradeTx != nil {
+				mcmsTxs = append(mcmsTxs, *upgradeTx)
+			}
+		} else {
+			if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
 		}
 	}
@@ -569,21 +517,36 @@ func calculateAuthorityForTokenMetadata(e cldf.Environment, c UploadTokenMetadat
 	return authority, err
 }
 
-func modifyTokenMetadataUpdateAuthorityIx(
-	tokenMint, authority, newAuthority solana.PublicKey,
+func createOrModifyTokenMetadataIx(
+	tokenMint, metadataPDA, authority solana.PublicKey,
+	newAuthority *solana.PublicKey,
+	newData *tokenMetadata.DataV2,
+	isUpdate bool,
 ) (solana.GenericInstruction, error) {
-	metadataPDA, metadataErr := deployment.FindMplTokenMetadataPDA(tokenMint)
-	if metadataErr != nil {
-		return solana.GenericInstruction{}, fmt.Errorf("error finding metadata account: %w", metadataErr)
+	var ix *tokenMetadata.Instruction
+	if !isUpdate {
+		args := tokenMetadata.CreateMetadataAccountArgsV2{
+			Data: *newData,
+		}
+		ix = tokenMetadata.NewCreateMetadataAccountV2Instruction(
+			args,
+			metadataPDA,
+			tokenMint,
+			authority,
+			authority,
+			authority,
+			solana.SystemProgramID,
+			solana.SysVarRentPubkey).Build()
+	} else {
+		args := tokenMetadata.UpdateMetadataAccountArgsV2{
+			Data:            newData,
+			UpdateAuthority: newAuthority,
+		}
+		ix = tokenMetadata.NewUpdateMetadataAccountV2Instruction(
+			args,
+			metadataPDA,
+			authority).Build()
 	}
-
-	fmt.Println("Metadata", metadataPDA)
-
-	args := tokenMetadata.UpdateMetadataAccountArgsV2{
-		UpdateAuthority: &newAuthority,
-	}
-
-	ix := tokenMetadata.NewUpdateMetadataAccountV2Instruction(args, metadataPDA, authority).Build()
 	data, err := ix.Data()
 	if err != nil {
 		return solana.GenericInstruction{}, fmt.Errorf("error building update metadata account data: %w", err)
