@@ -53,14 +53,18 @@ type MintTokenInput struct {
 	TokenMint
 }
 
-type TransferInput struct {
+// ###################
+// # Token Ownership #
+// ###################
+
+type TokenTransferInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
 	To                     aptos.AccountAddress
 }
 
 type TransferTokenOwnershipInput struct {
 	ChainSelector uint64
-	Transfers     []TransferInput
+	Transfers     []TokenTransferInput
 	MCMSConfig    *proposalutils.TimelockConfig
 }
 
@@ -72,6 +76,6 @@ type AcceptTokenOwnershipInput struct {
 
 type ExecuteTokenOwnershipTransferInput struct {
 	ChainSelector uint64
-	Transfers     []TransferInput
+	Transfers     []TokenTransferInput
 	MCMSConfig    *proposalutils.TimelockConfig
 }

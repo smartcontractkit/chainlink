@@ -9,6 +9,8 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -150,6 +152,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 // Connect Token Pool sequence input
 type ConnectTokenPoolSeqInput struct {
 	TokenPoolAddress                    aptos.AccountAddress
+	TokenPoolType                       cldf.ContractType
 	RemotePools                         map[uint64]RemotePool
 	RemotePoolsToRemove                 []uint64 // To re-set a pool also add its address on the removing list
 	TokenAddress                        aptos.AccountAddress
@@ -175,6 +178,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	// Chain updates
 	applyChainUpdatesInput := operation.ApplyChainUpdatesInput{
 		TokenPoolAddress:             in.TokenPoolAddress,
+		TokenPoolType:                in.TokenPoolType,
 		RemoteChainSelectorsToRemove: in.RemotePoolsToRemove,
 		RemoteChainSelectorsToAdd:    nil,
 		RemotePoolAddresses:          nil,
@@ -184,6 +188,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	// Remote Pool Adds
 	addRemotePoolsInput := operation.AddRemotePoolsInput{
 		TokenPoolAddress:     in.TokenPoolAddress,
+		TokenPoolType:        in.TokenPoolType,
 		RemoteChainSelectors: nil,
 		RemotePoolAddresses:  nil,
 	}
@@ -191,6 +196,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	// Update rate limits
 	setChainRLConfigsInput := operation.SetChainRLConfigsInput{
 		TokenPoolAddress:     in.TokenPoolAddress,
+		TokenPoolType:        in.TokenPoolType,
 		RemoteChainSelectors: nil,
 		OutboundIsEnableds:   nil,
 		OutboundCapacities:   nil,
@@ -200,10 +206,20 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		InboundRates:         nil,
 	}
 
-	tokenPool := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
-	supportedChains, err := tokenPool.ManagedTokenPool().GetSupportedChains(nil)
+	var (
+		supportedChains []uint64
+		err             error
+	)
+	switch in.TokenPoolType {
+	case shared.AptosManagedTokenPoolType:
+		supportedChains, err = managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).ManagedTokenPool().GetSupportedChains(nil)
+	case shared.BurnFromMintTokenPool:
+		supportedChains, err = burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).BurnMintTokenPool().GetSupportedChains(nil)
+	case shared.LockReleaseTokenPool:
+		supportedChains, err = lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).LockReleaseTokenPool().GetSupportedChains(nil)
+	}
 	if err != nil {
-		b.Logger.Debugf("failed to get supported chains from token pool %s, likely because it isn't deployed yet: %v", in.TokenPoolAddress.StringLong(), err)
+		b.Logger.Debugf("failed to get supported chains from token pool (%s) %s, likely because it isn't deployed yet: %v", in.TokenPoolType.String(), in.TokenPoolAddress.StringLong(), err)
 	}
 	for remoteSel, remotePool := range in.RemotePools {
 		// Always apply rate limits
@@ -223,9 +239,17 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 			applyChainUpdatesInput.RemoteTokenAddresses = append(applyChainUpdatesInput.RemoteTokenAddresses, remotePool.RemoteTokenAddress)
 		} else {
 			// If the chain is supported, check if there's an updated remote pool that hasn't been configured yet
-			configuredRemotePools, err := tokenPool.ManagedTokenPool().GetRemotePools(nil, remoteSel)
+			var configuredRemotePools [][]byte
+			switch in.TokenPoolType {
+			case shared.AptosManagedTokenPoolType:
+				configuredRemotePools, err = managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).ManagedTokenPool().GetRemotePools(nil, remoteSel)
+			case shared.BurnFromMintTokenPool:
+				configuredRemotePools, err = burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).BurnMintTokenPool().GetRemotePools(nil, remoteSel)
+			case shared.LockReleaseTokenPool:
+				configuredRemotePools, err = lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).LockReleaseTokenPool().GetRemotePools(nil, remoteSel)
+			}
 			if err != nil {
-				return mcmstypes.BatchOperation{}, fmt.Errorf("failed to get remote pools from token pool for selector %d: %w", remoteSel, err)
+				return mcmstypes.BatchOperation{}, fmt.Errorf("failed to get remote pools from token pool (%s) %s for selector %d: %w", in.TokenPoolType.String(), in.TokenPoolAddress.StringLong(), remoteSel, err)
 			}
 			isRemotePoolSupported := false
 			for _, configuredRemotePool := range configuredRemotePools {
@@ -279,6 +303,131 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 			return mcmstypes.BatchOperation{}, err
 		}
 		txs = append(txs, applyTokenTransferFeeCfgReport.Output...)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	}, nil
+}
+
+// ########################
+// # Token Pool Ownership #
+// ########################
+
+type TokenPoolTransferInput struct {
+	TokenPoolAddress aptos.AccountAddress
+	To               aptos.AccountAddress
+	TokenPoolType    cldf.ContractType
+}
+
+type TransferTokenPoolOwnershipsSeqInput struct {
+	Transfers []TokenPoolTransferInput
+}
+
+var TransferTokenPoolOwnershipsSequence = operations.NewSequence(
+	"transfer-token-pool-ownerships",
+	operation.Version1_0_0,
+	"Initiates the ownership transfer of one or multiple managed/BnM/LnR token pool instances to a new owner",
+	transferTokenPoolOwnershipSequence,
+)
+
+func transferTokenPoolOwnershipSequence(b operations.Bundle, deps operation.AptosDeps, in TransferTokenPoolOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
+	var txs []mcmstypes.Transaction
+
+	for i, transfer := range in.Transfers {
+		report, err := operations.ExecuteOperation(
+			b,
+			operation.TransferTokenPoolOwnershipOp,
+			deps,
+			operation.TransferTokenPoolOwnershipInput{
+				TokenPoolAddress: transfer.TokenPoolAddress,
+				To:               transfer.To,
+				TokenPoolType:    transfer.TokenPoolType,
+			},
+		)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d TransferTokenPoolOwnershipOp of token pool %s: %w", i, transfer.TokenPoolAddress.StringLong(), err)
+		}
+		txs = append(txs, report.Output)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	}, nil
+}
+
+type TokenPoolAcceptInput struct {
+	TokenPoolAddress aptos.AccountAddress
+	TokenPoolType    cldf.ContractType
+}
+
+type AcceptTokenPoolOwnershipsSeqInput struct {
+	Accepts []TokenPoolAcceptInput
+}
+
+var AcceptTokenPoolOwnershipsSequence = operations.NewSequence(
+	"accept-token-pool-ownerships",
+	operation.Version1_0_0,
+	"Accept ownership of one or multiple managed/BnM/LnR token pool instances",
+	acceptTokenPoolOwnershipsSequence,
+)
+
+func acceptTokenPoolOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps, in AcceptTokenPoolOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
+	var txs []mcmstypes.Transaction
+
+	for i, accept := range in.Accepts {
+		report, err := operations.ExecuteOperation(
+			b,
+			operation.AcceptTokenPoolOwnershipOp,
+			deps,
+			operation.AcceptTokenPoolOwnershipInput{
+				TokenPoolAddress: accept.TokenPoolAddress,
+				TokenPoolType:    accept.TokenPoolType,
+			},
+		)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d AcceptTokenPoolOwnershipOp of token pool %s: %w", i, accept.TokenPoolAddress.StringLong(), err)
+		}
+		txs = append(txs, report.Output)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	}, nil
+}
+
+type ExecuteTokenPoolOwnershipTransfersSeqInput struct {
+	Transfers []TokenPoolTransferInput
+}
+
+var ExecuteTokenPoolOwnershipTransfersSequence = operations.NewSequence(
+	"execute-token-pool-ownership-transfers",
+	operation.Version1_0_0,
+	"Executed the ownership transfer of one or multiple managed/BnM/LnR token pool instances",
+	executeTokenPoolOwnershipTransfersSequence,
+)
+
+func executeTokenPoolOwnershipTransfersSequence(b operations.Bundle, deps operation.AptosDeps, in ExecuteTokenPoolOwnershipTransfersSeqInput) (mcmstypes.BatchOperation, error) {
+	var txs []mcmstypes.Transaction
+
+	for i, transfer := range in.Transfers {
+		report, err := operations.ExecuteOperation(
+			b,
+			operation.ExecuteTokenPoolOwnershipTransferOp,
+			deps,
+			operation.ExecuteTokenPoolOwnershipTransferInput{
+				TokenPoolAddress: transfer.TokenPoolAddress,
+				To:               transfer.To,
+				TokenPoolType:    transfer.TokenPoolType,
+			},
+		)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d ExecuteTokenPoolOwnershipTransferOp of token pool %s: %w", i, transfer.TokenPoolAddress.StringLong(), err)
+		}
+		txs = append(txs, report.Output)
 	}
 
 	return mcmstypes.BatchOperation{

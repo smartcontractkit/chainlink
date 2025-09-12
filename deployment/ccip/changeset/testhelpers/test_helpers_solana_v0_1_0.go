@@ -29,6 +29,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	aptos_burn_mint_token_pool "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/bnm_registrar"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/test_token"
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
 
@@ -1787,6 +1792,223 @@ func DeployTransferableTokenAptos(
 	)
 	aptosTokenPool := managed_token_pool.Bind(tokenPoolAddress, e.BlockChains.AptosChains()[aptosChainSel].Client)
 	lggr.Debugf("Deployed Token Pool for %v to %v", tokenMetadataAddress.StringLong(), tokenPoolAddress.StringLong())
+
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployerKey, aptosChainSel, tokenMetadataAddress[:], tokenPoolAddress[:])
+	require.NoError(t, err)
+
+	err = grantMintBurnPermissions(lggr, e.BlockChains.EVMChains()[evmChainSel], evmToken, evmDeployerKey, evmPool.Address())
+	require.NoError(t, err)
+
+	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
+}
+
+func DeployBnMTokenAptos(
+	t *testing.T,
+	lggr logger.Logger,
+	e cldf.Environment,
+	evmChainSel, aptosChainSel uint64,
+	tokenName string,
+	mintAmount *config.TokenMint,
+) (
+	*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_token_pool.BurnMintTokenPool,
+	aptos.AccountAddress,
+	aptos_burn_mint_token_pool.BurnMintTokenPool,
+	error,
+) {
+	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
+	require.NoError(t, err)
+	require.Equal(t, chainsel.FamilyEVM, selectorFamily)
+	selectorFamily, err = chainsel.GetSelectorFamily(aptosChainSel)
+	require.NoError(t, err)
+	require.Equal(t, chainsel.FamilyAptos, selectorFamily)
+
+	// EVM
+	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.BlockChains.EVMChains()[evmChainSel], evmDeployerKey, e.ExistingAddresses, tokenName)
+	require.NoError(t, err)
+	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
+	require.NoError(t, err)
+
+	// Aptos
+
+	signer := e.BlockChains.AptosChains()[aptosChainSel].DeployerSigner
+	client := e.BlockChains.AptosChains()[aptosChainSel].Client
+	opts := &aptosBind.TransactOpts{Signer: signer}
+	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
+	require.NoError(t, err)
+	mcmsAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.AptosMCMSType,
+			Version: deployment.Version1_6_0,
+		},
+		aptosAddresses,
+	)
+	require.Falsef(t, (mcmsAddress == aptos.AccountAddress{}), "Aptos mcms address not found")
+	ccipAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.AptosCCIPType,
+			Version: deployment.Version1_6_0,
+		},
+		aptosAddresses,
+	)
+	require.Falsef(t, (ccipAddress == aptos.AccountAddress{}), "Aptos CCIP address not found")
+
+	// Deploy test token
+	tokenObjectAddress, tx, testToken, err := test_token.DeployToObject(signer, client)
+	require.NoError(t, err)
+	data, err := client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to deploy test_token: %v", data.VmStatus)
+
+	tx, err = testToken.TestToken().Initialize(opts, nil, "Test Token", "TKN", 8, "", "", true)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to initialize test_token: %v", data.VmStatus)
+
+	if mintAmount != nil {
+		lggr.Infof("Minting %v tokens to %v...", mintAmount.Amount, mintAmount.To.StringLong())
+		tx, err = testToken.TestToken().Mint(opts, mintAmount.To, mintAmount.Amount)
+		require.NoError(t, err)
+		data, err = client.WaitForTransaction(tx.Hash)
+		require.NoError(t, err)
+		require.True(t, data.Success, "failed to mint %d tokens to %v: %v", mintAmount.Amount, mintAmount.To.StringLong(), data.VmStatus)
+	}
+
+	tokenAddress, err := testToken.TestToken().TokenMetadata(nil)
+	require.NoError(t, err)
+
+	// Save addresses in address book
+	typeAndVersion := cldf.NewTypeAndVersion(shared.AptosTestTokenType, deployment.Version1_6_0)
+	typeAndVersion.AddLabel("TKN")
+	err = e.ExistingAddresses.Save(aptosChainSel, tokenObjectAddress.StringLong(), typeAndVersion)
+	require.NoError(t, err)
+	typeAndVersion = cldf.NewTypeAndVersion(cldf.ContractType("TKN"), deployment.Version1_6_0)
+	err = e.ExistingAddresses.Save(aptosChainSel, tokenAddress.StringLong(), typeAndVersion)
+	require.NoError(t, err)
+
+	// Deploy BnM Token Pool
+	tokenPoolAddress, tx, _, err := token_pool.DeployToObject(signer, client, ccipAddress, mcmsAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to deploy token_pool package: %v", data.VmStatus)
+
+	tx, burnMintTokenPool, err := aptos_burn_mint_token_pool.DeployToExistingObject(signer, client, ccipAddress, mcmsAddress, tokenPoolAddress, tokenAddress, true)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to deploy burn mint token pool: %v", data.VmStatus)
+
+	typeAndVersion = cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_6_0)
+	typeAndVersion.AddLabel(tokenAddress.StringLong())
+	err = e.ExistingAddresses.Save(aptosChainSel, tokenPoolAddress.StringLong(), typeAndVersion)
+	require.NoError(t, err)
+
+	// Deploy BnM registrar
+	tx, bnmRegistrar, err := bnm_registrar.DeployToExistingObject(signer, client, tokenObjectAddress, tokenPoolAddress, ccipAddress, tokenPoolAddress, mcmsAddress, tokenAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to deploy BnM Registrar: %v", data.VmStatus)
+
+	// Initialize token pool
+	tx, err = bnmRegistrar.BnMRegistrar().Initialize(opts)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to initialize BnM token pool: %v", data.VmStatus)
+
+	// Transfer token pool to mcms
+	mcmsContract := mcms.Bind(mcmsAddress, client)
+	tokenPoolOwnerAddress, err := mcmsContract.MCMSRegistry().GetPreexistingCodeObjectOwnerAddress(nil, burnMintTokenPool.Address())
+	require.NoError(t, err)
+	tx, err = burnMintTokenPool.BurnMintTokenPool().TransferOwnership(opts, tokenPoolOwnerAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to initiate ownership transfer of BnM token pool to %v: %v", tokenPoolOwnerAddress, data.VmStatus)
+
+	_, err = commoncs.Apply(t, e,
+		commoncs.Configure(aptoscs.AcceptTokenPoolOwnership{},
+			config.AcceptTokenPoolOwnershipInput{
+				ChainSelector: aptosChainSel,
+				Accepts: []config.TokenPoolAccept{
+					{
+						TokenPoolAddress: tokenPoolAddress,
+						TokenPoolType:    shared.BurnMintTokenPool,
+					},
+				},
+				MCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay: time.Second,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	tx, err = burnMintTokenPool.BurnMintTokenPool().ExecuteOwnershipTransfer(opts, tokenPoolOwnerAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.True(t, data.Success, "failed to execute ownership transfer of BnM token pool to %v: %", tokenPoolOwnerAddress, data.VmStatus)
+
+	e, err = commoncs.Apply(t, e,
+		commoncs.Configure(aptoscs.AddTokenPool{},
+			config.AddTokenPoolConfig{
+				ChainSelector:                       aptosChainSel,
+				TokenAddress:                        tokenAddress,
+				TokenCodeObjAddress:                 tokenObjectAddress,
+				TokenPoolAddress:                    tokenPoolAddress,
+				PoolType:                            shared.BurnMintTokenPool,
+				TokenTransferFeeByRemoteChainConfig: nil,
+				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
+					evmChainSel: {
+						TokenAddress:     evmToken.Address(),
+						TokenPoolAddress: evmPool.Address(),
+						RateLimiterConfig: config.RateLimiterConfig{
+							RemoteChainSelector: evmChainSel,
+							OutboundIsEnabled:   false,
+							OutboundCapacity:    0,
+							OutboundRate:        0,
+							InboundIsEnabled:    false,
+							InboundCapacity:     0,
+							InboundRate:         0,
+						},
+					},
+				},
+				MCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay: time.Second,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	aptosAddresses, err = e.ExistingAddresses.AddressesForChain(aptosChainSel)
+	require.NoError(t, err)
+	tokenMetadataAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    "TKN",
+			Version: deployment.Version1_6_0,
+			Labels:  nil,
+		},
+		aptosAddresses,
+	)
+	lggr.Debugf("Deployed Token on Aptos: %v", tokenMetadataAddress.StringLong())
+	tokenPoolAddress = aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.BurnMintTokenPool,
+			Version: deployment.Version1_6_0,
+			Labels:  cldf.NewLabelSet(tokenMetadataAddress.StringLong()),
+		},
+		aptosAddresses,
+	)
+	aptosTokenPool := aptos_burn_mint_token_pool.Bind(tokenPoolAddress, e.BlockChains.AptosChains()[aptosChainSel].Client)
+	lggr.Debugf("Deployed Burn Mint Token Pool for %v to %v", tokenMetadataAddress.StringLong(), tokenPoolAddress.StringLong())
 
 	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployerKey, aptosChainSel, tokenMetadataAddress[:], tokenPoolAddress[:])
 	require.NoError(t, err)
