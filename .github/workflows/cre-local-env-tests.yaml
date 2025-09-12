@@ -187,6 +187,18 @@ jobs:
           go run main.go env workflow run-por-example
           # no need to delete it as that command does it automatically
 
+      - name: List environment state files
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env state list
+
+      - name: Purge environment state files
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          go run main.go env state purge
+
       - name: Track local env startup success rate
         # track only scheduled runs to exclude failures in PRs or manual runs
         if: always() && github.event_name == 'schedule'
@@ -221,6 +233,13 @@ jobs:
 
             printf -v data '{"name": "cre.local.startup.time", "github_username": "%s", "timestamp": "%s", "metadata": {"startup_seconds": %s, "is_ci": true, "runner": "self-hosted-ubuntu-24", "infra": "docker", "go_cache_hit": %s, "deps_download_seconds": %s}}' "$DX_ACTOR" "$EPOCHSECONDS" "${EXECUTION_TIME}" "${CACHE_HIT}" "${DEPS_DOWNLOAD_SECONDS}"
             curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer ${GETDX_SECRET_KEY}" -d "$data" https://api.getdx.com/events.track
+
+      - name: Upload all artifacts as single package
+        if: failure()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: local-cre-docker-logs
+          path: ./core/scripts/cre/environment/logs/
 
 
   notify-test-failure:

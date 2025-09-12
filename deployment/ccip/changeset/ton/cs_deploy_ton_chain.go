@@ -5,7 +5,7 @@ import (
 
 	tonaddress "github.com/xssnick/tonutils-go/address"
 
-	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 )
 
 type DeployCCIPContractsCfg struct {
@@ -49,7 +49,7 @@ func (cs DeployCCIPContracts) Apply(env cldf.Environment, config DeployCCIPContr
 	address = tonaddress.MustParseAddr("EQADa3W6G0nSiTV4a6euRA42fU9QxSEnb-WeDpcrtWzA2jM8")
 	state.LinkTokenAddress = *address
 	address = tonaddress.MustParseAddr("UQDgFwiokL1ojVwXa3Ac7xCLfGB0Ti0foSw5NZ48Aj_vhs_6")
-	state.CCIPAddress = *address
+	state.OnRamp = *address
 	address = tonaddress.MustParseAddr("UQCk4967vNM_V46Dn8I0x-gB_QE2KkdW1GQ7mWz1DtYGLEd8")
 	state.ReceiverAddress = *address
 	// update chain state

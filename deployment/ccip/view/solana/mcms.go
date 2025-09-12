@@ -7,11 +7,13 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/mcm"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 
+	solanashared "github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 
@@ -25,6 +27,7 @@ type MCMSWithTimelockView struct {
 
 type TimelockView struct {
 	PDA                           string   `json:"pda,omitempty"`
+	UpgradeAuthority              string   `json:"upgradeAuthority,omitempty"`
 	ProgramID                     string   `json:"programId,omitempty"`
 	Owner                         string   `json:"owner,omitempty"`
 	ProposedOwner                 string   `json:"proposedOwner,omitempty"`
@@ -43,15 +46,16 @@ type MCMSView struct {
 }
 
 type MCMSConfig struct {
-	PDA           string   `json:"pda,omitempty"`
-	ProgramID     string   `json:"programId,omitempty"`
-	ChainID       uint64   `json:"chainId,omitempty"`
-	MultisigID    string   `json:"multisigId,omitempty"`
-	Owner         string   `json:"owner,omitempty"`
-	ProposedOwner string   `json:"proposedOwner,omitempty"`
-	GroupQuorums  string   `json:"groupQuorums,omitempty"`
-	GroupParents  string   `json:"groupParents,omitempty"`
-	Signers       []string `json:"signers,omitempty"`
+	PDA              string   `json:"pda,omitempty"`
+	UpgradeAuthority string   `json:"upgradeAuthority,omitempty"`
+	ProgramID        string   `json:"programId,omitempty"`
+	ChainID          uint64   `json:"chainId,omitempty"`
+	MultisigID       string   `json:"multisigId,omitempty"`
+	Owner            string   `json:"owner,omitempty"`
+	ProposedOwner    string   `json:"proposedOwner,omitempty"`
+	GroupQuorums     string   `json:"groupQuorums,omitempty"`
+	GroupParents     string   `json:"groupParents,omitempty"`
+	Signers          []string `json:"signers,omitempty"`
 }
 
 func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]cldf.TypeAndVersion) (MCMSWithTimelockView, error) {
@@ -61,6 +65,14 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 		return view, fmt.Errorf("failed to load mcms with timelock solana chain state: %w", err)
 	}
 	timelockConfigPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, mcmState.TimelockProgram)
+	if err != nil {
+		return view, fmt.Errorf("failed to get program data address for program %s: %w", mcmState.TimelockProgram.String(), err)
+	}
+	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
+	if err != nil {
+		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
+	}
 	var timelockData timelock.Config
 	err = chain.GetAccountDataBorshInto(context.Background(), timelockConfigPDA, &timelockData)
 	if err != nil {
@@ -68,6 +80,7 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 	}
 	view.Timelock = TimelockView{
 		PDA:                           timelockConfigPDA.String(),
+		UpgradeAuthority:              authority.String(),
 		Owner:                         timelockData.Owner.String(),
 		ProposedOwner:                 timelockData.ProposedOwner.String(),
 		ProposerRoleAccessController:  timelockData.ProposerRoleAccessController.String(),
@@ -75,6 +88,14 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 		CancellerRoleAccessController: timelockData.CancellerRoleAccessController.String(),
 		BypasserRoleAccessController:  timelockData.BypasserRoleAccessController.String(),
 		MinDelay:                      timelockData.MinDelay,
+	}
+	progDataAddr, err = solanashared.GetProgramDataAddress(chain.Client, mcmState.McmProgram)
+	if err != nil {
+		return view, fmt.Errorf("failed to get program data address for program %s: %w", mcmState.McmProgram.String(), err)
+	}
+	authority, _, err = solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
+	if err != nil {
+		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 	}
 	view.MCMS = MCMSView{
 		Bypasser:  MCMSConfig{},
@@ -95,15 +116,16 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 			return view, fmt.Errorf("failed to get account data for %s: %w", mcmConfig.name, err)
 		}
 		currConfig := MCMSConfig{
-			PDA:           mcmConfig.pda.String(),
-			ProgramID:     mcmState.McmProgram.String(),
-			ChainID:       mcmData.ChainId,
-			MultisigID:    string(mcmData.MultisigId[:]),
-			Owner:         mcmData.Owner.String(),
-			ProposedOwner: mcmData.ProposedOwner.String(),
-			GroupQuorums:  toJSONString(mcmData.GroupQuorums),
-			GroupParents:  toJSONString(mcmData.GroupParents),
-			Signers:       []string{},
+			PDA:              mcmConfig.pda.String(),
+			ProgramID:        mcmState.McmProgram.String(),
+			UpgradeAuthority: authority.String(),
+			ChainID:          mcmData.ChainId,
+			MultisigID:       string(mcmData.MultisigId[:]),
+			Owner:            mcmData.Owner.String(),
+			ProposedOwner:    mcmData.ProposedOwner.String(),
+			GroupQuorums:     toJSONString(mcmData.GroupQuorums),
+			GroupParents:     toJSONString(mcmData.GroupParents),
+			Signers:          []string{},
 		}
 		for _, signer := range mcmData.Signers {
 			currConfig.Signers = append(currConfig.Signers, shared.GetAddressFromBytes(chain_selectors.ETHEREUM_MAINNET.Selector, signer.EvmAddress[:]))

@@ -20,6 +20,9 @@ APISecret = "streams-api-secret"
 RestURL = "streams.url"
 WsURL = "streams.url"
 
+[CRE]
+EnableDKGRecipient = true
+
 [CRE.WorkflowFetcher]
 URL = "http://workflow-server.example.com/workflows"
 `
@@ -43,6 +46,7 @@ func TestCREConfig(t *testing.T) {
 	assert.Equal(t, "streams-api-secret", c.StreamsAPISecret())
 	assert.Equal(t, "streams.url", c.WsURL())
 	assert.Equal(t, "streams.url", c.RestURL())
+	assert.True(t, c.EnableDKGRecipient())
 
 	// Test the new WorkflowFetcher URL
 	fetcher := c.WorkflowFetcher()

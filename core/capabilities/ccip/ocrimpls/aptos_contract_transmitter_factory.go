@@ -4,11 +4,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // AptosCommitCallArgs defines the calldata structure for an Aptos commit transaction.
@@ -26,10 +26,10 @@ type AptosExecCallArgs struct {
 
 // AptosContractTransmitterFactory implements the transmitter factory for Aptos chains.
 type AptosContractTransmitterFactory struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
-func NewAptosContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *AptosContractTransmitterFactory {
+func NewAptosContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodec) *AptosContractTransmitterFactory {
 	return &AptosContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -41,7 +41,7 @@ func NewAptosCommitCalldataFunc(commitMethod string) ToEd25519CalldataFunc {
 		rawReportCtx [2][32]byte,
 		report ocr3types.ReportWithInfo[[]byte],
 		signatures [][96]byte,
-		_ ccipcommon.ExtraDataCodec,
+		_ ccipocr3.ExtraDataCodec,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,
@@ -77,7 +77,7 @@ var AptosExecCallDataFunc = func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
 	signatures [][96]byte,
-	_ ccipcommon.ExtraDataCodec,
+	_ ccipocr3.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,

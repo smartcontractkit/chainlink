@@ -25,10 +25,14 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -52,7 +56,7 @@ See an example in a test using PoR workflow.
 func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvironment) []uint64 {
 	t.Helper()
 
-	var testLogger = framework.L
+	testLogger := framework.L
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
@@ -75,7 +79,7 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 // Generic WorkflowConfig interface for creation of different workflow configurations
 // Register your workflow configuration types here
 type WorkflowConfig interface {
-	None | portypes.WorkflowConfig | HTTPWorkflowConfig
+	None | portypes.WorkflowConfig | HTTPWorkflowConfig | evmread_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -84,14 +88,16 @@ type None struct{}
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
 type WorkflowRegistrationConfig struct {
-	WorkflowName         string
-	WorkflowLocation     string
-	ConfigFilePath       string
-	CompressedWasmPath   string
-	SecretsURL           string
-	WorkflowRegistryAddr common.Address
-	DonID                uint64
-	ContainerTargetDir   string
+	WorkflowName                string
+	WorkflowLocation            string
+	ConfigFilePath              string
+	CompressedWasmPath          string
+	SecretsURL                  string
+	WorkflowRegistryAddr        common.Address
+	WorkflowRegistryTypeVersion deployment.TypeAndVersion
+	DonID                       uint64
+	ContainerTargetDir          string
+	WrappedBlockchainOutputs    []*cre.WrappedBlockchainOutput
 }
 
 /*
@@ -150,7 +156,11 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create HTTP workflow config file")
 			testLogger.Info().Msg("HTTP Workflow config file created.")
-
+		case *evmread_config.Config:
+			var configErr error
+			workflowConfigFilePath, configErr = createWorkflowYamlConfigFile(workflowName, cfg)
+			require.NoError(t, configErr, "failed to create evmread workflow config file")
+			testLogger.Info().Msg("EVM Read Workflow config file created.")
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
 		}
@@ -161,24 +171,34 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 /*
 Registers a workflow with the specified configuration.
 */
-func registerWorkflow(ctx context.Context, t *testing.T, workflowConfig *WorkflowRegistrationConfig, sethClient *seth.Client, testLogger zerolog.Logger) {
+func registerWorkflow(ctx context.Context, t *testing.T,
+	wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client,
+	testLogger zerolog.Logger,
+) {
 	t.Helper()
 
-	workflowRegistryAddress := workflowConfig.WorkflowRegistryAddr
-	donID := workflowConfig.DonID
-	workflowName := workflowConfig.WorkflowName
-	binaryURL := "file://" + workflowConfig.CompressedWasmPath
-	configURL := ptr.Ptr("file://" + workflowConfig.ConfigFilePath)
-	containerTargetDir := &workflowConfig.ContainerTargetDir
+	t.Cleanup(func() {
+		deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
+			wfRegCfg.CompressedWasmPath, wfRegCfg.WrappedBlockchainOutputs,
+			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryTypeVersion,
+		)
+	})
 
-	if workflowConfig.ConfigFilePath == "" {
+	donID := wfRegCfg.DonID
+	workflowName := wfRegCfg.WorkflowName
+	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
+	configURL := ptr.Ptr("file://" + wfRegCfg.ConfigFilePath)
+	containerTargetDir := &wfRegCfg.ContainerTargetDir
+
+	if wfRegCfg.ConfigFilePath == "" {
 		configURL = nil
 	}
 
 	workflowID, registerErr := creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,
-		workflowRegistryAddress,
+		wfRegCfg.WorkflowRegistryAddr,
+		wfRegCfg.WorkflowRegistryTypeVersion,
 		donID,
 		workflowName,
 		binaryURL,
@@ -186,7 +206,7 @@ func registerWorkflow(ctx context.Context, t *testing.T, workflowConfig *Workflo
 		nil, // no secrets yet
 		containerTargetDir,
 	)
-	require.NoError(t, registerErr, "failed to register workflow '%s'", workflowConfig.WorkflowName)
+	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
 	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
 }
 
@@ -198,19 +218,27 @@ Deletes workflows from:
 Recommendation:
 Use it at the end of your test to `t.Cleanup()` the env after test run
 */
-func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFilePath string, compressedWorkflowWasmPath string, blockchainOutputs []*cre.WrappedBlockchainOutput, workflowRegistryAddress common.Address) {
+func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
+	workflowConfigFilePath string, compressedWorkflowWasmPath string,
+	blockchainOutputs []*cre.WrappedBlockchainOutput,
+	workflowRegistryAddress common.Address,
+	tv deployment.TypeAndVersion,
+) {
 	t.Helper()
 
-	var testLogger = framework.L
-	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.\n", uniqueWorkflowName)
+	testLogger := framework.L
+	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.", uniqueWorkflowName)
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, uniqueWorkflowName)
+	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 }
 
-func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) {
+func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
+	testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string,
+	workflowConfig *T, workflowFileLocation string,
+) {
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 
 	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.FullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
@@ -219,23 +247,21 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvir
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
-	workflowRegistryAddress, workflowRegistryErr := crecontracts.FindAddressesForChain(
-		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //lint:ignore SA1019 ignoring deprecation warning for this usage
+	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
+		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
 		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
 
-	t.Cleanup(func() {
-		deleteWorkflows(t, workflowName, workflowConfigPath, compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
-	})
-
 	workflowRegConfig := &WorkflowRegistrationConfig{
-		WorkflowName:         workflowName,
-		WorkflowLocation:     workflowFileLocation,
-		ConfigFilePath:       workflowConfigPath,
-		CompressedWasmPath:   compressedWorkflowWasmPath,
-		WorkflowRegistryAddr: workflowRegistryAddress,
-		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
-		ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
+		WorkflowName:                workflowName,
+		WorkflowLocation:            workflowFileLocation,
+		ConfigFilePath:              workflowConfigPath,
+		CompressedWasmPath:          compressedWorkflowWasmPath,
+		WorkflowRegistryAddr:        workflowRegistryAddress,
+		WorkflowRegistryTypeVersion: tv,
+		DonID:                       testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
+		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
 	}
 	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
 }

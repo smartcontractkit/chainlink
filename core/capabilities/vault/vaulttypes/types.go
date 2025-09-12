@@ -13,6 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -26,21 +28,34 @@ const (
 	MethodSecretsUpdate = "vault.secrets.update"
 	MethodSecretsDelete = "vault.secrets.delete"
 	MethodSecretsList   = "vault.secrets.list"
+	MethodPublicKeyGet  = "vault.publicKey.get"
 
 	MaxBatchSize = 10
 )
 
 var (
+	// MethodSecretsGet is intentionally omitted from this list, as it is not exposed
+	// to external clients, but rather used internally by the Workflow DON.
 	Methods = []string{
 		MethodSecretsCreate,
-		// Uncomment the line below to expose the GetSecrets method
-		// to the Gateway for testing purposes.
-		// MethodSecretsGet,
 		MethodSecretsUpdate,
 		MethodSecretsDelete,
 		MethodSecretsList,
+		MethodPublicKeyGet,
 	}
 )
+
+func GetSupportedMethods(lggr logger.Logger) []string {
+	methods := Methods
+	forceDevMode := true
+	if !build.IsProd() || forceDevMode {
+		// Allow secrets get in non-prod environments for testing purposes
+		// This should never be enabled in production
+		methods = append(methods, MethodSecretsGet)
+		lggr.Warnw("enabling vault.secrets.get method since it is not a production build", "build-mode", build.Mode())
+	}
+	return methods
+}
 
 // SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.
 // External clients should verify that the signatures match the payload and context, before trusting this response.
@@ -63,6 +78,8 @@ type SecretsService interface {
 	GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*Response, error)
 	DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*Response, error)
 	ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*Response, error)
+
+	GetPublicKey(ctx context.Context, request *vaultcommon.GetPublicKeyRequest) (*vaultcommon.GetPublicKeyResponse, error)
 }
 
 func KeyFor(id *vaultcommon.SecretIdentifier) string {

@@ -23,8 +23,6 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 
@@ -34,7 +32,7 @@ import (
 )
 
 func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
-	var testLogger = framework.L
+	testLogger := framework.L
 
 	publicKeyAddr, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
 	require.NoError(t, newKeysErr, "failed to generate new public key")
@@ -128,7 +126,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 
 		testEnv.Logger.Info().Msg("Successfully received 200 OK response from gateway")
 		return true
-	}, tests.WaitTimeout(t), tick, "gateway should respond with 200 OK and valid response once workflow is loaded (ensure the workflow is loaded)")
+	}, 5*time.Minute, tick, "gateway should respond with 200 OK and valid response once workflow is loaded (ensure the workflow is loaded)")
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, finalResponse.Version, "expected JSON-RPC version %s, got %s", jsonrpc.JsonRpcVersion, finalResponse.Version)
 	require.Equal(t, triggerRequest.ID, finalResponse.ID, "expected response ID %s, got %s", triggerRequest.ID, finalResponse.ID)
@@ -141,7 +139,7 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment) {
 	require.Eventually(t, func() bool {
 		records, err := fake.R.Get("POST", "/orders")
 		return err == nil && len(records) > 0
-	}, tests.WaitTimeout(t), tick, "workflow should have made at least one HTTP request to mock server")
+	}, 5*time.Minute, tick, "workflow should have made at least one HTTP request to mock server")
 
 	records, err := fake.R.Get("POST", "/orders")
 	require.NoError(t, err, "failed to get recorded requests")
@@ -169,7 +167,7 @@ type HTTPWorkflowConfig struct {
 }
 
 func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) (string, error) {
-	var testLogger = framework.L
+	testLogger := framework.L
 	mockServerURL := cfg.URL
 	parsedURL, urlErr := url.Parse(mockServerURL)
 	if urlErr != nil {
@@ -190,7 +188,7 @@ func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) 
 	configFileName := fmt.Sprintf("test_http_workflow_config_%s.json", workflowName)
 	configPath := filepath.Join(os.TempDir(), configFileName)
 
-	writeErr := os.WriteFile(configPath, configBytes, 0644) //nolint:gosec // this is a test file
+	writeErr := os.WriteFile(configPath, configBytes, 0o644) //nolint:gosec // this is a test file
 	if writeErr != nil {
 		return "", errors.Wrap(writeErr, "failed to write HTTP workflow config file")
 	}
