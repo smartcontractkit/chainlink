@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptos_burn_mint_token_pool "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
@@ -1835,6 +1836,7 @@ func DeployBnMTokenAptos(
 	// Aptos
 
 	signer := e.BlockChains.AptosChains()[aptosChainSel].DeployerSigner
+	signerAddress := signer.AccountAddress()
 	client := e.BlockChains.AptosChains()[aptosChainSel].Client
 	opts := &aptosBind.TransactOpts{Signer: signer}
 	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
@@ -1921,6 +1923,25 @@ func DeployBnMTokenAptos(
 	data, err = client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to initialize BnM token pool: %v", data.VmStatus)
+
+	ccipContract := ccip.Bind(ccipAddress, client)
+	tx, err = ccipContract.TokenAdminRegistry().ProposeAdministrator(opts, tokenAddress, signer.AccountAddress())
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.Truef(t, data.Success, "failed to propose %v as an administrator for token %v: %v", signerAddress.StringLong(), tokenAddress.StringLong(), data.VmStatus)
+
+	tx, err = ccipContract.TokenAdminRegistry().AcceptAdminRole(opts, tokenAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.Truef(t, data.Success, "failed to accept administrator role for token %v: %v", tokenAddress.StringLong(), data.VmStatus)
+
+	tx, err = ccipContract.TokenAdminRegistry().SetPool(opts, tokenAddress, tokenPoolAddress)
+	require.NoError(t, err)
+	data, err = client.WaitForTransaction(tx.Hash)
+	require.NoError(t, err)
+	require.Truef(t, data.Success, "failed to call set_pool for token %v and token pool %v: %v", tokenAddress.StringLong(), tokenPoolAddress.StringLong(), data.VmStatus)
 
 	// Transfer token pool to mcms
 	mcmsContract := mcms.Bind(mcmsAddress, client)
