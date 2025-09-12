@@ -118,7 +118,7 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			aptosState.MCMSAddress,
 			in.TokenPoolObjAddress,
 			in.TokenCodeObjAddress,
-			deps.AptosChain.DeployerSigner.AccountAddress(), // Use deployer as admin
+			deps.AptosChain.DeployerSigner.AccountAddress(), // Unused parameter, since the admin is set on the token not the pool
 			true,
 		)
 	default:

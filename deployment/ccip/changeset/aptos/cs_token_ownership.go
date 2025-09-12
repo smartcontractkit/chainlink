@@ -76,10 +76,10 @@ func (t TransferTokenOwnership) Apply(env cldf.Environment, cfg config.TransferT
 		CCIPOnChainState: state,
 	}
 	input := seq.TransferTokenOwnershipsSeqInput{
-		Transfers: make([]seq.TransferInput, 0, len(cfg.Transfers)),
+		Transfers: make([]seq.TokenTransferInput, 0, len(cfg.Transfers)),
 	}
 	for _, transfer := range cfg.Transfers {
-		input.Transfers = append(input.Transfers, seq.TransferInput{
+		input.Transfers = append(input.Transfers, seq.TokenTransferInput{
 			TokenCodeObjAddress: transfer.TokenCodeObjectAddress,
 			To:                  transfer.To,
 			TokenType:           transfer.TokenType,
@@ -154,10 +154,10 @@ func (t AcceptTokenOwnership) Apply(env cldf.Environment, cfg config.AcceptToken
 		CCIPOnChainState: state,
 	}
 	input := seq.AcceptTokenOwnershipsSeqInput{
-		Accepts: make([]seq.AcceptInput, 0, len(cfg.Accepts)),
+		Accepts: make([]seq.TokenAcceptInput, 0, len(cfg.Accepts)),
 	}
 	for _, accept := range cfg.Accepts {
-		input.Accepts = append(input.Accepts, seq.AcceptInput{
+		input.Accepts = append(input.Accepts, seq.TokenAcceptInput{
 			TokenCodeObjAddress: accept.TokenCodeObjectAddress,
 			TokenType:           accept.TokenType,
 		})
@@ -234,10 +234,10 @@ func (t ExecuteOwnershipTransfer) Apply(env cldf.Environment, cfg config.Execute
 		CCIPOnChainState: state,
 	}
 	input := seq.ExecuteTokenOwnershipTransfersSeqInput{
-		Transfers: make([]seq.TransferInput, 0, len(cfg.Transfers)),
+		Transfers: make([]seq.TokenTransferInput, 0, len(cfg.Transfers)),
 	}
 	for _, transfer := range cfg.Transfers {
-		input.Transfers = append(input.Transfers, seq.TransferInput{
+		input.Transfers = append(input.Transfers, seq.TokenTransferInput{
 			TokenCodeObjAddress: transfer.TokenCodeObjectAddress,
 			To:                  transfer.To,
 			TokenType:           transfer.TokenType,
@@ -315,10 +315,10 @@ func (t TransferTokenAdmin) Apply(env cldf.Environment, cfg config.TransferToken
 		CCIPOnChainState: state,
 	}
 	input := seq.TransferTokenAdminsSeqInput{
-		Transfers: make([]seq.TransferInput, 0, len(cfg.Transfers)),
+		Transfers: make([]seq.TokenTransferInput, 0, len(cfg.Transfers)),
 	}
 	for _, transfer := range cfg.Transfers {
-		input.Transfers = append(input.Transfers, seq.TransferInput{
+		input.Transfers = append(input.Transfers, seq.TokenTransferInput{
 			TokenCodeObjAddress: transfer.TokenCodeObjectAddress,
 			To:                  transfer.To,
 			TokenType:           transfer.TokenType,
@@ -393,10 +393,10 @@ func (t AcceptTokenAdmin) Apply(env cldf.Environment, cfg config.AcceptTokenAdmi
 		CCIPOnChainState: state,
 	}
 	input := seq.AcceptTokenAdminsSeqInput{
-		Accepts: make([]seq.AcceptInput, 0, len(cfg.Accepts)),
+		Accepts: make([]seq.TokenAcceptInput, 0, len(cfg.Accepts)),
 	}
 	for _, accept := range cfg.Accepts {
-		input.Accepts = append(input.Accepts, seq.AcceptInput{
+		input.Accepts = append(input.Accepts, seq.TokenAcceptInput{
 			TokenCodeObjAddress: accept.TokenCodeObjectAddress,
 			TokenType:           accept.TokenType,
 		})

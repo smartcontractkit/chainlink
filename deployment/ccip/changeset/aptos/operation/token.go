@@ -287,8 +287,8 @@ func grantRole(b operations.Bundle, deps AptosDeps, in GrantRoleInput) (types.Tr
 
 type TransferTokenOwnershipInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
-	To                     aptos.AccountAddress
 	TokenType              deployment.ContractType
+	To                     aptos.AccountAddress
 }
 
 var TransferTokenOwnershipOp = operations.NewOperation(
@@ -312,6 +312,8 @@ func transferTokenOwnership(b operations.Bundle, deps AptosDeps, in TransferToke
 	case shared.AptosRegulatedTokenType:
 		tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 		moduleInfo, function, _, args, err = tokenContract.RegulatedToken().Encoder().TransferOwnership(in.To)
+	default:
+		return types.Transaction{}, fmt.Errorf("unsupported token type for TransferTokenOwnershipOp: %s", in.TokenType.String())
 	}
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode TransferOwnership: %w", err)
@@ -346,6 +348,8 @@ func acceptTokenOwnership(b operations.Bundle, deps AptosDeps, in AcceptTokenOwn
 	case shared.AptosRegulatedTokenType:
 		tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, deps.AptosChain.Client)
 		moduleInfo, function, _, args, err = tokenContract.RegulatedToken().Encoder().AcceptOwnership()
+	default:
+		return types.Transaction{}, fmt.Errorf("unsupported token type for AcceptTokenOwnershipOp: %s", in.TokenType.String())
 	}
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
@@ -381,6 +385,8 @@ func executeTokenOwnershipTransfer(b operations.Bundle, deps AptosDeps, in Execu
 	case shared.AptosRegulatedTokenType:
 		tokenContract := regulated_token.Bind(in.TokenCodeObjectAddress, nil)
 		moduleInfo, function, _, args, err = tokenContract.RegulatedToken().Encoder().ExecuteOwnershipTransfer(in.To)
+	default:
+		return types.Transaction{}, fmt.Errorf("unsupported token type for ExecuteTokenOwnershipTransferOp: %s", in.TokenType.String())
 	}
 	if err != nil {
 		return types.Transaction{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)

@@ -1,11 +1,16 @@
 package testhelpers
 
 import (
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -13,10 +18,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_dummy_receiver"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp/onramp"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
+	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -26,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -90,6 +101,148 @@ func MakeBCSEVMExtraArgsV2(gasLimit *big.Int, allowOOO bool) []byte {
 	return append(hexutil.MustDecode(GenericExtraArgsV2Tag), s.ToBytes()...)
 }
 
+// Aptos doesn't provide any struct that we could reuse here
+
+type AptosSendRequest struct {
+	Receiver      []byte
+	Data          []byte
+	ExtraArgs     []byte
+	FeeToken      aptos.AccountAddress
+	FeeTokenStore aptos.AccountAddress
+	TokenAmounts  []AptosTokenAmount
+}
+
+type AptosTokenAmount struct {
+	Token  aptos.AccountAddress
+	Amount uint64
+}
+
+func SendRequestAptos(
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) {
+	sender := e.BlockChains.AptosChains()[cfg.SourceChain].DeployerSigner
+	senderAddress := sender.AccountAddress()
+	client := e.BlockChains.AptosChains()[cfg.SourceChain].Client
+
+	e.Logger.Infof("(Aptos) Sending CCIP request from chain selector %d to chain selector %d using sender %s",
+		cfg.SourceChain, cfg.DestChain, senderAddress.StringLong())
+
+	msg := cfg.Message.(AptosSendRequest)
+	router := state.AptosChains[cfg.SourceChain].CCIPAddress
+	if cfg.IsTestRouter {
+		router = state.AptosChains[cfg.DestChain].TestRouterAddress
+	}
+
+	tokenAddresses := make([]aptos.AccountAddress, len(msg.TokenAmounts))
+	tokenAmounts := make([]uint64, len(msg.TokenAmounts))
+	tokenStoreAddresses := make([]aptos.AccountAddress, len(msg.TokenAmounts))
+	for i, v := range msg.TokenAmounts {
+		tokenAddresses[i] = v.Token
+		tokenAmounts[i] = v.Amount
+		tokenStoreAddresses[i] = aptos.AccountAddress{}
+	}
+
+	// Debug information
+	var (
+		tokenAddressStrings []string
+		tokenStoreStrings   []string
+	)
+	feeTokenBalance, err := helpers.GetFungibleAssetBalance(client, senderAddress, msg.FeeToken)
+	if err != nil {
+		return nil, err
+	}
+	e.Logger.Debugw("Fungible Asset balance", "feeToken", feeTokenBalance)
+	for _, address := range tokenAddresses {
+		tokenAddressStrings = append(tokenAddressStrings, address.StringLong())
+		transferTokenBalance, err := helpers.GetFungibleAssetBalance(client, senderAddress, address)
+		if err != nil {
+			return nil, err
+		}
+		e.Logger.Debugw("Fungible Asset balance", "transferToken", transferTokenBalance)
+	}
+	for _, address := range tokenStoreAddresses {
+		tokenStoreStrings = append(tokenStoreStrings, address.StringLong())
+	}
+	e.Logger.Debugw("(Aptos) Sending message: ",
+		"destChainSelector", cfg.DestChain,
+		"routerAddress", router.StringLong(),
+		"receiver", hex.EncodeToString(msg.Receiver),
+		"data", hex.EncodeToString(msg.Data),
+		"tokenAddresses", tokenAddressStrings,
+		"tokenAmounts", tokenAmounts,
+		"tokenStoreAddresses", tokenStoreStrings,
+		"feeToken", msg.FeeToken.StringLong(),
+		"feeTokenStore", msg.FeeTokenStore.StringLong(),
+		"extraArgs", hex.EncodeToString(msg.ExtraArgs),
+	)
+
+	routerContract := ccip_router.Bind(router, client)
+	fee, err := routerContract.Router().GetFee(
+		nil,
+		cfg.DestChain,
+		msg.Receiver,
+		msg.Data,
+		tokenAddresses,
+		tokenAmounts,
+		tokenStoreAddresses,
+		msg.FeeToken,
+		msg.FeeTokenStore,
+		msg.ExtraArgs,
+	)
+	if err != nil {
+		e.Logger.Errorf("Estimating fee: %v", err)
+	}
+	e.Logger.Infof("Estimated fee: %v", fee)
+
+	opts := &aptosBind.TransactOpts{
+		Signer: sender,
+	}
+	tx, err := routerContract.Router().CCIPSend(
+		opts,
+		cfg.DestChain,
+		msg.Receiver,
+		msg.Data,
+		tokenAddresses,
+		tokenAmounts,
+		tokenStoreAddresses,
+		msg.FeeToken,
+		msg.FeeTokenStore,
+		msg.ExtraArgs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send CCIP message: %w", err)
+	}
+	data, err := client.WaitForTransaction(tx.Hash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for transaction: %w", err)
+	}
+	if !data.Success {
+		return nil, fmt.Errorf("transaction reverted: %v", data.VmStatus)
+	}
+	e.Logger.Infof("(Aptos) CCIP message sent (tx %s) from chain selector %d to chain selector %d", tx.Hash, cfg.SourceChain, cfg.DestChain)
+
+	for _, event := range data.Events {
+		e.Logger.Debugf("(Aptos) Message contains event type: %v", event.Type)
+		// The RPC strips all leading zeroes from the event type
+		if event.Type == fmt.Sprintf("0x%s::onramp::CCIPMessageSent", strings.TrimLeft(strings.TrimPrefix(router.String(), "0x"), "0")) {
+			var msgSentEvent module_onramp.CCIPMessageSent
+			if err := codec.DecodeAptosJsonValue(event.Data, &msgSentEvent); err != nil {
+				return nil, fmt.Errorf("failed to decode CCIPMessageSentEvent: %w", err)
+			}
+			e.Logger.Debugf("CCIPMessageSentEvent: %v", msgSentEvent)
+			return &ccipclient.AnyMsgSentEvent{
+				SequenceNumber: msgSentEvent.SequenceNumber,
+				RawEvent:       msgSentEvent,
+			}, nil
+		}
+	}
+	return nil, errors.New("sent message but didn't receive CCIPMessageSent event")
+}
+
+// DeployTransferableTokenAptos deploys two tokens onto the EVM and Aptos chain respectively, setting up a lane between them.
+// For the aptos token the managed_token package will be used, alongside the managed_token_pool package for the token pool
 func DeployTransferableTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
@@ -190,6 +343,10 @@ func DeployTransferableTokenAptos(
 	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
 }
 
+// DeployRegulatedTransferableTokenAptos deploys two tokens onto the EVM and Aptos chain and sets up a lane between them
+// For Aptos, the regulated_token will be used along with the regulated_token_pool token pool.
+// Since the regulated_token must be initialized from an EOA, not mcms, it will be deployed from the deployer account
+// and then transferred over to mcms
 func DeployRegulatedTransferableTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
@@ -211,6 +368,7 @@ func DeployRegulatedTransferableTokenAptos(
 	selectorFamily, err = chainsel.GetSelectorFamily(aptosChainSel)
 	require.NoError(t, err)
 	require.Equal(t, chainsel.FamilyAptos, selectorFamily)
+
 	// EVM
 	evmDeployerKey := e.BlockChains.EVMChains()[evmChainSel].DeployerKey
 	state, err := stateview.LoadOnchainState(e)
@@ -226,6 +384,13 @@ func DeployRegulatedTransferableTokenAptos(
 	opts := &aptosBind.TransactOpts{Signer: signer}
 	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
 	require.NoError(t, err)
+	// helper function to wait for a transaction to be mined
+	assertTxSuccess := func(err error, tx *api.PendingTransaction, msg string, args ...any) {
+		require.NoError(t, err)
+		data, err := client.WaitForTransaction(tx.Hash)
+		require.NoError(t, err)
+		require.True(t, data.Success, fmt.Sprintf("%s: %s", fmt.Sprintf(msg, args...), data.VmStatus))
+	}
 	mcmsAddress := aptosstate.FindAptosAddress(
 		cldf.TypeAndVersion{
 			Type:    shared.AptosMCMSType,
@@ -235,45 +400,29 @@ func DeployRegulatedTransferableTokenAptos(
 	)
 	require.NotEqualf(t, aptos.AccountAddress{}, mcmsAddress, "Aptos mcms address not found")
 
-	// Only admin can grant roles
+	// Deploy the token and token registrar, setting the deployer as the administrator
 	adminAddress := signer.AccountAddress()
 	tokenAddress, tx, token, err := regulated_token.DeployToObject(signer, client, adminAddress)
-	require.NoError(t, err)
-	data, err := client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to deploy regulated token: %v", data.VmStatus)
-
+	assertTxSuccess(err, tx, "failed to deploy regulated token")
 	tx, _, err = regulated_token.DeployMCMSRegistrarToExistingObject(signer, client, tokenAddress, adminAddress, mcmsAddress, true)
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to deploy regulated token MCMS registrar: %v", data.VmStatus)
+	assertTxSuccess(err, tx, "failed to deploy regulated token MCMS registrar")
 
+	// Initialize the token
 	tx, err = token.RegulatedToken().Initialize(opts, nil, tokenName, "TKN", 8, "", "")
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to initialize regulated token: %v", data.VmStatus)
+	assertTxSuccess(err, tx, "failed to initialize regulated token")
 
+	// If requested, set the deployer as an allowed minter and mint the requested tokens
 	if mintAmount != nil {
 		lggr.Infof("Minting %v tokens to %v...", mintAmount.Amount, mintAmount.To)
 		tx, err = token.RegulatedToken().GrantRole(opts, 4, adminAddress)
-		require.NoError(t, err)
-		data, err = client.WaitForTransaction(tx.Hash)
-		require.NoError(t, err)
-		require.True(t, data.Success, "failed to grant mint role to deployer: %v", data.VmStatus)
-
+		assertTxSuccess(err, tx, "failed to grant mint role to deployer")
 		tx, err = token.RegulatedToken().Mint(opts, mintAmount.To, mintAmount.Amount)
-		require.NoError(t, err)
-		data, err = client.WaitForTransaction(tx.Hash)
-		require.NoError(t, err)
-		require.True(t, data.Success, "failed to mint %d token to %s: %v", mintAmount.Amount, mintAmount.To, data.VmStatus)
+		assertTxSuccess(err, tx, "failed to mint %d token to %s", mintAmount.Amount, mintAmount.To)
 	}
 
+	// Save token addresses in address book
 	tokenMetadata, err := token.RegulatedToken().TokenMetadata(nil)
 	require.NoError(t, err)
-
-	// Save addresses in address book
 	typeAndVersion := cldf.NewTypeAndVersion(shared.AptosRegulatedTokenType, deployment.Version1_6_0)
 	typeAndVersion.AddLabel("TKN")
 	err = e.ExistingAddresses.Save(aptosChainSel, tokenAddress.StringLong(), typeAndVersion)
@@ -282,23 +431,12 @@ func DeployRegulatedTransferableTokenAptos(
 	err = e.ExistingAddresses.Save(aptosChainSel, tokenMetadata.StringLong(), typeAndVersion)
 	require.NoError(t, err)
 
-	// Transfer ownership to mcms
+	// Transfer token ownership to mcms
 	mcmsContract := mcms.Bind(mcmsAddress, client)
 	tokenOwnerAddress, err := mcmsContract.MCMSRegistry().GetPreexistingCodeObjectOwnerAddress(nil, tokenAddress)
 	require.NoError(t, err)
-
 	tx, err = token.RegulatedToken().TransferOwnership(opts, tokenOwnerAddress)
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to propose ownership transfer to mcms %v: %v", tokenOwnerAddress, data.VmStatus)
-
-	tx, err = token.RegulatedToken().TransferAdmin(opts, tokenOwnerAddress)
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to propose admin transfer to mcms %v: %v", tokenOwnerAddress, data.VmStatus)
-
+	assertTxSuccess(err, tx, "failed to propose ownership transfer to mcms %v", tokenOwnerAddress)
 	_, err = commoncs.Apply(t, e,
 		commoncs.Configure(aptoscs.AcceptTokenOwnership{},
 			config.AcceptTokenOwnershipInput{
@@ -316,20 +454,12 @@ func DeployRegulatedTransferableTokenAptos(
 		),
 	)
 	require.NoError(t, err)
-
 	tx, err = token.RegulatedToken().ExecuteOwnershipTransfer(opts, tokenOwnerAddress)
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to execute ownership transfer to mcms %v: %v", tokenOwnerAddress, data.VmStatus)
+	assertTxSuccess(err, tx, "failed to execute ownership transfer to mcms %v", tokenOwnerAddress)
 
 	// Transfer admin role to mcms
 	tx, err = token.RegulatedToken().TransferAdmin(opts, tokenOwnerAddress)
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to propose admin transfer to mcms %v: %v", tokenOwnerAddress, data.VmStatus)
-
+	assertTxSuccess(err, tx, "failed to propose admin transfer to mcms %v", tokenOwnerAddress)
 	_, err = commoncs.Apply(t, e,
 		commoncs.Configure(aptoscs.AcceptTokenAdmin{},
 			config.AcceptTokenAdminInput{
@@ -357,7 +487,7 @@ func DeployRegulatedTransferableTokenAptos(
 				TokenCodeObjAddress:                 tokenAddress,
 				TokenPoolAddress:                    aptos.AccountAddress{},             // Will be deployed
 				PoolType:                            shared.AptosRegulatedTokenPoolType, // Use regulated token pool type
-				TokenTransferFeeByRemoteChainConfig: nil,                                // TODO - not needed?
+				TokenTransferFeeByRemoteChainConfig: nil,
 				EVMRemoteConfigs: map[uint64]config.EVMRemoteConfig{
 					evmChainSel: {
 						TokenAddress:     evmToken.Address(),
@@ -374,12 +504,13 @@ func DeployRegulatedTransferableTokenAptos(
 					},
 				},
 				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: time.Second, // TODO
+					MinDelay: time.Second,
 				},
 			},
 		),
 	)
 	require.NoError(t, err)
+
 	aptosAddresses, err = e.ExistingAddresses.AddressesForChain(aptosChainSel)
 	require.NoError(t, err)
 	tokenMetadataAddress := aptosstate.FindAptosAddress(
@@ -406,4 +537,18 @@ func DeployRegulatedTransferableTokenAptos(
 	err = grantMintBurnPermissions(lggr, e.BlockChains.EVMChains()[evmChainSel], evmToken, evmDeployerKey, evmPool.Address())
 	require.NoError(t, err)
 	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
+}
+
+// DeployAptosCCIPReceiver deploys the ccip_dummy_receiver package to all Aptos chains, saving the resulting address in the address book for future use
+func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
+	state, err := aptosstate.LoadOnchainStateAptos(e)
+	require.NoError(t, err)
+	for selector, onchainState := range state {
+		addr, tx, _, err := ccip_dummy_receiver.DeployToObject(e.BlockChains.AptosChains()[selector].DeployerSigner, e.BlockChains.AptosChains()[selector].Client, onchainState.CCIPAddress, onchainState.MCMSAddress)
+		require.NoError(t, err)
+		t.Logf("(Aptos) CCIPDummyReceiver(ccip: %s, mcms: %s) deployed to %s in tx %s", onchainState.CCIPAddress.StringLong(), onchainState.MCMSAddress.StringLong(), addr.StringLong(), tx.Hash)
+		require.NoError(t, e.BlockChains.AptosChains()[selector].Confirm(tx.Hash))
+		err = e.ExistingAddresses.Save(selector, addr.StringLong(), cldf.NewTypeAndVersion(shared.AptosReceiverType, deployment.Version1_0_0))
+		require.NoError(t, err)
+	}
 }

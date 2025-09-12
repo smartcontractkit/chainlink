@@ -165,14 +165,14 @@ func deployAptosTokenFaucetSequence(b operations.Bundle, deps operation.AptosDep
 	return mcmsOperations, nil
 }
 
-type TransferInput struct {
+type TokenTransferInput struct {
 	TokenCodeObjAddress aptos.AccountAddress
-	To                  aptos.AccountAddress
 	TokenType           deployment.ContractType
+	To                  aptos.AccountAddress
 }
 
 type TransferTokenOwnershipsSeqInput struct {
-	Transfers []TransferInput
+	Transfers []TokenTransferInput
 }
 
 var TransferTokenOwnershipsSequence = operations.NewSequence(
@@ -192,8 +192,8 @@ func transferTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDe
 			deps,
 			operation.TransferTokenOwnershipInput{
 				TokenCodeObjectAddress: transfer.TokenCodeObjAddress,
-				To:                     transfer.To,
 				TokenType:              transfer.TokenType,
+				To:                     transfer.To,
 			},
 		)
 		if err != nil {
@@ -208,13 +208,13 @@ func transferTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDe
 	}, nil
 }
 
-type AcceptInput struct {
+type TokenAcceptInput struct {
 	TokenCodeObjAddress aptos.AccountAddress
 	TokenType           deployment.ContractType
 }
 
 type AcceptTokenOwnershipsSeqInput struct {
-	Accepts []AcceptInput
+	Accepts []TokenAcceptInput
 }
 
 var AcceptTokenOwnershipsSequence = operations.NewSequence(
@@ -250,7 +250,7 @@ func acceptTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps
 }
 
 type ExecuteTokenOwnershipTransfersSeqInput struct {
-	Transfers []TransferInput
+	Transfers []TokenTransferInput
 }
 
 var ExecuteTokenOwnershipTransfersSequence = operations.NewSequence(
@@ -270,8 +270,8 @@ func executeTokenOwnershipTransfersSequence(b operations.Bundle, deps operation.
 			deps,
 			operation.ExecuteTokenOwnershipTransferInput{
 				TokenCodeObjectAddress: transfer.TokenCodeObjAddress,
-				To:                     transfer.To,
 				TokenType:              transfer.TokenType,
+				To:                     transfer.To,
 			},
 		)
 		if err != nil {
@@ -287,7 +287,7 @@ func executeTokenOwnershipTransfersSequence(b operations.Bundle, deps operation.
 }
 
 type TransferTokenAdminsSeqInput struct {
-	Transfers []TransferInput
+	Transfers []TokenTransferInput
 }
 
 var TransferTokenAdminsSequence = operations.NewSequence(
@@ -323,7 +323,7 @@ func transferTokenAdminsSequence(b operations.Bundle, deps operation.AptosDeps, 
 }
 
 type AcceptTokenAdminsSeqInput struct {
-	Accepts []AcceptInput
+	Accepts []TokenAcceptInput
 }
 
 var AcceptTokenAdminsSequence = operations.NewSequence(

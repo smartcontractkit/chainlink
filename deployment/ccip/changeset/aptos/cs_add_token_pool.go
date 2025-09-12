@@ -106,7 +106,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	ab := cldf.NewMemoryAddressBook()
 	seqReports := make([]operations.Report[any, any], 0)
 	proposals := make([]mcms.TimelockProposal, 0)
-	mcmsOperations := []mcmstypes.BatchOperation{}
+	var mcmsOperations []mcmstypes.BatchOperation
 
 	deps := operation.AptosDeps{
 		AB:               ab,
@@ -173,10 +173,10 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	// Connect token pools EVM -> Aptos
 	connInput := seq.ConnectTokenPoolSeqInput{
 		TokenPoolAddress:                    tokenPoolAddress,
+		TokenPoolType:                       cfg.PoolType,
 		RemotePools:                         toRemotePools(cfg.EVMRemoteConfigs),
 		TokenAddress:                        tokenAddress,
 		TokenTransferFeeByRemoteChainConfig: cfg.TokenTransferFeeByRemoteChainConfig,
-		TokenPoolType:                       cfg.PoolType,
 	}
 	connectSeq, err := operations.ExecuteSequence(env.OperationsBundle, seq.ConnectTokenPoolSequence, deps, connInput)
 	if err != nil {

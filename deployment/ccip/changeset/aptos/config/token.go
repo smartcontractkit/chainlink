@@ -56,8 +56,8 @@ type MintTokenInput struct {
 
 type TransferInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
-	To                     aptos.AccountAddress
 	TokenType              deployment.ContractType
+	To                     aptos.AccountAddress
 }
 
 type TransferTokenOwnershipInput struct {
