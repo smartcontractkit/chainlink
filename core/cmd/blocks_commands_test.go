@@ -44,7 +44,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 		require.NoError(t, set.Set("chain-id", "1"))
 		require.NoError(t, set.Set("family", "evm"))
 		c = cli.NewContext(nil, set, nil)
-		require.ErrorContains(t, client.ReplayFromBlock(c), "does not match any local chains")
+		require.ErrorContains(t, client.ReplayFromBlock(c), "chain id does not exist: 1")
 
 		// Incorrect chain family
 		require.NoError(t, set.Set("chain-id", "5"))

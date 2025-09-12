@@ -125,6 +125,10 @@ func (g *gatewayConnectorMock) AddHandler(ctx context.Context, methods []string,
 	return nil
 }
 
+func (g *gatewayConnectorMock) RemoveHandler(ctx context.Context, methods []string) error {
+	return nil
+}
+
 func (g *gatewayConnectorMock) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error {
 	return nil
 }

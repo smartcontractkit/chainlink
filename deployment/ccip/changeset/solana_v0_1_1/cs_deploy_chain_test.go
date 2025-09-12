@@ -368,18 +368,72 @@ func TestUpgrade(t *testing.T) {
 	// solana verification
 	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
 	require.NoError(t, err)
+}
+
+func TestClose(t *testing.T) {
+	t.Parallel()
+	skipInCI(t)
+
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     1,
+		SolChains:  1,
+		Nodes:      4,
+	})
+	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
+		&ccipChangesetSolana.BuildSolanaConfig{
+			GitCommitSha:   ShaV0_1_0,
+			DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
+			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+				BuildLocally:        true,
+				CleanDestinationDir: true,
+				GenerateVanityKeys:  true,
+			},
+		},
+	))
+	require.NoError(t, err)
+	err = testhelpers.ValidateSolanaState(e, solChainSelectors)
+	require.NoError(t, err)
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChainSelectors[0], true,
+		ccipChangesetSolana.CCIPContractsToTransfer{
+			OffRamp: true,
+		})
+
+	state, err := stateview.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+
 	// test closing the old buffers
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseBuffersChangeset),
 			ccipChangesetSolana.CloseBuffersConfig{
 				ChainSelector: solChainSelectors[0],
-				Buffers: []string{
+				Programs: []string{
 					state.SolChains[solChainSelectors[0]].BurnMintTokenPools[shared.CLLMetadata].String(),
 					state.SolChains[solChainSelectors[0]].Router.String(),
 				},
+			},
+		),
+		// upgrade authority
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+			ccipChangesetSolana.SetUpgradeAuthorityConfig{
+				ChainSelector:       solChainSelectors[0],
+				NewUpgradeAuthority: timelockSignerPDA,
+				SetOffRamp:          true,
+			},
+		),
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseBuffersChangeset),
+			ccipChangesetSolana.CloseBuffersConfig{
+				ChainSelector: solChainSelectors[0],
 				MCMS: &proposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
+				},
+				Programs: []string{
+					state.SolChains[solChainSelectors[0]].OffRamp.String(),
 				},
 			},
 		),

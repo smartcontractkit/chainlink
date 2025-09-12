@@ -251,6 +251,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 	var allTokens []solana.PublicKey
 	allTokens = append(allTokens, s.LinkToken)
 	allTokens = append(allTokens, s.WSOL)
+	allTokens = append(allTokens, s.USDCToken)
 	allTokens = append(allTokens, s.SPL2022Tokens...)
 	allTokens = append(allTokens, s.SPLTokens...)
 	for _, token := range allTokens {

@@ -4,19 +4,33 @@ import (
 	"context"
 	"fmt"
 
+	solTokenMetadata "github.com/gagliardetto/metaplex-go/clients/token-metadata"
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
+
+	solanashared "github.com/smartcontractkit/chainlink/deployment"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 )
 
 type TokenView struct {
-	TokenProgramName string `json:"tokenProgramName,omitempty"`
-	MintAuthority    string `json:"mintAuthority,omitempty"`
-	Supply           uint64 `json:"supply,omitempty"`
-	Decimals         uint8  `json:"decimals,omitempty"`
-	IsInitialized    bool   `json:"isInitialized,omitempty"`
-	FreezeAuthority  string `json:"freezeAuthority,omitempty"`
+	TokenProgramName string        `json:"tokenProgramName,omitempty"`
+	MintAuthority    string        `json:"mintAuthority,omitempty"`
+	Supply           uint64        `json:"supply,omitempty"`
+	Decimals         uint8         `json:"decimals,omitempty"`
+	IsInitialized    bool          `json:"isInitialized,omitempty"`
+	FreezeAuthority  string        `json:"freezeAuthority,omitempty"`
+	TokenMetadata    TokenMetadata `json:"tokenMetadata,omitempty"`
+}
+
+type TokenMetadata struct {
+	UpdateAuthority      string `json:"updateAuthority,omitempty"`
+	Name                 string `json:"name,omitempty"`
+	Symbol               string `json:"symbol,omitempty"`
+	URI                  string `json:"uri,omitempty"`
+	SellerFeeBasisPoints uint16 `json:"sellerFeeBasisPoints,omitempty"`
+	PrimarySaleHappened  bool   `json:"primarySaleHappened,omitempty"`
+	IsMutable            bool   `json:"isMutable,omitempty"`
 }
 
 func GenerateTokenView(chain cldf_solana.Chain, tokenAddress solana.PublicKey, tokenProgram string) (TokenView, error) {
@@ -39,6 +53,22 @@ func GenerateTokenView(chain cldf_solana.Chain, tokenAddress solana.PublicKey, t
 		view.FreezeAuthority = "None"
 	} else {
 		view.FreezeAuthority = tokenMint.FreezeAuthority.String()
+	}
+	var tokenMetadata solTokenMetadata.Metadata
+	metadataPDA, err := solanashared.FindMplTokenMetadataPDA(tokenAddress)
+	if err != nil {
+		return view, fmt.Errorf("failed to find metadata PDA: %w", err)
+	}
+	// if no metadata, don't return an error
+	if err = chain.GetAccountDataBorshInto(context.Background(), metadataPDA, &tokenMetadata); err == nil {
+		view.TokenMetadata = TokenMetadata{}
+		view.TokenMetadata.UpdateAuthority = tokenMetadata.UpdateAuthority.String()
+		view.TokenMetadata.Name = tokenMetadata.Data.Name
+		view.TokenMetadata.Symbol = tokenMetadata.Data.Symbol
+		view.TokenMetadata.URI = tokenMetadata.Data.Uri
+		view.TokenMetadata.SellerFeeBasisPoints = tokenMetadata.Data.SellerFeeBasisPoints
+		view.TokenMetadata.PrimarySaleHappened = tokenMetadata.PrimarySaleHappened
+		view.TokenMetadata.IsMutable = tokenMetadata.IsMutable
 	}
 	return view, nil
 }

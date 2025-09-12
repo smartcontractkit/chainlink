@@ -134,8 +134,8 @@ func validateWriteRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSe
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
 
-		if req.Id.Key == "" || req.Id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		if req.Id.Key == "" || req.Id.Namespace == "" {
+			return errors.New("secret ID must have key and namespace set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
 		if req.EncryptedValue == "" {
@@ -220,8 +220,8 @@ func ValidateDeleteSecretsRequest(request *vaultcommon.DeleteSecretsRequest) err
 
 	uniqueIDs := map[string]bool{}
 	for idx, id := range request.Ids {
-		if id.Key == "" || id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
+		if id.Key == "" {
+			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + id.String())
 		}
 
 		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
@@ -270,8 +270,8 @@ func ValidateGetSecretsRequest(request *vaultcommon.GetSecretsRequest) error {
 	}
 
 	for idx, req := range request.Requests {
-		if req.Id.Key == "" || req.Id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
+		if req.Id.Key == "" {
+			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
 	}
 
@@ -292,9 +292,6 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 func ValidateListSecretIdentifiersRequest(request *vaultcommon.ListSecretIdentifiersRequest) error {
 	if request.RequestId == "" {
 		return errors.New("request ID must not be empty")
-	}
-	if request.Owner == "" {
-		return errors.New("owner must not be empty")
 	}
 	return nil
 }

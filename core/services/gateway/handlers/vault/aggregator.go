@@ -134,6 +134,11 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 		return nil, errors.New("response result is nil: cannot validate signatures")
 	}
 
+	if resp.Method == vaulttypes.MethodSecretsGet {
+		// SecretsGet responses are not signed.
+		return resp, errors.New("cannot validate signatures for Get requests")
+	}
+
 	r := &vaulttypes.SignedOCRResponse{}
 	err := json.Unmarshal(*resp.Result, r)
 	if err != nil {
