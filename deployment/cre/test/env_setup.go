@@ -21,6 +21,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
@@ -209,7 +210,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	gotNodes, err := capReg.GetNodesByP2PIds(nil, nodesP2PIDsBytes)
 	require.NoError(t, err)
 	require.Len(t, gotNodes, len(don.GetP2PIDs()))
-	require.Len(t, gotNodes, donCfg.N)
+	require.Len(t, gotNodes, donCfg.N+1) // +1 for bootstrap
 	for _, n := range gotNodes {
 		require.Equal(t, "test-capability@1.0.0", n.CapabilityIds[0])
 	}
@@ -258,6 +259,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 				labels[k] = v
 			}
 		}
+
 		nCfg := envtest.NodeConfig{
 			ChainSelectors: []uint64{registryChainSel},
 			Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
@@ -266,8 +268,25 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		nodesCfg = append(nodesCfg, nCfg)
 	}
 
+	btLabels := map[string]string{
+		"don-" + donCfg.Name: donCfg.Name,
+		"environment":        "test",
+		"product":            "cre",
+		"type":               "bootstrap",
+	}
+	if donCfg.Labels != nil {
+		for k, v := range donCfg.Labels {
+			btLabels[k] = v
+		}
+	}
+	nodesCfg = append(nodesCfg, envtest.NodeConfig{
+		ChainSelectors: []uint64{registryChainSel},
+		Name:           donCfg.Name + "-bootstrap",
+		Labels:         btLabels,
+	})
+
 	n := envtest.NewNodes(t, nodesCfg)
-	require.Len(t, n, donCfg.N)
+	require.Len(t, n, donCfg.N+1) // +1 for bootstrap
 
 	don = newViewOnlyDon(donCfg.Name, n)
 
@@ -290,7 +309,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		nodes.IDs(),
 		jd,
 		t.Context,
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		cldf_chain.NewBlockChains(blockChains),
 	)
 

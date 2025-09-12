@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"bytes"
-	"embed"
 	"errors"
 	"fmt"
 	"text/template"
@@ -13,9 +12,6 @@ import (
 const (
 	ErrorEmptyJobName = "job name cannot be empty"
 )
-
-//go:embed *tmpl
-var tmplFS embed.FS
 
 type StandardCapabilityJob struct {
 	JobName string // Must be alphanumeric, with _, -, ., no spaces.

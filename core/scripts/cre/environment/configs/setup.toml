@@ -16,7 +16,8 @@ ecr_image = "{{.ECR}}/job-distributor:0.12.7"
 
 [chip_ingress.build_config]
 repository = "https://github.com/smartcontractkit/atlas"
-branch = "cre-workshop"
+branch = "master"
+commit = "bbac3c825b061546980fa9d7dc0f3e8c34347bcf"
 dockerfile = "chip-ingress/Dockerfile"
 docker_ctx = "chip-ingress"
 local_image = "chip-ingress:local-cre"
@@ -24,7 +25,7 @@ pre_run = "pushd chip-ingress && go mod vendor && popd"
 
 [chip_ingress.pull_config]
 local_image = "chip-ingress:local-cre"
-ecr_image = "{{.ECR}}/atlas-chip-ingress:qa-latest"
+ecr_image = "{{.ECR}}/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf"
 
 [capabilities]
 target_path = "./binaries"

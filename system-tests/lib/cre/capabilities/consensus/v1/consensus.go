@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -64,7 +65,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"capability_ocr3",
+			contracts.OCR3ContractQualifier,
 		)
 		ocr3CapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(ocr3Key)
 		if err != nil {
@@ -75,7 +76,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"DONTime",
+			contracts.DONTimeContractQualifier,
 		)
 		donTimeAddress, err := input.CldEnvironment.DataStore.Addresses().Get(donTimeKey)
 		if err != nil {

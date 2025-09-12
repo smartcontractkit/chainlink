@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
