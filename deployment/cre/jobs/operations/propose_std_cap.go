@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
-const FilterKeyDONName = "don_name"
-
 type ProposeStandardCapabilityJobDeps struct {
 	Env cldf.Environment
 }
@@ -21,13 +19,8 @@ type ProposeStandardCapabilityJobInput struct {
 	Domain      string
 	DONName     string
 	Job         pkg.StandardCapabilityJob
-	DONFilters  []TargetDONFilter
+	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
-}
-
-type TargetDONFilter struct {
-	Key   string
-	Value string
 }
 
 type ProposeStandardCapabilityJobOutput struct {

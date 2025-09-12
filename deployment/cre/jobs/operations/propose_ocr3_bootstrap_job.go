@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 const (
@@ -30,7 +31,7 @@ type ProposeOCR3BootstrapJobInput struct {
 
 	JobName string // Optional job name, if not provided, the default will be used.
 
-	DONFilters  []TargetDONFilter
+	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
 }
 

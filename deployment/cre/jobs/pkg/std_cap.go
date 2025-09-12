@@ -7,6 +7,7 @@ import (
 	"text/template"
 
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg/templates"
 )
 
 const (
@@ -44,7 +45,7 @@ func (s *StandardCapabilityJob) Resolve() (string, error) {
 		s.ExternalJobID = externalJobID.String()
 	}
 
-	t, err := template.New("s").ParseFS(tmplFS, "stdcap.tmpl")
+	t, err := template.New("s").ParseFS(templates.FS, "stdcap.tmpl")
 	if err != nil {
 		return "", fmt.Errorf("failed to parse stdcap.tmpl: %w", err)
 	}
