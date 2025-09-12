@@ -7,6 +7,7 @@ import (
 	solTokenMetadata "github.com/gagliardetto/metaplex-go/clients/token-metadata"
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
+
 	solanashared "github.com/smartcontractkit/chainlink/deployment"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
