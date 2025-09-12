@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -13,7 +12,6 @@ import (
 	aptos_call_opts "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptos_feequoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -23,13 +21,6 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-func assertAptosSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg string, execRevertCauseErrorMsg string) {
-	require.Error(t, err)
-	fmt.Println("Error: ", err.Error())
-	require.Contains(t, err.Error(), execRevertErrorMsg)
-	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
-}
 
 func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 	ctx := t.Context()
@@ -57,7 +48,8 @@ func Test_CCIP_RegulatedTokenTransfer_EVM2Aptos(t *testing.T) {
 
 	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
 
 	evmToken, _, aptosToken, _, err := testhelpers.DeployRegulatedTransferableTokenAptos(t, lggr, e.Env, sourceChain, destChain, "Regulated Token", nil)
 	require.NoError(t, err)
@@ -177,7 +169,8 @@ func Test_CCIP_RegulatedTokenTransfer_Aptos2EVM(t *testing.T) {
 
 	lggr.Debug("Source chain (Aptos): ", sourceChain, "Dest chain (EVM): ", destChain)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
 
 	evmToken, _, aptosToken, _, err := testhelpers.DeployRegulatedTransferableTokenAptos(t, lggr, e.Env, destChain, sourceChain, "Regulated Token", &config.TokenMint{
 		To:     deployerSourceChain,

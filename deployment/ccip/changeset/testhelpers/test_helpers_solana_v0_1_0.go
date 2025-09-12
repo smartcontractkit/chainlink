@@ -1667,7 +1667,7 @@ func DeployTransferableToken(
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
-func DeployTransferableTokenAptos(
+func DeployTransferableTokenAptos2(
 	t *testing.T,
 	lggr logger.Logger,
 	e cldf.Environment,
@@ -1767,7 +1767,7 @@ func DeployTransferableTokenAptos(
 	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
 }
 
-func DeployRegulatedTransferableTokenAptos(
+func DeployRegulatedTransferableTokenAptos2(
 	t *testing.T,
 	lggr logger.Logger,
 	e cldf.Environment,
@@ -1880,7 +1880,7 @@ func DeployRegulatedTransferableTokenAptos(
 		commoncs.Configure(aptoscs.AcceptTokenOwnership{},
 			config.AcceptTokenOwnershipInput{
 				ChainSelector: aptosChainSel,
-				Accepts: []config.AcceptInput{
+				Accepts: []config.TokenAcceptInput{
 					{
 						TokenCodeObjectAddress: tokenAddress,
 						TokenType:              shared.AptosRegulatedTokenType,
@@ -1911,7 +1911,7 @@ func DeployRegulatedTransferableTokenAptos(
 		commoncs.Configure(aptoscs.AcceptTokenAdmin{},
 			config.AcceptTokenAdminInput{
 				ChainSelector: aptosChainSel,
-				Accepts: []config.AcceptInput{
+				Accepts: []config.TokenAcceptInput{
 					{
 						TokenCodeObjectAddress: tokenAddress,
 						TokenType:              shared.AptosRegulatedTokenType,

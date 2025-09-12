@@ -66,14 +66,14 @@ type TransferTokenOwnershipInput struct {
 	MCMSConfig    *proposalutils.TimelockConfig
 }
 
-type AcceptInput struct {
+type TokenAcceptInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
 	TokenType              deployment.ContractType
 }
 
 type AcceptTokenOwnershipInput struct {
 	ChainSelector uint64
-	Accepts       []AcceptInput
+	Accepts       []TokenAcceptInput
 	MCMSConfig    *proposalutils.TimelockConfig
 }
 
@@ -91,6 +91,6 @@ type TransferTokenAdminInput struct {
 
 type AcceptTokenAdminInput struct {
 	ChainSelector uint64
-	Accepts       []AcceptInput
+	Accepts       []TokenAcceptInput
 	MCMSConfig    *proposalutils.TimelockConfig
 }
