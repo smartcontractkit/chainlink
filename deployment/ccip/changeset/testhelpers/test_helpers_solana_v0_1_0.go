@@ -2740,6 +2740,7 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyAptos))...)
+	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyTon))...)
 	stateView, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
@@ -2755,6 +2756,9 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	require.NoError(t, err)
 	fmt.Println(string(b))
 	b, err = json.MarshalIndent(stateView.AptosChains, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+	b, err = json.MarshalIndent(stateView.TONChains, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }
