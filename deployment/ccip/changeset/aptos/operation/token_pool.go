@@ -391,8 +391,8 @@ func acceptTokenPoolOwnership(b operations.Bundle, deps AptosDeps, in AcceptToke
 		tokenPoolContract := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 		moduleInfo, function, _, args, err = tokenPoolContract.BurnMintTokenPool().Encoder().AcceptOwnership()
 	case shared.LockReleaseTokenPool:
-		tokenPoolContract := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
-		moduleInfo, function, _, args, err = tokenPoolContract.BurnMintTokenPool().Encoder().AcceptOwnership()
+		tokenPoolContract := lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.LockReleaseTokenPool().Encoder().AcceptOwnership()
 	default:
 		return types.Transaction{}, fmt.Errorf("unsupported token pool type for AcceptTokenPoolOwnershipOp: %s", in.TokenPoolType.String())
 	}
@@ -431,8 +431,8 @@ func executeTokenPoolOwnershipTransfer(b operations.Bundle, deps AptosDeps, in E
 		tokenPoolContract := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 		moduleInfo, function, _, args, err = tokenPoolContract.BurnMintTokenPool().Encoder().ExecuteOwnershipTransfer(in.To)
 	case shared.LockReleaseTokenPool:
-		tokenPoolContract := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
-		moduleInfo, function, _, args, err = tokenPoolContract.BurnMintTokenPool().Encoder().ExecuteOwnershipTransfer(in.To)
+		tokenPoolContract := lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.LockReleaseTokenPool().Encoder().ExecuteOwnershipTransfer(in.To)
 	default:
 		return types.Transaction{}, fmt.Errorf("unsupported token pool type for ExecuteTokenPoolOwnershipTransferInput: %s", in.TokenPoolType.String())
 	}
