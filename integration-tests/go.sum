@@ -1618,8 +1618,8 @@ github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250908151016-
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250908151016-bf310cf85379/go.mod h1:HIpGvF6nKCdtZ30xhdkKWGM9+4Z4CVqJH8ZBL1FTEiY=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250910230900-fa42dad2d413 h1:9HieHSTV3r8pRgwm6afiaH7EJDU3v+wVrRtDRFTKy+4=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250910230900-fa42dad2d413/go.mod h1:LSZMvQYbdK20+21S68/lcTNHStehHPF1X764PICkrRU=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20250903045200-c3d973201e55 h1:jlKZ4iN389Fqgauj7p9ugKLGkjg3VqnZ44sZcnHP1KI=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20250903045200-c3d973201e55/go.mod h1:FAhJnBq6FxIft4hOxyQeAs5b9X06hpEHbXxXIiC2x38=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20250914215533-2bb210ed9fef h1:8FcrCMQXZZ2ZtPChg+fwXGK5fAQ80RjkRN1MNht63Ic=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20250914215533-2bb210ed9fef/go.mod h1:WIJAtlnGTMSqGVrGVmuIV8dVNTt1gw1aP2bLbZS+NOQ=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.23 h1:+L8R3Nn4ZadjGUDUr7HKVMt9I1vv5IS/IzUfQzyNvDw=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.23/go.mod h1:gdW2dlrvHcTawMCtAIXQYZcZ9Ggx16L55kA7wONvzJ4=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5 h1:S5HND0EDtlA+xp2E+mD11DlUTp2wD6uojwixye8ZB/k=
@@ -1978,6 +1978,8 @@ go.uber.org/atomic v1.11.0/go.mod h1:LUxbIzbOniOlMKjJjyPfpl4v+PKK2cNJn91OQbhoJI0
 go.uber.org/goleak v1.1.11/go.mod h1:cwTWslyiVhfpKIDGSZEM2HlOvcqm+tG4zioyIeLoqMQ=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
+go.uber.org/mock v0.5.2 h1:LbtPTcP8A5k9WPXj54PPPbjcI4Y6lhyOZXn+VS7wNko=
+go.uber.org/mock v0.5.2/go.mod h1:wLlUxC2vVTPTaE3UD51E0BGOAElKrILxhVSDYQLld5o=
 go.uber.org/multierr v1.1.0/go.mod h1:wR5kodmAFQ0UK8QlbwjlSNy0Z68gJhDJUG5sjR94q/0=
 go.uber.org/multierr v1.3.0/go.mod h1:VgVr7evmIr6uPjLBxg28wmKNXyqE9akIJ5XnfpiKl+4=
 go.uber.org/multierr v1.5.0/go.mod h1:FeouvMocqHpRaaGuG9EjoKcStLC43Zu/fmqdUMPcKYU=
