@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsui"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -17,7 +17,7 @@ func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
 	return func(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
 		var cwProvider ccipcommon.ChainRWProvider
 		var transmitterFactory types.ContractTransmitterFactory
-		var msgHasher ccipocr3common.MessageHasher
+		var msgHasher ccipocr3.MessageHasher
 
 		if chainselFamily == chainsel.FamilyAptos {
 			cwProvider = ChainCWProvider{}
