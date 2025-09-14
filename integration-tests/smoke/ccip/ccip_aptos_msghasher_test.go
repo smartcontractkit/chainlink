@@ -15,11 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	aptos_call_opts "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
@@ -53,7 +51,7 @@ func Test_CCIP_AptosMessageHasher_OnChainVerification(t *testing.T) {
 	destChain := aptosChainSelectors[0] // Aptos destination
 
 	// Setup off-chain message hasher
-	extraDataCodec := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+	extraDataCodec := ccipocr3common.ExtraDataCodec(map[string]ccipocr3common.SourceChainExtraDataCodec{
 		chain_selectors.FamilyAptos: ccipaptos.ExtraDataDecoder{},
 		chain_selectors.FamilyEVM:   ccipevm.ExtraDataDecoder{},
 	})

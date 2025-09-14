@@ -36,6 +36,10 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 }
 
 func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infra.Input) error {
+	if len(nodeSetInput) == 0 {
+		return errors.New("at least one nodeset is required")
+	}
+
 	hasAtLeastOneBootstrapNode := false
 	for _, nodeSet := range nodeSetInput {
 		if nodeSet.BootstrapNodeIndex != -1 {
@@ -100,7 +104,7 @@ func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infr
 		}
 
 		donsWithMetadata[i] = &cre.DonMetadata{
-			ID:              libc.MustSafeUint64FromInt(i + 1),
+			ID:              libc.MustSafeUint64FromInt(i + 1), // optimistically set the id to the that which the capabilities registry will assign it
 			Flags:           flags,
 			NodesMetadata:   make([]*cre.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
 			Name:            nodeSetInput[i].Name,

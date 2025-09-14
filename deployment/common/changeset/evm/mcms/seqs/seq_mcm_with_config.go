@@ -22,6 +22,7 @@ type SeqDeployMCMWithConfigInput struct {
 	MCMConfig      mcmsTypes.Config            `json:"mcmConfig"`
 	ChainSelector  uint64                      `json:"chainSelector"`
 	GasBoostConfig *commontypes.GasBoostConfig `json:"gasBoostConfig"`
+	Qualifier      *string                     `json:"qualifier"`
 }
 
 type SeqDeployMCMWithConfigOutput struct {
@@ -40,14 +41,17 @@ var SeqEVMDeployMCMWithConfig = operations.NewSequence(
 		case commontypes.BypasserManyChainMultisig:
 			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployBypasserMCM, deps, opsutils.EVMDeployInput[any]{
 				ChainSelector: in.ChainSelector,
+				Qualifier:     in.Qualifier,
 			}, opsutils.RetryDeploymentWithGasBoost[any](in.GasBoostConfig))
 		case commontypes.ProposerManyChainMultisig:
 			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployProposerMCM, deps, opsutils.EVMDeployInput[any]{
 				ChainSelector: in.ChainSelector,
+				Qualifier:     in.Qualifier,
 			}, opsutils.RetryDeploymentWithGasBoost[any](in.GasBoostConfig))
 		case commontypes.CancellerManyChainMultisig:
 			deployReport, deployErr = operations.ExecuteOperation(b, ops.OpEVMDeployCancellerMCM, deps, opsutils.EVMDeployInput[any]{
 				ChainSelector: in.ChainSelector,
+				Qualifier:     in.Qualifier,
 			}, opsutils.RetryDeploymentWithGasBoost[any](in.GasBoostConfig))
 		default:
 			return opsutils.EVMDeployOutput{}, fmt.Errorf("unsupported contract type for seq-deploy-mcm-with-config: %s", in.ContractType)

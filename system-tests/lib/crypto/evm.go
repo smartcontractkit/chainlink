@@ -47,3 +47,12 @@ func GenerateNewKeyPair() (common.Address, *ecdsa.PrivateKey, error) {
 	publicKeyAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
 	return publicKeyAddr, privateKey, nil
 }
+
+func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, errors.New("error casting public key to ECDSA")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
+}

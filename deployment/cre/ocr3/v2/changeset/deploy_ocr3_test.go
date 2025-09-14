@@ -76,8 +76,8 @@ func TestDeployOCR3(t *testing.T) {
 	require.Equal(t, uint8(1), configEvent.F, "F should be 1")
 
 	// Assert the number of signers/transmitters matches expected nodes
-	require.Len(t, configEvent.Signers, 4, "should have 4 signers")
-	require.Len(t, configEvent.Transmitters, 4, "should have 4 transmitters")
+	require.Len(t, configEvent.Signers, 5, "should have 5 signers")
+	require.Len(t, configEvent.Transmitters, 5, "should have 5 transmitters")
 
 	// Assert no more ConfigSet events
 	require.False(t, configIterator.Next(), "should have exactly one ConfigSet event")

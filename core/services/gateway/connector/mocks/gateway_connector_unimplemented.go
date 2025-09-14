@@ -43,6 +43,10 @@ func (g *GatewayConnector) AwaitConnection(ctx context.Context, gatewayID string
 	return g.BaseGatewayConnector.AwaitConnection(ctx, gatewayID)
 }
 
+func (g *GatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	return g.BaseGatewayConnector.RemoveHandler(ctx, methods)
+}
+
 func NewGatewayConnector(t interface {
 	mock.TestingT
 	Cleanup(func())

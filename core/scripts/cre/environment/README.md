@@ -150,7 +150,7 @@ If environment is aready running you can start just the Beholder stack (and regi
 go run . env beholder start
 ```
 
-> This assumes you have `chip-ingress:qa-latest` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:qa-latest .`
+> This assumes you have `chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf .`
 
 ### Storage
 
@@ -182,6 +182,41 @@ If you are using Blockscout and you restart the environment **you need to restar
 ctf bs r
 ```
 ---
+
+## Debugging core nodes 
+Before start the environment set the `CTF_CLNODE_DLV` environment variable to `true`
+```bash
+export CTF_CLNODE_DLV="true"
+```
+Nodes will open a Delve server on port `40000 + node index` (e.g. first node will be on `40000`, second on `40001` etc). You can connect to it using your IDE or `dlv` CLI.
+
+## Debugging capabilities (mac)
+Build the capability with the following flags (this ensures that the binary is not run using rosetta as this prevents dlv from attaching)
+```bash
+GOOS=linux GOARCH=arm64 go build -gcflags "all=-N -l" -o <capability binary name>
+```
+Copy the capability binary to `core/scripts/cre/environment/binaries` folder.
+
+Add or update the `custom_ports` entry in the topology file (e.g., `core/scripts/cre/environment/configs/workflow-don.toml`) to include the port mapping for the Delve debugger. For example:
+```toml
+custom_ports = ["5002:5002", "15002:15002", "45000:45000"]
+```
+
+Start the environment and verify that the container is exposing the new port.  Start a shell session on the relevant container, e.g:
+```bash
+docker exec -it workflow-node1 /bin/bash
+```
+
+In the shell session list all processes (`ps -aux`) and identify the PID of the capability you want to debug.  Also, verify
+that rosetta is not being used to run the capability binary that you want to debug.
+
+Attach dlv to the capability process using the PID you identified above, e.g:
+```bash
+dlv attach <PID> --headless --listen=:45000 --api-version=2 --accept-multiclient
+```
+
+Attach your IDE to the dlv server on port `45000` (or whatever port you exposed).
+
 
 ## Workflow Commands
 
@@ -1138,6 +1173,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
+    evm = ["1337"]
 
 # Capabilities DON for data feeds
 [[nodesets]]
@@ -1148,6 +1184,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   [nodesets.chain_capabilities]
     read-contract = ["1337", "2337"]
     log-event-trigger = ["1337"]
+    evm = ["1337"]
 ```
 
 ### Custom Capability Configuration

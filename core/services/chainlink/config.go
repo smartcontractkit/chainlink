@@ -338,7 +338,7 @@ func (c *Config) setDefaults() {
 		if c.Solana[i] == nil {
 			c.Solana[i] = new(solcfg.TOMLConfig)
 		}
-		c.Solana[i].Chain.SetDefaults()
+		c.Solana[i].SetDefaults()
 	}
 
 	c.Starknet.SetDefaults()
