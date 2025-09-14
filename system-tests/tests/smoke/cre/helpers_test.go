@@ -19,13 +19,18 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	common_events "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflow_events "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -36,6 +41,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 
@@ -70,6 +76,138 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 	}
 	testLogger.Info().Msgf("Writable chains: '%v'", writeableChains)
 	return writeableChains
+}
+
+/*
+Starts Beholder
+1. Starts Beholder if it is not running already
+2. Loads Beholder stack cache to get Kafka connection details
+3. Starts a Kafka listener for Beholder messages
+
+Returns:
+1. Context for the listener (with timeout)
+2. Channel to receive messages
+3. Channel to receive errors from the listener
+
+Recommendation: Use it in tests that need to listen for Beholder messages.
+*/
+func startBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *TestEnvironment) (context.Context, chan proto.Message, chan error) {
+	t.Helper()
+
+	testLogger.Info().Msg("Starting Beholder...")
+	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	require.NoError(t, bErr, "failed to start Beholder")
+
+	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.RelativePathToRepoRoot)
+	require.NoError(t, chipErr, "failed to load chip ingress cache")
+	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
+	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
+
+	return startBeholderListener(t, testLogger, chipConfig)
+}
+
+func startBeholderListener(t *testing.T, testLogger zerolog.Logger, chipConfig *config.ChipIngressConfig) (context.Context, chan proto.Message, chan error) {
+	t.Helper()
+	// We are interested in UserLogs (successful execution)
+	// or BaseMessage with specific error message (engine initialization failure)
+	messageTypes := map[string]func() proto.Message{
+		"workflows.v1.UserLogs": func() proto.Message {
+			return &workflow_events.UserLogs{}
+		},
+		"BaseMessage": func() proto.Message {
+			return &common_events.BaseMessage{}
+		},
+	}
+
+	timeout := 5 * time.Minute
+	listenerCtx, cancelListener := context.WithTimeout(t.Context(), timeout)
+	t.Cleanup(func() {
+		cancelListener()
+	})
+
+	kafkaErrChan := make(chan error, 1)
+	messageChan := make(chan proto.Message, 10)
+	// Start listening for messages in the background
+	go func() {
+		listenForKafkaMessages(listenerCtx, testLogger, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, chipConfig.Kafka.Topics[0], messageTypes, messageChan, kafkaErrChan)
+	}()
+
+	return listenerCtx, messageChan, kafkaErrChan
+}
+
+// Asserts that a specific log message is received from Beholder within a timeout period.
+func assertBeholderMessage(t *testing.T, ctx context.Context, expectedLog string, testLogger zerolog.Logger, messageChan chan proto.Message, kafkaErrChan chan error, timeout time.Duration) {
+	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
+	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
+	receivedUserLogs := 0
+	// Start message processor goroutine
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-messageChan:
+				// Process received messages
+				switch typedMsg := msg.(type) {
+				case *common_events.BaseMessage:
+					if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
+						foundErrorLog <- true
+					}
+				case *workflow_events.UserLogs:
+					testLogger.Info().Msg("🎉 Received UserLogs message in test")
+					receivedUserLogs++
+
+					for _, logLine := range typedMsg.LogLines {
+						if strings.Contains(logLine.Message, expectedLog) {
+							testLogger.Info().
+								Str("expected_log", expectedLog).
+								Str("found_message", strings.TrimSpace(logLine.Message)).
+								Msg("🎯 Found expected user log message!")
+
+							select {
+							case foundExpectedLog <- true:
+							default: // Channel might already have a value
+							}
+							return // Exit the processor goroutine
+						}
+						testLogger.Warn().
+							Str("expected_log", expectedLog).
+							Str("found_message", strings.TrimSpace(logLine.Message)).
+							Msg("Received UserLogs message, but it does not match expected log")
+					}
+				default:
+					// ignore other message types
+				}
+			}
+		}
+	}()
+
+	testLogger.Info().
+		Str("expected_log", expectedLog).
+		Dur("timeout", timeout).
+		Msg("Waiting for expected user log message or timeout")
+
+	// Wait for either the expected log to be found, or engine initialization failure to be detected, or timeout (2 minutes)
+	select {
+	case <-foundExpectedLog:
+		testLogger.Info().
+			Str("expected_log", expectedLog).
+			Msg("✅ Test completed successfully - found expected user log message!")
+		return
+	case <-foundErrorLog:
+		require.Fail(t, "Test completed with error - found engine initialization failure message!")
+	case <-time.After(timeout):
+		testLogger.Error().Msg("Timed out waiting for expected user log message")
+		if receivedUserLogs > 0 {
+			testLogger.Warn().Int("received_user_logs", receivedUserLogs).Msg("Received some UserLogs messages, but none matched expected log")
+		} else {
+			testLogger.Warn().Msg("Did not receive any UserLogs messages")
+		}
+		require.Failf(t, "Timed out waiting for expected user log message", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
+	case err := <-kafkaErrChan:
+		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
+		require.Fail(t, "Kafka listener failed", err.Error())
+	}
 }
 
 //////////////////////////////
