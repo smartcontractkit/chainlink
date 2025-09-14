@@ -36,7 +36,6 @@ func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
 			TokenDataEncoder:           NewAptosTokenDataEncoder(),
 			GasEstimateProvider:        NewGasEstimateProvider(),
 			RMNCrypto:                  nil,
-			ChainAccessorFactory:       AptosChainAccessorFactory{},
 			ContractTransmitterFactory: transmitterFactory,
 			ChainRW:                    cwProvider,
 			ExtraDataCodec:             ExtraDataDecoder{},

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -23,18 +24,18 @@ type SuiCommitCallArgs struct {
 
 // SuiExecCallArgs defines the calldata structure for an Sui execute transaction.
 type SuiExecCallArgs struct {
-	ReportContext [2][32]byte                      `mapstructure:"ReportContext"`
-	Report        []byte                           `mapstructure:"Report"`
-	Info          ccipocr3common.ExecuteReportInfo `mapstructure:"Info"`
-	ExtraData     ccipcommon.ExtraDataDecoded      `mapstructure:"ExtraData"`
+	ReportContext [2][32]byte                 `mapstructure:"ReportContext"`
+	Report        []byte                      `mapstructure:"Report"`
+	Info          ccipocr3.ExecuteReportInfo  `mapstructure:"Info"`
+	ExtraData     ccipcommon.ExtraDataDecoded `mapstructure:"ExtraData"`
 }
 
 // SuiContractTransmitterFactory implements the transmitter factory for Sui chains.
 type SuiContractTransmitterFactory struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
-func NewSuiContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *SuiContractTransmitterFactory {
+func NewSuiContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodec) *SuiContractTransmitterFactory {
 	return &SuiContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -46,7 +47,7 @@ func NewSuiCommitCalldataFunc(commitMethod string) ToEd25519CalldataFunc {
 		rawReportCtx [2][32]byte,
 		report ocr3types.ReportWithInfo[[]byte],
 		signatures [][96]byte,
-		_ ccipcommon.ExtraDataCodec,
+		_ ccipocr3.ExtraDataCodec,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,
@@ -82,9 +83,9 @@ var SuiExecCallDataFunc = func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
 	signatures [][96]byte,
-	extraDataCodec ccipcommon.ExtraDataCodec,
+	extraDataCodec ccipocr3.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
-	var info ccipocr3common.ExecuteReportInfo
+	var info ccipocr3.ExecuteReportInfo
 	var extraDataDecoded ccipcommon.ExtraDataDecoded
 	if len(report.Info) != 0 {
 		info, err = ccipocr3common.DecodeExecuteReportInfo(report.Info)
@@ -126,7 +127,7 @@ func (f *SuiContractTransmitterFactory) NewExecTransmitter(
 }
 
 // decodeExecData decodes the extra data from an execute report.
-func decodeExecDataSui(report ccipocr3common.ExecuteReportInfo, codec ccipcommon.ExtraDataCodec) (ccipcommon.ExtraDataDecoded, error) {
+func decodeExecDataSui(report ccipocr3common.ExecuteReportInfo, codec ccipocr3.ExtraDataCodec) (ccipcommon.ExtraDataDecoded, error) {
 	// only one report one message, since this is a stop-gap solution for solana
 	if len(report.AbstractReports) != 1 {
 		return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("unexpected report length, expected 1, got %d", len(report.AbstractReports))
