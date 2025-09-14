@@ -1,0 +1,36 @@
+name: Docker Build (Codex Safe)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  docker-build-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run Docker Build (no push)
+        run: |
+          docker buildx build \
+            --platform linux/${{ matrix.arch }} \
+            --file core/chainlink.Dockerfile \
+            --build-arg CHAINLINK_USER=chainlink \
+            --build-arg COMMIT_SHA=${{ github.sha }} \
+            --tag codex-chainlink-${{ matrix.arch }} \
+            --load \

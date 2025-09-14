@@ -1,0 +1,24 @@
+name: Trigger CircleCI Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      circleci-branch:
+        description: Branch to trigger in CircleCI (defaults to the current branch)
+        required: false
+      parameters:
+        description: JSON map of pipeline parameters
+        required: false
+        default: "{}"
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger CircleCI Pipeline
+        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.2.0
+        with:
+          circleci-token: ${{ secrets.CIRCLECI_TOKEN }}
+          project-slug: gh/${{ github.repository }}
+          branch: ${{ inputs.circleci-branch || github.ref_name }}
+          parameters: ${{ inputs.parameters }}

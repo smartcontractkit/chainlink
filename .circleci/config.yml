@@ -1,0 +1,14 @@
+workflows:
+  version: 2
+  test_and_deploy:
+    jobs:
+      - test
+      - deploy:
+          filters:
+            branches:
+              only: main
+
+  codecov_only:
+    jobs:
+      - upload-coverage
+    when: << pipeline.parameters.run_coverage >>

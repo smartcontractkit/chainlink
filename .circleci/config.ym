@@ -1,0 +1,25 @@
+version: 2.1
+
+orbs:
+  codecov: codecov/codecov@5.4.3
+
+jobs:
+  test-and-upload:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - run:
+          name: Install deps
+          command: pip install -r requirements.txt
+      - run:
+          name: Run tests with coverage
+          command: pytest --cov=./
+      - codecov/upload:
+          flags: backend,python
+          fail_on_error: true
+
+workflows:
+  coverage:
+    jobs:
+      - test-and-upload

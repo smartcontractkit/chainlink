@@ -1,0 +1,23 @@
+name: Holo Attribution CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Codex CLI
+        run: npm i -g @openai/codex
+      - name: Generate diff
+        run: |
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            git diff HEAD~1 > changes.diff
+          else
+            git fetch origin ${{ github.base_ref }}
+            git diff origin/${{ github.base_ref }}...HEAD > changes.diff
+          fi
+      - name: Codex Attribution Review
+        run: codex review changes.diff
