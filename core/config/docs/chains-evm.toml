@@ -1,6 +1,5 @@
 # EVM defaults depend on ChainID:
 #
-# **EXTENDED**
 [[EVM]]
 # ChainID is the EVM chain ID. Mandatory.
 ChainID = '1' # Example

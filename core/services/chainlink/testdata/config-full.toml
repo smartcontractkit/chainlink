@@ -594,13 +594,13 @@ LogPollerStartingLookback = '24h0m0s'
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'
-PollPeriod = '3s'
 ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
 ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
 GasLimitDefault = 0
-TxAcceptanceState = 3
 Local = true
+PollPeriod = '3s'
+TxAcceptanceState = 3
 
 [Solana.MultiNode]
 Enabled = false

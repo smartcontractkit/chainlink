@@ -297,7 +297,7 @@ func startCmd() *cobra.Command {
 			}
 
 			homeChainIDInt, chainErr := strconv.Atoi(in.Blockchains[0].ChainID)
-			if chainErr != nil { 
+			if chainErr != nil {
 				return fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 			}
 

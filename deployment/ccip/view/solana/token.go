@@ -3,6 +3,7 @@ package solana
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	solTokenMetadata "github.com/gagliardetto/metaplex-go/clients/token-metadata"
 	"github.com/gagliardetto/solana-go"
@@ -63,9 +64,9 @@ func GenerateTokenView(chain cldf_solana.Chain, tokenAddress solana.PublicKey, t
 	if err = chain.GetAccountDataBorshInto(context.Background(), metadataPDA, &tokenMetadata); err == nil {
 		view.TokenMetadata = TokenMetadata{}
 		view.TokenMetadata.UpdateAuthority = tokenMetadata.UpdateAuthority.String()
-		view.TokenMetadata.Name = tokenMetadata.Data.Name
-		view.TokenMetadata.Symbol = tokenMetadata.Data.Symbol
-		view.TokenMetadata.URI = tokenMetadata.Data.Uri
+		view.TokenMetadata.Name = strings.ReplaceAll(tokenMetadata.Data.Name, "\x00", "")
+		view.TokenMetadata.Symbol = strings.ReplaceAll(tokenMetadata.Data.Symbol, "\x00", "")
+		view.TokenMetadata.URI = strings.ReplaceAll(tokenMetadata.Data.Uri, "\x00", "")
 		view.TokenMetadata.SellerFeeBasisPoints = tokenMetadata.Data.SellerFeeBasisPoints
 		view.TokenMetadata.PrimarySaleHappened = tokenMetadata.PrimarySaleHappened
 		view.TokenMetadata.IsMutable = tokenMetadata.IsMutable
