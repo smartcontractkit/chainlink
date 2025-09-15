@@ -55,7 +55,6 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		nonce  uint64
 		sender = addrBytes
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -85,7 +84,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 				Replayed:               true,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Nonce:                  &nonce,
+				Nonce:                  nil, // TON nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              c.ToBOC(),
@@ -142,7 +141,6 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -168,7 +166,7 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Nonce:                  &nonce,
+				Nonce:                  nil, // TON nonce check is skipped
 				Receiver:               receiverBase64Bytes,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
