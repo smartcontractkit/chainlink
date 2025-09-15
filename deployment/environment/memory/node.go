@@ -585,7 +585,6 @@ func CreateKeys(t *testing.T,
 			transmitter := keys[0]
 			transmitters[chain.Selector] = transmitter.ID()
 			t.Logf("Created Aptos Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
-			// TODO: funding
 		case chainsel.FamilyTron:
 			keystore := app.GetKeyStore().Tron()
 			err = keystore.EnsureKey(ctx)
@@ -609,6 +608,17 @@ func CreateKeys(t *testing.T,
 
 			transmitter := keys[0]
 			transmitters[chain.Selector] = transmitter.ID()
+		case chainsel.FamilyTon:
+			keystore := app.GetKeyStore().TON()
+			err = keystore.EnsureKey(ctx)
+			require.NoError(t, err, "failed to create key for TON")
+
+			keys, err := app.GetKeyStore().TON().GetAll()
+			require.NoError(t, err)
+			require.Len(t, keys, 1)
+
+			transmitter := keys[0]
+			transmitters[chain.Selector] = transmitter.ID()
 		default:
 			// TODO: other transmission keys unsupported for now
 		}
@@ -616,8 +626,6 @@ func CreateKeys(t *testing.T,
 
 	for chainSelector, chain := range solchains {
 		ctype := chaintype.Solana
-		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
-		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
@@ -640,8 +648,6 @@ func CreateKeys(t *testing.T,
 
 	if len(aptoschains) > 0 {
 		ctype := chaintype.Aptos
-		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
-		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
@@ -665,8 +671,6 @@ func CreateKeys(t *testing.T,
 
 	if len(tonchains) > 0 {
 		ctype := chaintype.TON
-		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
-		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
@@ -688,8 +692,6 @@ func CreateKeys(t *testing.T,
 
 	if len(tronchains) > 0 {
 		ctype := chaintype.Tron
-		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
-		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
