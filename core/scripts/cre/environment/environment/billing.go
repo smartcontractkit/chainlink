@@ -183,6 +183,7 @@ func startBilling(_ context.Context, cleanupWait time.Duration, setupOutput *env
 		}
 
 		for _, ref := range addressRefs {
+			// TODO CRE-878 fail test if test relies on v1 registries
 			switch ref.Type {
 			case "WorkflowRegistry":
 				if in.BillingService.ChainSelector == ref.ChainSelector {
