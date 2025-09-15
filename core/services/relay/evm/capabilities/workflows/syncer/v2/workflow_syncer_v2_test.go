@@ -51,8 +51,6 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	donID := uint32(1)
 	donFamily := "A"
 
-	tickChan := make(chan time.Time)
-
 	// Deploy a test workflow_registry
 	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v2.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
 	backendTH.Backend.Commit()
@@ -101,14 +99,10 @@ func Test_InitialStateSyncV2(t *testing.T) {
 			err: nil,
 		},
 		syncer.NewEngineRegistry(),
-		syncer.WithTicker(tickChan),
 	)
 	require.NoError(t, err)
 
 	servicetest.Run(t, worker)
-
-	// Trigger a sync
-	tickChan <- time.Now()
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows

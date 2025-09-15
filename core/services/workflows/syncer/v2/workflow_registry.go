@@ -75,7 +75,6 @@ type workflowRegistry struct {
 
 	contractReaderFn versioning.ContractReaderFactory
 	contractReader   types.ContractReader
-	readerMu         sync.RWMutex
 
 	config Config
 
@@ -174,6 +173,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 		w.wg.Add(1)
 		go func() {
 			defer w.lggr.Debugw("Received DON and set ContractReader")
+			defer w.wg.Done()
 			defer close(initDoneCh)
 
 			w.lggr.Debugw("Waiting for DON...")
@@ -192,8 +192,6 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 
-			w.readerMu.Lock()
-			defer w.readerMu.Unlock()
 			w.contractReader = reader
 		}()
 
@@ -382,7 +380,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 }
 
 func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
-	ticker := time.NewTicker(defaultTickIntervalForAllowlistedRequests).C
+	ticker := w.getTicker(defaultTickIntervalForAllowlistedRequests)
 	w.lggr.Debug("starting syncAllowlistedRequests")
 	for {
 		select {
@@ -390,9 +388,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 			w.lggr.Debug("shutting down syncAllowlistedRequests, %s", ctx.Err())
 			return
 		case <-ticker:
-			w.readerMu.RLock()
 			allowListedRequests, head, err := w.getAllowlistedRequests(ctx, w.contractReader)
-			w.readerMu.RUnlock()
 			if err != nil {
 				w.lggr.Errorw("failed to call getAllowlistedRequests", "err", err)
 				continue
@@ -408,7 +404,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, don capabilities.DON) {
-	ticker := w.getTicker()
+	ticker := w.getTicker(defaultTickInterval)
 	pendingEvents := map[string]*reconciliationEvent{}
 	w.lggr.Debug("running readRegistryStateLoop")
 	for {
@@ -417,9 +413,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			w.lggr.Debug("shutting down readRegistryStateLoop")
 			return
 		case <-ticker:
-			w.readerMu.RLock()
+			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
 			workflowMetadata, head, err := w.getWorkflowMetadata(ctx, don, w.contractReader)
-			w.readerMu.RUnlock()
 			if err != nil {
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
@@ -471,9 +466,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 
 // getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
 // is nil, then a default ticker is returned.
-func (w *workflowRegistry) getTicker() <-chan time.Time {
+func (w *workflowRegistry) getTicker(d time.Duration) <-chan time.Time {
 	if w.ticker == nil {
-		return time.NewTicker(defaultTickInterval).C
+		return time.NewTicker(d).C
 	}
 
 	return w.ticker
