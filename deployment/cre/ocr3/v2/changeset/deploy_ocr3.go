@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -24,10 +25,10 @@ type DeployOCR3 struct{}
 
 func (l DeployOCR3) VerifyPreconditions(_ cldf.Environment, input DeployOCR3Input) error {
 	if input.ChainSelector == 0 {
-		return fmt.Errorf("chainSelector is required")
+		return errors.New("chainSelector is required")
 	}
 	if input.Qualifier == "" {
-		return fmt.Errorf("qualifier is required")
+		return errors.New("qualifier is required")
 	}
 	return nil
 }
