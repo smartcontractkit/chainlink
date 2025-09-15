@@ -150,7 +150,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 	return out
 }
 
-func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
+func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperator, 0)
 	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0)
 	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
@@ -390,7 +390,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureKeystoneInput, dons *dons) (
 	}
 
 	// Transform dons data to V2 sequence input format
-	v2Input := dons.toV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex())
+	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex())
 	_, err := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,

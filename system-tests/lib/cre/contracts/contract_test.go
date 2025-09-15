@@ -66,7 +66,7 @@ func TestToV2ConfigureInput(t *testing.T) {
 	}
 
 	// Call the method under test
-	result := d.toV2ConfigureInput(123, "0x1234567890abcdef")
+	result := d.mustToV2ConfigureInput(123, "0x1234567890abcdef")
 
 	// Verify the transformation
 	if result.RegistryChainSel != 123 {
