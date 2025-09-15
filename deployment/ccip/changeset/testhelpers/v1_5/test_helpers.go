@@ -10,6 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
@@ -27,7 +29,6 @@ import (
 	config2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/stretchr/testify/require"
 )
 
 func AddLanes(t *testing.T, e cldf.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) cldf.Environment {
