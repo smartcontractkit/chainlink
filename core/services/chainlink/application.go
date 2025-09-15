@@ -24,6 +24,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
@@ -109,6 +110,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+
+	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 )
 
 // Application implements the common functions used in the core node.
@@ -345,6 +348,30 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if err != nil {
 			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
 		}
+	}
+
+	linkingClientURL := cfg.CRE().Linking().URL()
+	var linkingClient linkingclient.LinkingServiceClient
+	if opts.LinkingClient != nil {
+		linkingClient = opts.LinkingClient
+	} else if linkingClientURL != "" {
+		// Create gRPC connection
+		var opts []grpc.DialOption
+		if cfg.CRE().Linking().TLSEnabled() {
+			opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
+		} else {
+			opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		}
+	
+		conn, err := grpc.NewClient(h.linkingURL, opts...)
+		if err != nil {
+			globalLogger.Warnw("Failed to connect to linking service", "url", linkingClientURL, "error", err)
+		}
+		defer conn.Close()
+	
+		linkingClient = linkingclient.NewLinkingServiceClient(conn)
+	} else {
+		globalLogger.Warn("No linking client provided")
 	}
 
 	var storageClient storage.WorkflowClient
@@ -817,6 +844,7 @@ type CREOpts struct {
 	FetcherFactoryFn compute.FetcherFactory
 
 	BillingClient metering.BillingClient
+	LinkingClient linkingclient.LinkingServiceClient
 
 	StorageClient storage.WorkflowClient
 

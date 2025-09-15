@@ -59,6 +59,7 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	linkingURL             string
 	linkingTLSEnabled      bool
+	linkingClient          linkingclient.LinkingServiceClient
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -103,6 +104,12 @@ func WithLinking(url string, tlsEnabled bool) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.linkingURL = url
 		e.linkingTLSEnabled = tlsEnabled
+	}
+}
+
+func WithLinkingClient(client linkingclient.LinkingServiceClient) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.linkingClient = client
 	}
 }
 
