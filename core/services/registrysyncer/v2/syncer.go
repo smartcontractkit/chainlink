@@ -65,7 +65,9 @@ type registrySyncer struct {
 
 var _ services.Service = &registrySyncer{}
 
-var defaultTickInterval = 12 * time.Second
+var (
+	defaultTickInterval = 12 * time.Second
+)
 
 // New instantiates a new RegistrySyncer
 func New(
@@ -105,7 +107,6 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 		return nil, err
 	}
 
-	lggr.Debugw("creating new contract reader", "config", buildV2ContractReaderConfig())
 	cr, err := relayer.NewContractReader(ctx, contractReaderConfigEncoded)
 	if err != nil {
 		return nil, err
@@ -318,15 +319,12 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	s.lggr.Debug("inside Sync method")
-
 	if len(s.listeners) == 0 {
 		s.lggr.Warn("sync called, but no listeners are registered; nooping")
 		return nil
 	}
 
 	if s.reader == nil {
-		s.lggr.Debug("about to call initReader")
 		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.capabilitiesContract)
 		if err != nil {
 			return err

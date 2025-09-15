@@ -169,12 +169,11 @@ func NewWorkflowRegistry(
 func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
 		ctx, cancel := w.stopCh.NewCtx()
-
 		initDoneCh := make(chan struct{})
 
 		w.wg.Add(1)
 		go func() {
-			defer w.lggr.Debugw("closed donReceivedCh")
+			defer w.lggr.Debugw("Received DON and set ContractReader")
 			defer close(initDoneCh)
 
 			w.lggr.Debugw("Waiting for DON...")
@@ -217,8 +216,6 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			<-initDoneCh
 			w.syncAllowlistedRequests(ctx)
 		}()
-
-		w.lggr.Debug("launched all routines in start function")
 
 		return nil
 	})

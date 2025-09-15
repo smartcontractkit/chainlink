@@ -163,8 +163,6 @@ var UpdateAllowedSignersOp = operations.NewOperation(
 			return UpdateAllowedSignersOpOutput{}, fmt.Errorf("failed to execute UpdateAllowedSigners: %w", err)
 		}
 
-		deps.Env.Logger.Debugw("updated allowed signers", "signers", input.Signers, "allowed", input.Allowed, "addr", registry.Address())
-
 		if input.MCMSConfig != nil {
 			deps.Env.Logger.Infof("Created MCMS proposal for UpdateAllowedSigners on chain %d", input.ChainSelector)
 		} else {

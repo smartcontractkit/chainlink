@@ -152,8 +152,6 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client,
 		}
 
 		addr := sc.MustGetRootKeyAddress()
-		s := addr.String()
-
 		linked, err := wr.IsOwnerLinked(sc.NewCallOpts(), addr)
 		if err != nil {
 			return "", errors.Wrap(err, "failed to check link status of owner")
@@ -165,29 +163,6 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client,
 				return "", errors.Wrap(err, "failed to link owner to org")
 			}
 		}
-
-		list, err := wr.GetWorkflowListByOwner(sc.NewCallOpts(), sc.MustGetRootKeyAddress(), big.NewInt(0), big.NewInt(100))
-		_ = err
-		_ = list
-
-		line1 := fmt.Sprintf("len of workflow list by owner (%s): %d", s, len(list))
-		_ = line1
-
-		activeForOwner, err := wr.TotalActiveWorkflowsByOwner(sc.NewCallOpts(), sc.MustGetRootKeyAddress())
-		if err != nil {
-			return "", errors.Wrapf(err, "failed to get max workflows per user for DON %s", contracts.DonFamily)
-		}
-
-		line2 := fmt.Sprintf("active count for owner (%s): %s", s, activeForOwner)
-		_ = line2
-
-		count, err := wr.GetMaxWorkflowsPerUserDON(sc.NewCallOpts(), sc.MustGetRootKeyAddress(), contracts.DonFamily)
-		if err != nil {
-			return "", errors.Wrapf(err, "failed to get max workflows per user for DON %s", contracts.DonFamily)
-		}
-
-		line3 := fmt.Sprintf("max count for DON (%s): %d (%s)", contracts.DonFamily, count, s)
-		_ = line3
 
 		_, decodeErr := sc.Decode(wr.UpsertWorkflow(sc.NewTXOpts(), workflowName, "some-tag", [32]byte(common.Hex2Bytes(workflowID)), uint8(0), contracts.DonFamily, binaryURLToUse, configURLToUse, nil, false))
 		if decodeErr != nil {
