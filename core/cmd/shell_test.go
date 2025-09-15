@@ -360,28 +360,27 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
-	chainCfg := solcfg.Chain{}
-	chainCfg.SetDefaults()
+
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = solcfg.TOMLConfigs{
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("solana-id-1"),
 				Enabled: ptr(true),
-				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("solana-id-2"),
 				Enabled: ptr(true),
-				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("disabled-solana-id-1"),
 				Enabled: ptr(false),
-				Chain:   chainCfg,
 				Nodes:   []*solcfg.Node{},
 			},
+		}
+		for i := range c.Solana {
+			c.Solana[i].SetDefaults()
 		}
 	})
 
@@ -390,10 +389,10 @@ func TestSetupSolanaRelayer(t *testing.T) {
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("solana-id-1"),
 				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
 				Nodes:   []*solcfg.Node{},
 			},
 		}
+		c.Solana[0].SetDefaults()
 	})
 
 	rf := chainlink.RelayerFactory{
@@ -432,15 +431,14 @@ func TestSetupSolanaRelayer(t *testing.T) {
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
-				Chain:   chainCfg,
-				Nodes:   []*solcfg.Node{},
 			},
 			&solcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
-				Chain:   chainCfg,
-				Nodes:   []*solcfg.Node{},
 			},
+		}
+		for i := range c.Solana {
+			c.Solana[i].SetDefaults()
 		}
 	})
 	dupCfg := chainlink.SolanaFactoryConfig{

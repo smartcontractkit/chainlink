@@ -1,23 +1,26 @@
 package vault
 
 import (
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,7 +33,8 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -125,7 +129,8 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -219,7 +224,8 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -291,7 +297,8 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg, nil)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -496,7 +503,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have both key and owner set",
+			error: "secret ID must have key and namespace set",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -670,9 +677,12 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "ListSecretIdentifiers_Invalid_OwnerMissing",
-			response: nil,
-			error:    "owner must not be empty",
+			name: "ListSecretIdentifiers_OwnerMissing",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
@@ -719,7 +729,8 @@ func TestCapability_CRUD(t *testing.T) {
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
-			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer)
+			reg := coreCapabilities.NewRegistry(lggr)
+			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
 			servicetest.Run(t, capability)
 
 			wait := func() {}
@@ -756,4 +767,56 @@ func TestCapability_CRUD(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCapability_Lifecycle(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, "owner", nil).Maybe()
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
+
+	require.NoError(t, capability.Start(t.Context()))
+
+	_, err := reg.GetExecutable(t.Context(), vault.CapabilityID)
+	require.NoError(t, err)
+
+	require.NoError(t, capability.Close())
+
+	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
+	require.ErrorContains(t, err, "capability not found with id vault@1.0.0")
+}
+
+func TestCapability_PublicKeyGet(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lpk := NewLazyPublicKey()
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk)
+	servicetest.Run(t, capability)
+
+	_, err := capability.GetPublicKey(t.Context(), nil)
+	require.ErrorContains(t, err, "could not get public key: is the plugin initialized?")
+
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	lpk.Set(pk)
+
+	pkb, err := pk.Marshal()
+	require.NoError(t, err)
+
+	hpkb := hex.EncodeToString(pkb)
+
+	resp, err := capability.GetPublicKey(t.Context(), nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, hpkb, resp.PublicKey)
 }

@@ -6,8 +6,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -40,11 +41,11 @@ type SVMExecCallArgs struct {
 
 // SVMContractTransmitterFactory implements the transmitter factory for SVM chains.
 type SVMContractTransmitterFactory struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
 // NewSVMContractTransmitterFactory returns a new SVMContractTransmitterFactory.
-func NewSVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *SVMContractTransmitterFactory {
+func NewSVMContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodec) *SVMContractTransmitterFactory {
 	return &SVMContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -56,7 +57,7 @@ var SVMExecCalldataFunc = func(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-	extraDataCodec ccipcommon.ExtraDataCodec,
+	extraDataCodec ccipocr3.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	var info ccipocr3.ExecuteReportInfo
 	var extraDataDecoded ccipcommon.ExtraDataDecoded
@@ -92,7 +93,7 @@ func NewSVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataF
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		_ ccipcommon.ExtraDataCodec,
+		_ ccipocr3.ExtraDataCodec,
 	) (string, string, any, error) {
 		var info ccipocr3.CommitReportInfo
 		if len(report.Info) != 0 {
@@ -124,7 +125,7 @@ func NewSVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataF
 }
 
 // decodeExecData decodes the extra data from an execute report.
-func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipcommon.ExtraDataCodec) (ccipcommon.ExtraDataDecoded, error) {
+func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipocr3.ExtraDataCodec) (ccipcommon.ExtraDataDecoded, error) {
 	// only one report one message, since this is a stop-gap solution for solana
 	if len(report.AbstractReports) != 1 {
 		return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("unexpected report length, expected 1, got %d", len(report.AbstractReports))

@@ -2,6 +2,8 @@ package cre
 
 import (
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
 /*
@@ -17,20 +19,18 @@ Inside `core/scripts/cre/environment` directory
 */
 func Test_CRE_Suite(t *testing.T) {
 	testEnv := SetupTestEnvironment(t)
-
 	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
 	t.Run("[v1] CRE Suite", func(t *testing.T) {
 		// requires `readcontract`, `cron`
 		t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
-			ExecutePoRTest(t, testEnv)
+			priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
+			ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
 		})
 	})
 
 	t.Run("[v2] CRE Suite", func(t *testing.T) {
 		t.Run("[v2] vault DON test", func(t *testing.T) {
-			// Skip till we figure out and fix the issues with environment startup on this test
-			t.Skip("Skipping test for the following reason: Skip till the errors with topology TopologyWorkflowGatewayCapabilities are fixed: https://smartcontract-it.atlassian.net/browse/PRIV-160")
 			ExecuteVaultTest(t, testEnv)
 		})
 
@@ -39,7 +39,7 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] DON Time test", func(t *testing.T) {
-			t.Skipf("Skipping test for the following reason: Implement smoke test - https://smartcontract-it.atlassian.net/browse/CAPPL-1028")
+			ExecuteDonTimeTest(t, testEnv)
 		})
 
 		t.Run("[v2] Beholder test", func(t *testing.T) {
@@ -52,12 +52,29 @@ func Test_CRE_Suite(t *testing.T) {
 	})
 }
 
+func Test_CRE_Suite_EVM(t *testing.T) {
+	testEnv := SetupTestEnvironment(t)
+
+	// TODO remove this when OCR works properly with multiple chains in Local CRE
+	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+	t.Run("Write Test", func(t *testing.T) {
+		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
+		porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
+	})
+
+	t.Run("Read test", func(t *testing.T) {
+		executeEVMReadTest(t, testEnv)
+	})
+}
+
 func Test_withV2Registries(t *testing.T) {
 	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
 		const skipReason = "Integrate v2 registry contracts in local CRE/test setup - https://smartcontract-it.atlassian.net/browse/CRE-635"
 		t.Skipf("Skipping test for the following reason: %s", skipReason)
 		flags := []string{"--with-contracts-version", "v2"}
 		testEnv := SetupTestEnvironment(t, flags...)
-		ExecutePoRTest(t, testEnv)
+		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow", PoRWFV1Location)
+		ExecutePoRTest(t, testEnv, priceProvider, wfConfig)
 	})
 }

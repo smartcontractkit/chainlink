@@ -3,9 +3,8 @@ package ccipsolana
 import (
 	"fmt"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 const (
@@ -14,14 +13,14 @@ const (
 	DestGasOverhead     = 350_000 // Commit and Exec costs
 )
 
-func NewGasEstimateProvider(codec ccipcommon.ExtraDataCodec) EstimateProvider {
+func NewGasEstimateProvider(codec ccipocr3.ExtraDataCodec) EstimateProvider {
 	return EstimateProvider{
 		extraDataCodec: codec,
 	}
 }
 
 type EstimateProvider struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
 // CalculateMerkleTreeGas is not implemented

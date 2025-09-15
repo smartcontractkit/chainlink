@@ -246,6 +246,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 					ID:      validID,
 					Enabled: true,
 					Config: `ChainID = 'Chainlink-12'
+Enabled = true
 BlockTime = '500ms'
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
@@ -271,6 +272,16 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 Nodes = []
+
+[Workflow]
+AcceptanceTimeout = '45s'
+ForwarderAddress = '11111111111111111111111111111111'
+ForwarderState = '11111111111111111111111111111111'
+FromAddress = '11111111111111111111111111111111'
+GasLimitDefault = 300000
+Local = false
+PollPeriod = '3s'
+TxAcceptanceState = 3
 
 [MultiNode]
 Enabled = false

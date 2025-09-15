@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -51,43 +52,64 @@ func newMetrics() (*metrics, error) {
 	}, nil
 }
 
-type gatewaySender interface {
+type gatewayConnector interface {
 	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error
+	AddHandler(ctx context.Context, methods []string, handler core.GatewayConnectorHandler) error
+	RemoveHandler(ctx context.Context, methods []string) error
 }
 
 type GatewayHandler struct {
-	capRegistry    core.CapabilitiesRegistry
-	secretsService vaulttypes.SecretsService
-	gatewaySender  gatewaySender
-	lggr           logger.Logger
-	metrics        *metrics
+	services.Service
+	eng *services.Engine
+
+	capRegistry      core.CapabilitiesRegistry
+	secretsService   vaulttypes.SecretsService
+	gatewayConnector gatewayConnector
+	lggr             logger.Logger
+	metrics          *metrics
 }
 
-func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, gwsender gatewaySender, lggr logger.Logger) (*GatewayHandler, error) {
+func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, connector gatewayConnector, lggr logger.Logger) (*GatewayHandler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
-	return &GatewayHandler{
-		capRegistry:    capabilitiesRegistry,
-		secretsService: secretsService,
-		gatewaySender:  gwsender,
-		lggr:           lggr.Named(HandlerName),
-		metrics:        metrics,
-	}, nil
+	gh := &GatewayHandler{
+		capRegistry:      capabilitiesRegistry,
+		secretsService:   secretsService,
+		gatewayConnector: connector,
+		lggr:             lggr.Named(HandlerName),
+		metrics:          metrics,
+	}
+	gh.Service, gh.eng = services.Config{
+		Name:  "GatewayHandler",
+		Start: gh.start,
+		Close: gh.close,
+	}.NewServiceEngine(lggr)
+	return gh, nil
 }
 
-func (h *GatewayHandler) Start(ctx context.Context) error {
+func (h *GatewayHandler) start(ctx context.Context) error {
+	if gwerr := h.gatewayConnector.AddHandler(ctx, h.Methods(), h); gwerr != nil {
+		return fmt.Errorf("failed to add vault handler to connector: %w", gwerr)
+	}
 	return nil
 }
 
-func (h *GatewayHandler) Close() error {
+func (h *GatewayHandler) close() error {
+	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); gwerr != nil {
+		return fmt.Errorf("failed to remove vault handler from connector: %w", gwerr)
+	}
 	return nil
 }
 
 func (h *GatewayHandler) ID(ctx context.Context) (string, error) {
 	return HandlerName, nil
+}
+
+func (h *GatewayHandler) Methods() []string {
+	return vaulttypes.GetSupportedMethods(h.lggr)
 }
 
 func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
@@ -105,11 +127,13 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 		response = h.handleSecretsDelete(ctx, gatewayID, req)
 	case vaulttypes.MethodSecretsList:
 		response = h.handleSecretsList(ctx, gatewayID, req)
+	case vaulttypes.MethodPublicKeyGet:
+		response = h.handlePublicKeyGet(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
 
-	if err = h.gatewaySender.SendToGateway(ctx, gatewayID, response); err != nil {
+	if err = h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
 		h.lggr.Errorf("Failed to send message to gateway %s: %v", gatewayID, err)
 		return err
 	}
@@ -126,6 +150,8 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
+
+	vaultCapRequest.RequestId = req.ID
 
 	vaultCapResponse, err := h.secretsService.CreateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
@@ -247,6 +273,30 @@ func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string
 		ID:      req.ID,
 		Method:  req.Method,
 		Result:  (*json.RawMessage)(&resultBytes),
+	}
+}
+
+func (h *GatewayHandler) handlePublicKeyGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	r := &vaultcommon.GetPublicKeyRequest{}
+	if err := json.Unmarshal(*req.Params, r); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+
+	resp, err := h.secretsService.GetPublicKey(ctx, r)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
+	}
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
+	}
+
+	return &jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      req.ID,
+		Method:  req.Method,
+		Result:  (*json.RawMessage)(&b),
 	}
 }
 

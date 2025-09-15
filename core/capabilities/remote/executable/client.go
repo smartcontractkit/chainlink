@@ -34,6 +34,7 @@ type client struct {
 	requestTimeout       time.Duration
 	// Has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
 	transmissionConfig *transmission.TransmissionConfig
+	capMethodName      string
 
 	requestIDToCallerRequest map[string]*request.ClientRequest
 	mutex                    sync.Mutex
@@ -54,7 +55,7 @@ var (
 
 // TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
 func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, lggr logger.Logger) *client {
+	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string, lggr logger.Logger) *client {
 	return &client{
 		lggr:                     logger.Named(lggr, "ExecutableCapabilityClient"),
 		remoteCapabilityInfo:     remoteCapabilityInfo,
@@ -62,6 +63,7 @@ func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commo
 		dispatcher:               dispatcher,
 		requestTimeout:           requestTimeout,
 		transmissionConfig:       transmissionConfig,
+		capMethodName:            capMethodName,
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
 		stopCh:                   make(services.StopChan),
 	}
@@ -166,7 +168,7 @@ func (c *client) UnregisterFromWorkflow(ctx context.Context, unregisterRequest c
 
 func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
 	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
-		c.requestTimeout, c.transmissionConfig)
+		c.requestTimeout, c.transmissionConfig, c.capMethodName)
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}

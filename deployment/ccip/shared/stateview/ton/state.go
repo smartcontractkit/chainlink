@@ -20,9 +20,10 @@ import (
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
 	LinkTokenAddress address.Address
-	CCIPAddress      address.Address
 	OffRamp          address.Address
 	Router           address.Address
+	OnRamp           address.Address
+	FeeQuoter        address.Address
 
 	// dummy receiver address
 	ReceiverAddress address.Address
@@ -32,12 +33,6 @@ func SaveOnchainState(chainSelector uint64, state CCIPChainState, e cldf.Environ
 	ab := e.ExistingAddresses
 	if !state.LinkTokenAddress.IsAddrNone() {
 		err := ab.Save(chainSelector, state.LinkTokenAddress.String(), cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0))
-		if err != nil {
-			return err
-		}
-	}
-	if !state.CCIPAddress.IsAddrNone() {
-		err := ab.Save(chainSelector, state.CCIPAddress.String(), cldf.NewTypeAndVersion(shared.TonCCIP, deployment.Version1_6_0))
 		if err != nil {
 			return err
 		}
@@ -56,6 +51,18 @@ func SaveOnchainState(chainSelector uint64, state CCIPChainState, e cldf.Environ
 	}
 	if !state.Router.IsAddrNone() {
 		err := ab.Save(chainSelector, state.Router.String(), cldf.NewTypeAndVersion(shared.Router, deployment.Version1_6_0))
+		if err != nil {
+			return err
+		}
+	}
+	if !state.OnRamp.IsAddrNone() {
+		err := ab.Save(chainSelector, state.OnRamp.String(), cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_6_0))
+		if err != nil {
+			return err
+		}
+	}
+	if !state.FeeQuoter.IsAddrNone() {
+		err := ab.Save(chainSelector, state.FeeQuoter.String(), cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0))
 		if err != nil {
 			return err
 		}
@@ -100,14 +107,16 @@ func loadChainState(chain cldf_ton.Chain, addressTypes map[string]cldf.TypeAndVe
 		switch tvStr.Type {
 		case commontypes.LinkToken:
 			state.LinkTokenAddress = *address
-		case shared.TonCCIP:
-			state.CCIPAddress = *address
 		case shared.TonReceiver:
 			state.ReceiverAddress = *address
 		case shared.OffRamp:
 			state.OffRamp = *address
 		case shared.Router:
 			state.Router = *address
+		case shared.OnRamp:
+			state.OnRamp = *address
+		case shared.FeeQuoter:
+			state.FeeQuoter = *address
 		default:
 			log.Warn().Str("address", addressStr).Str("type", string(tvStr.Type)).Msg("Unknown TON address type")
 			continue

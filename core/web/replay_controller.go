@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -47,26 +48,14 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 
 	chainFamily := c.Query("family")
 	if chainFamily == "" {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("chain family was not provoded"))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("chain family was not provided"))
 		return
 	}
 
 	chainID := c.Query("ChainID")
-	if chainID == "" {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("chain-id was not provoded"))
+	if strings.TrimSpace(chainID) == "" {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("chain-id was not provided"))
 		return
-	}
-
-	if chainFamily == "evm" {
-		_, err := getChain(bdc.App.GetRelayers().LegacyEVMChains(), c.Query("ChainID"))
-		if err != nil {
-			if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
-				jsonAPIError(c, http.StatusUnprocessableEntity, err)
-				return
-			}
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
 	}
 
 	ctx := c.Request.Context()

@@ -15,10 +15,9 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
@@ -27,6 +26,70 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
+
+// migrateAddressBookWithQualifiers migrates an address book to a data store,
+// applying custom qualifiers from MCMS configs when available
+func migrateAddressBookWithQualifiers(ab cldf.AddressBook, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2) (datastore.MutableDataStore, error) {
+	addrs, err := ab.Addresses()
+	if err != nil {
+		return nil, err
+	}
+
+	ds := datastore.NewMemoryDataStore()
+
+	for chainSelector, chainAddresses := range addrs {
+		// Get the qualifier for this chain from the config
+		qualifier := ""
+		if cfg, exists := cfgByChain[chainSelector]; exists && cfg.Qualifier != nil && *cfg.Qualifier != "" {
+			qualifier = *cfg.Qualifier
+		}
+
+		for addr, typever := range chainAddresses {
+			ref := datastore.AddressRef{
+				ChainSelector: chainSelector,
+				Address:       addr,
+				Type:          datastore.ContractType(typever.Type),
+				Version:       &typever.Version,
+			}
+
+			// If we have a custom qualifier for this chain, use it for MCMS contracts
+			if qualifier != "" && isMCMSContract(string(typever.Type)) {
+				ref.Qualifier = qualifier
+			} else {
+				// Use the original auto-generated qualifier for other contracts
+				ref.Qualifier = fmt.Sprintf("%s-%s", addr, typever.Type)
+			}
+
+			// If the address book has labels, we need to add them to the addressRef
+			if !typever.Labels.IsEmpty() {
+				ref.Labels = datastore.NewLabelSet(typever.Labels.List()...)
+			}
+
+			if err = ds.Addresses().Add(ref); err != nil {
+				return nil, fmt.Errorf("failed to add address %s: %w", addr, err)
+			}
+		}
+	}
+	return ds, nil
+}
+
+// isMCMSContract checks if a contract type is part of the MCMS system
+func isMCMSContract(contractType string) bool {
+	mcmsTypes := []string{
+		string(types.RBACTimelock),
+		string(types.ManyChainMultisig),
+		string(types.ProposerManyChainMultisig),
+		string(types.BypasserManyChainMultisig),
+		string(types.CancellerManyChainMultisig),
+	}
+
+	for _, mcmsType := range mcmsTypes {
+		if contractType == mcmsType {
+			return true
+		}
+	}
+	return false
+}
 
 var (
 	_ cldf.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
@@ -58,14 +121,22 @@ func DeployMCMSWithTimelockV2(
 
 			switch family {
 			case chain_selectors.FamilyEVM:
-				// load mcms state
-				// we load the state one by one to void early return from MaybeLoadMCMSWithTimelockState
+				// Extract qualifier from config for this chain
+				qualifier := ""
+				if cfg.Qualifier != nil {
+					qualifier = *cfg.Qualifier
+				}
+
+				// load mcms state with qualifier awareness
+				// we load the state one by one to avoid early return from MaybeLoadMCMSWithTimelockStateWithQualifier
 				// due to one of the chain not found
 				var chainstate *state.MCMSWithTimelockState
-				s, err := state.MaybeLoadMCMSWithTimelockState(env, []uint64{chainSel})
+				s, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSel}, qualifier)
 				if err != nil {
 					// if the state is not found for chain, we assume it's a fresh deployment
-					if !strings.Contains(err.Error(), cldf.ErrChainNotFound.Error()) {
+					// this includes "no addresses found" which is expected for new qualifiers
+					if !strings.Contains(err.Error(), cldf.ErrChainNotFound.Error()) &&
+						!strings.Contains(err.Error(), "no addresses found") {
 						return err
 					}
 				}
@@ -95,7 +166,7 @@ func DeployMCMSWithTimelockV2(
 	if err != nil {
 		return cldf.ChangesetOutput{Reports: allReports, AddressBook: newAddresses}, err
 	}
-	ds, err := deployment.MigrateAddressBook(newAddresses)
+	ds, err := migrateAddressBookWithQualifiers(newAddresses, cfgByChain)
 	if err != nil {
 		return cldf.ChangesetOutput{Reports: allReports, AddressBook: newAddresses}, fmt.Errorf("failed to migrate address book to data store: %w", err)
 	}
