@@ -12,6 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/report_codec"
@@ -22,9 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uint64, gasLimit *big.Int, destGasAmount uint32) cciptypes.ExecutePluginReport {
@@ -187,7 +188,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			edc := ccipocr3.ExtraDataCodec(registeredMockExtraDataCodecMap)
+			edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 			codec := NewExecutePluginCodecV1(edc)
 			report := tc.report(randomExecuteReport(t, d, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)

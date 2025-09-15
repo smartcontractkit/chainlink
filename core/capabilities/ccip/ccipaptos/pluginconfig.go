@@ -14,7 +14,7 @@ import (
 
 // initializePluginConfig returns a PluginConfig for Aptos chains.
 func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
-	return func(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
+	return func(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 		var cwProvider ccipcommon.ChainRWProvider
 		var transmitterFactory types.ContractTransmitterFactory
 		var msgHasher ccipocr3.MessageHasher

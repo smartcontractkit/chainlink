@@ -13,14 +13,14 @@ const (
 	DestGasOverhead     = 350_000 // Commit and Exec costs
 )
 
-func NewGasEstimateProvider(codec ccipocr3.ExtraDataCodec) EstimateProvider {
+func NewGasEstimateProvider(codec ccipocr3.ExtraDataCodecBundle) EstimateProvider {
 	return EstimateProvider{
 		extraDataCodec: codec,
 	}
 }
 
 type EstimateProvider struct {
-	extraDataCodec ccipocr3.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
 // CalculateMerkleTreeGas is not implemented

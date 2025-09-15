@@ -2,6 +2,7 @@ package ccipsolana
 
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
@@ -12,7 +13,7 @@ import (
 )
 
 // InitializePluginConfig returns a pluginConfig for Solana chains.
-func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
+func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:          NewCommitPluginCodecV1(),
 		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),

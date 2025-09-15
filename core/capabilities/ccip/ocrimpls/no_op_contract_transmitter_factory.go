@@ -11,16 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 type contractTransmitterFactory struct {
-	extraDataCodec ccipocr3.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
 // NewContractTransmitterFactory constructs a Noop transmitter.
-func NewContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodec) cciptypes.ContractTransmitterFactory {
+func NewContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodecBundle) cciptypes.ContractTransmitterFactory {
 	return &contractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -68,7 +66,7 @@ func NewNoopCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 		_report ocr3types.ReportWithInfo[[]byte],
 		_rs, _ss [][32]byte,
 		_vs [32]byte,
-		_ ccipocr3.ExtraDataCodec,
+		_ ccipocr3.ExtraDataCodecBundle,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,
@@ -83,7 +81,7 @@ var NoopExecCallDataFunc = func(
 	_report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-	_ ccipcommon.ExtraDataCodec,
+	_ ccipocr3.ExtraDataCodecBundle,
 ) (contract string, method string, args any, err error) {
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,

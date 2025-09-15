@@ -31,7 +31,7 @@ var (
 // Compatible with ccip::offramp version 1.6.0
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec ccipocr3common.ExtraDataCodec
+	extraDataCodec ccipocr3common.ExtraDataCodecBundle
 }
 
 type any2SuiTokenTransfer struct {
@@ -42,7 +42,7 @@ type any2SuiTokenTransfer struct {
 	Amount            *big.Int
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3common.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3common.ExtraDataCodecBundle) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,

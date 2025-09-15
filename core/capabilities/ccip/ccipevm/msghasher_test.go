@@ -36,7 +36,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var extraDataCodec = ccipocr3.ExtraDataCodec(map[string]ccipocr3.SourceChainExtraDataCodec{
+var extraDataCodec = ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 	chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
 	chainsel.FamilyEVM:    ExtraDataDecoder{},
 	chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},

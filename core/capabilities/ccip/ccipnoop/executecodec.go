@@ -10,10 +10,10 @@ import (
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
-	extraDataCodec ccipocr3.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
-func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodec) *ExecutePluginCodecV1 {
+func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodecBundle) *ExecutePluginCodecV1 {
 	return &ExecutePluginCodecV1{
 		extraDataCodec: extraDataCodec,
 	}

@@ -33,7 +33,7 @@ func TestMessageHasher_EVM2SVM(t *testing.T) {
 		chainsel.FamilySolana: ExtraDataDecoder{},
 		chainsel.FamilySui:    ccipaptos.ExtraDataDecoder{},
 	}
-	var extraDataCodec = ccipocr3.ExtraDataCodec(registeredExtraDataCodecMap)
+	var extraDataCodec = ccipocr3.ExtraDataCodecMap(registeredExtraDataCodecMap)
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
 	msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
@@ -67,7 +67,7 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 		chainsel.FamilySolana: mockExtraDataCodec,
 	}
 
-	edc := ccipocr3.ExtraDataCodec(registeredMockExtraDataCodecMap)
+	edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 	msgHasher := NewMessageHasherV1(logger.Test(t), edc)
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
@@ -96,7 +96,7 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 		chainsel.FamilyEVM:    mockExtraDataCodec,
 		chainsel.FamilySolana: mockExtraDataCodec,
 	}
-	edc := ccipocr3.ExtraDataCodec(registeredMockExtraDataCodecMap)
+	edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 	msgHasher := NewMessageHasherV1(logger.Test(t), edc)
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)

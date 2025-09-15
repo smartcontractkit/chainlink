@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
@@ -28,7 +29,7 @@ type ToCalldataFunc func(
 	report ocr3types.ReportWithInfo[[]byte],
 	rs, ss [][32]byte,
 	vs [32]byte,
-	codec ccipocr3.ExtraDataCodec,
+	codec ccipocr3.ExtraDataCodecBundle,
 ) (contract string, method string, args any, err error)
 
 // ToEd25519CalldataFunc is a function that takes in the OCR3 report and Ed25519 signature data and processes them.
@@ -40,7 +41,7 @@ type ToEd25519CalldataFunc func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
 	signatures [][96]byte,
-	codec ccipocr3.ExtraDataCodec,
+	codec ccipocr3.ExtraDataCodecBundle,
 ) (contract string, method string, args any, err error)
 
 var _ ocr3types.ContractTransmitter[[]byte] = &ccipTransmitter{}
@@ -51,7 +52,7 @@ type ccipTransmitter struct {
 	offrampAddress      string
 	toCalldataFn        ToCalldataFunc
 	toEd25519CalldataFn ToEd25519CalldataFunc
-	extraDataCodec      ccipocr3.ExtraDataCodec
+	extraDataCodec      ccipocr3.ExtraDataCodecBundle
 	lggr                logger.Logger
 }
 
@@ -68,7 +69,7 @@ func XXXNewContractTransmitterTestsOnly(
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		extraDataCodec ccipocr3.ExtraDataCodec) (string, string, any, error) {
+		extraDataCodec ccipocr3.ExtraDataCodecBundle) (string, string, any, error) {
 		_, _, args, err := toCalldataFn(rawReportCtx, report, rs, ss, vs, extraDataCodec)
 		return contractName, method, args, err
 	}

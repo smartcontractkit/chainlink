@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -47,10 +48,10 @@ var (
 // - "OnRamp 1.6.0"
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec ccipocr3.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,

@@ -32,7 +32,7 @@ func ABITypeOrPanic(t string) abi.Type {
 
 // CCIPMsgToAny2EVMMessage converts a ccipocr3.Message object to an offramp.InternalAny2EVMRampMessage object.
 // These are typically used to create the execution report for EVM.
-func CCIPMsgToAny2EVMMessage(msg ccipocr3.Message, codec ccipocr3.ExtraDataCodec) (offramp.InternalAny2EVMRampMessage, error) {
+func CCIPMsgToAny2EVMMessage(msg ccipocr3.Message, codec ccipocr3.ExtraDataCodecBundle) (offramp.InternalAny2EVMRampMessage, error) {
 	var tokenAmounts []offramp.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
 		decodedMap, err := codec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)

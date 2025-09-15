@@ -4,14 +4,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
-func NewGasEstimateProvider(codec ccipocr3.ExtraDataCodec) ccipocr3.EstimateProvider {
+func NewGasEstimateProvider(codec ccipocr3.ExtraDataCodecBundle) ccipocr3.EstimateProvider {
 	return estimateProvider{
 		extraDataCodec: codec,
 	}
 }
 
 type estimateProvider struct {
-	extraDataCodec ccipocr3.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
 // CalculateMerkleTreeGas is not implemented
