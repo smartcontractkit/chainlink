@@ -18,15 +18,19 @@ package cre
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	common_events "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
@@ -136,8 +140,11 @@ func startBeholderListener(t *testing.T, testLogger zerolog.Logger, chipConfig *
 	return listenerCtx, messageChan, kafkaErrChan
 }
 
-// Asserts that a specific log message is received from Beholder within a timeout period.
-func assertBeholderMessage(t *testing.T, ctx context.Context, expectedLog string, testLogger zerolog.Logger, messageChan chan proto.Message, kafkaErrChan chan error, timeout time.Duration) {
+/*
+Asserts that a specific log message is received from a Beholder within a timeout period.
+Returns an error if found in error channel or timeouts if a log message is not received.
+*/
+func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan chan proto.Message, kafkaErrChan chan error, timeout time.Duration) error {
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
@@ -191,12 +198,11 @@ func assertBeholderMessage(t *testing.T, ctx context.Context, expectedLog string
 	// Wait for either the expected log to be found, or engine initialization failure to be detected, or timeout (2 minutes)
 	select {
 	case <-foundExpectedLog:
-		testLogger.Info().
-			Str("expected_log", expectedLog).
-			Msg("✅ Test completed successfully - found expected user log message!")
-		return
+		testLogger.Info().Str("expected_log", expectedLog).Msg("✅ Test completed successfully - found expected user log message!")
+		return nil
 	case <-foundErrorLog:
-		require.Fail(t, "Test completed with error - found engine initialization failure message!")
+		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
+		return errors.New("beholder message validation completed with error: found engine initialization failure message")
 	case <-time.After(timeout):
 		testLogger.Error().Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {
@@ -204,21 +210,30 @@ func assertBeholderMessage(t *testing.T, ctx context.Context, expectedLog string
 		} else {
 			testLogger.Warn().Msg("Did not receive any UserLogs messages")
 		}
-		require.Failf(t, "Timed out waiting for expected user log message", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
+		require.Failf(t, "Timed out waiting for the expected user log message (or error)", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
 	case err := <-kafkaErrChan:
 		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
 		require.Fail(t, "Kafka listener failed", err.Error())
 	}
+	return nil
 }
 
 //////////////////////////////
 // WORKFLOW-RELATED HELPERS //
 //////////////////////////////
 
+type CronWorkflowConfig struct {
+	Schedule string `yaml:"schedule,omitempty"`
+}
+
 // Generic WorkflowConfig interface for creation of different workflow configurations
 // Register your workflow configuration types here
 type WorkflowConfig interface {
-	None | portypes.WorkflowConfig | HTTPWorkflowConfig | evmread_config.Config
+	None |
+		portypes.WorkflowConfig |
+		CronWorkflowConfig |
+		HTTPWorkflowConfig |
+		evmread_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -290,11 +305,18 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create PoR workflow config file")
 			testLogger.Info().Msg("PoR Workflow config file created.")
 
+		case *CronWorkflowConfig:
+			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create Cron workflow config file")
+			testLogger.Info().Msg("Cron Workflow config file created.")
+
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create HTTP workflow config file")
 			testLogger.Info().Msg("HTTP Workflow config file created.")
+
 		case *evmread_config.Config:
 			var configErr error
 			workflowConfigFilePath, configErr = createWorkflowYamlConfigFile(workflowName, cfg)
@@ -305,6 +327,38 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 		}
 	}
 	return workflowConfigFilePath
+}
+
+/*
+Creates .yaml workflow configuration file and returns the absolute path to the created config file.
+*/
+func createWorkflowYamlConfigFile(workflowName string, workflowConfig any) (string, error) {
+	// Write workflow config to a .yaml file
+	configMarshalled, err := yaml.Marshal(workflowConfig)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal workflow config")
+	}
+	workflowSuffix := "_config.yaml"
+	workflowConfigOutputFile := workflowName + workflowSuffix
+
+	// remove the duplicate if it already exists
+	_, statErr := os.Stat(workflowConfigOutputFile)
+	if statErr == nil {
+		if err := os.Remove(workflowConfigOutputFile); err != nil {
+			return "", errors.Wrap(err, "failed to remove existing output file")
+		}
+	}
+
+	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
+		return "", errors.Wrap(err, "failed to write output file")
+	}
+
+	outputFileAbsPath, outputFileAbsPathErr := filepath.Abs(workflowConfigOutputFile)
+	if outputFileAbsPathErr != nil {
+		return "", errors.Wrap(outputFileAbsPathErr, "failed to get absolute path of the config file")
+	}
+
+	return outputFileAbsPath, nil
 }
 
 /*

@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
@@ -14,9 +16,15 @@ func ExecuteDonTimeTest(t *testing.T, testEnv *TestEnvironment) {
 	workflowName := "timebeholder"
 
 	listenerCtx, messageChan, kafkaErrChan := startBeholder(t, testLogger, testEnv)
-	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &None{}, workflowFileLocation)
+
+	testLogger.Info().Msg("Creating Cron workflow configuration file...")
+	workflowConfig := CronWorkflowConfig{
+		Schedule: "*/30 * * * * *", // every 30 seconds
+	}
+	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedBeholderLog := "Verified consensus on DON Time"
-	assertBeholderMessage(t, listenerCtx, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, timeout)
+	err := assertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, timeout)
+	require.NoError(t, err, "DON Time test failed, Beholder should not return an error")
 	testLogger.Info().Msg("DON Time test completed")
 }

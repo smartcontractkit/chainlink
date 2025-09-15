@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"main/types"
 
 	"gopkg.in/yaml.v3"
 
@@ -14,21 +13,23 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
-type None struct{}
+type WorkflowConfig struct {
+	Schedule string `yaml:"schedule,omitempty"`
+}
 
 func main() {
-	wasm.NewRunner(func(configBytes []byte) (types.WorkflowConfig, error) {
-		cfg := types.WorkflowConfig{}
+	wasm.NewRunner(func(configBytes []byte) (WorkflowConfig, error) {
+		cfg := WorkflowConfig{}
 		if err := yaml.Unmarshal(configBytes, &cfg); err != nil {
-			return types.WorkflowConfig{}, fmt.Errorf("failed to unmarshal config: %w", err)
+			return WorkflowConfig{}, fmt.Errorf("failed to unmarshal config: %w", err)
 		}
 
 		return cfg, nil
 	}).Run(RunSimpleCronWorkflow)
 }
 
-func RunSimpleCronWorkflow(config types.WorkflowConfig, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[types.WorkflowConfig], error) {
-	workflows := cre.Workflow[types.WorkflowConfig]{
+func RunSimpleCronWorkflow(config WorkflowConfig, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[WorkflowConfig], error) {
+	workflows := cre.Workflow[WorkflowConfig]{
 		cre.Handler(
 			cron.Trigger(&cron.Config{Schedule: config.Schedule}),
 			onTrigger,
@@ -37,7 +38,7 @@ func RunSimpleCronWorkflow(config types.WorkflowConfig, _ *slog.Logger, _ cre.Se
 	return workflows, nil
 }
 
-func onTrigger(_ types.WorkflowConfig, runtime cre.Runtime, _ *cron.Payload) (string, error) {
+func onTrigger(_ WorkflowConfig, runtime cre.Runtime, _ *cron.Payload) (string, error) {
 	runtime.Logger().Info("Amazing workflow user log")
 	return "such a lovely disaster", nil
 }
