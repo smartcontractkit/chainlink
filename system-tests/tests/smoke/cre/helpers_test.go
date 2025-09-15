@@ -234,7 +234,7 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 
 	switch tv.Version.Major() {
 	case 2:
-		// TODO: link owner as a part of wf registry config
+		// TODO(CRE-876): delete with workflowID
 		return
 	default:
 	}
