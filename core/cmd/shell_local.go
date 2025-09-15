@@ -387,7 +387,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		for _, k := range s.Config.ImportedEthKeys().List() {
 			lggr.Debug("Importing eth key")
 			id, err2 := chain_selectors.GetChainIDFromSelector(k.ChainDetails().ChainSelector)
-			if err != nil {
+			if err2 != nil {
 				return s.errorOut(errors.Wrapf(err2, "error getting chain id from selector when trying to import eth key %v", k.JSON()))
 			}
 			cid, _ := big.NewInt(0).SetString(id, 10)
