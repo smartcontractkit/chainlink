@@ -10,6 +10,7 @@ import (
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 var _ cldf.ChangeSetV2[ProposeJobSpecInput] = ProposeJobSpec{}
@@ -18,8 +19,8 @@ type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
 
-	DONName    string                        `json:"don_name" yaml:"don_name"`
-	DONFilters []operations2.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
+	DONName    string                     `json:"don_name" yaml:"don_name"`
+	DONFilters []offchain.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
 
 	JobName     string                    `json:"job_name" yaml:"job_name"`
 	Template    job_types.JobSpecTemplate `json:"template" yaml:"template"`
@@ -55,7 +56,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 	}
 
 	switch config.Template {
-	case job_types.Cron, job_types.BootstrapOCR3:
+	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -68,7 +69,6 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 }
 
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
-	e.Logger.Debugw("environment", "name", e.Name)
 	var report operations.Report[any, any]
 	switch input.Template {
 	case job_types.Cron: // This will hold all standard capabilities jobs as we add support for them.
@@ -122,6 +122,43 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 		)
 		if rErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose OCR3 bootstrap job: %w", rErr)
+		}
+
+		report = r.ToGenericReport()
+	case job_types.OCR3:
+		jobInput, err := input.Inputs.ToOCR3JobConfigInput()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 job input: %w", err)
+		}
+
+		addrRefKey := pkg.GetOCR3CapabilityV2AddressRefKey(jobInput.ChainSelectorEVM, jobInput.ContractQualifier)
+		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
+		}
+
+		r, rErr := operations.ExecuteSequence(
+			e.OperationsBundle,
+			operations2.ProposeOCR3Job,
+			operations2.ProposeOCR3JobDeps{Env: e},
+			operations2.ProposeOCR3JobInput{
+				Domain:                   input.Domain,
+				EnvName:                  input.Environment,
+				DONName:                  input.DONName,
+				JobName:                  input.JobName,
+				TemplateName:             jobInput.TemplateName,
+				ContractAddress:          contractAddrRef.Address,
+				ChainSelectorEVM:         jobInput.ChainSelectorEVM,
+				ChainSelectorAptos:       jobInput.ChainSelectorAptos,
+				BootstrapperOCR3Urls:     jobInput.BootstrapperOCR3Urls,
+				MasterPublicKey:          jobInput.MasterPublicKey,
+				EncryptedPrivateKeyShare: jobInput.EncryptedPrivateKeyShare,
+				DONFilters:               input.DONFilters,
+				ExtraLabels:              input.ExtraLabels,
+			},
+		)
+		if rErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose OCR3 job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()

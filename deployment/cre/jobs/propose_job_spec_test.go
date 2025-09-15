@@ -3,6 +3,7 @@ package jobs_test
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -15,7 +16,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -40,8 +40,8 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				JobName:     "cron-test",
 				Domain:      "cre",
 				DONName:     "test-don",
-				DONFilters: []operations.TargetDONFilter{
-					{Key: operations.FilterKeyDONName, Value: "d"},
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
 				},
@@ -99,8 +99,8 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Environment: "test",
 				Domain:      "cre",
 				DONName:     "test-don",
-				DONFilters: []operations.TargetDONFilter{
-					{Key: operations.FilterKeyDONName, Value: "d"},
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
 				},
@@ -117,12 +117,12 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Domain:      "cre",
 				DONName:     "test-don",
 				JobName:     "cron-test",
-				DONFilters: []operations.TargetDONFilter{
-					{Key: operations.FilterKeyDONName, Value: "d"},
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
 				},
-				Template: 2,
+				Template: 100,
 				Inputs:   job_types.JobSpecInput{},
 			},
 			expectError: true,
@@ -135,8 +135,8 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 				Domain:      "cre",
 				DONName:     "test-don",
 				JobName:     "cron-test",
-				DONFilters: []operations.TargetDONFilter{
-					{Key: operations.FilterKeyDONName, Value: "d"},
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: "d"},
 					{Key: "environment", Value: "e"},
 					{Key: "product", Value: offchain.ProductLabel},
 				},
@@ -162,18 +162,18 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 }
 
 func TestProposeJobSpec_Apply(t *testing.T) {
-	t.Run("successful cron job distribution", func(t *testing.T) {
-		testEnv := test.SetupEnvV2(t, false)
-		env := testEnv.Env
+	testEnv := test.SetupEnvV2(t, false)
+	env := testEnv.Env
 
+	t.Run("successful cron job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.Cron,
-			DONFilters: []operations.TargetDONFilter{
-				{Key: operations.FilterKeyDONName, Value: "don-" + test.DONName},
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -206,16 +206,13 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 	})
 
 	t.Run("failed cron job distribution due to bad input", func(t *testing.T) {
-		testEnv := test.SetupEnvV2(t, false)
-		env := testEnv.Env
-
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			Template:    job_types.Cron,
-			DONFilters: []operations.TargetDONFilter{
-				{Key: operations.FilterKeyDONName, Value: "don" + test.DONName},
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don" + test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -236,9 +233,6 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 	})
 
 	t.Run("successful ocr3 bootstrap job distribution", func(t *testing.T) {
-		testEnv := test.SetupEnvV2(t, false)
-		env := testEnv.Env
-
 		chainSelector := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
 		ds := datastore.NewMemoryDataStore()
 
@@ -259,8 +253,8 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "ocr3-bootstrap-job",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
-			DONFilters: []operations.TargetDONFilter{
-				{Key: operations.FilterKeyDONName, Value: "don-" + test.DONName},
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -276,11 +270,14 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
-		assert.Len(t, reqs, 1)
+		assert.Len(t, reqs, 5)
 
 		expectedChainID := chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID
 
 		for _, req := range reqs {
+			if !strings.Contains(req.Spec, `type = "bootstrap"`) {
+				continue
+			}
 			// log each spec in readable yaml format
 			t.Logf("Job Spec:\n%s", req.Spec)
 			assert.Contains(t, req.Spec, `name = "ocr3-bootstrap-job`)
@@ -290,17 +287,14 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 	})
 
 	t.Run("failed ocr3 bootstrap job distribution", func(t *testing.T) {
-		testEnv := test.SetupEnvV2(t, false)
-		env := testEnv.Env
-
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",
 			Domain:      "cre",
 			JobName:     "ocr3-bootstrap-job",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
-			DONFilters: []operations.TargetDONFilter{
-				{Key: operations.FilterKeyDONName, Value: "don-" + test.DONName},
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -314,5 +308,109 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to convert inputs to OCR3 bootstrap job input")
 		assert.Contains(t, err.Error(), "chain_selector is required and must be a string")
+	})
+
+	t.Run("successful ocr3 job distribution", func(t *testing.T) {
+		chainSelector := testEnv.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("2.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "ocr3-contract-qualifier",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "ocr3-job",
+			DONName:     test.DONName,
+			Template:    job_types.OCR3,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"template_name":        "worker-ocr3",
+				"contract_qualifier":   "ocr3-contract-qualifier",
+				"chain_selector_evm":   strconv.FormatUint(chainSelector, 10),
+				"chain_selector_aptos": strconv.FormatUint(testEnv.AptosSelector, 10),
+				"bootstrapper_ocr3_urls": []string{
+					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+				},
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+		assert.Len(t, reqs, 9)
+
+		expectedChainID := chainsel.TEST_90000001.EvmChainID
+
+		for _, req := range reqs {
+			if !strings.Contains(req.Spec, `type = "offchainreporting2"`) {
+				continue
+			}
+			// log each spec in readable yaml format
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `name = "ocr3-job`)
+			assert.Contains(t, req.Spec, `contractID = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
+			assert.Contains(t, req.Spec, `p2pv2Bootstrappers = [
+  "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+]`)
+			assert.Contains(t, req.Spec, fmt.Sprintf(`chainID = "%d"`, expectedChainID))
+			assert.Contains(t, req.Spec, `command = "/usr/local/bin/chainlink-ocr3-capability"`)
+			assert.Contains(t, req.Spec, `pluginName = "ocr-capability"`)
+			assert.Contains(t, req.Spec, `providerType = "ocr3-capability"`)
+			assert.Contains(t, req.Spec, `strategyName = 'multi-chain'`)
+		}
+	})
+
+	t.Run("failed ocr3 job distribution", func(t *testing.T) {
+		chainSelector := testEnv.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("2.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "ocr3-contract-qualifier",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "ocr3-job",
+			DONName:     test.DONName,
+			Template:    job_types.OCR3,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				// missing `template_name`
+				"contract_qualifier": "ocr3-contract-qualifier",
+			},
+		}
+
+		_, err = jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to convert inputs to OCR3 job input")
+		assert.Contains(t, err.Error(), "template_name is required and must be a non-empty string")
 	})
 }
