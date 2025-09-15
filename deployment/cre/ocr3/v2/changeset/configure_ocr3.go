@@ -1,13 +1,15 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
@@ -29,19 +31,19 @@ type ConfigureOCR3 struct{}
 
 func (l ConfigureOCR3) VerifyPreconditions(_ cldf.Environment, input ConfigureOCR3Input) error {
 	if input.ContractChainSelector == 0 {
-		return fmt.Errorf("contract chain selector is required")
+		return errors.New("contract chain selector is required")
 	}
 	if input.ContractQualifier == "" {
-		return fmt.Errorf("contract qualifier is required")
+		return errors.New("contract qualifier is required")
 	}
 	if input.DON.Name == "" {
-		return fmt.Errorf("don name is required")
+		return errors.New("don name is required")
 	}
 	if len(input.DON.NodeIDs) == 0 {
-		return fmt.Errorf("at least one don node ID is required")
+		return errors.New("at least one don node ID is required")
 	}
 	if input.OracleConfig == nil {
-		return fmt.Errorf("oracle config is required")
+		return errors.New("oracle config is required")
 	}
 	return nil
 }
