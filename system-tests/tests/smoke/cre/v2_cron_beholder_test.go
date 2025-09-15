@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	cronconfig "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
@@ -13,7 +15,12 @@ func ExecuteBeholderTest(t *testing.T, testEnv *TestEnvironment) {
 	workflowName := "cronbeholder"
 
 	listenerCtx, messageChan, kafkaErrChan := startBeholder(t, testLogger, testEnv)
-	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &None{}, workflowFileLocation)
+
+	testLogger.Info().Msg("Creating Cron workflow configuration file...")
+	workflowConfig := cronconfig.WorkflowConfig{
+		Schedule: "*/30 * * * * *", // every 30 seconds
+	}
+	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedBeholderLog := "Amazing workflow user log"
 	timeout := 2 * time.Minute
