@@ -17,9 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const (
-	flag                      = cre.HTTPTriggerCapability
-	httpTriggerConfigTemplate = `"""
+const flag = cre.HTTPTriggerCapability
+const httpTriggerConfigTemplate = `"""
 {
 	"incomingRateLimiter": {
 		"globalBurst": {{.IncomingGlobalBurst}},
@@ -35,7 +34,6 @@ const (
 	}
 }
 """`
-)
 
 func New() (*capabilities.Capability, error) {
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
@@ -59,7 +57,6 @@ func New() (*capabilities.Capability, error) {
 		)),
 		capabilities.WithGatewayJobHandlerConfigFn(handlerConfig),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
-		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 

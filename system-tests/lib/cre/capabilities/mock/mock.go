@@ -14,10 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const (
-	flag           = cre.MockCapability
-	configTemplate = `"""port={{.Port}}"""`
-)
+const flag = cre.MockCapability
+const configTemplate = `"""port={{.Port}}"""`
 
 func New() (*capabilities.Capability, error) {
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
@@ -40,7 +38,6 @@ func New() (*capabilities.Capability, error) {
 			factory.BinaryPathBuilder,
 		)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
-		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 

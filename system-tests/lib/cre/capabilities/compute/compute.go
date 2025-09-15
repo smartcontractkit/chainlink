@@ -49,7 +49,6 @@ func New() (*capabilities.Capability, error) {
 			},
 		)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
-		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 

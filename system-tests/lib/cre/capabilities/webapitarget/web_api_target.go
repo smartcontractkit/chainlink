@@ -14,16 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const (
-	flag           = cre.WebAPITargetCapability
-	configTemplate = `"""
+const flag = cre.WebAPITargetCapability
+const configTemplate = `"""
 [rateLimiter]
 GlobalRPS = {{.GlobalRPS}}
 GlobalBurst = {{.GlobalBurst}}
 PerSenderRPS = {{.PerSenderRPS}}
 PerSenderBurst = {{.PerSenderBurst}}
 """`
-)
 
 func New() (*capabilities.Capability, error) {
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
@@ -48,7 +46,6 @@ func New() (*capabilities.Capability, error) {
 			},
 		)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
-		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 

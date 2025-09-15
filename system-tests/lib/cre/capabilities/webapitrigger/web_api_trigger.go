@@ -14,10 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
-const (
-	flag           = cre.WebAPITriggerCapability
-	configTemplate = `""`
-)
+const flag = cre.WebAPITriggerCapability
+const configTemplate = `""`
 
 func New() (*capabilities.Capability, error) {
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
@@ -42,7 +40,6 @@ func New() (*capabilities.Capability, error) {
 			},
 		)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
-		capabilities.WithCapabilityRegistryV2ConfigFn(registerWithV1),
 	)
 }
 
