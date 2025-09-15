@@ -175,7 +175,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 		w.wg.Add(1)
 		go func() {
 			defer w.lggr.Debugw("closed donReceivedCh")
-			defer close(donReceivedCh)
+			defer close(initDoneCh)
 
 			w.lggr.Debugw("Waiting for DON...")
 			if _, err := w.workflowDonNotifier.WaitForDon(ctx); err != nil {
@@ -203,7 +203,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 			// Start goroutines to gather changes from Workflow Registry contract
-			<-donReceivedCh
+			<-initDoneCh
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
 			don, _ := w.workflowDonNotifier.WaitForDon(ctx)
 			w.syncUsingReconciliationStrategy(ctx, don)
