@@ -530,7 +530,6 @@ func CreateKeys(t *testing.T,
 			ctype = chaintype.TON
 		case chainsel.FamilyTron:
 			ctype = chaintype.Tron
-
 		default:
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
 		}
@@ -595,7 +594,7 @@ func CreateKeys(t *testing.T,
 			require.Len(t, keys, 1)
 
 			transmitter := keys[0]
-			transmitters[chain.Selector] = transmitter.ID()
+			transmitters[chain.Selector] = transmitter.PublicKeyStr()
 			t.Logf("Created Tron Key: ID %v, Account %v", transmitter.ID(), transmitter)
 		case chainsel.FamilyStarknet:
 			keystore := app.GetKeyStore().StarkNet()
@@ -613,56 +612,35 @@ func CreateKeys(t *testing.T,
 			err = keystore.EnsureKey(ctx)
 			require.NoError(t, err, "failed to create key for TON")
 
-			keys, err := app.GetKeyStore().TON().GetAll()
+			keys, err := keystore.GetAll()
 			require.NoError(t, err)
 			require.Len(t, keys, 1)
 
 			transmitter := keys[0]
-			transmitters[chain.Selector] = transmitter.ID()
+			transmitters[chain.Selector] = transmitter.AddressBase64()
 		default:
 			// TODO: other transmission keys unsupported for now
 		}
 	}
 
-	for chainSelector, chain := range solchains {
-		ctype := chaintype.Solana
-		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
-		require.NoError(t, err)
-		require.Len(t, keys, 1)
-		keybundle := keys[0]
+	// Funding
 
-		keybundles[ctype] = keybundle
-
-		err = app.GetKeyStore().Solana().EnsureKey(ctx)
-		require.NoError(t, err, "failed to create key for solana")
-
+	if len(solchains) > 0 {
 		solkeys, err := app.GetKeyStore().Solana().GetAll()
 		require.NoError(t, err)
 		require.Len(t, solkeys, 1)
-
 		transmitter := solkeys[0]
-		transmitters[chainSelector] = transmitter.ID()
-
-		FundSolAccounts(ctx, []solana.PublicKey{transmitter.PublicKey()}, chain.Client, t)
+		for _, solChain := range solchains {
+			FundSolAccounts(ctx, []solana.PublicKey{transmitter.PublicKey()}, solChain.Client, t)
+		}
 	}
 
 	if len(aptoschains) > 0 {
-		ctype := chaintype.Aptos
-		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
-		require.NoError(t, err)
-		require.Len(t, keys, 1)
-		keybundle := keys[0]
-		keybundles[ctype] = keybundle
-
-		err = app.GetKeyStore().Aptos().EnsureKey(ctx)
-		require.NoError(t, err, "failed to create key for Aptos")
-
 		aptoskeys, err := app.GetKeyStore().Aptos().GetAll()
 		require.NoError(t, err)
 		require.Len(t, aptoskeys, 1)
 		transmitter := aptoskeys[0]
-		for chainSelector, aptosChain := range aptoschains {
-			transmitters[chainSelector] = transmitter.ID()
+		for _, aptosChain := range aptoschains {
 			transmitterAccountAddress := aptos.AccountAddress{}
 			require.NoError(t, transmitterAccountAddress.ParseStringRelaxed(transmitter.Account()))
 			FundAptosAccount(t, aptosChain.DeployerSigner, transmitterAccountAddress, 100*1e8, aptosChain.Client)
@@ -670,43 +648,12 @@ func CreateKeys(t *testing.T,
 	}
 
 	if len(tonchains) > 0 {
-		ctype := chaintype.TON
-		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
-		require.NoError(t, err)
-		require.Len(t, keys, 1)
-		keybundle := keys[0]
-		keybundles[ctype] = keybundle
-
-		err = app.GetKeyStore().TON().EnsureKey(ctx)
-		require.NoError(t, err, "failed to create key for TON")
-
 		tonkeys, err := app.GetKeyStore().TON().GetAll()
 		require.NoError(t, err)
 		require.Len(t, tonkeys, 1)
 		transmitter := tonkeys[0]
-		for chainSelector, tonChain := range tonchains {
-			transmitters[chainSelector] = transmitter.AddressBase64()
+		for _, tonChain := range tonchains {
 			fundTonAccount(t, tonChain.Wallet, transmitter.PubkeyToAddress(), "1000")
-		}
-	}
-
-	if len(tronchains) > 0 {
-		ctype := chaintype.Tron
-		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
-		require.NoError(t, err)
-		require.Len(t, keys, 1)
-		keybundle := keys[0]
-		keybundles[ctype] = keybundle
-
-		err = app.GetKeyStore().Tron().EnsureKey(ctx)
-		require.NoError(t, err, "failed to create key for Tron")
-
-		tronkeys, err := app.GetKeyStore().Tron().GetAll()
-		require.NoError(t, err)
-		require.Len(t, tronkeys, 1)
-		transmitter := tronkeys[0]
-		for chainSelector := range tonchains {
-			transmitters[chainSelector] = transmitter.PublicKeyStr()
 		}
 	}
 
