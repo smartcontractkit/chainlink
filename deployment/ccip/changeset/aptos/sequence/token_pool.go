@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	module_regulated_token "github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token/regulated_token"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -138,7 +139,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipRegulatedTokenPool"))
 		gmReport, err := operations.ExecuteOperation(b, operation.GrantRoleOp, deps, operation.GrantRoleInput{
 			TokenCodeObjectAddress: in.TokenCodeObjAddress,
-			RoleNumber:             6, // BRIDGE_MINTER_OR_BURNER_ROLE= 6;
+			RoleNumber:             module_regulated_token.BRIDGE_MINTER_OR_BURNER_ROLE,
 			Account:                tokenPoolStateAddress,
 		})
 		if err != nil {

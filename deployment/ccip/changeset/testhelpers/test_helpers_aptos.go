@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
+	module_regulated_token "github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token/regulated_token"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -414,7 +415,7 @@ func DeployRegulatedTransferableTokenAptos(
 	// If requested, set the deployer as an allowed minter and mint the requested tokens
 	if mintAmount != nil {
 		lggr.Infof("Minting %v tokens to %v...", mintAmount.Amount, mintAmount.To)
-		tx, err = token.RegulatedToken().GrantRole(opts, 4, adminAddress)
+		tx, err = token.RegulatedToken().GrantRole(opts, module_regulated_token.MINTER_ROLE, adminAddress)
 		assertTxSuccess(err, tx, "failed to grant mint role to deployer")
 		tx, err = token.RegulatedToken().Mint(opts, mintAmount.To, mintAmount.Amount)
 		assertTxSuccess(err, tx, "failed to mint %d token to %s", mintAmount.Amount, mintAmount.To)
