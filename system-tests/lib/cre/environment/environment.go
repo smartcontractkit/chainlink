@@ -436,10 +436,6 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 
 	for _, capability := range input.Capabilities {
 		configFn := capability.CapabilityRegistryV1ConfigFn()
-		if input.WithV2Registries {
-			configFn = capability.CapabilityRegistryV2ConfigFn()
-		}
-
 		configureKeystoneInput.CapabilityRegistryConfigFns = append(configureKeystoneInput.CapabilityRegistryConfigFns, configFn)
 	}
 
