@@ -123,6 +123,7 @@ func startBeholderListener(t *testing.T, testLogger zerolog.Logger, chipConfig *
 	listenerCtx, cancelListener := context.WithTimeout(t.Context(), timeout)
 	t.Cleanup(func() {
 		cancelListener()
+		testLogger.Info().Msg("Beholder listener stopped")
 	})
 
 	kafkaErrChan := make(chan error, 1)
