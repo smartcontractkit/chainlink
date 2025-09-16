@@ -47,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
-// EVM test lives in core/capabilities/integration_tests/keystone/securemint_workflow_test.go
 func Test_SecureMint(t *testing.T) {
 	tconf := getDefaultTestConfig(t)
 	tconf.EnvironmentConfigPath = filepath.Join(tconf.EnvironmentDirPath, "/configs/workflow-solana-don.toml")
