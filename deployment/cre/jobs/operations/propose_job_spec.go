@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
 const (
@@ -26,7 +27,7 @@ type ProposeJobSpecInput struct {
 
 	Spec string
 
-	DONFilters []TargetDONFilter
+	DONFilters []offchain.TargetDONFilter
 	JobLabels  map[string]string
 
 	IsBootstrap bool
@@ -64,19 +65,7 @@ var ProposeJobSpec = operations.NewOperation[ProposeJobSpecInput, ProposeJobSpec
 			},
 		}
 		for _, f := range input.DONFilters {
-			// DON name is a key, so we just check for its existence instead of equality
-			if f.Key == FilterKeyDONName {
-				filter.Selectors = append(filter.Selectors, &ptypes.Selector{
-					Op:  ptypes.SelectorOp_EXIST,
-					Key: f.Value,
-				})
-			} else {
-				filter.Selectors = append(filter.Selectors, &ptypes.Selector{
-					Op:    ptypes.SelectorOp_EQ,
-					Key:   f.Key,
-					Value: &f.Value,
-				})
-			}
+			filter.Selectors = append(filter.Selectors, f.ToJDSelector())
 		}
 
 		req.DONFilter = filter

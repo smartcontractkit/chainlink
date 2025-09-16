@@ -19,26 +19,55 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
 type Capability struct {
-	lggr              logger.Logger
-	clock             clockwork.Clock
-	expiresAfter      time.Duration
-	handler           *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	requestAuthorizer RequestAuthorizer
-	publicKey         *LazyPublicKey
+	lggr                 logger.Logger
+	clock                clockwork.Clock
+	expiresAfter         time.Duration
+	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
+	requestAuthorizer    RequestAuthorizer
+	capabilitiesRegistry core.CapabilitiesRegistry
+	publicKey            *LazyPublicKey
 }
 
 func (s *Capability) Start(ctx context.Context) error {
-	return s.handler.Start(ctx)
+	if err := s.handler.Start(ctx); err != nil {
+		return fmt.Errorf("error starting vault DON request handler: %w", err)
+	}
+
+	closeHandler := func() {
+		ierr := s.handler.Close()
+		if ierr != nil {
+			s.lggr.Errorf("error closing vault DON request handler after failed registration: %v", ierr)
+		}
+	}
+
+	err := s.capabilitiesRegistry.Add(ctx, s)
+	if err != nil {
+		closeHandler()
+		return fmt.Errorf("error registering vault capability: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Capability) Close() error {
-	return s.handler.Close()
+	err := s.capabilitiesRegistry.Remove(context.Background(), vaultcommon.CapabilityID)
+	if err != nil {
+		err = fmt.Errorf("error unregistering vault capability: %w", err)
+	}
+
+	ierr := s.handler.Close()
+	if ierr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
+	}
+
+	return err
 }
 
 func (s *Capability) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
@@ -387,14 +416,16 @@ func NewCapability(
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	requestAuthorizer RequestAuthorizer,
+	capabilitiesRegistry core.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
 ) *Capability {
 	return &Capability{
-		lggr:              logger.Named(lggr, "VaultCapability"),
-		clock:             clock,
-		expiresAfter:      expiresAfter,
-		handler:           handler,
-		requestAuthorizer: requestAuthorizer,
-		publicKey:         publicKey,
+		lggr:                 logger.Named(lggr, "VaultCapability"),
+		clock:                clock,
+		expiresAfter:         expiresAfter,
+		handler:              handler,
+		requestAuthorizer:    requestAuthorizer,
+		capabilitiesRegistry: capabilitiesRegistry,
+		publicKey:            publicKey,
 	}
 }

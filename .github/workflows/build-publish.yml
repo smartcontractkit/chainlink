@@ -212,3 +212,17 @@ jobs:
             df1.0
             automation-mainnet
             automation-testnet
+
+  run-core-soak-on-release:
+    permissions:
+      actions: read
+      contents: read
+      checks: write
+      id-token: write
+      pull-requests: write
+    needs: docker-core
+    uses: smartcontractkit/chainlink/.github/workflows/on-demand-ocr-soak-test.yml@e8fa774450995fd45442a2e8e778f3a7eefc7af9 # 2025-08-08
+    with:
+      chainlink_version: ${{ github.ref_name }}
+      team: CRE
+    secrets: inherit

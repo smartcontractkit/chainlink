@@ -213,6 +213,8 @@ type EVMDeployInput[IN any] struct {
 	GasPrice uint64 `json:"gasPrice"`
 	// GasLimit is a custom gas limit to set for the transaction.
 	GasLimit uint64 `json:"gasLimit"`
+	// Qualifier is an optional qualifier for the deployment.
+	Qualifier *string `json:"qualifier"`
 }
 
 // EVMDeployOutput is the output structure for an EVM deploy operation.
@@ -222,6 +224,8 @@ type EVMDeployOutput struct {
 	Address common.Address `json:"address"`
 	// TypeAndVersion is the type and version of the contract that was deployed.
 	TypeAndVersion string `json:"typeAndVersion"`
+	// Qualifier is an optional qualifier for the deployment.
+	Qualifier *string `json:"qualifier"`
 }
 
 // VMDeployers defines the various deployer functions available for EVM-based chains.
@@ -283,6 +287,7 @@ func NewEVMDeployOperation[IN any](
 			return EVMDeployOutput{
 				Address:        addr,
 				TypeAndVersion: typeAndVersion.String(),
+				Qualifier:      input.Qualifier,
 			}, err
 		},
 	)

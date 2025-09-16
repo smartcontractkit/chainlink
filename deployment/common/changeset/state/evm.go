@@ -63,16 +63,25 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (view.MCMSWith
 
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
 func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+	return MaybeLoadMCMSWithTimelockStateWithQualifier(env, chainSelectors, "")
+}
+
+// MaybeLoadMCMSWithTimelockStateWithQualifier loads the MCMSWithTimelockState state for each chain in the given environment,
+// supporting qualifiers for filtering addresses. This uses the merged approach searching both AddressBook and DataStore.
+func MaybeLoadMCMSWithTimelockStateWithQualifier(env cldf.Environment, chainSelectors []uint64, qualifier string) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.BlockChains.EVMChains()[chainSelector]
 		if !ok {
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
-		addressesChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+
+		// Use merged addresses from both AddressBook and DataStore for backward compatibility
+		addressesChain, err := AddressesForChain(env, chainSelector, qualifier)
 		if err != nil {
 			return nil, err
 		}
+
 		state, err := MaybeLoadMCMSWithTimelockChainState(chain, addressesChain)
 		if err != nil {
 			return nil, err
@@ -80,10 +89,64 @@ func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint6
 		result[chainSelector] = state
 	}
 	return result, nil
+}
+
+// AddressesForChain combines addresses from both DataStore and AddressBook making it backward compatible.
+// This version supports qualifiers for filtering DataStore addresses.
+// When a qualifier is specified, only DataStore addresses with that qualifier are returned (no AddressBook merge)
+// to ensure isolation between different deployments.
+func AddressesForChain(env cldf.Environment, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
+	// If a qualifier is specified, only use DataStore to ensure isolation between deployments
+	if qualifier != "" {
+		if env.DataStore != nil {
+			return LoadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
+		}
+		return nil, fmt.Errorf("DataStore not available but qualifier %s specified", qualifier)
+	}
+
+	// For backward compatibility without qualifier, merge both sources
+	// Start with addresses from AddressBook
+	addressBookAddresses := make(map[string]cldf.TypeAndVersion)
+	if addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector); err == nil {
+		addressBookAddresses = addresses
+	} else if !errors.Is(err, cldf.ErrChainNotFound) {
+		return nil, fmt.Errorf("failed to load addresses from AddressBook: %w", err)
+	}
+
+	// If no DataStore, just return AddressBook addresses
+	if env.DataStore == nil {
+		return addressBookAddresses, nil
+	}
+
+	// Try to load addresses from DataStore (without qualifier for general case)
+	dataStoreAddresses, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, "")
+	if err != nil {
+		// If DataStore has no addresses or returns an error, fall back to AddressBook addresses only
+		return addressBookAddresses, nil
+	}
+
+	// Merge the two maps - DataStore addresses take precedence
+	mergedAddresses := make(map[string]cldf.TypeAndVersion)
+
+	// First add all AddressBook addresses
+	for addr, tv := range addressBookAddresses {
+		mergedAddresses[addr] = tv
+	}
+
+	// Then add DataStore addresses (overwriting any conflicts)
+	for addr, tv := range dataStoreAddresses {
+		mergedAddresses[addr] = tv
+	}
+
+	return mergedAddresses, nil
 }
 
 // MaybeLoadMCMSWithTimelockStateDataStore loads the MCMSWithTimelockState state for each chain in the given environment from the DataStore.
 func MaybeLoadMCMSWithTimelockStateDataStore(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
+	return MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(env, chainSelectors, "")
+}
+
+func MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(env cldf.Environment, chainSelectors []uint64, qualifier string) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
 		chain, ok := env.BlockChains.EVMChains()[chainSelector]
@@ -91,7 +154,7 @@ func MaybeLoadMCMSWithTimelockStateDataStore(env cldf.Environment, chainSelector
 			return nil, fmt.Errorf("chain %d not found", chainSelector)
 		}
 
-		addressesChain, err := loadAddressesFromDataStore(env.DataStore, chainSelector)
+		addressesChain, err := LoadAddressesFromDataStore(env.DataStore, chainSelector, qualifier)
 		if err != nil {
 			return nil, err
 		}
@@ -105,19 +168,34 @@ func MaybeLoadMCMSWithTimelockStateDataStore(env cldf.Environment, chainSelector
 	return result, nil
 }
 
-// TODO there should be some common utility/adapter for this
-func loadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
+// LoadAddressesFromDataStore loads addresses from DataStore with optional qualifier.
+// This is a public utility function that can be used by other packages to avoid duplication.
+func LoadAddressesFromDataStore(ds datastore.DataStore, chainSelector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
 	addressesChain := make(map[string]cldf.TypeAndVersion)
-	addresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
+
+	// Build filter list starting with chain selector
+	filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{datastore.AddressRefByChainSelector(chainSelector)}
+
+	// Add qualifier filter if provided
+	if qualifier != "" {
+		filters = append(filters, datastore.AddressRefByQualifier(qualifier))
+	}
+
+	addresses := ds.Addresses().Filter(filters...)
 	if len(addresses) == 0 {
 		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
 	}
 
 	for _, addressRef := range addresses {
-		addressesChain[addressRef.Address] = cldf.TypeAndVersion{
+		tv := cldf.TypeAndVersion{
 			Type:    cldf.ContractType(addressRef.Type),
 			Version: *addressRef.Version,
 		}
+		// Preserve labels from DataStore
+		if !addressRef.Labels.IsEmpty() {
+			tv.Labels = cldf.NewLabelSet(addressRef.Labels.List()...)
+		}
+		addressesChain[addressRef.Address] = tv
 	}
 	return addressesChain, nil
 }

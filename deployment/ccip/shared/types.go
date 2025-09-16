@@ -80,11 +80,13 @@ var (
 	CLLMetadata = "CLL"
 
 	// Aptos
-	AptosMCMSType             deployment.ContractType = "AptosManyChainMultisig"
-	AptosCCIPType             deployment.ContractType = "AptosCCIP"
-	AptosReceiverType         deployment.ContractType = "AptosReceiver"
-	AptosManagedTokenPoolType deployment.ContractType = "AptosManagedTokenPool"
-	AptosManagedTokenType     deployment.ContractType = "AptosManagedTokenType"
+	AptosMCMSType               deployment.ContractType = "AptosManyChainMultisig"
+	AptosCCIPType               deployment.ContractType = "AptosCCIP"
+	AptosReceiverType           deployment.ContractType = "AptosReceiver"
+	AptosManagedTokenPoolType   deployment.ContractType = "AptosManagedTokenPool"
+	AptosRegulatedTokenPoolType deployment.ContractType = "AptosRegulatedTokenPool"
+	AptosManagedTokenType       deployment.ContractType = "AptosManagedTokenType"
+	AptosRegulatedTokenType     deployment.ContractType = "AptosRegulatedTokenType"
 
 	// TON, [NONEVM-1938] currently added necessary contract for unblocking e2e env setup
 	TonCCIP     deployment.ContractType = "TonCCIP"

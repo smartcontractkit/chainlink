@@ -48,6 +48,10 @@ func Test_CRE_Suite(t *testing.T) {
 			ExecuteBeholderTest(t, testEnv)
 		})
 
+		t.Run("[v2] Billing test", func(t *testing.T) {
+			ExecuteBillingTest(t, testEnv)
+		})
+
 		t.Run("[v2] Consensus test", func(t *testing.T) {
 			executeConsensusTest(t, testEnv)
 		})

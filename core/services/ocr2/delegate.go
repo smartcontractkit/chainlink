@@ -720,26 +720,14 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer), lpk)
+	vaultCapability := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, vaultcap.NewRequestAuthorizer(lggr, syncer), capabilitiesRegistry, lpk)
 	srvs = append(srvs, vaultCapability)
-
-	err = capabilitiesRegistry.Add(ctx, vaultCapability)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to register vault capability: %w", err)
-	}
 
 	handler, err := vaultcap.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, d.lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
-	if err = handler.Start(ctx); err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to start vault handler: %w", err)
-	}
 	srvs = append(srvs, handler)
-
-	if gwerr := gwconnector.AddHandler(ctx, handler.Methods(), handler); gwerr != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to add vault handler to connector: %w", gwerr)
-	}
 
 	rid, err := spec.RelayID()
 	if err != nil {

@@ -220,7 +220,34 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 		M:        metadata,
 		LogLines: logLines,
 	}
-	return emitProtoMessage(ctx, event)
+
+	// Also emit v2 events - one per log line
+	creInfo := buildCREMetadataV2(labels)
+	workflowKey := buildWorkflowKeyV2(labels, executionID)
+
+	// Emit v1 event
+	var multiErr error
+	if err := emitProtoMessage(ctx, event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+
+	// Emit v2 events - one per log line
+	for _, logLine := range logLines {
+		v2Event := &eventsv2.WorkflowUserLog{
+			CreInfo:             creInfo,
+			Workflow:            workflowKey,
+			WorkflowExecutionID: executionID,
+			Timestamp:           logLine.NodeTimestamp,
+			Msg:                 logLine.Message,
+			Labels:              make(map[string]string), // Empty for now
+		}
+
+		if err := emitProtoMessage(ctx, v2Event); err != nil {
+			multiErr = errors.Join(multiErr, err)
+		}
+	}
+
+	return multiErr
 }
 
 // EmitProtoMessage marshals a proto.Message and emits it via beholder.
@@ -268,6 +295,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.CapabilityExecutionFinished:
 		schema = SchemaCapabilityFinishedV2
 		entity = "workflows.v2." + CapabilityExecutionFinished
+	case *eventsv2.WorkflowUserLog:
+		schema = SchemaUserLogsV2
+		entity = "workflows.v2." + UserLogs
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}

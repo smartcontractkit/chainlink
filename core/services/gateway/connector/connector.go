@@ -167,6 +167,21 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 	return nil
 }
 
+func (c *gatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	for _, method := range methods {
+		_, exists := c.handlers[method]
+		if !exists {
+			return fmt.Errorf("handler for method %s does not exist", method)
+		}
+	}
+
+	// remove all or nothing
+	for _, method := range methods {
+		delete(c.handlers, method)
+	}
+	return nil
+}
+
 func (c *gatewayConnector) AwaitConnection(ctx context.Context, gatewayID string) error {
 	gateway, ok := c.gateways[gatewayID]
 	if !ok {
