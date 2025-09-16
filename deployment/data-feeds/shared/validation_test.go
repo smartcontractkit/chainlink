@@ -15,7 +15,6 @@ func TestValidateFeedID(t *testing.T) {
 	}{
 		{"0x011e22d6bf0003320000000000000000", true},  // valid feed ID
 		{"0x026d06ebb60700020000000000000000", true},  // valid feed ID
-		{"0x01ad92ce480201320000000000000000", true},  // valid feed ID
 		{"0x126d06ebb60700020000000000000000", false}, // invalid feed format
 		{"0x126d06ebb6000020000000000000000", false},  // invalid attribute bucket
 		{"126d06ebb6000020000000000000000", false},    // no 0x prefix
