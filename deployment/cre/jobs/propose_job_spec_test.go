@@ -489,7 +489,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			t.Logf("HTTP Trigger Job Spec:\n%s", req.Spec)
 			assert.Contains(t, req.Spec, `name = "http-trigger-job"`)
 			assert.Contains(t, req.Spec, `command = "http_trigger"`)
-			assert.Contains(t, req.Spec, `config = {}`)
+			assert.Contains(t, req.Spec, `config = """{}"""`)
 			assert.Contains(t, req.Spec, `externalJobID = "http-trigger-job-id"`)
 		}
 	})
@@ -527,7 +527,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			t.Logf("HTTP Action Job Spec:\n%s", req.Spec)
 			assert.Contains(t, req.Spec, `name = "http-action-job"`)
 			assert.Contains(t, req.Spec, `command = "http_action"`)
-			assert.Contains(t, req.Spec, `config = {"proxyMode": "direct"}`)
+			assert.Contains(t, req.Spec, `config = """{"proxyMode": "direct"}"""`)
 			assert.Contains(t, req.Spec, `externalJobID = "http-action-job-id"`)
 		}
 	})
