@@ -492,8 +492,8 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250910230900-fa42dad2d413 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250916010003-1a2dbfa020ee // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250916010003-1a2dbfa020ee // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250916191439-914e20ba2435 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250916191439-914e20ba2435 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250908203554-5bd9d2fe9513 // indirect
 	github.com/smartcontractkit/cre-sdk-go v0.7.0 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect
