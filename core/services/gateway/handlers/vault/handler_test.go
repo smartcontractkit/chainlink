@@ -129,7 +129,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 					Key:   "test_id",
 					Owner: owner,
 				},
-				EncryptedValue: "test_value",
+				EncryptedValue: "abc123", // should be a valid hex string
 			},
 		},
 	}
