@@ -561,6 +561,8 @@ func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
 	}
 }
 
+// DeployBnMTokenAptos deploys two tokens on to the EVM and Aptos chain and sets up a lane between them.
+// For Aptos, the test_token will be used along with the burn_mint_token_pool token pool.
 func DeployBnMTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
@@ -798,6 +800,13 @@ func DeployBnMTokenAptos(
 	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
 }
 
+// DeployLnRTokenAptos deploys two tokens onto the EVM and Aptos chain and sets up a lane between them
+// For Aptos, the test_token will be used along with the lock_release_token_pool token pool.
+//
+// The `withDispatchHooks` parameter decides whether the token pool will be initialized with a TransferRef or not:
+//   - If set to true, the token will be initialized as a dispatchable fungible asset with a withdrawal/deposit hook.
+//     Since this requires the LnR pool to have access to a TransferRef, the pool will be initialized with one.
+//   - If set to false, the token will be initialized as a fungible asset and the token pool will be initialized without a TransferRef
 func DeployLnRTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
@@ -805,9 +814,6 @@ func DeployLnRTokenAptos(
 	evmChainSel, aptosChainSel uint64,
 	tokenName string,
 	mintAmount *config.TokenMint,
-// If set to true, the token will be initialized as a dispatchable fungible asset with a withdrawal/deposit hook.
-//   Since this requires the LnR pool to have access to a TransferRef, the pool will be initialized with one.
-// If set to false, the token will be initialized as a fungible asset and the token pool will be initialized without a TransferRef
 	withDispatchHooks bool,
 ) (
 	*burn_mint_erc677.BurnMintERC677,

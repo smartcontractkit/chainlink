@@ -1079,7 +1079,9 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 	require.NoError(t, err)
 
 	// Provide liquidity to the Aptos LnR token pool
-	payload, err := aptos.FungibleAssetPrimaryStoreTransferPayload(&aptosToken, aptosTokenPool.Address(), 100e8)
+	poolStore, err := aptosTokenPool.LockReleaseTokenPool().GetStoreAddress(nil)
+	require.NoError(t, err)
+	payload, err := aptos.FungibleAssetPrimaryStoreTransferPayload(&aptosToken, poolStore, 100e8)
 	require.NoError(t, err)
 	rawTx, err := destChainClient.BuildTransaction(deployerAddressDestChain, aptos.TransactionPayload{Payload: payload})
 	require.NoError(t, err)
@@ -1606,7 +1608,9 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 	require.NoError(t, err)
 
 	// Provide liquidity to the Aptos LnR token pool
-	payload, err := aptos.FungibleAssetPrimaryStoreTransferPayload(&aptosToken, aptosTokenPool.Address(), 100e8)
+	poolStore, err := aptosTokenPool.LockReleaseTokenPool().GetStoreAddress(nil)
+	require.NoError(t, err)
+	payload, err := aptos.FungibleAssetPrimaryStoreTransferPayload(&aptosToken, poolStore, 100e8)
 	require.NoError(t, err)
 	rawTx, err := destChainClient.BuildTransaction(deployerAddressDestChain, aptos.TransactionPayload{Payload: payload})
 	require.NoError(t, err)
