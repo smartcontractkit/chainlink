@@ -55,7 +55,11 @@ func ExecuteBillingTest(t *testing.T, testEnv *TestEnvironment) {
 
 	initialCredits := credits[0]
 
-	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &None{}, workflowFileLocation)
+	testLogger.Info().Msg("Creating Cron workflow configuration file...")
+	workflowConfig := CronWorkflowConfig{
+		Schedule: "*/30 * * * * *", // every 30 seconds
+	}
+	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// set up a connection to the billing database and run query until data exists
 	assert.Eventually(t, func() bool {

@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -129,7 +131,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 					Key:   "test_id",
 					Owner: owner,
 				},
-				EncryptedValue: "test_value",
+				EncryptedValue: "abc123", // should be a valid hex string
 			},
 		},
 	}
@@ -544,7 +546,11 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	err := h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callbackCh)
 	require.NoError(t, err)
 
-	publicKey := "test_public_key"
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	pkBytes, err := pk.Marshal()
+	require.NoError(t, err)
+	publicKey := hex.EncodeToString(pkBytes)
 	responseData := &vaultcommon.GetPublicKeyResponse{
 		PublicKey: publicKey,
 	}

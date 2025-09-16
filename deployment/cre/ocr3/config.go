@@ -202,7 +202,7 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets) (OCR2OracleConfig, error) {
+func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
 		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
@@ -292,22 +292,26 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 
 	// let's keep reqTimeout as nil if it's 0, so we can use the default value within `chainlink-common`.
 	// See: https://github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/factory.go#L73
-	var reqTimeout *durationpb.Duration
-	if cfg.RequestTimeout > 0 {
-		reqTimeout = durationpb.New(cfg.RequestTimeout)
-	}
-	cfgBytes, err := proto.Marshal(&capocr3types.ReportingPluginConfig{
-		MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
-		MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
-		MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
-		MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
-		MaxReportCount:            cfg.MaxReportCount,
-		MaxBatchSize:              cfg.MaxBatchSize,
-		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
-		RequestTimeout:            reqTimeout,
-	})
-	if err != nil {
-		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
+	cfgBytes := reportingPluginConfigOverride
+	if cfgBytes == nil {
+		var reqTimeout *durationpb.Duration
+		if cfg.RequestTimeout > 0 {
+			reqTimeout = durationpb.New(cfg.RequestTimeout)
+		}
+		var err2 error
+		cfgBytes, err2 = proto.Marshal(&capocr3types.ReportingPluginConfig{
+			MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
+			MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
+			MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
+			MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
+			MaxReportCount:            cfg.MaxReportCount,
+			MaxBatchSize:              cfg.MaxBatchSize,
+			OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
+			RequestTimeout:            reqTimeout,
+		})
+		if err2 != nil {
+			return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err2)
+		}
 	}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
@@ -366,6 +370,8 @@ type ConfigureOCR3Request struct {
 	DryRun     bool
 	OcrSecrets focr.OCRSecrets
 
+	ReportingPluginConfigOverride []byte
+
 	UseMCMS bool
 }
 
@@ -374,7 +380,7 @@ func (r ConfigureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
 	if r.Cfg == nil {
 		return OCR2OracleConfig{}, errors.New("OCR3 config is required")
 	}
-	return GenerateOCR3Config(*r.Cfg, nks, r.OcrSecrets)
+	return GenerateOCR3Config(*r.Cfg, nks, r.OcrSecrets, r.ReportingPluginConfigOverride)
 }
 
 type ConfigureOCR3Response struct {
@@ -441,6 +447,8 @@ type ConfigureOCR3Config struct {
 	OCR3Config *OracleConfig
 	DryRun     bool
 
+	ReportingPluginConfigOverride []byte
+
 	UseMCMS bool
 }
 
@@ -467,13 +475,14 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 		return nil, err
 	}
 	r, err := ConfigureOCR3contract(ConfigureOCR3Request{
-		Cfg:        cfg.OCR3Config,
-		Chain:      registryChain,
-		Contract:   contract,
-		Nodes:      nodes,
-		DryRun:     cfg.DryRun,
-		UseMCMS:    cfg.UseMCMS,
-		OcrSecrets: env.OCRSecrets,
+		Cfg:                           cfg.OCR3Config,
+		Chain:                         registryChain,
+		Contract:                      contract,
+		Nodes:                         nodes,
+		DryRun:                        cfg.DryRun,
+		UseMCMS:                       cfg.UseMCMS,
+		OcrSecrets:                    env.OCRSecrets,
+		ReportingPluginConfigOverride: cfg.ReportingPluginConfigOverride,
 	})
 	if err != nil {
 		return nil, err
