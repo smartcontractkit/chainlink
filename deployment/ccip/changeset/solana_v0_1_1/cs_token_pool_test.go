@@ -55,6 +55,7 @@ func TestAddTokenPoolWithoutMcms(t *testing.T) {
 
 func TestAddTokenPoolWithMcms(t *testing.T) {
 	quarantine.Flaky(t, "DX-1797")
+	quarantine.Flaky(t, "DX-1797")
 	quarantine.Flaky(t, "DX-1777")
 	quarantine.Flaky(t, "DX-1777")
 	t.Parallel()
