@@ -139,8 +139,8 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		}
 
 		methodSignature := w.buildMethodSignature(abiMethod)
-		tronParams, err := w.convertArgsToTronParams(abiMethod, args)
-		if err != nil {
+		tronParams, err2 := w.convertArgsToTronParams(abiMethod, args)
+		if err2 != nil {
 			return fmt.Errorf("failed to convert args to Tron params: %w", err)
 		}
 
@@ -314,7 +314,7 @@ func (w *chainWriter) getMaxCost(ctx context.Context, amount assets.Eth, calldat
 		estimateGas = gasLimit
 	}
 
-	totalFee := new(big.Int).Mul(gasPrice, big.NewInt(int64(estimateGas)))
+	totalFee := new(big.Int).Mul(gasPrice, big.NewInt(int64(estimateGas))) //nolint:gosec // G115
 	amountWithFees := new(big.Int).Add(amount.ToInt(), totalFee)
 
 	return amountWithFees, nil

@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -65,14 +65,14 @@ func TestChainWriter(t *testing.T) {
 	t.Run("GetTransactionStatus", func(t *testing.T) {
 		txs := []struct {
 			txid   string
-			status commontypes.TransactionStatus
+			status types.TransactionStatus
 		}{
-			{uuid.NewString(), commontypes.Unknown},
-			{uuid.NewString(), commontypes.Pending},
-			{uuid.NewString(), commontypes.Unconfirmed},
-			{uuid.NewString(), commontypes.Finalized},
-			{uuid.NewString(), commontypes.Failed},
-			{uuid.NewString(), commontypes.Fatal},
+			{uuid.NewString(), types.Unknown},
+			{uuid.NewString(), types.Pending},
+			{uuid.NewString(), types.Unconfirmed},
+			{uuid.NewString(), types.Finalized},
+			{uuid.NewString(), types.Failed},
+			{uuid.NewString(), types.Fatal},
 		}
 
 		for _, tx := range txs {
@@ -80,7 +80,7 @@ func TestChainWriter(t *testing.T) {
 		}
 
 		for _, tx := range txs {
-			var status commontypes.TransactionStatus
+			var status types.TransactionStatus
 			status, err = cw.GetTransactionStatus(ctx, tx.txid)
 			require.NoError(t, err)
 			require.Equal(t, tx.status, status)
