@@ -297,7 +297,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress, offchainBu
 	}
 }
 
-func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64, masterPublicKey string, encryptedPrivateKeyShare string) *jobv1.ProposeJobRequest {
+func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64, masterPublicKey string, encryptedPrivateKeyShare string) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -322,6 +322,7 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2
 	[pluginConfig.dkg]
 	masterPublicKey = "%s"
 	encryptedPrivateKeyShare = "%s"
+	dkgContractID = "%s"
 `,
 			uuid,
 			"Vault OCR3 Capability",
@@ -334,6 +335,7 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2
 			chainID,
 			masterPublicKey,
 			encryptedPrivateKeyShare,
+			dkgAddress,
 		),
 	}
 }

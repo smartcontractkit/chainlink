@@ -3,8 +3,6 @@ package cre
 import (
 	"fmt"
 	"math/big"
-	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,7 +15,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -166,6 +163,8 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 }
 
 func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client) ([]common.Address, error) {
+	t.Helper()
+
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
 	var addressesToRead []common.Address
 
@@ -206,38 +205,6 @@ func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.W
 	workflowConfig.FeedID = feedIDToUse
 
 	return createWorkflowYamlConfigFile(workflowName, workflowConfig)
-}
-
-/*
-Creates .yaml workflow configuration file and returns the absolute path to the created config file.
-*/
-func createWorkflowYamlConfigFile(workflowName string, workflowConfig any) (string, error) {
-	// Write workflow config to a .yaml file
-	configMarshalled, err := yaml.Marshal(workflowConfig)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal workflow config")
-	}
-	workflowSuffix := "_config.yaml"
-	workflowConfigOutputFile := workflowName + workflowSuffix
-
-	// remove the duplicate if it already exists
-	_, statErr := os.Stat(workflowConfigOutputFile)
-	if statErr == nil {
-		if err := os.Remove(workflowConfigOutputFile); err != nil {
-			return "", errors.Wrap(err, "failed to remove existing output file")
-		}
-	}
-
-	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
-		return "", errors.Wrap(err, "failed to write output file")
-	}
-
-	outputFileAbsPath, outputFileAbsPathErr := filepath.Abs(workflowConfigOutputFile)
-	if outputFileAbsPathErr != nil {
-		return "", errors.Wrap(outputFileAbsPathErr, "failed to get absolute path of the config file")
-	}
-
-	return outputFileAbsPath, nil
 }
 
 func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, error) {

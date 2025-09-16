@@ -299,6 +299,7 @@ flowchart LR
 	chainlink-testing-framework/framework
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/framework/components/dockercompose --> chainlink-testing-framework/framework
+	chainlink-testing-framework/framework/components/dockercompose --> freeport
 	click chainlink-testing-framework/framework/components/dockercompose href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/framework/components/fake --> chainlink-testing-framework/framework
 	click chainlink-testing-framework/framework/components/fake href "https://github.com/smartcontractkit/chainlink-testing-framework"

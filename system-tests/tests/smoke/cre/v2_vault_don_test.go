@@ -21,7 +21,9 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
@@ -32,24 +34,90 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 	*/
 	var testLogger = framework.L
 
+	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
+	require.Eventually(t, func() bool {
+		for _, nodeSet := range testEnv.Config.NodeSets {
+			var vaultFound bool
+			for _, cap := range nodeSet.Capabilities {
+				if cap == cre.VaultCapability {
+					vaultFound = true
+					break
+				}
+			}
+			if vaultFound {
+				for i := range nodeSet.Nodes {
+					if i != nodeSet.BootstrapNodeIndex {
+						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
+						if err != nil || packageCount != 1 {
+							return false
+						}
+					}
+				}
+				return true
+			}
+		}
+		return false
+	}, time.Second*300, time.Second*5)
+
+	// Wait a bit to ensure the Vault plugin is ready.
+	time.Sleep(30 * time.Second)
+
 	testLogger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
 	gatewayURL, err := url.Parse(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	owner := "Owner1"
+	waitUntilReady(t, owner, gatewayURL.String())
+
+	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	secretValue := "Secret Value to be stored"
 	vaultPublicKey := fetchVaultPublicKey(t, gatewayURL.String())
 	encryptedSecret, err := crevault.EncryptSecret(secretValue, vaultPublicKey)
 	require.NoError(t, err, "failed to encrypt secret")
 
+	// Wait for the node to be up.
+	framework.L.Info().Msg("Waiting 30 seconds for the Vault DON to be ready...")
+	time.Sleep(30 * time.Second)
 	executeVaultSecretsCreateTest(t, encryptedSecret, secretID, owner, gatewayURL.String())
 	executeVaultSecretsGetTest(t, secretID, owner, gatewayURL.String())
 	executeVaultSecretsUpdateTest(t, encryptedSecret, secretID, owner, gatewayURL.String())
 	executeVaultSecretsListTest(t, secretID, owner, gatewayURL.String())
 	executeVaultSecretsDeleteTest(t, secretID, owner, gatewayURL.String())
+}
+
+// waitUntilReady tries to list the keys in a loop until it succeeds, indicating that the Vault DON is ready.
+func waitUntilReady(t *testing.T, owner, gatewayURL string) {
+	framework.L.Info().Msg("Polling for vault DON to be ready...")
+
+	uniqueRequestID := uuid.New().String()
+
+	getPublicKeyRequest := jsonrpc.Request[vaultcommon.ListSecretIdentifiersRequest]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestID,
+		Method:  vaulttypes.MethodSecretsList,
+		Params: &vaultcommon.ListSecretIdentifiersRequest{
+			Owner: owner,
+		},
+	}
+	requestBody, err := json.Marshal(getPublicKeyRequest)
+	require.NoError(t, err, "failed to marshal public key request")
+
+	statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	if statusCode == http.StatusGatewayTimeout {
+		framework.L.Warn().Msg("Received 504 Gateway Timeout. This may be due to the Vault DON not being ready yet. Retrying 1st time in 30 seconds...")
+		time.Sleep(30 * time.Second)
+		statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		if statusCode == http.StatusGatewayTimeout {
+			framework.L.Warn().Msg("Received 504 Gateway Timeout again. This may be due to the Vault DON not being ready yet. Retrying 2nd time in 30 seconds...")
+			time.Sleep(30 * time.Second)
+			statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		}
+	}
+	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
+
+	framework.L.Info().Msgf("Received ready response from Vault DON")
 }
 
 func fetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
@@ -67,16 +135,6 @@ func fetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	require.NoError(t, err, "failed to marshal public key request")
 
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	if statusCode == http.StatusGatewayTimeout {
-		framework.L.Warn().Msg("Received 504 Gateway Timeout. This may be due to the Vault DON not being ready yet. Retrying 1st time in 30 seconds...")
-		time.Sleep(30 * time.Second)
-		statusCode, httpResponseBody = sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		if statusCode == http.StatusGatewayTimeout {
-			framework.L.Warn().Msg("Received 504 Gateway Timeout again. This may be due to the Vault DON not being ready yet. Retrying 2nd time in 30 seconds...")
-			time.Sleep(30 * time.Second)
-			statusCode, httpResponseBody = sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		}
-	}
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")

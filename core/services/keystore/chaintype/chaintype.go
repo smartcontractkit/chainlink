@@ -25,7 +25,6 @@ const (
 	Tron ChainType = "tron"
 	// TON for the TON chain
 	TON ChainType = "ton"
-
 	// Offchain is used by the MultichainKeyringAdapter when we are signing for offchain (eg. for DKG).
 	Offchain ChainType = "offchain"
 )

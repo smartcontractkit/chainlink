@@ -23,6 +23,7 @@ const (
 	NodeOCRFamiliesKey     = "node_ocr_families"
 	NodeOCR2KeyBundleIDKey = "ocr2_key_bundle_id"
 	NodeP2PIDKey           = "p2p_id"
+	NodeDKGRecipientKey    = "dkg_recipient_key"
 	DONIDKey               = "don_id"
 	EnvironmentKey         = "environment"
 	ProductKey             = "product"

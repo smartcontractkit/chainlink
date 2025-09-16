@@ -18,6 +18,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -114,7 +115,7 @@ func executeSecureMintTest(t *testing.T, tenv *TestEnvironment) {
 func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
 	tt := time.NewTicker(time.Second * 5)
 	defer tt.Stop()
-	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*2)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*4)
 	defer cancel()
 	for {
 		select {
@@ -123,7 +124,7 @@ func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
 		case <-tt.C:
 			reportAcc := getDecimalReportAccount(t, s)
 
-			decimalReportAccount, err := solclient.GetAccountInfoWithOpts(ctx, reportAcc, &rpc.GetAccountInfoOpts{Commitment: rpc.CommitmentProcessed})
+			decimalReportAccount, err := solclient.GetAccountInfoWithOpts(t.Context(), reportAcc, &rpc.GetAccountInfoOpts{Commitment: rpc.CommitmentProcessed})
 			if errors.Is(err, rpc.ErrNotFound) {
 				continue
 			}
@@ -440,14 +441,14 @@ type fakeTrigger struct {
 }
 
 func (f *fakeTrigger) run(ctx context.Context) error {
-	tt := time.NewTicker(time.Second * 25)
+	tt := time.NewTicker(time.Second * 21)
 	defer tt.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-tt.C:
-			err := f.Call(ctx)
+			err := f.Call(context.Background())
 			if err != nil {
 				return fmt.Errorf("failed call fake trigger: %w", err)
 			}
@@ -468,7 +469,7 @@ func (f *fakeTrigger) Call(ctx context.Context) error {
 
 	message := pb.SendTriggerEventRequest{
 		TriggerID: f.triggerID,
-		ID:        "fake_trigger",
+		ID:        uuid.New().String(),
 		Outputs:   outputsBytes,
 	}
 

@@ -28,4 +28,5 @@ type ImportedSecretConfig interface {
 	ImportedP2PKey() coreconfig.ImportableKey
 	ImportedEthKeys() coreconfig.ImportableChainKeyLister
 	ImportedSolKeys() coreconfig.ImportableChainKeyLister
+	ImportedDKGRecipientKey() coreconfig.ImportableKey
 }
