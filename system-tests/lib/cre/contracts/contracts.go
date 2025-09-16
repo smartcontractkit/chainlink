@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -11,11 +12,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -182,11 +185,15 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		}
 
 		// Extract NOPs and nodes
+		adminAddrs, err := generateAdminAddresses(len(don.Nops))
+		if err != nil {
+			panic(fmt.Sprintf("failed to generate admin addresses: %s", err))
+		}
 		for i, nop := range don.Nops {
 			nopName := nop.Name
 			if _, exists := nopMap[nopName]; !exists {
 				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
-					Admin: common.HexToAddress(fmt.Sprintf("0xaadd00000000000000000000000000000000000%d", i+1)),
+					Admin: adminAddrs[i],
 					Name:  nopName,
 				}
 
@@ -280,6 +287,37 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		Capabilities:     capabilities,
 		DONs:             donParams,
 	}
+}
+
+func generateAdminAddresses(count int) ([]common.Address, error) {
+	if count <= 0 {
+		return nil, errors.New("count must be a positive integer")
+	}
+
+	// Determine the number of hex digits needed for padding based on the count.
+	// We use the count + 1 to account for the loop range and a safe margin.
+	hexDigits := int(math.Ceil(math.Log10(float64(count+1)) / math.Log10(16)))
+	if hexDigits < 1 {
+		hexDigits = 1
+	}
+
+	// The total length of the address after the "0x" prefix must be 40.
+	baseHexLen := 40 - hexDigits
+	if baseHexLen <= 0 {
+		return nil, errors.New("count is too large to generate unique addresses with this base")
+	}
+
+	// Create a base string of 'f' characters to ensure the addresses are not zero.
+	baseString := strings.Repeat("f", baseHexLen)
+
+	addresses := make([]common.Address, count)
+	for i := 0; i < count; i++ {
+		format := fmt.Sprintf("%s%%0%dx", baseString, hexDigits)
+		fullAddress := fmt.Sprintf(format, i)
+		addresses[i] = common.HexToAddress("0x" + fullAddress)
+	}
+
+	return addresses, nil
 }
 
 func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
