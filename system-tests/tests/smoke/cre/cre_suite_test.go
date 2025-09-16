@@ -55,6 +55,7 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] DON Time test", func(t *testing.T) {
+			t.Skip("Skipping flaky test: https://smartcontract-it.atlassian.net/browse/CRE-888")
 			ExecuteDonTimeTest(t, testEnv)
 		})
 
