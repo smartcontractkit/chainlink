@@ -353,7 +353,7 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig) error {
 func BuildSolana(e cldf.Environment, config BuildSolanaConfig) error {
 	if !config.LocalBuild.BuildLocally {
 		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
-		commitSha, ok := VersionToFullCommitSHA[config.SolanaContractVersion]
+		commitSha, ok := VersionToShortCommitSHA[config.SolanaContractVersion]
 		if !ok {
 			return fmt.Errorf("solana Contract Version not Found: %s", config.SolanaContractVersion)
 		}
