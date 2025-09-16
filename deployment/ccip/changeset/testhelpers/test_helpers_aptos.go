@@ -805,6 +805,10 @@ func DeployLnRTokenAptos(
 	evmChainSel, aptosChainSel uint64,
 	tokenName string,
 	mintAmount *config.TokenMint,
+// If set to true, the token will be initialized as a dispatchable fungible asset with a withdrawal/deposit hook.
+//   Since this requires the LnR pool to have access to a TransferRef, the pool will be initialized with one.
+// If set to false, the token will be initialized as a fungible asset and the token pool will be initialized without a TransferRef
+	withDispatchHooks bool,
 ) (
 	*burn_mint_erc677.BurnMintERC677,
 	*burn_mint_token_pool.BurnMintTokenPool,
@@ -860,7 +864,7 @@ func DeployLnRTokenAptos(
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to deploy test_token: %v", data.VmStatus)
 
-	tx, err = testToken.TestToken().Initialize(opts, nil, "Test Token", "TKN", 8, "", "", true)
+	tx, err = testToken.TestToken().Initialize(opts, nil, "Test Token", "TKN", 8, "", "", withDispatchHooks)
 	require.NoError(t, err)
 	data, err = client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
@@ -906,18 +910,26 @@ func DeployLnRTokenAptos(
 	require.NoError(t, err)
 
 	// Deploy LnR registrar
-	tx, bnmRegistrar, err := lnr_registrar.DeployToExistingObject(signer, client, tokenObjectAddress, tokenPoolAddress, ccipAddress, tokenPoolAddress, mcmsAddress, tokenAddress)
+	tx, lnrRegistrar, err := lnr_registrar.DeployToExistingObject(signer, client, tokenObjectAddress, tokenPoolAddress, ccipAddress, tokenPoolAddress, mcmsAddress, tokenAddress)
 	require.NoError(t, err)
 	data, err = client.WaitForTransaction(tx.Hash)
 	require.NoError(t, err)
 	require.True(t, data.Success, "failed to deploy LnR Registrar: %v", data.VmStatus)
 
 	// Initialize token pool
-	tx, err = bnmRegistrar.LnRRegistrar().Initialize(opts)
-	require.NoError(t, err)
-	data, err = client.WaitForTransaction(tx.Hash)
-	require.NoError(t, err)
-	require.True(t, data.Success, "failed to initialize LnR token pool: %v", data.VmStatus)
+	if withDispatchHooks {
+		tx, err = lnrRegistrar.LnRRegistrar().Initialize(opts)
+		require.NoError(t, err)
+		data, err = client.WaitForTransaction(tx.Hash)
+		require.NoError(t, err)
+		require.True(t, data.Success, "failed to initialize LnR token pool: %v", data.VmStatus)
+	} else {
+		tx, err = lnrRegistrar.LnRRegistrar().InitializeWithoutTransferRef(opts)
+		require.NoError(t, err)
+		data, err = client.WaitForTransaction(tx.Hash)
+		require.NoError(t, err)
+		require.True(t, data.Success, "failed to initialize LnR token pool without TransferRef: %v", data.VmStatus)
+	}
 
 	ccipContract := ccip.Bind(ccipAddress, client)
 	tx, err = ccipContract.TokenAdminRegistry().ProposeAdministrator(opts, tokenAddress, signer.AccountAddress())
