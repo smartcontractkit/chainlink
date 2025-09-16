@@ -183,7 +183,7 @@ func TestUpgrade(t *testing.T) {
 	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	e, _, err := commonchangeset.ApplyChangesets(t, e, initialDeployCS(t, e,
 		&ccipChangesetSolana.BuildSolanaConfig{
-			SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_0,
+			SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1TokenPools,
 			DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
@@ -321,7 +321,7 @@ func TestUpgrade(t *testing.T) {
 					},
 				},
 				BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
-					SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
+					SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_2,
 					DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 						BuildLocally: true,
