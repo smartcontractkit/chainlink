@@ -33,6 +33,7 @@ const (
 	SchemaWorkflowFinishedV2   string = "/cre-events-workflow-finished/v2"
 	SchemaCapabilityStartedV2  string = "/cre-events-capability-started/v2"
 	SchemaCapabilityFinishedV2 string = "/cre-events-capability-finished/v2"
+	SchemaUserLogsV2           string = "/cre-events-user-logs/v2"
 
 	MeteringReportSchema string = "/workflows/v1/metering.proto"
 	MeteringReportDomain string = "platform"
