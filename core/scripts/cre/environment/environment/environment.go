@@ -42,6 +42,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
@@ -49,6 +50,7 @@ import (
 const (
 	manualCtfCleanupMsg      = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
 	manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
+	manualBillingCleanupMsg  = `unexpected startup error. this may have stranded resources. please manually remove the 'billing-platform-service' stack`
 )
 
 var (
@@ -86,6 +88,7 @@ func init() {
 	EnvironmentCmd.AddCommand(beholderCmds())
 	EnvironmentCmd.AddCommand(swapCmds())
 	EnvironmentCmd.AddCommand(stateCmd())
+	EnvironmentCmd.AddCommand(billingCmds())
 
 	rootPath, rootPathErr := os.Getwd()
 	if rootPathErr != nil {
@@ -227,6 +230,7 @@ func startCmd() *cobra.Command {
 		doSetup                  bool
 		cleanupWait              time.Duration
 		withBeholder             bool
+		withBilling              bool
 		protoConfigs             []string
 	)
 
@@ -242,7 +246,7 @@ func startCmd() *cobra.Command {
 			}()
 
 			if doSetup {
-				setupErr := RunSetup(cmd.Context(), SetupConfig{ConfigPath: DefaultSetupConfigPath}, true, false)
+				setupErr := RunSetup(cmd.Context(), SetupConfig{ConfigPath: DefaultSetupConfigPath}, true, false, withBilling)
 				if setupErr != nil {
 					return errors.Wrap(setupErr, "failed to run setup")
 				}
@@ -383,6 +387,38 @@ func startCmd() *cobra.Command {
 				}
 			}
 
+			if withBilling {
+				startBillingErr := startBilling(
+					cmdContext,
+					cleanupWait,
+					output,
+				)
+
+				metaData := map[string]any{}
+				if startBillingErr != nil {
+					metaData["result"] = "failure"
+					metaData["error"] = oneLineErrorMessage(startBillingErr)
+				} else {
+					metaData["result"] = "success"
+				}
+
+				trackingErr := dxTracker.Track(tracking.MetricBillingStart, metaData)
+				if trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track billing start: %s\n", trackingErr)
+				}
+
+				if startBillingErr != nil {
+					if !strings.Contains(startBillingErr.Error(), protoRegistrationErrMsg) {
+						billingRemoveErr := framework.RemoveTestStack(billingplatformservice.DEFAULT_BILLING_PLATFORM_SERVICE_SERVICE_NAME)
+						if billingRemoveErr != nil {
+							fmt.Fprint(os.Stderr, errors.Wrap(billingRemoveErr, manualBillingCleanupMsg).Error())
+						}
+					}
+
+					return errors.Wrap(startBillingErr, "failed to start Billing Platform Service")
+				}
+			}
+
 			if withExampleFlag {
 				if output.DonTopology.GatewayConnectorOutput == nil || len(output.DonTopology.GatewayConnectorOutput.Configurations) == 0 {
 					return errors.New("no gateway connector configurations found")
@@ -435,6 +471,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
+	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
@@ -491,6 +528,11 @@ func stopCmd() *cobra.Command {
 				stopBeholderErr := stopBeholder()
 				if stopBeholderErr != nil {
 					return errors.Wrap(stopBeholderErr, "failed to stop beholder")
+				}
+
+				stopBillingErr := stopBilling()
+				if stopBillingErr != nil {
+					return errors.Wrap(stopBillingErr, "failed to stop billing")
 				}
 
 				removeCacheErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
