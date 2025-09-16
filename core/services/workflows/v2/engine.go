@@ -294,7 +294,6 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			Method:  sub.Method,
 			// no Config needed - NoDAG uses Payload
 		})
-		err = errors.New("is fooked")
 		if err != nil {
 			e.lggr.Errorw("One of trigger registrations failed - reverting all", "triggerID", sub.Id, "err", err)
 			e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(ctx)
