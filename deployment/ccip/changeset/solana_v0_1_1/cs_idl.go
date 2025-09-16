@@ -120,10 +120,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	if c.AccessController && mcmState.AccessControllerProgram.IsZero() {
 		return fmt.Errorf("access controller program not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
-	commitSha, ok := VersionToShortCommitSHA[c.SolanaContractVersion]
-	if !ok {
-		return fmt.Errorf("solana Contract Version not Found: %s", c.SolanaContractVersion)
-	}
+	commitSha := VersionToShortCommitSHA[c.SolanaContractVersion]
 
 	return repoSetup(e, chain, commitSha)
 }
