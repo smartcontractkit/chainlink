@@ -44,19 +44,19 @@ require (
 	github.com/segmentio/ksuid v1.0.4
 	github.com/shopspring/decimal v1.4.0
 	github.com/slack-go/slack v0.15.0
-	github.com/smartcontractkit/chain-selectors v1.0.70
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250905094443-ac02b032b32b
+	github.com/smartcontractkit/chain-selectors v1.0.71
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250915164817-46a35eda083d
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250911201806-5a095deaeb52
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250912150129-4e42c90b532e
 	github.com/smartcontractkit/chainlink-deployments-framework v0.44.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250909183314-c46f62fb74f6
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250915101441-709f87f7d401
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.4
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
