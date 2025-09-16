@@ -12,7 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	module_regulated_token "github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token/regulated_token"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -50,7 +52,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	// 1 - Cleanup staging area
 	cleanupReport, err := operations.ExecuteOperation(b, operation.CleanupStagingAreaOp, deps, mcmsAddress)
 	if err != nil {
-		return DeployTokenPoolSeqOutput{}, err
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute CleanupStagingAreaOp: %w", err)
 	}
 	if len(cleanupReport.Output.Transactions) > 0 {
 		mcmsOperations = append(mcmsOperations, cleanupReport.Output)
@@ -61,7 +63,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	tokenPoolSeed := fmt.Sprintf("%s::%s", in.TokenAddress.StringLong(), in.PoolType.String())
 	deployTokenPoolPackageReport, err := operations.ExecuteOperation(b, operation.DeployTokenPoolPackageOp, deps, tokenPoolSeed)
 	if err != nil {
-		return DeployTokenPoolSeqOutput{}, err
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute DeployTokenPoolPackageOp: %w", err)
 	}
 	tokenPoolObjectAddress := deployTokenPoolPackageReport.Output.TokenPoolObjectAddress
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolPackageReport.Output.MCMSOps)...)
@@ -75,7 +77,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	}
 	deployTokenPoolModuleReport, err := operations.ExecuteOperation(b, operation.DeployTokenPoolModuleOp, deps, deployTokenPoolModuleInput)
 	if err != nil {
-		return DeployTokenPoolSeqOutput{}, err
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute DeployTokenPoolModuleOp: %w", err)
 	}
 	mcmsOperations = append(mcmsOperations, utils.ToBatchOperations(deployTokenPoolModuleReport.Output)...)
 
@@ -92,14 +94,14 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	}
 	paReport, err := operations.ExecuteOperation(b, operation.ProposeAdministratorOp, deps, proposeAdministratorIn)
 	if err != nil {
-		return DeployTokenPoolSeqOutput{}, err
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute ProposeAdministratorOp: %w", err)
 	}
 	txs = append(txs, paReport.Output)
 
 	// 5 - AcceptAdminRole
 	aaReport, err := operations.ExecuteOperation(b, operation.AcceptAdminRoleOp, deps, in.TokenAddress)
 	if err != nil {
-		return DeployTokenPoolSeqOutput{}, err
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute AcceptAdminRoleOp: %w", err)
 	}
 	txs = append(txs, aaReport.Output)
 
@@ -110,21 +112,20 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	}
 	spReport, err := operations.ExecuteOperation(b, operation.SetPoolOp, deps, setPoolIn)
 	if err != nil {
-		return DeployTokenPoolSeqOutput{}, err
+		return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute SetPoolOp: %w", err)
 	}
 	txs = append(txs, spReport.Output)
 
 	// 7 - Grant BnM permission to the token pool
-	// TODO: BnM Pool should also have this
-	if in.PoolType == shared.AptosManagedTokenPoolType {
-		// Get the token pool state address
+	switch in.PoolType {
+	case shared.AptosManagedTokenPoolType:
 		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
 		gmReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedMintersOp, deps, operation.ApplyAllowedMintersInput{
 			TokenCodeObjectAddress: in.TokenCodeObjAddress,
 			MintersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
 		})
 		if err != nil {
-			return DeployTokenPoolSeqOutput{}, err
+			return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute ApplyAllowedMintersOp: %w", err)
 		}
 		txs = append(txs, gmReport.Output)
 
@@ -133,15 +134,26 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 			BurnersToAdd:           []aptos.AccountAddress{tokenPoolStateAddress},
 		})
 		if err != nil {
-			return DeployTokenPoolSeqOutput{}, err
+			return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute ApplyAllowedBurnersOp: %w", err)
 		}
 		txs = append(txs, gbReport.Output)
-
-		mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
-			ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
-			Transactions:  txs,
+	case shared.AptosRegulatedTokenPoolType:
+		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipRegulatedTokenPool"))
+		gmReport, err := operations.ExecuteOperation(b, operation.GrantRoleOp, deps, operation.GrantRoleInput{
+			TokenCodeObjectAddress: in.TokenCodeObjAddress,
+			RoleNumber:             module_regulated_token.BRIDGE_MINTER_OR_BURNER_ROLE,
+			Account:                tokenPoolStateAddress,
 		})
+		if err != nil {
+			return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute GrantRoleOp: %w", err)
+		}
+		txs = append(txs, gmReport.Output)
 	}
+
+	mcmsOperations = append(mcmsOperations, mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	})
 
 	return DeployTokenPoolSeqOutput{
 		TokenPoolAddress: tokenPoolObjectAddress,
@@ -213,6 +225,8 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	switch in.TokenPoolType {
 	case shared.AptosManagedTokenPoolType:
 		supportedChains, err = managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).ManagedTokenPool().GetSupportedChains(nil)
+	case shared.AptosRegulatedTokenPoolType:
+		supportedChains, err = regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).RegulatedTokenPool().GetSupportedChains(nil)
 	case shared.BurnFromMintTokenPool:
 		supportedChains, err = burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).BurnMintTokenPool().GetSupportedChains(nil)
 	case shared.LockReleaseTokenPool:
@@ -243,6 +257,8 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 			switch in.TokenPoolType {
 			case shared.AptosManagedTokenPoolType:
 				configuredRemotePools, err = managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).ManagedTokenPool().GetRemotePools(nil, remoteSel)
+			case shared.AptosRegulatedTokenPoolType:
+				configuredRemotePools, err = regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).RegulatedTokenPool().GetRemotePools(nil, remoteSel)
 			case shared.BurnFromMintTokenPool:
 				configuredRemotePools, err = burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client).BurnMintTokenPool().GetRemotePools(nil, remoteSel)
 			case shared.LockReleaseTokenPool:
@@ -269,7 +285,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if (len(applyChainUpdatesInput.RemoteChainSelectorsToAdd) + len(applyChainUpdatesInput.RemoteChainSelectorsToRemove)) > 0 {
 		applyChainUpdatesReport, err := operations.ExecuteOperation(b, operation.ApplyChainUpdatesOp, deps, applyChainUpdatesInput)
 		if err != nil {
-			return mcmstypes.BatchOperation{}, err
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute ApplyChainUpdatesOp: %w", err)
 		}
 		txs = append(txs, applyChainUpdatesReport.Output)
 	}
@@ -278,7 +294,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if len(addRemotePoolsInput.RemoteChainSelectors) > 0 {
 		addRemotePoolsReport, err := operations.ExecuteOperation(b, operation.AddRemotePoolsOp, deps, addRemotePoolsInput)
 		if err != nil {
-			return mcmstypes.BatchOperation{}, err
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute AddRemotePoolsOp: %w", err)
 		}
 		txs = append(txs, addRemotePoolsReport.Output...)
 	}
@@ -287,7 +303,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 	if len(setChainRLConfigsInput.RemoteChainSelectors) > 0 {
 		setChainRateLimiterReport, err := operations.ExecuteOperation(b, operation.SetChainRateLimiterConfigsOp, deps, setChainRLConfigsInput)
 		if err != nil {
-			return mcmstypes.BatchOperation{}, err
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute SetChainRateLimiterConfigsOp: %w", err)
 		}
 		txs = append(txs, setChainRateLimiterReport.Output)
 	}
@@ -300,7 +316,7 @@ func connectTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps, in 
 		}
 		applyTokenTransferFeeCfgReport, err := operations.ExecuteOperation(b, operation.ApplyTokenTransferFeeCfgOp, deps, applyTokenTransferFeeCfgInput)
 		if err != nil {
-			return mcmstypes.BatchOperation{}, err
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute ApplyTokenTransferFeeCfgOp: %w", err)
 		}
 		txs = append(txs, applyTokenTransferFeeCfgReport.Output...)
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
@@ -110,8 +111,18 @@ func deployTokenPoolModule(b operations.Bundle, deps AptosDeps, in DeployTokenPo
 			in.TokenAddress,
 			true,
 		)
+	case shared.AptosRegulatedTokenPoolType:
+		payload, err = regulated_token_pool.Compile(
+			in.TokenPoolObjAddress,
+			aptosState.CCIPAddress,
+			aptosState.MCMSAddress,
+			in.TokenPoolObjAddress,
+			in.TokenCodeObjAddress,
+			deps.AptosChain.DeployerSigner.AccountAddress(), // Unused parameter, since the admin is set on the token not the pool
+			true,
+		)
 	default:
-		return nil, fmt.Errorf("invalid token pool type: %s", in.PoolType)
+		return nil, fmt.Errorf("unsupported token pool type for DeployTokenPoolModuleOp: %s", in.PoolType.String())
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile token pool: %w", err)
@@ -153,6 +164,14 @@ func applyChainUpdates(b operations.Bundle, deps AptosDeps, in ApplyChainUpdates
 	case shared.AptosManagedTokenPoolType:
 		poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 		moduleInfo, function, _, args, err = poolBind.ManagedTokenPool().Encoder().ApplyChainUpdates(
+			in.RemoteChainSelectorsToRemove,
+			in.RemoteChainSelectorsToAdd,
+			in.RemotePoolAddresses,
+			in.RemoteTokenAddresses,
+		)
+	case shared.AptosRegulatedTokenPoolType:
+		poolBind := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.RegulatedTokenPool().Encoder().ApplyChainUpdates(
 			in.RemoteChainSelectorsToRemove,
 			in.RemoteChainSelectorsToAdd,
 			in.RemotePoolAddresses,
@@ -224,6 +243,17 @@ func setChainRateLimiterConfigs(b operations.Bundle, deps AptosDeps, in SetChain
 			in.InboundCapacities,
 			in.InboundRates,
 		)
+	case shared.AptosRegulatedTokenPoolType:
+		poolBind := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.RegulatedTokenPool().Encoder().SetChainRateLimiterConfigs(
+			in.RemoteChainSelectors,
+			in.OutboundIsEnableds,
+			in.OutboundCapacities,
+			in.OutboundRates,
+			in.InboundIsEnableds,
+			in.InboundCapacities,
+			in.InboundRates,
+		)
 	case shared.BurnMintTokenPool:
 		poolBind := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 		moduleInfo, function, _, args, err = poolBind.BurnMintTokenPool().Encoder().SetChainRateLimiterConfigs(
@@ -278,6 +308,19 @@ func addRemotePools(b operations.Bundle, deps AptosDeps, in AddRemotePoolsInput)
 		poolBind := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 		for i, selector := range in.RemoteChainSelectors {
 			moduleInfo, function, _, args, err := poolBind.ManagedTokenPool().Encoder().AddRemotePool(selector, in.RemotePoolAddresses[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode AddRemotePools for remote selector %d: %w", selector, err)
+			}
+			tx, err := utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
+			if err != nil {
+				return nil, err
+			}
+			txs[i] = tx
+		}
+	case shared.AptosRegulatedTokenPoolType:
+		poolBind := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		for i, selector := range in.RemoteChainSelectors {
+			moduleInfo, function, _, args, err := poolBind.RegulatedTokenPool().Encoder().AddRemotePool(selector, in.RemotePoolAddresses[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to encode AddRemotePools for remote selector %d: %w", selector, err)
 			}
