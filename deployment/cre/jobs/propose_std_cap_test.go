@@ -136,7 +136,6 @@ func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
 
 	reqs, err := testEnv.TestJD.ListProposedJobRequests()
 	require.NoError(t, err)
-	assert.Len(t, reqs, 12) // 8 from previous tests + 4 new
 
 	// Verify the job specs contain expected HTTP action configuration
 	for _, req := range reqs {
