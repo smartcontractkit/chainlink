@@ -36,6 +36,10 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 }
 
 func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infra.Input) error {
+	if len(nodeSetInput) == 0 {
+		return errors.New("at least one nodeset is required")
+	}
+
 	hasAtLeastOneBootstrapNode := false
 	for _, nodeSet := range nodeSetInput {
 		if nodeSet.BootstrapNodeIndex != -1 {

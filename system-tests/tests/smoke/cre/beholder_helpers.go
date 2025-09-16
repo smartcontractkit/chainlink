@@ -16,10 +16,35 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
+type Beholder struct {
+	cfg  *config.ChipIngressConfig
+	lggr zerolog.Logger
+}
+
+func NewBeholder(lggr zerolog.Logger, relativePathToRepoRoot, environmentDir string) (*Beholder, error) {
+	err := startBeholderStackIfIsNotRunning(relativePathToRepoRoot, environmentDir)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to ensure beholder stack is running")
+	}
+
+	chipConfig, err := loadBeholderStackCache(relativePathToRepoRoot)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load beholder stack cache")
+	}
+	return &Beholder{cfg: chipConfig, lggr: lggr}, nil
+}
+
 func loadBeholderStackCache(relativePathToRepoRoot string) (*config.ChipIngressConfig, error) {
 	c := &config.ChipIngressConfig{}
 	if loadErr := c.Load(config.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)); loadErr != nil {
 		return nil, errors.Wrap(loadErr, "failed to load beholder stack cache")
+	}
+	if c.ChipIngress.Output.RedPanda.KafkaExternalURL == "" {
+		return nil, errors.New("kafka external url is not set in the cache")
+	}
+
+	if len(c.Kafka.Topics) == 0 {
+		return nil, errors.New("kafka topics are not set in the cache")
 	}
 
 	return c, nil
@@ -41,10 +66,8 @@ func startBeholderStackIfIsNotRunning(relativePathToRepoRoot, environmentDir str
 	return nil
 }
 
-func subscribeToBeholderMessages(
+func (b *Beholder) SubscribeToBeholderMessages(
 	ctx context.Context,
-	testLogger zerolog.Logger,
-	chipConfig *config.ChipIngressConfig,
 	messageTypes map[string]func() proto.Message,
 ) (<-chan proto.Message, <-chan error) {
 	kafkaErrChan := make(chan error, 1)
@@ -52,7 +75,7 @@ func subscribeToBeholderMessages(
 
 	// Start listening for messages in the background
 	go func() {
-		listenForKafkaMessages(ctx, testLogger, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, chipConfig.Kafka.Topics[0], messageTypes, messageChan, kafkaErrChan)
+		listenForKafkaMessages(ctx, b.lggr, b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL, b.cfg.Kafka.Topics[0], messageTypes, messageChan, kafkaErrChan)
 	}()
 
 	return messageChan, kafkaErrChan

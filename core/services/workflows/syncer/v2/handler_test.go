@@ -137,7 +137,7 @@ func Test_Handler(t *testing.T) {
 		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
-		err = h.Handle(ctx, giveEvent, &commontypes.Head{Height: "123"})
+		err = h.Handle(ctx, giveEvent, &commontypes.Head{Hash: []byte("123")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "event type unsupported")
 	})

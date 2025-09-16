@@ -80,21 +80,22 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				&solcfg.TOMLConfig{
 					ChainID: &solanaChainID1,
 					Enabled: ptr(true),
-					Chain:   solcfg.NewDefault().Chain,
 					Nodes: []*solcfg.Node{{
 						Name: ptr("solana chain 1 node 1"),
-						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
+						URL:  commonconfig.MustParseURL("http://localhost:8547"),
 					}},
 				},
 				&solcfg.TOMLConfig{
 					ChainID: &solanaChainID2,
 					Enabled: ptr(true),
-					Chain:   solcfg.NewDefault().Chain,
 					Nodes: []*solcfg.Node{{
 						Name: ptr("solana chain 2 node 1"),
-						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8527").URL())),
+						URL:  commonconfig.MustParseURL("http://localhost:8527"),
 					}},
 				},
+			}
+			for i := range c.Solana {
+				c.Solana[i].SetDefaults()
 			}
 		})
 	}

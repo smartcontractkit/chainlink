@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -43,6 +44,18 @@ type Config struct {
 func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 	if c.JD.CSAEncryptionKey == "" {
 		return errors.New("jd.csa_encryption_key must be provided")
+	}
+
+	if len(c.Blockchains) == 0 {
+		return errors.New("at least one blockchain must be configured")
+	}
+
+	if len(c.NodeSets) == 0 {
+		return errors.New("at least one nodeset must be configured")
+	}
+
+	if c.Infra == nil {
+		return errors.New("infra configuration must be provided")
 	}
 
 	for _, nodeSet := range c.NodeSets {
@@ -82,6 +95,12 @@ func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) er
 	return nil
 }
 
+const (
+	WorkflowRegistryV2Semver   = "2.0.0-dev"
+	CapabilityRegistryV2Semver = "2.0.0"
+	DefaultDONFamily           = "test-don-family"
+)
+
 func DefaultContractSet(withV2Registries bool) map[string]string {
 	supportedSet := map[string]string{
 		keystone_changeset.OCR3Capability.String():       "1.0.0",
@@ -91,8 +110,8 @@ func DefaultContractSet(withV2Registries bool) map[string]string {
 	}
 
 	if withV2Registries {
-		supportedSet[keystone_changeset.WorkflowRegistry.String()] = "2.0.0-dev"
-		supportedSet[keystone_changeset.CapabilitiesRegistry.String()] = "2.0.0"
+		supportedSet[keystone_changeset.WorkflowRegistry.String()] = WorkflowRegistryV2Semver
+		supportedSet[keystone_changeset.CapabilitiesRegistry.String()] = CapabilityRegistryV2Semver
 	}
 
 	return supportedSet
@@ -268,7 +287,9 @@ func (c *ChipIngressConfig) Load(absPath string) error {
 }
 
 const (
-	ChipIngressStateFilename = "chip_ingress.toml"
+	ChipIngressStateFilename      = "chip_ingress.toml"
+	BillingStateFilename          = "billing-platform-service.toml"
+	WorkflowRegistryStateFilename = "workflow_registry.toml"
 )
 
 func (c *ChipIngressConfig) Store(absPath string) error {
@@ -291,7 +312,7 @@ func ChipIngressStateFileExists(relativePathToRepoRoot string) bool {
 }
 
 func storeLocalArtifact(artifact any, absPath string) error {
-	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0o755)
 	if dErr != nil {
 		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
 	}
@@ -301,7 +322,7 @@ func storeLocalArtifact(artifact any, absPath string) error {
 		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
 	}
 
-	return os.WriteFile(absPath, d, 0600)
+	return os.WriteFile(absPath, d, 0o600)
 }
 
 func RemoveAllEnvironmentStateDir(relativePathToRepoRoot string) error {
@@ -323,4 +344,71 @@ func copyExportedFields(dst, src any) {
 		}
 		dv.Field(i).Set(sv.Field(i))
 	}
+}
+
+type BillingConfig struct {
+	BillingService *billingplatformservice.Input `toml:"billing_platform_service"`
+
+	mu     sync.Mutex
+	loaded bool
+}
+
+func (c *BillingConfig) Store(absPath string) error {
+	framework.L.Info().Msgf("Storing Billing state file: %s", absPath)
+	return storeLocalArtifact(c, absPath)
+}
+
+func (c *BillingConfig) Load(absPath string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.loaded {
+		return nil
+	}
+
+	previousCTFconfigs := os.Getenv("CTF_CONFIGS")
+	defer func() {
+		setErr := os.Setenv("CTF_CONFIGS", previousCTFconfigs)
+		if setErr != nil {
+			framework.L.Warn().Err(setErr).Msg("failed to restore previous CTF_CONFIGS env var")
+		}
+	}()
+
+	setErr := os.Setenv("CTF_CONFIGS", absPath)
+	if setErr != nil {
+		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+	}
+
+	in, err := framework.Load[BillingConfig](nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to load billing config")
+	}
+
+	copyExportedFields(c, in)
+	c.loaded = true
+
+	return nil
+}
+
+func MustBillingStateFileAbsPath(relativePathToRepoRoot string) string {
+	absPath, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, StateDirname, BillingStateFilename))
+	if err != nil {
+		panic(fmt.Errorf("failed to get absolute path for local CRE state file: %w", err))
+	}
+
+	return absPath
+}
+
+func BillingStateFileExists(relativePathToRepoRoot string) bool {
+	_, statErr := os.Stat(MustBillingStateFileAbsPath(relativePathToRepoRoot))
+	return statErr == nil
+}
+
+func MustWorkflowRegistryStateFileAbsPath(relativePathToRepoRoot string) string {
+	absPath, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, StateDirname, WorkflowRegistryStateFilename))
+	if err != nil {
+		panic(fmt.Errorf("failed to get absolute path for local CRE state file: %w", err))
+	}
+
+	return absPath
 }

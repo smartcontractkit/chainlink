@@ -21,6 +21,7 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
@@ -33,7 +34,8 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
-	rpf, err := NewReportingPluginFactory(lggr, store, nil, nil, pk, shares[0])
+	lpk := vaultcap.NewLazyPublicKey()
+	rpf, err := NewReportingPluginFactory(lggr, store, nil, nil, pk, shares[0], lpk)
 	require.NoError(t, err)
 
 	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{}, nil)
@@ -131,7 +133,8 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 		},
 	}))
 
-	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, nil, nil)
+	lpk := vaultcap.NewLazyPublicKey()
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, nil, nil, lpk)
 	require.NoError(t, err)
 
 	instanceIDString := string(instanceID)
@@ -161,25 +164,30 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	assert.Equal(t, expectedKeyShare, ks)
 
 	assert.Equal(t, "VaultReportingPlugin", info.Name)
+
+	key, err := lpk.Get().Marshal()
+	require.NoError(t, err)
+	assert.Equal(t, pkBytes, key)
 }
 
 func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
+	lpk := vaultcap.NewLazyPublicKey()
 	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
 	_, orm := setupORM(t)
-	_, err = NewReportingPluginFactory(lggr, store, orm, nil, nil, nil)
+	_, err = NewReportingPluginFactory(lggr, store, orm, nil, nil, nil, lpk)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "DKG recipient key cannot be nil when using result package db")
 
-	_, err = NewReportingPluginFactory(lggr, store, nil, nil, nil, nil)
+	_, err = NewReportingPluginFactory(lggr, store, nil, nil, nil, nil, lpk)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "public key and result package db cannot be nil")
 
-	_, err = NewReportingPluginFactory(lggr, store, nil, nil, pk, nil)
+	_, err = NewReportingPluginFactory(lggr, store, nil, nil, pk, nil, lpk)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "private key share and result package db cannot both be nil")
 }

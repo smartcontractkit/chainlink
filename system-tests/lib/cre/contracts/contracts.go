@@ -1,13 +1,17 @@
 package contracts
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -35,7 +39,10 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
+
+const DonFamily = "test-don-family"
 
 type donConfig struct {
 	id uint32 // the DON id as registered in the capabilities registry
@@ -62,6 +69,20 @@ type dons struct {
 	c map[string]donConfig
 }
 
+func (d *dons) donsOrderedByID() []donConfig {
+	out := make([]donConfig, 0, len(d.c))
+	for _, don := range d.c {
+		out = append(out, don)
+	}
+
+	// Use sort library to sort by ID
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].id < out[j].id
+	})
+
+	return out
+}
+
 func (d *dons) GetByName(name string) (donConfig, error) {
 	c, ok := d.c[name]
 	if !ok {
@@ -72,7 +93,7 @@ func (d *dons) GetByName(name string) (donConfig, error) {
 
 func (d *dons) ListByFlag(flag cre.CapabilityFlag) ([]donConfig, error) {
 	out := make([]donConfig, 0)
-	for _, don := range d.c {
+	for _, don := range d.donsOrderedByID() {
 		if flags.HasFlag(don.flags, flag) {
 			out = append(out, don)
 		}
@@ -85,7 +106,7 @@ func (d *dons) ListByFlag(flag cre.CapabilityFlag) ([]donConfig, error) {
 
 func (d *dons) ListByCapability(capName, capVersion string) ([]donConfig, error) {
 	out := make([]donConfig, 0)
-	for _, don := range d.c {
+	for _, don := range d.donsOrderedByID() {
 		for _, cap := range don.Capabilities {
 			if strings.EqualFold(cap.Capability.LabelledName, capName) && strings.EqualFold(cap.Capability.Version, capVersion) {
 				out = append(out, don)
@@ -112,7 +133,7 @@ func (d *dons) shouldBeOneDon(flag cre.CapabilityFlag) (donConfig, error) {
 
 func (d *dons) donNodesets() []ks_contracts_op.ConfigureKeystoneDON {
 	out := make([]ks_contracts_op.ConfigureKeystoneDON, 0, len(d.c))
-	for _, don := range d.c {
+	for _, don := range d.donsOrderedByID() {
 		out = append(out, don.keystoneDonConfig())
 	}
 	return out
@@ -120,13 +141,125 @@ func (d *dons) donNodesets() []ks_contracts_op.ConfigureKeystoneDON {
 
 func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 	out := make([]keystone_changeset.DonCapabilities, 0, len(d.c))
-	for _, don := range d.c {
+	for _, don := range d.donsOrderedByID() {
 		out = append(out, don.DonCapabilities)
 	}
 	return out
 }
 
-func toDons(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) (*dons, error) {
+func (d *dons) toV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
+	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperator, 0)
+	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0)
+	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
+	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
+
+	// Collect unique capabilities and NOPs
+	capabilityMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapability)
+	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperator)
+
+	for _, don := range d.donsOrderedByID() {
+		// Extract capabilities
+		for _, myCap := range don.Capabilities {
+			capID := fmt.Sprintf("%s@%s", myCap.Capability.LabelledName, myCap.Capability.Version)
+			if _, exists := capabilityMap[capID]; !exists {
+				metadataJSON, _ := json.Marshal(syncer_v2.CapabilityMetadata{
+					CapabilityType: myCap.Capability.CapabilityType,
+					ResponseType:   myCap.Capability.ResponseType,
+				})
+				capabilityMap[capID] = capabilities_registry_v2.CapabilitiesRegistryCapability{
+					CapabilityId:          capID,
+					ConfigurationContract: common.Address{},
+					Metadata:              metadataJSON,
+				}
+			}
+		}
+
+		// Extract NOPs and nodes
+		for _, nop := range don.Nops {
+			nopName := nop.Name
+			if _, exists := nopMap[nopName]; !exists {
+				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+					Admin: common.Address{}, // Will be set by the deployment framework
+					Name:  nopName,
+				}
+
+				// Add nodes for this NOP
+				for _, nodeID := range nop.Nodes {
+					peerID, err := p2pkey.MakePeerID(nodeID)
+					if err != nil {
+						continue // Skip invalid peer IDs
+					}
+					// Safe conversion: len(nops) is controlled and small
+					nodeOperatorID := libc.MustSafeUint32(len(nops))
+					nodes = append(nodes, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
+						NodeOperatorId:      nodeOperatorID,
+						P2pId:               peerID,
+						Signer:              [32]byte{}, // Will be set by the deployment framework
+						EncryptionPublicKey: [32]byte{}, // Will be set by the deployment framework
+					})
+				}
+			}
+		}
+
+		// Create DON parameters
+		var capConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+		for _, cap := range don.Capabilities {
+			capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
+			configBytes := []byte("{}")
+			if cap.Config != nil {
+				// Convert proto config to bytes if needed
+				if protoBytes, err := proto.Marshal(cap.Config); err == nil {
+					configBytes = protoBytes
+				}
+			}
+			capConfigs = append(capConfigs, capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
+				CapabilityId: capID,
+				Config:       configBytes,
+			})
+		}
+
+		var donNodes [][32]byte
+		for _, nop := range don.Nops {
+			for _, nodeID := range nop.Nodes {
+				peerID, err := p2pkey.MakePeerID(nodeID)
+				if err != nil {
+					continue
+				}
+				donNodes = append(donNodes, peerID)
+			}
+		}
+
+		donParams = append(donParams, capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
+			Name:                     don.Name,
+			DonFamilies:              []string{DonFamily}, // Default empty
+			Config:                   []byte("{}"),
+			CapabilityConfigurations: capConfigs,
+			Nodes:                    donNodes,
+			F:                        don.F,
+			IsPublic:                 true,
+			AcceptsWorkflows:         true,
+		})
+	}
+
+	// Convert maps to slices
+	for _, cap := range capabilityMap {
+		capabilities = append(capabilities, cap)
+	}
+	for _, nop := range nopMap {
+		nops = append(nops, nop)
+	}
+
+	return cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{
+		RegistryChainSel: chainSelector,
+		ContractAddress:  contractAddress,
+		Nops:             nops,
+		Nodes:            nodes,
+		Capabilities:     capabilities,
+		DONs:             donParams,
+	}
+}
+
+func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 	dons := &dons{
 		c: make(map[string]donConfig),
 	}
@@ -141,7 +274,7 @@ func toDons(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		// check what capabilities each DON has and register them with Capabilities Registry contract
-		for _, configFn := range capabilityRegistryConfigFns {
+		for _, configFn := range input.CapabilityRegistryConfigFns {
 			if configFn == nil {
 				continue
 			}
@@ -235,14 +368,15 @@ func ConfigureCapabilityRegistry(input cre.ConfigureKeystoneInput, dons *dons) (
 		return &registryWrapper{V1: capReg.Contract}, nil
 	}
 
-	// TODO: Turn don to inputs
+	// Transform dons data to V2 sequence input format
+	v2Input := dons.toV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex())
 	_, err := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
 			Env: input.CldEnv,
 		},
-		cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{},
+		v2Input,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to configure capabilities registry")
@@ -260,12 +394,12 @@ func ConfigureCapabilityRegistry(input cre.ConfigureKeystoneInput, dons *dons) (
 	return &registryWrapper{V2: capReg.Contract}, nil
 }
 
-func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfigFns []cre.CapabilityRegistryConfigFn) error {
+func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	if err := input.Validate(); err != nil {
 		return errors.Wrap(err, "input validation failed")
 	}
 
-	dons, err := toDons(input, capabilityRegistryConfigFns)
+	dons, err := toDons(input)
 	if err != nil {
 		return errors.Wrap(err, "failed to map input to dons")
 	}
@@ -407,7 +541,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput, capabilityRegistryConfi
 		}
 	}
 
-	for chainSelector, evmOCR3Address := range *input.EVMOCR3Addresses {
+	for chainSelector, evmOCR3Address := range input.EVMOCR3Addresses {
 		// not sure how to map EVM chains to DONs, so for now we assume that there's only one DON that supports EVM chains
 		evmDON, err := dons.shouldBeOneDon(cre.EVMCapability)
 		if err != nil {

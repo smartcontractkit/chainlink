@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"sort"
 	"testing"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
@@ -47,6 +45,7 @@ type EnvWrapperV2 struct {
 	Env              *cldf.Environment
 	RegistrySelector uint64
 	RegistryAddress  common.Address
+	AptosSelector    uint64
 }
 
 type donConfig struct {
@@ -58,12 +57,18 @@ type donConfig struct {
 	RegistryChainSel uint64
 }
 
-func initEnv(t *testing.T, lggr logger.Logger) (uint64, *cldf.Environment) {
-	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 1))
-	registryChainSel := registryChain(chains.EVMChains())
+func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel uint64, env *cldf.Environment) {
+	evmChains := memory.NewMemoryChainsEVM(t, 1, 1)
+	aptosChains := memory.NewMemoryChainsAptos(t, 1)
+	chains := cldf_chain.NewBlockChainsFromSlice([]cldf_chain.BlockChain{
+		evmChains[0],
+		aptosChains[0],
+	})
+	registryChainSel = evmChains[0].ChainSelector()
+	aptosChainSel = aptosChains[0].ChainSelector()
 
 	ds := datastore.NewMemoryDataStore()
-	env := cldf.Environment{
+	localEnv := cldf.Environment{
 		Logger:           lggr,
 		GetContext:       t.Context,
 		DataStore:        ds.Seal(),
@@ -82,12 +87,15 @@ func initEnv(t *testing.T, lggr logger.Logger) (uint64, *cldf.Environment) {
 		),
 	}
 
-	env, _, err := changeset.ApplyChangesets(t, env, changes)
+	localEnv, _, err := changeset.ApplyChangesets(t, localEnv, changes)
 	require.NoError(t, err)
+
+	env = &localEnv
 	require.NotNil(t, env)
 	require.Len(t, env.BlockChains.EVMChains(), 1)
+	require.Len(t, env.BlockChains.AptosChains(), 1)
 
-	return registryChainSel, &env
+	return registryChainSel, aptosChainSel, env
 }
 
 // SetupEnvV2 starts an environment with a single DON, 4 nodes and a capabilities registry v2 deployed and configured.
@@ -96,7 +104,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 
 	lggr := logger.Test(t)
 
-	registryChainSel, envInitiated := initEnv(t, lggr)
+	registryChainSel, aptosChainSel, envInitiated := initEnv(t, lggr)
 	lggr.Debug("Initialized environment", "registryChainSel", registryChainSel)
 
 	n := 4
@@ -108,7 +116,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	}
 
 	// Only need one DON
-	don, env, jd := setupViewOnlyNodeTest(t, registryChainSel, envInitiated.BlockChains.EVMChains(), donCfg)
+	don, env, jd := setupViewOnlyNodeTest(t, registryChainSel, aptosChainSel, envInitiated.BlockChains, donCfg)
 
 	env.DataStore = envInitiated.DataStore
 
@@ -210,7 +218,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	gotNodes, err := capReg.GetNodesByP2PIds(nil, nodesP2PIDsBytes)
 	require.NoError(t, err)
 	require.Len(t, gotNodes, len(don.GetP2PIDs()))
-	require.Len(t, gotNodes, donCfg.N)
+	require.Len(t, gotNodes, donCfg.N+1) // +1 for bootstrap
 	for _, n := range gotNodes {
 		require.Equal(t, "test-capability@1.0.0", n.CapabilityIds[0])
 	}
@@ -236,12 +244,13 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		t:                t,
 		TestJD:           jd,
 		Env:              &env,
+		AptosSelector:    aptosChainSel,
 		RegistrySelector: registryChainSel,
 		RegistryAddress:  common.HexToAddress(registryAddrs[0].Address),
 	}
 }
 
-func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]cldf_evm.Chain, donCfg donConfig) (*viewOnlyDon, cldf.Environment, *envtest.JDNodeService) {
+func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64, chains cldf_chain.BlockChains, donCfg donConfig) (*viewOnlyDon, cldf.Environment, *envtest.JDNodeService) {
 	var (
 		don      *viewOnlyDon
 		nodesCfg []envtest.NodeConfig
@@ -259,16 +268,34 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 				labels[k] = v
 			}
 		}
+
 		nCfg := envtest.NodeConfig{
-			ChainSelectors: []uint64{registryChainSel},
+			ChainSelectors: []uint64{registryChainSel, aptosChainSel},
 			Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
 			Labels:         labels,
 		}
 		nodesCfg = append(nodesCfg, nCfg)
 	}
 
+	btLabels := map[string]string{
+		"don-" + donCfg.Name: donCfg.Name,
+		"environment":        "test",
+		"product":            "cre",
+		"type":               "bootstrap",
+	}
+	if donCfg.Labels != nil {
+		for k, v := range donCfg.Labels {
+			btLabels[k] = v
+		}
+	}
+	nodesCfg = append(nodesCfg, envtest.NodeConfig{
+		ChainSelectors: []uint64{registryChainSel, aptosChainSel},
+		Name:           donCfg.Name + "-bootstrap",
+		Labels:         btLabels,
+	})
+
 	n := envtest.NewNodes(t, nodesCfg)
-	require.Len(t, n, donCfg.N)
+	require.Len(t, n, donCfg.N+1) // +1 for bootstrap
 
 	don = newViewOnlyDon(donCfg.Name, n)
 
@@ -278,7 +305,10 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 	}
 
 	blockChains := map[uint64]cldf_chain.BlockChain{}
-	for sel, c := range chains {
+	for sel, c := range chains.EVMChains() {
+		blockChains[sel] = c
+	}
+	for sel, c := range chains.AptosChains() {
 		blockChains[sel] = c
 	}
 
@@ -296,14 +326,4 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 	)
 
 	return don, *env, jd
-}
-
-func registryChain(chains map[uint64]cldf_evm.Chain) uint64 {
-	var registryChainSel uint64 = math.MaxUint64
-	for sel := range chains {
-		if sel < registryChainSel {
-			registryChainSel = sel
-		}
-	}
-	return registryChainSel
 }

@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -23,8 +25,8 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -200,6 +202,7 @@ type CapabilityConfig struct {
 
 type WorkflowRegistryInput struct {
 	ContractAddress common.Address          `toml:"_"`
+	ContractVersion cldf.TypeAndVersion     `toml:"_"`
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
 	AllowedDonIDs   []uint64                `toml:"-"`
@@ -229,6 +232,34 @@ type WorkflowRegistryOutput struct {
 	ChainSelector  uint64           `toml:"chain_selector"`
 	AllowedDonIDs  []uint32         `toml:"allowed_don_ids"`
 	WorkflowOwners []common.Address `toml:"workflow_owners"`
+}
+
+func (c *WorkflowRegistryOutput) Store(absPath string) error {
+	framework.L.Info().Msgf("Storing Workflow Registry state file: %s", absPath)
+	return storeLocalArtifact(c, absPath)
+}
+
+func (c WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
+	owners := make([]string, len(c.WorkflowOwners))
+	for idx, owner := range c.WorkflowOwners {
+		owners[idx] = owner.String()
+	}
+
+	return owners
+}
+
+func storeLocalArtifact(artifact any, absPath string) error {
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	if dErr != nil {
+		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
+	}
+
+	d, mErr := toml.Marshal(artifact)
+	if mErr != nil {
+		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
+	}
+
+	return os.WriteFile(absPath, d, 0600)
 }
 
 type ConfigureDataFeedsCacheOutput struct {
@@ -376,10 +407,11 @@ func (d *DebugInput) Validate() error {
 }
 
 type ConfigureKeystoneInput struct {
-	ChainSelector uint64
-	Topology      *Topology
-	CldEnv        *cldf.Environment
-	NodeSets      []*CapabilitiesAwareNodeSet
+	ChainSelector               uint64
+	Topology                    *Topology
+	CldEnv                      *cldf.Environment
+	NodeSets                    []*CapabilitiesAwareNodeSet
+	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
 
 	OCR3Config  keystone_changeset.OracleConfig
 	OCR3Address *common.Address // v1 consensus contract address
@@ -391,7 +423,7 @@ type ConfigureKeystoneInput struct {
 	VaultOCR3Address *common.Address
 
 	EVMOCR3Config    keystone_changeset.OracleConfig
-	EVMOCR3Addresses *map[uint64]common.Address // chain selector to address map
+	EVMOCR3Addresses map[uint64]common.Address // chain selector to address map
 
 	ConsensusV2OCR3Config  keystone_changeset.OracleConfig // v2 consensus contract config
 	ConsensusV2OCR3Address *common.Address
@@ -863,9 +895,7 @@ func (g *GenerateSecretsInput) Validate() error {
 
 type FullCLDEnvironmentInput struct {
 	JdOutput          *jd.Output
-	BlockchainOutputs map[uint64]*WrappedBlockchainOutput
-	SethClients       map[uint64]*seth.Client
-	SolClients        map[uint64]*solrpc.Client
+	BlockchainOutputs []*WrappedBlockchainOutput
 	NodeSetOutput     []*WrappedNodeOutput
 	ExistingAddresses cldf.AddressBook
 	Datastore         datastore.DataStore
@@ -880,9 +910,6 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 	if len(f.BlockchainOutputs) == 0 {
 		return errors.New("blockchain output not set")
 	}
-	if len(f.SethClients) == 0 {
-		return errors.New("seth clients are not set")
-	}
 
 	var expectedSeth, expectedSols int
 	for _, chain := range f.BlockchainOutputs {
@@ -891,13 +918,6 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 			continue
 		}
 		expectedSeth++
-	}
-
-	if expectedSeth != len(f.SethClients) {
-		return errors.Errorf("expected '%d' got '%d' unexpected number of seth clients", expectedSeth, len(f.SethClients))
-	}
-	if expectedSols != len(f.SolClients) {
-		return errors.Errorf("expected '%d' got '%d' unexpected number of sol clients", expectedSols, len(f.SolClients))
 	}
 	if len(f.NodeSetOutput) == 0 {
 		return errors.New("node set output not set")
@@ -920,10 +940,8 @@ type FullCLDEnvironmentOutput struct {
 }
 
 type DeployCribDonsInput struct {
-	Topology      *Topology
-	NodeSetInputs []*CapabilitiesAwareNodeSet
-	// todo cleanup this
-	NixShell       *nix.Shell
+	Topology       *Topology
+	NodeSetInputs  []*CapabilitiesAwareNodeSet
 	CribConfigsDir string
 	Namespace      string
 }
@@ -935,9 +953,6 @@ func (d *DeployCribDonsInput) Validate() error {
 	if len(d.Topology.DonsMetadata) == 0 {
 		return errors.New("metadata not set")
 	}
-	if d.NixShell == nil {
-		return errors.New("nix shell not set")
-	}
 	if len(d.NodeSetInputs) == 0 {
 		return errors.New("node set inputs not set")
 	}
@@ -948,20 +963,12 @@ func (d *DeployCribDonsInput) Validate() error {
 }
 
 type DeployCribJdInput struct {
-	JDInput *jd.Input
-	// todo:  cleanup this
-	NixShell       *nix.Shell
+	JDInput        jd.Input
 	CribConfigsDir string
 	Namespace      string
 }
 
 func (d *DeployCribJdInput) Validate() error {
-	if d.JDInput == nil {
-		return errors.New("jd input not set")
-	}
-	if d.NixShell == nil {
-		return errors.New("nix shell not set")
-	}
 	if d.CribConfigsDir == "" {
 		return errors.New("crib configs dir not set")
 	}
@@ -970,18 +977,13 @@ func (d *DeployCribJdInput) Validate() error {
 
 type DeployCribBlockchainInput struct {
 	BlockchainInput *blockchain.Input
-	// todo:  cleanup this
-	NixShell       *nix.Shell
-	CribConfigsDir string
-	Namespace      string
+	CribConfigsDir  string
+	Namespace       string
 }
 
 func (d *DeployCribBlockchainInput) Validate() error {
 	if d.BlockchainInput == nil {
 		return errors.New("blockchain input not set")
-	}
-	if d.NixShell == nil {
-		return errors.New("nix shell not set")
 	}
 	if d.CribConfigsDir == "" {
 		return errors.New("crib configs dir not set")
@@ -1018,7 +1020,7 @@ type JobSpecInput struct {
 	CldEnvironment            *cldf.Environment
 	BlockchainOutput          *blockchain.Output
 	DonTopology               *DonTopology
-	InfraInput                *infra.Input
+	InfraInput                infra.Input
 	CapabilityConfigs         map[string]CapabilityConfig
 	Capabilities              []InstallableCapability
 	CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet

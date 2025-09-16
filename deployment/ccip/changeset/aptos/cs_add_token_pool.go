@@ -77,6 +77,14 @@ func (cs AddTokenPool) VerifyPreconditions(env cldf.Environment, cfg config.AddT
 			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool, token))
 		}
 	}
+	for token, pool := range state.AptosChains[cfg.ChainSelector].RegulatedTokenPools {
+		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
+			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token, pool))
+		}
+		if (pool == cfg.TokenPoolAddress) && (token != cfg.TokenAddress) {
+			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool, token))
+		}
+	}
 	for token, pool := range state.AptosChains[cfg.ChainSelector].BurnMintTokenPools {
 		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
 			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token, pool))
@@ -106,7 +114,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	ab := cldf.NewMemoryAddressBook()
 	seqReports := make([]operations.Report[any, any], 0)
 	proposals := make([]mcms.TimelockProposal, 0)
-	mcmsOperations := []mcmstypes.BatchOperation{}
+	var mcmsOperations []mcmstypes.BatchOperation
 
 	deps := operation.AptosDeps{
 		AB:               ab,
@@ -173,6 +181,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	// Connect token pools EVM -> Aptos
 	connInput := seq.ConnectTokenPoolSeqInput{
 		TokenPoolAddress:                    tokenPoolAddress,
+		TokenPoolType:                       cfg.PoolType,
 		RemotePools:                         toRemotePools(cfg.EVMRemoteConfigs),
 		TokenAddress:                        tokenAddress,
 		TokenTransferFeeByRemoteChainConfig: cfg.TokenTransferFeeByRemoteChainConfig,

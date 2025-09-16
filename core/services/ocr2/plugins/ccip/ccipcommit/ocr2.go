@@ -106,6 +106,11 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		return nil, ccip.ErrChainIsNotHealthy
 	}
 
+	onRampAddress, err := r.onRampReader.Address(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// Will return 0,0 if no messages are found. This is a valid case as the report could
 	// still contain fee updates.
 	minSeqNr, maxSeqNr, messageIDs, err := r.calculateMinMaxSequenceNumbers(ctx, lggr)
@@ -128,6 +133,8 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		"messageIDs", messageIDs,
 	)
 	r.metricsCollector.NumberOfMessagesBasedOnInterval(ccip.Observation, minSeqNr, maxSeqNr)
+	r.metricsCollector.CommitLatestRoundID(string(onRampAddress), uint64(epochAndRound.Round))
+	r.metricsCollector.SequenceNumber(ccip.Observation, maxSeqNr, string(onRampAddress))
 
 	// Even if all values are empty we still want to communicate our observation
 	// with the other nodes, therefore, we always return the observed values.
@@ -275,6 +282,11 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 		return false, nil, ccip.ErrChainIsNotHealthy
 	}
 
+	onRampAddress, err := r.onRampReader.Address(ctx)
+	if err != nil {
+		return false, nil, err
+	}
+
 	parsableObservations := ccip.GetParsableObservations[ccip.CommitObservation](lggr, observations)
 
 	intervals, gasPriceObs, tokenPriceObs, err := extractObservationData(lggr, r.F, r.sourceChainSelector, parsableObservations)
@@ -305,7 +317,8 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 	if err != nil {
 		return false, nil, err
 	}
-	r.metricsCollector.SequenceNumber(ccip.Report, report.Interval.Max)
+	r.metricsCollector.SequenceNumber(ccip.Report, report.Interval.Max, string(onRampAddress))
+	r.metricsCollector.CommitLatestRoundID(string(onRampAddress), uint64(epochAndRound.Round))
 	r.metricsCollector.NumberOfMessagesBasedOnInterval(ccip.Report, report.Interval.Min, report.Interval.Max)
 	lggr.Infow("Report",
 		"merkleRoot", hex.EncodeToString(report.MerkleRoot[:]),
@@ -634,7 +647,6 @@ func (r *CommitReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context,
 		return false, nil
 	}
 
-	r.metricsCollector.SequenceNumber(ccip.ShouldAccept, parsedReport.Interval.Max)
 	lggr.Infow("Accepting finalized report", "merkleRoot", hexutil.Encode(parsedReport.MerkleRoot[:]))
 	return true, nil
 }
