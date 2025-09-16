@@ -147,6 +147,8 @@ func ValidateCreateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultc
 	return validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
 }
 
+// validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests
+// It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet
 func validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
@@ -173,7 +175,7 @@ func validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSec
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
-		// Validate that the encrypted value can be decrypted with the Vault public key
+		// Validate that the encrypted value was indeed encrypted by the Vault public key
 		cipherBytes, err := hex.DecodeString(req.EncryptedValue)
 		if err != nil {
 			return errors.New("failed to decode encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
