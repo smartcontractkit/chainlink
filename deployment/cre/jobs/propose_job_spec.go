@@ -56,7 +56,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 	}
 
 	switch config.Template {
-	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3:
+	case job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.BootstrapOCR3, job_types.OCR3:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -71,7 +71,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
 	var report operations.Report[any, any]
 	switch input.Template {
-	case job_types.Cron: // This will hold all standard capabilities jobs as we add support for them.
+	case job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction: // Standard capabilities jobs
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
