@@ -83,7 +83,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		// The only event is WorkflowActivatedEvent
@@ -155,7 +155,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		require.Len(t, events, 2)
@@ -208,7 +208,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		metadata := []WorkflowMetadataView{}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		// The only event is WorkflowDeletedEvent
@@ -268,7 +268,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		// The only event is WorkflowActivatedEvent
@@ -292,7 +292,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.NoError(t, err)
 
 		// Repeated ticks do not make any new events
-		events, err = wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err = wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 		require.Empty(t, events)
 	})
@@ -345,7 +345,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 		// No events
 		require.Empty(t, events)
@@ -402,7 +402,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		// The only event is WorkflowPausedEvent
@@ -489,7 +489,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				nextRetryAt: nextRetryAt,
 			},
 		}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		// The only event is WorkflowActivatedEvent
@@ -579,7 +579,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				nextRetryAt: nextRetryAt,
 			},
 		}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		require.Empty(t, pendingEvents)
@@ -639,7 +639,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		// Delete event happens before activate event
@@ -694,7 +694,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// No workflows in metadata
 		metadata := []WorkflowMetadataView{}
 
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
@@ -760,7 +760,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// The workflow then gets removed
 		metadata := []WorkflowMetadataView{}
 
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 		require.Empty(t, events)
 		require.Empty(t, pendingEvents)

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -121,7 +120,13 @@ func Test_Handler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 
-		giveEvent := Event{}
+		giveEvent := Event{
+			Head: Head{
+				Hash:      "0x123",
+				Height:    "123",
+				Timestamp: 1234567890,
+			},
+		}
 		retriever := func(_ context.Context, _ *storage_service.DownloadArtifactRequest) (string, error) {
 			return "", nil
 		}
@@ -137,7 +142,7 @@ func Test_Handler(t *testing.T) {
 		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
-		err = h.Handle(ctx, giveEvent, &commontypes.Head{Hash: []byte("123")})
+		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "event type unsupported")
 	})

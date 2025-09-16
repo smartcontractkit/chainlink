@@ -165,7 +165,16 @@ func (h *eventHandler) Close() error {
 	return services.MultiCloser(es).Close()
 }
 
-func (h *eventHandler) Handle(ctx context.Context, event Event, head *commontypes.Head) error {
+// toCommonHead converts our local Head struct back to chainlink-common Head
+func toCommonHead(localHead Head) *commontypes.Head {
+	return &commontypes.Head{
+		Hash:      []byte(localHead.Hash),
+		Height:    localHead.Height,
+		Timestamp: localHead.Timestamp,
+	}
+}
+
+func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 	switch event.Name {
 	case WorkflowActivated:
 		payload, ok := event.Data.(WorkflowRegisteredEvent)
@@ -184,7 +193,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event, head *commontype
 
 		err := h.workflowRegisteredEvent(ctx, payload)
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), head, string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err != nil {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -217,7 +226,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event, head *commontype
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), head, string(event.Name), payload.BinaryURL, payload.ConfigURL, nil); err != nil {
+		if err := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, nil); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -241,7 +250,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event, head *commontype
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), head, string(event.Name), "", "", nil); err != nil {
+		if err := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), toCommonHead(event.Head), string(event.Name), "", "", nil); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 

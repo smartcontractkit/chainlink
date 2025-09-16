@@ -92,7 +92,7 @@ type workflowRegistry struct {
 
 type evtHandler interface {
 	io.Closer
-	Handle(ctx context.Context, event Event, head *types.Head) error
+	Handle(ctx context.Context, event Event) error
 }
 
 type donNotifier interface {
@@ -222,18 +222,28 @@ func (w *workflowRegistry) Name() string {
 	return name
 }
 
-func (w *workflowRegistry) handleWithMetrics(ctx context.Context, event Event, head *types.Head) error {
+func (w *workflowRegistry) handleWithMetrics(ctx context.Context, event Event) error {
 	start := time.Now()
-	err := w.handler.Handle(ctx, event, head)
+	err := w.handler.Handle(ctx, event)
 	totalDuration := time.Since(start)
 	w.metrics.recordHandleDuration(ctx, totalDuration, string(event.Name), err == nil)
 	return err
 }
 
+// toLocalHead converts a chainlink-common Head to our local Head struct
+func toLocalHead(head *types.Head) Head {
+	return Head{
+		Hash:      string(head.Hash),
+		Height:    head.Height,
+		Timestamp: head.Timestamp,
+	}
+}
+
 // generateReconciliationEvents compares the workflow registry workflow metadata state against the engine registry's state.
 // Differences are handled by the event handler by creating events that are sent to the events channel for handling.
-func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendingEvents map[string]*reconciliationEvent, workflowMetadata []WorkflowMetadataView) ([]*reconciliationEvent, error) {
+func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendingEvents map[string]*reconciliationEvent, workflowMetadata []WorkflowMetadataView, head *types.Head) ([]*reconciliationEvent, error) {
 	var events []*reconciliationEvent
+	localHead := toLocalHead(head)
 	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
 	workflowMetadataMap := make(map[string]WorkflowMetadataView)
 	for _, wfMeta := range workflowMetadata {
@@ -277,6 +287,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 					Event: Event{
 						Data: toActivatedEvent,
 						Name: WorkflowActivated,
+						Head: localHead,
 					},
 					signature: signature,
 					id:        id,
@@ -325,6 +336,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 							Event: Event{
 								Data: toPausedEvent,
 								Name: WorkflowPaused,
+								Head: localHead,
 							},
 							signature: signature,
 							id:        id,
@@ -362,6 +374,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 						Event: Event{
 							Data: toDeletedEvent,
 							Name: WorkflowDeleted,
+							Head: localHead,
 						},
 						signature: signature,
 						id:        id,
@@ -429,7 +442,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 				continue
 			}
 			w.lggr.Debugw("preparing events to reconcile", "numWorkflowMetadata", len(workflowMetadata), "blockHeight", head.Height, "numPendingEvents", len(pendingEvents))
-			events, err := w.generateReconciliationEvents(ctx, pendingEvents, workflowMetadata)
+			events, err := w.generateReconciliationEvents(ctx, pendingEvents, workflowMetadata, head)
 			if err != nil {
 				w.lggr.Errorw("failed to generate reconciliation events", "err", err)
 				continue
@@ -449,7 +462,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 					reconcileReport.NumEventsByType[string(event.Name)]++
 
 					if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
-						err := w.handleWithMetrics(ctx, event.Event, head)
+						err := w.handleWithMetrics(ctx, event.Event)
 						if err != nil {
 							event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
 

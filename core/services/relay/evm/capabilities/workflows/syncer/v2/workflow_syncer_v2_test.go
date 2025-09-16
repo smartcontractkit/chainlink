@@ -115,7 +115,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegistered, event.Name)
+		assert.Equal(t, syncer.WorkflowActivated, event.Name)
 	}
 }
 
@@ -563,7 +563,7 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	}, 30*time.Second, 1*time.Second)
 
 	event := testEventHandler.GetEvents()[0]
-	assert.Equal(t, syncer.WorkflowRegistered, event.Name)
+	assert.Equal(t, syncer.WorkflowActivated, event.Name)
 
 	assert.Equal(t, 1, retryCount)
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -38,7 +37,7 @@ type testEvtHandler struct {
 
 func (m *testEvtHandler) Close() error { return nil }
 
-func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event, head *types.Head) error {
+func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.events = append(m.events, event)
