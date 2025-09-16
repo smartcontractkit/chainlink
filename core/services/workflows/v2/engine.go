@@ -389,7 +389,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
-	
+
 	// TODO(CAPPL-911): add rate-limiting
 
 	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
