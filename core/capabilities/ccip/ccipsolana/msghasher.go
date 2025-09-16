@@ -8,12 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
@@ -21,7 +21,7 @@ import (
 // - "OnRamp 1.6.0-dev"
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec common.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
 type extraData struct {
@@ -30,7 +30,7 @@ type extraData struct {
 	tokenReceiver solana.PublicKey
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec common.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,

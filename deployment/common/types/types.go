@@ -67,6 +67,7 @@ type MCMSWithTimelockConfigV2 struct {
 	TimelockMinDelay *big.Int         `json:"timelockMinDelay"`
 	Label            *string          `json:"label"`
 	GasBoostConfig   *GasBoostConfig  `json:"gasBoostConfig"`
+	Qualifier        *string          `json:"qualifier"`
 }
 
 type OCRParameters struct {

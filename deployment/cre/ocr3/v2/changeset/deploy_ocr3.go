@@ -17,12 +17,12 @@ import (
 var _ cldf.ChangeSetV2[DeployOCR3Input] = DeployOCR3{}
 
 type DeployOCR3Input struct {
-	ChainSelector uint64                      `json:"chainSelector" yaml:"chainSelector"`
-	Qualifier     string                      `json:"qualifier" yaml:"qualifier"`
-	Dons          []contracts.ConfigureCREDON `json:"dons" yaml:"dons"`
-	OracleConfig  *ocr3.OracleConfig          `json:"oracleConfig" yaml:"oracleConfig"`
-	DryRun        bool                        `json:"dryRun" yaml:"dryRun"`
-	MCMSConfig    *ocr3.MCMSConfig            `json:"mcmsConfig" yaml:"mcmsConfig"`
+	ChainSelector uint64               `json:"chainSelector" yaml:"chainSelector"`
+	Qualifier     string               `json:"qualifier" yaml:"qualifier"`
+	Don           contracts.DonNodeSet `json:"dons" yaml:"dons"`
+	OracleConfig  *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
+	DryRun        bool                 `json:"dryRun" yaml:"dryRun"`
+	MCMSConfig    *ocr3.MCMSConfig     `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type DeployOCR3Deps struct {
@@ -43,10 +43,10 @@ func (l DeployOCR3) Apply(e cldf.Environment, config DeployOCR3Input) (cldf.Chan
 		sequences.DeployOCR3,
 		sequences.DeployOCR3Deps{Env: &e},
 		sequences.DeployOCR3Input{
-			RegistryChainSel: config.ChainSelector,
-			Qualifier:        config.Qualifier,
+			ChainSelector: config.ChainSelector,
+			Qualifier:     config.Qualifier,
 
-			DONs:         config.Dons,
+			DON:          config.Don,
 			OracleConfig: config.OracleConfig,
 			DryRun:       config.DryRun,
 			MCMSConfig:   config.MCMSConfig,

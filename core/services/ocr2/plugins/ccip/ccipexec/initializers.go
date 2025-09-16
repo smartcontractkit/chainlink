@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/Masterminds/semver/v3"
@@ -16,10 +17,9 @@ import (
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
 var (
@@ -80,6 +81,18 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 
 	srcChainSelector := offRampConfig.SourceChainSelector
 	dstChainSelector := offRampConfig.ChainSelector
+
+	//nolint:gosec // srcChainID will never be negative
+	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(srcChainID))
+	if !ok {
+		return nil, fmt.Errorf("failed to get source chain by evm ID %d", srcChainID)
+	}
+	//nolint:gosec // srcChainID will never be negative
+	dstChain, ok2 := chainselectors.ChainByEvmChainID(uint64(dstChainID))
+	if !ok2 {
+		return nil, fmt.Errorf("failed to get dest chain by evm ID %d", dstChainID)
+	}
+
 	onRampReader, err := srcProvider.NewOnRampReader(ctx, offRampConfig.OnRamp, srcChainSelector, dstChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("create onRampReader: %w", err)
@@ -142,7 +155,12 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, srcChainID, ccip.ExecPluginLabel)
 	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, dstChainID, ccip.ExecPluginLabel)
 	offRampReader = observability.NewObservedOffRampReader(offRampReader, dstChainID, ccip.ExecPluginLabel)
-	metricsCollector := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, srcChainID, dstChainID)
+
+	bhClient := beholder.GetClient().ForPackage("ccip-ocr2-exec")
+	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, bhClient, srcChainID, dstChainID, srcChain.Name, dstChain.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plugin metrics collector: %w", err)
+	}
 
 	tokenPoolBatchedReader, err := dstProvider.NewTokenPoolBatchedReader(ctx, offRampAddress, srcChainSelector)
 	if err != nil {

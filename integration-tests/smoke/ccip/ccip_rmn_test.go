@@ -17,14 +17,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
-
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
@@ -73,6 +70,7 @@ func TestRMN_IncorrectSig(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
+	t.Skipf("Skipping because of flakiness, see https://github.com/smartcontractkit/chainlink/actions/runs/17501544765/job/49716888508#logs")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching one lane RMN-enabled the other RMN-disabled",
 		waitForExec: true,

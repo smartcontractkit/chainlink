@@ -58,12 +58,6 @@ type don2DonSharedPeer struct {
 
 var _ p2ptypes.SharedPeer = &don2DonSharedPeer{}
 
-const (
-	// TODO(CRE-755): replace these with don2don values when available in libocr
-	streamNamePrefix = "ccip-rmn/"
-	digestPrefix     = ocr2types.ConfigDigestPrefixCCIPMultiRoleRMNCombo
-)
-
 type remotePeer struct {
 	// A PeerGroup with exactly two members, connecting our peer with a single remote peer.
 	peerPairGroup networking.PeerGroup
@@ -286,9 +280,8 @@ func (sp *don2DonSharedPeer) updateConnections(donPairs []p2ptypes.DonPair, desi
 				sp.lggr.Errorw("failed to create remote peer group", "digest", digest, "err", err)
 				return fmt.Errorf("failed to create remote peer group: %w", err)
 			}
-			idStr1, idStr2 := peerIDStrings(sp.myID, remotePID)
 			cfg := networking.NewStreamArgs1{
-				StreamName:         streamNamePrefix + idStr1 + "-" + idStr2,
+				StreamName:         streamName(digest, sp.myID, remotePID),
 				OutgoingBufferSize: streamConfig.OutgoingMessageBufferSize,
 				IncomingBufferSize: streamConfig.IncomingMessageBufferSize,
 				MaxMessageLength:   streamConfig.MaxMessageLenBytes,
@@ -369,7 +362,7 @@ func donPairDigest(donID1, donID2 uint32) ocr2types.ConfigDigest {
 		donID1, donID2 = donID2, donID1
 	}
 	var digest ocr2types.ConfigDigest
-	binary.BigEndian.PutUint16(digest[:], uint16(digestPrefix))
+	binary.BigEndian.PutUint16(digest[:], uint16(ocr2types.ConfigDigestPrefixDONToDONDiscoveryGroup))
 	binary.BigEndian.PutUint32(digest[2:], donID1)
 	binary.BigEndian.PutUint32(digest[6:], donID2)
 	return digest
@@ -378,7 +371,7 @@ func donPairDigest(donID1, donID2 uint32) ocr2types.ConfigDigest {
 func nodePairDigest(peerID1, peerID2 ragetypes.PeerID) ocr2types.ConfigDigest {
 	id1Str, id2Str := peerIDStrings(peerID1, peerID2)
 	var digest ocr2types.ConfigDigest
-	binary.BigEndian.PutUint16(digest[:], uint16(digestPrefix))
+	binary.BigEndian.PutUint16(digest[:], uint16(ocr2types.ConfigDigestPrefixDONToDONMessagingGroup))
 	combinedHash := sha256.Sum256(([]byte(id1Str + id2Str)))
 	copy(digest[2:], combinedHash[:30])
 	return digest
@@ -391,4 +384,10 @@ func peerIDStrings(peerID1, peerID2 ragetypes.PeerID) (string, string) {
 		id1Str, id2Str = id2Str, id1Str
 	}
 	return id1Str, id2Str
+}
+
+func streamName(digest ocr2types.ConfigDigest, peerID1, peerID2 ragetypes.PeerID) string {
+	id1Str, id2Str := peerIDStrings(peerID1, peerID2)
+	// NOTE: stream name prefix needs to match https://github.com/smartcontractkit/libocr/blob/master/networking/peer_group.go#L25
+	return fmt.Sprintf("don-to-don/%s/%s-%s", digest, id1Str, id2Str)
 }

@@ -3,9 +3,12 @@ package vault
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/jonboulle/clockwork"
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -31,7 +34,7 @@ var NodeOne = config.NodeConfig{
 	Address: "0x1234",
 }
 
-func setupHandler(t *testing.T) (handlers.Handler, chan handlers.UserCallbackPayload, *mocks.DON) {
+func setupHandler(t *testing.T) (handlers.Handler, chan handlers.UserCallbackPayload, *mocks.DON, *clockwork.FakeClock) {
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
 	donConfig := &config.DONConfig{
@@ -52,17 +55,18 @@ func setupHandler(t *testing.T) (handlers.Handler, chan handlers.UserCallbackPay
 
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	requestAuthorizer.On("AuthorizeRequest", mock.Anything, mock.Anything).Return(true, owner, nil).Maybe()
-	handler, err := NewHandler(methodConfig, donConfig, don, nil, requestAuthorizer, lggr)
+	clock := clockwork.NewFakeClock()
+	handler, err := NewHandler(methodConfig, donConfig, don, nil, requestAuthorizer, lggr, clock)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
-	return handler, make(chan handlers.UserCallbackPayload), don
+	return handler, make(chan handlers.UserCallbackPayload, 1), don, clock
 }
 
 type mockAggregator struct {
 	err error
 }
 
-func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ *activeRequest, currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[string]*jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -92,6 +96,30 @@ func (m *mockCapabilitiesRegistry) DONsForCapability(_ context.Context, _ string
 	}, nil
 }
 
+func TestActiveRequest_SendResponse(t *testing.T) {
+	rm := json.RawMessage([]byte(`{}`))
+	callbackCh := make(chan handlers.UserCallbackPayload, 2)
+	activeRequest := &activeRequest{
+		req: jsonrpc.Request[json.RawMessage]{
+			ID:     "1",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: &rm,
+		},
+		callbackCh: callbackCh,
+	}
+
+	resp := handlers.UserCallbackPayload{
+		RawResponse: []byte(`{"jsonrpc":"2.0","id":"1","result":{}}`),
+	}
+	err := activeRequest.sendResponse(t.Context(), resp)
+	require.NoError(t, err)
+
+	// Prevents the handler from hanging because we're sending a response on a channel that isn't being read from.
+	// The upstream provider of the callbackCh only expects one response per request.
+	err = activeRequest.sendResponse(t.Context(), resp)
+	require.ErrorContains(t, err, "response already sent for this request")
+}
+
 func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	createSecretsRequest := &vaultcommon.CreateSecretsRequest{
 		RequestId: "test_request_id",
@@ -110,7 +138,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callbackCh, don := setupHandler(t)
+		h, callbackCh, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		requestID := "1"
@@ -158,7 +186,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("happy path - delete secrets", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callbackCh, don := setupHandler(t)
+		h, callbackCh, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		id := &vaultcommon.SecretIdentifier{
@@ -221,7 +249,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("happy path - list secret identifiers", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callbackCh, don := setupHandler(t)
+		h, callbackCh, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		requestID := "1"
@@ -279,7 +307,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("unhappy path - quorum unobtainable", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callbackCh, don := setupHandler(t)
+		h, callbackCh, don, _ := setupHandler(t)
 		h.(*handler).aggregator = &mockAggregator{err: errQuorumUnobtainable}
 
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -304,7 +332,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Method: vaulttypes.MethodSecretsList,
 			Error: &jsonrpc.WireError{
 				Code:    -32603,
-				Message: "quorum unobtainable",
+				Message: errQuorumUnobtainable.Error(),
 			},
 		}
 
@@ -329,7 +357,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("unsupported method", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callbackCh, don := setupHandler(t)
+		h, callbackCh, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for unsupported methods
 		don.AssertNotCalled(t, "SendToNode")
 
@@ -358,7 +386,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("empty params error", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callbackCh, don := setupHandler(t)
+		h, callbackCh, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for parse errors
 		don.AssertNotCalled(t, "SendToNode")
 
@@ -387,7 +415,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("no request inside the batch request", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callbackCh, don := setupHandler(t)
+		h, callbackCh, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for invalid params
 		don.AssertNotCalled(t, "SendToNode")
 
@@ -417,7 +445,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("invalid params error", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callbackCh, don := setupHandler(t)
+		h, callbackCh, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for invalid params
 		don.AssertNotCalled(t, "SendToNode")
 
@@ -449,7 +477,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err := json.Unmarshal(callback.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, jsonRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request: secret ID must have both key and owner", "Error message should match")
+			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request", "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
@@ -459,7 +487,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("stale node response", func(t *testing.T) {
-		handler, callbackCh, _ := setupHandler(t)
+		handler, callbackCh, _, _ := setupHandler(t)
 
 		// Create a response for a request that was never sent or has already been processed
 		responseData := &vaultcommon.CreateSecretsResponse{
@@ -490,4 +518,119 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			// Expected: no callback should be sent for stale responses
 		}
 	})
+}
+
+func TestVaultHandler_PublicKeyGet(t *testing.T) {
+	h, callbackCh, don, clock := setupHandler(t)
+	signers := []string{
+		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
+		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
+		"e9bf394856d73402b30e160d0e05c847796f0e29000000000000000000000000",
+		"efd5bdb6c3256f04489a6ca32654d547297f48b9000000000000000000000000",
+	}
+	nodes := makeNodes(t, signers)
+	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
+	h.(*handler).aggregator = &baseAggregator{
+		capabilitiesRegistry: mcr,
+	}
+
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	jsonRequest := jsonrpc.Request[json.RawMessage]{
+		ID:     "request_id",
+		Method: vaulttypes.MethodPublicKeyGet,
+		Params: nil,
+	}
+	err := h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callbackCh)
+	require.NoError(t, err)
+
+	publicKey := "test_public_key"
+	responseData := &vaultcommon.GetPublicKeyResponse{
+		PublicKey: publicKey,
+	}
+	resultBytes, err := json.Marshal(responseData)
+	require.NoError(t, err)
+	response := jsonrpc.Response[json.RawMessage]{
+		ID:     "request_id",
+		Method: vaulttypes.MethodPublicKeyGet,
+		Result: (*json.RawMessage)(&resultBytes),
+	}
+	for n := range 2*mcr.F + 1 {
+		err = h.HandleNodeMessage(t.Context(), &response, fmt.Sprintf("0xnode%d", n))
+		require.NoError(t, err)
+	}
+
+	select {
+	case resp := <-callbackCh:
+		var publicKeyResponse jsonrpc.Response[vaultcommon.GetPublicKeyResponse]
+		ierr := json.Unmarshal(resp.RawResponse, &publicKeyResponse)
+		require.NoError(t, ierr)
+
+		assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
+		assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
+	default:
+		t.Error("Expected a callback for the public key response, but none was received")
+	}
+
+	// Now let's make another request, it'll have been cached due to the previous call.
+	callbackCh = make(chan handlers.UserCallbackPayload, 1)
+	jsonRequest = jsonrpc.Request[json.RawMessage]{
+		ID:     "another_request_id",
+		Method: vaulttypes.MethodPublicKeyGet,
+		Params: nil,
+	}
+	err = h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callbackCh)
+	require.NoError(t, err)
+
+	select {
+	case resp := <-callbackCh:
+		var publicKeyResponse jsonrpc.Response[vaultcommon.GetPublicKeyResponse]
+		ierr := json.Unmarshal(resp.RawResponse, &publicKeyResponse)
+		require.NoError(t, ierr)
+
+		assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
+		assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
+	default:
+		t.Error("Expected a callback for the public key response, but none was received")
+	}
+
+	// Now the value has expired, so we'll fetch it again.
+	clock.Advance(10 * time.Minute)
+
+	callbackCh = make(chan handlers.UserCallbackPayload, 1)
+	jsonRequest = jsonrpc.Request[json.RawMessage]{
+		ID:     "another_request_id_2",
+		Method: vaulttypes.MethodPublicKeyGet,
+		Params: nil,
+	}
+	err = h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callbackCh)
+	require.NoError(t, err)
+
+	newPublicKey := "new_test_public_key"
+	responseData = &vaultcommon.GetPublicKeyResponse{
+		PublicKey: newPublicKey,
+	}
+	resultBytes, err = json.Marshal(responseData)
+	require.NoError(t, err)
+	response = jsonrpc.Response[json.RawMessage]{
+		ID:     "another_request_id_2",
+		Method: vaulttypes.MethodPublicKeyGet,
+		Result: (*json.RawMessage)(&resultBytes),
+	}
+	for n := range 2*mcr.F + 1 {
+		err = h.HandleNodeMessage(t.Context(), &response, fmt.Sprintf("0xnode%d", n))
+		require.NoError(t, err)
+	}
+
+	select {
+	case resp := <-callbackCh:
+		var publicKeyResponse jsonrpc.Response[vaultcommon.GetPublicKeyResponse]
+		ierr := json.Unmarshal(resp.RawResponse, &publicKeyResponse)
+		require.NoError(t, ierr)
+
+		assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
+		assert.Equal(t, newPublicKey, publicKeyResponse.Result.PublicKey, "public key should match")
+	default:
+		t.Error("Expected a callback for the public key response, but none was received")
+	}
 }

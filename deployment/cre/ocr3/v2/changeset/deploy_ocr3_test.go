@@ -22,11 +22,9 @@ func TestDeployOCR3(t *testing.T) {
 	changesetOutput, err := DeployOCR3{}.Apply(*env.Env, DeployOCR3Input{
 		ChainSelector: env.RegistrySelector,
 		Qualifier:     "test-ocr3",
-		Dons: []contracts.ConfigureCREDON{
-			{
-				Name:    "test-don",      // This should match the DON created in SetupEnvV2
-				NodeIDs: env.Env.NodeIDs, // Use all available node IDs
-			},
+		Don: contracts.DonNodeSet{
+			Name:    "test-don",      // This should match the DON created in SetupEnvV2
+			NodeIDs: env.Env.NodeIDs, // Use all available node IDs
 		},
 		OracleConfig: &ocr3.OracleConfig{
 			MaxFaultyOracles:     1,
@@ -78,8 +76,8 @@ func TestDeployOCR3(t *testing.T) {
 	require.Equal(t, uint8(1), configEvent.F, "F should be 1")
 
 	// Assert the number of signers/transmitters matches expected nodes
-	require.Len(t, configEvent.Signers, 4, "should have 4 signers")
-	require.Len(t, configEvent.Transmitters, 4, "should have 4 transmitters")
+	require.Len(t, configEvent.Signers, 5, "should have 5 signers")
+	require.Len(t, configEvent.Transmitters, 5, "should have 5 transmitters")
 
 	// Assert no more ConfigSet events
 	require.False(t, configIterator.Next(), "should have exactly one ConfigSet event")

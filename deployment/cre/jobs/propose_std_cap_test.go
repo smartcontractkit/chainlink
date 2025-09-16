@@ -9,7 +9,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
@@ -42,8 +41,8 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 		JobName: "name",
 		Command: "run",
 		DONName: "test-don",
-		DONFilters: []operations.TargetDONFilter{
-			{Key: operations.FilterKeyDONName, Value: "d"},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: "d"},
 			{Key: "environment", Value: "e"},
 			{Key: "product", Value: offchain.ProductLabel},
 		},
@@ -61,8 +60,8 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 		JobName: "cron-cap-job",
 		Command: "cron",
 		DONName: "test-don",
-		DONFilters: []operations.TargetDONFilter{
-			{Key: operations.FilterKeyDONName, Value: "don-" + test.DONName},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
 			{Key: "environment", Value: "test"},
 			{Key: "product", Value: offchain.ProductLabel},
 		},

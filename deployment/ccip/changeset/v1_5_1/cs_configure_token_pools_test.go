@@ -792,9 +792,13 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
 				changeset_solana.TokenPoolConfigWithMCM{
 					ChainSelector: selector,
-					TokenPubKey:   tokenAddress,
-					PoolType:      shared.BurnMintTokenPool,
-					Metadata:      shared.CLLMetadata,
+					TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+						{
+							TokenPubKey: tokenAddress,
+							PoolType:    shared.BurnMintTokenPool,
+							Metadata:    shared.CLLMetadata,
+						},
+					},
 				},
 			),
 			commonchangeset.Configure(
@@ -978,9 +982,13 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 					cldf.CreateLegacyChangeSet(changeset_solana.InitGlobalConfigTokenPoolProgram),
 					changeset_solana.TokenPoolConfigWithMCM{
 						ChainSelector: selector,
-						TokenPubKey:   tokenAddress,
-						PoolType:      shared.LockReleaseTokenPool,
-						Metadata:      shared.CLLMetadata,
+						TokenPoolConfigs: []changeset_solana.TokenPoolConfig{
+							{
+								TokenPubKey: tokenAddress,
+								PoolType:    shared.LockReleaseTokenPool,
+								Metadata:    shared.CLLMetadata,
+							},
+						},
 					},
 				),
 				commonchangeset.Configure(

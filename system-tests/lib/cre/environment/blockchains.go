@@ -27,15 +27,13 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 )
 
 type BlockchainsInput struct {
 	blockchainsInput []blockchain.Input
-	infra            *infra.Input
-	nixShell         *libnix.Shell
+	infra            infra.Input
 }
 
 type BlockchainOutput struct {
@@ -66,7 +64,7 @@ func CreateBlockchains(
 			}
 		}
 
-		bcOut, err := deployBlockchain(testLogger, input.infra, input.nixShell, bi)
+		bcOut, err := deployBlockchain(testLogger, input.infra, bi)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s", bi.Type)
 		}
@@ -104,7 +102,7 @@ func initSolanaInput(bi *blockchain.Input) error {
 	return nil
 }
 
-func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell *libnix.Shell, bi blockchain.Input) (*blockchain.Output, error) {
+func deployBlockchain(testLogger zerolog.Logger, infraIn infra.Input, bi blockchain.Input) (*blockchain.Output, error) {
 	if infraIn.Type != infra.CRIB {
 		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
 		if err != nil {
@@ -114,13 +112,8 @@ func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell 
 		return bcOut, nil
 	}
 
-	if nixShell == nil {
-		return nil, pkgerrors.New("nix shell is nil")
-	}
-
 	deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
 		BlockchainInput: &bi,
-		NixShell:        nixShell,
 		CribConfigsDir:  cribConfigsDir,
 		Namespace:       infraIn.CRIB.Namespace,
 	}
@@ -212,6 +205,10 @@ type BlockchainLoggers struct {
 type StartBlockchainsOutput struct {
 	BlockChainOutputs []*cre.WrappedBlockchainOutput
 	BlockChains       map[uint64]chain.BlockChain
+}
+
+func (s *StartBlockchainsOutput) RegistryChain() *cre.WrappedBlockchainOutput {
+	return s.BlockChainOutputs[0]
 }
 
 func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartBlockchainsOutput, error) {

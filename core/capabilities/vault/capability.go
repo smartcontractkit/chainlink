@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,25 +19,55 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
 type Capability struct {
-	lggr              logger.Logger
-	clock             clockwork.Clock
-	expiresAfter      time.Duration
-	handler           *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	requestAuthorizer RequestAuthorizer
+	lggr                 logger.Logger
+	clock                clockwork.Clock
+	expiresAfter         time.Duration
+	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
+	requestAuthorizer    RequestAuthorizer
+	capabilitiesRegistry core.CapabilitiesRegistry
+	publicKey            *LazyPublicKey
 }
 
 func (s *Capability) Start(ctx context.Context) error {
-	return s.handler.Start(ctx)
+	if err := s.handler.Start(ctx); err != nil {
+		return fmt.Errorf("error starting vault DON request handler: %w", err)
+	}
+
+	closeHandler := func() {
+		ierr := s.handler.Close()
+		if ierr != nil {
+			s.lggr.Errorf("error closing vault DON request handler after failed registration: %v", ierr)
+		}
+	}
+
+	err := s.capabilitiesRegistry.Add(ctx, s)
+	if err != nil {
+		closeHandler()
+		return fmt.Errorf("error registering vault capability: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Capability) Close() error {
-	return s.handler.Close()
+	err := s.capabilitiesRegistry.Remove(context.Background(), vaultcommon.CapabilityID)
+	if err != nil {
+		err = fmt.Errorf("error unregistering vault capability: %w", err)
+	}
+
+	ierr := s.handler.Close()
+	if ierr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
+	}
+
+	return err
 }
 
 func (s *Capability) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
@@ -132,8 +163,8 @@ func validateWriteRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSe
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
 
-		if req.Id.Key == "" || req.Id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		if req.Id.Key == "" || req.Id.Namespace == "" {
+			return errors.New("secret ID must have key and namespace set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
 		if req.EncryptedValue == "" {
@@ -218,8 +249,8 @@ func ValidateDeleteSecretsRequest(request *vaultcommon.DeleteSecretsRequest) err
 
 	uniqueIDs := map[string]bool{}
 	for idx, id := range request.Ids {
-		if id.Key == "" || id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
+		if id.Key == "" {
+			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + id.String())
 		}
 
 		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
@@ -268,8 +299,8 @@ func ValidateGetSecretsRequest(request *vaultcommon.GetSecretsRequest) error {
 	}
 
 	for idx, req := range request.Requests {
-		if req.Id.Key == "" || req.Id.Owner == "" {
-			return errors.New("secret ID must have both key and owner set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
+		if req.Id.Key == "" {
+			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
 	}
 
@@ -290,9 +321,6 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 func ValidateListSecretIdentifiersRequest(request *vaultcommon.ListSecretIdentifiersRequest) error {
 	if request.RequestId == "" {
 		return errors.New("request ID must not be empty")
-	}
-	if request.Owner == "" {
-		return errors.New("owner must not be empty")
 	}
 	return nil
 }
@@ -321,6 +349,27 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetPublicKeyRequest) (*vaultcommon.GetPublicKeyResponse, error) {
+	l := logger.With(s.lggr, "method", "GetPublicKey")
+	l.Infof("Received Request: GetPublicKeyRequest")
+
+	pubKey := s.publicKey.Get()
+	if pubKey == nil {
+		l.Info("could not get public key: is the plugin initialized?")
+		return nil, errors.New("could not get public key: is the plugin initialized?")
+	}
+
+	pkb, err := pubKey.Marshal()
+	if err != nil {
+		l.Infof("could not marshal public key: %s", err.Error())
+		return nil, fmt.Errorf("could not marshal public key: %w", err)
+	}
+
+	return &vaultcommon.GetPublicKeyResponse{
+		PublicKey: hex.EncodeToString(pkb),
+	}, nil
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
@@ -367,12 +416,16 @@ func NewCapability(
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	requestAuthorizer RequestAuthorizer,
+	capabilitiesRegistry core.CapabilitiesRegistry,
+	publicKey *LazyPublicKey,
 ) *Capability {
 	return &Capability{
-		lggr:              logger.Named(lggr, "VaultCapability"),
-		clock:             clock,
-		expiresAfter:      expiresAfter,
-		handler:           handler,
-		requestAuthorizer: requestAuthorizer,
+		lggr:                 logger.Named(lggr, "VaultCapability"),
+		clock:                clock,
+		expiresAfter:         expiresAfter,
+		handler:              handler,
+		requestAuthorizer:    requestAuthorizer,
+		capabilitiesRegistry: capabilitiesRegistry,
+		publicKey:            publicKey,
 	}
 }
