@@ -101,4 +101,8 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "host.docker.internal:2223"
+      TLSEnabled = false
       """

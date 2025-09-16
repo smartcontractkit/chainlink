@@ -34,6 +34,8 @@ const (
 	configTemplate      = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}","logTriggerPollInterval":{{.LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}","receiverGasMinimum":{{.ReceiverGasMinimum}},"nodeAddress":"{{.NodeAddress}}"}'`
 	registrationRefresh = 20 * time.Second
 	registrationExpiry  = 60 * time.Second
+	deltaStage          = 500*time.Millisecond + 1*time.Second // block time + 1 second delta
+	requestTimeout      = 30 * time.Second
 )
 
 func New(registryChainID uint64) (*capabilities.Capability, error) {
@@ -71,30 +73,100 @@ func registerWithV1(_ []string, nodeSetInput *cre.CapabilitiesAwareNodeSet) ([]k
 			return nil, errors.Wrapf(selectorErr, "failed to get selector from chainID: %d", chainID)
 		}
 
-		faultyNodes, faultyErr := nodeSetInput.MaxFaultyNodes()
-		if faultyErr != nil {
-			return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
+		evmMethodConfigs, err := getEvmMethodConfigs(nodeSetInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "there was an error getting EVM method configs")
 		}
+
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "evm" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
-				Version:        "1.0.0",
-				CapabilityType: 0, // TRIGGER
+				LabelledName: "evm" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
+				Version:      "1.0.0",
 			},
 			Config: &capabilitiespb.CapabilityConfig{
-				RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-						// needed for message_cache.go#Ready(), without these events from the capability will never be accepted
-						RegistrationRefresh:     durationpb.New(registrationRefresh),
-						RegistrationExpiry:      durationpb.New(registrationExpiry),
-						MinResponsesToAggregate: faultyNodes + 1,
-					},
-				},
+				MethodConfigs: evmMethodConfigs,
 			},
 		})
 	}
 
 	return capabilities, nil
+}
+
+// getEvmMethodConfigs returns the method configs for all EVM methods we want to support, if any method is missing it
+// will not be reached by the node when running evm capability in remote don
+func getEvmMethodConfigs(nodeSetInput *cre.CapabilitiesAwareNodeSet) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {
+	evmMethodConfigs := map[string]*capabilitiespb.CapabilityMethodConfig{}
+
+	// the read actions should be all defined in the proto that are neither a LogTrigger type, not a WriteReport type
+	// see the RPC methods to map here: https://github.com/smartcontractkit/chainlink-protos/blob/main/cre/capabilities/blockchain/evm/v1alpha/client.proto
+	readActions := []string{
+		"CallContract",
+		"FilterLogs",
+		"BalanceAt",
+		"EstimateGas",
+		"GetTransactionByHash",
+		"GetTransactionReceipt",
+		"HeaderByNumber",
+	}
+	for _, action := range readActions {
+		evmMethodConfigs[action] = readActionConfig()
+	}
+
+	triggerConfig, err := logTriggerConfig(nodeSetInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed get config for LogTrigger")
+	}
+
+	evmMethodConfigs["LogTrigger"] = triggerConfig
+	evmMethodConfigs["WriteReport"] = writeReportActionConfig()
+	return evmMethodConfigs, nil
+}
+
+func logTriggerConfig(nodeSetInput *cre.CapabilitiesAwareNodeSet) (*capabilitiespb.CapabilityMethodConfig, error) {
+	faultyNodes, faultyErr := nodeSetInput.MaxFaultyNodes()
+	if faultyErr != nil {
+		return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
+	}
+
+	return &capabilitiespb.CapabilityMethodConfig{
+		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh:     durationpb.New(registrationRefresh),
+				RegistrationExpiry:      durationpb.New(registrationExpiry),
+				MinResponsesToAggregate: faultyNodes + 1,
+				MessageExpiry:           durationpb.New(2 * registrationExpiry),
+				MaxBatchSize:            25,
+				BatchCollectionPeriod:   durationpb.New(200 * time.Millisecond),
+			},
+		},
+	}, nil
+}
+
+func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
+	return &capabilitiespb.CapabilityMethodConfig{
+		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+			RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+				TransmissionSchedule:      capabilitiespb.TransmissionSchedule_OneAtATime,
+				DeltaStage:                durationpb.New(deltaStage),
+				RequestTimeout:            durationpb.New(requestTimeout),
+				ServerMaxParallelRequests: 10,
+				RequestHasherType:         capabilitiespb.RequestHasherType_WriteReportExcludeSignatures,
+			},
+		},
+	}
+}
+
+func readActionConfig() *capabilitiespb.CapabilityMethodConfig {
+	return &capabilitiespb.CapabilityMethodConfig{
+		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+			RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+				TransmissionSchedule:      capabilitiespb.TransmissionSchedule_AllAtOnce,
+				RequestTimeout:            durationpb.New(requestTimeout),
+				ServerMaxParallelRequests: 10,
+				RequestHasherType:         capabilitiespb.RequestHasherType_Simple,
+			},
+		},
+	}
 }
 
 // buildRuntimeValues creates runtime-generated  values for any keys not specified in TOML

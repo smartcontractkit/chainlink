@@ -3,8 +3,16 @@
     "RemoteConfig": {
       "RemoteExecutableConfig": {
         "requestHashExcludedAttributes": ["data1"],
-        "registrationRefresh": { "seconds": 20 },
-        "registrationExpiry": { "seconds": 60 }
+        "transmission_schedule": 1,
+        "delta_stage": {
+          "seconds": 1,
+          "nanos": 500000000
+        },
+        "request_timeout": {
+          "seconds": 30
+        },
+        "server_max_parallel_requests": 10,
+        "request_hasher_type": 1
       }
     }
   }

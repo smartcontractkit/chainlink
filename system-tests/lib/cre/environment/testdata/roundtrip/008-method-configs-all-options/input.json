@@ -1,0 +1,52 @@
+{
+  "config": {
+    "method_configs": {
+      "GetTransactionByHash": {
+        "RemoteConfig": {
+          "RemoteExecutableConfig": {
+            "request_timeout": {
+              "seconds": 30
+            },
+            "server_max_parallel_requests": 10
+          }
+        }
+      },
+      "LogTrigger": {
+        "RemoteConfig": {
+          "RemoteTriggerConfig": {
+            "registrationRefresh": {
+              "seconds": 20
+            },
+            "registrationExpiry": {
+              "seconds": 60
+            },
+            "minResponsesToAggregate": 2,
+            "messageExpiry": {
+              "seconds": 120
+            },
+            "maxBatchSize": 25,
+            "batchCollectionPeriod": {
+              "nanos": 200000000
+            }
+          }
+        }
+      },
+      "WriteReport": {
+        "RemoteConfig": {
+          "RemoteExecutableConfig": {
+            "transmission_schedule": 1,
+            "delta_stage": {
+              "seconds": 1,
+              "nanos": 500000000
+            },
+            "request_timeout": {
+              "seconds": 30
+            },
+            "server_max_parallel_requests": 10,
+            "request_hasher_type": 1
+          }
+        }
+      }
+    }
+  }
+}
