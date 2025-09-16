@@ -96,7 +96,6 @@ func EmitWorkflowStatusChangedEventV2(
 			ErrorMessage: errorMessage,
 		}
 	}
-	
 
 	// Emit v2 event
 	if err := emitProtoMessage(ctx, v2Event); err != nil {

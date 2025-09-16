@@ -309,7 +309,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 					delete(pendingEvents, id)
 					continue
 				}
-	
+
 				delete(pendingEvents, id)
 
 				toPausedEvent := WorkflowPausedEvent{
@@ -376,7 +376,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 	// the workflow no longer exists in the workflow registry contract
 	for id, event := range pendingEvents {
 		if event.Name == WorkflowActivated {
-			if _, ok :=workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
+			if _, ok := workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
 				delete(pendingEvents, id)
 			}
 		}
