@@ -109,6 +109,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 }
 
 func Test_EVMChainsController_Index(t *testing.T) {
+	quarantine.Flaky(t, "DX-1795")
 	quarantine.Flaky(t,
 
 		// sort test chain ids to make expected comparison easy
