@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,7 +23,6 @@ import (
 
 	aptosCrypto "github.com/aptos-labs/aptos-go-sdk/crypto"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-tron/relayer/sdk"
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
 
@@ -166,7 +164,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 			family := chainCfg.ChainType
 			if chainCfg.ChainType == TronChainType {
 				family = "EVM"
-			} 
+			}
 			chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, strings.ToLower(family))
 			if err != nil {
 				return fmt.Errorf("failed to get selector from chain id %s: %w", chainCfg.ChainID, err)
@@ -303,26 +301,22 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 				fullNodeURL := strings.Replace(chainCfg.HTTPRPCs[0].External, "/jsonrpc", "/wallet", 1)
 				solidityNodeURL := strings.Replace(chainCfg.HTTPRPCs[0].External, "/jsonrpc", "/walletsolidity", 1)
 
-				// Parse URLs for node connections
-				fullNodeUrlObj, err := url.Parse(fullNodeURL)
+				tronRpcProvider := tronprovider.NewRPCChainProvider(chainDetails.ChainSelector, tronprovider.RPCChainProviderConfig{
+					FullNodeURL:       fullNodeURL,
+					SolidityNodeURL:   solidityNodeURL,
+					DeployerSignerGen: signerGen,
+				})
+
+				tronChain, err := tronRpcProvider.Initialize(context.Background())
 				if err != nil {
-					return fmt.Errorf("failed to parse full node URL: %w", err)
-				}
-				solidityNodeUrlObj, err := url.Parse(solidityNodeURL)
-				if err != nil {
-					return fmt.Errorf("failed to parse solidity node URL: %w", err)
+					return fmt.Errorf("failed to initialize tron chain: %w", err)
 				}
 
-				// Create a client that wraps both full node and solidity node connections
-				combinedClient, err := sdk.CreateCombinedClient(fullNodeUrlObj, solidityNodeUrlObj)
-				if err != nil {
-					return fmt.Errorf("failed to create combined client: %w", err)
+				tronChain, ok := tronChain.(cldf_tron.Chain)
+				if !ok {
+					return fmt.Errorf("expected cldf_tron.Chain, got %T", tronChain)
 				}
 
-				tronChain, err := tronprovider.GetTronChain(chainDetails.ChainSelector, combinedClient, signerGen)
-				if err != nil {
-					return fmt.Errorf("failed to get tron chain: %w", err)
-				}
 				tronSyncMap.Store(chainDetails.ChainSelector, tronChain)
 				return nil
 			default:
