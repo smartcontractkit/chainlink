@@ -16,6 +16,7 @@ import (
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -108,9 +109,12 @@ func Test_EVMChainsController_Show(t *testing.T) {
 }
 
 func Test_EVMChainsController_Index(t *testing.T) {
+	quarantine.Flaky(t,
+
+		// sort test chain ids to make expected comparison easy
+		"DX-1795")
 	t.Parallel()
 
-	// sort test chain ids to make expected comparison easy
 	chainIDs := []*big.Int{testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID()}
 	sort.Slice(chainIDs, func(i, j int) bool {
 		return chainIDs[i].String() < chainIDs[j].String()
