@@ -178,6 +178,9 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		if err != nil {
 			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not read result package from db: %w", err)
 		}
+		if pack == nil {
+			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("no result package found in db for instance ID %s", *configProto.DKGInstanceID)
+		}
 		rP := dkgocr.NewResultPackage()
 		err = rP.UnmarshalBinary(pack.ReportWithResultPackage)
 		if err != nil {

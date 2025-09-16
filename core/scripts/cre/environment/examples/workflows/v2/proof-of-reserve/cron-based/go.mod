@@ -6,7 +6,7 @@ toolchain go1.24.6
 
 require (
 	github.com/ethereum/go-ethereum v1.16.2
-	github.com/smartcontractkit/chain-selectors v1.0.66
+	github.com/smartcontractkit/chain-selectors v1.0.71
 	github.com/smartcontractkit/chainlink-common v0.9.0
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250806152407-159881c7589c
 	github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250806155403-1d805e639a0f
