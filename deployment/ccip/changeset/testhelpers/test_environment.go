@@ -979,8 +979,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	if len(solChains) != 0 {
 		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
 			var buildSolConfig = &ccipChangeSetSolanaV0_1_1.BuildSolanaConfig{
-				GitCommitSha:   ccipChangeSetSolanaV0_1_1.ContractVersionShortSha[ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1],
-				DestinationDir: memory.ProgramsPath,
+				SolanaContractVersion: ccipChangeSetSolanaV0_1_1.VersionSolanaV0_1_1,
+				DestinationDir:        memory.ProgramsPath,
 			}
 			solCs, err := DeployChainContractsToSolChainCSV0_1_1(e, solChains[0], true, buildSolConfig)
 
