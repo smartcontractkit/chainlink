@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -24,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -229,6 +232,34 @@ type WorkflowRegistryOutput struct {
 	ChainSelector  uint64           `toml:"chain_selector"`
 	AllowedDonIDs  []uint32         `toml:"allowed_don_ids"`
 	WorkflowOwners []common.Address `toml:"workflow_owners"`
+}
+
+func (c *WorkflowRegistryOutput) Store(absPath string) error {
+	framework.L.Info().Msgf("Storing Workflow Registry state file: %s", absPath)
+	return storeLocalArtifact(c, absPath)
+}
+
+func (c WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
+	owners := make([]string, len(c.WorkflowOwners))
+	for idx, owner := range c.WorkflowOwners {
+		owners[idx] = owner.String()
+	}
+
+	return owners
+}
+
+func storeLocalArtifact(artifact any, absPath string) error {
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	if dErr != nil {
+		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
+	}
+
+	d, mErr := toml.Marshal(artifact)
+	if mErr != nil {
+		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
+	}
+
+	return os.WriteFile(absPath, d, 0600)
 }
 
 type ConfigureDataFeedsCacheOutput struct {
