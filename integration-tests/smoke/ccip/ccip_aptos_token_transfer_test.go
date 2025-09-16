@@ -1071,7 +1071,7 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 
 	evmToken, _, aptosToken, aptosTokenPool, err := testhelpers.DeployLnRTokenAptos(t, lggr, e.Env, sourceChain, destChain, "TOKEN", &config.TokenMint{
 		To:     deployerAddressDestChain,
-		Amount: 110e8,
+		Amount: 100e8,
 	},
 		// Enable dispatch hooks
 		true,
@@ -1081,6 +1081,7 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 	// Provide liquidity to the Aptos LnR token pool
 	poolStore, err := aptosTokenPool.LockReleaseTokenPool().GetStoreAddress(nil)
 	require.NoError(t, err)
+	// Send all minted fund to the TP's primary store - the test expects there to be a balance of 0 else the assertions will fail
 	payload, err := aptos.FungibleAssetPrimaryStoreTransferPayload(&aptosToken, poolStore, 100e8)
 	require.NoError(t, err)
 	rawTx, err := destChainClient.BuildTransaction(deployerAddressDestChain, aptos.TransactionPayload{Payload: payload})
@@ -1600,7 +1601,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 
 	evmToken, _, aptosToken, aptosTokenPool, err := testhelpers.DeployLnRTokenAptos(t, lggr, e.Env, sourceChain, destChain, "TOKEN", &config.TokenMint{
 		To:     deployerAddressDestChain,
-		Amount: 110e8,
+		Amount: 100e8,
 	},
 		// Disable dispatch hooks
 		false,
@@ -1610,6 +1611,7 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 	// Provide liquidity to the Aptos LnR token pool
 	poolStore, err := aptosTokenPool.LockReleaseTokenPool().GetStoreAddress(nil)
 	require.NoError(t, err)
+	// Send all minted fund to the TP's primary store - the test expects there to be a balance of 0 else the assertions will fail
 	payload, err := aptos.FungibleAssetPrimaryStoreTransferPayload(&aptosToken, poolStore, 100e8)
 	require.NoError(t, err)
 	rawTx, err := destChainClient.BuildTransaction(deployerAddressDestChain, aptos.TransactionPayload{Payload: payload})
