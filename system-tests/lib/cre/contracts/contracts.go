@@ -13,10 +13,10 @@ import (
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
 
-  "github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -736,7 +736,7 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 		T: 1,
 	}
 
-	var vaultIndex = -1
+	vaultIndex := -1
 	for i, don := range topology.DonsMetadata {
 		if flags.HasFlag(don.Flags, cre.VaultCapability) {
 			vaultIndex = i
