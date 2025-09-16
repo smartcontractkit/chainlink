@@ -1418,7 +1418,7 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 		if !ok {
 			return fmt.Errorf("%s does not exist in state", chain)
 		}
-		// TODO validate ton mcms
+		// TODO validate ton mcms after implemented
 	default:
 		return fmt.Errorf("%s family not support", family)
 	}
