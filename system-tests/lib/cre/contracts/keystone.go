@@ -29,10 +29,11 @@ import (
 )
 
 const (
-	OCR3ContractQualifier        = "capability_ocr3"
-	DONTimeContractQualifier     = "capability_dontime"
-	VaultOCR3ContractQualifier   = "capability_vault"
-	ConsensusV2ContractQualifier = "capability_consensus"
+	OCR3ContractQualifier         = "capability_ocr3"
+	DONTimeContractQualifier      = "capability_dontime"
+	VaultOCR3ContractQualifier    = "capability_vault"
+	VaultDKGOCR3ContractQualifier = "capability_vault_dkg"
+	ConsensusV2ContractQualifier  = "capability_consensus"
 )
 
 type DeployKeystoneContractsInput struct {
@@ -226,9 +227,16 @@ func DeployKeystoneContracts(
 		if seqErr != nil {
 			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", seqErr)
 		}
+		_, seqErr = deployOCR3Contract(VaultDKGOCR3ContractQualifier, homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
+		if seqErr != nil {
+			return nil, fmt.Errorf("failed to deploy DKG contract %w", seqErr)
+		}
 
 		vaultOCR3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], VaultOCR3ContractQualifier)
 		testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultOCR3Addr)
+
+		vaultDKGOCR3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], VaultDKGOCR3ContractQualifier)
+		testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultDKGOCR3Addr)
 	}
 
 	// deploy EVM OCR3 contracts

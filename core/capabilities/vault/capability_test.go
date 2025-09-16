@@ -367,6 +367,16 @@ func TestCapability_CRUD(t *testing.T) {
 		Namespace: "Bar",
 		Owner:     owner,
 	}
+	lpk := NewLazyPublicKey()
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	lpk.Set(pk)
+	rawSecret := "raw secret string"
+	cipher, err := tdh2easy.Encrypt(pk, []byte(rawSecret))
+	require.NoError(t, err)
+	cipherBytes, err := cipher.Marshal()
+	require.NoError(t, err)
+	encryptedSecret := hex.EncodeToString(cipherBytes)
 
 	testCases := []struct {
 		name     string
@@ -387,7 +397,7 @@ func TestCapability_CRUD(t *testing.T) {
 					EncryptedSecrets: []*vault.EncryptedSecret{
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -407,7 +417,7 @@ func TestCapability_CRUD(t *testing.T) {
 					EncryptedSecrets: []*vault.EncryptedSecret{
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -428,47 +438,47 @@ func TestCapability_CRUD(t *testing.T) {
 					EncryptedSecrets: []*vault.EncryptedSecret{
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -489,7 +499,7 @@ func TestCapability_CRUD(t *testing.T) {
 					EncryptedSecrets: []*vault.EncryptedSecret{
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -514,7 +524,28 @@ func TestCapability_CRUD(t *testing.T) {
 								Namespace: "Bar",
 								Owner:     "",
 							},
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
+						},
+					},
+				}
+				return capability.UpdateSecrets(t.Context(), req)
+			},
+		},
+		{
+			name: "UpdateSecrets_InvalidEncryptedSecret",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
+			error: "failed to verify encrypted value",
+			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
+				req := &vault.UpdateSecretsRequest{
+					RequestId: requestID,
+					EncryptedSecrets: []*vault.EncryptedSecret{
+						{
+							Id:             sid,
+							EncryptedValue: "abcd1234",
 						},
 					},
 				}
@@ -539,7 +570,7 @@ func TestCapability_CRUD(t *testing.T) {
 								Namespace: "Bar",
 								Owner:     "Owner",
 							},
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id: &vault.SecretIdentifier{
@@ -547,7 +578,7 @@ func TestCapability_CRUD(t *testing.T) {
 								Namespace: "Bar",
 								Owner:     "Owner",
 							},
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -730,7 +761,7 @@ func TestCapability_CRUD(t *testing.T) {
 			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
 			reg := coreCapabilities.NewRegistry(lggr)
-			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
+			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk)
 			servicetest.Run(t, capability)
 
 			wait := func() {}

@@ -27,6 +27,18 @@ pre_run = "pushd chip-ingress && go mod vendor && popd"
 local_image = "chip-ingress:local-cre"
 ecr_image = "{{.ECR}}/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf"
 
+[billing_platform_service.build_config]
+repository = "https://github.com/smartcontractkit/billing-platform-service"
+branch = "main"
+require_github_token = true
+dockerfile = "./Dockerfile"
+docker_ctx = "."
+local_image = "billing-platform-service:local-cre"
+
+[billing_platform_service.pull_config]
+local_image = "billing-platform-service:local-cre"
+ecr_image = "{{.ECR}}/billing-platform-service:1.36.1"
+
 [capabilities]
 target_path = "./binaries"
 
