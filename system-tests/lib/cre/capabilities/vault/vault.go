@@ -71,11 +71,6 @@ func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal encrypted secrets to bytes")
 	}
-	cipherText := &tdh2easy.Ciphertext{}
-	errOuter := cipherText.UnmarshalVerify(cipherBytes, &masterPublicKey)
-	if errOuter != nil {
-		return "", errors.New("failed to unmarshal encrypted secret: " + errOuter.Error())
-	}
 	return hex.EncodeToString(cipherBytes), nil
 }
 
