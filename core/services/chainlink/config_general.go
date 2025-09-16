@@ -565,6 +565,10 @@ func (g *generalConfig) ImportedSolKeys() coreconfig.ImportableChainKeyLister {
 	return &importedSolKeyConfigs{s: g.secrets.Solana}
 }
 
+func (g *generalConfig) ImportedDKGRecipientKey() coreconfig.ImportableKey {
+	return &importedDKGRecipientKeyConfig{s: g.secrets.DKGRecipientKey}
+}
+
 func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
 	return &importedP2PKeyConfig{s: g.secrets.P2PKey}
 }

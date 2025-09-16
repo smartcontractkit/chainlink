@@ -833,6 +833,53 @@ func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMon
 	return _c
 }
 
+// ImportedDKGRecipientKey provides a mock function with no fields
+func (_m *GeneralConfig) ImportedDKGRecipientKey() config.ImportableKey {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedDKGRecipientKey")
+	}
+
+	var r0 config.ImportableKey
+	if rf, ok := ret.Get(0).(func() config.ImportableKey); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableKey)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedDKGRecipientKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedDKGRecipientKey'
+type GeneralConfig_ImportedDKGRecipientKey_Call struct {
+	*mock.Call
+}
+
+// ImportedDKGRecipientKey is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedDKGRecipientKey() *GeneralConfig_ImportedDKGRecipientKey_Call {
+	return &GeneralConfig_ImportedDKGRecipientKey_Call{Call: _e.mock.On("ImportedDKGRecipientKey")}
+}
+
+func (_c *GeneralConfig_ImportedDKGRecipientKey_Call) Run(run func()) *GeneralConfig_ImportedDKGRecipientKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedDKGRecipientKey_Call) Return(_a0 config.ImportableKey) *GeneralConfig_ImportedDKGRecipientKey_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedDKGRecipientKey_Call) RunAndReturn(run func() config.ImportableKey) *GeneralConfig_ImportedDKGRecipientKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ImportedEthKeys provides a mock function with no fields
 func (_m *GeneralConfig) ImportedEthKeys() config.ImportableChainKeyLister {
 	ret := _m.Called()

@@ -27,7 +27,6 @@ const (
 	TON ChainType = "ton"
 	// Sui for the Sui chain
 	Sui ChainType = "sui"
-
 	// Offchain is used by the MultichainKeyringAdapter when we are signing for offchain (eg. for DKG).
 	Offchain ChainType = "offchain"
 )
