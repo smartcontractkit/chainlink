@@ -94,6 +94,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 )
 
+const chainNotSupportedErr = "chain not supported"
+
 // CCIPOnChainState state always derivable from an address book.
 // Offchain state always derivable from a list of nodeIds.
 // Note can translate this into Go struct needed for MCMS/Docs/UI.
@@ -547,7 +549,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 				switch family {
 				case chain_selectors.FamilyEVM:
 					if _, ok := c.EVMChainState(chainSelector); !ok {
-						return fmt.Errorf("chain not supported %d", chainSelector)
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
 					chainState := c.MustGetEVMChainState(chainSelector)
 					chainView, err := chainState.GenerateView(e.Logger, name)
@@ -560,7 +562,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					e.Logger.Infow("Completed view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 				case chain_selectors.FamilySolana:
 					if _, ok := c.SolChains[chainSelector]; !ok {
-						return fmt.Errorf("chain not supported %d", chainSelector)
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
 					chainState := c.SolChains[chainSelector]
 					chainView, err := chainState.GenerateView(e, chainSelector)
@@ -573,7 +575,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 				case chain_selectors.FamilyAptos:
 					chainState, ok := c.AptosChains[chainSelector]
 					if !ok {
-						return fmt.Errorf("chain not supported %d", chainSelector)
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
 					chainView, err := chainState.GenerateView(e, chainSelector, name)
 					if err != nil {
@@ -584,7 +586,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					am.Store(name, chainView)
 				case chain_selectors.FamilyTon:
 					if _, ok := c.TonChains[chainSelector]; !ok {
-						return fmt.Errorf("chain not supported %d", chainSelector)
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
 					chainState := c.TonChains[chainSelector]
 					chainView, err := chainState.GenerateView(e, chainSelector, name)
