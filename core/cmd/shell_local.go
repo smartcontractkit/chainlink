@@ -520,6 +520,16 @@ func (s *Shell) runNode(c *cli.Context) error {
 	}
 
 	if s.Config.CRE().EnableDKGRecipient() {
+		if s.Config.ImportedDKGRecipientKey().JSON() != "" {
+			lggr.Debugf("Importing DKG recipient key %s", s.Config.ImportedDKGRecipientKey().JSON())
+			_, err2 := app.GetKeyStore().DKGRecipient().Import(rootCtx, []byte(s.Config.ImportedDKGRecipientKey().JSON()), s.Config.ImportedDKGRecipientKey().Password())
+			if errors.Is(err2, keystore.ErrKeyExists) {
+				lggr.Debugf("DKG recipient key already exists %s", s.Config.ImportedDKGRecipientKey().JSON())
+			} else if err2 != nil {
+				return s.errorOut(errors.Wrap(err2, "error importing dkg recipient key"))
+			}
+		}
+
 		err2 := app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure dkg recipient key")
