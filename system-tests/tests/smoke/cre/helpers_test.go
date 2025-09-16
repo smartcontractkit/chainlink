@@ -50,6 +50,7 @@ import (
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 )
 
 /////////////////////////
@@ -222,16 +223,12 @@ func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 // WORKFLOW-RELATED HELPERS //
 //////////////////////////////
 
-type CronWorkflowConfig struct {
-	Schedule string `yaml:"schedule,omitempty"`
-}
-
 // Generic WorkflowConfig interface for creation of different workflow configurations
 // Register your workflow configuration types here
 type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
-		CronWorkflowConfig |
+		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
 		evmread_config.Config
 }
@@ -305,7 +302,7 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create PoR workflow config file")
 			testLogger.Info().Msg("PoR Workflow config file created.")
 
-		case *CronWorkflowConfig:
+		case *crontypes.WorkflowConfig:
 			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create Cron workflow config file")

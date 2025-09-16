@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"main/types"
-
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 )
 
 func main() {
