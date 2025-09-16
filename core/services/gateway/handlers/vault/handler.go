@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
@@ -142,6 +144,7 @@ type handler struct {
 	aggregator aggregator
 
 	cachedPublicKeyGetResponse []byte
+	cachedPublicKeyObject      *tdh2easy.PublicKey
 	cachedUntil                time.Time
 
 	clock clockwork.Clock
@@ -397,9 +400,21 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 		l.Infow("no public key in unmarshaled response, not caching", "response", resp, "result", r)
 		return
 	}
+	masterPublicKey := tdh2easy.PublicKey{}
+	masterPublicKeyBytes, err := hex.DecodeString(r.PublicKey)
+	if err != nil {
+		l.Infow("failed to decode master public key string", "error", err)
+		return
+	}
+	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
+	if err != nil {
+		l.Infow("failed to unmarshal master public key", "error", err)
+		return
+	}
 
 	h.mu.Lock()
 	h.cachedPublicKeyGetResponse = *resp.Result
+	h.cachedPublicKeyObject = &masterPublicKey
 	h.cachedUntil = h.clock.Now().Add(time.Duration(h.methodConfig.PublicKeyGetCacheDurationSec) * time.Second)
 	h.mu.Unlock()
 	l.Infow("successfully cached public key response", "cachedUntil", h.cachedUntil)
@@ -446,8 +461,8 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-
-	err := vaultcap.ValidateCreateSecretsRequest(createSecretsRequest)
+	_, cachedPublicKey, _, _ := h.getCachedPublicKey()
+	err := vaultcap.ValidateCreateSecretsRequest(cachedPublicKey, createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
@@ -478,10 +493,11 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	vaultcapErr := vaultcap.ValidateUpdateSecretsRequest(updateSecretsRequest)
-	if vaultcapErr != nil {
-		l.Warnw("failed to validate update secrets request", "error", vaultcapErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultcapErr), nil))
+	_, cachedPublicKey, _, _ := h.getCachedPublicKey()
+	vaultCapErr := vaultcap.ValidateUpdateSecretsRequest(cachedPublicKey, updateSecretsRequest)
+	if vaultCapErr != nil {
+		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
 	}
 
 	reqBytes, err := json.Marshal(updateSecretsRequest)
@@ -573,21 +589,22 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) getCachedPublicKey() ([]byte, time.Time, error) {
+func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey, time.Time, error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.cachedPublicKeyGetResponse == nil {
-		return nil, time.Time{}, errors.New("no cached public key response")
+		return nil, nil, time.Time{}, errors.New("no cached public key response")
 	}
 	copied := make([]byte, len(h.cachedPublicKeyGetResponse))
 	copy(copied, h.cachedPublicKeyGetResponse)
-	return copied, h.cachedUntil, nil
+	cachedPublicKeyCopy := *h.cachedPublicKeyObject
+	return copied, &cachedPublicKeyCopy, h.cachedUntil, nil
 }
 
 func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
-	publicKeyResponseBytes, cachedUntil, err := h.getCachedPublicKey()
+	publicKeyResponseBytes, _, cachedUntil, err := h.getCachedPublicKey()
 	if err == nil && h.clock.Now().Before(cachedUntil) {
 		l.Debugw("returning cached public key response")
 		return h.sendSuccessResponse(ctx, l, ar, &jsonrpc.Response[json.RawMessage]{

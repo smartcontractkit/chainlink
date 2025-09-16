@@ -32,7 +32,7 @@ func generateChainsTron(t *testing.T, numChains int) []cldf_chain.BlockChain {
 
 		ctfDefault, err := cldf_tron_provider.SignerGenCTFDefault()
 		require.NoError(t, err)
-		c, err := cldf_tron_provider.NewCTFChainProvider(selector,
+		c, err := cldf_tron_provider.NewCTFChainProvider(t, selector,
 			cldf_tron_provider.CTFChainProviderConfig{
 				Once:              once,
 				DeployerSignerGen: ctfDefault,

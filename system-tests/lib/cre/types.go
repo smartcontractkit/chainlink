@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -24,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -231,6 +236,34 @@ type WorkflowRegistryOutput struct {
 	WorkflowOwners []common.Address `toml:"workflow_owners"`
 }
 
+func (c *WorkflowRegistryOutput) Store(absPath string) error {
+	framework.L.Info().Msgf("Storing Workflow Registry state file: %s", absPath)
+	return storeLocalArtifact(c, absPath)
+}
+
+func (c WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
+	owners := make([]string, len(c.WorkflowOwners))
+	for idx, owner := range c.WorkflowOwners {
+		owners[idx] = owner.String()
+	}
+
+	return owners
+}
+
+func storeLocalArtifact(artifact any, absPath string) error {
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	if dErr != nil {
+		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
+	}
+
+	d, mErr := toml.Marshal(artifact)
+	if mErr != nil {
+		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
+	}
+
+	return os.WriteFile(absPath, d, 0600)
+}
+
 type ConfigureDataFeedsCacheOutput struct {
 	UseCache              bool             `toml:"use_cache"`
 	DataFeedsCacheAddress common.Address   `toml:"data_feeds_cache_address"`
@@ -391,6 +424,10 @@ type ConfigureKeystoneInput struct {
 
 	VaultOCR3Config  keystone_changeset.OracleConfig
 	VaultOCR3Address *common.Address
+
+	DKGReportingPluginConfig *dkgocrtypes.ReportingPluginConfig
+	DKGOCR3Config            keystone_changeset.OracleConfig
+	DKGOCR3Address           *common.Address
 
 	EVMOCR3Config    keystone_changeset.OracleConfig
 	EVMOCR3Addresses map[uint64]common.Address // chain selector to address map
@@ -779,6 +816,7 @@ type GenerateKeysInput struct {
 	GenerateEVMKeysForChainIDs []int
 	GenerateSolKeysForChainIDs []string
 	GenerateP2PKeys            bool
+	GenerateDKGRecipientKeys   bool
 	Topology                   *Topology
 	Password                   string
 	Out                        *GenerateKeysOutput
@@ -812,17 +850,22 @@ type DonsToSolKeys = map[uint64]ChainIDToSolKeys
 // donID -> P2PKeys
 type DonsToP2PKeys = map[uint64]*crypto.P2PKeys
 
+// donID -> DKGRecipientKeys
+type DonsToDKGRecipientKeys = map[uint64]*crypto.DKGRecipientKeys
+
 type GenerateKeysOutput struct {
-	EVMKeys DonsToEVMKeys
-	SolKeys DonsToSolKeys
-	P2PKeys DonsToP2PKeys
+	EVMKeys          DonsToEVMKeys
+	SolKeys          DonsToSolKeys
+	P2PKeys          DonsToP2PKeys
+	DKGRecipientKeys DonsToDKGRecipientKeys
 }
 
 type GenerateSecretsInput struct {
-	DonMetadata *DonMetadata
-	EVMKeys     ChainIDToEVMKeys
-	SolKeys     ChainIDToSolKeys
-	P2PKeys     *crypto.P2PKeys
+	DonMetadata      *DonMetadata
+	EVMKeys          ChainIDToEVMKeys
+	SolKeys          ChainIDToSolKeys
+	P2PKeys          *crypto.P2PKeys
+	DKGRecipientKeys *crypto.DKGRecipientKeys
 }
 
 func (g *GenerateSecretsInput) Validate() error {
@@ -857,6 +900,17 @@ func (g *GenerateSecretsInput) Validate() error {
 		}
 		if len(g.P2PKeys.EncryptedJSONs) != len(g.P2PKeys.PeerIDs) {
 			return errors.New("encrypted jsons and peer ids must have the same length")
+		}
+	}
+	if g.DKGRecipientKeys != nil {
+		if len(g.DKGRecipientKeys.EncryptedJSONs) == 0 {
+			return errors.New("encrypted jsons not set")
+		}
+		if len(g.DKGRecipientKeys.PubKeys) == 0 {
+			return errors.New("public keys not set")
+		}
+		if len(g.DKGRecipientKeys.EncryptedJSONs) != len(g.DKGRecipientKeys.PubKeys) {
+			return errors.New("encrypted jsons and public keys must have the same length")
 		}
 	}
 

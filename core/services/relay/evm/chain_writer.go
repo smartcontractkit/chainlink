@@ -130,53 +130,49 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		gasLimit = meta.GasLimit.Uint64()
 	}
 
-	if w.tronTxm == nil {
-		req := evmtxmgr.TxRequest{
-			FromAddress:    methodConfig.FromAddress,
-			ToAddress:      common.HexToAddress(toAddress),
-			EncodedPayload: calldata,
-			FeeLimit:       gasLimit,
-			Meta:           txMeta,
-			IdempotencyKey: &transactionID,
-			Strategy:       txmgr.NewSendEveryStrategy(),
-			Checker:        checker,
-			Value:          *v,
+	// route tx to tron TXM if necessary
+	if w.tronTxm != nil {
+		methodKey := fmt.Sprintf("%s.%s", contract, method)
+		abiMethod, ok := w.abiMethods[methodKey]
+		if !ok {
+			return fmt.Errorf("ABI method not found for %s", methodKey)
 		}
 
-		_, err = w.txm.CreateTransaction(ctx, req)
+		methodSignature := w.buildMethodSignature(abiMethod)
+		tronParams, err := w.convertArgsToTronParams(abiMethod, args)
 		if err != nil {
-			return fmt.Errorf("%w; failed to create tx", err)
+			return fmt.Errorf("failed to convert args to Tron params: %w", err)
+		}
+
+		err = w.tronTxm.Enqueue(trontxm.TronTxmRequest{
+			FromAddress:     address.EVMAddressToAddress(methodConfig.FromAddress),
+			ContractAddress: address.EVMAddressToAddress(common.HexToAddress(toAddress)),
+			Method:          methodSignature,
+			Params:          tronParams,
+		})
+
+		if err != nil {
+			return fmt.Errorf("%w: failed to enqueue Tron tx", err)
 		}
 
 		return nil
 	}
 
-	// For Tron transactions, we need to get the ABI method and format properly
-	methodKey := fmt.Sprintf("%s.%s", contract, method)
-	abiMethod, ok := w.abiMethods[methodKey]
-	if !ok {
-		return fmt.Errorf("ABI method not found for %s", methodKey)
+	req := evmtxmgr.TxRequest{
+		FromAddress:    methodConfig.FromAddress,
+		ToAddress:      common.HexToAddress(toAddress),
+		EncodedPayload: calldata,
+		FeeLimit:       gasLimit,
+		Meta:           txMeta,
+		IdempotencyKey: &transactionID,
+		Strategy:       txmgr.NewSendEveryStrategy(),
+		Checker:        checker,
+		Value:          *v,
 	}
 
-	// Build the method signature like "mint(address,uint256)"
-	methodSignature := w.buildMethodSignature(abiMethod)
-
-	// Convert args to Tron's flattened type-value format
-	// Example: struct{Address: "0x123", Amount: 100} -> []any{"address", "0x123", "uint256", "100"}
-	tronParams, err := w.convertArgsToTronParams(abiMethod, args)
+	_, err = w.txm.CreateTransaction(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to convert args to Tron params: %w", err)
-	}
-
-	err = w.tronTxm.Enqueue(trontxm.TronTxmRequest{
-		FromAddress:     address.EVMAddressToAddress(methodConfig.FromAddress),
-		ContractAddress: address.EVMAddressToAddress(common.HexToAddress(toAddress)),
-		Method:          methodSignature,
-		Params:          tronParams,
-	})
-
-	if err != nil {
-		return fmt.Errorf("%w: failed to enqueue Tron tx", err)
+		return fmt.Errorf("%w; failed to create tx", err)
 	}
 
 	return nil

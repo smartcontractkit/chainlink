@@ -21,7 +21,9 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
@@ -31,6 +33,34 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
 	var testLogger = framework.L
+
+	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
+	require.Eventually(t, func() bool {
+		for _, nodeSet := range testEnv.Config.NodeSets {
+			var vaultFound bool
+			for _, cap := range nodeSet.Capabilities {
+				if cap == cre.VaultCapability {
+					vaultFound = true
+					break
+				}
+			}
+			if vaultFound {
+				for i := range nodeSet.Nodes {
+					if i != nodeSet.BootstrapNodeIndex {
+						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
+						if err != nil || packageCount != 1 {
+							return false
+						}
+					}
+				}
+				return true
+			}
+		}
+		return false
+	}, time.Second*300, time.Second*5)
+
+	// Wait a bit to ensure the Vault plugin is ready.
+	time.Sleep(30 * time.Second)
 
 	testLogger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
