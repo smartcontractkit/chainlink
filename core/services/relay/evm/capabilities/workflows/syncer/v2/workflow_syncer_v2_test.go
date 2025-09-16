@@ -489,7 +489,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 		}, 30*time.Second, 1*time.Second)
 
 		for _, event := range testEventHandler.GetEvents() {
-			assert.Equal(t, syncer.WorkflowRegistered, event.Name)
+			assert.Equal(t, syncer.WorkflowActivated, event.Name)
 		}
 	})
 }
