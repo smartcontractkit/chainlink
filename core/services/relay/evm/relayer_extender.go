@@ -68,7 +68,7 @@ func NewLegacyChains(
 			ChainOpts: chainOpts,
 		}
 
-	opts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
+		opts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := legacyevm.NewTOMLChain(enabled[i], opts, clientsByChainID)
 		if err2 != nil {
 			err = errors.Join(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))

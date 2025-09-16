@@ -52,7 +52,7 @@ func Test_CRE_Suite(t *testing.T) {
 			executeConsensusTest(t, testEnv)
 		})
 	})
-} 
+}
 
 func Test_CRE_Suite_EVM(t *testing.T) {
 	testEnv := SetupTestEnvironment(t)
@@ -74,7 +74,7 @@ func Test_CRE_Suite_Tron(t *testing.T) {
 	t.Run("Write Test", func(t *testing.T) {
 		testEnv := SetupTestEnvironment(t)
 
-		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
+		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
 	})
 }

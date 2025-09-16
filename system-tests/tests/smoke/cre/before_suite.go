@@ -71,7 +71,7 @@ func getDefaultTestConfig(t *testing.T) *TestConfig {
 	return &TestConfig{
 		RelativePathToRepoRoot: relativePathToRepoRoot,
 		EnvironmentDirPath:     environmentDirPath,
-		EnvironmentConfigPath:  filepath.Join(environmentDirPath, "/configs/workflow-don.toml"), // change to your desired config, if you want to use another topology
+		EnvironmentConfigPath:  filepath.Join(environmentDirPath, "/configs/workflow-don-tron.toml"), // change to your desired config, if you want to use another topology
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
 	}
 }

@@ -1000,7 +1000,10 @@ func (r *Relayer) NewContractWriter(_ context.Context, config []byte) (commontyp
 
 	cfg.MaxGasPrice = r.chain.Config().EVM().GasEstimator().PriceMax()
 	if r.chain.Config().EVM().ChainType() == chaintype.ChainTron {
-		chain := r.chain.(legacyevm.ChainTronSupport)
+		chain, ok := r.chain.(legacyevm.ChainTronSupport)
+		if !ok {
+			return nil, fmt.Errorf("chain %s does not support Tron", r.chain.ID())
+		}
 		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, chain.GetTronTXM())
 	} else {
 		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)

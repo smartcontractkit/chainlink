@@ -284,7 +284,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		EthKeystore:   keyStore.Eth(),
 		CSAKeystore:   csaKeystore,
 		MercuryConfig: cfg.Mercury(),
-		TronChainIDs:  getTronChainIDs(),
 	}
 
 	if opts.EVMFactoryConfigFn != nil {
@@ -1625,16 +1624,3 @@ func (c closerService) Ready() error { return nil }
 func (c closerService) HealthReport() map[string]error { return map[string]error{c.Name(): nil} }
 
 func (c closerService) Name() string { return c.name }
-
-func getTronChainIDs() map[string]bool {
-	return map[string]bool{
-		// Tron Mainnet
-		"728126428": true,
-		// Tron Shasta Testnet
-		"2494104990": true,
-		// Tron Nile Testnet
-		"3448148188": true,
-		// Tron localnet
-		"3360022319": true,
-	}
-}

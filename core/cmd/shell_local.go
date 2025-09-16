@@ -386,13 +386,10 @@ func (s *Shell) runNode(c *cli.Context) error {
 		// ensure any imported keys are imported
 		for _, k := range s.Config.ImportedEthKeys().List() {
 			lggr.Debug("Importing eth key")
-			chainDetails := k.ChainDetails()
-			lggr.Debugf("Chain details: Selector=%d, Name=%s", chainDetails.ChainSelector, chainDetails.ChainName)
-			id, err2 := chain_selectors.GetChainIDFromSelector(chainDetails.ChainSelector)
+			id, err2 := chain_selectors.GetChainIDFromSelector(k.ChainDetails().ChainSelector)
 			if err2 != nil {
-				return s.errorOut(errors.Wrapf(err2, "error getting chain id from selector %d when trying to import eth key %v", chainDetails.ChainSelector, k.JSON()))
+				return s.errorOut(errors.Wrapf(err2, "error getting chain id from selector when trying to import eth key %v", k.JSON()))
 			}
-			lggr.Debugf("Converted chain selector %d to chain ID %s", chainDetails.ChainSelector, id)
 			cid, _ := big.NewInt(0).SetString(id, 10)
 			if cid == nil {
 				return s.errorOut(fmt.Errorf("error converting chain id '%s' to big int", id))
