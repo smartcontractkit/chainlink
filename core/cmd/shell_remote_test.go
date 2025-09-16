@@ -479,6 +479,7 @@ func TestShell_ChangePassword(t *testing.T) {
 }
 
 func TestShell_Profile(t *testing.T) {
+	quarantine.Flaky(t, "DX-1796")
 	quarantine.Flaky(t, "DX-1724")
 	t.Parallel()
 
