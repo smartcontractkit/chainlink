@@ -92,7 +92,7 @@ type workflowRegistry struct {
 
 type evtHandler interface {
 	io.Closer
-	Handle(ctx context.Context, event Event) error
+	Handle(ctx context.Context, event Event, head *types.Head) error
 }
 
 type donNotifier interface {
@@ -222,9 +222,9 @@ func (w *workflowRegistry) Name() string {
 	return name
 }
 
-func (w *workflowRegistry) handleWithMetrics(ctx context.Context, event Event) error {
+func (w *workflowRegistry) handleWithMetrics(ctx context.Context, event Event, head *types.Head) error {
 	start := time.Now()
-	err := w.handler.Handle(ctx, event)
+	err := w.handler.Handle(ctx, event, head)
 	totalDuration := time.Since(start)
 	w.metrics.recordHandleDuration(ctx, totalDuration, string(event.Name), err == nil)
 	return err
@@ -234,6 +234,11 @@ func (w *workflowRegistry) handleWithMetrics(ctx context.Context, event Event) e
 // Differences are handled by the event handler by creating events that are sent to the events channel for handling.
 func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendingEvents map[string]*reconciliationEvent, workflowMetadata []WorkflowMetadataView) ([]*reconciliationEvent, error) {
 	var events []*reconciliationEvent
+	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
+	workflowMetadataMap := make(map[string]WorkflowMetadataView)
+	for _, wfMeta := range workflowMetadata {
+		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
+	}
 
 	// Keep track of which of the engines in the engineRegistry have been touched
 	workflowsSeen := map[string]bool{}
@@ -244,10 +249,10 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 		switch wfMeta.Status {
 		case WorkflowStatusActive:
 			switch engineFound {
-			// if the workflow is active, but unable to get engine from the engine registry
-			// then handle as registered event
+			// we can't tell the difference between an activation and registration without holding
+			// state in the db; so we handle as an activation event.
 			case false:
-				signature := fmt.Sprintf("%s-%s-%s", WorkflowRegistered, id, toSpecStatus(wfMeta.Status))
+				signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, id, toSpecStatus(wfMeta.Status))
 
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
 					events = append(events, pendingEvents[id])
@@ -257,7 +262,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 
 				delete(pendingEvents, id)
 
-				toRegisteredEvent := WorkflowRegisteredEvent{
+				toActivatedEvent := WorkflowActivatedEvent{
 					WorkflowID:    wfMeta.WorkflowID,
 					WorkflowOwner: wfMeta.Owner,
 					CreatedAt:     wfMeta.CreatedAt,
@@ -270,8 +275,8 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 				}
 				events = append(events, &reconciliationEvent{
 					Event: Event{
-						Data: toRegisteredEvent,
-						Name: WorkflowRegistered,
+						Data: toActivatedEvent,
+						Name: WorkflowActivated,
 					},
 					signature: signature,
 					id:        id,
@@ -283,6 +288,7 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 				workflowsSeen[id] = true
 			}
 		case WorkflowStatusPaused:
+			signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
 			switch engineFound {
 			case false:
 				// Account for a state change from active to paused, by checking
@@ -291,13 +297,41 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 				// we correctly handle the state of pending events in the following situation:
 				// - we registered an active workflow, but it failed to process successfully
 				// - we then paused the workflow; this should clear the pending event
-				signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature != signature {
 					delete(pendingEvents, id)
 				}
 			case true:
-				// Paused means we skip for processing as a deleted event
-				// To be handled below as a deleted event, which clears the DB workflow spec.
+				// Will be handled in the event handler as a deleted event and will clear the DB workflow spec.
+				workflowsSeen[id] = true
+
+				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
+					events = append(events, pendingEvents[id])
+					delete(pendingEvents, id)
+					continue
+				}
+	
+				delete(pendingEvents, id)
+
+				toPausedEvent := WorkflowPausedEvent{
+					WorkflowID:    wfMeta.WorkflowID,
+					WorkflowOwner: wfMeta.Owner,
+					CreatedAt:     wfMeta.CreatedAt,
+					Status:        wfMeta.Status,
+					WorkflowName:  wfMeta.WorkflowName,
+				}
+				events = append(
+					[]*reconciliationEvent{
+						{
+							Event: Event{
+								Data: toPausedEvent,
+								Name: WorkflowPaused,
+							},
+							signature: signature,
+							id:        id,
+						},
+					},
+					events...,
+				)
 			}
 		default:
 			return nil, fmt.Errorf("invariant violation: unable to determine difference from workflow metadata (status=%d)", wfMeta.Status)
@@ -341,15 +375,8 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 	// Clean up create events which no longer need to be attempted because
 	// the workflow no longer exists in the workflow registry contract
 	for id, event := range pendingEvents {
-		if event.Name == WorkflowRegistered {
-			existsInMetadata := false
-			for _, wfMeta := range workflowMetadata {
-				if wfMeta.WorkflowID.Hex() == event.Data.(WorkflowRegisteredEvent).WorkflowID.Hex() {
-					existsInMetadata = true
-					break
-				}
-			}
-			if !existsInMetadata {
+		if event.Name == WorkflowActivated {
+			if _, ok :=workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
 				delete(pendingEvents, id)
 			}
 		}
@@ -422,7 +449,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 					reconcileReport.NumEventsByType[string(event.Name)]++
 
 					if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
-						err := w.handleWithMetrics(ctx, event.Event)
+						err := w.handleWithMetrics(ctx, event.Event, head)
 						if err != nil {
 							event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
 

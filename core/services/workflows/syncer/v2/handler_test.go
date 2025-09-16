@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -136,7 +137,7 @@ func Test_Handler(t *testing.T) {
 		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, store, workflowEncryptionKey)
 		require.NoError(t, err)
 
-		err = h.Handle(ctx, giveEvent)
+		err = h.Handle(ctx, giveEvent, &commontypes.Head{Height: "123"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "event type unsupported")
 	})

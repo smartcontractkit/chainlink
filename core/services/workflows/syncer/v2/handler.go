@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
@@ -164,9 +165,9 @@ func (h *eventHandler) Close() error {
 	return services.MultiCloser(es).Close()
 }
 
-func (h *eventHandler) Handle(ctx context.Context, event Event) error {
+func (h *eventHandler) Handle(ctx context.Context, event Event, head *commontypes.Head) error {
 	switch event.Name {
-	case WorkflowRegistered:
+	case WorkflowActivated:
 		payload, ok := event.Data.(WorkflowRegisteredEvent)
 		if !ok {
 			return newHandlerTypeError(event.Data)
@@ -181,17 +182,47 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowTag, payload.WorkflowTag,
 		)
 
-		if err := h.workflowRegisteredEvent(ctx, payload); err != nil {
+		err := h.workflowRegisteredEvent(ctx, payload)
+		defer func() {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), head, string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err != nil {
+				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
+			}
+		}()
+
+		if err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow registered event: %v", err), h.lggr)
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.Name)); err != nil {
+		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
+			"workflowTag", payload.WorkflowTag, "type", event.Name)
+		return nil
+	case WorkflowPaused:
+		payload, ok := event.Data.(WorkflowPausedEvent)
+		if !ok {
+			return newHandlerTypeError(event.Data)
+		}
+
+		wfID := payload.WorkflowID.Hex()
+
+		cma := h.emitter.With(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+			platform.KeyWorkflowTag, payload.Tag,
+		)
+
+		if err := h.workflowPausedEvent(ctx, payload); err != nil {
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+			return err
+		}
+
+		if err := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), head, string(event.Name), payload.BinaryURL, payload.ConfigURL, nil); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
 		h.lggr.Debugw("handled event", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
-			"workflowTag", payload.WorkflowTag, "type", event.Name)
+			"workflowTag", payload.Tag, "type", event.Name)
 		return nil
 	case WorkflowDeleted:
 		payload, ok := event.Data.(WorkflowDeletedEvent)
@@ -210,7 +241,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			return err
 		}
 
-		if err := events.EmitWorkflowStatusChangedEvent(ctx, h.emitter.Labels(), string(event.Name)); err != nil {
+		if err := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), head, string(event.Name), "", "", nil); err != nil {
 			h.lggr.Errorf("failed to emit status changed event: %+v", err)
 		}
 
@@ -400,6 +431,14 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 	}
 	return v2.NewEngine(cfg)
+}
+
+// workflowPausedEvent handles the WorkflowPausedEvent event type. This method must remain idempotent.
+func (h *eventHandler) workflowPausedEvent(
+	ctx context.Context,
+	payload WorkflowPausedEvent,
+) error {
+	return h.workflowDeletedEvent(ctx, WorkflowDeletedEvent{WorkflowID: payload.WorkflowID})
 }
 
 // workflowDeletedEvent handles the WorkflowDeletedEvent event type. This method must remain idempotent.
