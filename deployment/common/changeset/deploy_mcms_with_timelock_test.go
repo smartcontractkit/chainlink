@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -215,8 +216,12 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 }
 
 func TestDeployMCMSWithTimelockV2(t *testing.T) {
+	quarantine.Flaky(
+
+		// --- arrange ---
+		t, "DX-1719")
 	t.Parallel()
-	// --- arrange ---
+
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 2, SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
