@@ -54,7 +54,11 @@ type MintTokenInput struct {
 	TokenMint
 }
 
-type TransferInput struct {
+// ###################
+// # Token Ownership #
+// ###################
+
+type TokenTransferInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
 	TokenType              deployment.ContractType
 	To                     aptos.AccountAddress
@@ -62,7 +66,7 @@ type TransferInput struct {
 
 type TransferTokenOwnershipInput struct {
 	ChainSelector uint64
-	Transfers     []TransferInput
+	Transfers     []TokenTransferInput
 	MCMSConfig    *proposalutils.TimelockConfig
 }
 
@@ -79,13 +83,13 @@ type AcceptTokenOwnershipInput struct {
 
 type ExecuteTokenOwnershipTransferInput struct {
 	ChainSelector uint64
-	Transfers     []TransferInput
+	Transfers     []TokenTransferInput
 	MCMSConfig    *proposalutils.TimelockConfig
 }
 
 type TransferTokenAdminInput struct {
 	ChainSelector uint64
-	Transfers     []TransferInput
+	Transfers     []TokenTransferInput
 	MCMSConfig    *proposalutils.TimelockConfig
 }
 

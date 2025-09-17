@@ -12,14 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -29,8 +27,6 @@ import (
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	crefunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 )
 
 const PoRWFV1Location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
@@ -81,7 +77,6 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 	// forming the final PoR "expected" total price written on-chain.
 	var amountToFund *big.Int
 	numberOfAddressesToCreate := 2
-	fmt.Printf("Each address to read will be funded with %s wei\n", amountToFund.String())
 	for idx, bcOutput := range blockchainOutputs {
 		chainFamily := bcOutput.BlockchainOutput.Family
 		chainID := bcOutput.ChainID
@@ -157,36 +152,9 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 		START THE VALIDATION PHASE
 		Check whether each feed has been updated with the expected prices, which workflow fetches from the price provider
 	*/
-	// multiply amount by the number of desired addresses to get correct expected final result written on-chain in the workflow
+	// final expected total = amount to fund * the number of addresses to create
 	amountToFund.Mul(amountToFund, big.NewInt(int64(numberOfAddressesToCreate)))
 	validatePoRPrices(t, testEnv, priceProvider, &cfg, *amountToFund)
-}
-
-func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client) ([]common.Address, error) {
-	t.Helper()
-
-	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
-	var addressesToRead []common.Address
-
-	for i := 0; i < numberOfAddressesToCreate; i++ {
-		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
-		require.NoError(t, addrErr, "failed to generate address to read")
-		orderNum := i + 1
-		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addressToRead.Hex())
-
-		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
-		receipt, funErr := crefunding.SendFunds(t.Context(), testLogger, sethClient, crefunding.FundsToSend{
-			ToAddress:  addressToRead,
-			Amount:     amountToFund,
-			PrivateKey: sethClient.MustGetRootPrivateKey(),
-		})
-		require.NoError(t, funErr, "failed to send funds")
-		testLogger.Info().Msgf("Funds sent successfully to address '%s': txHash='%s'", addressToRead.Hex(), receipt.TxHash)
-
-		addressesToRead = append(addressesToRead, addressToRead)
-	}
-
-	return addressesToRead, nil
 }
 
 /*
