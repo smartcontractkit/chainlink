@@ -45,9 +45,6 @@ func generateChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		err = migrateAccountToFA(t, aptosChain.DeployerSigner, aptosChain.Client)
 		require.NoError(t, err)
 	}
-
-	t.Logf("Created %d Aptos chains", len(chains))
-
 	return chains
 }
 

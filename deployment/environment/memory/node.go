@@ -569,6 +569,18 @@ func CreateKeys(t *testing.T,
 				// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
 				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), simClient.Backend())
 			}
+		case chainsel.FamilySolana:
+			keystore := app.GetKeyStore().Solana()
+			err = keystore.EnsureKey(ctx)
+			require.NoError(t, err, "failed to create key for solana")
+
+			keys, err := keystore.GetAll()
+			require.NoError(t, err)
+			require.Len(t, keys, 1)
+
+			transmitter := keys[0]
+			transmitters[chain.Selector] = transmitter.ID()
+			t.Logf("Created Solana Key: ID %v, Account %v", transmitter.ID(), transmitter.PublicKeyStr())
 		case chainsel.FamilyAptos:
 			keystore := app.GetKeyStore().Aptos()
 			err = keystore.EnsureKey(ctx)
