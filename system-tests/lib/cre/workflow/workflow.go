@@ -2,13 +2,17 @@ package workflow
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,10 +30,72 @@ import (
 	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
 )
 
+func LinkOwner(
+	sc *seth.Client,
+	workflowRegistryAddr common.Address,
+	tv deployment.TypeAndVersion,
+) error {
+	switch tv.Version.Major() {
+	case 2:
+		validity := time.Now().UTC().Add(time.Hour * 24)
+		validityTimestamp := big.NewInt(validity.Unix())
+		defaultOrgID := 22
+		nonce := uuid.New().String()
+		workflowOwner := sc.MustGetRootKeyAddress().Hex()
+		data := fmt.Sprintf("%s%d%s", workflowOwner, defaultOrgID, nonce)
+		hash := sha256.Sum256([]byte(data))
+		ownershipProof := hex.EncodeToString(hash[:])
+		linkRequestType := uint8(0)
+
+		wr, err := workflow_registry_wrapper_v2.NewWorkflowRegistry(
+			workflowRegistryAddr,
+			sc.Client,
+		)
+		if err != nil {
+			return errors.Wrapf(err, "could not get instance of %s %s", tv.Type, tv.Version)
+		}
+
+		version, err := wr.TypeAndVersion(sc.NewCallOpts())
+		if err != nil {
+			return err
+		}
+
+		messageDigest, err := PreparePayloadForSigning(
+			OwnershipProofSignaturePayload{
+				RequestType:              linkRequestType,
+				WorkflowOwnerAddress:     common.HexToAddress(workflowOwner),
+				ChainID:                  strconv.FormatInt(sc.ChainID, 10),
+				WorkflowRegistryContract: workflowRegistryAddr,
+				Version:                  version,
+				ValidityTimestamp:        validity,
+				OwnershipProofHash:       common.HexToHash(ownershipProof),
+			})
+		if err != nil {
+			return fmt.Errorf("failed to prepare payload for signing: %w", err)
+		}
+
+		signature, err := crypto.Sign(messageDigest, sc.MustGetRootPrivateKey())
+		if err != nil {
+			return fmt.Errorf("failed to sign ownership proof: %w", err)
+		}
+
+		signature[64] += 27
+
+		_, err = sc.Decode(wr.LinkOwner(sc.NewTXOpts(), validityTimestamp, common.HexToHash(ownershipProof), signature))
+		if err != nil {
+			return err
+		}
+
+		return nil
+	default:
+		return errors.New("invalid version for linking owner")
+	}
+}
+
 func RegisterWithContract(ctx context.Context, sc *seth.Client,
 	workflowRegistryAddr common.Address, typeVersion deployment.TypeAndVersion,
-	donID uint64, workflowName,
-	binaryURL string, configURL, secretsURL *string,
+	donID uint64, workflowName, binaryURL string,
+	configURL, secretsURL *string,
 	artifactsDirInContainer *string,
 ) (string, error) {
 	workFlowData, workFlowErr := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
@@ -83,6 +149,19 @@ func RegisterWithContract(ctx context.Context, sc *seth.Client,
 		)
 		if err != nil {
 			return "", errors.Wrapf(err, "could not get instance of %s %s", typeVersion.Type, typeVersion.Version)
+		}
+
+		addr := sc.MustGetRootKeyAddress()
+		linked, err := wr.IsOwnerLinked(sc.NewCallOpts(), addr)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to check link status of owner")
+		}
+
+		if !linked {
+			err := LinkOwner(sc, workflowRegistryAddr, typeVersion)
+			if err != nil {
+				return "", errors.Wrap(err, "failed to link owner to org")
+			}
 		}
 
 		_, decodeErr := sc.Decode(wr.UpsertWorkflow(sc.NewTXOpts(), workflowName, "some-tag", [32]byte(common.Hex2Bytes(workflowID)), uint8(0), contracts.DonFamily, binaryURLToUse, configURLToUse, nil, false))

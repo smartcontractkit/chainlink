@@ -24,6 +24,7 @@ import (
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -2485,7 +2486,7 @@ func GenTestTransferOwnershipConfig(
 }
 
 func DeployCCIPContractsTest(t *testing.T, solChains int) {
-	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
+	e, _ := NewMemoryEnvironment(t, WithTonChains(1))
 	// Deploy all the CCIP contracts.
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)

@@ -87,8 +87,6 @@ func Test_CRE_Suite_EVM(t *testing.T) {
 
 func Test_withV2Registries(t *testing.T) {
 	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
-		const skipReason = "Integrate v2 registry contracts in local CRE/test setup - https://smartcontract-it.atlassian.net/browse/CRE-635"
-		t.Skipf("Skipping test for the following reason: %s", skipReason)
 		flags := []string{"--with-contracts-version", "v2"}
 		testEnv := SetupTestEnvironment(t, flags...)
 		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow", PoRWFV1Location)

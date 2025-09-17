@@ -187,6 +187,7 @@ packages:
           filename: starknet.go
       Tron:
       TON:
+      Sui:
       VRF:
       Workflow:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr:

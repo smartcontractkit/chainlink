@@ -615,6 +615,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 		Chains:      make(map[string]view.ChainView),
 		SolChains:   make(map[string]view.SolChainView),
 		AptosChains: make(map[string]view.AptosChainView),
+		TONChains:   make(map[string]tonstate.TONChainView),
 	}
 	m.Range(func(key, value interface{}) bool {
 		stateView.Chains[key.(string)] = value.(view.ChainView)
