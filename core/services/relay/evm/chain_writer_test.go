@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -34,7 +35,7 @@ func TestChainWriter(t *testing.T) {
 	l1Oracle := rollupmocks.NewL1Oracle(t)
 
 	chainWriterConfig := newBaseChainWriterConfig()
-	cw, err := NewChainWriterService(lggr, client, txm, ge, chainWriterConfig)
+	cw, err := NewChainWriterService(lggr, client, txm, ge, chainWriterConfig, nil)
 	require.NoError(t, err)
 
 	t.Run("Initialization", func(t *testing.T) {
@@ -43,7 +44,7 @@ func TestChainWriter(t *testing.T) {
 			invalidAbiConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].ContractABI = ""
 			})
-			_, err = NewChainWriterService(lggr, client, txm, ge, invalidAbiConfig)
+			_, err = NewChainWriterService(lggr, client, txm, ge, invalidAbiConfig, nil)
 			require.Error(t, err)
 		})
 
@@ -52,7 +53,7 @@ func TestChainWriter(t *testing.T) {
 			invalidMethodNameConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].Configs["report"].ChainSpecificName = ""
 			})
-			_, err = NewChainWriterService(lggr, client, txm, ge, invalidMethodNameConfig)
+			_, err = NewChainWriterService(lggr, client, txm, ge, invalidMethodNameConfig, nil)
 			require.Error(t, err)
 		})
 	})
@@ -64,14 +65,14 @@ func TestChainWriter(t *testing.T) {
 	t.Run("GetTransactionStatus", func(t *testing.T) {
 		txs := []struct {
 			txid   string
-			status commontypes.TransactionStatus
+			status types.TransactionStatus
 		}{
-			{uuid.NewString(), commontypes.Unknown},
-			{uuid.NewString(), commontypes.Pending},
-			{uuid.NewString(), commontypes.Unconfirmed},
-			{uuid.NewString(), commontypes.Finalized},
-			{uuid.NewString(), commontypes.Failed},
-			{uuid.NewString(), commontypes.Fatal},
+			{uuid.NewString(), types.Unknown},
+			{uuid.NewString(), types.Pending},
+			{uuid.NewString(), types.Unconfirmed},
+			{uuid.NewString(), types.Finalized},
+			{uuid.NewString(), types.Failed},
+			{uuid.NewString(), types.Fatal},
 		}
 
 		for _, tx := range txs {
@@ -79,7 +80,7 @@ func TestChainWriter(t *testing.T) {
 		}
 
 		for _, tx := range txs {
-			var status commontypes.TransactionStatus
+			var status types.TransactionStatus
 			status, err = cw.GetTransactionStatus(ctx, tx.txid)
 			require.NoError(t, err)
 			require.Equal(t, tx.status, status)
@@ -155,6 +156,34 @@ func TestChainWriter(t *testing.T) {
 			require.Equal(t, expectedErr, err)
 		})
 	})
+
+	t.Run("Tron Conversion Methods", func(t *testing.T) {
+		t.Run("buildMethodSignature", func(t *testing.T) {
+			t.Run("Single parameter method", func(t *testing.T) {
+				abiMethod := createTestABIMethod("transfer", []string{"address"})
+				signature := cw.(*chainWriter).buildMethodSignature(abiMethod)
+				assert.Equal(t, "transfer(address)", signature)
+			})
+
+			t.Run("Multiple parameter method", func(t *testing.T) {
+				abiMethod := createTestABIMethod("mint", []string{"address", "uint256"})
+				signature := cw.(*chainWriter).buildMethodSignature(abiMethod)
+				assert.Equal(t, "mint(address,uint256)", signature)
+			})
+
+			t.Run("No parameter method", func(t *testing.T) {
+				abiMethod := createTestABIMethod("pause", []string{})
+				signature := cw.(*chainWriter).buildMethodSignature(abiMethod)
+				assert.Equal(t, "pause()", signature)
+			})
+
+			t.Run("Complex types method", func(t *testing.T) {
+				abiMethod := createTestABIMethod("complexMethod", []string{"bytes32", "bool", "uint256[]"})
+				signature := cw.(*chainWriter).buildMethodSignature(abiMethod)
+				assert.Equal(t, "complexMethod(bytes32,bool,uint256[])", signature)
+			})
+		})
+	})
 }
 
 // Helper functions to remove redundant creation of configs
@@ -182,4 +211,19 @@ func modifyChainWriterConfig(baseConfig relayevmtypes.ChainWriterConfig, modifyF
 	modifiedConfig := baseConfig
 	modifyFn(&modifiedConfig)
 	return modifiedConfig
+}
+
+func createTestABIMethod(name string, params []string) abi.Method {
+	var inputs abi.Arguments
+	for _, param := range params {
+		abiType, _ := abi.NewType(param, "", nil)
+		inputs = append(inputs, abi.Argument{
+			Type: abiType,
+		})
+	}
+
+	return abi.Method{
+		Name:   name,
+		Inputs: inputs,
+	}
 }

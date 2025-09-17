@@ -1014,9 +1014,9 @@ func (_c *ORM_FindJobsByPipelineSpecIDs_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
-// FindOCR2JobIDByAddress provides a mock function with given fields: ctx, contractID, feedID
-func (_m *ORM) FindOCR2JobIDByAddress(ctx context.Context, contractID string, feedID *common.Hash) (int32, error) {
-	ret := _m.Called(ctx, contractID, feedID)
+// FindOCR2JobIDByAddress provides a mock function with given fields: ctx, relay, chainID, contractID, feedID
+func (_m *ORM) FindOCR2JobIDByAddress(ctx context.Context, relay string, chainID int64, contractID string, feedID *common.Hash) (int32, error) {
+	ret := _m.Called(ctx, relay, chainID, contractID, feedID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindOCR2JobIDByAddress")
@@ -1024,17 +1024,17 @@ func (_m *ORM) FindOCR2JobIDByAddress(ctx context.Context, contractID string, fe
 
 	var r0 int32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, *common.Hash) (int32, error)); ok {
-		return rf(ctx, contractID, feedID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, string, *common.Hash) (int32, error)); ok {
+		return rf(ctx, relay, chainID, contractID, feedID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, *common.Hash) int32); ok {
-		r0 = rf(ctx, contractID, feedID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, int64, string, *common.Hash) int32); ok {
+		r0 = rf(ctx, relay, chainID, contractID, feedID)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, *common.Hash) error); ok {
-		r1 = rf(ctx, contractID, feedID)
+	if rf, ok := ret.Get(1).(func(context.Context, string, int64, string, *common.Hash) error); ok {
+		r1 = rf(ctx, relay, chainID, contractID, feedID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1049,15 +1049,17 @@ type ORM_FindOCR2JobIDByAddress_Call struct {
 
 // FindOCR2JobIDByAddress is a helper method to define mock.On call
 //   - ctx context.Context
+//   - relay string
+//   - chainID int64
 //   - contractID string
 //   - feedID *common.Hash
-func (_e *ORM_Expecter) FindOCR2JobIDByAddress(ctx interface{}, contractID interface{}, feedID interface{}) *ORM_FindOCR2JobIDByAddress_Call {
-	return &ORM_FindOCR2JobIDByAddress_Call{Call: _e.mock.On("FindOCR2JobIDByAddress", ctx, contractID, feedID)}
+func (_e *ORM_Expecter) FindOCR2JobIDByAddress(ctx interface{}, relay interface{}, chainID interface{}, contractID interface{}, feedID interface{}) *ORM_FindOCR2JobIDByAddress_Call {
+	return &ORM_FindOCR2JobIDByAddress_Call{Call: _e.mock.On("FindOCR2JobIDByAddress", ctx, relay, chainID, contractID, feedID)}
 }
 
-func (_c *ORM_FindOCR2JobIDByAddress_Call) Run(run func(ctx context.Context, contractID string, feedID *common.Hash)) *ORM_FindOCR2JobIDByAddress_Call {
+func (_c *ORM_FindOCR2JobIDByAddress_Call) Run(run func(ctx context.Context, relay string, chainID int64, contractID string, feedID *common.Hash)) *ORM_FindOCR2JobIDByAddress_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(*common.Hash))
+		run(args[0].(context.Context), args[1].(string), args[2].(int64), args[3].(string), args[4].(*common.Hash))
 	})
 	return _c
 }
@@ -1067,7 +1069,7 @@ func (_c *ORM_FindOCR2JobIDByAddress_Call) Return(_a0 int32, _a1 error) *ORM_Fin
 	return _c
 }
 
-func (_c *ORM_FindOCR2JobIDByAddress_Call) RunAndReturn(run func(context.Context, string, *common.Hash) (int32, error)) *ORM_FindOCR2JobIDByAddress_Call {
+func (_c *ORM_FindOCR2JobIDByAddress_Call) RunAndReturn(run func(context.Context, string, int64, string, *common.Hash) (int32, error)) *ORM_FindOCR2JobIDByAddress_Call {
 	_c.Call.Return(run)
 	return _c
 }

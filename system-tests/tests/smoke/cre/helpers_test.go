@@ -18,13 +18,23 @@ package cre
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"gopkg.in/yaml.v3"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	common_events "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflow_events "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -35,10 +45,12 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 )
 
 /////////////////////////
@@ -71,6 +83,142 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 	return writeableChains
 }
 
+/*
+Starts Beholder
+1. Starts Beholder if it is not running already
+2. Loads Beholder stack cache to get Kafka connection details
+3. Starts a Kafka listener for Beholder messages
+
+Returns:
+1. Context for the listener (with timeout)
+2. Channel to receive messages
+3. Channel to receive errors from the listener
+
+Recommendation: Use it in tests that need to listen for Beholder messages.
+*/
+func startBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *TestEnvironment) (context.Context, chan proto.Message, chan error) {
+	t.Helper()
+
+	testLogger.Info().Msg("Starting Beholder...")
+	bErr := startBeholderStackIfIsNotRunning(testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	require.NoError(t, bErr, "failed to start Beholder")
+
+	chipConfig, chipErr := loadBeholderStackCache(testEnv.TestConfig.RelativePathToRepoRoot)
+	require.NoError(t, chipErr, "failed to load chip ingress cache")
+	require.NotNil(t, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, "kafka external url is not set in the cache")
+	require.NotEmpty(t, chipConfig.Kafka.Topics, "kafka topics are not set in the cache")
+
+	return startBeholderListener(t, testLogger, chipConfig)
+}
+
+func startBeholderListener(t *testing.T, testLogger zerolog.Logger, chipConfig *config.ChipIngressConfig) (context.Context, chan proto.Message, chan error) {
+	t.Helper()
+	// We are interested in UserLogs (successful execution)
+	// or BaseMessage with specific error message (engine initialization failure)
+	messageTypes := map[string]func() proto.Message{
+		"workflows.v1.UserLogs": func() proto.Message {
+			return &workflow_events.UserLogs{}
+		},
+		"BaseMessage": func() proto.Message {
+			return &common_events.BaseMessage{}
+		},
+	}
+
+	timeout := 5 * time.Minute
+	listenerCtx, cancelListener := context.WithTimeout(t.Context(), timeout)
+	t.Cleanup(func() {
+		cancelListener()
+		testLogger.Info().Msg("Beholder listener stopped")
+	})
+
+	kafkaErrChan := make(chan error, 1)
+	messageChan := make(chan proto.Message, 10)
+	// Start listening for messages in the background
+	go func() {
+		listenForKafkaMessages(listenerCtx, testLogger, chipConfig.ChipIngress.Output.RedPanda.KafkaExternalURL, chipConfig.Kafka.Topics[0], messageTypes, messageChan, kafkaErrChan)
+	}()
+
+	return listenerCtx, messageChan, kafkaErrChan
+}
+
+/*
+Asserts that a specific log message is received from a Beholder within a timeout period.
+Returns an error if found in error channel or timeouts if a log message is not received.
+*/
+func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan chan proto.Message, kafkaErrChan chan error, timeout time.Duration) error {
+	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
+	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
+	receivedUserLogs := 0
+	// Start message processor goroutine
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-messageChan:
+				// Process received messages
+				switch typedMsg := msg.(type) {
+				case *common_events.BaseMessage:
+					if strings.Contains(typedMsg.Msg, "Workflow Engine initialization failed") {
+						foundErrorLog <- true
+					}
+				case *workflow_events.UserLogs:
+					testLogger.Info().Msg("🎉 Received UserLogs message in test")
+					receivedUserLogs++
+
+					for _, logLine := range typedMsg.LogLines {
+						if strings.Contains(logLine.Message, expectedLog) {
+							testLogger.Info().
+								Str("expected_log", expectedLog).
+								Str("found_message", strings.TrimSpace(logLine.Message)).
+								Msg("🎯 Found expected user log message!")
+
+							select {
+							case foundExpectedLog <- true:
+							default: // Channel might already have a value
+							}
+							return // Exit the processor goroutine
+						}
+						testLogger.Warn().
+							Str("expected_log", expectedLog).
+							Str("found_message", strings.TrimSpace(logLine.Message)).
+							Msg("Received UserLogs message, but it does not match expected log")
+					}
+				default:
+					// ignore other message types
+				}
+			}
+		}
+	}()
+
+	testLogger.Info().
+		Str("expected_log", expectedLog).
+		Dur("timeout", timeout).
+		Msg("Waiting for expected user log message or timeout")
+
+	// Wait for either the expected log to be found, or engine initialization failure to be detected, or timeout (2 minutes)
+	select {
+	case <-foundExpectedLog:
+		testLogger.Info().Str("expected_log", expectedLog).Msg("✅ Test completed successfully - found expected user log message!")
+		return nil
+	case <-foundErrorLog:
+		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
+		return errors.New("beholder message validation completed with error: found engine initialization failure message")
+	case <-time.After(timeout):
+		testLogger.Error().Msg("Timed out waiting for expected user log message")
+		if receivedUserLogs > 0 {
+			testLogger.Warn().Int("received_user_logs", receivedUserLogs).Msg("Received some UserLogs messages, but none matched expected log")
+		} else {
+			testLogger.Warn().Msg("Did not receive any UserLogs messages")
+		}
+		require.Failf(t, "Timed out waiting for the expected user log message (or error)", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
+	case err := <-kafkaErrChan:
+		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
+		require.Fail(t, "Kafka listener failed", err.Error())
+	}
+	return nil
+}
+
 //////////////////////////////
 // WORKFLOW-RELATED HELPERS //
 //////////////////////////////
@@ -78,7 +226,11 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 // Generic WorkflowConfig interface for creation of different workflow configurations
 // Register your workflow configuration types here
 type WorkflowConfig interface {
-	None | portypes.WorkflowConfig | HTTPWorkflowConfig | evmread_config.Config
+	None |
+		portypes.WorkflowConfig |
+		crontypes.WorkflowConfig |
+		HTTPWorkflowConfig |
+		evmread_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -87,14 +239,17 @@ type None struct{}
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
 type WorkflowRegistrationConfig struct {
-	WorkflowName         string
-	WorkflowLocation     string
-	ConfigFilePath       string
-	CompressedWasmPath   string
-	SecretsURL           string
-	WorkflowRegistryAddr common.Address
-	DonID                uint64
-	ContainerTargetDir   string
+	WorkflowName                string
+	WorkflowLocation            string
+	ConfigFilePath              string
+	CompressedWasmPath          string
+	SecretsURL                  string
+	WorkflowRegistryAddr        common.Address
+	WorkflowRegistryTypeVersion deployment.TypeAndVersion
+	ChainID                     uint64
+	DonID                       uint64
+	ContainerTargetDir          string
+	WrappedBlockchainOutputs    []*cre.WrappedBlockchainOutput
 }
 
 /*
@@ -148,11 +303,18 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create PoR workflow config file")
 			testLogger.Info().Msg("PoR Workflow config file created.")
 
+		case *crontypes.WorkflowConfig:
+			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create Cron workflow config file")
+			testLogger.Info().Msg("Cron Workflow config file created.")
+
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create HTTP workflow config file")
 			testLogger.Info().Msg("HTTP Workflow config file created.")
+
 		case *evmread_config.Config:
 			var configErr error
 			workflowConfigFilePath, configErr = createWorkflowYamlConfigFile(workflowName, cfg)
@@ -166,26 +328,68 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 }
 
 /*
+Creates .yaml workflow configuration file and returns the absolute path to the created config file.
+*/
+func createWorkflowYamlConfigFile(workflowName string, workflowConfig any) (string, error) {
+	// Write workflow config to a .yaml file
+	configMarshalled, err := yaml.Marshal(workflowConfig)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal workflow config")
+	}
+	workflowSuffix := "_config.yaml"
+	workflowConfigOutputFile := workflowName + workflowSuffix
+
+	// remove the duplicate if it already exists
+	_, statErr := os.Stat(workflowConfigOutputFile)
+	if statErr == nil {
+		if err := os.Remove(workflowConfigOutputFile); err != nil {
+			return "", errors.Wrap(err, "failed to remove existing output file")
+		}
+	}
+
+	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
+		return "", errors.Wrap(err, "failed to write output file")
+	}
+
+	outputFileAbsPath, outputFileAbsPathErr := filepath.Abs(workflowConfigOutputFile)
+	if outputFileAbsPathErr != nil {
+		return "", errors.Wrap(outputFileAbsPathErr, "failed to get absolute path of the config file")
+	}
+
+	return outputFileAbsPath, nil
+}
+
+/*
 Registers a workflow with the specified configuration.
 */
-func registerWorkflow(ctx context.Context, t *testing.T, workflowConfig *WorkflowRegistrationConfig, sethClient *seth.Client, testLogger zerolog.Logger) {
+func registerWorkflow(ctx context.Context, t *testing.T,
+	wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client,
+	testLogger zerolog.Logger,
+) {
 	t.Helper()
 
-	workflowRegistryAddress := workflowConfig.WorkflowRegistryAddr
-	donID := workflowConfig.DonID
-	workflowName := workflowConfig.WorkflowName
-	binaryURL := "file://" + workflowConfig.CompressedWasmPath
-	configURL := ptr.Ptr("file://" + workflowConfig.ConfigFilePath)
-	containerTargetDir := &workflowConfig.ContainerTargetDir
+	t.Cleanup(func() {
+		deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
+			wfRegCfg.CompressedWasmPath, wfRegCfg.WrappedBlockchainOutputs,
+			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryTypeVersion,
+		)
+	})
 
-	if workflowConfig.ConfigFilePath == "" {
+	donID := wfRegCfg.DonID
+	workflowName := wfRegCfg.WorkflowName
+	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
+	configURL := ptr.Ptr("file://" + wfRegCfg.ConfigFilePath)
+	containerTargetDir := &wfRegCfg.ContainerTargetDir
+
+	if wfRegCfg.ConfigFilePath == "" {
 		configURL = nil
 	}
 
 	workflowID, registerErr := creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,
-		workflowRegistryAddress,
+		wfRegCfg.WorkflowRegistryAddr,
+		wfRegCfg.WorkflowRegistryTypeVersion,
 		donID,
 		workflowName,
 		binaryURL,
@@ -193,7 +397,7 @@ func registerWorkflow(ctx context.Context, t *testing.T, workflowConfig *Workflo
 		nil, // no secrets yet
 		containerTargetDir,
 	)
-	require.NoError(t, registerErr, "failed to register workflow '%s'", workflowConfig.WorkflowName)
+	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
 	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
 }
 
@@ -205,19 +409,33 @@ Deletes workflows from:
 Recommendation:
 Use it at the end of your test to `t.Cleanup()` the env after test run
 */
-func deleteWorkflows(t *testing.T, uniqueWorkflowName string, workflowConfigFilePath string, compressedWorkflowWasmPath string, blockchainOutputs []*cre.WrappedBlockchainOutput, workflowRegistryAddress common.Address) {
+func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
+	workflowConfigFilePath string, compressedWorkflowWasmPath string,
+	blockchainOutputs []*cre.WrappedBlockchainOutput,
+	workflowRegistryAddress common.Address,
+	tv deployment.TypeAndVersion,
+) {
 	t.Helper()
 
-	var testLogger = framework.L
+	testLogger := framework.L
 	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.", uniqueWorkflowName)
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, uniqueWorkflowName)
+	switch tv.Version.Major() {
+	case 2:
+		// TODO(CRE-876): delete with workflowID
+		return
+	default:
+	}
+	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 }
 
-func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string, workflowConfig *T, workflowFileLocation string) {
+func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
+	testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string,
+	workflowConfig *T, workflowFileLocation string,
+) {
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 
 	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.FullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
@@ -226,23 +444,22 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T, testEnv *TestEnvir
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
-	workflowRegistryAddress, _, workflowRegistryErr := crecontracts.FindAddressesForChain(
-		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //lint:ignore SA1019 ignoring deprecation warning for this usage
+	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
+		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
 		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
 
-	t.Cleanup(func() {
-		deleteWorkflows(t, workflowName, workflowConfigPath, compressedWorkflowWasmPath, testEnv.WrappedBlockchainOutputs, workflowRegistryAddress)
-	})
-
 	workflowRegConfig := &WorkflowRegistrationConfig{
-		WorkflowName:         workflowName,
-		WorkflowLocation:     workflowFileLocation,
-		ConfigFilePath:       workflowConfigPath,
-		CompressedWasmPath:   compressedWorkflowWasmPath,
-		WorkflowRegistryAddr: workflowRegistryAddress,
-		DonID:                testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
-		ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
+		WorkflowName:                workflowName,
+		WorkflowLocation:            workflowFileLocation,
+		ConfigFilePath:              workflowConfigPath,
+		CompressedWasmPath:          compressedWorkflowWasmPath,
+		WorkflowRegistryAddr:        workflowRegistryAddress,
+		WorkflowRegistryTypeVersion: tv,
+		ChainID:                     homeChainSelector,
+		DonID:                       testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
+		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
 	}
 	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
 }

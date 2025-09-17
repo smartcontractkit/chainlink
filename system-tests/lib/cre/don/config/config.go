@@ -196,10 +196,10 @@ func addBootstrapNodeConfig(
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
 	return existingConfig, nil
@@ -273,17 +273,19 @@ func addWorkerNodeConfig(
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
 	if flags.HasFlag(donFlags, cre.WorkflowDON) {
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:   ptr.Ptr(commonInputs.workflowRegistryAddress.Hex()),
-			NetworkID: ptr.Ptr("evm"),
-			ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			SyncStrategy:    ptr.Ptr("reconciliation"),
+			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.versionType.Version.String()),
 		}
 	}
 
@@ -355,22 +357,24 @@ OUTER:
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
 	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:   ptr.Ptr(commonInputs.workflowRegistryAddress.Hex()),
-		NetworkID: ptr.Ptr("evm"),
-		ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+		Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
+		NetworkID:       ptr.Ptr("evm"),
+		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.versionType.Version.String()),
+		SyncStrategy:    ptr.Ptr("reconciliation"),
 	}
 
 	return existingConfig, nil
 }
 
-type capRegTypeVersion struct {
+type addressTypeVersion struct {
 	address     common.Address
 	versionType cldf.TypeAndVersion
 }
@@ -379,8 +383,8 @@ type commonInputs struct {
 	registryChainID       uint64
 	registryChainSelector uint64
 
-	workflowRegistryAddress       common.Address
-	capabilityRegistryTypeVersion capRegTypeVersion
+	workflowRegistry   addressTypeVersion
+	capabilityRegistry addressTypeVersion
 
 	evmChains   []*evmChain
 	solanaChain *solanaChain
@@ -400,25 +404,28 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	}
 
 	// find contract addresses
-	capabilitiesRegistryAddress, versionType, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
+	capabilitiesRegistryAddress, capRegTypeVersion, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
 	if capErr != nil {
 		return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
 	}
 
-	workflowRegistryAddress, _, wfErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddress, wfRegTypeVersion, wfErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	if wfErr != nil {
 		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
 	}
 
 	return &commonInputs{
-		registryChainID:         registryChainID,
-		registryChainSelector:   input.HomeChainSelector,
-		workflowRegistryAddress: workflowRegistryAddress,
-		evmChains:               evmChains,
-		solanaChain:             solanaChain,
-		capabilityRegistryTypeVersion: capRegTypeVersion{
+		registryChainID:       registryChainID,
+		registryChainSelector: input.HomeChainSelector,
+		workflowRegistry: addressTypeVersion{
+			address:     workflowRegistryAddress,
+			versionType: wfRegTypeVersion,
+		},
+		evmChains:   evmChains,
+		solanaChain: solanaChain,
+		capabilityRegistry: addressTypeVersion{
 			address:     capabilitiesRegistryAddress,
-			versionType: versionType,
+			versionType: capRegTypeVersion,
 		},
 	}, nil
 }

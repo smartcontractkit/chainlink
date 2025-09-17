@@ -101,7 +101,7 @@ func generateOCR3Config(nodeKeys []NodeKeys, configFile string) ksdeploy.OCR3Onc
 	topLevelCfg := mustReadOCR3Config(configFile)
 	cfg := topLevelCfg.OracleConfig
 	secrets := focr.XXXGenerateTestOCRSecrets()
-	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeKeys[1:]), secrets) // skip the bootstrap node
+	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeKeys[1:]), secrets, nil) // skip the bootstrap node
 	helpers.PanicErr(err)
 	return c
 }
@@ -166,7 +166,9 @@ func deployOCR3JobSpecs(
 		api.withFlags(api.methods.ReplayFromBlock, func(fs *flag.FlagSet) {
 			err := fs.Set("block-number", strconv.FormatUint(onchainMeta.SetConfigTxBlock, 10))
 			helpers.PanicErr(err)
-			err = fs.Set("evm-chain-id", strconv.FormatInt(chainID, 10))
+			err = fs.Set("family", "evm")
+			helpers.PanicErr(err)
+			err = fs.Set("chain-id", strconv.FormatInt(chainID, 10))
 			helpers.PanicErr(err)
 		}).mustExec()
 	}

@@ -1,6 +1,7 @@
 package messagingtest
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
@@ -10,6 +11,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tvm/cell"
+
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
@@ -130,8 +135,8 @@ func getLatestNonce(tc TestCase) uint64 {
 		_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
 		latestNonce = nonceCounterAccount.Counter
 	case chain_selectors.FamilyTon:
-		// TODO investigate TON nonce management, return +1 for now
-		return *tc.Nonce + 1
+		// No nonce management on Ton, just return the test value
+		return *tc.Nonce
 	}
 	return latestNonce
 }
@@ -188,6 +193,24 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			FeeToken:     feeToken,
 			TokenAmounts: nil,
 		}
+	case chain_selectors.FamilyTon:
+		feeToken := ops.TonTokenAddr
+		if len(tc.FeeToken) > 0 {
+			feeToken, err = address.ParseAddr(tc.FeeToken)
+			require.NoError(tc.T, err)
+		}
+
+		c, err := cell.FromBOC(tc.ExtraArgs)
+		require.NoError(tc.T, err)
+
+		msg = ops.TonSendRequest{
+			QueryID:   rand.Uint64(),
+			Data:      tc.MsgData,
+			Receiver:  tc.Receiver,
+			ExtraArgs: c, // TODO handle ExtraArgs properly
+			FeeToken:  feeToken,
+		}
+
 	default:
 		tc.T.Errorf("unsupported source chain: %v", family)
 	}
@@ -282,7 +305,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		}
 
 		// TODO investigate TON nonce management, getLatestNonce is mocked to increase by 1 for now
-
 		if !unorderedExec {
 			latestNonce := getLatestNonce(tc)
 			// Check if Nonce is non-nil before comparing. Nonce check only makes sense if it was explicitly provided.

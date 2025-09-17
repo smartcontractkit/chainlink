@@ -1,7 +1,10 @@
 package contracts
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -10,14 +13,22 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
+	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -36,7 +47,10 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
+
+const DonFamily = "test-don-family"
 
 type donConfig struct {
 	id uint32 // the DON id as registered in the capabilities registry
@@ -60,7 +74,8 @@ func (d *donConfig) keystoneDonConfig() ks_contracts_op.ConfigureKeystoneDON {
 }
 
 type dons struct {
-	c map[string]donConfig
+	c        map[string]donConfig
+	offChain offchain.Client
 }
 
 func (d *dons) donsOrderedByID() []donConfig {
@@ -141,9 +156,174 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 	return out
 }
 
+func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
+	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperator, 0)
+	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0)
+	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
+	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
+
+	// Collect unique capabilities and NOPs
+	capabilityMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapability)
+	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperator)
+	for _, don := range d.donsOrderedByID() {
+		// Extract capabilities
+		capIDs := make([]string, 0, len(don.Capabilities))
+		for _, myCap := range don.Capabilities {
+			capID := fmt.Sprintf("%s@%s", myCap.Capability.LabelledName, myCap.Capability.Version)
+			capIDs = append(capIDs, capID)
+			if _, exists := capabilityMap[capID]; !exists {
+				metadataJSON, _ := json.Marshal(syncer_v2.CapabilityMetadata{
+					CapabilityType: myCap.Capability.CapabilityType,
+					ResponseType:   myCap.Capability.ResponseType,
+				})
+				capabilityMap[capID] = capabilities_registry_v2.CapabilitiesRegistryCapability{
+					CapabilityId:          capID,
+					ConfigurationContract: common.Address{},
+					Metadata:              metadataJSON,
+				}
+			}
+		}
+
+		// Extract NOPs and nodes
+		adminAddrs, err := generateAdminAddresses(len(don.Nops))
+		if err != nil {
+			panic(fmt.Sprintf("failed to generate admin addresses: %s", err))
+		}
+		for i, nop := range don.Nops {
+			nopName := nop.Name
+			if _, exists := nopMap[nopName]; !exists {
+				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+					Admin: adminAddrs[i],
+					Name:  nopName,
+				}
+
+				ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
+				if err != nil {
+					panic(err)
+				}
+
+				// Add nodes for this NOP
+				for _, n := range ns {
+					ocrCfg, ok := n.OCRConfigForChainSelector(chainSelector)
+					if !ok {
+						continue
+					}
+
+					wfKey, err := hex.DecodeString(n.WorkflowKey)
+					if err != nil {
+						panic(err)
+					}
+
+					csKey, err := hex.DecodeString(n.CSAKey)
+					if err != nil {
+						panic(fmt.Errorf("failed to decode csa key: %w", err))
+					}
+
+					nodes = append(nodes, capabilities_registry_v2.CapabilitiesRegistryNodeParams{
+						NodeOperatorId:      libc.MustSafeUint32(i + 1),
+						P2pId:               n.PeerID,
+						Signer:              ocrCfg.OffchainPublicKey,
+						EncryptionPublicKey: [32]byte(wfKey),
+						CsaKey:              [32]byte(csKey),
+						CapabilityIds:       capIDs,
+					})
+				}
+			}
+		}
+
+		// Create DON parameters
+		var capConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+		for _, cap := range don.Capabilities {
+			capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
+			configBytes := []byte("{}")
+			if cap.Config != nil {
+				// Convert proto config to bytes if needed
+				if protoBytes, err := proto.Marshal(cap.Config); err == nil {
+					configBytes = protoBytes
+				}
+			}
+			capConfigs = append(capConfigs, capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
+				CapabilityId: capID,
+				Config:       configBytes,
+			})
+		}
+
+		var donNodes [][32]byte
+		for _, nop := range don.Nops {
+			for _, nodeID := range nop.Nodes {
+				peerID, err := p2pkey.MakePeerID(nodeID)
+				if err != nil {
+					continue
+				}
+				donNodes = append(donNodes, peerID)
+			}
+		}
+
+		donParams = append(donParams, capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
+			Name:                     don.Name,
+			DonFamilies:              []string{DonFamily}, // Default empty
+			Config:                   []byte("{}"),
+			CapabilityConfigurations: capConfigs,
+			Nodes:                    donNodes,
+			F:                        don.F,
+			IsPublic:                 true,
+			AcceptsWorkflows:         true,
+		})
+	}
+
+	// Convert maps to slices
+	for _, cap := range capabilityMap {
+		capabilities = append(capabilities, cap)
+	}
+	for _, nop := range nopMap {
+		nops = append(nops, nop)
+	}
+
+	return cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{
+		RegistryChainSel: chainSelector,
+		ContractAddress:  contractAddress,
+		Nops:             nops,
+		Nodes:            nodes,
+		Capabilities:     capabilities,
+		DONs:             donParams,
+	}
+}
+
+func generateAdminAddresses(count int) ([]common.Address, error) {
+	if count <= 0 {
+		return nil, errors.New("count must be a positive integer")
+	}
+
+	// Determine the number of hex digits needed for padding based on the count.
+	// We use the count + 1 to account for the loop range and a safe margin.
+	hexDigits := int(math.Ceil(math.Log10(float64(count+1)) / math.Log10(16)))
+	if hexDigits < 1 {
+		hexDigits = 1
+	}
+
+	// The total length of the address after the "0x" prefix must be 40.
+	baseHexLen := 40 - hexDigits
+	if baseHexLen <= 0 {
+		return nil, errors.New("count is too large to generate unique addresses with this base")
+	}
+
+	// Create a base string of 'f' characters to ensure the addresses are not zero.
+	baseString := strings.Repeat("f", baseHexLen)
+
+	addresses := make([]common.Address, count)
+	for i := 0; i < count; i++ {
+		format := fmt.Sprintf("%s%%0%dx", baseString, hexDigits)
+		fullAddress := fmt.Sprintf(format, i)
+		addresses[i] = common.HexToAddress("0x" + fullAddress)
+	}
+
+	return addresses, nil
+}
+
 func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 	dons := &dons{
-		c: make(map[string]donConfig),
+		c:        make(map[string]donConfig),
+		offChain: input.CldEnv.Offchain,
 	}
 
 	for donIdx, donMetadata := range input.Topology.DonsMetadata {
@@ -250,14 +430,15 @@ func ConfigureCapabilityRegistry(input cre.ConfigureKeystoneInput, dons *dons) (
 		return &registryWrapper{V1: capReg.Contract}, nil
 	}
 
-	// TODO: Turn don to inputs
+	// Transform dons data to V2 sequence input format
+	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex())
 	_, err := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
 			Env: input.CldEnv,
 		},
-		cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{},
+		v2Input,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to configure capabilities registry")
@@ -405,16 +586,53 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 
 		_, err = operations.ExecuteOperation(
 			input.CldEnv.OperationsBundle,
+			ks_contracts_op.ConfigureDKGOp,
+			ks_contracts_op.ConfigureDKGOpDeps{
+				Env: input.CldEnv,
+			},
+			ks_contracts_op.ConfigureDKGOpInput{
+				ContractAddress:       input.DKGOCR3Address,
+				ChainSelector:         input.ChainSelector,
+				DON:                   vaultDON.keystoneDonConfig(),
+				Config:                vaultDON.resolveOcr3Config(input.DKGOCR3Config),
+				DryRun:                false,
+				ReportingPluginConfig: *input.DKGReportingPluginConfig,
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure DKG OCR3 contract")
+		}
+
+		client := input.CldEnv.BlockChains.EVMChains()[input.ChainSelector].Client
+		dkgContract, err := ocr3_capability.NewOCR3Capability(*input.DKGOCR3Address, client)
+		if err != nil {
+			return errors.Wrap(err, "failed to create OCR3 capability contract")
+		}
+		details, err := dkgContract.LatestConfigDetails(nil)
+		if err != nil {
+			return errors.Wrap(err, "failed to get latest config details from OCR3 capability contract")
+		}
+		instanceID := string(dkgocrtypes.MakeInstanceID(dkgContract.Address(), details.ConfigDigest))
+		cfg := vaultprotos.ReportingPluginConfig{
+			DKGInstanceID: &instanceID,
+		}
+		cfgb, err := proto.Marshal(&cfg)
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal vault reporting plugin config")
+		}
+		_, err = operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureOCR3Op,
 			ks_contracts_op.ConfigureOCR3OpDeps{
 				Env: input.CldEnv,
 			},
 			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress: input.VaultOCR3Address,
-				ChainSelector:   input.ChainSelector,
-				DON:             vaultDON.keystoneDonConfig(),
-				Config:          vaultDON.resolveOcr3Config(input.VaultOCR3Config),
-				DryRun:          false,
+				ContractAddress:               input.VaultOCR3Address,
+				ChainSelector:                 input.ChainSelector,
+				DON:                           vaultDON.keystoneDonConfig(),
+				Config:                        vaultDON.resolveOcr3Config(input.VaultOCR3Config),
+				DryRun:                        false,
+				ReportingPluginConfigOverride: cfgb,
 			},
 		)
 		if err != nil {
@@ -549,6 +767,41 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 	}
 
 	return oracleConfig, nil
+}
+
+func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.CapabilitiesAwareNodeSet) (*dkgocrtypes.ReportingPluginConfig, error) {
+	cfg := &dkgocrtypes.ReportingPluginConfig{
+		T: 1,
+	}
+
+	vaultIndex := -1
+	for i, don := range topology.DonsMetadata {
+		if flags.HasFlag(don.Flags, cre.VaultCapability) {
+			vaultIndex = i
+			break
+		}
+	}
+	if vaultIndex == -1 {
+		return nil, errors.New("no vault DON found in the topology")
+	}
+
+	for i, nmd := range topology.DonsMetadata[vaultIndex].NodesMetadata {
+		if i == nodeSets[vaultIndex].BootstrapNodeIndex {
+			continue
+		}
+		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, crenode.NodeDKGRecipientKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to find DKG recipient key label")
+		}
+		pubKey, err := hex.DecodeString(dkgRecipientKeyStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode DKG recipient key")
+		}
+		cfg.DealerPublicKeys = append(cfg.DealerPublicKeys, pubKey)
+		cfg.RecipientPublicKeys = append(cfg.RecipientPublicKeys, pubKey)
+	}
+
+	return cfg, nil
 }
 
 func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, cldf.TypeAndVersion, error) {

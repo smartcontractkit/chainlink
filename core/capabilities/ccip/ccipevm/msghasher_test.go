@@ -26,20 +26,21 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
-var extraDataCodec = ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+var extraDataCodec = ccipocr3.ExtraDataCodec(map[string]ccipocr3.SourceChainExtraDataCodec{
 	chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
 	chainsel.FamilyEVM:    ExtraDataDecoder{},
 	chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
+	chainsel.FamilySui:    ccipaptos.ExtraDataDecoder{},
 })
 
 // NOTE: these test cases are only EVM <-> EVM.

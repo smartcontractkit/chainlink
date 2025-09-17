@@ -4,11 +4,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // EVMCommitCallArgs defines the calldata structure for an EVM commit transaction.
@@ -34,11 +34,11 @@ type EVMExecCallArgs struct {
 
 // EVMContractTransmitterFactory implements the transmitter factory for EVM chains.
 type EVMContractTransmitterFactory struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
 // NewEVMContractTransmitterFactory returns a new EVMContractTransmitterFactory.
-func NewEVMContractTransmitterFactory(extraDataCodec ccipcommon.ExtraDataCodec) *EVMContractTransmitterFactory {
+func NewEVMContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodec) *EVMContractTransmitterFactory {
 	return &EVMContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -50,7 +50,7 @@ var EVMExecCallDataFunc = func(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-	_ ccipcommon.ExtraDataCodec,
+	_ ccipocr3.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,
@@ -67,7 +67,7 @@ func NewEVMCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		_ ccipcommon.ExtraDataCodec,
+		_ ccipocr3.ExtraDataCodec,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,
