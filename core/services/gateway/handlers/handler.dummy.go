@@ -24,8 +24,8 @@ type dummyHandler struct {
 }
 
 type savedCallback struct {
-	id       string
-	callback SendResponse
+	id string
+	Callback
 }
 
 var _ Handler = (*dummyHandler)(nil)
@@ -43,11 +43,11 @@ func (d *dummyHandler) Methods() []string {
 	return []string{"dummy"}
 }
 
-func (d *dummyHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ SendResponse) error {
+func (d *dummyHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ Callback) error {
 	return errors.New("dummy handler does not support JSON-RPC user messages")
 }
 
-func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback SendResponse) error {
+func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback Callback) error {
 	d.mu.Lock()
 	d.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callback}
 	don := d.don
@@ -91,7 +91,7 @@ func (d *dummyHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Resp
 	if found {
 		// Send first response from a node back to the user, ignore any other ones.
 		codec := api.JsonRPCCodec{}
-		savedCb.callback(ctx, UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&msg), ErrorCode: api.NoError})
+		return savedCb.SendResponse(ctx, UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&msg), ErrorCode: api.NoError})
 	}
 	return nil
 }

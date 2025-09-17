@@ -122,7 +122,7 @@ func (_c *HTTPTriggerHandler_HandleNodeTriggerResponse_Call) RunAndReturn(run fu
 }
 
 // HandleUserTriggerRequest provides a mock function with given fields: ctx, req, callback, requestStartTime
-func (_m *HTTPTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *jsonrpc2.Request[json.RawMessage], callback handlers.SendResponse, requestStartTime time.Time) error {
+func (_m *HTTPTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *jsonrpc2.Request[json.RawMessage], callback handlers.Callback, requestStartTime time.Time) error {
 	ret := _m.Called(ctx, req, callback, requestStartTime)
 
 	if len(ret) == 0 {
@@ -130,7 +130,7 @@ func (_m *HTTPTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req 
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *jsonrpc2.Request[json.RawMessage], handlers.SendResponse, time.Time) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *jsonrpc2.Request[json.RawMessage], handlers.Callback, time.Time) error); ok {
 		r0 = rf(ctx, req, callback, requestStartTime)
 	} else {
 		r0 = ret.Error(0)
@@ -147,15 +147,15 @@ type HTTPTriggerHandler_HandleUserTriggerRequest_Call struct {
 // HandleUserTriggerRequest is a helper method to define mock.On call
 //   - ctx context.Context
 //   - req *jsonrpc2.Request[json.RawMessage]
-//   - callback handlers.SendResponse
+//   - callback handlers.Callback
 //   - requestStartTime time.Time
 func (_e *HTTPTriggerHandler_Expecter) HandleUserTriggerRequest(ctx interface{}, req interface{}, callback interface{}, requestStartTime interface{}) *HTTPTriggerHandler_HandleUserTriggerRequest_Call {
 	return &HTTPTriggerHandler_HandleUserTriggerRequest_Call{Call: _e.mock.On("HandleUserTriggerRequest", ctx, req, callback, requestStartTime)}
 }
 
-func (_c *HTTPTriggerHandler_HandleUserTriggerRequest_Call) Run(run func(ctx context.Context, req *jsonrpc2.Request[json.RawMessage], callback handlers.SendResponse, requestStartTime time.Time)) *HTTPTriggerHandler_HandleUserTriggerRequest_Call {
+func (_c *HTTPTriggerHandler_HandleUserTriggerRequest_Call) Run(run func(ctx context.Context, req *jsonrpc2.Request[json.RawMessage], callback handlers.Callback, requestStartTime time.Time)) *HTTPTriggerHandler_HandleUserTriggerRequest_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*jsonrpc2.Request[json.RawMessage]), args[2].(handlers.SendResponse), args[3].(time.Time))
+		run(args[0].(context.Context), args[1].(*jsonrpc2.Request[json.RawMessage]), args[2].(handlers.Callback), args[3].(time.Time))
 	})
 	return _c
 }
@@ -165,7 +165,7 @@ func (_c *HTTPTriggerHandler_HandleUserTriggerRequest_Call) Return(_a0 error) *H
 	return _c
 }
 
-func (_c *HTTPTriggerHandler_HandleUserTriggerRequest_Call) RunAndReturn(run func(context.Context, *jsonrpc2.Request[json.RawMessage], handlers.SendResponse, time.Time) error) *HTTPTriggerHandler_HandleUserTriggerRequest_Call {
+func (_c *HTTPTriggerHandler_HandleUserTriggerRequest_Call) RunAndReturn(run func(context.Context, *jsonrpc2.Request[json.RawMessage], handlers.Callback, time.Time) error) *HTTPTriggerHandler_HandleUserTriggerRequest_Call {
 	_c.Call.Return(run)
 	return _c
 }

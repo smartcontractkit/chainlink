@@ -238,11 +238,11 @@ func extractWorkflowIDFromRequestPath(path string) string {
 	return ""
 }
 
-func (h *gatewayHandler) HandleLegacyUserMessage(context.Context, *api.Message, handlers.SendResponse) error {
+func (h *gatewayHandler) HandleLegacyUserMessage(context.Context, *api.Message, handlers.Callback) error {
 	return errors.New("HTTP capability gateway handler does not support legacy messages")
 }
 
-func (h *gatewayHandler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback handlers.SendResponse) error {
+func (h *gatewayHandler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback handlers.Callback) error {
 	h.metrics.Trigger.IncrementRequestCount(ctx, h.lggr)
 	err := h.triggerHandler.HandleUserTriggerRequest(ctx, &req, callback, time.Now())
 	if err != nil {

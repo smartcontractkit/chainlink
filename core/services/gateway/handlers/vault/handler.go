@@ -76,7 +76,7 @@ type activeRequest struct {
 	mu        sync.Mutex
 
 	createdAt time.Time
-	callback  gwhandlers.SendResponse
+	gwhandlers.Callback
 }
 
 func (ar *activeRequest) addResponseForNode(nodeAddr string, resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -97,10 +97,6 @@ func (ar *activeRequest) copiedResponses() map[string]*jsonrpc.Response[json.Raw
 	copied := make(map[string]*jsonrpc.Response[json.RawMessage], len(ar.responses))
 	maps.Copy(copied, ar.responses)
 	return copied
-}
-
-func (ar *activeRequest) sendResponse(ctx context.Context, resp gwhandlers.UserCallbackPayload) error {
-	return ar.callback(ctx, resp)
 }
 
 type capabilitiesRegistry interface {
@@ -255,11 +251,11 @@ func (h *handler) Methods() []string {
 	return vaulttypes.GetSupportedMethods(h.lggr)
 }
 
-func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.SendResponse) error {
+func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {
 	return errors.New("vault handler does not support legacy messages")
 }
 
-func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.SendResponse) error {
+func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) error {
 	// Generate a unique ID for the request.
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	if req.ID == "" {
@@ -302,9 +298,9 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	}
 }
 
-func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.SendResponse) *activeRequest {
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) *activeRequest {
 	ar := &activeRequest{
-		callback:  callback,
+		Callback:  callback,
 		req:       req,
 		createdAt: h.clock.Now(),
 		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
@@ -695,7 +691,7 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 		))
 	}
 
-	err := userRequest.sendResponse(ctx, resp)
+	err := userRequest.SendResponse(ctx, resp)
 	if err != nil {
 		h.lggr.Errorw("error sending response to user", "requestID", userRequest.req.ID, "error", err)
 		return err

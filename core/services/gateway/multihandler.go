@@ -49,7 +49,7 @@ func (m *multiHandler) Methods() []string {
 	return slices.Collect(maps.Keys(m.methodToHandler))
 }
 
-func (m *multiHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.SendResponse) error {
+func (m *multiHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
 	h, err := m.getHandler(msg.Body.Method)
 	if err != nil {
 		return fmt.Errorf("failed to get handler for method %s: %w", msg.Body.Method, err)
@@ -58,7 +58,7 @@ func (m *multiHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 	return h.HandleLegacyUserMessage(ctx, msg, callback)
 }
 
-func (m *multiHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callback handlers.SendResponse) error {
+func (m *multiHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callback handlers.Callback) error {
 	h, err := m.getHandler(jsonRequest.Method)
 	if err != nil {
 		return fmt.Errorf("failed to get handler for method %s: %w", jsonRequest.Method, err)
