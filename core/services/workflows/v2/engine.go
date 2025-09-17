@@ -107,7 +107,6 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		platform.WorkflowRegistryChain, cfg.WorkflowRegistryChainSelector,
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
-		// TODO platform.KeyOrganizationID, "TODO",
 	}
 
 	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...)

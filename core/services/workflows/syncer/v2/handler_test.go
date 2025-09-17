@@ -7,18 +7,26 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -29,6 +37,7 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -893,8 +902,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, rl, workflowLimits, mockAS, workflowEncryptionKey, WithEngineRegistry(er))
 		require.NoError(t, err)
-		err =
-			h.workflowRegisteredEvent(ctx, active)
+		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
@@ -923,5 +931,203 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		// Verify the engine is still running
 		_, ok = h.engineRegistry.Get(giveWFID)
 		assert.True(t, ok)
+	})
+}
+
+// mockLinkingService implements the LinkingServiceServer interface for testing
+type mockLinkingService struct {
+	linkingclient.UnimplementedLinkingServiceServer
+	orgID string
+}
+
+func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Context, req *linkingclient.GetOrganizationFromWorkflowOwnerRequest) (*linkingclient.GetOrganizationFromWorkflowOwnerResponse, error) {
+	return &linkingclient.GetOrganizationFromWorkflowOwnerResponse{
+		OrganizationId: m.orgID,
+	}, nil
+}
+
+func Test_Handler_OrganizationID(t *testing.T) {
+	observer := beholdertest.NewObserver(t)
+	emitter := custmsg.NewLabeler()
+	ctx := testutils.Context(t)
+
+	// Set up mock gRPC server for linking service
+	mockLinking := &mockLinkingService{orgID: "test-org"}
+	lis, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "localhost:0")
+	require.NoError(t, err)
+	s := grpc.NewServer()
+	linkingclient.RegisterLinkingServiceServer(s, mockLinking)
+	go func() {
+		assert.NoError(t, s.Serve(lis))
+	}()
+	defer s.Stop()
+	linkingURL := lis.Addr().String()
+
+	var (
+		lggr                  = logger.TestLogger(t)
+		mockORM               = mocks.NewORM(t)
+		binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+		encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+		config                = []byte("")
+		wfOwner               = []byte("0xOwner")
+		workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	)
+
+	giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+	require.NoError(t, err)
+	wfIDString := hex.EncodeToString(giveWFID[:])
+
+	// Set up artifact fetcher using existing mockFetcher pattern
+	signedBinaryURL := "http://example.com/" + wfIDString + "/binary?auth=abc123"
+	signedConfigURL := "http://example.com/" + wfIDString + "/config?auth=abc123"
+
+	fetcher := newMockFetcher(map[string]mockFetchResp{
+		wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+		wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+		signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+		signedConfigURL:                      {Body: config, Err: nil},
+	})
+
+	// Mock ORM responses
+	mockORM.EXPECT().GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex()).Return(nil, errors.New("not found"))
+	mockORM.EXPECT().UpsertWorkflowSpec(ctx, mock.AnythingOfType("*job.WorkflowSpec")).Return(int64(1), nil)
+
+	// Set up handler
+	er := NewEngineRegistry()
+	store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+	registry := capabilities.NewRegistry(lggr)
+	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
+	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
+	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
+	require.NoError(t, err)
+
+	artifactStore, err := artifacts.NewStore(lggr, mockORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), artifacts.WithConfig(artifacts.StoreConfig{
+		ArtifactStorageHost: "example.com",
+	}))
+	require.NoError(t, err)
+
+	// Create gRPC client and orgResolver
+	conn, err := grpc.NewClient(linkingURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	defer conn.Close()
+
+	linkingClient := linkingclient.NewLinkingServiceClient(conn)
+	orgResolverConfig := orgresolver.Config{
+		URL:                           linkingURL,
+		TLSEnabled:                    false,
+		WorkflowRegistryAddress:       "0x1234567890abcdef",
+		WorkflowRegistryChainSelector: 1,
+	}
+	orgResolver, err := orgresolver.NewOrgResolverWithClient(orgResolverConfig, linkingClient, lggr)
+	require.NoError(t, err)
+	defer orgResolver.Close()
+
+	h, err := NewEventHandler(lggr, store, nil, true, registry, er, emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey,
+		WithEngineRegistry(er),
+		WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+			return &mockEngine{}, nil
+		}),
+		WithOrgResolver(orgResolver),
+	)
+	require.NoError(t, err)
+
+	// Handle workflow registered event
+	event := WorkflowRegisteredEvent{
+		Status:        WorkflowStatusActive,
+		WorkflowID:    giveWFID,
+		WorkflowOwner: wfOwner,
+		WorkflowName:  "workflow-name",
+		WorkflowTag:   "workflow-tag",
+		BinaryURL:     "http://example.com/" + wfIDString + "/binary",
+		ConfigURL:     "http://example.com/" + wfIDString + "/config",
+	}
+
+	// Convert to WorkflowActivatedEvent and call through Handle method to test the full flow
+	activatedEvent := WorkflowActivatedEvent(event)
+	err = h.Handle(ctx, Event{
+		Name: WorkflowActivated,
+		Data: activatedEvent,
+		Head: Head{
+			Hash:      "0x123",
+			Height:    "123",
+			Timestamp: 1234567890,
+		},
+	})
+	require.NoError(t, err)
+
+	// Verify that WorkflowActivated message was emitted with orgID
+	allMessages := observer.Messages(t)
+
+	var orgIDFound bool
+	for _, msg := range allMessages {
+		if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowActivated" {
+			var payload eventsv2.WorkflowActivated
+			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+
+			if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
+				orgIDFound = true
+				break
+			}
+		}
+	}
+	require.True(t, orgIDFound, "Expected WorkflowActivated message with orgID to be emitted")
+
+	// Test deletion event
+	t.Run("WorkflowDeleted event includes org ID in labels", func(t *testing.T) {
+		deleteObserver := beholdertest.NewObserver(t)
+		deleteEmitter := custmsg.NewLabeler()
+
+		mockDeleteORM := mocks.NewORM(t)
+		spec := &job.WorkflowSpec{
+			WorkflowID:    hex.EncodeToString(giveWFID[:]),
+			WorkflowOwner: hex.EncodeToString(wfOwner),
+			WorkflowName:  "workflow-name",
+		}
+		mockDeleteORM.EXPECT().GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex()).Return(spec, nil)
+		mockDeleteORM.EXPECT().DeleteWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex()).Return(nil)
+
+		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), artifacts.WithConfig(artifacts.StoreConfig{
+			ArtifactStorageHost: "example.com",
+		}))
+		require.NoError(t, err)
+
+		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, er, deleteEmitter, limiters, rl, workflowLimits, deleteArtifactStore, workflowEncryptionKey,
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
+				return &mockEngine{}, nil
+			}),
+			WithOrgResolver(orgResolver),
+		)
+		require.NoError(t, err)
+
+		err = hDelete.Handle(ctx, Event{
+			Name: WorkflowDeleted,
+			Data: WorkflowDeletedEvent{WorkflowID: giveWFID},
+			Head: Head{
+				Hash:      "0x456",
+				Height:    "456",
+				Timestamp: 1234567890,
+			},
+		})
+		require.NoError(t, err)
+
+		// Verify that WorkflowDeleted message was emitted with orgID
+		deleteMessages := deleteObserver.Messages(t)
+		var deleteOrgIDFound bool
+		for _, msg := range deleteMessages {
+			if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowDeleted" {
+				var payload eventsv2.WorkflowDeleted
+				require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+
+				if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
+					deleteOrgIDFound = true
+					break
+				}
+			}
+		}
+		require.True(t, deleteOrgIDFound, "Expected WorkflowDeleted message with orgID to be emitted")
 	})
 }

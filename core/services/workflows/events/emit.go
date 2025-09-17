@@ -235,7 +235,7 @@ func EmitTriggerExecutionStarted(ctx context.Context, labels map[string]string, 
 	return emitProtoMessage(ctx, v2Event)
 }
 
-func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string) error {
+func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string, capErr error) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.CapabilityExecutionFinished{
@@ -269,6 +269,11 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED
 	}
 
+	var errMsg string
+	if capErr != nil {
+		errMsg = capErr.Error()
+	}
+
 	v2Event := &eventsv2.CapabilityExecutionFinished{
 		CreInfo:             creInfo,
 		Workflow:            workflowKey,
@@ -277,6 +282,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 		CapabilityID:        capabilityID,
 		StepRef:             int32(stepRefInt),
 		Status:              executionStatus,
+		Error:               errMsg,
 	}
 
 	// Emit both v1 and v2 events
