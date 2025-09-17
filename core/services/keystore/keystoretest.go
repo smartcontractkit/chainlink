@@ -72,6 +72,7 @@ func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, logf Lo
 		p2p:          newP2PKeyStore(km),
 		solana:       newSolanaKeyStore(km),
 		starknet:     newStarkNetKeyStore(km),
+		sui:          newSuiKeyStore(km),
 		aptos:        newAptosKeyStore(km),
 		tron:         newTronKeyStore(km),
 		ton:          newTONKeyStore(km),

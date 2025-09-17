@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	tron_df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
@@ -36,8 +35,6 @@ import (
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	crefunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
 )
 
 const PoRWFV1Location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
@@ -185,7 +182,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 		START THE VALIDATION PHASE
 		Check whether each feed has been updated with the expected prices, which workflow fetches from the price provider
 	*/
-	// multiply amount by the number of desired addresses to get correct expected final result written on-chain in the workflow
+	// final expected total = amount to fund * the number of addresses to create
 	amountToFund.Mul(amountToFund, big.NewInt(int64(numberOfAddressesToCreate)))
 	validatePoRPrices(t, testEnv, priceProvider, &cfg, *amountToFund)
 }
@@ -277,63 +274,6 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 	testLogger.Info().Msgf("Successfully configured Tron data feeds cache for chain %d", chainSelector)
 
 	return dataFeedsCacheAddress, readBalancesAddress
-}
-
-func fundTronAddress(t *testing.T, testLogger zerolog.Logger, addressToRead common.Address, amountToFund *big.Int, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) error {
-	tronChains := fullCldEnvOutput.Environment.BlockChains.TronChains()
-	tronChain, exists := tronChains[bcOutput.ChainSelector]
-	if !exists {
-		return fmt.Errorf("TRON chain not found for selector %d", bcOutput.ChainSelector)
-	}
-
-	// Convert EVM address to Tron address format
-	receiverAddress := address.EVMAddressToAddress(addressToRead)
-	testLogger.Info().Msgf("TRON chain %d: Address conversion - EVM: %s -> Tron: %s", bcOutput.ChainSelector, addressToRead.Hex(), receiverAddress.String())
-
-	tx, err := tronChain.Client.Transfer(tronChain.Address, receiverAddress, amountToFund.Int64())
-	if err != nil {
-		return fmt.Errorf("failed to create transfer transaction for TRON address %s: %w", addressToRead.Hex(), err)
-	}
-
-	txInfo, err := tronChain.SendAndConfirm(t.Context(), tx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to send and confirm transfer to TRON address %s: %w", addressToRead.Hex(), err)
-	}
-
-	testLogger.Info().Msgf("Successfully funded TRON address %s with %s SUN, txHash: %s", receiverAddress.String(), amountToFund.String(), txInfo.ID)
-	return nil
-}
-
-func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) ([]common.Address, error) {
-	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
-	var addressesToRead []common.Address
-
-	for i := 0; i < numberOfAddressesToCreate; i++ {
-		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
-		require.NoError(t, addrErr, "failed to generate address to read")
-		orderNum := i + 1
-		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addressToRead.Hex())
-
-		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
-
-		if bcOutput.BlockchainOutput.Family == "tron" {
-			if err := fundTronAddress(t, testLogger, addressToRead, amountToFund, bcOutput, fullCldEnvOutput); err != nil {
-				return nil, err
-			}
-		} else {
-			receipt, funErr := crefunding.SendFunds(t.Context(), testLogger, sethClient, crefunding.FundsToSend{
-				ToAddress:  addressToRead,
-				Amount:     amountToFund,
-				PrivateKey: sethClient.MustGetRootPrivateKey(),
-			})
-			require.NoError(t, funErr, "failed to send funds")
-			testLogger.Info().Msgf("Funds sent successfully to address '%s': txHash='%s'", addressToRead.Hex(), receipt.TxHash)
-		}
-
-		addressesToRead = append(addressesToRead, addressToRead)
-	}
-
-	return addressesToRead, nil
 }
 
 /*

@@ -75,7 +75,9 @@ func (b *Beholder) SubscribeToBeholderMessages(
 
 	// Start listening for messages in the background
 	go func() {
-		listenForKafkaMessages(ctx, b.lggr, b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL, b.cfg.Kafka.Topics[0], messageTypes, messageChan, kafkaErrChan)
+		kafkaURL := b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL
+		topic := b.cfg.Kafka.Topics[0]
+		listenForKafkaMessages(ctx, b.lggr, kafkaURL, topic, messageTypes, messageChan, kafkaErrChan)
 	}()
 
 	return messageChan, kafkaErrChan

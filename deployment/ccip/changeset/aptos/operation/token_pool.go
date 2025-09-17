@@ -148,7 +148,7 @@ type ApplyChainUpdatesInput struct {
 var ApplyChainUpdatesOp = operations.NewOperation(
 	"apply-chain-updates-op",
 	Version1_0_0,
-	"Apply chain updates to Aptos token pool",
+	"Apply chain updates to an Aptos token pool",
 	applyChainUpdates,
 )
 
@@ -172,6 +172,22 @@ func applyChainUpdates(b operations.Bundle, deps AptosDeps, in ApplyChainUpdates
 	case shared.AptosRegulatedTokenPoolType:
 		poolBind := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 		moduleInfo, function, _, args, err = poolBind.RegulatedTokenPool().Encoder().ApplyChainUpdates(
+			in.RemoteChainSelectorsToRemove,
+			in.RemoteChainSelectorsToAdd,
+			in.RemotePoolAddresses,
+			in.RemoteTokenAddresses,
+		)
+	case shared.BurnMintTokenPool:
+		poolBind := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.BurnMintTokenPool().Encoder().ApplyChainUpdates(
+			in.RemoteChainSelectorsToRemove,
+			in.RemoteChainSelectorsToAdd,
+			in.RemotePoolAddresses,
+			in.RemoteTokenAddresses,
+		)
+	case shared.LockReleaseTokenPool:
+		poolBind := lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.LockReleaseTokenPool().Encoder().ApplyChainUpdates(
 			in.RemoteChainSelectorsToRemove,
 			in.RemoteChainSelectorsToAdd,
 			in.RemotePoolAddresses,
@@ -203,7 +219,7 @@ type SetChainRLConfigsInput struct {
 var SetChainRateLimiterConfigsOp = operations.NewOperation(
 	"set-chain-rate-limiter-configs-op",
 	Version1_0_0,
-	"Set chain rate limiter configs for Aptos token pool",
+	"Set chain rate limiter configs for an Aptos token pool",
 	setChainRateLimiterConfigs,
 )
 
@@ -230,6 +246,28 @@ func setChainRateLimiterConfigs(b operations.Bundle, deps AptosDeps, in SetChain
 	case shared.AptosRegulatedTokenPoolType:
 		poolBind := regulated_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
 		moduleInfo, function, _, args, err = poolBind.RegulatedTokenPool().Encoder().SetChainRateLimiterConfigs(
+			in.RemoteChainSelectors,
+			in.OutboundIsEnableds,
+			in.OutboundCapacities,
+			in.OutboundRates,
+			in.InboundIsEnableds,
+			in.InboundCapacities,
+			in.InboundRates,
+		)
+	case shared.BurnMintTokenPool:
+		poolBind := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.BurnMintTokenPool().Encoder().SetChainRateLimiterConfigs(
+			in.RemoteChainSelectors,
+			in.OutboundIsEnableds,
+			in.OutboundCapacities,
+			in.OutboundRates,
+			in.InboundIsEnableds,
+			in.InboundCapacities,
+			in.InboundRates,
+		)
+	case shared.LockReleaseTokenPool:
+		poolBind := lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = poolBind.LockReleaseTokenPool().Encoder().SetChainRateLimiterConfigs(
 			in.RemoteChainSelectors,
 			in.OutboundIsEnableds,
 			in.OutboundCapacities,
@@ -292,9 +330,158 @@ func addRemotePools(b operations.Bundle, deps AptosDeps, in AddRemotePoolsInput)
 			}
 			txs[i] = tx
 		}
+	case shared.BurnFromMintTokenPool:
+		poolBind := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		for i, selector := range in.RemoteChainSelectors {
+			moduleInfo, function, _, args, err := poolBind.BurnMintTokenPool().Encoder().AddRemotePool(selector, in.RemotePoolAddresses[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode AddRemotePools for remote selector %d: %w", selector, err)
+			}
+			tx, err := utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
+			if err != nil {
+				return nil, err
+			}
+			txs[i] = tx
+		}
+	case shared.LockReleaseTokenPool:
+		poolBind := lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		for i, selector := range in.RemoteChainSelectors {
+			moduleInfo, function, _, args, err := poolBind.LockReleaseTokenPool().Encoder().AddRemotePool(selector, in.RemotePoolAddresses[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode AddRemotePools for remote selector %d: %w", selector, err)
+			}
+			tx, err := utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
+			if err != nil {
+				return nil, err
+			}
+			txs[i] = tx
+		}
 	default:
 		return nil, fmt.Errorf("unsupported token pool type for AddRemotePoolsOp: %v", in.TokenPoolType.String())
 	}
 
 	return txs, nil
+}
+
+// ########################
+// # Token Pool Ownership #
+// ########################
+
+type TransferTokenPoolOwnershipInput struct {
+	TokenPoolAddress aptos.AccountAddress
+	To               aptos.AccountAddress
+	TokenPoolType    cldf.ContractType
+}
+
+var TransferTokenPoolOwnershipOp = operations.NewOperation(
+	"transfer-token-pool-ownerhip-op",
+	Version1_0_0,
+	"Initiated the ownership transfer of a managed/BnM/LnR token pool to a given address",
+	transferTokenPoolOwnership,
+)
+
+func transferTokenPoolOwnership(b operations.Bundle, deps AptosDeps, in TransferTokenPoolOwnershipInput) (types.Transaction, error) {
+	var (
+		moduleInfo bind.ModuleInformation
+		function   string
+		args       [][]byte
+		err        error
+	)
+	switch in.TokenPoolType {
+	case shared.AptosManagedTokenPoolType:
+		tokenPoolContract := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.ManagedTokenPool().Encoder().TransferOwnership(in.To)
+	case shared.BurnMintTokenPool:
+		tokenPoolContract := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.BurnMintTokenPool().Encoder().TransferOwnership(in.To)
+	case shared.LockReleaseTokenPool:
+		tokenPoolContract := lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.LockReleaseTokenPool().Encoder().TransferOwnership(in.To)
+	default:
+		return types.Transaction{}, fmt.Errorf("unsupported token pool type for TransferTokenPoolOwnershipOp: %s", in.TokenPoolType.String())
+	}
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode TransferOwnership: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
+}
+
+type AcceptTokenPoolOwnershipInput struct {
+	TokenPoolAddress aptos.AccountAddress
+	TokenPoolType    cldf.ContractType
+}
+
+var AcceptTokenPoolOwnershipOp = operations.NewOperation(
+	"accept-token-pool-ownership-op",
+	Version1_0_0,
+	"Accepts ownership of a managed/BnM/LnR token pool",
+	acceptTokenPoolOwnership,
+)
+
+func acceptTokenPoolOwnership(b operations.Bundle, deps AptosDeps, in AcceptTokenPoolOwnershipInput) (types.Transaction, error) {
+	var (
+		moduleInfo bind.ModuleInformation
+		function   string
+		args       [][]byte
+		err        error
+	)
+	switch in.TokenPoolType {
+	case shared.AptosManagedTokenPoolType:
+		tokenPoolContract := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.ManagedTokenPool().Encoder().AcceptOwnership()
+	case shared.BurnMintTokenPool:
+		tokenPoolContract := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.BurnMintTokenPool().Encoder().AcceptOwnership()
+	case shared.LockReleaseTokenPool:
+		tokenPoolContract := lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.LockReleaseTokenPool().Encoder().AcceptOwnership()
+	default:
+		return types.Transaction{}, fmt.Errorf("unsupported token pool type for AcceptTokenPoolOwnershipOp: %s", in.TokenPoolType.String())
+	}
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode AcceptOwnership: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
+}
+
+type ExecuteTokenPoolOwnershipTransferInput struct {
+	TokenPoolAddress aptos.AccountAddress
+	To               aptos.AccountAddress
+	TokenPoolType    cldf.ContractType
+}
+
+var ExecuteTokenPoolOwnershipTransferOp = operations.NewOperation(
+	"execute-token-pool-ownership-transfer-op",
+	Version1_0_0,
+	"Executes the ownership transfer of a managed/BnM/LnR token pool",
+	executeTokenPoolOwnershipTransfer,
+)
+
+func executeTokenPoolOwnershipTransfer(b operations.Bundle, deps AptosDeps, in ExecuteTokenPoolOwnershipTransferInput) (types.Transaction, error) {
+	var (
+		moduleInfo bind.ModuleInformation
+		function   string
+		args       [][]byte
+		err        error
+	)
+	switch in.TokenPoolType {
+	case shared.AptosManagedTokenPoolType:
+		tokenPoolContract := managed_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.ManagedTokenPool().Encoder().ExecuteOwnershipTransfer(in.To)
+	case shared.BurnMintTokenPool:
+		tokenPoolContract := burn_mint_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.BurnMintTokenPool().Encoder().ExecuteOwnershipTransfer(in.To)
+	case shared.LockReleaseTokenPool:
+		tokenPoolContract := lock_release_token_pool.Bind(in.TokenPoolAddress, deps.AptosChain.Client)
+		moduleInfo, function, _, args, err = tokenPoolContract.LockReleaseTokenPool().Encoder().ExecuteOwnershipTransfer(in.To)
+	default:
+		return types.Transaction{}, fmt.Errorf("unsupported token pool type for ExecuteTokenPoolOwnershipTransferInput: %s", in.TokenPoolType.String())
+	}
+	if err != nil {
+		return types.Transaction{}, fmt.Errorf("failed to encode ExecuteOwnershipTransfer: %w", err)
+	}
+
+	return utils.GenerateMCMSTx(in.TokenPoolAddress, moduleInfo, function, args)
 }

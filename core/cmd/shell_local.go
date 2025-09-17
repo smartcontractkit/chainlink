@@ -448,6 +448,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.TONEnabled() {
 			enabledChains = append(enabledChains, chaintype.TON)
 		}
+		if s.Config.SuiEnabled() {
+			enabledChains = append(enabledChains, chaintype.Sui)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
@@ -518,7 +521,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return errors.Wrap(err2, "failed to ensure ton key")
 		}
 	}
-
+	if s.Config.SuiEnabled() {
+		err2 := app.GetKeyStore().Sui().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure Sui key")
+		}
+	}
 	if s.Config.CRE().EnableDKGRecipient() {
 		if s.Config.ImportedDKGRecipientKey().JSON() != "" {
 			lggr.Debugf("Importing DKG recipient key %s", s.Config.ImportedDKGRecipientKey().JSON())

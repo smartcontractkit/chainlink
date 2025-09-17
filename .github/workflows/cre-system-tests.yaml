@@ -68,27 +68,49 @@ jobs:
           # Get the list of tests, for each test add each of supported DON topologies and create JSON array to form a job matrix.
           # - This only needs to be updated if we want to run all tests on a new DON topology.
           # - Otherwise tests are auto-discovered and run on all topologies.
-
+          PER_TEST_MODE='replace'
           TOPOLOGIES_JSON='[
             {"topology":"workflow","configs":"configs/workflow-don.toml"},
             {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
           ]'
+  
+          # Add list of tests with certain topologies
+          PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
+            "Test_SecureMint": [
+               {"topology":"workflow","configs":"configs/workflow-solana-don.toml"}
+             ]
+              }'}
+          PER_TEST_MODE=${PER_TEST_MODE:-append}
 
           test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
-          tests=$(echo "$test_names" | jq -R -s --argjson tops "$TOPOLOGIES_JSON" '
-            # split into lines and remove last empty line
-            split("\n")[:-1]
+          tests=$(echo "$test_names" | jq -R -s \
+            --argjson tops "$TOPOLOGIES_JSON" \
+            --argjson per  "$PER_TEST_TOPOLOGIES_JSON" \
+            --arg mode "$PER_TEST_MODE" '
+            # Parse names into an array
+            (split("\n") | map(select(length>0))) as $names
 
-            # create entry for each test name combined with each topology
-            | [ .[] as $name | $tops[] | {test_name:$name} + . ]
+            # Base cartesian product: names x base topologies
+            | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
 
-            # add unique test_id for each entry (needed for runners below)
+            # If mode == replace, drop base combos for tests that have per-test topologies
+            | (if $mode == "replace"
+                 then $baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))
+                 else $baseAll
+               end) as $base
+
+            # Build per-test combos from the override map
+            | [ $per | to_entries[] as $e
+                | $e.value[] | {test_name: $e.key} + .
+              ] as $extra
+
+            # Combine and add test_id
+            | ($base + $extra)
             | to_entries | map(.value + {test_id: .key})
           ')
 
-          tests=$(echo $tests | jq -c .)
-
+          tests=$(echo "$tests" | jq -c .)
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:

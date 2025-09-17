@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 )
 
 func ExecuteDonTimeTest(t *testing.T, testEnv *TestEnvironment) {
@@ -18,7 +20,7 @@ func ExecuteDonTimeTest(t *testing.T, testEnv *TestEnvironment) {
 	listenerCtx, messageChan, kafkaErrChan := startBeholder(t, testLogger, testEnv)
 
 	testLogger.Info().Msg("Creating Cron workflow configuration file...")
-	workflowConfig := CronWorkflowConfig{
+	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *", // every 30 seconds
 	}
 	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)

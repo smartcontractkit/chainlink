@@ -10,7 +10,7 @@ import (
 
 // buildMethodSignature creates a method signature string like "mint(address,uint256)" from ABI method
 func (w *chainWriter) buildMethodSignature(abiMethod abi.Method) string {
-	var inputTypes []string
+	inputTypes := make([]string, 0, len(abiMethod.Inputs))
 	for _, input := range abiMethod.Inputs {
 		inputTypes = append(inputTypes, input.Type.String())
 	}

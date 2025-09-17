@@ -47,11 +47,13 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 			case chaintype.StarkNet:
 				kb = newKeyBundle(new(starkkey.OCR2Key))
 			case chaintype.Aptos:
-				kb = newKeyBundle(new(aptosKeyring))
+				kb = newKeyBundle(new(ed25519Keyring))
 			case chaintype.Tron:
 				kb = newKeyBundle(new(evmKeyring))
 			case chaintype.TON:
 				kb = newKeyBundle(new(tonKeyring))
+			case chaintype.Sui:
+				kb = newKeyBundle(new(ed25519Keyring))
 			default:
 				return nil, chaintype.NewErrInvalidChainType(export.ChainType)
 			}

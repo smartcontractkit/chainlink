@@ -1006,9 +1006,8 @@ func (r *Relayer) NewContractWriter(_ context.Context, config []byte) (commontyp
 			return nil, fmt.Errorf("chain %s does not support Tron", r.chain.ID())
 		}
 		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, chain.GetTronTXM())
-	} else {
-		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)
 	}
+	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)
 }
 
 func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byte) (commontypes.ContractReader, error) {
