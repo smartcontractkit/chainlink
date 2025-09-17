@@ -73,7 +73,12 @@ var (
 	defaultLabels = map[string]string{
 		platform.KeyWorkflowOwner:       "accountId",
 		platform.KeyWorkflowID:          "workflowId",
+		platform.KeyWorkflowVersion:     workflowV2,
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
+		platform.KeyDonID:               "42",
+		platform.KeyDonF:                "1",
+		platform.KeyDonN:                "3",
+		platform.KeyP2PID:               "peerId",
 		platform.KeyTriggerID:           "triggerId",
 	}
 	testUnitA      = billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
@@ -924,11 +929,13 @@ func Test_Report_FormatReport(t *testing.T) {
 		require.Equal(t, &eventspb.WorkflowMetadata{
 			WorkflowOwner:           "accountId",
 			WorkflowName:            "workflowId",
+			Version:                 workflowV2,
 			WorkflowID:              "workflowId",
 			WorkflowExecutionID:     "workflowExecutionId",
-			DonID:                   -1,
-			DonF:                    -1,
-			DonN:                    -1,
+			DonID:                   42,
+			DonF:                    1,
+			DonN:                    3,
+			P2PID:                   "peerId",
 			WorkflowRegistryAddress: "0x123",
 			WorkflowRegistryChain:   "16015286601757825753",
 			EngineVersion:           workflowV2,
