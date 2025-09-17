@@ -381,9 +381,18 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	creServices, err := newCREServices(ctx, globalLogger, opts.DS, keyStore, cfg, relayChainInterops, opts.CREOpts, billingClient, storageClient, opts.DonTimeStore, opts.LimitsFactory, peerWrapper)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
+		return nil, fmt.Errorf("failed to initialize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices.srvs...)
+
+	ccvServices, err := newCCVServices(ctx, globalLogger, keyStore, cfg, relayChainInterops)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize CCV: %w", err)
+	}
+	if ccvServices != nil {
+		srvcs = append(srvcs, ccvServices.srvs...)
+	}
+
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
@@ -1221,6 +1230,27 @@ func newCREServices(
 	}, nil
 }
 
+type CCVServices struct {
+	// Verifier
+	// Executor
+
+	// srvs are all the services that are created, including those that are explicitly exposed
+	srvs []services.ServiceCtx
+}
+
+func newCCVServices(
+	ctx context.Context,
+	globalLogger logger.Logger,
+	keyStore creKeystore,
+	cfg GeneralConfig,
+	relayerChainInterops *CoreRelayerChainInteroperators,
+) (*CREServices, error) {
+	fmt.Printf("%v\n", cfg.CCV())
+	fmt.Println("CCV is Enabled:", cfg.CCV().Enabled())
+
+	return nil, nil
+}
+
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
 	if err := app.Config.SetLogLevel(lvl); err != nil {
 		return err
@@ -1457,7 +1487,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

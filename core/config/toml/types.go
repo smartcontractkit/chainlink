@@ -64,6 +64,7 @@ type Core struct {
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
+	CCV                  CCVConfig
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -143,6 +144,7 @@ type Secrets struct {
 
 	P2PKey P2PKey     `toml:",omitempty"`
 	CRE    CreSecrets `toml:",omitempty"`
+	CCV    CCVSecrets `toml:",omitempty"`
 }
 
 type SolKeys struct {
@@ -1957,6 +1959,40 @@ func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
 	return err
 }
 
+type CCVExecutorSecretConfig struct {
+	IndexerAPIKey *commonconfig.SecretString `toml:",omitempty"`
+}
+type CCVSecrets struct {
+	Executor *CCVExecutorSecretConfig `toml:",omitempty"`
+}
+
+func (c *CCVSecrets) SetFrom(f *CCVSecrets) (err error) {
+	err = c.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if f.Executor != nil {
+		if c.Executor == nil {
+			c.Executor = &CCVExecutorSecretConfig{}
+		}
+		if v := f.Executor.IndexerAPIKey; v != nil {
+			c.Executor.IndexerAPIKey = v
+		}
+	}
+
+	return nil
+}
+
+func (c *CCVSecrets) validateMerge(f *CCVSecrets) (err error) {
+	if c.Executor != nil && f.Executor != nil {
+		if c.Executor.IndexerAPIKey != nil && f.Executor.IndexerAPIKey != nil {
+			err = errors.Join(err, configutils.ErrOverride{Name: "Executor.IndexerAPIKey"})
+		}
+	}
+	return err
+}
+
 type EngineExecutionRateLimit struct {
 	GlobalRPS      *float64
 	GlobalBurst    *int
@@ -2592,4 +2628,20 @@ func (jd *JobDistributor) setFrom(f *JobDistributor) {
 	if f.DisplayName != nil {
 		jd.DisplayName = f.DisplayName
 	}
+}
+
+type CCVCommitteeVerifier struct {
+	AggregatorAddress *string   `toml:",omitempty"`
+	SourceSelectors   *[]uint64 `toml:",omitempty"`
+}
+
+type CCVChainlinkExecutor struct {
+	IndexerAddress       *string   `toml:",omitempty"`
+	DestinationSelectors *[]uint64 `toml:",omitempty"`
+}
+
+type CCVConfig struct {
+	Enabled              *bool                 `toml:",omitempty"`
+	CCVCommitteeVerifier *CCVCommitteeVerifier `toml:",omitempty"`
+	CCVChainlinkExecutor *CCVChainlinkExecutor `toml:",omitempty"`
 }

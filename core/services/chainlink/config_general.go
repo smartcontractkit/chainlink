@@ -575,4 +575,8 @@ func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
 	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
 }
 
+func (g *generalConfig) CCV() coreconfig.CCV {
+	return &ccvConfig{s: g.secrets.CCV, c: g.c.CCV}
+}
+
 var zeroSha256Hash = models.Sha256Hash{}
