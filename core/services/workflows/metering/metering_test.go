@@ -1313,14 +1313,14 @@ func Test_MeterReports(t *testing.T) {
 				RateCards: successRates,
 			}, nil)
 		metrics := defaultMetrics(t)
-		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponseWithRates, nil)
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		r, err := mrs.Start(t.Context(), workflowExecutionID1, workflowV2)
+		r, err := mrs.Start(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
 
 		require.NoError(t, r.Reserve(t.Context()))
@@ -1348,13 +1348,13 @@ func Test_MeterReports(t *testing.T) {
 				RateCards: successRates,
 			}, nil)
 		// Use a valid chain selector (Sepolia: 11155111)
-		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		r, err := mrs.Start(t.Context(), workflowExecutionID1, workflowV2)
+		r, err := mrs.Start(t.Context(), workflowExecutionID1)
 		require.NoError(t, err)
 
 		require.NoError(t, r.Reserve(t.Context()))
@@ -1381,7 +1381,7 @@ func Test_MeterReports_Length(t *testing.T) {
 	em, err := monitoring.InitMonitoringResources()
 	require.NoError(t, err)
 	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
-	mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+	mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 	billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 		Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
@@ -1390,13 +1390,13 @@ func Test_MeterReports_Length(t *testing.T) {
 	billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 		Return(&emptypb.Empty{}, nil)
 
-	_, err = mrs.Start(t.Context(), "exec1", workflowV2)
+	_, err = mrs.Start(t.Context(), "exec1")
 	require.NoError(t, err)
 
-	mr, err := mrs.Start(t.Context(), "exec2", workflowV2)
+	mr, err := mrs.Start(t.Context(), "exec2")
 	require.NoError(t, err)
 
-	_, err = mrs.Start(t.Context(), "exec3", workflowV2)
+	_, err = mrs.Start(t.Context(), "exec3")
 	require.NoError(t, err)
 	assert.Equal(t, 3, mrs.Len())
 
@@ -1413,15 +1413,15 @@ func Test_MeterReports_Start(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		metrics := defaultMetrics(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
 
-		_, err := mrs.Start(t.Context(), "exec1", workflowV2)
+		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
 
-		_, err = mrs.Start(t.Context(), "exec1", workflowV2)
+		_, err = mrs.Start(t.Context(), "exec1")
 		require.ErrorIs(t, err, ErrReportExists)
 	})
 }
@@ -1434,12 +1434,12 @@ func Test_MeterReports_Get(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		metrics := defaultMetrics(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
 
-		_, err := mrs.Start(t.Context(), "exec1", workflowV2)
+		_, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
 
 		report, exists := mrs.Get("exec1")
@@ -1452,7 +1452,7 @@ func Test_MeterReports_Get(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		metrics := defaultMetrics(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		report, exists := mrs.Get("exec1")
 		require.False(t, exists)
@@ -1468,7 +1468,7 @@ func Test_MeterReports_End(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		metrics := defaultMetrics(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		require.ErrorIs(t, mrs.End(t.Context(), "exec1"), ErrReportNotFound)
 	})
@@ -1478,7 +1478,7 @@ func Test_MeterReports_End(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		metrics := defaultMetrics(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
@@ -1487,7 +1487,7 @@ func Test_MeterReports_End(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		mr, err := mrs.Start(t.Context(), "exec1", workflowV2)
+		mr, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
 		assert.Len(t, mrs.reports, 1)
 
@@ -1502,7 +1502,7 @@ func Test_MeterReports_End(t *testing.T) {
 
 		billingClient := mocks.NewBillingClient(t)
 		metrics := defaultMetrics(t)
-		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector)
+		mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
@@ -1511,7 +1511,7 @@ func Test_MeterReports_End(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(nil, errors.New("errrrr"))
 
-		mr, err := mrs.Start(t.Context(), "exec1", workflowV2)
+		mr, err := mrs.Start(t.Context(), "exec1")
 		require.NoError(t, err)
 		assert.Len(t, mrs.reports, 1)
 

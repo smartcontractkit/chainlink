@@ -746,6 +746,7 @@ type Reports struct {
 	workflowRegistryAddress string
 	// WorkflowRegistryChainSelector is the chain ID for the workflow registry
 	workflowRegistryChainID string
+	engineVersion           string
 }
 
 // NewReports initializes and returns a new Reports.
@@ -756,7 +757,7 @@ func NewReports(
 	labels map[string]string,
 	metrics *monitoring.WorkflowsMetricLabeler,
 	workflowRegistryAddress,
-	workflowRegistryChainID string,
+	workflowRegistryChainID, engineVersion string,
 ) *Reports {
 	valOf := reflect.ValueOf(client)
 	if valOf.IsValid() && valOf.IsNil() {
@@ -775,6 +776,7 @@ func NewReports(
 
 		workflowRegistryAddress: workflowRegistryAddress,
 		workflowRegistryChainID: workflowRegistryChainID,
+		engineVersion:           engineVersion,
 	}
 }
 
@@ -788,7 +790,7 @@ func (s *Reports) Get(workflowExecutionID string) (*Report, bool) {
 }
 
 // Start creates a new report and inserts it under the specified workflowExecutionID.
-func (s *Reports) Start(ctx context.Context, workflowExecutionID string, engineVersion string) (*Report, error) {
+func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Report, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -801,7 +803,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string, engineV
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID, engineVersion)
+	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID, s.engineVersion)
 	if err != nil {
 		return nil, err
 	}
