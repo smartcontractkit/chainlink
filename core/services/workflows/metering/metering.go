@@ -32,6 +32,9 @@ const (
 	// the default decimal precision is a fixed number defined in the billing service. if this gets changed
 	// in the billing service project, the value here needs to change.
 	defaultDecimalPrecision = 3 // one thousandth of a dollar
+
+	EngineVersionV1 = "v1"
+	EngineVersionV2 = "v2"
 )
 
 var (
