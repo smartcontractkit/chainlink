@@ -120,7 +120,13 @@ func Test_Handler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 
-		giveEvent := Event{}
+		giveEvent := Event{
+			Head: Head{
+				Hash:      "0x123",
+				Height:    "123",
+				Timestamp: 1234567890,
+			},
+		}
 		retriever := func(_ context.Context, _ *storage_service.DownloadArtifactRequest) (string, error) {
 			return "", nil
 		}

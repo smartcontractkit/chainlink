@@ -50,6 +50,7 @@ import (
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 )
 
 /////////////////////////
@@ -222,16 +223,12 @@ func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 // WORKFLOW-RELATED HELPERS //
 //////////////////////////////
 
-type CronWorkflowConfig struct {
-	Schedule string `yaml:"schedule,omitempty"`
-}
-
 // Generic WorkflowConfig interface for creation of different workflow configurations
 // Register your workflow configuration types here
 type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
-		CronWorkflowConfig |
+		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
 		evmread_config.Config
 }
@@ -249,6 +246,7 @@ type WorkflowRegistrationConfig struct {
 	SecretsURL                  string
 	WorkflowRegistryAddr        common.Address
 	WorkflowRegistryTypeVersion deployment.TypeAndVersion
+	ChainID                     uint64
 	DonID                       uint64
 	ContainerTargetDir          string
 	WrappedBlockchainOutputs    []*cre.WrappedBlockchainOutput
@@ -305,7 +303,7 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create PoR workflow config file")
 			testLogger.Info().Msg("PoR Workflow config file created.")
 
-		case *CronWorkflowConfig:
+		case *crontypes.WorkflowConfig:
 			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
@@ -424,6 +422,12 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
+	switch tv.Version.Major() {
+	case 2:
+		// TODO(CRE-876): delete with workflowID
+		return
+	default:
+	}
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 }
@@ -452,6 +456,7 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		CompressedWasmPath:          compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
+		ChainID:                     homeChainSelector,
 		DonID:                       testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
 		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,

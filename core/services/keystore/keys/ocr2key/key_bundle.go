@@ -45,8 +45,9 @@ var _ KeyBundle = &keyBundle[*evmKeyring]{}
 var _ KeyBundle = &keyBundle[*cosmosKeyring]{}
 var _ KeyBundle = &keyBundle[*solanaKeyring]{}
 var _ KeyBundle = &keyBundle[*starkkey.OCR2Key]{}
-var _ KeyBundle = &keyBundle[*aptosKeyring]{}
+var _ KeyBundle = &keyBundle[*ed25519Keyring]{}
 var _ KeyBundle = &keyBundle[*tonKeyring]{}
+var _ KeyBundle = &keyBundle[*ed25519Keyring]{}
 
 var curve = secp256k1.S256()
 
@@ -62,11 +63,13 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	case chaintype.StarkNet:
 		return newKeyBundleRand(chaintype.StarkNet, starkkey.NewOCR2Key)
 	case chaintype.Aptos:
-		return newKeyBundleRand(chaintype.Aptos, newAptosKeyring)
+		return newKeyBundleRand(chaintype.Aptos, newEd25519Keyring)
 	case chaintype.Tron:
 		return newKeyBundleRand(chaintype.Tron, newEVMKeyring)
 	case chaintype.TON:
 		return newKeyBundleRand(chaintype.TON, newTONKeyring)
+	case chaintype.Sui:
+		return newKeyBundleRand(chaintype.Sui, newEd25519Keyring)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -83,11 +86,13 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 	case chaintype.StarkNet:
 		return mustNewKeyBundleInsecure(chaintype.StarkNet, starkkey.NewOCR2Key, reader)
 	case chaintype.Aptos:
-		return mustNewKeyBundleInsecure(chaintype.Aptos, newAptosKeyring, reader)
+		return mustNewKeyBundleInsecure(chaintype.Aptos, newEd25519Keyring, reader)
 	case chaintype.Tron:
 		return mustNewKeyBundleInsecure(chaintype.Tron, newEVMKeyring, reader)
 	case chaintype.TON:
 		return mustNewKeyBundleInsecure(chaintype.TON, newTONKeyring, reader)
+	case chaintype.Sui:
+		return mustNewKeyBundleInsecure(chaintype.Sui, newEd25519Keyring, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -123,11 +128,13 @@ func KeyFor(raw internal.Raw) (kb KeyBundle) {
 	case chaintype.StarkNet:
 		kb = newKeyBundle(new(starkkey.OCR2Key))
 	case chaintype.Aptos:
-		kb = newKeyBundle(new(aptosKeyring))
+		kb = newKeyBundle(new(ed25519Keyring))
 	case chaintype.Tron:
 		kb = newKeyBundle(new(evmKeyring))
 	case chaintype.TON:
 		kb = newKeyBundle(new(tonKeyring))
+	case chaintype.Sui:
+		kb = newKeyBundle(new(ed25519Keyring))
 	default:
 		return nil
 	}

@@ -13,9 +13,9 @@ import (
 )
 
 func TestAptosKeyRing_Sign_Verify(t *testing.T) {
-	kr1, err := newAptosKeyring(cryptorand.Reader)
+	kr1, err := newEd25519Keyring(cryptorand.Reader)
 	require.NoError(t, err)
-	kr2, err := newAptosKeyring(cryptorand.Reader)
+	kr2, err := newEd25519Keyring(cryptorand.Reader)
 	require.NoError(t, err)
 	ctx := ocrtypes.ReportContext{}
 
@@ -44,11 +44,11 @@ func TestAptosKeyRing_Sign_Verify(t *testing.T) {
 }
 
 func TestAptosKeyRing_Marshalling(t *testing.T) {
-	kr1, err := newAptosKeyring(cryptorand.Reader)
+	kr1, err := newEd25519Keyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()
 	require.NoError(t, err)
-	kr2 := aptosKeyring{}
+	kr2 := ed25519Keyring{}
 	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
 	assert.True(t, bytes.Equal(kr1.pubKey, kr2.pubKey))
