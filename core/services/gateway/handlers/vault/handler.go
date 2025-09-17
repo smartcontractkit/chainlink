@@ -71,13 +71,12 @@ func newMetrics() (*metrics, error) {
 }
 
 type activeRequest struct {
-	req          jsonrpc.Request[json.RawMessage]
-	responses    map[string]*jsonrpc.Response[json.RawMessage]
-	responseSent bool
-	mu           sync.Mutex
+	req       jsonrpc.Request[json.RawMessage]
+	responses map[string]*jsonrpc.Response[json.RawMessage]
+	mu        sync.Mutex
 
-	createdAt  time.Time
-	callbackCh chan<- gwhandlers.UserCallbackPayload
+	createdAt time.Time
+	callback  gwhandlers.SendResponse
 }
 
 func (ar *activeRequest) addResponseForNode(nodeAddr string, resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -101,19 +100,7 @@ func (ar *activeRequest) copiedResponses() map[string]*jsonrpc.Response[json.Raw
 }
 
 func (ar *activeRequest) sendResponse(ctx context.Context, resp gwhandlers.UserCallbackPayload) error {
-	ar.mu.Lock()
-	defer ar.mu.Unlock()
-	if ar.responseSent {
-		return errors.New("response already sent for this request")
-	}
-
-	select {
-	case ar.callbackCh <- resp:
-		ar.responseSent = true
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return ar.callback(ctx, resp)
 }
 
 type capabilitiesRegistry interface {
@@ -268,11 +255,11 @@ func (h *handler) Methods() []string {
 	return vaulttypes.GetSupportedMethods(h.lggr)
 }
 
-func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ chan<- gwhandlers.UserCallbackPayload) error {
+func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.SendResponse) error {
 	return errors.New("vault handler does not support legacy messages")
 }
 
-func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gwhandlers.UserCallbackPayload) error {
+func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.SendResponse) error {
 	// Generate a unique ID for the request.
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	if req.ID == "" {
@@ -284,7 +271,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
 	if req.Method == vaulttypes.MethodPublicKeyGet {
 		h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
-		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callbackCh))
+		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callback))
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
@@ -297,7 +284,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	req.ID = owner + "::" + req.ID
 
 	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
-	ar := h.newActiveRequest(req, callbackCh)
+	ar := h.newActiveRequest(req, callback)
 
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
@@ -315,12 +302,12 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	}
 }
 
-func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callbackCh chan<- gwhandlers.UserCallbackPayload) *activeRequest {
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.SendResponse) *activeRequest {
 	ar := &activeRequest{
-		callbackCh: callbackCh,
-		req:        req,
-		createdAt:  h.clock.Now(),
-		responses:  map[string]*jsonrpc.Response[json.RawMessage]{},
+		callback:  callback,
+		req:       req,
+		createdAt: h.clock.Now(),
+		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
 
 	h.mu.Lock()

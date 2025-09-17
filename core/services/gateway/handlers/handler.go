@@ -17,6 +17,8 @@ type UserCallbackPayload struct {
 	ErrorCode   api.ErrorCode
 }
 
+type SendResponse func(ctx context.Context, cb UserCallbackPayload) error
+
 // Handler implements service-specific logic for managing messages from users and nodes.
 // There is one Handler object created for each DON.
 //
@@ -31,12 +33,12 @@ type Handler interface {
 	// Each user request is processed by a separate goroutine, which:
 	//   1. calls HandleUserMessage
 	//   2. waits on callbackCh with a timeout
-	HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error
+	HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback SendResponse) error
 
 	// Each user request is processed by a separate goroutine, which:
 	//   1. calls HandleUserMessage
 	//   2. waits on callbackCh with a timeout
-	HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- UserCallbackPayload) error
+	HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callback SendResponse) error
 
 	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage.
 	// should be non-blocking
