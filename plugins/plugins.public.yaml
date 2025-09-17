@@ -13,6 +13,11 @@ plugins:
       gitRef: "v0.0.0-20250915164817-46a35eda083d"
       installPath: "./cmd/chainlink-aptos"
 
+  sui:
+    - moduleURI: "github.com/smartcontractkit/chainlink-sui"
+      gitRef: "v0.0.0-20250905130432-a45f4cd002a5"
+      installPath: "./relayer/cmd/chainlink-sui"
+
   cosmos:
     - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
       # Git reference - can be a tag, branch, or commit hash

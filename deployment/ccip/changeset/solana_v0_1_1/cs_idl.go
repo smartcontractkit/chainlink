@@ -48,7 +48,7 @@ var _ cldf.ChangeSet[IDLConfig] = CloseIDLs
 
 type IDLConfig struct {
 	ChainSelector                uint64
-	GitCommitSha                 string                        // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
+	SolanaContractVersion        string                        // Get the commit sha with VersionToShortCommitSHA[VersionSolanaV0_1_2] this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
 	Router                       bool                          // whether to upload the IDL for the router
 	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
 	OffRamp                      bool                          // whether to upload the IDL for the off ramp
@@ -120,8 +120,9 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	if c.AccessController && mcmState.AccessControllerProgram.IsZero() {
 		return fmt.Errorf("access controller program not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
+	commitSha := VersionToShortCommitSHA[c.SolanaContractVersion]
 
-	return repoSetup(e, chain, c.GitCommitSha)
+	return repoSetup(e, chain, commitSha)
 }
 
 // ANCHOR CLI OPERATIONS

@@ -20,6 +20,7 @@ const (
 	IndexKey               = "node_index"
 	ExtraRolesKey          = "extra_roles"
 	NodeIDKey              = "node_id"
+	NodeOCRFamiliesKey     = "node_ocr_families"
 	NodeOCR2KeyBundleIDKey = "ocr2_key_bundle_id"
 	NodeP2PIDKey           = "p2p_id"
 	NodeDKGRecipientKey    = "dkg_recipient_key"
@@ -29,8 +30,37 @@ const (
 	DONNameKey             = "don_name"
 )
 
+// ocr2 keys depend on report's target chain family
+func CreateNodeOCR2KeyBundleIDKey(chainFamily string) string {
+	return NodeOCR2KeyBundleIDKey + "_" + chainFamily
+}
+
+func CreateNodeOCRFamiliesListValue(families []string) string {
+	return strings.Join(families, ",")
+}
+
 func AddressKeyFromSelector(chainSelector uint64) string {
 	return strconv.FormatUint(chainSelector, 10) + "_public_address"
+}
+
+func ExtractBundleKeysPerFamily(n *cre.NodeMetadata) (map[string]string, error) {
+	keyBundlesFamilies, fErr := FindLabelValue(n, NodeOCRFamiliesKey)
+	if fErr != nil {
+		return nil, fmt.Errorf("failed to get ocr families bundle id from worker node labels: %w", fErr)
+	}
+
+	supportedFamilies := strings.Split(keyBundlesFamilies, ",")
+
+	bundlesPerFamily := make(map[string]string)
+	for _, family := range supportedFamilies {
+		kBundle, kbErr := FindLabelValue(n, CreateNodeOCR2KeyBundleIDKey(family))
+		if kbErr != nil {
+			return nil, fmt.Errorf("failed to get ocr bundle id from worker node labels for family %s err: %w", family, kbErr)
+		}
+		bundlesPerFamily[family] = kBundle
+	}
+
+	return bundlesPerFamily, nil
 }
 
 type stringTransformer func(string) string

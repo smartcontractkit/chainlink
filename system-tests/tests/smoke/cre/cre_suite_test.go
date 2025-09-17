@@ -19,7 +19,7 @@ Inside `core/scripts/cre/environment` directory
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
 func Test_CRE_Suite(t *testing.T) {
-	testEnv := SetupTestEnvironment(t)
+	testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t))
 	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
 	t.Run("[v1] CRE Suite", func(t *testing.T) {
@@ -70,7 +70,7 @@ func Test_CRE_Suite(t *testing.T) {
 }
 
 func Test_CRE_Suite_EVM(t *testing.T) {
-	testEnv := SetupTestEnvironment(t)
+	testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
@@ -87,10 +87,8 @@ func Test_CRE_Suite_EVM(t *testing.T) {
 
 func Test_withV2Registries(t *testing.T) {
 	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
-		const skipReason = "Integrate v2 registry contracts in local CRE/test setup - https://smartcontract-it.atlassian.net/browse/CRE-635"
-		t.Skipf("Skipping test for the following reason: %s", skipReason)
 		flags := []string{"--with-contracts-version", "v2"}
-		testEnv := SetupTestEnvironment(t, flags...)
+		testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t), flags...)
 		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow", PoRWFV1Location)
 		ExecutePoRTest(t, testEnv, priceProvider, wfConfig)
 	})
