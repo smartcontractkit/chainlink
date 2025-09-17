@@ -72,7 +72,7 @@ type Cache struct {
 type item struct {
 	value     llo.StreamValue
 	seqNr     uint64
-	createdAt time.Time
+	expiresAt time.Time
 }
 
 // NewCache creates a new cache.
@@ -119,7 +119,7 @@ func (c *Cache) SetLastTransmissionSeqNr(seqNr uint64) {
 func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue, seqNr uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.values[id] = item{value: value, seqNr: seqNr, createdAt: time.Now()}
+	c.values[id] = item{value: value, seqNr: seqNr, expiresAt: time.Now().Add(c.maxAge)}
 }
 
 func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, bool) {
@@ -138,7 +138,7 @@ func (c *Cache) Get(id llotypes.StreamID) (llo.StreamValue, bool) {
 		return nil, false
 	}
 
-	if time.Since(item.createdAt) >= c.maxAge {
+	if time.Now().After(item.expiresAt) {
 		promCacheMissCount.WithLabelValues(c.configDigestStr, label, "maxAge").Inc()
 		return nil, false
 	}
@@ -152,8 +152,9 @@ func (c *Cache) cleanup() {
 	defer c.mu.Unlock()
 
 	lastTransmissionSeqNr := c.lastTransmissionSeqNr.Load()
+	now := time.Now()
 	for id, item := range c.values {
-		if item.seqNr <= lastTransmissionSeqNr || time.Since(item.createdAt) >= c.maxAge {
+		if item.seqNr <= lastTransmissionSeqNr || now.After(item.expiresAt) {
 			delete(c.values, id)
 		}
 	}

@@ -12,7 +12,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/exp/maps"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -137,7 +136,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	}
 
 	// Observe all streams concurrently
-	for _, streamID := range maps.Keys(streamValues) {
+	for streamID := range streamValues {
 		go func(streamID llotypes.StreamID) {
 			defer wg.Done()
 			var val llo.StreamValue
