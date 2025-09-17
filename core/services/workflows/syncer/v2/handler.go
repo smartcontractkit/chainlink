@@ -191,12 +191,13 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowTag, payload.WorkflowTag,
 		)
 
-		err := h.workflowActivatedEvent(ctx, payload)
+		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err != nil {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
+		err = h.workflowActivatedEvent(ctx, payload)
 
 		if err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)

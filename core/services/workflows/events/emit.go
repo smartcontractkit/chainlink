@@ -19,15 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
-var (
-	// A WorkflowActivated event represents when a workflow is activated
-	WorkflowActivated = "WorkflowActivated"
-	// A WorkflowPaused event represents when a workflow is paused
-	WorkflowPaused = "WorkflowPaused"
-	// A WorkflowDeleted event represents when a workflow is deleted
-	WorkflowDeleted = "WorkflowDeleted"
-)
-
 func EmitWorkflowStatusChangedEvent(
 	ctx context.Context,
 	labels map[string]string,
@@ -372,6 +363,15 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.WorkflowUserLog:
 		schema = SchemaUserLogsV2
 		entity = "workflows.v2." + UserLogs
+	case *eventsv2.WorkflowActivated:
+		schema = SchemaWorkflowActivatedV2
+		entity = "workflows.v2." + WorkflowActivated
+	case *eventsv2.WorkflowPaused:
+		schema = SchemaWorkflowPausedV2
+		entity = "workflows.v2." + WorkflowPaused
+	case *eventsv2.WorkflowDeleted:
+		schema = SchemaWorkflowDeletedV2
+		entity = "workflows.v2." + WorkflowDeleted
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}

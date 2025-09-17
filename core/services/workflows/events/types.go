@@ -4,6 +4,12 @@ const (
 	ProtoPkg = "workflows.v1"
 	// WorkflowStatusChanged represents the Workflow Registry Syncer changing the status of a workflow
 	WorkflowStatusChanged string = "WorkflowStatusChanged"
+	// WorkflowActivated represents a workflow activated event
+	WorkflowActivated string = "WorkflowActivated"
+	// WorkflowPaused represents a workflow paused event
+	WorkflowPaused string = "WorkflowPaused"
+	// WorkflowDeleted represents a workflow deleted event
+	WorkflowDeleted string = "WorkflowDeleted"
 	// WorkflowExecutionStarted represents a workflow execution started event
 	WorkflowExecutionStarted string = "WorkflowExecutionStarted"
 	// WorkflowExecutionFinished represents a workflow execution finished event
@@ -34,6 +40,9 @@ const (
 	SchemaCapabilityStartedV2  string = "/cre-events-capability-started/v2"
 	SchemaCapabilityFinishedV2 string = "/cre-events-capability-finished/v2"
 	SchemaUserLogsV2           string = "/cre-events-user-logs/v2"
+	SchemaWorkflowActivatedV2  string = "/cre-events-workflow-activated/v2"
+	SchemaWorkflowPausedV2     string = "/cre-events-workflow-paused/v2"
+	SchemaWorkflowDeletedV2    string = "/cre-events-workflow-deleted/v2"
 
 	MeteringReportSchema string = "/workflows/v1/metering.proto"
 	MeteringReportDomain string = "platform"
