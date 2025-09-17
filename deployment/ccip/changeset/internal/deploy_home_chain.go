@@ -579,12 +579,6 @@ func BuildOCR3ConfigForCCIPHome(
 				if pk == nil || pk.IsAddrNone() {
 					return nil, fmt.Errorf("failed to parse TON address '%s'", transmitter)
 				}
-<<<<<<< HEAD
-
-||||||| 4c8e3f5535
-				parsed = pk.Data()
-=======
->>>>>>> origin/develop
 				// TODO: this reimplements addrCodec's ToRawAddr helper
 				parsed = binary.BigEndian.AppendUint32(nil, uint32(pk.Workchain())) //nolint:gosec // G115
 				parsed = append(parsed, pk.Data()...)
