@@ -49,6 +49,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
@@ -60,6 +61,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_MultiExecReports_EVM2Solana
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
@@ -222,6 +224,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_update_rmn_config_test.go:*
     path: integration-tests/smoke/ccip/ccip_cs_update_rmn_config_test.go
@@ -600,8 +603,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd:
-      cd smoke/ccip && go test ccip_ton_messaging_test.go -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: cd smoke/ccip && go test ccip_ton_messaging_test.go -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
     install_plugins_public: true
   # END: CCIP tests

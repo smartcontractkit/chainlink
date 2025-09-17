@@ -4,19 +4,18 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 // ExtraDataDecoded contains a generic representation of chain specific message parameters. A
 // map from string to any is used to account for different parameters required for sending messages
 // to different destinations.
-type ExtraDataDecoded struct {
-	// ExtraArgsDecoded contain message specific extra args.
-	ExtraArgsDecoded map[string]any
-	// DestExecDataDecoded contain token transfer specific extra args.
-	DestExecDataDecoded []map[string]any
-}
+type ExtraDataDecoded ccipocr3.ExtraDataDecoded
 
 // HashedCapabilityID returns the hashed capability id in a manner equivalent to the capability registry.
 func HashedCapabilityID(capabilityLabelledName, capabilityVersion string) (r [32]byte, err error) {
