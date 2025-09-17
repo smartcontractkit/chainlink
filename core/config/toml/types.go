@@ -64,7 +64,7 @@ type Core struct {
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
-	CCV                  CCVConfig
+	CCV                  CCVConfig            `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)

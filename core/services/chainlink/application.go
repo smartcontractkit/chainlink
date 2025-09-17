@@ -1244,9 +1244,10 @@ func newCCVServices(
 	keyStore creKeystore,
 	cfg GeneralConfig,
 	relayerChainInterops *CoreRelayerChainInteroperators,
-) (*CREServices, error) {
+) (*CCVServices, error) {
 	fmt.Printf("%v\n", cfg.CCV())
 	fmt.Println("CCV is Enabled:", cfg.CCV().Enabled())
+	fmt.Println("Indexer Key:", cfg.CCV().ExecutorIndexerAPIKey())
 
 	return nil, nil
 }

@@ -15,3 +15,10 @@ func (c *ccvConfig) Enabled() bool {
 	}
 	return *c.c.Enabled
 }
+
+func (c ccvConfig) ExecutorIndexerAPIKey() string {
+	if c.s.Executor == nil || c.s.Executor.IndexerAPIKey == nil {
+		return ""
+	}
+	return string(*c.s.Executor.IndexerAPIKey)
+}
