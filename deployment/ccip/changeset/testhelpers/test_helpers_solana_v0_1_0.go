@@ -2485,8 +2485,8 @@ func GenTestTransferOwnershipConfig(
 	}
 }
 
-func DeployCCIPContractsTest(t *testing.T, solChains int) {
-	e, _ := NewMemoryEnvironment(t, WithTonChains(1))
+func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
+	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains), WithTonChains(tonChains))
 	// Deploy all the CCIP contracts.
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
