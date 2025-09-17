@@ -1065,7 +1065,7 @@ func (e *Engine) executeStep(
 	}
 
 	defer func() {
-		if err := events.EmitCapabilityFinishedEvent(ctx, e.cma.Labels(), msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
+		if err := events.EmitCapabilityFinishedEvent(ctx, e.cma.Labels(), msg.state.ExecutionID, curStep.ID, msg.stepRef, status, capErr); err != nil {
 			e.logger.Errorf("failed to emit capability event: %v", err)
 		}
 	}()
