@@ -1245,9 +1245,9 @@ func newCCVServices(
 	cfg GeneralConfig,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 ) (*CCVServices, error) {
-	fmt.Printf("%v\n", cfg.CCV())
-	fmt.Println("CCV is Enabled:", cfg.CCV().Enabled())
-	fmt.Println("Indexer Key:", cfg.CCV().ExecutorIndexerAPIKey())
+	//fmt.Printf("%v\n", cfg.CCV())
+	//fmt.Println("CCV is Enabled:", cfg.CCV().Enabled())
+	//fmt.Println("Indexer Key:", cfg.CCV().ExecutorIndexerAPIKey())
 
 	return nil, nil
 }
@@ -1488,7 +1488,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),
