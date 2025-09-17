@@ -12,10 +12,12 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -24,6 +26,7 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -34,6 +37,7 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -942,80 +946,9 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 	}, nil
 }
 
-// inspectableEmitter captures labels when With() is called so we can inspect them
-// we can't use beholdertest.Observer directly because it will require a hack to add
-// the orgID as an unstructured label, which is not what we want. once we have the v2
-// deployment events in, we can use beholdertest.Observer directly.
-type inspectableEmitter struct {
-	observer   beholdertest.Observer
-	lastLabels map[string]string
-	withCalled bool
-	labels     map[string]string
-}
-
-func newInspectableEmitter(t *testing.T) *inspectableEmitter {
-	return &inspectableEmitter{
-		observer:   beholdertest.NewObserver(t),
-		lastLabels: make(map[string]string),
-		labels:     make(map[string]string),
-	}
-}
-
-func (i *inspectableEmitter) With(keyvals ...string) custmsg.MessageEmitter {
-	i.withCalled = true
-	// Capture the labels
-	for j := 0; j < len(keyvals)-1; j += 2 {
-		key := keyvals[j]
-		value := keyvals[j+1]
-		i.lastLabels[key] = value
-		i.labels[key] = value
-	}
-	// Create a new inspectable emitter with the updated labels
-	newEmitter := &inspectableEmitter{
-		observer:   i.observer,
-		lastLabels: make(map[string]string),
-		withCalled: true,
-		labels:     make(map[string]string),
-	}
-	// Copy all labels
-	for k, v := range i.labels {
-		newEmitter.labels[k] = v
-	}
-	return newEmitter
-}
-
-func (i *inspectableEmitter) Emit(ctx context.Context, msg string) error {
-	return nil
-}
-
-func (i *inspectableEmitter) Labels() map[string]string {
-	return i.labels
-}
-
-func (i *inspectableEmitter) WithMapLabels(labels map[string]string) custmsg.MessageEmitter {
-	i.withCalled = true
-	// Create a new inspectable emitter with the updated labels
-	newEmitter := &inspectableEmitter{
-		observer:   i.observer,
-		lastLabels: make(map[string]string),
-		withCalled: true,
-		labels:     make(map[string]string),
-	}
-	// Copy existing labels
-	for k, v := range i.labels {
-		newEmitter.labels[k] = v
-		newEmitter.lastLabels[k] = v
-	}
-	// Add new labels
-	for k, v := range labels {
-		newEmitter.labels[k] = v
-		newEmitter.lastLabels[k] = v
-	}
-	return newEmitter
-}
-
 func Test_Handler_OrganizationID(t *testing.T) {
-	emitterInspector := newInspectableEmitter(t)
+	observer := beholdertest.NewObserver(t)
+	emitter := custmsg.NewLabeler()
 	ctx := testutils.Context(t)
 
 	// Set up mock gRPC server for linking service
@@ -1076,12 +1009,28 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	h, err := NewEventHandler(lggr, store, nil, true, registry, er, emitterInspector, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey,
+	// Create gRPC client and orgResolver
+	conn, err := grpc.NewClient(linkingURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	defer conn.Close()
+
+	linkingClient := linkingclient.NewLinkingServiceClient(conn)
+	orgResolverConfig := orgresolver.Config{
+		URL:                           linkingURL,
+		TLSEnabled:                    false,
+		WorkflowRegistryAddress:       "0x1234567890abcdef",
+		WorkflowRegistryChainSelector: 1,
+	}
+	orgResolver, err := orgresolver.NewOrgResolverWithClient(orgResolverConfig, linkingClient, lggr)
+	require.NoError(t, err)
+	defer orgResolver.Close()
+
+	h, err := NewEventHandler(lggr, store, nil, true, registry, er, emitter, limiters, rl, workflowLimits, artifactStore, workflowEncryptionKey,
 		WithEngineRegistry(er),
 		WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
 			return &mockEngine{}, nil
 		}),
-		WithLinking(linkingURL, false),
+		WithOrgResolver(orgResolver),
 	)
 	require.NoError(t, err)
 
@@ -1096,24 +1045,40 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		ConfigURL:     "http://example.com/" + wfIDString + "/config",
 	}
 
+	// Convert to WorkflowActivatedEvent and call through Handle method to test the full flow
+	activatedEvent := WorkflowActivatedEvent(event)
 	err = h.Handle(ctx, Event{
-		Name: WorkflowRegistered,
-		Data: event,
+		Name: WorkflowActivated,
+		Data: activatedEvent,
+		Head: Head{
+			Hash:      "0x123",
+			Height:    "123",
+			Timestamp: 1234567890,
+		},
 	})
 	require.NoError(t, err)
 
-	// Verify that With() was called on the emitter and organization ID is present
-	require.True(t, emitterInspector.withCalled, "Expected With() to be called on the emitter")
-	require.Contains(t, emitterInspector.lastLabels, "orgID", "Expected orgID in emitter labels")
-	require.Equal(t, "test-org", emitterInspector.lastLabels["orgID"], "Expected correct organization ID in emitter labels")
+	// Verify that WorkflowActivated message was emitted with orgID
+	allMessages := observer.Messages(t)
 
-	// Also verify that the WorkflowStatusChanged message was emitted
-	statusChangedMessages := emitterInspector.observer.Messages(t, "beholder_entity", "workflows.v1.WorkflowStatusChanged")
-	require.Len(t, statusChangedMessages, 1, "Expected one WorkflowStatusChanged message")
+	var orgIDFound bool
+	for _, msg := range allMessages {
+		if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowActivated" {
+			var payload eventsv2.WorkflowActivated
+			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+
+			if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
+				orgIDFound = true
+				break
+			}
+		}
+	}
+	require.True(t, orgIDFound, "Expected WorkflowActivated message with orgID to be emitted")
 
 	// Test deletion event
 	t.Run("WorkflowDeleted event includes org ID in labels", func(t *testing.T) {
-		deleteEmitterInspector := newInspectableEmitter(t)
+		deleteObserver := beholdertest.NewObserver(t)
+		deleteEmitter := custmsg.NewLabeler()
 
 		mockDeleteORM := mocks.NewORM(t)
 		spec := &job.WorkflowSpec{
@@ -1129,28 +1094,40 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, er, deleteEmitterInspector, limiters, rl, workflowLimits, deleteArtifactStore, workflowEncryptionKey,
+		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, er, deleteEmitter, limiters, rl, workflowLimits, deleteArtifactStore, workflowEncryptionKey,
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
 				return &mockEngine{}, nil
 			}),
-			WithLinking(linkingURL, false),
+			WithOrgResolver(orgResolver),
 		)
 		require.NoError(t, err)
 
 		err = hDelete.Handle(ctx, Event{
 			Name: WorkflowDeleted,
 			Data: WorkflowDeletedEvent{WorkflowID: giveWFID},
+			Head: Head{
+				Hash:      "0x456",
+				Height:    "456",
+				Timestamp: 1234567890,
+			},
 		})
 		require.NoError(t, err)
 
-		// Verify that With() was called on the deletion emitter and organization ID is present
-		require.True(t, deleteEmitterInspector.withCalled, "Expected With() to be called on the deletion emitter")
-		require.Contains(t, deleteEmitterInspector.lastLabels, "orgID", "Expected orgID in deletion emitter labels")
-		require.Equal(t, "test-org", deleteEmitterInspector.lastLabels["orgID"], "Expected correct organization ID in deletion emitter labels")
+		// Verify that WorkflowDeleted message was emitted with orgID
+		deleteMessages := deleteObserver.Messages(t)
+		var deleteOrgIDFound bool
+		for _, msg := range deleteMessages {
+			if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowDeleted" {
+				var payload eventsv2.WorkflowDeleted
+				require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 
-		// Also verify that the WorkflowStatusChanged message was emitted for deletion
-		statusChangedMessages := deleteEmitterInspector.observer.Messages(t, "beholder_entity", "workflows.v1.WorkflowStatusChanged")
-		require.Len(t, statusChangedMessages, 1, "Expected one WorkflowStatusChanged message for deletion")
+				if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
+					deleteOrgIDFound = true
+					break
+				}
+			}
+		}
+		require.True(t, deleteOrgIDFound, "Expected WorkflowDeleted message with orgID to be emitted")
 	})
 }
