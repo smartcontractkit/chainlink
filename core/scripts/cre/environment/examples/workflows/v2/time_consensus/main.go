@@ -34,12 +34,6 @@ func onTrigger(cfg None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
 	dontime1 := runtime.Now()
 	dontime2 := runtime.Now()
 
-	if dontime1.IsZero() {
-		err := errors.New("DON Time is zero; plugin has not started yet")
-		runtime.Logger().Error(err.Error())
-		return "", err
-	}
-
 	if !dontime2.After(dontime1) {
 		return "", errors.New("DON time not increasing")
 	}
