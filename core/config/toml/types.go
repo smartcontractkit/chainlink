@@ -108,6 +108,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
 	c.CRE.setFrom(&f.CRE)
+	c.CCV.setFrom(&f.CCV)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
 }
@@ -2641,7 +2642,13 @@ type CCVChainlinkExecutor struct {
 }
 
 type CCVConfig struct {
-	Enabled              *bool                 `toml:",omitempty"`
-	CCVCommitteeVerifier *CCVCommitteeVerifier `toml:",omitempty"`
-	CCVChainlinkExecutor *CCVChainlinkExecutor `toml:",omitempty"`
+	Enabled *bool `toml:",omitempty"`
+	//CCVCommitteeVerifier *CCVCommitteeVerifier `toml:",omitempty"`
+	//CCVChainlinkExecutor *CCVChainlinkExecutor `toml:",omitempty"`
+}
+
+func (c *CCVConfig) setFrom(f *CCVConfig) {
+	if f.Enabled != nil {
+		c.Enabled = f.Enabled
+	}
 }
