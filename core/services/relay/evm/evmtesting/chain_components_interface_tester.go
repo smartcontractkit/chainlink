@@ -319,7 +319,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetContractWriter(t T) clcommontypes.ContractWriter {
-	cw, err := evm.NewChainWriterService(logger.Nop(), it.client, it.Helper.TXM(t, it.client), nil, it.chainWriterConfigSupplier(t))
+	cw, err := evm.NewChainWriterService(logger.Nop(), it.client, it.Helper.TXM(t, it.client), nil, it.chainWriterConfigSupplier(t), nil)
 	require.NoError(t, err)
 
 	cw = it.Helper.WrappedChainWriter(cw, it.client)

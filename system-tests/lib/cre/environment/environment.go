@@ -291,6 +291,7 @@ func SetupTestEnvironment(
 	wfTask := wfPool.SubmitErr(func() (*cre.WorkflowRegistryOutput, error) {
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Starting Workflow Registry Contract Configuration\n\n"))
 		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Workflow Registry Contract Configuration\n\n"))
+		wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 
 		// if this operation overlaps with other on-chain operations, then it might randomly fail due to nonce issues,
 		// because we use the same master private key for all on-chain operations. We do not have any client-side nonce management
@@ -302,7 +303,7 @@ func SetupTestEnvironment(
 			singleFileLogger,
 			&cre.WorkflowRegistryInput{
 				ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, startBlockchainsOutput.RegistryChain().ChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
-				ContractVersion: cldf.TypeAndVersion{Version: *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])},
+				ContractVersion: cldf.TypeAndVersion{Version: wfRegVersion},
 				ChainSelector:   startBlockchainsOutput.RegistryChain().ChainSelector,
 				CldEnv:          deployKeystoneContractsOutput.Env,
 				AllowedDonIDs:   []uint64{topology.WorkflowDONID},
@@ -315,7 +316,13 @@ func SetupTestEnvironment(
 		}
 
 		// this operation can always safely run in the background, since it doesn't change on-chain state, it only reads data from databases
-		return wfOutput, workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.InfraInput.Type, startBlockchainsOutput.RegistryChain().ChainID, fullCldOutput.DonTopology, updatedNodeSets)
+		switch wfRegVersion.Major() {
+		case 2:
+			// There are no filters registered with the V2 WF Registry Syncer
+			return wfOutput, nil
+		default:
+			return wfOutput, workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.InfraInput.Type, startBlockchainsOutput.RegistryChain().ChainID, fullCldOutput.DonTopology, updatedNodeSets)
+		}
 	})
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring OCR3 and Keystone contracts")))
@@ -444,10 +451,6 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 
 	for _, capability := range input.Capabilities {
 		configFn := capability.CapabilityRegistryV1ConfigFn()
-		if input.WithV2Registries {
-			configFn = capability.CapabilityRegistryV2ConfigFn()
-		}
-
 		configureKeystoneInput.CapabilityRegistryConfigFns = append(configureKeystoneInput.CapabilityRegistryConfigFns, configFn)
 	}
 

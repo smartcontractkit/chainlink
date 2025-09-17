@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -32,6 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
+
+var executingWorkflows atomic.Int64
 
 type Engine struct {
 	services.Service
@@ -384,6 +387,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
+	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
+	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
+
 	// TODO(CAPPL-911): add rate-limiting
 
 	meteringReport, meteringErr := e.meterReports.Start(ctx, executionID)
@@ -482,8 +488,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		executionStatus = store.StatusErrored
 		if errors.Is(err, context.DeadlineExceeded) {
 			executionStatus = store.StatusTimeout
+			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, int64(executionDuration.Seconds()))
+		} else {
+			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		}
-		executionLogger.Errorw("Workflow execution failed", "err", err, "status", executionStatus, "durationMs", executionDuration.Milliseconds())
+
+		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds())
 		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(err.Error())
@@ -494,10 +504,20 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.lggr.Debugw("User workflow execution result", "result", result.GetValue(), "err", result.GetError())
 	}
 
+	if len(result.GetError()) > 0 {
+		executionStatus = store.StatusErrored
+		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
+		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds())
+		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
+		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+		e.cfg.Hooks.OnExecutionError(result.GetError())
+		return
+	}
+
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
 	_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
-
+	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.cfg.Hooks.OnResultReceived(result)
 	e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 }

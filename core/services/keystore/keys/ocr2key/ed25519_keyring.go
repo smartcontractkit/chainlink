@@ -16,26 +16,26 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-var _ ocrtypes.OnchainKeyring = &aptosKeyring{}
+var _ ocrtypes.OnchainKeyring = &ed25519Keyring{}
 
-type aptosKeyring struct {
+type ed25519Keyring struct {
 	privKey func() ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
 }
 
-func newAptosKeyring(material io.Reader) (*aptosKeyring, error) {
+func newEd25519Keyring(material io.Reader) (*ed25519Keyring, error) {
 	pubKey, privKey, err := ed25519.GenerateKey(material)
 	if err != nil {
 		return nil, err
 	}
-	return &aptosKeyring{pubKey: pubKey, privKey: func() ed25519.PrivateKey { return privKey }}, nil
+	return &ed25519Keyring{pubKey: pubKey, privKey: func() ed25519.PrivateKey { return privKey }}, nil
 }
 
-func (akr *aptosKeyring) PublicKey() ocrtypes.OnchainPublicKey {
+func (akr *ed25519Keyring) PublicKey() ocrtypes.OnchainPublicKey {
 	return []byte(akr.pubKey)
 }
 
-func (akr *aptosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+func (akr *ed25519Keyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
 	h, err := blake2b.New256(nil)
 	if err != nil {
@@ -49,7 +49,7 @@ func (akr *aptosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, repor
 	return h.Sum(nil), nil
 }
 
-func (akr *aptosKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+func (akr *ed25519Keyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	sigData, err := akr.reportToSigData(reportCtx, report)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (akr *aptosKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.
 	return akr.SignBlob(sigData)
 }
 
-func (akr *aptosKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
+func (akr *ed25519Keyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
 	rawReportContext := RawReportContext3(digest, seqNr)
 	h, err := blake2b.New256(nil)
 	if err != nil {
@@ -69,7 +69,7 @@ func (akr *aptosKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint6
 	return h.Sum(nil), nil
 }
 
-func (akr *aptosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
+func (akr *ed25519Keyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
 	sigData, err := akr.reportToSigData3(digest, seqNr, r)
 	if err != nil {
 		return nil, err
@@ -77,13 +77,13 @@ func (akr *aptosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtyp
 	return akr.SignBlob(sigData)
 }
 
-func (akr *aptosKeyring) SignBlob(b []byte) ([]byte, error) {
+func (akr *ed25519Keyring) SignBlob(b []byte) ([]byte, error) {
 	signedMsg := ed25519.Sign(akr.privKey(), b)
 	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
 	return utils.ConcatBytes(akr.PublicKey(), signedMsg), nil
 }
 
-func (akr *aptosKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
+func (akr *ed25519Keyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	hash, err := akr.reportToSigData(reportCtx, report)
 	if err != nil {
 		return false
@@ -91,7 +91,7 @@ func (akr *aptosKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx o
 	return akr.VerifyBlob(publicKey, hash, signature)
 }
 
-func (akr *aptosKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
+func (akr *ed25519Keyring) Verify3(publicKey ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
 	sigData, err := akr.reportToSigData3(digest, seqNr, r)
 	if err != nil {
 		return false
@@ -99,7 +99,7 @@ func (akr *aptosKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, digest ocr
 	return akr.VerifyBlob(publicKey, sigData, signature)
 }
 
-func (akr *aptosKeyring) VerifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
+func (akr *ed25519Keyring) VerifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
 	// Ed25519 signatures are always 64 bytes and the
 	// public key (always prefixed, see Sign above) is always,
 	// 32 bytes, so we always require the max signature length.
@@ -115,16 +115,16 @@ func (akr *aptosKeyring) VerifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []b
 	return ed25519consensus.Verify(ed25519.PublicKey(pubkey), b, sig[ed25519.PublicKeySize:])
 }
 
-func (akr *aptosKeyring) MaxSignatureLength() int {
+func (akr *ed25519Keyring) MaxSignatureLength() int {
 	// Reference: https://pkg.go.dev/crypto/ed25519
 	return ed25519.PublicKeySize + ed25519.SignatureSize // 32 + 64
 }
 
-func (akr *aptosKeyring) Marshal() ([]byte, error) {
+func (akr *ed25519Keyring) Marshal() ([]byte, error) {
 	return akr.privKey().Seed(), nil
 }
 
-func (akr *aptosKeyring) Unmarshal(in []byte) error {
+func (akr *ed25519Keyring) Unmarshal(in []byte) error {
 	if len(in) != ed25519.SeedSize {
 		return errors.Errorf("unexpected seed size, got %d want %d", len(in), ed25519.SeedSize)
 	}

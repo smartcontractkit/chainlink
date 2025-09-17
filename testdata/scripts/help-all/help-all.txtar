@@ -34,6 +34,8 @@ chains solana # Commands for handling solana chains
 chains solana list # List all existing solana chains
 chains starknet # Commands for handling starknet chains
 chains starknet list # List all existing starknet chains
+chains sui # Commands for handling sui chains
+chains sui list # List all existing sui chains
 chains ton # Commands for handling ton chains
 chains ton list # List all existing ton chains
 chains tron # Commands for handling tron chains
@@ -115,6 +117,12 @@ keys starknet delete # Delete StarkNet key if present
 keys starknet export # Export StarkNet key to keyfile
 keys starknet import # Import StarkNet key from keyfile
 keys starknet list # List the StarkNet keys
+keys sui # Remote commands for administering the node's Sui keys
+keys sui create # Create a Sui key
+keys sui delete # Delete Sui key if present
+keys sui export # Export Sui key to keyfile
+keys sui import # Import Sui key from keyfile
+keys sui list # List the Sui keys
 keys ton # Remote commands for administering the node's TON keys
 keys ton create # Create a TON key
 keys ton delete # Delete TON key if present
@@ -160,6 +168,8 @@ nodes solana # Commands for handling solana node configuration
 nodes solana list # List all existing solana nodes
 nodes starknet # Commands for handling starknet node configuration
 nodes starknet list # List all existing starknet nodes
+nodes sui # Commands for handling sui node configuration
+nodes sui list # List all existing sui nodes
 nodes ton # Commands for handling ton node configuration
 nodes ton list # List all existing ton nodes
 nodes tron # Commands for handling tron node configuration

@@ -74,6 +74,7 @@ type workflowRegistry struct {
 	allowListedMu       sync.RWMutex
 
 	contractReaderFn versioning.ContractReaderFactory
+	contractReader   types.ContractReader
 
 	config Config
 
@@ -167,27 +168,42 @@ func NewWorkflowRegistry(
 func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
 		ctx, cancel := w.stopCh.NewCtx()
+		initDoneCh := make(chan struct{})
 
-		contractReader, err := w.newWorkflowRegistryContractReader(context.Background())
-		if err != nil {
-			w.lggr.Criticalf("contract reader unavailable : %s", err)
-			return errors.New("failed to create contract reader: " + err.Error())
-		}
+		w.wg.Add(1)
+		go func() {
+			defer w.lggr.Debugw("Received DON and set ContractReader")
+			defer w.wg.Done()
+			defer close(initDoneCh)
+
+			w.lggr.Debugw("Waiting for DON...")
+			if _, err := w.workflowDonNotifier.WaitForDon(ctx); err != nil {
+				w.lggr.Errorw("failed to wait for don", "err", err)
+				return
+			}
+
+			// Async initialization of contract reader because there is an on-chain
+			// call dependency.  Blocking on initialization results in a
+			// deadlock.  Instead wait until the node has identified it's DON
+			// as a proxy for a DON and on-chain ready state .
+			reader, err := w.newWorkflowRegistryContractReader(ctx)
+			if err != nil {
+				w.lggr.Criticalf("contract reader unavailable : %s", err)
+				return
+			}
+
+			w.contractReader = reader
+		}()
 
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
 			defer cancel()
-
-			w.lggr.Debugw("Waiting for DON...")
-			don, err := w.workflowDonNotifier.WaitForDon(ctx)
-			if err != nil {
-				w.lggr.Errorw("failed to wait for don", "err", err)
-				return
-			}
-
 			// Start goroutines to gather changes from Workflow Registry contract
-			w.syncUsingReconciliationStrategy(ctx, don, contractReader)
+			<-initDoneCh
+			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
+			don, _ := w.workflowDonNotifier.WaitForDon(ctx)
+			w.syncUsingReconciliationStrategy(ctx, don)
 		}()
 
 		w.wg.Add(1)
@@ -195,7 +211,8 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 			// Start goroutines to gather allowlisted requests from Workflow Registry contract
-			w.syncAllowlistedRequests(ctx, contractReader)
+			<-initDoneCh
+			w.syncAllowlistedRequests(ctx)
 		}()
 
 		return nil
@@ -362,8 +379,8 @@ func (w *workflowRegistry) generateReconciliationEvents(_ context.Context, pendi
 	return events, nil
 }
 
-func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context, contractReader types.ContractReader) {
-	ticker := time.NewTicker(defaultTickIntervalForAllowlistedRequests).C
+func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
+	ticker := w.getTicker(defaultTickIntervalForAllowlistedRequests)
 	w.lggr.Debug("starting syncAllowlistedRequests")
 	for {
 		select {
@@ -371,7 +388,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context, contract
 			w.lggr.Debug("shutting down syncAllowlistedRequests, %s", ctx.Err())
 			return
 		case <-ticker:
-			allowListedRequests, head, err := w.getAllowlistedRequests(ctx, contractReader)
+			allowListedRequests, head, err := w.getAllowlistedRequests(ctx, w.contractReader)
 			if err != nil {
 				w.lggr.Errorw("failed to call getAllowlistedRequests", "err", err)
 				continue
@@ -386,8 +403,8 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context, contract
 
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
-func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) {
-	ticker := w.getTicker()
+func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, don capabilities.DON) {
+	ticker := w.getTicker(defaultTickInterval)
 	pendingEvents := map[string]*reconciliationEvent{}
 	w.lggr.Debug("running readRegistryStateLoop")
 	for {
@@ -396,7 +413,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 			w.lggr.Debug("shutting down readRegistryStateLoop")
 			return
 		case <-ticker:
-			workflowMetadata, head, err := w.getWorkflowMetadata(ctx, don, contractReader)
+			w.lggr.Debugw("fetching workflow registry metadata", "don", don.Families)
+			workflowMetadata, head, err := w.getWorkflowMetadata(ctx, don, w.contractReader)
 			if err != nil {
 				w.lggr.Errorw("failed to get registry state", "err", err)
 				continue
@@ -448,9 +466,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 
 // getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
 // is nil, then a default ticker is returned.
-func (w *workflowRegistry) getTicker() <-chan time.Time {
+func (w *workflowRegistry) getTicker(d time.Duration) <-chan time.Time {
 	if w.ticker == nil {
-		return time.NewTicker(defaultTickInterval).C
+		return time.NewTicker(d).C
 	}
 
 	return w.ticker
