@@ -177,7 +177,7 @@ func toCommonHead(localHead Head) *commontypes.Head {
 func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 	switch event.Name {
 	case WorkflowActivated:
-		payload, ok := event.Data.(WorkflowRegisteredEvent)
+		payload, ok := event.Data.(WorkflowActivatedEvent)
 		if !ok {
 			return newHandlerTypeError(event.Data)
 		}
@@ -191,7 +191,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowTag, payload.WorkflowTag,
 		)
 
-		err := h.workflowRegisteredEvent(ctx, payload)
+		err := h.workflowActivatedEvent(ctx, payload)
 		defer func() {
 			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, h.emitter.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
@@ -199,7 +199,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}()
 
 		if err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow registered event: %v", err), h.lggr)
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
 			return err
 		}
 
@@ -259,6 +259,17 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 	default:
 		return fmt.Errorf("event type unsupported: %v", event.Name)
 	}
+}
+
+// workflowActivatedEvent handles the WorkflowActivatedEvent event type.
+// This method redirects to workflowRegisteredEvent since they have identical processing logic.
+func (h *eventHandler) workflowActivatedEvent(
+	ctx context.Context,
+	payload WorkflowActivatedEvent,
+) error {
+	// Convert WorkflowActivatedEvent to WorkflowRegisteredEvent since they have identical fields
+	registeredPayload := WorkflowRegisteredEvent(payload)
+	return h.workflowRegisteredEvent(ctx, registeredPayload)
 }
 
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
