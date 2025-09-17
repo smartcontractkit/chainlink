@@ -115,9 +115,17 @@ func createTonChainConfig(chainID string, chain cldf_ton.Chain) chainlink.RawCon
 	return chainConfig
 }
 
-func fundTonAccount(t *testing.T, funder *wallet.Wallet, to *address.Address, amount string) {
-	txerr := funder.TransferNoBounce(t.Context(), to, tlb.MustFromTON(amount), "", true)
-	require.NoError(t, txerr, "airdrop transaction failed")
-	time.Sleep(5 * time.Second)
-	// TODO: we could block on confirmation but nodes take a while to run, so it'll be confirmed by then
+func fundNodesTon(t *testing.T, tonChain cldf_ton.Chain, nodes []*Node) {
+	messages := make([]*wallet.Message, 0, len(nodes))
+	for _, node := range nodes {
+		tonkeys, err := node.App.GetKeyStore().TON().GetAll()
+		require.NoError(t, err)
+		require.Len(t, tonkeys, 1)
+		transmitter := tonkeys[0].PubkeyToAddress()
+		msg, err := tonChain.Wallet.BuildTransfer(transmitter, tlb.MustFromTON("1000"), false, "")
+		require.NoError(t, err)
+		messages = append(messages, msg)
+	}
+	_, _, err := tonChain.Wallet.SendManyWaitTransaction(t.Context(), messages)
+	require.NoError(t, err)
 }

@@ -13,10 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
-	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -623,39 +620,7 @@ func CreateKeys(t *testing.T,
 		}
 	}
 
-	// Funding
-
-	if len(solchains) > 0 {
-		solkeys, err := app.GetKeyStore().Solana().GetAll()
-		require.NoError(t, err)
-		require.Len(t, solkeys, 1)
-		transmitter := solkeys[0]
-		for _, solChain := range solchains {
-			FundSolAccounts(ctx, []solana.PublicKey{transmitter.PublicKey()}, solChain.Client, t)
-		}
-	}
-
-	if len(aptoschains) > 0 {
-		aptoskeys, err := app.GetKeyStore().Aptos().GetAll()
-		require.NoError(t, err)
-		require.Len(t, aptoskeys, 1)
-		transmitter := aptoskeys[0]
-		for _, aptosChain := range aptoschains {
-			transmitterAccountAddress := aptos.AccountAddress{}
-			require.NoError(t, transmitterAccountAddress.ParseStringRelaxed(transmitter.Account()))
-			FundAptosAccount(t, aptosChain.DeployerSigner, transmitterAccountAddress, 100*1e8, aptosChain.Client)
-		}
-	}
-
-	if len(tonchains) > 0 {
-		tonkeys, err := app.GetKeyStore().TON().GetAll()
-		require.NoError(t, err)
-		require.Len(t, tonkeys, 1)
-		transmitter := tonkeys[0]
-		for _, tonChain := range tonchains {
-			fundTonAccount(t, tonChain.Wallet, transmitter.PubkeyToAddress(), "1000")
-		}
-	}
+	// NOTE: Funding happens in NewNodes() so we can fund multiple nodes at once if possible
 
 	return Keys{
 		PeerID:        peerID,
@@ -663,14 +628,6 @@ func CreateKeys(t *testing.T,
 		Transmitters:  transmitters,
 		OCRKeyBundles: keybundles,
 	}
-}
-
-func FundSolAccounts(ctx context.Context, accounts []solana.PublicKey, solanaGoClient *solrpc.Client, t *testing.T) {
-	for _, v := range accounts {
-		_, err := solanaGoClient.RequestAirdrop(ctx, v, 1000*solana.LAMPORTS_PER_SOL, solrpc.CommitmentConfirmed)
-		require.NoError(t, err)
-	}
-	// we don't wait for confirmation so we don't block the tests, it'll take a while before nodes start transmitting
 }
 
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
