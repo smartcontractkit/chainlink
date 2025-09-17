@@ -97,6 +97,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2TON(t *testing.T) {
+	t.Skip("Test stalls because TON test assertions aren't implemented yet")
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
