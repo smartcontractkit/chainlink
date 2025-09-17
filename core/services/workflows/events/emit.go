@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
@@ -31,6 +33,69 @@ func EmitWorkflowStatusChangedEvent(
 	return emitProtoMessage(ctx, event)
 }
 
+func EmitWorkflowStatusChangedEventV2(
+	ctx context.Context,
+	labels map[string]string,
+	head *types.Head,
+	status string,
+	binaryURL string,
+	configURL string,
+	eventErr error,
+) error {
+	// Emit v1 event
+	var multiErr error
+	if err := EmitWorkflowStatusChangedEvent(ctx, labels, status); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+
+	// Prepare v2 event data
+	creInfo := buildCREMetadataV2(labels)
+	workflow := buildWorkflowV2(labels, binaryURL, configURL)
+	txInfo := buildTxInfo(head)
+
+	var v2Event proto.Message
+	var errorMessage string
+	if eventErr != nil {
+		errorMessage = eventErr.Error()
+	}
+
+	switch status {
+	case WorkflowActivated:
+		v2Event = &eventsv2.WorkflowActivated{
+			CreInfo:      creInfo,
+			Workflow:     workflow,
+			TxInfo:       txInfo,
+			Timestamp:    time.Now().Format(time.RFC3339),
+			ErrorMessage: errorMessage,
+		}
+
+	case WorkflowPaused:
+		v2Event = &eventsv2.WorkflowPaused{
+			CreInfo:      creInfo,
+			Workflow:     workflow,
+			TxInfo:       txInfo,
+			Timestamp:    time.Now().Format(time.RFC3339),
+			ErrorMessage: errorMessage,
+		}
+
+	case WorkflowDeleted:
+		v2Event = &eventsv2.WorkflowDeleted{
+			CreInfo:      creInfo,
+			Workflow:     workflow,
+			TxInfo:       txInfo,
+			Timestamp:    time.Now().Format(time.RFC3339),
+			ErrorMessage: errorMessage,
+		}
+	}
+
+	// Emit v2 event
+	if err := emitProtoMessage(ctx, v2Event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+
+	return multiErr
+}
+
 func EmitExecutionStartedEvent(
 	ctx context.Context,
 	labels map[string]string,
@@ -47,7 +112,7 @@ func EmitExecutionStartedEvent(
 
 	// Also emit v2 event
 	creInfo := buildCREMetadataV2(labels)
-	workflowKey := buildWorkflowKeyV2(labels, executionID)
+	workflowKey := buildWorkflowKeyV2(labels)
 
 	v2Event := &eventsv2.WorkflowExecutionStarted{
 		CreInfo:             creInfo,
@@ -79,7 +144,7 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 
 	// Also emit v2 event
 	creInfo := buildCREMetadataV2(labels)
-	workflowKey := buildWorkflowKeyV2(labels, executionID)
+	workflowKey := buildWorkflowKeyV2(labels)
 
 	// Convert status string to v2 ExecutionStatus enum
 	var executionStatus eventsv2.ExecutionStatus
@@ -123,7 +188,7 @@ func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, e
 
 	// Also emit v2 event
 	creInfo := buildCREMetadataV2(labels)
-	workflowKey := buildWorkflowKeyV2(labels, executionID)
+	workflowKey := buildWorkflowKeyV2(labels)
 
 	// Convert stepRef string to int32
 	// V1 engine has arbitrary string stepRefs, v2 engine has monotonically increasing integers
@@ -153,7 +218,7 @@ func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, e
 	return multiErr
 }
 
-func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string) error {
+func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string, capErr error) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.CapabilityExecutionFinished{
@@ -166,7 +231,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 
 	// Also emit v2 event
 	creInfo := buildCREMetadataV2(labels)
-	workflowKey := buildWorkflowKeyV2(labels, executionID)
+	workflowKey := buildWorkflowKeyV2(labels)
 
 	// Convert stepRef string to int32
 	// V1 engine has arbitrary string stepRefs, v2 engine has monotonically increasing integers
@@ -187,6 +252,11 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED
 	}
 
+	var errMsg string
+	if capErr != nil {
+		errMsg = capErr.Error()
+	}
+
 	v2Event := &eventsv2.CapabilityExecutionFinished{
 		CreInfo:             creInfo,
 		Workflow:            workflowKey,
@@ -195,6 +265,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 		CapabilityID:        capabilityID,
 		StepRef:             int32(stepRefInt),
 		Status:              executionStatus,
+		Error:               errMsg,
 	}
 
 	// Emit both v1 and v2 events
@@ -220,7 +291,34 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 		M:        metadata,
 		LogLines: logLines,
 	}
-	return emitProtoMessage(ctx, event)
+
+	// Also emit v2 events - one per log line
+	creInfo := buildCREMetadataV2(labels)
+	workflowKey := buildWorkflowKeyV2(labels)
+
+	// Emit v1 event
+	var multiErr error
+	if err := emitProtoMessage(ctx, event); err != nil {
+		multiErr = errors.Join(multiErr, err)
+	}
+
+	// Emit v2 events - one per log line
+	for _, logLine := range logLines {
+		v2Event := &eventsv2.WorkflowUserLog{
+			CreInfo:             creInfo,
+			Workflow:            workflowKey,
+			WorkflowExecutionID: executionID,
+			Timestamp:           logLine.NodeTimestamp,
+			Msg:                 logLine.Message,
+			Labels:              make(map[string]string), // Empty for now
+		}
+
+		if err := emitProtoMessage(ctx, v2Event); err != nil {
+			multiErr = errors.Join(multiErr, err)
+		}
+	}
+
+	return multiErr
 }
 
 // EmitProtoMessage marshals a proto.Message and emits it via beholder.
@@ -268,6 +366,18 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.CapabilityExecutionFinished:
 		schema = SchemaCapabilityFinishedV2
 		entity = "workflows.v2." + CapabilityExecutionFinished
+	case *eventsv2.WorkflowUserLog:
+		schema = SchemaUserLogsV2
+		entity = "workflows.v2." + UserLogs
+	case *eventsv2.WorkflowActivated:
+		schema = SchemaWorkflowActivatedV2
+		entity = "workflows.v2." + WorkflowActivated
+	case *eventsv2.WorkflowPaused:
+		schema = SchemaWorkflowPausedV2
+		entity = "workflows.v2." + WorkflowPaused
+	case *eventsv2.WorkflowDeleted:
+		schema = SchemaWorkflowDeletedV2
+		entity = "workflows.v2." + WorkflowDeleted
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
@@ -344,12 +454,32 @@ func buildCREMetadataV2(kvs map[string]string) *eventsv2.CreInfo {
 }
 
 // buildWorkflowKeyV2 populates a WorkflowKey from kvs (map[string]string).
-func buildWorkflowKeyV2(kvs map[string]string, workflowExecutionID string) *eventsv2.WorkflowKey {
+func buildWorkflowKeyV2(kvs map[string]string) *eventsv2.WorkflowKey {
 	w := &eventsv2.WorkflowKey{}
 
 	w.WorkflowOwner = kvs[platform.KeyWorkflowOwner]
 	w.WorkflowName = kvs[platform.KeyWorkflowName]
 	w.WorkflowID = kvs[platform.KeyWorkflowID]
+	w.OrganizationID = kvs[platform.KeyOrganizationID]
 
 	return w
+}
+
+func buildWorkflowV2(kvs map[string]string, binaryURL, configURL string) *eventsv2.Workflow {
+	w := &eventsv2.Workflow{}
+
+	w.WorkflowKey = buildWorkflowKeyV2(kvs)
+	w.Version = kvs[platform.KeyWorkflowVersion]
+	w.BinaryURL = binaryURL
+	w.ConfigURL = configURL
+
+	return w
+}
+
+func buildTxInfo(head *types.Head) *eventsv2.TransactionInfo {
+	return &eventsv2.TransactionInfo{
+		ChainSelector: "", // TODO CRE-887 add chain selector to tx info
+		TxHash:        hex.EncodeToString(head.Hash),
+		GasCost:       "", // TODO CRE-886 add gas cost to tx info
+	}
 }

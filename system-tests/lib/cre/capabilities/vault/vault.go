@@ -102,6 +102,17 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get Vault capability address")
 		}
 
+		dkgKey := datastore.NewAddressRefKey(
+			input.DonTopology.HomeChainSelector,
+			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+			semver.MustParse("1.0.0"),
+			"capability_vault_dkg",
+		)
+		dkgAddress, err := input.CldEnvironment.DataStore.Addresses().Get(dkgKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get DKG address")
+		}
+
 		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
 			if !flags.HasFlag(donWithMetadata.Flags, flag) {
 				continue
@@ -166,17 +177,21 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
 				}
 
-				ocr2KeyBundleID, ocr2Err := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
-				if ocr2Err != nil {
-					return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
-				}
-
 				encryptedShare, encErr := encryptPrivateShare(input.CldEnvironment.Offchain, nodeID, sks[idx])
-				if err != nil {
+				if encErr != nil {
 					return nil, errors.Wrap(encErr, "failed to encrypt private share")
 				}
 
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, input.DonTopology.OCRPeeringData, chainID, pk, encryptedShare))
+				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
+				if ocr2kbErr != nil {
+					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
+				}
+				offchainKeyBundleID, ok := ocr2KeyBundlesPerFamily["evm"]
+				if !ok {
+					return nil, errors.New("key bundle ID for evm family is not found")
+				}
+
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, nodeEthAddr, offchainKeyBundleID, input.DonTopology.OCRPeeringData, chainID, pk, encryptedShare))
 			}
 		}
 

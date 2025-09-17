@@ -2,29 +2,44 @@ package ccipaptos
 
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsui"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // initializePluginConfig returns a PluginConfig for Aptos chains.
-func initializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
-	return ccipcommon.PluginConfig{
-		CommitPluginCodec:   NewCommitPluginCodecV1(),
-		ExecutePluginCodec:  NewExecutePluginCodecV1(extraDataCodec),
-		MessageHasher:       NewMessageHasherV1(logger.Sugared(lggr).Named(chainsel.FamilyAptos).Named("MessageHasherV1"), extraDataCodec),
-		TokenDataEncoder:    NewAptosTokenDataEncoder(),
-		GasEstimateProvider: NewGasEstimateProvider(),
-		RMNCrypto:           nil,
-		ChainRW:             ChainCWProvider{},
-		ExtraDataCodec:      ExtraDataDecoder{},
-		AddressCodec:        AddressCodec{},
+func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
+	return func(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
+		var cwProvider ccipcommon.ChainRWProvider
+		var msgHasher ccipocr3.MessageHasher
+
+		if chainselFamily == chainsel.FamilyAptos {
+			cwProvider = ChainCWProvider{}
+			msgHasher = NewMessageHasherV1(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV1"), extraDataCodec)
+		} else {
+			cwProvider = ccipsui.ChainCWProvider{}
+			msgHasher = ccipsui.NewMessageHasherV1(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV1"), extraDataCodec)
+		}
+
+		return ccipcommon.PluginConfig{
+			CommitPluginCodec:   NewCommitPluginCodecV1(),
+			ExecutePluginCodec:  NewExecutePluginCodecV1(extraDataCodec),
+			MessageHasher:       msgHasher,
+			TokenDataEncoder:    NewAptosTokenDataEncoder(),
+			GasEstimateProvider: NewGasEstimateProvider(),
+			RMNCrypto:           nil,
+			ChainRW:             cwProvider,
+			ExtraDataCodec:      ExtraDataDecoder{},
+			AddressCodec:        AddressCodec{},
+		}
 	}
 }
 
 func init() {
-	// Register the Aptos plugin config factory
-	ccipcommon.RegisterPluginConfig(chainsel.FamilyAptos, initializePluginConfig)
+	// Register the Aptos and Sui plugin config factory
+	ccipcommon.RegisterPluginConfig(chainsel.FamilyAptos, initializePluginConfigFunc(chainsel.FamilyAptos))
+	ccipcommon.RegisterPluginConfig(chainsel.FamilySui, initializePluginConfigFunc(chainsel.FamilySui))
 }

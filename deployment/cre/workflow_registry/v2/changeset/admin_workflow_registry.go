@@ -31,6 +31,9 @@ type AdminPauseWorkflowInput struct {
 
 type AdminPauseWorkflow struct{}
 
+// emptyQualifier is used when no specific workflow registry qualifier is needed
+const emptyQualifier = ""
+
 func (l AdminPauseWorkflow) VerifyPreconditions(e cldf.Environment, config AdminPauseWorkflowInput) error {
 	return nil
 }
@@ -40,7 +43,7 @@ func (l AdminPauseWorkflow) Apply(e cldf.Environment, config AdminPauseWorkflowI
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, emptyQualifier)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -96,7 +99,7 @@ func (l AdminBatchPauseWorkflows) Apply(e cldf.Environment, config AdminBatchPau
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, emptyQualifier)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -145,7 +148,7 @@ func (l AdminPauseAllByOwner) Apply(e cldf.Environment, config AdminPauseAllByOw
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, emptyQualifier)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}
@@ -194,7 +197,7 @@ func (l AdminPauseAllByDON) Apply(e cldf.Environment, config AdminPauseAllByDONI
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, emptyQualifier)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}

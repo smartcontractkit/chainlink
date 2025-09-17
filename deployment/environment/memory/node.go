@@ -646,8 +646,7 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 }
 
 func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TOMLConfig {
-	chainConfig := solcfg.Chain{}
-	chainConfig.SetDefaults()
+	var chainConfig solcfg.Chain
 
 	// CCIP requires a non-zero execution fee estimate
 	computeUnitPriceDefault := uint64(100)
@@ -660,7 +659,7 @@ func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TO
 		panic(err)
 	}
 
-	return &solcfg.TOMLConfig{
+	cfg := &solcfg.TOMLConfig{
 		ChainID: &chainID,
 		Enabled: ptr(true),
 		Chain:   chainConfig,
@@ -675,6 +674,8 @@ func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TO
 			SendOnly: false,
 		}},
 	}
+	cfg.SetDefaults()
+	return cfg
 }
 
 func ptr[T any](v T) *T { return &v }

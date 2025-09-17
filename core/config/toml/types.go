@@ -141,8 +141,10 @@ type Secrets struct {
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	Solana     SolKeys                  `toml:",omitempty"` // choose Solana as the TOML field name to align with relayer config convention
 
-	P2PKey P2PKey     `toml:",omitempty"`
-	CRE    CreSecrets `toml:",omitempty"`
+	P2PKey          P2PKey          `toml:",omitempty"`
+	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
+
+	CRE CreSecrets `toml:",omitempty"`
 }
 
 type SolKeys struct {
@@ -449,6 +451,42 @@ func (p *P2PKey) validateMerge(f *P2PKey) (err error) {
 func (p *P2PKey) ValidateConfig() (err error) {
 	if (p.JSON != nil) != (p.Password != nil) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "P2PKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	return err
+}
+
+type DKGRecipientKey struct {
+	JSON     *models.Secret
+	Password *models.Secret
+}
+
+func (p *DKGRecipientKey) SetFrom(f *DKGRecipientKey) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+
+func (p *DKGRecipientKey) validateMerge(f *DKGRecipientKey) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *DKGRecipientKey) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "DKGRecipientKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
 	}
 	return err
 }

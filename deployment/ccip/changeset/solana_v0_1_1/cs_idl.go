@@ -14,7 +14,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -49,7 +48,7 @@ var _ cldf.ChangeSet[IDLConfig] = CloseIDLs
 
 type IDLConfig struct {
 	ChainSelector                uint64
-	GitCommitSha                 string                        // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
+	SolanaContractVersion        string                        // Get the commit sha with VersionToShortCommitSHA[VersionSolanaV0_1_2] this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
 	Router                       bool                          // whether to upload the IDL for the router
 	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
 	OffRamp                      bool                          // whether to upload the IDL for the off ramp
@@ -121,8 +120,9 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	if c.AccessController && mcmState.AccessControllerProgram.IsZero() {
 		return fmt.Errorf("access controller program not deployed for chain %d, cannot upload idl", c.ChainSelector)
 	}
+	commitSha := VersionToShortCommitSHA[c.SolanaContractVersion]
 
-	return repoSetup(e, chain, c.GitCommitSha)
+	return repoSetup(e, chain, commitSha)
 }
 
 // ANCHOR CLI OPERATIONS
@@ -535,7 +535,7 @@ func SetAuthorityIDLByMCMs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutpu
 		}
 	}
 
-	return generateProposalIfMCMS(e, c, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 // changeset to upgrade idl for a program via timelock
@@ -568,7 +568,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	return generateProposalIfMCMS(e, c, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 // changeset to close idl account for a program - this is needed when the idl increased so much in size that it no longer fits in the account
@@ -598,7 +598,7 @@ func CloseIDLs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		}
 	}
 
-	return generateProposalIfMCMS(e, c, mcmsTxs)
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
 }
 
 func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastateview.CCIPChainState, chain cldfsolana.Chain) (map[solana.PublicKey]string, error) {
@@ -645,22 +645,6 @@ func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastate
 		programs[mcmState.McmProgram] = deployment.McmProgramName
 	}
 	return programs, nil
-}
-
-func generateProposalIfMCMS(e cldf.Environment, c IDLConfig, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
-	if len(mcmsTxs) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, c.ChainSelector, "proposal to upgrade CCIP contracts", c.MCMS.MinDelay, mcmsTxs)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{}, nil
 }
 
 // Build instruction to interact with Anchor IDL using the list of ids above for each message

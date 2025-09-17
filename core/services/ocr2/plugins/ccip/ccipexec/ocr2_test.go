@@ -220,7 +220,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			bs := &BestEffortBatchingStrategy{}
 			p.batchingStrategy = bs
 
-			_, err = p.Observation(ctx, types.ReportTimestamp{}, types.Query{})
+			_, err = p.Observation(ctx, ocrtypes.ReportTimestamp{}, types.Query{})
 			if tc.expErr {
 				assert.Error(t, err)
 				return
@@ -331,6 +331,11 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		Proofs:            [][32]byte{{}},
 		ProofFlagBits:     big.NewInt(1),
 	}
+	reportTimestamp := ocrtypes.ReportTimestamp{
+		ConfigDigest: [32]byte{1, 2, 3},
+		Epoch:        1,
+		Round:        1,
+	}
 
 	encodedReport := encodeExecutionReport(t, report)
 	mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
@@ -349,13 +354,13 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 	mockedExecState := mockOffRampReader.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(cciptypes.ExecutionStateUntouched), nil).Once()
 
-	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
+	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), reportTimestamp, encodedReport)
 	require.NoError(t, err)
 	assert.True(t, should)
 
 	mockedExecState.Return(uint8(cciptypes.ExecutionStateSuccess), nil).Once()
 
-	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
+	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), reportTimestamp, encodedReport)
 	require.NoError(t, err)
 	assert.False(t, should)
 }
@@ -477,7 +482,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 		ctx, observations[0].SeqNr, observations[len(observations)-1].SeqNr, false).Return(sendReqs, nil)
 	p.onRampReader = sourceReader
 
-	execReport, err := p.buildReport(ctx, p.lggr, observations)
+	execReport, err := p.buildReport(ctx, p.lggr, observations, ocrtypes.ReportTimestamp{})
 	assert.NoError(t, err)
 	assert.LessOrEqual(t, len(execReport), MaxExecutionReportLength, "built execution report length")
 }

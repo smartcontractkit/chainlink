@@ -26,6 +26,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	Capabilities                []CapabilitiesRegistryCapability   `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
 	Nodes                       []CapabilitiesRegistryNodeParams   `json:"nodes,omitempty" yaml:"nodes,omitempty"`
 	DONs                        []CapabilitiesRegistryNewDONParams `json:"dons,omitempty" yaml:"dons,omitempty"`
+	Qualifier                   string                             `json:"qualifier,omitempty" yaml:"qualifier,omitempty"`
 }
 
 type ConfigureCapabilitiesRegistryDeps struct {
@@ -51,7 +52,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.Qualifier)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}

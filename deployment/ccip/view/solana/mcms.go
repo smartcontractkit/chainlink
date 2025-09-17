@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/mcm"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 
+	solanashared "github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 
@@ -65,11 +65,13 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 		return view, fmt.Errorf("failed to load mcms with timelock solana chain state: %w", err)
 	}
 	timelockConfigPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	accountInfo, err := chain.Client.GetAccountInfoWithOpts(context.Background(), mcmState.TimelockProgram, &rpc.GetAccountInfoOpts{
-		Commitment: cldf_solana.SolDefaultCommitment,
-	})
+	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, mcmState.TimelockProgram)
 	if err != nil {
-		return view, fmt.Errorf("failed to get account info for program %s: %w", mcmState.TimelockProgram.String(), err)
+		return view, fmt.Errorf("failed to get program data address for program %s: %w", mcmState.TimelockProgram.String(), err)
+	}
+	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
+	if err != nil {
+		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 	}
 	var timelockData timelock.Config
 	err = chain.GetAccountDataBorshInto(context.Background(), timelockConfigPDA, &timelockData)
@@ -78,7 +80,7 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 	}
 	view.Timelock = TimelockView{
 		PDA:                           timelockConfigPDA.String(),
-		UpgradeAuthority:              accountInfo.Value.Owner.String(),
+		UpgradeAuthority:              authority.String(),
 		Owner:                         timelockData.Owner.String(),
 		ProposedOwner:                 timelockData.ProposedOwner.String(),
 		ProposerRoleAccessController:  timelockData.ProposerRoleAccessController.String(),
@@ -87,11 +89,13 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 		BypasserRoleAccessController:  timelockData.BypasserRoleAccessController.String(),
 		MinDelay:                      timelockData.MinDelay,
 	}
-	accountInfo, err = chain.Client.GetAccountInfoWithOpts(context.Background(), mcmState.McmProgram, &rpc.GetAccountInfoOpts{
-		Commitment: cldf_solana.SolDefaultCommitment,
-	})
+	progDataAddr, err = solanashared.GetProgramDataAddress(chain.Client, mcmState.McmProgram)
 	if err != nil {
-		return view, fmt.Errorf("failed to get account info for program %s: %w", mcmState.McmProgram.String(), err)
+		return view, fmt.Errorf("failed to get program data address for program %s: %w", mcmState.McmProgram.String(), err)
+	}
+	authority, _, err = solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
+	if err != nil {
+		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
 	}
 	view.MCMS = MCMSView{
 		Bypasser:  MCMSConfig{},
@@ -114,7 +118,7 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 		currConfig := MCMSConfig{
 			PDA:              mcmConfig.pda.String(),
 			ProgramID:        mcmState.McmProgram.String(),
-			UpgradeAuthority: accountInfo.Value.Owner.String(),
+			UpgradeAuthority: authority.String(),
 			ChainID:          mcmData.ChainId,
 			MultisigID:       string(mcmData.MultisigId[:]),
 			Owner:            mcmData.Owner.String(),
