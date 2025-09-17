@@ -167,7 +167,7 @@ func NewNodes(
 	for _, aptosChain := range cfg.BlockChains.AptosChains() {
 		fundNodesAptos(t, aptosChain, nodes)
 	}
-	for _, solChain := range cfg.BlockChains.SolChains() {
+	for _, solChain := range cfg.BlockChains.SolanaChains() {
 		fundNodesSol(t, solChain, nodes)
 	}
 
