@@ -18,6 +18,8 @@ const (
 	CapabilityExecutionStarted string = "CapabilityExecutionStarted"
 	// CapabilityExecutionFinished represents a capability execution finished event
 	CapabilityExecutionFinished string = "CapabilityExecutionFinished"
+	// TriggerExecutionStarted represents a trigger execution started event
+	TriggerExecutionStarted string = "TriggerExecutionStarted"
 	// UserLogs represents user log events
 	UserLogs string = "UserLogs"
 
@@ -39,6 +41,7 @@ const (
 	SchemaWorkflowFinishedV2   string = "/cre-events-workflow-finished/v2"
 	SchemaCapabilityStartedV2  string = "/cre-events-capability-started/v2"
 	SchemaCapabilityFinishedV2 string = "/cre-events-capability-finished/v2"
+	SchemaTriggerStartedV2     string = "/cre-events-trigger-started/v2"
 	SchemaUserLogsV2           string = "/cre-events-user-logs/v2"
 	SchemaWorkflowActivatedV2  string = "/cre-events-workflow-activated/v2"
 	SchemaWorkflowPausedV2     string = "/cre-events-workflow-paused/v2"

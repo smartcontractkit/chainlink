@@ -381,7 +381,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 // startExecution initiates a new workflow execution, blocking until completed
 func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
 	triggerEvent := wrappedTriggerEvent.event.Event
-	executionID, err := types.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
 	if err != nil {
 		e.lggr.Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 		return
