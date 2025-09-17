@@ -7,10 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -18,12 +14,12 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -57,9 +53,7 @@ type eventHandler struct {
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
 	billingClient          metering.BillingClient
-	linkingURL             string
-	linkingTLSEnabled      bool
-	linkingClient          linkingclient.LinkingServiceClient
+	orgResolver            orgresolver.OrgResolver
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -100,16 +94,9 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 	}
 }
 
-func WithLinking(url string, tlsEnabled bool) func(*eventHandler) {
+func WithOrgResolver(orgResolver orgresolver.OrgResolver) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.linkingURL = url
-		e.linkingTLSEnabled = tlsEnabled
-	}
-}
-
-func WithLinkingClient(client linkingclient.LinkingServiceClient) func(*eventHandler) {
-	return func(e *eventHandler) {
-		e.linkingClient = client
+		e.orgResolver = orgResolver
 	}
 }
 
@@ -371,48 +358,24 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	return entry, nil
 }
 
-// fetchOrganizationID tries to fetch the organization ID from the linking service for the given workflow owner
-// If the linking service is unavailable, it returns an empty string
-// TODO update to return an error
+// fetchOrganizationID fetches the organization ID for the given workflow owner using the OrgResolver
 func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner string) (string, error) {
-	if h.linkingURL == "" {
-		return "", errors.New("linking URL is not set")
+	if h.orgResolver == nil {
+		return "", errors.New("org resolver is not available")
 	}
 
-	// Create gRPC connection
-	var opts []grpc.DialOption
-	if h.linkingTLSEnabled {
-		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-
-	conn, err := grpc.NewClient(h.linkingURL, opts...)
+	organizationID, err := h.orgResolver.Get(ctx, workflowOwner)
 	if err != nil {
-		h.lggr.Warnw("Failed to connect to linking service", "url", h.linkingURL, "error", err)
-		return "", err
-	}
-	defer conn.Close()
-
-	client := linkingclient.NewLinkingServiceClient(conn)
-
-	// the linking service is permanently flexible to the format of the workflow owner
-	// we don't need to have handling for "0x" prefix
-	resp, err := client.GetOrganizationFromWorkflowOwner(ctx, &linkingclient.GetOrganizationFromWorkflowOwnerRequest{
-		WorkflowOwner: workflowOwner,
-	})
-	if err != nil {
-		h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", workflowOwner, "error", err)
+		h.lggr.Warnw("Failed to get organization ID from org resolver", "workflowOwner", workflowOwner, "error", err)
 		return "", err
 	}
 
-	if resp == nil || resp.GetOrganizationId() == "" {
-		h.lggr.Debugw("No organization ID returned from linking service", "workflowOwner", workflowOwner)
-		return "", errors.New("no organization ID returned from linking service")
+	if organizationID == "" {
+		h.lggr.Debugw("No organization ID returned from org resolver", "workflowOwner", workflowOwner)
+		return "", errors.New("no organization ID returned from org resolver")
 	}
 
-	organizationID := resp.GetOrganizationId()
-	h.lggr.Debugw("Successfully retrieved organization ID from linking service", "workflowOwner", workflowOwner, "organizationId", organizationID)
+	h.lggr.Debugw("Successfully retrieved organization ID from org resolver", "workflowOwner", workflowOwner, "organizationId", organizationID)
 	return organizationID, nil
 }
 
@@ -481,6 +444,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		OrgResolver:                   h.orgResolver,
 	}
 	return v2.NewEngine(cfg)
 }

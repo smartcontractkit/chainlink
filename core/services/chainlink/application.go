@@ -24,7 +24,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
@@ -78,6 +77,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2pwrapper "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
@@ -348,30 +348,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if err != nil {
 			globalLogger.Infof("NewApplication: failed to create billing client; %s", err)
 		}
-	}
-
-	linkingClientURL := cfg.CRE().Linking().URL()
-	var linkingClient linkingclient.LinkingServiceClient
-	if opts.LinkingClient != nil {
-		linkingClient = opts.LinkingClient
-	} else if linkingClientURL != "" {
-		// Create gRPC connection
-		var opts []grpc.DialOption
-		if cfg.CRE().Linking().TLSEnabled() {
-			opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
-		} else {
-			opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		}
-	
-		conn, err := grpc.NewClient(h.linkingURL, opts...)
-		if err != nil {
-			globalLogger.Warnw("Failed to connect to linking service", "url", linkingClientURL, "error", err)
-		}
-		defer conn.Close()
-	
-		linkingClient = linkingclient.NewLinkingServiceClient(conn)
-	} else {
-		globalLogger.Warn("No linking client provided")
 	}
 
 	var storageClient storage.WorkflowClient
@@ -902,7 +878,6 @@ func newCREServices(
 ) (*CREServices, error) {
 	capCfg := cfg.Capabilities()
 	wCfg := cfg.Workflows()
-	creCfg := cfg.CRE()
 	var srvcs []services.ServiceCtx
 	engineLimiters, err := v2.NewLimiters(lf, nil)
 	if err != nil {
@@ -1190,6 +1165,30 @@ func newCREServices(
 
 					engineRegistry := syncerV2.NewEngineRegistry()
 
+					// Create OrgResolver for workflow owner organization resolution
+					var orgResolver orgresolver.OrgResolver
+					if cfg.CRE().Linking().URL() != "" {
+						// Convert chain selector from string to uint64
+						chainSelector, err2 := strconv.ParseUint(capCfg.WorkflowRegistry().ChainID(), 10, 64)
+						if err2 != nil {
+							return nil, fmt.Errorf("invalid workflow registry chain selector: %w", err2)
+						}
+
+						orgResolverConfig := orgresolver.Config{
+							URL:                           cfg.CRE().Linking().URL(),
+							TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
+							WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
+							WorkflowRegistryChainSelector: chainSelector,
+						}
+						orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
+						if err != nil {
+							return nil, fmt.Errorf("failed to create org resolver: %w", err)
+						}
+						srvcs = append(srvcs, orgResolver)
+					} else {
+						globalLogger.Warn("OrgResolver not created - no linking service URL configured")
+					}
+
 					eventHandler, err := syncerV2.NewEventHandler(
 						lggr,
 						workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -1205,7 +1204,7 @@ func newCREServices(
 						key,
 						syncerV2.WithBillingClient(billingClient),
 						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
-						syncerV2.WithLinking(creCfg.Linking().URL(), creCfg.Linking().TLSEnabled()),
+						syncerV2.WithOrgResolver(orgResolver),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
