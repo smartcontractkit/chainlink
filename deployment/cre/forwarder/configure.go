@@ -259,10 +259,10 @@ func (c ConfigureForwarders) VerifyPreconditions(e cldf.Environment, config Conf
 	}
 
 	if config.DON.Name == "" {
-		return fmt.Errorf("DON name cannot be empty")
+		return errors.New("DON name cannot be empty")
 	}
 	if len(config.DON.NodeIDs) == 0 {
-		return fmt.Errorf("DON must have at least one node ID")
+		return errors.New("DON must have at least one node ID")
 	}
 
 	return nil
