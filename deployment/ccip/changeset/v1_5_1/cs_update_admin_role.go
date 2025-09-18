@@ -5,11 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+
+	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -24,7 +26,7 @@ var UpdateAdminRoleChangesetV2 = cldf.CreateChangeSet(updateAdminRoleLogic, upda
 
 type UpdateAdminRoleConfig struct {
 	// Only applicable when **proposing** a new admin - this allows the existing pending administrator to be
-	// overriden if set to true. Use with caution as this will replace any existing pending admin proposals.
+	// overridden if set to true. Use with caution as this will replace any existing pending admin proposals
 	OverridePendingAdmin bool `json:"overridePendingAdmin"`
 
 	// A map of chain selector => slice of TokenAdminInfo which describes the updates to make on each chain

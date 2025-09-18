@@ -4,16 +4,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
