@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
@@ -21,7 +20,6 @@ type CreateJobsWithJdOpDeps struct {
 	Logger                    zerolog.Logger
 	SingleFileLogger          common.Logger
 	HomeChainBlockchainOutput *blockchain.Output
-	AddressBook               deployment.AddressBook
 	JobSpecFactoryFunctions   []cre.JobSpecFn
 	FullCLDEnvOutput          *cre.FullCLDEnvironmentOutput
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet

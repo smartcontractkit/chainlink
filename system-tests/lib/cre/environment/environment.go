@@ -227,7 +227,6 @@ func SetupTestEnvironment(
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
 		HomeChainBlockchainOutput: startBlockchainsOutput.RegistryChain().BlockchainOutput,
-		AddressBook:               deployKeystoneContractsOutput.Env.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		FullCLDEnvOutput:          fullCldOutput,
 		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
@@ -397,8 +396,8 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")),
 		OCR3Address:                 ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.OCR3ContractQualifier)),
 		DONTimeAddress:              ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.DONTimeContractQualifier)),
-		VaultOCR3Address:            crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier),
-		DKGOCR3Address:              crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultDKGOCR3ContractQualifier),
+		VaultOCR3Address:            crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_plugin"),
+		DKGOCR3Address:              crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_dkg"),
 		EVMOCR3Addresses:            evmOCR3AddressesFromDataStore(startBlockchainsOutput.BlockChainOutputs, updatedNodeSets, deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector),
 		ConsensusV2OCR3Address:      crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
