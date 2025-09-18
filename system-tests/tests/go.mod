@@ -17,9 +17,7 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron => ../../core/scripts/cre/environment/examples/workflows/v2/cron
 
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evm/evmread => ./smoke/cre/evm/evm/evmread
-
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative => ./smoke/cre/evm/evmread-negative
+replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread => ./smoke/cre/evm/evmread
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative => ./smoke/cre/evm/evmread-negative
 
