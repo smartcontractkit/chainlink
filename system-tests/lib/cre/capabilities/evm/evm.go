@@ -275,6 +275,7 @@ type evmData struct {
 	WorkflowConfig   map[string]any // Configuration for EVM.Workflow section
 }
 
+// TODO PLEX-1732: refactor this method to not duplicate system-tests/lib/cre/capabilities/writeevm/write_evm.go, or guarantee it only looks for fromAddress to add it to the chain's workflow YAML element.
 func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.NodeIndexToConfigOverride) (cre.NodeIndexToConfigOverride, error) {
 	if input.NodeSet == nil {
 		return nil, errors.New("node set input is nil")

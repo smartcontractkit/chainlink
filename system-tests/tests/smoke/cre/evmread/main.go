@@ -14,8 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/go-cmp/cmp"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
@@ -23,6 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/yaml.v3"
+
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
@@ -97,9 +98,7 @@ func requireError(t *T, runtime sdk.Runtime, cfg config.Config, client evm.Clien
 	txReply, err := client.GetTransactionByHash(runtime, &evm.GetTransactionByHashRequest{Hash: make([]byte, len(cfg.TxHash))}).Await()
 	require.NotNil(t, err, "expected error when getting non existing transaction by hash")
 	require.Nil(t, txReply, "txReply expected to be nil")
-	//TODO the below should work once it picks up the new capability evm version with proper error codes
-	//require.ErrorContains(t, err, "not found", "expected error to be of type 'not found', got %s", err.Error())
-	require.True(t, strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "failed to execute capability: error executing request: INTERNAL_ERROR : failed to execute capability"), "expected error to be 'not found' or 'failed to execute capability', got %s", err.Error())
+	require.ErrorContains(t, err, "not found", "expected error to be of type 'not found', got %s", err.Error())
 	runtime.Logger().Info("Successfully got error for non-existing transaction", "error", err)
 }
 
