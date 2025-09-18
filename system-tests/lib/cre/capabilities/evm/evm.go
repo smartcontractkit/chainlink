@@ -313,7 +313,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 				return nil, errors.Errorf("failed to find selector for chain ID %d", chainID)
 			}
 
-			evmData := evmData{
+			evmDataValues := evmData{
 				ChainID:       chainID,
 				ChainSelector: chain.Selector,
 			}
@@ -322,21 +322,21 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 			if fErr != nil {
 				return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
 			}
-			evmData.ForwarderAddress = forwarderAddress.Hex()
+			evmDataValues.ForwarderAddress = forwarderAddress.Hex()
 
 			ethAddress, addrErr := findNodeEthAddressAddress(chain.Selector, workflowNodeSet[nodeIdx].Labels)
 			if addrErr != nil {
 				return nil, errors.Wrapf(addrErr, "failed to get ETH address for chain %d for node at index %d", chain.Selector, nodeIdx)
 			}
-			evmData.FromAddress = *ethAddress
+			evmDataValues.FromAddress = *ethAddress
 
 			var mergeErr error
-			evmData, mergeErr = mergeDefaultAndRuntimeConfigValues(evmData, input.CapabilityConfigs, input.NodeSet.ChainCapabilities, chainID)
+			evmDataValues, mergeErr = mergeDefaultAndRuntimeConfigValues(evmDataValues, input.CapabilityConfigs, input.NodeSet.ChainCapabilities, chainID)
 			if mergeErr != nil {
 				return nil, errors.Wrap(mergeErr, "failed to merge default and runtime evm config values")
 			}
 
-			data = append(data, evmData)
+			data = append(data, evmDataValues)
 		}
 
 		if len(existingConfigs) < nodeIndex+1 {
