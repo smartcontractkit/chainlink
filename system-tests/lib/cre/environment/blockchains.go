@@ -189,10 +189,10 @@ func wrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlock
 
 	// if jsonrpc is not present, add it
 	if !strings.Contains(bcOut.Nodes[0].ExternalHTTPUrl, "/jsonrpc") {
-		bcOut.Nodes[0].ExternalHTTPUrl = bcOut.Nodes[0].ExternalHTTPUrl + "/jsonrpc"
+		bcOut.Nodes[0].ExternalHTTPUrl += "/jsonrpc"
 	}
 	if !strings.Contains(bcOut.Nodes[0].InternalHTTPUrl, "/jsonrpc") {
-		bcOut.Nodes[0].InternalHTTPUrl = bcOut.Nodes[0].InternalHTTPUrl + "/jsonrpc"
+		bcOut.Nodes[0].InternalHTTPUrl += "/jsonrpc"
 	}
 
 	externalHTTPURL := bcOut.Nodes[0].ExternalHTTPUrl

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -29,10 +30,13 @@ func deployCacheLogic(env cldf.Environment, c types.DeployTronConfig) (cldf.Chan
 		}
 		lggr.Infof("Deployed %s chain selector %d addr %s", cacheResponse.Tv.String(), chain.Selector, cacheResponse.Address.String())
 
-		// Convert Tron address to Ethereum hex format for AddressBook compatibility
-		ethHexAddr := cacheResponse.Address.EthAddress().Hex()
+		addr := cacheResponse.Address.String()
+		isEvm, _ := chain_selectors.IsEvm(chainSelector)
+		if isEvm {
+			addr = cacheResponse.Address.EthAddress().Hex()
+		}
 
-		err = ab.Save(chain.Selector, ethHexAddr, cacheResponse.Tv)
+		err = ab.Save(chain.Selector, addr, cacheResponse.Tv)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save DataFeedsCache: %w", err)
 		}
@@ -40,7 +44,7 @@ func deployCacheLogic(env cldf.Environment, c types.DeployTronConfig) (cldf.Chan
 		if err = dataStore.Addresses().Add(
 			datastore.AddressRef{
 				ChainSelector: chainSelector,
-				Address:       ethHexAddr,
+				Address:       addr,
 				Type:          cs.DataFeedsCache,
 				Version:       semver.MustParse("1.0.0"),
 				Qualifier:     c.Qualifier,

@@ -6,6 +6,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -28,10 +30,13 @@ func deployReadBalanceLogic(env cldf.Environment, c types.DeployTronConfig) (cld
 		}
 		lggr.Infof("Deployed %s chain selector %d addr %s", readBalanceResponse.Tv.String(), chain.Selector, readBalanceResponse.Address.String())
 
-		// Convert Tron address to Ethereum hex format for AddressBook compatibility
-		ethHexAddr := readBalanceResponse.Address.EthAddress().Hex()
+		addr := readBalanceResponse.Address.String()
+		isEvm, _ := chain_selectors.IsEvm(chainSelector)
+		if isEvm {
+			addr = readBalanceResponse.Address.EthAddress().Hex()
+		}
 
-		err = ab.Save(chain.Selector, ethHexAddr, readBalanceResponse.Tv)
+		err = ab.Save(chain.Selector, addr, readBalanceResponse.Tv)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ReadBalances: %w", err)
 		}
@@ -39,7 +44,7 @@ func deployReadBalanceLogic(env cldf.Environment, c types.DeployTronConfig) (cld
 		if err = dataStore.Addresses().Add(
 			datastore.AddressRef{
 				ChainSelector: chainSelector,
-				Address:       ethHexAddr,
+				Address:       addr,
 				Type:          datastore.ContractType(readBalanceResponse.Tv.Type),
 				Version:       semver.MustParse("1.0.0"),
 				Qualifier:     c.Qualifier,

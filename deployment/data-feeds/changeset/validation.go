@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -96,9 +98,12 @@ func ValidateCacheForTronChain(env cldf.Environment, chainSelector uint64, cache
 	if chainState.DataFeeds == nil {
 		return errors.New("DataFeeds not found in on chain state")
 	}
-	// Convert Tron address to Ethereum hex format for lookup, matching our storage format
-	ethHexAddr := cacheAddress.EthAddress().Hex()
-	exists := chainState.DataFeeds[ethHexAddr]
+	addr := cacheAddress.String()
+	isEvm, _ := chain_selectors.IsEvm(chainSelector)
+	if isEvm {
+		addr = cacheAddress.EthAddress().Hex()
+	}
+	exists := chainState.DataFeeds[addr]
 	if !exists {
 		return errors.New("contract not found in on chain state")
 	}
