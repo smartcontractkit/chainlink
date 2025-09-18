@@ -47,6 +47,7 @@ type updateAdminRoleConfigs struct {
 
 func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleConfigs, error) {
 	if cfg.configs != nil {
+		e.Logger.Info("using cached configs")
 		return *cfg.configs, nil
 	}
 
@@ -161,51 +162,65 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 
 func updateAdminRolePrecondition(e cldf.Environment, cfg UpdateAdminRoleConfig) error {
 	if len(cfg.ChainUpdates) == 0 {
+		e.Logger.Warn("no chain updates were provided - exiting precondition stage gracefully")
 		return nil
 	}
 
+	e.Logger.Info("populating internal configs for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2")
 	configs, err := cfg.populate(e)
 	if err != nil {
 		return fmt.Errorf("failed to populate internal configs: %w", err)
 	}
 
 	if configs.orchestrateChangesetsConfig != nil {
+		e.Logger.Info("MCMS config detected - using OrchestrateChangesets to verify preconditions")
 		return ccipcommoncs.OrchestrateChangesets.VerifyPreconditions(e, *configs.orchestrateChangesetsConfig)
 	}
 
+	e.Logger.Info("no MCMS config detected - verifying preconditions for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2 individually")
 	if configs.transferAdminRoleConfig != nil {
+		e.Logger.Info("verifying preconditions TransferAdminRoleChangesetV2...")
 		err := TransferAdminRoleChangesetV2.VerifyPreconditions(e, *configs.transferAdminRoleConfig)
 		if err != nil {
 			return err
 		}
+		e.Logger.Info("successfully verified preconditions for TransferAdminRoleChangesetV2")
 	}
-
 	if configs.proposeAdminRoleConfig != nil {
+		e.Logger.Info("verifying preconditions ProposeAdminRoleChangesetV2...")
 		err := ProposeAdminRoleChangesetV2.VerifyPreconditions(e, *configs.proposeAdminRoleConfig)
 		if err != nil {
 			return err
 		}
+		e.Logger.Info("successfully verified preconditions for ProposeAdminRoleChangesetV2")
 	}
+	e.Logger.Info("all preconditions have been satisfied for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2")
 
 	return nil
 }
 
 func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.ChangesetOutput, error) {
+	result := cldf.ChangesetOutput{}
+
 	if len(cfg.ChainUpdates) == 0 {
+		e.Logger.Warn("no chain updates were provided - exiting apply stage gracefully")
 		return cldf.ChangesetOutput{}, nil
 	}
 
+	e.Logger.Info("populating internal configs for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2")
 	configs, err := cfg.populate(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate internal configs: %w", err)
 	}
 
 	if configs.orchestrateChangesetsConfig != nil {
+		e.Logger.Info("MCMS config detected - using OrchestrateChangesets to batch all operations into one MCMS proposal")
 		return ccipcommoncs.OrchestrateChangesets.Apply(e, *configs.orchestrateChangesetsConfig)
 	}
 
-	result := cldf.ChangesetOutput{}
+	e.Logger.Info("no MCMS config detected - applying TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2 sequentially")
 	if configs.transferAdminRoleConfig != nil {
+		e.Logger.Info("applying TransferAdminRoleChangesetV2...")
 		transferOutput, err := TransferAdminRoleChangesetV2.Apply(e, *configs.transferAdminRoleConfig)
 		if err != nil {
 			result.Reports = append(result.Reports, transferOutput.Reports...)
@@ -213,7 +228,9 @@ func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.C
 		}
 		e.Logger.Info("successfully applied TransferAdminRoleChangesetV2")
 	}
+
 	if configs.proposeAdminRoleConfig != nil {
+		e.Logger.Info("applying ProposeAdminRoleChangesetV2...")
 		proposeOutput, err := ProposeAdminRoleChangesetV2.Apply(e, *configs.proposeAdminRoleConfig)
 		if err != nil {
 			result.Reports = append(result.Reports, proposeOutput.Reports...)
@@ -221,6 +238,7 @@ func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.C
 		}
 		e.Logger.Info("successfully applied ProposeAdminRoleChangesetV2")
 	}
+	e.Logger.Info("finished applying TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2")
 
 	return result, nil
 }

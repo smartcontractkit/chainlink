@@ -334,10 +334,10 @@ func TestUpdateAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	// First propose admin roles for multiple tokens - timelock becomes pending admin
 	e, err := commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
-			v1_5_1.ProposeAdminRoleChangesetV2,
-			v1_5_1.ProposeAdminRoleConfig{
+			v1_5_1.UpdateAdminRoleChangesetV2,
+			v1_5_1.UpdateAdminRoleConfig{
 				MCMS: mcmsConfig,
-				ProposeAdminByChain: map[uint64][]v1_5_1.TokenAdminInfo{
+				ChainUpdates: map[uint64][]v1_5_1.TokenAdminInfo{
 					selectorA: {
 						{TokenAddress: token1, AdminAddress: newAdmin},
 						{TokenAddress: token2, AdminAddress: newAdmin},
