@@ -351,13 +351,14 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		//  2. CCIP doesn't provide contract transmitter, we use CT factory with CW to create one
 		//  3. Contract transmitter not supported, use noop transmitter
 		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
-		if exist && ct != nil {
+		switch {
+		case exist && ct != nil:
 			// case 1
 			i.lggr.Infow("contracts transmitter provided from CCIP provider",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
 			transmitter = ct
-		} else if destChainWriter != nil {
+		case destChainWriter != nil:
 			// case 2
 			if len(destFromAccounts) == 0 {
 				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
@@ -373,7 +374,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				consts.MethodCommit,
 				pluginConfig.PriceOnlyCommitFn,
 			)
-		} else {
+		default:
 			// case 3
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
@@ -421,13 +422,14 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		)
 
 		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
-		if exist && ct != nil {
+		switch {
+		case exist && ct != nil:
 			// case 1
 			i.lggr.Infow("contracts transmitter provided from CCIP provider",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
 			transmitter = ct
-		} else if destChainWriter != nil {
+		case destChainWriter != nil:
 			// case 2
 			if len(destFromAccounts) == 0 {
 				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
@@ -441,7 +443,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ocrtypes.Account(destFromAccounts[0]),
 				offrampAddrStr,
 			)
-		} else {
+		default:
 			// case 3
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
