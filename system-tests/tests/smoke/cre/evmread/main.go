@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/go-cmp/cmp"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
@@ -21,9 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/yaml.v3"
-
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
