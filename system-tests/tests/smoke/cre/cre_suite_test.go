@@ -79,9 +79,18 @@ func Test_CRE_Suite_EVM(t *testing.T) {
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
 	})
 
-	t.Run("[v2] EVM Read test", func(t *testing.T) {
-		executeEVMReadTest(t, testEnv)
+	t.Run("[v2] EVM Read happy path test", func(t *testing.T) {
+		ExecuteEVMReadTest(t, testEnv)
 	})
+
+	// negative tests for evm read
+	// TODO: move to a separate package
+	for _, tCase := range evmNegativeTests {
+		testName := fmt.Sprintf("[v2] EVM.%s fails with %s (%s)", tCase.functionToTest, tCase.name, tCase.invalidInput)
+		t.Run(testName, func(t *testing.T) {
+			EVMReadFailsTest(t, testEnv, tCase)
+		})
+	}
 }
 
 func Test_withV2Registries(t *testing.T) {

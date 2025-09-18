@@ -99,7 +99,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 bootstrap job input: %w", err)
 		}
 
-		addrRefKey := pkg.GetOCR3CapabilityV2AddressRefKey(jobInput.ChainSelector, jobInput.ContractQualifier)
+		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(jobInput.ChainSelector, jobInput.ContractQualifier)
 		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelector, jobInput.ContractQualifier, err)
@@ -131,7 +131,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 job input: %w", err)
 		}
 
-		addrRefKey := pkg.GetOCR3CapabilityV2AddressRefKey(jobInput.ChainSelectorEVM, jobInput.ContractQualifier)
+		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(jobInput.ChainSelectorEVM, jobInput.ContractQualifier)
 		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)

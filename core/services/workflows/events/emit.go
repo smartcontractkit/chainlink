@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -218,6 +219,22 @@ func EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, e
 	return multiErr
 }
 
+func EmitTriggerExecutionStarted(ctx context.Context, labels map[string]string, triggerID, workflowExecutionID string) error {
+	// Emit v2 event
+	creInfo := buildCREMetadataV2(labels)
+	workflowKey := buildWorkflowKeyV2(labels)
+
+	v2Event := &eventsv2.TriggerExecutionStarted{
+		CreInfo:             creInfo,
+		Workflow:            workflowKey,
+		WorkflowExecutionID: workflowExecutionID,
+		Timestamp:           time.Now().Format(time.RFC3339),
+		TriggerID:           triggerID,
+	}
+
+	return emitProtoMessage(ctx, v2Event)
+}
+
 func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status string, capErr error) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
@@ -321,6 +338,23 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 	return multiErr
 }
 
+// GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
+// hash of (workflowID, triggerEventID)
+func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
+	s := sha256.New()
+	_, err := s.Write([]byte(workflowID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(triggerEventID))
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(s.Sum(nil)), nil
+}
+
 // EmitProtoMessage marshals a proto.Message and emits it via beholder.
 func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	b, err := proto.Marshal(msg)
@@ -366,6 +400,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.CapabilityExecutionFinished:
 		schema = SchemaCapabilityFinishedV2
 		entity = "workflows.v2." + CapabilityExecutionFinished
+	case *eventsv2.TriggerExecutionStarted:
+		schema = SchemaTriggerStartedV2
+		entity = "workflows.v2." + TriggerExecutionStarted
 	case *eventsv2.WorkflowUserLog:
 		schema = SchemaUserLogsV2
 		entity = "workflows.v2." + UserLogs

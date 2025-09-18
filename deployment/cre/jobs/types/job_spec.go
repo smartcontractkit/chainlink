@@ -86,6 +86,7 @@ func (j JobSpecInput) ToOCR3BootstrapJobInput() (pkg.BootstrapJobInput, error) {
 
 func (j JobSpecInput) ToOCR3JobConfigInput() (pkg.OCR3JobConfigInput, error) {
 	// Required: template_name
+	// TODO: validate all supported templates
 	rawTemplate, ok := j["template_name"].(string)
 	if !ok || strings.TrimSpace(rawTemplate) == "" {
 		return pkg.OCR3JobConfigInput{}, errors.New("template_name is required and must be a non-empty string")

@@ -36,7 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
+	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative/config"
+	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -159,6 +160,10 @@ func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
+
+	// Drain any existing messages in the channels before validation
+	drainChannels(messageChan, kafkaErrChan)
+
 	// Start message processor goroutine
 	go func() {
 		for {
@@ -229,6 +234,21 @@ func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	return nil
 }
 
+func drainChannels(messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
+	// Drain any existing messages
+	for {
+		select {
+		case <-messageChan:
+			// Discard old messages
+		case <-kafkaErrChan:
+			// Discard old errors
+		default:
+			// Channels are empty, exit
+			return
+		}
+	}
+}
+
 //////////////////////////////
 //      CRYPTO HELPERS      //
 //////////////////////////////
@@ -272,7 +292,8 @@ type WorkflowConfig interface {
 		portypes.WorkflowConfig |
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
-		evmread_config.Config
+		evmread_config.Config |
+		evmread_negative_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -343,25 +364,32 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create PoR workflow config file")
-			testLogger.Info().Msg("PoR Workflow config file created.")
+			testLogger.Info().Msg("PoR workflow config file created.")
 
 		case *crontypes.WorkflowConfig:
 			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
-			testLogger.Info().Msg("Cron Workflow config file created.")
+			testLogger.Info().Msg("Cron workflow config file created.")
 
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create HTTP workflow config file")
-			testLogger.Info().Msg("HTTP Workflow config file created.")
+			testLogger.Info().Msg("HTTP workflow config file created.")
 
 		case *evmread_config.Config:
-			var configErr error
-			workflowConfigFilePath, configErr = createWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread workflow config file")
-			testLogger.Info().Msg("EVM Read Workflow config file created.")
+			testLogger.Info().Msg("EVM Read workflow config file created.")
+
+		case *evmread_negative_config.Config:
+			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create evmread-negative workflow config file")
+			testLogger.Info().Msg("EVM Read negative workflow config file created.")
+
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
 		}

@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -37,15 +37,9 @@ func createTestMetrics(t *testing.T) *metrics.Metrics {
 	return m
 }
 
-func requireUserErrorSent(t *testing.T, callbackCh chan handlers.UserCallbackPayload, errorCode int) {
-	select {
-	case payload := <-callbackCh:
-		require.NotEmpty(t, payload.RawResponse)
-		fmt.Printf("Received error payload: %+v\n", payload.RawResponse)
-		require.Equal(t, api.ErrorCode(errorCode), payload.ErrorCode)
-	case <-t.Context().Done():
-		t.Fatal("Expected error callback")
-	}
+func requireUserErrorSent(t *testing.T, payload handlers.UserCallbackPayload, errorCode int) {
+	require.NotEmpty(t, payload.RawResponse)
+	require.Equal(t, api.ErrorCode(errorCode), payload.ErrorCode)
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
@@ -67,14 +61,14 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 	t.Run("successful trigger request", func(t *testing.T) {
 		handler, mockDon := createTestTriggerHandler(t)
 		registerWorkflow(t, handler, triggerReq.Workflow.WorkflowID, privateKey)
-		callbackCh := make(chan<- handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		// Mock DON to expect sends to all nodes
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.NoError(t, err)
 
 		handler.callbacksMu.Lock()
@@ -82,13 +76,13 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		handler.callbacksMu.Unlock()
 
 		require.True(t, exists)
-		require.Equal(t, callbackCh, saved.callbackCh)
+		require.Equal(t, callback, saved.Callback)
 		require.NotNil(t, saved.responseAggregator)
 	})
 
 	t.Run("invalid JSON params", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		rawParams := json.RawMessage(`{invalid json}`)
 		req := &jsonrpc.Request[json.RawMessage]{
@@ -98,15 +92,17 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err := handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err := handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrParse))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrParse))
 	})
 
 	t.Run("empty request ID", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		triggerReq := createTestTriggerRequest()
 		reqBytes, err := json.Marshal(triggerReq)
@@ -120,16 +116,18 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty request ID")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 
 	t.Run("request ID contains slash", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -148,16 +146,18 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "must not contain '/'")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 
 	t.Run("invalid method", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -176,19 +176,21 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid method")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrMethodNotFound))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrMethodNotFound))
 	})
 
 	t.Run("duplicate request ID", func(t *testing.T) {
 		handler, mockDon := createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
 		registerWorkflow(t, handler, workflowID, privateKey)
-		callbackCh1 := make(chan handlers.UserCallbackPayload, 1)
-		callbackCh2 := make(chan handlers.UserCallbackPayload, 1)
+		callback1 := hc.NewCallback()
+		callback2 := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -210,19 +212,21 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		// First request should succeed
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh1, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback1, time.Now())
 		require.NoError(t, err)
 
 		// Second request with same ID should fail
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh2, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback2, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "in-flight request")
-		requireUserErrorSent(t, callbackCh2, int(jsonrpc.ErrConflict))
+		r, err := callback2.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrConflict))
 	})
 
 	t.Run("invalid input JSON", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		rawParams := json.RawMessage([]byte(`{"workflow":{"workflowID":"0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"},"input":{"invalid json"}`))
 		req := &jsonrpc.Request[json.RawMessage]{
@@ -232,7 +236,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err := handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err := handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 	})
 }
@@ -242,7 +246,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 		handler, mockDon := createTestTriggerHandler(t)
 		privateKey := createTestPrivateKey(t)
 		registerWorkflow(t, handler, workflowID, privateKey)
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		// First, create a trigger request to set up the callback
 		triggerReq := gateway_common.HTTPTriggerRequest{
@@ -264,7 +268,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 		req.Auth = createTestJWTToken(t, req, privateKey)
 
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.NoError(t, err)
 		// Create node responses
 		rawRes := json.RawMessage(`{"result":"success"}`)
@@ -286,18 +290,15 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that callback was called
-		select {
-		case payload := <-callbackCh:
-			require.NotEmpty(t, payload.RawResponse)
-			require.Equal(t, api.NoError, payload.ErrorCode)
+		payload, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		require.NotEmpty(t, payload.RawResponse)
+		require.Equal(t, api.NoError, payload.ErrorCode)
 
-			var resp jsonrpc.Response[json.RawMessage]
-			err := json.Unmarshal(payload.RawResponse, &resp)
-			require.NoError(t, err)
-			require.Equal(t, nodeResp.Result, resp.Result)
-		case <-t.Context().Done():
-			t.Fatal("Expected callback")
-		}
+		var resp jsonrpc.Response[json.RawMessage]
+		err = json.Unmarshal(payload.RawResponse, &resp)
+		require.NoError(t, err)
+		require.Equal(t, nodeResp.Result, resp.Result)
 	})
 
 	t.Run("callback not found", func(t *testing.T) {
@@ -389,9 +390,9 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 	registerWorkflow(t, handler, workflowID, privateKey)
 
 	t.Run("reap expired callbacks", func(t *testing.T) {
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.NoError(t, err)
 
 		// Manually set the callback's createdAt to the past to simulate expiration
@@ -413,10 +414,10 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 	})
 
 	t.Run("keep non-expired callbacks", func(t *testing.T) {
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.NoError(t, err)
 
 		// Optionally, set createdAt to now (should not be expired)
@@ -520,7 +521,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 		}
 		req.Auth = createTestJWTToken(t, req, privateKey)
 
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		// First attempt: node1 succeeds, node2 and node3 fail
 		mockDon.On("SendToNode", mock.Anything, "node1", mock.Anything).Return(nil).Once()
@@ -537,7 +538,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 		err := handler.Start(testutils.Context(t))
 		require.NoError(t, err)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.NoError(t, err)
 
 		mockDon.AssertExpectations(t)
@@ -573,7 +574,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	}
 
 	t.Run("successful JWT authorization", func(t *testing.T) {
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		triggerReq := createTestTriggerRequest()
 		reqBytes, err2 := json.Marshal(triggerReq)
@@ -598,7 +599,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.NoError(t, err)
 		handler.callbacksMu.Lock()
 		_, exists := handler.callbacks[req.ID]
@@ -607,7 +608,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	})
 
 	t.Run("invalid JWT token", func(t *testing.T) {
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		triggerReq := createTestTriggerRequest()
 		reqBytes, err2 := json.Marshal(triggerReq)
@@ -622,15 +623,17 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 			Auth:    "invalid.jwt.token",
 		}
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, ierr := callback.Wait(t.Context())
+		require.NoError(t, ierr)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 
 	t.Run("unauthorized signer", func(t *testing.T) {
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 		unauthorizedKey := createTestPrivateKey(t)
 
 		triggerReq := createTestTriggerRequest()
@@ -648,15 +651,17 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		jwtToken := createTestJWTToken(t, req, unauthorizedKey)
 		req.Auth = jwtToken
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, ierr := callback.Wait(t.Context())
+		require.NoError(t, ierr)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 
 	t.Run("workflow not found", func(t *testing.T) {
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -678,11 +683,13 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		jwtToken := createTestJWTToken(t, req, privateKey)
 		req.Auth = jwtToken
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 }
 
@@ -716,7 +723,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	handler.workflowMetadataHandler.workflowRefToID[workflowRef] = workflowID
 
 	t.Run("successful workflow lookup by name", func(t *testing.T) {
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -746,12 +753,12 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.NoError(t, err)
 	})
 
 	t.Run("workflow not found by name", func(t *testing.T) {
-		callbackCh := make(chan handlers.UserCallbackPayload, 1)
+		callback := hc.NewCallback()
 
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
@@ -775,18 +782,20 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 		jwtToken := createTestJWTToken(t, req, privateKey)
 		req.Auth = jwtToken
 
-		err = handler.HandleUserTriggerRequest(ctx, req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(ctx, req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflow not found")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 }
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 	handler, _ := createTestTriggerHandler(t)
-	callbackCh := make(chan handlers.UserCallbackPayload, 1)
 
 	t.Run("workflowID without 0x prefix", func(t *testing.T) {
+		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
 				WorkflowID: "1234567890abcdef1234567890abcdef12345678901234567890abcdef123456", // Missing 0x
@@ -804,14 +813,17 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowID must be prefixed with '0x'")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 
 	t.Run("workflowOwner without 0x prefix", func(t *testing.T) {
+		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
 				WorkflowOwner: "1234567890abcdef1234567890abcdef12345678", // Missing 0x
@@ -831,14 +843,17 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowOwner must be prefixed with '0x'")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 
 	t.Run("workflowID uppercase", func(t *testing.T) {
+		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
 				WorkflowID: "0x1234567890ABCDEF1234567890abcdef12345678901234567890abcdef123456", // Contains uppercase
@@ -856,14 +871,17 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowID must be lowercase")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 
 	t.Run("workflowOwner uppercase", func(t *testing.T) {
+		callback := hc.NewCallback()
 		triggerReq := gateway_common.HTTPTriggerRequest{
 			Workflow: gateway_common.WorkflowSelector{
 				WorkflowOwner: "0x1234567890ABCDEF1234567890abcdef12345678", // Contains uppercase
@@ -883,11 +901,13 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callbackCh, time.Now())
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowOwner must be lowercase")
 
-		requireUserErrorSent(t, callbackCh, int(jsonrpc.ErrInvalidRequest))
+		r, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
 	})
 }
 

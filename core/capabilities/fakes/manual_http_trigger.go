@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 var _ services.Service = (*ManualHTTPTriggerService)(nil)
@@ -25,8 +27,9 @@ var manualHTTPTriggerInfo = capabilities.MustNewCapabilityInfo(
 
 type ManualHTTPTriggerService struct {
 	capabilities.CapabilityInfo
-	lggr       logger.Logger
-	callbackCh map[string]chan capabilities.TriggerAndId[*httptypedapi.Payload]
+	lggr        logger.Logger
+	callbackCh  map[string]chan capabilities.TriggerAndId[*httptypedapi.Payload]
+	workflowIDs map[string]string // triggerID -> workflowID mapping
 }
 
 func NewManualHTTPTriggerService(parentLggr logger.Logger) *ManualHTTPTriggerService {
@@ -36,12 +39,14 @@ func NewManualHTTPTriggerService(parentLggr logger.Logger) *ManualHTTPTriggerSer
 		CapabilityInfo: manualHTTPTriggerInfo,
 		lggr:           lggr,
 		callbackCh:     make(map[string]chan capabilities.TriggerAndId[*httptypedapi.Payload]),
+		workflowIDs:    make(map[string]string),
 	}
 }
 
 // HTTPCapability interface methods
 func (f *ManualHTTPTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) (<-chan capabilities.TriggerAndId[*httptypedapi.Payload], error) {
 	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*httptypedapi.Payload])
+	f.workflowIDs[triggerID] = metadata.WorkflowID
 	return f.callbackCh[triggerID], nil
 }
 
@@ -64,6 +69,26 @@ func (f *ManualHTTPTriggerService) Initialise(ctx context.Context, config string
 
 // ManualTriggerCapability interface method
 func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, triggerID string, payload *httptypedapi.Payload) error {
+	triggerEvent := f.createManualTriggerEvent(payload)
+
+	triggerEventID := triggerEvent.Id
+
+	workflowID, exists := f.workflowIDs[triggerID]
+	if !exists {
+		f.lggr.Errorw("workflowID not found for triggerID", "triggerID", triggerID)
+		workflowID = "unknownWorkflow"
+	}
+
+	workflowExecutionID, err := events.GenerateExecutionID(workflowID, triggerEventID)
+	if err != nil {
+		f.lggr.Errorw("failed to generate execution ID", "err", err)
+		workflowExecutionID = ""
+	}
+	err = events.EmitTriggerExecutionStarted(ctx, map[string]string{}, triggerEventID, workflowExecutionID)
+	if err != nil {
+		f.lggr.Errorw("failed to emit trigger execution started event", "err", err)
+	}
+
 	// Run in a goroutine to avoid blocking
 	go func() {
 		select {
