@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
@@ -28,7 +30,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	config2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 )
 
 func AddLanes(t *testing.T, e cldf.Environment, state stateview.CCIPOnChainState, pairs []testhelpers.SourceDestPair) cldf.Environment {
