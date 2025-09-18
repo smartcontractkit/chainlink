@@ -12,12 +12,13 @@ import (
 	"github.com/xssnick/tonutils-go/tlb"
 	"golang.org/x/mod/modfile"
 
+	"github.com/xssnick/tonutils-go/ton/wallet"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_ton_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton/provider"
 	"github.com/smartcontractkit/chainlink-ton/deployment/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/xssnick/tonutils-go/ton/wallet"
 )
 
 func getTestTonChainSelectors() []uint64 {
