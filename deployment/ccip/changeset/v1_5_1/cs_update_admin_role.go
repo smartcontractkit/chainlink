@@ -16,8 +16,10 @@ import (
 // UpdateAdminRoleChangesetV2 is a changeset that can propose AND transfer administrator roles for tokens
 // on the token admin registry. It takes array of TokenAdminInfo by chain and infers whether an the admin
 // should be proposed or transferred. The TokenAdminInfo expects a TokenAddress and AdminAddress as input
-// and splits the data into one of two groups (either propose or transfer). Then it'll reuse the existing
-// validations + logic for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2.
+// and divides the data into one of two groups (either propose or transfer) depending on whether an admin
+// already exists for the token. Then, it will reuse the existing logic for the following CLD migrations:
+// TransferAdminRoleChangesetV2, ProposeAdminRoleChangesetV2. The MCMS config is shared. If it is defined
+// then OrchestrateChangesets will be used. Otherwise, the operations are run individually.
 var UpdateAdminRoleChangesetV2 = cldf.CreateChangeSet(updateAdminRoleLogic, updateAdminRolePrecondition)
 
 type UpdateAdminRoleConfig struct {
