@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
