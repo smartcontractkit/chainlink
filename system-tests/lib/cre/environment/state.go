@@ -4,12 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/cockroachdb/errors"
 	"google.golang.org/grpc/credentials/insecure"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/gagliardetto/solana-go"
 
@@ -57,28 +54,6 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	wrappedBlockchainOutputs := make([]*cre.WrappedBlockchainOutput, 0)
 
 	for _, bc := range cachedInput.Blockchains {
-		chainID, chainIDErr := strconv.ParseUint(bc.ChainID, 10, 64)
-		if chainIDErr != nil {
-			return nil, nil, errors.Wrapf(chainIDErr, "failed to parse chain id %s", bc.ChainID)
-		}
-
-		chainSelector, chainSelectorErr := chainselectors.SelectorFromChainId(chainID)
-		if chainSelectorErr != nil {
-			return nil, nil, errors.Wrapf(chainSelectorErr, "failed to get chain selector for chain id %d", chainID)
-		}
-
-		// Handle Tron chains differently - they don't use Seth clients
-		if bc.Type == blockchain.FamilyTron {
-			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, &cre.WrappedBlockchainOutput{
-				BlockchainOutput:   bc.Out,
-				SethClient:         nil, // Tron chains don't use Seth clients
-				ChainSelector:      chainSelector,
-				ChainID:            chainID,
-				DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
-			})
-			continue
-		}
-
 		if bc.Type == blockchain.FamilySolana {
 			initErr := initSolanaInput(&bc)
 			if initErr != nil {
@@ -91,6 +66,16 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
 			continue
 		}
+
+		if bc.Type == blockchain.FamilyTron {
+			w, err := wrapTron(&bc)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to wrap tron")
+			}
+			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
+			continue
+		}
+
 		w, err := wrapEVM(bc.Out)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to wrap evm")
