@@ -10,7 +10,7 @@ defaults:
 plugins:
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "01573000e81f91ea8b6a2641d49e5d9e02f58ef2"
+      gitRef: "a460c47a24141f65a43fb3bd481f2e8f06b54bd4"
       installPath: "github.com/smartcontractkit/capabilities/cron"
       flags: "-tags timetzdata"
   kvstore:
@@ -37,7 +37,7 @@ plugins:
       installPath: "github.com/smartcontractkit/capabilities/http_action"
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "01573000e81f91ea8b6a2641d49e5d9e02f58ef2"
+      gitRef: "a460c47a24141f65a43fb3bd481f2e8f06b54bd4"
       installPath: "github.com/smartcontractkit/capabilities/http_trigger"
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
