@@ -269,10 +269,15 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 				},
 			},
 		}
-	} else {
+	} else if strings.HasPrefix(nodeIDs[0], "node_") {
 		filter = &nodev1.ListNodesRequest_Filter{
 			Enabled: 1,
 			Ids:     nodeIDs,
+		}
+	} else {
+		filter = &nodev1.ListNodesRequest_Filter{
+			Enabled:    1,
+			PublicKeys: nodeIDs,
 		}
 	}
 	nodesFromJD, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
