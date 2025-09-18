@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	BASE_MAINNET_ID = 8453
+	BaseMainnetId = 8453
 )
 
 // Helper to deploy signer registry directly for testing
@@ -62,7 +62,7 @@ func TestEVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
 	})
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
-		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BaseMainnetId}, 1),
 	)
 
 	tests := []struct {
@@ -148,7 +148,7 @@ func TestEVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
-		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BaseMainnetId}, 1),
 	)
 
 	// Deploy registry with known signers
@@ -197,7 +197,7 @@ func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
-		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BaseMainnetId}, 1),
 	)
 
 	// Deploy registry with signers
@@ -250,7 +250,7 @@ func TestEVMSignerRegistryConfiguration_MCMSProposal(t *testing.T) {
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
-		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BaseMainnetId}, 1),
 	)
 
 	// Deploy registry
@@ -291,7 +291,7 @@ func TestEVMSignerRegistryConfiguration_NoRegistries(t *testing.T) {
 
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
-		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BaseMainnetId}, 1),
 	)
 
 	// No registries deployed
