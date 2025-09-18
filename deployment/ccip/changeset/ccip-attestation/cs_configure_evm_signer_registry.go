@@ -148,5 +148,4 @@ func signerRegistrySetNewSignerAddressesLogic(env cldf.Environment, config SetNe
 	}
 
 	return deployerGroup.Enact()
-
 }
