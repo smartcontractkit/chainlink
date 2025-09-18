@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -244,4 +245,47 @@ func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.
 		out = append(out, signerAddress)
 	}
 	return out, nil
+}
+
+type ConfigureForwarders struct{}
+
+var _ cldf.ChangeSetV2[ConfigureSeqInput] = ConfigureForwarders{}
+
+func (c ConfigureForwarders) VerifyPreconditions(e cldf.Environment, config ConfigureSeqInput) error {
+	for chainSel := range config.Chains {
+		if _, ok := e.BlockChains.EVMChains()[chainSel]; !ok {
+			return fmt.Errorf("chain selector %d not found in environment", chainSel)
+		}
+	}
+
+	if config.DON.Name == "" {
+		return fmt.Errorf("DON name cannot be empty")
+	}
+	if len(config.DON.NodeIDs) == 0 {
+		return fmt.Errorf("DON must have at least one node ID")
+	}
+
+	return nil
+}
+
+func (c ConfigureForwarders) Apply(e cldf.Environment, config ConfigureSeqInput) (cldf.ChangesetOutput, error) {
+	// Use ConfigureSeq which handles all dependency resolution internally
+	deps := ConfigureSeqDeps{
+		Env: &e,
+	}
+
+	configureReport, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ConfigureSeq,
+		deps,
+		config,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	return cldf.ChangesetOutput{
+		Reports:               configureReport.ExecutionReports,
+		MCMSTimelockProposals: configureReport.Output.MCMSTimelockProposals,
+	}, nil
 }
