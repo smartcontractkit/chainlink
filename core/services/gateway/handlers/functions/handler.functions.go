@@ -250,7 +250,7 @@ func (h *functionsHandler) HandleLegacyUserMessage(ctx context.Context, msg *api
 
 func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
 	h.lggr.Debugw("handleRequest: processing message", "sender", msg.Body.Sender, "messageId", msg.Body.MessageId)
-	err := h.pendingRequests.NewRequest(ctx, h.lggr, msg, callback, &PendingRequest{request: msg, responses: make(map[string]*api.Message)})
+	err := h.pendingRequests.NewRequest(h.lggr, msg, callback, &PendingRequest{request: msg, responses: make(map[string]*api.Message)})
 	if err != nil {
 		h.lggr.Warnw("handleRequest: error adding new request", "sender", msg.Body.Sender, "err", err)
 		promHandlerError.WithLabelValues(h.donConfig.DonId, err.Error()).Inc()
@@ -288,9 +288,9 @@ func (h *functionsHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.
 	}
 	switch msg.Body.Method {
 	case MethodSecretsSet, MethodSecretsList:
-		return h.pendingRequests.ProcessResponse(ctx, msg, h.processSecretsResponse)
+		return h.pendingRequests.ProcessResponse(msg, h.processSecretsResponse)
 	case MethodHeartbeat:
-		return h.pendingRequests.ProcessResponse(ctx, msg, h.processHeartbeatResponse)
+		return h.pendingRequests.ProcessResponse(msg, h.processHeartbeatResponse)
 	default:
 		h.lggr.Debugw("unsupported method", "method", msg.Body.Method)
 		return ErrUnsupportedMethod

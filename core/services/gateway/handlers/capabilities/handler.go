@@ -132,7 +132,7 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
 		// back to the user.
 		codec := api.JsonRPCCodec{}
-		return savedCb.SendResponse(ctx, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
+		return savedCb.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
 	}
 	return nil
 }
@@ -268,7 +268,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw(ErrDecodingPayload, "err", err)
-		return callback.SendResponse(ctx, handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
@@ -281,7 +281,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 
 	if payload.Timestamp == 0 {
 		h.lggr.Errorw(ErrDecodingPayload)
-		return callback.SendResponse(ctx, handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
@@ -294,7 +294,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 
 	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) {
 		h.lggr.Errorw("stale message")
-		return callback.SendResponse(ctx, handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.HandlerError),
@@ -307,7 +307,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	// TODO: apply allowlist and rate-limiting here
 	if msg.Body.Method != MethodWebAPITrigger {
 		h.lggr.Errorw("unsupported method", "method", body.Method)
-		return callback.SendResponse(ctx, handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
@@ -320,7 +320,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	req, err := common.ValidatedRequestFromMessage(msg)
 	if err != nil {
 		h.lggr.Errorw(ErrTransformingMessageToRequest)
-		return callback.SendResponse(ctx, handlers.UserCallbackPayload{
+		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),

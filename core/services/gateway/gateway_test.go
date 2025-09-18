@@ -255,7 +255,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
 		codec := api.JsonRPCCodec{}
-		err := callback.SendResponse(t.Context(), handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
+		err := callback.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
 		require.NoError(t, err)
 	})
 
@@ -284,7 +284,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 		}
 		rawMsg, err := json.Marshal(&response)
 		require.NoError(t, err)
-		err = callback.SendResponse(t.Context(), handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError})
+		err = callback.SendResponse(handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError})
 		require.NoError(t, err)
 	})
 
@@ -333,7 +333,7 @@ func newMockHandler(t *testing.T, method string) *handlermocks.Handler {
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
 		codec := api.JsonRPCCodec{}
-		err := callback.SendResponse(t.Context(), handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
+		err := callback.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
 		require.NoError(t, err)
 	})
 	handler.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
@@ -351,7 +351,7 @@ func newMockHandler(t *testing.T, method string) *handlermocks.Handler {
 			Result:  &rm,
 		})
 		require.NoError(t, err)
-		err = callback.SendResponse(t.Context(), handlers.UserCallbackPayload{RawResponse: resp, ErrorCode: api.NoError})
+		err = callback.SendResponse(handlers.UserCallbackPayload{RawResponse: resp, ErrorCode: api.NoError})
 		require.NoError(t, err)
 	})
 	return handler

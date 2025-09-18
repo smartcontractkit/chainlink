@@ -298,7 +298,7 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 		return errors.New("failed to marshal response: " + err.Error())
 	}
 
-	err = saved.SendResponse(ctx, handlers.UserCallbackPayload{
+	err = saved.SendResponse(handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   api.NoError,
 	})
@@ -388,7 +388,7 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 	}
 	errorCode := api.ErrorCode(code)
 	h.metrics.Trigger.IncrementRequestErrors(ctx, errorCode.String(), h.lggr)
-	err = callback.SendResponse(ctx, handlers.UserCallbackPayload{
+	err = callback.SendResponse(handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   errorCode,
 	})

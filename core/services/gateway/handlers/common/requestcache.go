@@ -1,7 +1,6 @@
 package common
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"time"
@@ -17,8 +16,8 @@ import (
 // Additionally, each request has a timeout, after which the netry will be removed from the cache and an error sent to the callback channel.
 // All methods are thread-safe.
 type RequestCache[T any] interface {
-	NewRequest(ctx context.Context, lggr logger.Logger, request *api.Message, callback handlers.Callback, responseData *T) error
-	ProcessResponse(ctx context.Context, response *api.Message, process ResponseProcessor[T]) error
+	NewRequest(lggr logger.Logger, request *api.Message, callback handlers.Callback, responseData *T) error
+	ProcessResponse(response *api.Message, process ResponseProcessor[T]) error
 }
 
 // If aggregated != nil then the aggregated response is ready and the entry will be deleted from RequestCache.
@@ -48,7 +47,7 @@ func NewRequestCache[T any](timeout time.Duration, maxCacheSize uint32) RequestC
 	return &requestCache[T]{cache: make(map[globalId]*pendingRequest[T]), timeout: timeout, maxCacheSize: maxCacheSize}
 }
 
-func (c *requestCache[T]) NewRequest(ctx context.Context, lggr logger.Logger, request *api.Message, callback handlers.Callback, responseData *T) error {
+func (c *requestCache[T]) NewRequest(lggr logger.Logger, request *api.Message, callback handlers.Callback, responseData *T) error {
 	if request == nil {
 		return errors.New("request is nil")
 	}
@@ -67,7 +66,7 @@ func (c *requestCache[T]) NewRequest(ctx context.Context, lggr logger.Logger, re
 	}
 	codec := api.JsonRPCCodec{}
 	timer := time.AfterFunc(c.timeout, func() {
-		err := c.deleteAndSendOnce(ctx, key, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(request), ErrorCode: api.RequestTimeoutError})
+		err := c.deleteAndSendOnce(key, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(request), ErrorCode: api.RequestTimeoutError})
 		if err != nil {
 			lggr.Errorw("failed to send timeout response", "error", err)
 		}
@@ -81,7 +80,7 @@ func (c *requestCache[T]) NewRequest(ctx context.Context, lggr logger.Logger, re
 //
 //	(a) remove request from cache and send aggregated response to the user
 //	(b) update request's responseData and keep it in cache, awaiting more responses from nodes
-func (c *requestCache[T]) ProcessResponse(ctx context.Context, response *api.Message, process ResponseProcessor[T]) error {
+func (c *requestCache[T]) ProcessResponse(response *api.Message, process ResponseProcessor[T]) error {
 	if response == nil {
 		return errors.New("response is nil")
 	}
@@ -104,19 +103,19 @@ func (c *requestCache[T]) ProcessResponse(ctx context.Context, response *api.Mes
 		return err
 	}
 	if aggregated != nil {
-		return c.deleteAndSendOnce(ctx, key, *aggregated)
+		return c.deleteAndSendOnce(key, *aggregated)
 	}
 	return nil
 }
 
-func (c *requestCache[T]) deleteAndSendOnce(ctx context.Context, key globalId, callbackResponse handlers.UserCallbackPayload) error {
+func (c *requestCache[T]) deleteAndSendOnce(key globalId, callbackResponse handlers.UserCallbackPayload) error {
 	c.mu.Lock()
 	entry, deleted := c.cache[key]
 	delete(c.cache, key)
 	c.mu.Unlock()
 	if deleted {
 		entry.timeoutTimer.Stop()
-		return entry.SendResponse(ctx, callbackResponse)
+		return entry.SendResponse(callbackResponse)
 	}
 
 	return nil

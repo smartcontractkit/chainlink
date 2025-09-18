@@ -115,12 +115,12 @@ func TestActiveRequest_SendResponse(t *testing.T) {
 	resp := handlers.UserCallbackPayload{
 		RawResponse: []byte(`{"jsonrpc":"2.0","id":"1","result":{}}`),
 	}
-	err := activeRequest.SendResponse(t.Context(), resp)
+	err := activeRequest.SendResponse(resp)
 	require.NoError(t, err)
 
 	// Prevents the handler from hanging because we're sending a response on a channel that isn't being read from.
 	// The upstream provider of the callbackCh only expects one response per request.
-	err = activeRequest.SendResponse(t.Context(), resp)
+	err = activeRequest.SendResponse(resp)
 	require.ErrorContains(t, err, "response already sent: each callback can only be used once")
 }
 

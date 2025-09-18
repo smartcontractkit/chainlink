@@ -29,11 +29,11 @@ func TestRequestCache_Simple(t *testing.T) {
 	req := &api.Message{Body: api.MessageBody{MessageId: "aa", Sender: "0x1234"}}
 	initialState := &requestState{}
 	lggr := logger.Test(t)
-	require.NoError(t, cache.NewRequest(t.Context(), lggr, req, callback, initialState))
+	require.NoError(t, cache.NewRequest(lggr, req, callback, initialState))
 
 	nodeResp := &api.Message{Body: api.MessageBody{MessageId: "aa", Receiver: "0x1234"}}
 	go func() {
-		assert.NoError(t, cache.ProcessResponse(t.Context(), nodeResp, func(response *api.Message, responseData *requestState) (aggregated *handlers.UserCallbackPayload, newResponseData *requestState, err error) {
+		assert.NoError(t, cache.ProcessResponse(nodeResp, func(response *api.Message, responseData *requestState) (aggregated *handlers.UserCallbackPayload, newResponseData *requestState, err error) {
 			// ready after first response
 			var rawResponse json.RawMessage
 			rawResponse, err = json.Marshal(response)
@@ -66,7 +66,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 		cbs[i] = cb
 		reqs[i] = &api.Message{Body: api.MessageBody{MessageId: "abcd", Sender: fmt.Sprintf("sender_%d", i)}}
 		initialState := &requestState{counter: 0}
-		require.NoError(t, cache.NewRequest(t.Context(), lggr, reqs[i], cbs[i], initialState))
+		require.NoError(t, cache.NewRequest(lggr, reqs[i], cbs[i], initialState))
 	}
 
 	for i := 0; i < nRequests; i++ {
@@ -76,7 +76,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 			go func() {
 				n := rand.Intn(maxDelayMillis) + 1
 				time.Sleep(time.Duration(n) * time.Millisecond)
-				assert.NoError(t, cache.ProcessResponse(t.Context(), resp, func(response *api.Message, responseData *requestState) (aggregated *handlers.UserCallbackPayload, newResponseData *requestState, err error) {
+				assert.NoError(t, cache.ProcessResponse(resp, func(response *api.Message, responseData *requestState) (aggregated *handlers.UserCallbackPayload, newResponseData *requestState, err error) {
 					responseData.counter++
 					if responseData.counter == nResponsesPerRequest {
 						var rawResponse json.RawMessage
@@ -111,7 +111,7 @@ func TestRequestCache_Timeout(t *testing.T) {
 
 	req := &api.Message{Body: api.MessageBody{MessageId: "aa", Sender: "0x1234"}}
 	initialState := &requestState{}
-	require.NoError(t, cache.NewRequest(t.Context(), lggr, req, callback, initialState))
+	require.NoError(t, cache.NewRequest(lggr, req, callback, initialState))
 
 	finalResp, err := callback.Wait(t.Context())
 	require.NoError(t, err)
@@ -131,11 +131,11 @@ func TestRequestCache_MaxSize(t *testing.T) {
 	initialState := &requestState{}
 
 	req := &api.Message{Body: api.MessageBody{MessageId: "aa", Sender: "0x1234"}}
-	require.NoError(t, cache.NewRequest(t.Context(), lggr, req, callback, initialState))
+	require.NoError(t, cache.NewRequest(lggr, req, callback, initialState))
 
 	req.Body.MessageId = "bb"
-	require.NoError(t, cache.NewRequest(t.Context(), lggr, req, callback, initialState))
+	require.NoError(t, cache.NewRequest(lggr, req, callback, initialState))
 
 	req.Body.MessageId = "cc"
-	require.Error(t, cache.NewRequest(t.Context(), lggr, req, callback, initialState))
+	require.Error(t, cache.NewRequest(lggr, req, callback, initialState))
 }

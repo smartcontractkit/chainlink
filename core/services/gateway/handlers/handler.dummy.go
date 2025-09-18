@@ -91,7 +91,7 @@ func (d *dummyHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Resp
 	if found {
 		// Send first response from a node back to the user, ignore any other ones.
 		codec := api.JsonRPCCodec{}
-		return savedCb.SendResponse(ctx, UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&msg), ErrorCode: api.NoError})
+		return savedCb.SendResponse(UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(&msg), ErrorCode: api.NoError})
 	}
 	return nil
 }

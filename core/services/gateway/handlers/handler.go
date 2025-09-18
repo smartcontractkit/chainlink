@@ -18,7 +18,7 @@ type UserCallbackPayload struct {
 }
 
 type Callback interface {
-	SendResponse(ctx context.Context, cb UserCallbackPayload) error
+	SendResponse(cb UserCallbackPayload) error
 }
 
 // Handler implements service-specific logic for managing messages from users and nodes.
