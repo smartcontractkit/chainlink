@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
-	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -25,9 +25,10 @@ import (
 	keystonechangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-func executeEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
+// smoke
+func ExecuteEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 	lggr := framework.L
-	const workflowFileLocation = "./evmread/main.go"
+	const workflowFileLocation = "./evm/evmread/main.go"
 	enabledChains := getEVMEnabledChains(t, testEnv)
 
 	var workflowsWg sync.WaitGroup
@@ -100,7 +101,7 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestE
 		}
 
 		if isSubmitted {
-			lggr.Info().Msgf("Workflow %s executed successfully on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
+			lggr.Info().Msgf("🎉 Workflow %s executed successfully on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
 			return true
 		}
 
