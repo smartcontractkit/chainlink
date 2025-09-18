@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccip_attestation "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ccip-attestation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer-registry"
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

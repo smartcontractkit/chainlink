@@ -15,7 +15,7 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
-	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer-registry"
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 )
 
 var (
