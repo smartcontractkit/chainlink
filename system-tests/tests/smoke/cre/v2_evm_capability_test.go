@@ -16,7 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	evm_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative/config"
+	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -48,9 +49,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 		workflowsWg.Add(1)
 		go func(bcOutput *cre.WrappedBlockchainOutput) {
 			defer workflowsWg.Done()
-			err := validateWorkflowExecution(t, lggr, testEnv, bcOutput, workflowName, workflowConfig)
-			require.NoError(t, err, "failed to validate workflow execution")
-			lggr.Info().Msgf("Workflow %s executed successfully on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
+			validateWorkflowExecution(t, lggr, testEnv, bcOutput, workflowName, workflowConfig) //nolint:testifylint // TODO: consider refactoring
 			successfulWorkflowRuns.Add(1)
 		}(bcOutput)
 	}
@@ -58,6 +57,60 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 	// wait for all workflows to complete
 	workflowsWg.Wait()
 	require.Equal(t, len(enabledChains), int(successfulWorkflowRuns.Load()), "Not all workflows executed successfully")
+}
+
+// regression
+const (
+	balanceAtFunction      = "BalanceAt"
+	expectedBalanceAtError = "balanceAt errored"
+)
+
+type evmNegativeTest struct {
+	name           string
+	invalidInput   string
+	functionToTest string
+	expectedError  string
+}
+
+var evmNegativeTests = []evmNegativeTest{
+	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
+	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
+	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
+	{"empty hex", "0x", balanceAtFunction, expectedBalanceAtError},
+	{"cut hex", "0x0", balanceAtFunction, expectedBalanceAtError},
+	{"short address", "0x123456789012345678901234567890123456789", balanceAtFunction, expectedBalanceAtError},
+	{"long address", "0x12345678901234567890123456789012345678901", balanceAtFunction, expectedBalanceAtError},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", balanceAtFunction, expectedBalanceAtError},
+}
+
+func EVMReadFailsTest(t *testing.T, testEnv *TestEnvironment, evmNegativeTest evmNegativeTest) {
+	testLogger := framework.L
+	const workflowFileLocation = "./evm/evmread-negative/main.go"
+	enabledChains := getEVMEnabledChains(t, testEnv)
+
+	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
+		chainID := bcOutput.BlockchainOutput.ChainID
+		if _, ok := enabledChains[chainID]; !ok {
+			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
+			continue
+		}
+
+		listenerCtx, messageChan, kafkaErrChan := startBeholder(t, testLogger, testEnv)
+		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
+		workflowConfig := evm_negative_config.Config{
+			ChainSelector:  bcOutput.ChainSelector,
+			FunctionToTest: evmNegativeTest.functionToTest,
+			InvalidInput:   evmNegativeTest.invalidInput,
+		}
+		workflowName := "evm-read-fail-workflow-" + chainID
+		compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+		expectedError := evmNegativeTest.expectedError
+		timeout := 2 * time.Minute
+		err := assertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
+		require.NoError(t, err, "EVM Read Fail test failed")
+		testLogger.Info().Msg("EVM Read Fail test successfully completed")
+	}
 }
 
 func getEVMEnabledChains(t *testing.T, testEnv *TestEnvironment) map[string]struct{} {
@@ -79,7 +132,7 @@ func getEVMEnabledChains(t *testing.T, testEnv *TestEnvironment) map[string]stru
 	return enabledChains
 }
 
-func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig config.Config) error {
+func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig evm_config.Config) {
 	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 	require.NoError(t, err, "failed to find forwarder address for chain %s", bcOutput.ChainSelector)
 
@@ -89,7 +142,7 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestE
 	msgEmitterAddr := common.BytesToAddress(workflowConfig.ContractAddress)
 
 	timeout := 5 * time.Minute
-	tick := 5 * time.Second
+	tick := 3 * time.Second
 	require.Eventually(t, func() bool {
 		lggr.Info().Msgf("Waiting for workflow '%s' to finish", workflowName)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -105,15 +158,14 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestE
 			return true
 		}
 
-		// if there are no more reports to be found, stop
+		// if there are no more filtered reports, stop
 		return !isReportSubmittedByWorkflow(ctx, t, forwarderContract, msgEmitterAddr, workflowConfig)
 	}, timeout, tick, "workflow %s did not execute within the timeout %s", workflowName, timeout.String())
-
-	return nil
 }
 
-func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.WrappedBlockchainOutput) config.Config {
+func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.WrappedBlockchainOutput) evm_config.Config {
 	t.Helper()
+
 	chainID := chain.BlockchainOutput.ChainID
 	chainSethClient := chain.SethClient
 
@@ -147,7 +199,7 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.Wrap
 	require.NoError(t, err)
 
 	accountAddress := addresses[0].Bytes()
-	return config.Config{
+	return evm_config.Config{
 		ContractAddress:  msgEmitterContractAddr.Bytes(),
 		ChainSelector:    chain.ChainSelector,
 		AccountAddress:   accountAddress,
@@ -159,7 +211,7 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.Wrap
 }
 
 // isReportSubmittedByWorkflow checks if a report has been submitted by the workflow by filtering the ReportProcessed events
-func isReportSubmittedByWorkflow(ctx context.Context, t *testing.T, forwarderContract *forwarder.KeystoneForwarder, msgEmitterAddr common.Address, cfg config.Config) bool {
+func isReportSubmittedByWorkflow(ctx context.Context, t *testing.T, forwarderContract *forwarder.KeystoneForwarder, msgEmitterAddr common.Address, cfg evm_config.Config) bool {
 	iter, err := forwarderContract.FilterReportProcessed(
 		&bind.FilterOpts{
 			Start:   cfg.ExpectedReceipt.BlockNumber.Uint64(),
