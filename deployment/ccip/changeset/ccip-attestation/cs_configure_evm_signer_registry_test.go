@@ -3,7 +3,6 @@ package ccip_attestation_test
 import (
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -75,6 +73,7 @@ func TestEVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
 			config: ccip_attestation.SetNewSignerAddressesConfig{
 				UpdatesByChain: map[uint64]map[common.Address]common.Address{},
 			},
+
 			expectedErr: "no signer updates provided",
 		},
 		{
@@ -241,47 +240,6 @@ func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 	require.Equal(t, uint64(2), count.Uint64())
 }
 
-func TestEVMSignerRegistryConfiguration_MCMSProposal(t *testing.T) {
-	t.Parallel()
-
-	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
-
-	selector := uint64(ccip_attestation.BaseMainnetSelector)
-	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
-		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BaseMainnetId}, 1),
-	)
-
-	// Deploy registry
-	signer1 := utils.RandomAddress()
-	initialSigners := []signer_registry.ISignerRegistrySigner{
-		{EvmAddress: signer1, NewEVMAddress: utils.ZeroAddress},
-	}
-	deployTestSignerRegistry(t, e, selector, initialSigners)
-
-	// Configure with MCMS (will fail without timelock deployed, but validates MCMS config is recognized)
-	config := ccip_attestation.SetNewSignerAddressesConfig{
-		MCMS: &proposalutils.TimelockConfig{
-			MinDelay: 1 * time.Hour,
-		},
-		UpdatesByChain: map[uint64]map[common.Address]common.Address{
-			selector: {
-				signer1: utils.RandomAddress(),
-			},
-		},
-	}
-
-	// Execute changeset - expect error due to missing timelock
-	_, _, err := commonchangeset.ApplyChangesets(t, e,
-		[]commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(ccip_attestation.EVMSignerRegistrySetNewSignerAddressesChangeset, config),
-		})
-	// MCMS requires timelock to be deployed
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to validate chain")
-}
-
 func TestEVMSignerRegistryConfiguration_NoRegistries(t *testing.T) {
 	t.Parallel()
 
@@ -303,12 +261,11 @@ func TestEVMSignerRegistryConfiguration_NoRegistries(t *testing.T) {
 		},
 	}
 
-	// Should succeed with no-op
+	// Should fail with error
 	_, outputs, err := commonchangeset.ApplyChangesets(t, e,
 		[]commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(ccip_attestation.EVMSignerRegistrySetNewSignerAddressesChangeset, config),
 		})
-	require.NoError(t, err)
-	require.Len(t, outputs, 1)
-	require.Empty(t, outputs[0].MCMSTimelockProposals)
+	require.Error(t, err, "no signer registry found on chain selector %d", selector)
+	require.Len(t, outputs, 0)
 }

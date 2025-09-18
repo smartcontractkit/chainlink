@@ -3,19 +3,14 @@ package ccip_attestation
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -81,14 +76,21 @@ func signerRegistrySetNewSignerAddressesPrecondition(env cldf.Environment, confi
 		if !exists {
 			continue
 		}
+		var signerRegistrySigners []signer_registry.ISignerRegistrySigner
+		if chainState.SignerRegistry != nil {
+			signerRegistrySigners, err = chainState.SignerRegistry.GetSigners(&bind.CallOpts{Context: env.GetContext()})
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get signers from signer registry on chain selector %d: %w", chainSelector, err)
+		}
 
-		if len(chainState.SignerRegistrySigners) == 0 {
+		if len(signerRegistrySigners) == 0 {
 			env.Logger.Infof("No signer registry data found on chain selector %d, skipping", chainSelector)
 			continue
 		}
 
 		existingSigners := make(map[common.Address]bool)
-		for _, signer := range chainState.SignerRegistrySigners {
+		for _, signer := range signerRegistrySigners {
 			existingSigners[signer.EvmAddress] = true
 
 			if signer.NewEVMAddress != utils.ZeroAddress {
@@ -113,49 +115,22 @@ func signerRegistrySetNewSignerAddressesPrecondition(env cldf.Environment, confi
 }
 
 func signerRegistrySetNewSignerAddressesLogic(env cldf.Environment, config SetNewSignerAddressesConfig) (cldf.ChangesetOutput, error) {
-	addressBook := cldf.NewMemoryAddressBook()
-
 	// Load onchain state to get MCMS addresses if needed
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-
-	// If using MCMS, we need to collect transactions for the proposal
-	var batches []mcmstypes.BatchOperation
-	timelocks := make(map[uint64]string)
-	inspectors := make(map[uint64]mcmssdk.Inspector)
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, config.MCMS).WithDeploymentContext("configure signer registry with new signer addresses")
 
 	for chainSelector, updates := range config.UpdatesByChain {
-		chain, ok := env.BlockChains.EVMChains()[chainSelector]
-		if !ok {
-			continue
+		chainState := state.Chains[chainSelector]
+		signerRegistry := chainState.SignerRegistry
+		if signerRegistry == nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("no signer registry found on chain selector %d", chainSelector)
 		}
-		// Get addresses for this chain
-		addresses, err := env.ExistingAddresses.AddressesForChain(chain.ChainSelector())
+		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
-			env.Logger.Infof("Failed to get addresses for chain %s: %v", chain.String(), err)
-			continue
-		}
-
-		// Find signer registry address
-		var signerRegistryAddress common.Address
-		found := false
-		for addr, tv := range addresses {
-			if tv.Type == shared.EVMSignerRegistry && tv.Version == deployment.Version1_0_0 {
-				signerRegistryAddress = common.HexToAddress(addr)
-				found = true
-				break
-			}
-		}
-		if !found {
-			env.Logger.Infof("Signer registry not found on chain %s, skipping", chain.String())
-			continue
-		}
-
-		signerRegistry, err := signer_registry.NewSignerRegistry(signerRegistryAddress, chain.Client)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create signer registry instance on %s: %w", chain.String(), err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain selector %d: %w", chainSelector, err)
 		}
 
 		// Prepare arrays for the contract call
@@ -166,87 +141,12 @@ func signerRegistrySetNewSignerAddressesLogic(env cldf.Environment, config SetNe
 			newAddresses = append(newAddresses, newAddr)
 		}
 
-		// Execute or prepare the transaction based on MCMS configuration
-		txOpts := chain.DeployerKey
-		if config.MCMS != nil {
-			// Use simulated backend for MCMS to get tx data without sending
-			txOpts = cldf.SimTransactOpts()
-		}
-
-		tx, err := signerRegistry.SetNewSignerAddresses(txOpts, existingAddresses, newAddresses)
-
-		// Handle based on MCMS configuration
-		switch {
-		case err != nil:
-			// Error preparing transaction
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to prepare transaction for %s: %w", chain.String(), err)
-		case config.MCMS == nil:
-			// Direct execution - confirm transaction
-			_, err = cldf.ConfirmIfNoErrorWithABI(chain, tx, signer_registry.SignerRegistryABI, err)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to set new signer addresses on %s: %w", chain.String(), err)
-			}
-			env.Logger.Infof("Successfully set new signer addresses on %s (tx: %s)", chain.String(), tx.Hash().Hex())
-		default:
-			// MCMS mode - prepare batch operation
-			if err := stateview.ValidateChain(env, state, chain.ChainSelector(), config.MCMS); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate chain %s for MCMS: %w", chain.String(), err)
-			}
-			chainState := state.MustGetEVMChainState(chain.ChainSelector())
-			if chainState.Timelock == nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("timelock not found on chain %s", chain.String())
-			}
-			timelocks[chainSelector] = chainState.Timelock.Address().Hex()
-
-			inspector, err := proposalutils.McmsInspectorForChain(env, chain.ChainSelector())
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %s: %w", chain.String(), err)
-			}
-			inspectors[chainSelector] = inspector
-
-			batchOperation, err := proposalutils.BatchOperationForChain(
-				chainSelector,
-				signerRegistryAddress.Hex(),
-				tx.Data(),
-				big.NewInt(0),
-				string(shared.EVMSignerRegistry),
-				[]string{},
-			)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", chain.String(), err)
-			}
-
-			batches = append(batches, batchOperation)
-			env.Logger.Infof("Prepared transaction for MCMS proposal on %s", chain.String())
+		_, err = signerRegistry.SetNewSignerAddresses(opts, existingAddresses, newAddresses)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set new signer addresses on chain selector %d: %w", chainSelector, err)
 		}
 	}
 
-	// If using MCMS, build and return the proposal
-	if config.MCMS != nil {
-		mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, config.MCMS)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
-		}
+	return deployerGroup.Enact()
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			env,
-			timelocks,
-			mcmsContractByChain,
-			inspectors,
-			batches,
-			"Set new signer addresses in SignerRegistry",
-			*config.MCMS,
-		)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", err)
-		}
-
-		env.Logger.Infof("MCMS proposal created with %d operations", len(batches))
-		return cldf.ChangesetOutput{
-			AddressBook:           addressBook,
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{AddressBook: addressBook}, nil
 }

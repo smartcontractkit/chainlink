@@ -153,7 +153,7 @@ type CCIPChainState struct {
 	FeeAggregator common.Address
 
 	// Base Attestation contracts
-	SignerRegistrySigners []signer_registry.ISignerRegistrySigner
+	SignerRegistry *signer_registry.SignerRegistry
 }
 
 // ValidateHomeChain validates the home chain contracts and their configurations after complete setup.

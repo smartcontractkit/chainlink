@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
@@ -1356,10 +1357,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				return state, err
 			}
 
-			state.SignerRegistrySigners, err = signerRegistry.GetSigners(&bind.CallOpts{Context: ctx})
-			if err != nil {
-				return state, err
-			}
+			state.SignerRegistry = signerRegistry
+			state.ABIByAddress[address] = signer_registry.SignerRegistryABI
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller

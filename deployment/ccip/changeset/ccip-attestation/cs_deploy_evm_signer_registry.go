@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
@@ -29,8 +27,6 @@ const (
 )
 
 type SignerRegistryChangesetConfig struct {
-	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
 	// MaxSigners is the maximum number of signers that can be registered.
 	MaxSigners uint32
 	// Signers is the initial set of signers to register.
