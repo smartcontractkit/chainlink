@@ -49,12 +49,6 @@ var (
 
 	testCfg = mercuryocr2.NewMercuryConfig(1, 1, &testRegistrarConfig{})
 
-	v1jsonCfg = job.JSONConfig{
-		"serverURL":          "example.com:80",
-		"serverPubKey":       "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93",
-		"initialBlockNumber": 1234,
-	}
-
 	v2jsonCfg = job.JSONConfig{
 		"serverURL":    "example.com:80",
 		"serverPubKey": "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93",
@@ -119,16 +113,6 @@ func TestNewServices(t *testing.T) {
 			wantServiceCnt: 0,
 			wantErr:        true,
 		},
-
-		{
-			name: "v1 legacy",
-			args: args{
-				pluginConfig: v1jsonCfg,
-				feedID:       v1FeedId,
-			},
-			wantServiceCnt: expectedEmbeddedServiceCnt,
-			wantErr:        false,
-		},
 		{
 			name: "v2 legacy",
 			args: args{
@@ -155,17 +139,6 @@ func TestNewServices(t *testing.T) {
 			},
 			wantServiceCnt: expectedEmbeddedServiceCnt,
 			wantErr:        false,
-		},
-		{
-			name:     "v1 loop",
-			loopMode: true,
-			args: args{
-				pluginConfig: v1jsonCfg,
-				feedID:       v1FeedId,
-			},
-			wantServiceCnt:  expectedLoopServiceCnt,
-			wantErr:         false,
-			wantLoopFactory: &loop.MercuryV1Service{},
 		},
 		{
 			name:     "v2 loop",
@@ -264,15 +237,6 @@ func TestNewServices(t *testing.T) {
 			args    args
 			wantErr bool
 		}{
-			{
-				name: "v1 loop",
-				args: args{
-					pluginConfig: v1jsonCfg,
-					feedID:       v1FeedId,
-					cfg:          prodCfg,
-				},
-				wantErr: false,
-			},
 			{
 				name: "v2 loop",
 				args: args{

@@ -255,7 +255,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				if i == 0 {
 					continue // Skip bootstrap nodes
 				}
-				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
+				key, err2 := n.ExportOCR2Keys(n.ChainsOcr2KeyBundlesID["evm"])
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
 					require.NoError(t, err3, "could not marshal OCR2 key")

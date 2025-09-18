@@ -103,7 +103,6 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to get node info for don %s", don.DonName)
 		}
-
 		offChain, offChainErr := deployment_devenv.NewJDClient(ctx, deployment_devenv.JDConfig{
 			WSRPC:    envArtifact.JdConfig.ExternalGRPCUrl,
 			GRPC:     envArtifact.JdConfig.ExternalGRPCUrl,
@@ -118,7 +117,6 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		if !ok {
 			return nil, nil, errors.Errorf("offchain client is not a JobDistributor for don %s", don.DonName)
 		}
-
 		registeredDon, donErr := deployment_devenv.NewRegisteredDON(ctx, nodeInfo, *jd)
 		if donErr != nil {
 			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)

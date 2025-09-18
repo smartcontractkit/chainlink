@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 )
 
 var (
@@ -262,7 +264,10 @@ func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_cha
 	}
 
 	once.Do(func() {
-		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), commitSha)
+		// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
+		err := DownloadSolanaProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "b0f7cd3fbdbb")
+		require.NoError(t, err)
+		err = DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), commitSha)
 		require.NoError(t, err)
 	})
 
@@ -307,6 +312,33 @@ var SolanaProgramIDs = map[string]string{
 	"external_program_cpi_stub": "2zZwzyptLqwFJFEFxjPvrdhiGpH9pJ3MfrrmZX6NTKxm",
 	"rmn_remote":                "RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7",
 	"cctp_token_pool":           "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ",
+	"keystone_forwarder":        "whV7Q5pi17hPPyaPksToDw1nMx6Lh8qmNWKFaLRQ4wz",
+	"data_feeds_cache":          "3kX63udXtYcsdj2737Wi2KGd2PhqiKPgAFAxstrjtRUa",
+}
+
+// Populates datastore with the predeployed program addresses
+// pass map [programName]:ContractType of contracts to populate datastore with
+func PopulateDatastore(ds *datastore.MemoryAddressRefStore, contracts map[string]datastore.ContractType, version *semver.Version, qualifier string, chainSel uint64) error {
+	for programName, programID := range SolanaProgramIDs {
+		ct, ok := contracts[programName]
+		if !ok {
+			continue
+		}
+
+		err := ds.Add(datastore.AddressRef{
+			Address:       programID,
+			ChainSelector: chainSel,
+			Qualifier:     qualifier,
+			Type:          ct,
+			Version:       version,
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 var once = &sync.Once{}
@@ -432,6 +464,45 @@ func GetSha() (version string, err error) {
 	} else {
 		return "", fmt.Errorf("invalid go.mod version: %s", go_mod_version)
 	}
+}
+
+func DownloadSolanaProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger, sha string) error {
+	const ownr = "smartcontractkit"
+	const repo = "chainlink-solana"
+	const name = "artifacts.tar.gz"
+
+	tag := "solana-artifacts-localtest-" + sha
+
+	if lggr != nil {
+		lggr.Infof("Downloading Solana chainlink-solana program artifacts (tag = %s)", tag)
+	}
+
+	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {
+		if h.Typeflag != tar.TypeReg {
+			return nil
+		}
+
+		outPath := filepath.Join(dir, filepath.Base(h.Name))
+		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outFile, err := os.Create(outPath)
+		if err != nil {
+			return err
+		}
+		defer outFile.Close()
+
+		if _, err := io.Copy(outFile, r); err != nil {
+			return err
+		}
+
+		if lggr != nil {
+			lggr.Infof("Extracted Solana chainlink-solana artifact: %s", outPath)
+		}
+
+		return nil
+	})
 }
 
 func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger, sha string) error {

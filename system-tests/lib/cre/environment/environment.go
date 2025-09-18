@@ -252,7 +252,7 @@ func SetupTestEnvironment(
 		DonTopology:       fullCldOutput.DonTopology,
 	}, PrepareFundCLNodesOpInput{FundingPerChainFamilyForEachNode: map[string]uint64{
 		"evm":    10000000000000000, // 0.01 ETH
-		"solana": 50_000_000,        // 0.05 SOL
+		"solana": 50_000_000_000,    // 50 SOL
 	}})
 	if prefundErr != nil {
 		return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
@@ -426,7 +426,7 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		configureKeystoneInput.DONTimeConfig = *donTimeConfig
 	}
 
-	if configureKeystoneInput.VaultOCR3Address.Cmp(common.Address{}) != 0 {
+	if configureKeystoneInput.VaultOCR3Address != nil && configureKeystoneInput.VaultOCR3Address.Cmp(common.Address{}) != 0 {
 		ocr3Config, ocr3ConfigErr := crecontracts.DefaultOCR3Config(topology)
 		if ocr3ConfigErr != nil {
 			return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")

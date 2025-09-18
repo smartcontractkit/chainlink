@@ -195,6 +195,19 @@ func addBootstrapNodeConfig(
 		})
 	}
 
+	if commonInputs.solanaChain != nil {
+		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
+			Enabled: ptr.Ptr(true),
+			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
+			Nodes: []*solcfg.Node{
+				&solcfg.Node{
+					Name: &commonInputs.solanaChain.Name,
+					URL:  commonconfig.MustParseURL(commonInputs.solanaChain.NodeURL),
+				},
+			},
+		})
+	}
+
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
 		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
 		NetworkID:       ptr.Ptr("evm"),

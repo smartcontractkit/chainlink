@@ -113,17 +113,19 @@ func (oc OracleConfig) MarshalJSON() ([]byte, error) {
 }
 
 type NodeKeys struct {
-	EthAddress            string `json:"EthAddress"`
-	AptosAccount          string `json:"AptosAccount"`
-	AptosBundleID         string `json:"AptosBundleID"`
-	AptosOnchainPublicKey string `json:"AptosOnchainPublicKey"`
-	P2PPeerID             string `json:"P2PPeerID"`             // p2p_<key>
-	OCR2BundleID          string `json:"OCR2BundleID"`          // used only in job spec
-	OCR2OnchainPublicKey  string `json:"OCR2OnchainPublicKey"`  // ocr2on_evm_<key>
-	OCR2OffchainPublicKey string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
-	OCR2ConfigPublicKey   string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
-	CSAPublicKey          string `json:"CSAPublicKey"`
-	EncryptionPublicKey   string `json:"EncryptionPublicKey"`
+	EthAddress             string `json:"EthAddress"`
+	AptosAccount           string `json:"AptosAccount"`
+	AptosBundleID          string `json:"AptosBundleID"`
+	AptosOnchainPublicKey  string `json:"AptosOnchainPublicKey"`
+	SolanaOnchainPublicKey string `json:"SolanaOnchainPublicKey"`
+	SolanaBundleID         string `json:"SolanaBundleID"`
+	P2PPeerID              string `json:"P2PPeerID"`             // p2p_<key>
+	OCR2BundleID           string `json:"OCR2BundleID"`          // used only in job spec
+	OCR2OnchainPublicKey   string `json:"OCR2OnchainPublicKey"`  // ocr2on_evm_<key>
+	OCR2OffchainPublicKey  string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
+	OCR2ConfigPublicKey    string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
+	CSAPublicKey           string `json:"CSAPublicKey"`
+	EncryptionPublicKey    string `json:"EncryptionPublicKey"`
 }
 
 // OCR2OracleConfig is the input configuration for an OCR2/3 contract.
@@ -229,6 +231,15 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 			}
 			pubKeys[string(chaintype.Aptos)] = aptosPubKey
 		}
+		// add solana key if present
+		if n.SolanaOnchainPublicKey != "" {
+			solPubKey, err := hex.DecodeString(n.SolanaOnchainPublicKey)
+			if err != nil {
+				return OCR2OracleConfig{}, fmt.Errorf("failed to decode SolanaOnchainPublicKey: %w", err)
+			}
+			pubKeys[string(chaintype.Solana)] = solPubKey
+		}
+
 		// validate uniqueness of each individual key
 		for _, key := range pubKeys {
 			raw := hex.EncodeToString(key)
@@ -505,16 +516,30 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 	var aptosOcr2KeyBundleID string
 	var aptosOnchainPublicKey string
 	var aptosCC *deployment.OCRConfig
+	var solanaOcr2KeyBundleID string
+	var solanaCC *deployment.OCRConfig
+	var solanaOnchainPublickey string
 	for details, cfg := range o.SelToOCRConfig {
-		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil && family == chainsel.FamilyAptos {
-			aptosCC = &cfg
-			break
+		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil {
+			if family == chainsel.FamilyAptos {
+				aptosCC = &cfg
+			}
+			if family == chainsel.FamilySolana {
+				solanaCC = &cfg
+			}
 		}
 	}
+
 	if aptosCC != nil {
 		aptosOcr2KeyBundleID = aptosCC.KeyBundleID
 		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
 	}
+
+	if solanaCC != nil {
+		solanaOcr2KeyBundleID = solanaCC.KeyBundleID
+		solanaOnchainPublickey = fmt.Sprintf("%x", solanaCC.OnchainPublicKey[:])
+	}
+
 	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
 	if !exists {
 		panic(fmt.Sprintf("ocr2 config not found for chain selector %d", registryChainSel))
@@ -532,7 +557,9 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
 		// TODO Aptos support. How will that be modeled in clo data?
 		// TODO: AptosAccount is unset but probably unused
-		AptosBundleID:         aptosOcr2KeyBundleID,
-		AptosOnchainPublicKey: aptosOnchainPublicKey,
+		AptosBundleID:          aptosOcr2KeyBundleID,
+		AptosOnchainPublicKey:  aptosOnchainPublicKey,
+		SolanaOnchainPublicKey: solanaOnchainPublickey,
+		SolanaBundleID:         solanaOcr2KeyBundleID,
 	}
 }

@@ -578,7 +578,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 		return errors.Wrap(err, "failed to configure DON Time contract")
 	}
 
-	if input.VaultOCR3Address.Cmp(common.Address{}) != 0 {
+	if input.VaultOCR3Address != nil && input.VaultOCR3Address.Cmp(common.Address{}) != 0 {
 		vaultDON, err := dons.shouldBeOneDon(cre.VaultCapability)
 		if err != nil {
 			return fmt.Errorf("failed to get vault DON: %w", err)
@@ -668,7 +668,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 		}
 	}
 
-	if input.ConsensusV2OCR3Address.Cmp(common.Address{}) != 0 {
+	if input.ConsensusV2OCR3Address != nil && input.ConsensusV2OCR3Address.Cmp(common.Address{}) != 0 {
 		v2ConsensusDON, err := dons.shouldBeOneDon(cre.ConsensusCapabilityV2)
 		if err != nil {
 			return fmt.Errorf("failed to get consensus v2 DON: %w", err)

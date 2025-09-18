@@ -57,12 +57,12 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 		requiredFundingPerChain := make(map[uint64]uint64)
 		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
 			for _, bcOut := range deps.BlockchainOutputs {
-				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) {
+				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) && bcOut.SolChain == nil {
 					continue
 				}
 
 				if bcOut.SolChain != nil {
-					requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["solana"] * uint64(len(metaDon.DON.Nodes))
+					requiredFundingPerChain[bcOut.SolChain.ChainSelector] += input.FundingPerChainFamilyForEachNode["solana"] * uint64(len(metaDon.DON.Nodes))
 					continue
 				}
 
@@ -93,7 +93,7 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 					}
 
 					fundingAmount := libc.MustSafeInt64(requiredFundingPerChain[bcOut.ChainSelector])
-					fundingAmount += (fundingAmount / 10) // add 10% to cover gas fees
+					fundingAmount += (fundingAmount / 5) // add 20% to cover gas fees
 
 					_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
 						ToAddress:  *publicAddress,
@@ -108,8 +108,26 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 					output.PrivateKeysPerChainFamily[chainFamily][bcOut.ChainSelector] = privateKeyBytes
 				}
 			case "solana":
-				// TODO implement creation of new key and funding it
-				panic("funding Solana nodes not implemented")
+				if _, exists := output.PrivateKeysPerChainFamily[chainFamily]; !exists {
+					output.PrivateKeysPerChainFamily[chainFamily] = make(map[uint64][]byte)
+				}
+				if _, exists := output.PrivateKeysPerChainFamily[chainFamily][bcOut.SolChain.ChainSelector]; !exists {
+					private, pkErr := solana.NewRandomPrivateKey()
+					if pkErr != nil {
+						return nil, pkgerrors.Wrap(pkErr, "failed to generate private key for solana")
+					}
+					public := private.PublicKey()
+					fundingErr := libfunding.SendFundsSol(ctx, zerolog.Logger{}, bcOut.SolClient, libfunding.FundsToSendSol{
+						Recipent:   public,
+						PrivateKey: bcOut.SolChain.PrivateKey,
+						Amount:     requiredFundingPerChain[bcOut.SolChain.ChainSelector],
+					})
+					if fundingErr != nil {
+						return nil, pkgerrors.Wrapf(fundingErr, " failed to fund funding accounts on chain %v", bcOut.SolChain.ChainID)
+					}
+
+					output.PrivateKeysPerChainFamily[chainFamily][bcOut.SolChain.ChainSelector] = private
+				}
 			default:
 				return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 			}
@@ -159,7 +177,8 @@ var FundCLNodesOp = operations.NewOperation(
 		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
 			deps.TestLogger.Info().Msgf("Funding nodes for DON %s", metaDon.Name)
 			for _, bcOut := range deps.BlockchainOutputs {
-				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) {
+				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) &&
+					bcOut.SolChain == nil { // for now, we can only write to solana, so we consider forwarder is always present
 					continue
 				}
 				for _, node := range metaDon.DON.Nodes {
@@ -238,7 +257,7 @@ func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node deve
 		Amount:     fundingAmount,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to fund Solana node: %w", err)
+		return fmt.Errorf("failed to fund Solana account for a node: %w", err)
 	}
 	testLogger.Info().Msgf("Successfully funded Solana account %s", recipient.String())
 

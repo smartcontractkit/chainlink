@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
@@ -74,6 +75,11 @@ func DeployKeystoneContracts(
 			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
 				continue
 			}
+			// consider we have just 1 solana chain
+			if bcOut.SolChain != nil {
+				solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
+				continue
+			}
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
 				evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
 			}
@@ -123,37 +129,49 @@ func DeployKeystoneContracts(
 	if err := memoryDatastore.Merge(registryContractsReport.Output.Datastore); err != nil {
 		return nil, errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
+	if len(evmForwardersSelectors) > 0 {
+		// deploy evm forwarders
+		evmForwardersReport, seqErr2 := operations.ExecuteSequence(
+			allChainsCLDEnvironment.OperationsBundle,
+			creforwarder.DeploySequence,
+			creforwarder.DeploySequenceDeps{
+				Env: allChainsCLDEnvironment,
+			},
+			creforwarder.DeploySequenceInput{
+				Targets: evmForwardersSelectors,
+			},
+		)
+		if seqErr2 != nil {
+			return nil, errors.Wrap(seqErr2, "failed to deploy evm forwarder")
+		}
 
-	// deploy evm forwarders
-	evmForwardersReport, seqErr := operations.ExecuteSequence(
-		allChainsCLDEnvironment.OperationsBundle,
-		creforwarder.DeploySequence,
-		creforwarder.DeploySequenceDeps{
-			Env: allChainsCLDEnvironment,
-		},
-		creforwarder.DeploySequenceInput{
-			Targets: evmForwardersSelectors,
-		},
-	)
-	if seqErr != nil {
-		return nil, errors.Wrap(seqErr, "failed to deploy evm forwarder")
-	}
+		if seqErr2 = allChainsCLDEnvironment.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); seqErr2 != nil { //nolint:staticcheck // won't migrate now
+			return nil, errors.Wrap(seqErr2, "failed to merge address book with Keystone contracts addresses")
+		}
 
-	if seqErr = allChainsCLDEnvironment.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); seqErr != nil { //nolint:staticcheck // won't migrate now
-		return nil, errors.Wrap(seqErr, "failed to merge address book with Keystone contracts addresses")
-	}
+		if seqErr2 = memoryDatastore.Merge(evmForwardersReport.Output.Datastore); seqErr2 != nil {
+			return nil, errors.Wrap(seqErr2, "failed to merge datastore with Keystone contracts addresses")
+		}
 
-	if seqErr = memoryDatastore.Merge(evmForwardersReport.Output.Datastore); seqErr != nil {
-		return nil, errors.Wrap(seqErr, "failed to merge datastore with Keystone contracts addresses")
-	}
-
-	for _, forwarderSelector := range evmForwardersSelectors {
-		forwarderAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-		testLogger.Info().Msgf("Deployed Forwarder %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], forwarderSelector, forwarderAddr)
+		for _, forwarderSelector := range evmForwardersSelectors {
+			forwarderAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+			testLogger.Info().Msgf("Deployed Forwarder %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], forwarderSelector, forwarderAddr)
+		}
 	}
 
 	// deploy solana forwarders
 	for _, sel := range solForwardersSelectors {
+		populateContracts := map[string]datastore.ContractType{
+			deployment.KeystoneForwarderProgramName: ks_sol.ForwarderContract,
+		}
+		version := semver.MustParse(input.ContractVersions[ks_sol.ForwarderContract.String()])
+
+		// Forwarder for solana is predeployed on chain spin-up. We jus need to add it to memory datastore here
+		errp := memory.PopulateDatastore(memoryDatastore.AddressRefStore, populateContracts,
+			version, ks_sol.DefaultForwarderQualifier, sel)
+		if errp != nil {
+			return nil, errors.Wrap(errp, "failed to populate datastore with predeployed contracts")
+		}
 		out, err := operations.ExecuteSequence(
 			allChainsCLDEnvironment.OperationsBundle,
 			ks_sol_seq.DeployForwarderSeq,
@@ -163,23 +181,15 @@ func DeployKeystoneContracts(
 				Datastore: memoryDatastore.Seal(),
 			},
 			ks_sol_seq.DeployForwarderSeqInput{
-				ChainSel:    sel,
-				ProgramName: deployment.KeystoneForwarderProgramName,
+				ChainSel:     sel,
+				ProgramName:  deployment.KeystoneForwarderProgramName,
+				Qualifier:    ks_sol.DefaultForwarderQualifier,
+				ContractType: ks_sol.ForwarderContract,
+				Version:      version,
 			},
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to deploy sol forwarder")
-		}
-
-		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
-			Address:       out.Output.ProgramID.String(),
-			ChainSelector: sel,
-			Version:       semver.MustParse(input.ContractVersions[ks_sol.ForwarderContract.String()]),
-			Qualifier:     ks_sol.DefaultForwarderQualifier,
-			Type:          ks_sol.ForwarderContract,
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to add address to the datastore for Solana Forwarder contract")
 		}
 
 		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{

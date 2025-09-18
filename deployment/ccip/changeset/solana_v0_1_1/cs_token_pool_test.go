@@ -767,8 +767,8 @@ func TestPartnerTokenPools(t *testing.T) {
 			HomeChainSelector: e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0],
 			ChainSelector:     solChainSelectors[0],
 			BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
-				GitCommitSha:   ShaV0_1_1,
-				DestinationDir: e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
+				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
+				DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 				LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 					BuildLocally: true,
 				},
