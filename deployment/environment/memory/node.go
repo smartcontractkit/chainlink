@@ -508,29 +508,7 @@ func CreateKeys(t *testing.T,
 	transmitters := make(map[uint64]string)
 	keybundles := make(map[chaintype.ChainType]ocr2key.KeyBundle)
 	for _, chain := range chains {
-		family, err := chainsel.GetSelectorFamily(chain.Selector)
-		require.NoError(t, err)
-
-		var ctype chaintype.ChainType
-		switch family {
-		case chainsel.FamilyEVM:
-			ctype = chaintype.EVM
-		case chainsel.FamilySolana:
-			ctype = chaintype.Solana
-		case chainsel.FamilyStarknet:
-			ctype = chaintype.StarkNet
-		case chainsel.FamilyCosmos:
-			ctype = chaintype.Cosmos
-		case chainsel.FamilyAptos:
-			ctype = chaintype.Aptos
-		case chainsel.FamilyTon:
-			ctype = chaintype.TON
-		case chainsel.FamilyTron:
-			ctype = chaintype.Tron
-		default:
-			panic(fmt.Sprintf("Unsupported chain family %v", family))
-		}
-
+		ctype := chaintype.EVM
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
 		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
@@ -540,95 +518,149 @@ func CreateKeys(t *testing.T,
 
 		keybundles[ctype] = keybundle
 
-		switch family {
-		case chainsel.FamilyEVM:
-			evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
-			require.NoError(t, err)
+		// NOTE: this loops over EVM chains, adding non-EVMs here is ineffective
+		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
+		require.NoError(t, err)
 
-			cid := new(big.Int).SetUint64(evmChainID)
-			addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
-			require.NoError(t, err2)
-			var transmitter common.Address
-			if len(addrs) == 1 {
-				// just fund the address
-				transmitter = addrs[0]
-			} else {
-				// create key and fund it
-				_, err3 := app.GetKeyStore().Eth().Create(ctx, cid)
-				require.NoError(t, err3, "failed to create key for chain", evmChainID)
-				sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
-				require.NoError(t, err3)
-				require.Len(t, sendingKeys, 1)
-				transmitter = sendingKeys[0]
-			}
-			transmitters[chain.Selector] = transmitter.String()
+		cid := new(big.Int).SetUint64(evmChainID)
+		addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
+		require.NoError(t, err2)
+		var transmitter common.Address
+		if len(addrs) == 1 {
+			// just fund the address
+			transmitter = addrs[0]
+		} else {
+			// create key and fund it
+			_, err3 := app.GetKeyStore().Eth().Create(ctx, cid)
+			require.NoError(t, err3, "failed to create key for chain", evmChainID)
+			sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
+			require.NoError(t, err3)
+			require.Len(t, sendingKeys, 1)
+			transmitter = sendingKeys[0]
+		}
+		transmitters[chain.Selector] = transmitter.String()
 
-			simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
-			if ok {
-				fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), simClient.Backend())
-				// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
-				fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), simClient.Backend())
-			}
-		case chainsel.FamilySolana:
-			keystore := app.GetKeyStore().Solana()
-			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for solana")
+		simClient, ok := chain.Client.(*cldf_evm_provider.SimClient)
+		if ok {
+			fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), simClient.Backend())
+			// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
+			fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), simClient.Backend())
+		}
+	}
 
-			keys, err := keystore.GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
+	// Enable once starknet is supported
+	// if len(starknetchains) > 0 {
+	// 	ctype := chaintype.StarkNet
+	// 	err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+	// 	require.NoError(t, err)
+	// 	keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+	// 	require.NoError(t, err)
+	// 	require.Len(t, keys, 1)
+	// 	keybundle := keys[0]
+	//
+	// 	keybundles[ctype] = keybundle
+	//
+	// 	keystore := app.GetKeyStore().StarkNet()
+	// 	err = keystore.EnsureKey(ctx)
+	// 	require.NoError(t, err, "failed to create key for starknet")
+	//
+	// 	starkkeys, err := keystore.GetAll()
+	// 	require.NoError(t, err)
+	// 	require.Len(t, starkkeys, 1)
+	//
+	// 	transmitter := starkkeys[0]
+	// 	for chainSelector := range starknetchains {
+	// 		transmitters[chain.Selector] = transmitter.ID()
+	// 	}
+	// }
 
-			transmitter := keys[0]
-			transmitters[chain.Selector] = transmitter.ID()
-			t.Logf("Created Solana Key: ID %v, Account %v", transmitter.ID(), transmitter.PublicKeyStr())
-		case chainsel.FamilyAptos:
-			keystore := app.GetKeyStore().Aptos()
-			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for aptos")
+	if len(solchains) > 0 {
+		ctype := chaintype.Solana
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
 
-			keys, err := keystore.GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
+		keybundles[ctype] = keybundle
 
-			transmitter := keys[0]
-			transmitters[chain.Selector] = transmitter.ID()
-			t.Logf("Created Aptos Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
-		case chainsel.FamilyTron:
-			keystore := app.GetKeyStore().Tron()
-			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for tron")
+		err = app.GetKeyStore().Solana().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for solana")
 
-			keys, err := keystore.GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
+		solkeys, err := app.GetKeyStore().Solana().GetAll()
+		require.NoError(t, err)
+		require.Len(t, solkeys, 1)
 
-			transmitter := keys[0]
-			transmitters[chain.Selector] = transmitter.PublicKeyStr()
-			t.Logf("Created Tron Key: ID %v, Account %v", transmitter.ID(), transmitter)
-		case chainsel.FamilyStarknet:
-			keystore := app.GetKeyStore().StarkNet()
-			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for starknet")
+		transmitter := solkeys[0]
+		for chainSelector := range solchains {
+			transmitters[chainSelector] = transmitter.ID()
+		}
+	}
 
-			keys, err := keystore.GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
+	if len(aptoschains) > 0 {
+		ctype := chaintype.Aptos
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+		keybundles[ctype] = keybundle
 
-			transmitter := keys[0]
-			transmitters[chain.Selector] = transmitter.ID()
-		case chainsel.FamilyTon:
-			keystore := app.GetKeyStore().TON()
-			err = keystore.EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for TON")
+		err = app.GetKeyStore().Aptos().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for Aptos")
 
-			keys, err := keystore.GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
+		aptoskeys, err := app.GetKeyStore().Aptos().GetAll()
+		require.NoError(t, err)
+		require.Len(t, aptoskeys, 1)
+		transmitter := aptoskeys[0]
+		for chainSelector := range aptoschains {
+			transmitters[chainSelector] = transmitter.ID()
+		}
+	}
 
-			transmitter := keys[0]
-			transmitters[chain.Selector] = transmitter.AddressBase64()
-		default:
-			// TODO: other transmission keys unsupported for now
+	if len(tonchains) > 0 {
+		ctype := chaintype.TON
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+		keybundles[ctype] = keybundle
+
+		err = app.GetKeyStore().TON().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for TON")
+
+		tonkeys, err := app.GetKeyStore().TON().GetAll()
+		require.NoError(t, err)
+		require.Len(t, tonkeys, 1)
+		transmitter := tonkeys[0]
+		for chainSelector := range tonchains {
+			transmitters[chainSelector] = transmitter.AddressBase64()
+		}
+	}
+
+	if len(tronchains) > 0 {
+		ctype := chaintype.Tron
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+		keybundles[ctype] = keybundle
+
+		err = app.GetKeyStore().Tron().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for Tron")
+
+		tronkeys, err := app.GetKeyStore().Tron().GetAll()
+		require.NoError(t, err)
+		require.Len(t, tronkeys, 1)
+		transmitter := tronkeys[0]
+		for chainSelector := range tonchains {
+			transmitters[chainSelector] = transmitter.PublicKeyStr()
 		}
 	}
 
