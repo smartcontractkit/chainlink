@@ -94,6 +94,15 @@ func (bs *balanceStore) ConvertFromBalance(toResourceType string, amount decimal
 	return bs.convertFromBalance(toResourceType, amount)
 }
 
+// Set sets the current balance to the provided amount and resets spend.
+func (bs *balanceStore) Set(amount decimal.Decimal) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	bs.balance = amount
+	bs.spent = decimal.Zero
+}
+
 // Get returns the current credit balance
 func (bs *balanceStore) Get() decimal.Decimal {
 	bs.mu.RLock()

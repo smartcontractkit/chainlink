@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -12,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -83,7 +84,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		defer req.Cancel(errors.New("test end"))
 
 		require.NoError(t, err)
@@ -134,7 +135,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -168,7 +169,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -199,7 +200,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -237,7 +238,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -298,7 +299,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -332,7 +333,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Executes full schedule", func(t *testing.T) {
-		beholderTester := tests.Beholder(t)
+		beholderTester := beholdertest.NewObserver(t)
 		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 
 		capPeers, capDonInfo, capInfo := capabilityDon(t, 3, 1)
@@ -355,6 +356,8 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			workflowDonInfo,
 			dispatcher,
 			10*time.Minute,
+			nil,
+			"",
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -474,6 +477,8 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			workflowDonInfo,
 			dispatcher,
 			10*time.Minute,
+			nil,
+			"",
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -566,7 +571,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -602,6 +607,100 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		assert.Equal(t, "testunit_b", spendUnit)
 		assert.Equal(t, "17", spendValue)
 		assert.Equal(t, capabilityPeers[1].String(), p2pID)
+	})
+
+	capabilityRequestV2 := commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID:          workflowID1,
+			WorkflowExecutionID: workflowExecutionID1,
+			ReferenceID:         stepRef1,
+		},
+		// No Inputs or Config, including transmission schedule
+	}
+
+	t.Run("Executes full schedule for a V2 request", func(t *testing.T) {
+		beholderTester := beholdertest.NewObserver(t)
+		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
+		capPeers, capDonInfo, capInfo := capabilityDon(t, 3, 1)
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
+		req, err := request.NewClientExecuteRequest(
+			t.Context(),
+			lggr,
+			capabilityRequestV2,
+			capInfo,
+			workflowDonInfo,
+			dispatcher,
+			10*time.Minute,
+			&transmission.TransmissionConfig{
+				Schedule:   transmission.Schedule_OneAtATime,
+				DeltaStage: 1000 * time.Millisecond,
+			},
+			"",
+		)
+		require.NoError(t, err)
+		defer req.Cancel(errors.New("test end"))
+
+		// Expect all 3 capability nodes to receive the request.
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		assert.Empty(t, dispatcher.msgs)
+
+		msg := &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			Payload:         rawResponse,
+			MessageId:       []byte("messageID"),
+		}
+		msg.Sender = capPeers[0][:]
+		require.NoError(t, req.OnMessage(t.Context(), msg))
+		msg.Sender = capPeers[1][:]
+		require.NoError(t, req.OnMessage(t.Context(), msg))
+
+		response := <-req.ResponseChan()
+		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
+		require.NoError(t, err)
+
+		resp := capResponse.Value.Underlying["response"]
+		assert.Equal(t, resp, values.NewString("response1"))
+		assert.Len(t, obs.FilterMessage("sending request to peers").All(), 1)
+
+		// Verify the TransmissionsScheduledEvent data
+		assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity)))
+
+		// Get the messages for the transmission event
+		messages := beholderTester.Messages(t, "beholder_entity", fmt.Sprintf("%v.%v", request.TransmissionEventProtoPkg, request.TransmissionEventEntity))
+		assert.Len(t, messages, 1)
+
+		// Unmarshal the message to verify its contents
+		var event events.TransmissionsScheduledEvent
+		err = proto.Unmarshal(messages[0].Body, &event)
+		require.NoError(t, err)
+
+		// Verify the event fields
+		assert.Equal(t, transmission.Schedule_OneAtATime, event.ScheduleType)
+		assert.Equal(t, workflowExecutionID1, event.WorkflowExecutionID)
+		assert.Equal(t, "cap_id@1.0.0", event.CapabilityID)
+		assert.Equal(t, stepRef1, event.StepRef)
+		assert.Equal(t, fmt.Sprintf("Execute:%v:%v", workflowExecutionID1, stepRef1), event.TransmissionID)
+		assert.NotEmpty(t, event.Timestamp)
+
+		// Verify the peer delays
+		assert.Len(t, event.PeerTransmissionDelays, 3)
+
+		// Convert map to slice of delays and sort them
+		var delays []int64
+		for _, delay := range event.PeerTransmissionDelays {
+			delays = append(delays, delay)
+		}
+		slices.Sort(delays)
+
+		// Verify delays are sorted and increment by 1000ms
+		for i := 1; i < len(delays); i++ {
+			assert.Equal(t, delays[i-1]+1000, delays[i], "delays should increment by 1000ms")
+		}
 	})
 }
 
@@ -655,6 +754,13 @@ func (t *clientRequestTestDispatcher) SetReceiver(capabilityID string, donID uin
 }
 
 func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
+
+func (t *clientRequestTestDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, methodName string, receiver types.Receiver) error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) RemoveReceiverForMethod(capabilityID string, donID uint32, methodName string) {
+}
 
 func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs <- msgBody

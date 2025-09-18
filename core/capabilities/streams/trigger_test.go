@@ -90,7 +90,7 @@ func TestStreamsTrigger(t *testing.T) {
 	config := &capabilities.RemoteTriggerConfig{
 		MinResponsesToAggregate: uint32(F + 1),
 	}
-	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, capabilities.DON{}, nil, agg, lggr)
+	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, capabilities.DON{}, nil, agg, "", lggr)
 
 	// register trigger
 	req := capabilities.TriggerRegistrationRequest{

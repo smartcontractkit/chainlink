@@ -33,22 +33,25 @@ var SetupCmd *cobra.Command
 
 func init() {
 	var (
-		config   SetupConfig
-		noPrompt bool
-		purge    bool
+		config      SetupConfig
+		noPrompt    bool
+		purge       bool
+		withBilling bool
 	)
+
 	SetupCmd = &cobra.Command{
 		Use:   "setup",
 		Short: "Setup the CRE environment prerequisites",
 		Long:  `Checks and sets up prerequisites for the CRE environment including Docker, AWS, Job Distributor, and CRE CLI`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunSetup(cmd.Context(), config, noPrompt, purge)
+			return RunSetup(cmd.Context(), config, noPrompt, purge, withBilling)
 		},
 	}
 
 	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
+	SetupCmd.Flags().BoolVar(&withBilling, "with-billing", false, "Include billing service in the setup")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
 
@@ -70,6 +73,7 @@ type config struct {
 	General        generalConfig        `toml:"general"`
 	JobDistributor jobDistributorConfig `toml:"job_distributor"`
 	ChipIngress    chipIngressConfig    `toml:"chip_ingress"`
+	BillingService billingServiceConfig `toml:"billing_platform_service"`
 	Capabilities   capabilitiesConfig   `toml:"capabilities"`
 }
 
@@ -89,16 +93,21 @@ type chipIngressConfig struct {
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
 
+type billingServiceConfig struct {
+	BuildConfig BuildConfig `toml:"build_config"`
+	PullConfig  PullConfig  `toml:"pull_config"`
+}
+
 type capabilitiesConfig struct {
 	TargetPath   string                 `toml:"target_path"`
 	Repositories []capabilityRepository `toml:"repositories"`
 }
 
 type capabilityRepository struct {
-	RepoURL      string `toml:"repository"`
-	Branch       string `toml:"branch"`
-	BuildCommand string `toml:"build_command"`
-	ArtifactsDir string `toml:"artifacts_dir"`
+	RepoURL       string   `toml:"repository"`
+	Branch        string   `toml:"branch"`
+	BuildCommand  string   `toml:"build_command"`
+	ArtifactsDirs []string `toml:"artifacts_dirs"`
 }
 
 var (
@@ -113,16 +122,24 @@ type SetupConfig struct {
 }
 
 type BuildConfig struct {
-	RepoURL    string `toml:"repository"`
-	LocalRepo  string `toml:"local_repo"`
-	Branch     string `toml:"branch"`
-	Dockerfile string `toml:"dockerfile"`
-	DockerCtx  string `toml:"docker_ctx"`
-	LocalImage string `toml:"local_image"`
-	PreRun     string `toml:"pre_run"` // Optional function to run before building
+	RepoURL            string `toml:"repository"`
+	LocalRepo          string `toml:"local_repo"`
+	Branch             string `toml:"branch"`
+	Commit             string `toml:"commit"`
+	RequireGithubToken bool   `toml:"require_github_token"`
+	Dockerfile         string `toml:"dockerfile"`
+	DockerCtx          string `toml:"docker_ctx"`
+	LocalImage         string `toml:"local_image"`
+	PreRun             string `toml:"pre_run"` // Optional function to run before building
 }
 
-func checkoutAndBuildRepo(ctx context.Context, logger zerolog.Logger, repo, reference string) (string, bool, error) {
+// setupRepo clones the repository if it's a remote URL or uses the local path if it's a directory.
+// It returns the working directory path, a boolean indicating if it's a local repo, and an error if any.
+// It will checkout the specified reference branch/tag and commit if provided.
+func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, commit string) (string, bool, error) {
+	if repo == "" {
+		return "", false, errors.New("repository URL or path is empty")
+	}
 	// Check if repo is a local directory
 	isLocalRepo := false
 	if _, err2 := os.Stat(repo); err2 == nil {
@@ -139,6 +156,9 @@ func checkoutAndBuildRepo(ctx context.Context, logger zerolog.Logger, repo, refe
 		// Use the local repo path directly
 		workingDir = repo
 	} else {
+		if reference == "" {
+			return "", false, errors.New("branch or tag reference is required for remote repositories")
+		}
 		// Create a temporary directory for cloning the remote repo
 		tempDir, err2 := os.MkdirTemp("", filepath.Base(repo)+"-*")
 		if err2 != nil {
@@ -154,6 +174,24 @@ func checkoutAndBuildRepo(ctx context.Context, logger zerolog.Logger, repo, refe
 		if err2 := cmd.Run(); err2 != nil {
 			return "", false, fmt.Errorf("failed to clone repository: %w", err2)
 		}
+		if commit != "" {
+			// Checkout the specific commit if provided
+			logger.Info().Msgf("Checking out commit %s", commit)
+			cmd := exec.CommandContext(ctx, "git", "fetch", "--depth", "1", "origin", commit)
+			cmd.Dir = tempDir
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err2 := cmd.Run(); err2 != nil {
+				return "", false, fmt.Errorf("failed to checkout commit %s: %w", commit, err2)
+			}
+			cmd = exec.CommandContext(ctx, "git", "checkout", commit)
+			cmd.Dir = tempDir
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err2 := cmd.Run(); err2 != nil {
+				return "", false, fmt.Errorf("failed to checkout commit %s: %w", commit, err2)
+			}
+		}
 	}
 
 	return workingDir, isLocalRepo, nil
@@ -161,17 +199,24 @@ func checkoutAndBuildRepo(ctx context.Context, logger zerolog.Logger, repo, refe
 
 func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	var (
-		repo = c.RepoURL
-		tag  = c.Branch
+		repo   = c.RepoURL
+		tag    = c.Branch
+		commit = c.Commit
 	)
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(c.LocalImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
 	logger.Info().Msgf("Building %s image...", name)
 
-	workingDir, isLocalRepo, err := checkoutAndBuildRepo(ctx, logger, repo, tag)
+	if c.RequireGithubToken {
+		if os.Getenv("GITHUB_TOKEN") == "" {
+			return "", errors.New("GITHUB_TOKEN environment variable is required to build the billing service from source")
+		}
+	}
+
+	workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo, tag, commit)
 	if err != nil {
-		return "", fmt.Errorf("failed to checkout and build repository: %w", err)
+		return "", fmt.Errorf("failed to setup repository: %w", err)
 	}
 
 	if !isLocalRepo {
@@ -193,17 +238,6 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		_ = os.Chdir(currentDir)
 	}()
 
-	// Only checkout specific version if using a git repo and version is specified
-	if !isLocalRepo && tag != "" {
-		logger.Info().Msgf("Checking out version %s", tag)
-		cmd := exec.CommandContext(ctx, "git", "checkout", tag)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to checkout version %s: %w", tag, err)
-		}
-	}
-
 	// If pre-run function is specified, run it
 	if c.PreRun != "" {
 		logger.Info().Msgf("Running pre-run step: %s", c.PreRun)
@@ -213,7 +247,12 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	}
 
 	// Build Docker image
-	cmd := exec.CommandContext(ctx, "docker", "build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
+	if c.RequireGithubToken {
+		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
+	}
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	log.Info("Running command:", "cmd", cmd.String(), "dir", workingDir)
@@ -320,7 +359,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 }
 
 // RunSetup performs the setup for the CRE environment
-func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool) (setupErr error) {
+func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBilling bool) (setupErr error) {
 	logger := framework.L
 	var localDXTracker tracking.Tracker
 	localDXTracker = &tracking.NoOpTracker{}
@@ -418,6 +457,21 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool
 		return
 	}
 
+	var billingLocalImage string
+	if withBilling {
+		billingConfig := ImageConfig{
+			BuildConfig: cfg.BillingService.BuildConfig,
+			PullConfig:  cfg.BillingService.PullConfig,
+		}
+
+		var billingErr error
+		billingLocalImage, billingErr = billingConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
+		if billingErr != nil {
+			setupErr = errors.Wrap(billingErr, "failed to ensure Billing Platform Service image")
+			return
+		}
+	}
+
 	ctfInstalled, ctfErr := checkCTF(ctx, cfg.General.CTFVersion, noPrompt, purge)
 	if ctfErr != nil {
 		setupErr = errors.Wrap(ctfErr, "failed to ensure CTF CLI")
@@ -436,6 +490,9 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
 	logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	if withBilling {
+		logger.Info().Msgf("   ✓ Billing Platform Service image %s is available", billingLocalImage)
+	}
 	if ghCli {
 		logger.Info().Msg("   ✓ GitHub CLI is installed")
 	} else {
@@ -520,9 +577,9 @@ func buildCapabilityBinaries(ctx context.Context, capabilitiesConfig capabilitie
 	for _, repo := range capabilitiesConfig.Repositories {
 		logger.Info().Msgf("🔍 Building %s...", repo.RepoURL)
 
-		workingDir, isLocalRepo, err := checkoutAndBuildRepo(ctx, logger, repo.RepoURL, repo.Branch)
+		workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo.RepoURL, repo.Branch, "")
 		if err != nil {
-			return fmt.Errorf("failed to checkout and build repository: %w", err)
+			return fmt.Errorf("failed to setup up repository: %w", err)
 		}
 
 		if !isLocalRepo {
@@ -559,11 +616,13 @@ func buildCapabilityBinaries(ctx context.Context, capabilitiesConfig capabilitie
 			return fmt.Errorf("failed to create target directory: %w", err)
 		}
 
-		logger.Info().Msgf("Copying build artifacts from %s to %s", repo.ArtifactsDir, targetPath)
-		artifactsDir := filepath.Join(workingDir, repo.ArtifactsDir)
-		copyCmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("cp -r %s/* %s/", artifactsDir, targetPath)) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-		if err := copyCmd.Run(); err != nil {
-			return fmt.Errorf("failed to copy directory: %w", err)
+		for _, artifactDir := range repo.ArtifactsDirs {
+			logger.Info().Msgf("Copying build artifacts from %s to %s", artifactDir, targetPath)
+			artifactsDir := filepath.Join(workingDir, artifactDir)
+			copyCmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("cp -r %s/* %s/", artifactsDir, targetPath)) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+			if err := copyCmd.Run(); err != nil {
+				return fmt.Errorf("failed to copy directory: %w", err)
+			}
 		}
 
 		logger.Info().Msgf("✓ Build artifacts copied to %s", targetPath)

@@ -53,8 +53,8 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 
 	// Create HTTP client with timeout
 	timeout := time.Duration(30) * time.Second // default timeout
-	if input.GetTimeoutMs() > 0 {
-		timeout = time.Duration(input.GetTimeoutMs()) * time.Millisecond
+	if input.GetTimeout() != nil {
+		timeout = input.GetTimeout().AsDuration()
 	}
 
 	client := &http.Client{

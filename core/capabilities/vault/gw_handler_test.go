@@ -14,11 +14,11 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	core_mocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	vaulttypesmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
-	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 )
 
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
@@ -27,24 +27,24 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		setupMocks    func(*mocks.SecretsService, *connector_mocks.GatewayConnector)
+		setupMocks    func(*vaulttypesmocks.SecretsService, *connector_mocks.GatewayConnector)
 		request       *jsonrpc.Request[json.RawMessage]
 		expectedError bool
 	}{
 		{
 			name: "success - create secrets",
-			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
 					return len(req.EncryptedSecrets) == 1 &&
 						req.EncryptedSecrets[0].Id.Key == "test-secret"
-				})).Return(&vaultcap.Response{ID: "test-secret"}, nil)
+				})).Return(&vaulttypes.Response{ID: "test-secret"}, nil)
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error == nil
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vaultapi.MethodSecretsCreate,
+				Method: vaulttypes.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
@@ -66,7 +66,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - service error",
-			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.Anything).Return(nil, errors.New("service error"))
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -75,7 +75,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vaultapi.MethodSecretsCreate,
+				Method: vaulttypes.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
@@ -97,7 +97,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - invalid method",
-			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
 						resp.Error.Code == api.ToJSONRPCErrorCode(api.UnsupportedMethodError)
@@ -111,14 +111,14 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - invalid request params",
-			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
 						resp.Error.Code == api.ToJSONRPCErrorCode(api.UserMessageParseError)
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vaultapi.MethodSecretsCreate,
+				Method: vaulttypes.MethodSecretsCreate,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					raw := json.RawMessage([]byte(`{invalid json`))
@@ -129,20 +129,20 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "success - delete secrets",
-			setupMocks: func(ss *mocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
 				ss.EXPECT().DeleteSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.DeleteSecretsRequest) bool {
 					return len(req.Ids) == 1 &&
 						req.Ids[0].Key == "Foo" &&
 						req.Ids[0].Namespace == "Bar" &&
 						req.Ids[0].Owner == "Owner"
-				})).Return(&vaultcap.Response{ID: "test-secret"}, nil)
+				})).Return(&vaulttypes.Response{ID: "test-secret"}, nil)
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error == nil
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
-				Method: vaultapi.MethodSecretsDelete,
+				Method: vaulttypes.MethodSecretsDelete,
 				ID:     "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.DeleteSecretsRequest{
@@ -166,7 +166,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			secretsService := mocks.NewSecretsService(t)
+			secretsService := vaulttypesmocks.NewSecretsService(t)
 			gwConnector := connector_mocks.NewGatewayConnector(t)
 			capRegistry := core_mocks.NewCapabilitiesRegistry(t)
 
@@ -190,7 +190,7 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
 
-	secretsService := mocks.NewSecretsService(t)
+	secretsService := vaulttypesmocks.NewSecretsService(t)
 	gwConnector := connector_mocks.NewGatewayConnector(t)
 	capRegistry := core_mocks.NewCapabilitiesRegistry(t)
 
@@ -198,11 +198,13 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("start", func(t *testing.T) {
+		gwConnector.On("AddHandler", mock.Anything, vaulttypes.GetSupportedMethods(lggr), handler).Return(nil).Once()
 		err := handler.Start(ctx)
 		require.NoError(t, err)
 	})
 
 	t.Run("close", func(t *testing.T) {
+		gwConnector.On("RemoveHandler", mock.Anything, vaulttypes.GetSupportedMethods(lggr)).Return(nil).Once()
 		err := handler.Close()
 		require.NoError(t, err)
 	})

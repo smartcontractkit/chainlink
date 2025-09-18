@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
+	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -930,7 +931,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 
 	var (
-		evmChains, solChains, aptosChains []uint64
+		evmChains, solChains, aptosChains, tonChains []uint64
 	)
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
@@ -942,10 +943,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		if _, ok := e.Env.BlockChains.AptosChains()[chain]; ok {
 			aptosChains = append(aptosChains, chain)
 		}
-	}
-
-	tonChains := []uint64{}
-	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.TonChains()[chain]; ok {
 			tonChains = append(tonChains, chain)
 		}
@@ -982,8 +979,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	if len(solChains) != 0 {
 		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
 			var buildSolConfig = &ccipChangeSetSolanaV0_1_1.BuildSolanaConfig{
-				GitCommitSha:   ccipChangeSetSolanaV0_1_1.ContractVersionShortSha[ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1],
-				DestinationDir: memory.ProgramsPath,
+				SolanaContractVersion: ccipChangeSetSolanaV0_1_1.VersionSolanaV0_1_1,
+				DestinationDir:        memory.ProgramsPath,
 			}
 			solCs, err := DeployChainContractsToSolChainCSV0_1_1(e, solChains[0], true, buildSolConfig)
 
@@ -1008,13 +1005,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	if len(tonChains) != 0 {
 		// Currently only one ton chain is supported in test environment
-		tonCs := DeployChainContractsToTonCS(t, e, tonChains[0])
-		if tonCs != nil {
-			e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{tonCs})
-			require.NoError(t, err)
-		} else {
-			t.Log("Ton chain contracts deployment is not implemented yet")
-		}
+		_, err := memory.GetTONSha()
+		require.NoError(t, err, "failed to get TON commit sha")
+		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
+		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], "60d3ba6bf24b"))
+		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{cs})
+		require.NoError(t, err, "failed to deploy TON ccip contracts")
 	}
 
 	state, err := stateview.LoadOnchainState(e.Env)

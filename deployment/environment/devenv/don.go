@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -134,6 +135,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		if err != nil {
 			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
 		}
+
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
 			if info.MultiAddr == "" {
@@ -209,26 +211,27 @@ func NewNodeWithContext(ctx context.Context, nodeInfo NodeInfo) (*Node, error) {
 		})
 	}
 	return &Node{
-		gqlClient:  gqlClient,
-		restClient: chainlinkClient,
-		Name:       nodeInfo.Name,
-		adminAddr:  nodeInfo.AdminAddr,
-		multiAddr:  nodeInfo.MultiAddr,
-		labels:     labels,
+		gqlClient:              gqlClient,
+		restClient:             chainlinkClient,
+		Name:                   nodeInfo.Name,
+		adminAddr:              nodeInfo.AdminAddr,
+		multiAddr:              nodeInfo.MultiAddr,
+		labels:                 labels,
+		ChainsOcr2KeyBundlesID: make(map[string]string),
 	}, nil
 }
 
 type Node struct {
-	NodeID          string                    // node id returned by job distributor after node is registered with it
-	JDId            string                    // job distributor id returned by node after Job distributor is created in node
-	Name            string                    // name of the node
-	AccountAddr     map[string]string         // chain id to node's account address mapping for supported chains
-	Ocr2KeyBundleID string                    // OCR2 key bundle id of the node
-	gqlClient       client.Client             // graphql client to interact with the node
-	restClient      *clclient.ChainlinkClient // rest client to interact with the node
-	labels          []*ptypes.Label           // labels with which the node is registered with the job distributor
-	adminAddr       string                    // admin address to send payments to, applicable only for non-bootstrap nodes
-	multiAddr       string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
+	NodeID                 string            // node id returned by job distributor after node is registered with it
+	JDId                   string            // job distributor id returned by node after Job distributor is created in node
+	Name                   string            // name of the node
+	AccountAddr            map[string]string // chain id to node's account address mapping for supported chains
+	ChainsOcr2KeyBundlesID map[string]string
+	gqlClient              client.Client             // graphql client to interact with the node
+	restClient             *clclient.ChainlinkClient // rest client to interact with the node
+	labels                 []*ptypes.Label           // labels with which the node is registered with the job distributor
+	adminAddr              string                    // admin address to send payments to, applicable only for non-bootstrap nodes
+	multiAddr              string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
 type JDChainConfigInput struct {
@@ -296,7 +299,8 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		if ocr2BundleId == "" {
 			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
-		n.Ocr2KeyBundleID = ocr2BundleId
+
+		n.ChainsOcr2KeyBundlesID[strings.ToLower(chain.ChainType)] = ocr2BundleId
 
 		// fetch node labels to know if the node is bootstrap or plugin
 		// if multi address is set, then it's a bootstrap node
@@ -578,4 +582,46 @@ func value[T any](v *T) T {
 		return *zero
 	}
 	return *v
+}
+
+func (n *Node) CancelProposalsByExternalJobID(ctx context.Context, externalJobIDs []string) ([]string, error) {
+	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
+	if err != nil {
+		return nil, err
+	}
+	if jd.GetJobProposals() == nil {
+		return nil, fmt.Errorf("no job proposals found for node %s", n.Name)
+	}
+
+	proposalIDs := []string{}
+	for _, jp := range jd.JobProposals {
+		if !slices.Contains(externalJobIDs, jp.ExternalJobID) {
+			continue
+		}
+
+		proposalIDs = append(proposalIDs, jp.Id)
+		spec, err := n.gqlClient.CancelJobProposalSpec(ctx, jp.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		if spec == nil {
+			return nil, fmt.Errorf("no job proposal spec found for id %s", jp.Id)
+		}
+	}
+
+	return proposalIDs, nil
+}
+
+func (n *Node) ApproveProposals(ctx context.Context, proposalIDs []string) error {
+	for _, proposalID := range proposalIDs {
+		spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, proposalID, false)
+		if err != nil {
+			return err
+		}
+		if spec == nil {
+			return fmt.Errorf("no job proposal spec found for id %s", proposalID)
+		}
+	}
+	return nil
 }

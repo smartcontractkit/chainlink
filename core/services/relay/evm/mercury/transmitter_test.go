@@ -56,20 +56,6 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	clients := map[string]wsrpc.Client{}
 
 	t.Run("with one mercury server", func(t *testing.T) {
-		t.Run("v1 report transmission successfully enqueued", func(t *testing.T) {
-			report := sampleV1Report
-			c := &mocks.MockWSRPCClient{}
-			clients[sURL] = c
-			mt := NewTransmitter(lggr, mockCfg{}, clients, sampleClientPubKey, jobID, sampleFeedID, orm, codec, benchmarkPriceDecoder, nil)
-			// init the queue since we skipped starting transmitter
-			mt.servers[sURL].q.Init([]*Transmission{})
-			err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
-			require.NoError(t, err)
-
-			// ensure it was added to the queue
-			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
-			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
-		})
 		t.Run("v2 report transmission successfully enqueued", func(t *testing.T) {
 			report := sampleV2Report
 			c := &mocks.MockWSRPCClient{}

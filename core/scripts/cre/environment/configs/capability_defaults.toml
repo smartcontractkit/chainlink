@@ -1,3 +1,10 @@
+[capability_configs.consensus]
+  binary_path = "./binaries/consensus"
+
+# Global config for consensus is optional - uses empty config by default
+[capability_configs.consensus.config]
+#   CustomField = "value"  # Add custom fields if needed
+
 [capability_configs.cron]
   binary_path = "./binaries/cron"
 
@@ -95,6 +102,7 @@
   # Runtime values below are typically filled at runtime, but may be overridden
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
+
 [capability_configs.write-solana.config]
   # Solana Workflow configuration for write capabilities
   TxAcceptanceState = 3

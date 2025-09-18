@@ -34,6 +34,7 @@ type Query {
     p2pKeys: P2PKeysPayload!
     solanaKeys: SolanaKeysPayload!
     aptosKeys: AptosKeysPayload!
+    suiKeys: SuiKeysPayload!
     cosmosKeys: CosmosKeysPayload!
     starknetKeys: StarkNetKeysPayload!
     tronKeys: TronKeysPayload!

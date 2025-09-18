@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -20,13 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func BuildTopology(
+func PrepareConfiguration(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	infraInput infra.Input,
-	evmChainIDs []int,
-	solChainIDs []string,
-	blockchainOutput map[uint64]*cre.WrappedBlockchainOutput,
+	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
 	datastore datastore.DataStore,
 	capabilities []cre.InstallableCapability,
@@ -54,10 +53,28 @@ func BuildTopology(
 		return nil, nil, errors.Wrap(keysOutputErr, "failed to generate keys output")
 	}
 
+	evmChainIDs := make([]int, 0)
+	solChainIDs := make([]string, 0)
+	chainPerSelector := make(map[uint64]*cre.WrappedBlockchainOutput)
+	for _, bcOut := range blockchainOutputs {
+		if bcOut.SolChain != nil {
+			sel := bcOut.SolChain.ChainSelector
+			chainPerSelector[sel] = bcOut
+			chainPerSelector[sel].ChainSelector = sel
+			chainPerSelector[sel].SolChain = bcOut.SolChain
+			chainPerSelector[sel].SolChain.ArtifactsDir = bcOut.SolChain.ArtifactsDir
+			solChainIDs = append(solChainIDs, bcOut.SolChain.ChainID)
+			continue
+		}
+		chainPerSelector[bcOut.ChainSelector] = bcOut
+		evmChainIDs = append(evmChainIDs, libc.MustSafeInt(bcOut.ChainID))
+	}
+
 	generateKeysInput := &cre.GenerateKeysInput{
 		GenerateEVMKeysForChainIDs: evmChainIDs,
 		GenerateSolKeysForChainIDs: solChainIDs,
 		GenerateP2PKeys:            true,
+		GenerateDKGRecipientKeys:   true,
 		Topology:                   topology,
 		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
 		Out:                        keysOutput,
@@ -107,9 +124,9 @@ func BuildTopology(
 			return nil, nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
 		}
 
-		configFactoryFunctions := make([]cre.NodeConfigFn, 0)
+		configFactoryFunctions := make([]cre.NodeConfigTransformerFn, 0)
 		for _, capability := range capabilities {
-			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigFn())
+			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigTransformerFn())
 		}
 
 		// generate configs only if they are not provided
@@ -119,7 +136,7 @@ func BuildTopology(
 					AddressBook:             addressBook,
 					Datastore:               datastore,
 					DonMetadata:             donMetadata,
-					BlockchainOutput:        blockchainOutput,
+					BlockchainOutput:        chainPerSelector,
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
@@ -155,6 +172,10 @@ func BuildTopology(
 
 			if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
 				secretsInput.P2PKeys = p2pKeys
+			}
+
+			if dkgKeys, ok := keys.DKGRecipientKeys[donMetadata.ID]; ok {
+				secretsInput.DKGRecipientKeys = dkgKeys
 			}
 
 			// EVM, Solana and P2P keys will be provided to nodes as secrets

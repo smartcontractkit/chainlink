@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -13,12 +14,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type testFixture struct {
@@ -73,13 +79,82 @@ func TestConfigureCapabilitiesRegistry(t *testing.T) {
 		// Verify that the final state is still correct
 		verifyCapabilitiesRegistryConfiguration(t, fixture)
 	})
+
+	t.Run("MCMS configuration", func(t *testing.T) {
+		// Set up MCMS infrastructure
+		mcmsFixture := setupCapabilitiesRegistryWithMCMS(t)
+
+		// Test MCMS by directly calling the RegisterNops operation which should create proposals
+		t.Log("Testing MCMS proposal creation for NOPs registration...")
+
+		// Get MCMS contracts from the environment
+		mcmsContracts, err := strategies.GetMCMSContracts(mcmsFixture.env, mcmsFixture.chainSelector, mcmsFixture.configureInput.Qualifier)
+		require.NoError(t, err, "should be able to get MCMS contracts")
+		require.NotNil(t, mcmsContracts, "MCMS contracts should not be nil")
+
+		// Create dependencies for the operation
+		deps := contracts.RegisterNopsDeps{
+			Env: &mcmsFixture.env,
+		}
+
+		// Create NOPs registration input with MCMS enabled
+		nopsInput := contracts.RegisterNopsInput{
+			Address:       mcmsFixture.capabilitiesRegistryAddress,
+			ChainSelector: mcmsFixture.chainSelector,
+			Nops: []capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+				{
+					Admin: common.HexToAddress("0x0000000000000000000000000000000000000001"),
+					Name:  "test nop1",
+				},
+				{
+					Admin: common.HexToAddress("0x0000000000000000000000000000000000000002"),
+					Name:  "test nop2",
+				},
+			},
+		}
+
+		// Execute the NOPs registration operation with MCMS
+		report, err := operations.ExecuteOperation(
+			mcmsFixture.env.OperationsBundle,
+			contracts.RegisterNops,
+			deps,
+			nopsInput,
+		)
+		require.NoError(t, err, "NOPs registration with MCMS should succeed")
+		require.NotNil(t, report, "operation report should not be nil")
+
+		// Verify proposal content
+		for i, proposal := range report.Output.Proposals {
+			require.NotEmpty(t, proposal.Operations, "proposal %d should have operations", i)
+			require.Greater(t, proposal.Delay.Seconds(), float64(0), "proposal %d should have a minimum delay", i)
+
+			// Verify that proposals target the timelock
+			for j, op := range proposal.Operations {
+				require.NotEmpty(t, op.Transactions, "proposal %d operation %d should have transactions", i, j)
+				t.Logf("Proposal %d Operation %d: %d transactions", i, j, len(op.Transactions))
+			}
+
+			t.Logf("Proposal %d: %d operations, delay: %v", i, len(proposal.Operations), proposal.Delay)
+		}
+
+		// Verify timelock addresses are set correctly
+		for i, proposal := range report.Output.Proposals {
+			require.NotEmpty(t, proposal.TimelockAddresses, "proposal %d should have timelock addresses", i)
+			t.Logf("Proposal %d timelock addresses: %v", i, proposal.TimelockAddresses)
+		}
+
+		t.Logf("MCMS NOPs registration test completed successfully")
+		t.Logf("MCMS proposals created and ready for execution through governance")
+	})
 }
 
 func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 	originalInput := ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               123456789,
 		CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
-		UseMCMS:                     true,
+		MCMSConfig: &ocr3.MCMSConfig{
+			MinDuration: 30 * time.Second,
+		},
 		Nops: []CapabilitiesRegistryNodeOperator{
 			{
 				Admin: common.HexToAddress("0x1111111111111111111111111111111111111111"),
@@ -157,7 +232,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		yamlStr := string(yamlData)
 		assert.Contains(t, yamlStr, "chainSelector:", "should contain chainSelector field")
 		assert.Contains(t, yamlStr, "capabilitiesRegistryAddress:", "should contain capabilitiesRegistryAddress field")
-		assert.Contains(t, yamlStr, "useMCMS:", "should contain useMCMS field")
+		assert.Contains(t, yamlStr, "mcmsConfig:", "should contain mcmsConfig field")
 		assert.Contains(t, yamlStr, "nops:", "should contain nops field")
 		assert.Contains(t, yamlStr, "capabilities:", "should contain capabilities field")
 		assert.Contains(t, yamlStr, "nodes:", "should contain nodes field")
@@ -177,7 +252,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		// Verify all fields are correctly deserialized
 		assert.Equal(t, originalInput.ChainSelector, unmarshaledInput.ChainSelector)
 		assert.Equal(t, originalInput.CapabilitiesRegistryAddress, unmarshaledInput.CapabilitiesRegistryAddress)
-		assert.Equal(t, originalInput.UseMCMS, unmarshaledInput.UseMCMS)
+		assert.Equal(t, originalInput.MCMSConfig, unmarshaledInput.MCMSConfig)
 		assert.Equal(t, originalInput.Nops, unmarshaledInput.Nops)
 		assert.Equal(t, originalInput.Capabilities, unmarshaledInput.Capabilities)
 		assert.Equal(t, originalInput.Nodes, unmarshaledInput.Nodes)
@@ -189,7 +264,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		minimalInput := ConfigureCapabilitiesRegistryInput{
 			ChainSelector:               123456789,
 			CapabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890",
-			UseMCMS:                     false,
+			MCMSConfig:                  nil,
 			// Omit optional fields (nops, capabilities, nodes, dons)
 		}
 
@@ -201,13 +276,13 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 		// Should contain required fields
 		assert.Contains(t, yamlStr, "chainSelector:")
 		assert.Contains(t, yamlStr, "capabilitiesRegistryAddress:")
-		assert.Contains(t, yamlStr, "useMCMS:")
 
 		// Should NOT contain optional fields due to omitempty
 		assert.NotContains(t, yamlStr, "nops:")
 		assert.NotContains(t, yamlStr, "capabilities:")
 		assert.NotContains(t, yamlStr, "nodes:")
 		assert.NotContains(t, yamlStr, "dons:")
+		assert.NotContains(t, yamlStr, "mcmsConfig:")
 
 		// Should be able to unmarshal back
 		var unmarshaledMinimal ConfigureCapabilitiesRegistryInput
@@ -216,7 +291,7 @@ func TestConfigureCapabilitiesRegistryInput_YAMLSerialization(t *testing.T) {
 
 		assert.Equal(t, minimalInput.ChainSelector, unmarshaledMinimal.ChainSelector)
 		assert.Equal(t, minimalInput.CapabilitiesRegistryAddress, unmarshaledMinimal.CapabilitiesRegistryAddress)
-		assert.Equal(t, minimalInput.UseMCMS, unmarshaledMinimal.UseMCMS)
+		assert.Equal(t, minimalInput.MCMSConfig, unmarshaledMinimal.MCMSConfig)
 		assert.Empty(t, unmarshaledMinimal.Nops)
 		assert.Empty(t, unmarshaledMinimal.Capabilities)
 		assert.Empty(t, unmarshaledMinimal.Nodes)
@@ -274,7 +349,7 @@ dons:
 	// Verify the parsed values
 	assert.Equal(t, uint64(421614), input.ChainSelector)
 	assert.Equal(t, "0x1234567890123456789012345678901234567890", input.CapabilitiesRegistryAddress)
-	assert.True(t, input.UseMCMS)
+	assert.Nil(t, input.MCMSConfig)
 
 	require.Len(t, input.Nops, 2)
 	assert.Equal(t, "Node Operator Alpha", input.Nops[0].Name)
@@ -322,6 +397,166 @@ dons:
 	}
 	assert.Equal(t, expectedCapConfig, input.DONs[0].CapabilityConfigurations[0].Config)
 	assert.Equal(t, []string{nodeID1}, input.DONs[0].Nodes, "should contain the correct node IDs")
+}
+
+// setupCapabilitiesRegistryWithMCMS sets up a test environment with MCMS infrastructure
+func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
+	lggr := logger.Test(t)
+	env, chainSelector := cre.BuildMinimalEnvironment(t, lggr)
+
+	// Deploy MCMS infrastructure first
+	t.Log("Setting up MCMS infrastructure...")
+	timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+	}
+
+	mcmsEnv, err := commonchangeset.Apply(t, env,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			timelockCfgs,
+		),
+	)
+	require.NoError(t, err, "failed to deploy MCMS infrastructure")
+	t.Log("MCMS infrastructure deployed successfully")
+
+	// Deploy the capabilities registry
+	t.Log("Running deployment changeset...")
+	deployOutput, err := DeployCapabilitiesRegistry{}.Apply(mcmsEnv, DeployCapabilitiesRegistryInput{
+		ChainSelector: chainSelector,
+		Qualifier:     "test-capabilities-registry-v2-mcms",
+	})
+	require.NoError(t, err, "failed to apply deployment changeset")
+	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
+	require.Len(t, deployOutput.Reports, 1, "deployment should produce exactly one report")
+
+	deployReport := deployOutput.Reports[0]
+	deployReportOutput := deployReport.Output.(contracts.DeployCapabilitiesRegistryOutput)
+	capabilitiesRegistryAddress := deployReportOutput.Address
+	t.Logf("CapabilitiesRegistry deployed at address: %s", capabilitiesRegistryAddress)
+
+	// Create NOPs
+	nops := []CapabilitiesRegistryNodeOperator{
+		{
+			Admin: common.HexToAddress("0x0000000000000000000000000000000000000001"),
+			Name:  "test nop1",
+		},
+		{
+			Admin: common.HexToAddress("0x0000000000000000000000000000000000000002"),
+			Name:  "test nop2",
+		},
+	}
+
+	// Create capabilities with proper metadata
+	writeChainCapability := capabilities_registry_v2.CapabilitiesRegistryCapability{
+		CapabilityId:          "write-chain@1.0.1",
+		ConfigurationContract: common.Address{},
+		Metadata:              []byte(`{"capabilityType": 3, "responseType": 1}`),
+	}
+	var writeChainCapabilityMetadata map[string]interface{}
+	err = json.Unmarshal(writeChainCapability.Metadata, &writeChainCapabilityMetadata)
+	require.NoError(t, err)
+
+	triggerCapability := capabilities_registry_v2.CapabilitiesRegistryCapability{
+		CapabilityId:          "trigger@1.0.0",
+		ConfigurationContract: common.Address{},
+		Metadata:              []byte(`{"capabilityType": 1, "responseType": 1}`),
+	}
+	var triggerCapabilityMetadata map[string]interface{}
+	err = json.Unmarshal(triggerCapability.Metadata, &triggerCapabilityMetadata)
+	require.NoError(t, err)
+
+	capabilities := []CapabilitiesRegistryCapability{
+		{
+			CapabilityID: writeChainCapability.CapabilityId,
+			Metadata:     writeChainCapabilityMetadata,
+		},
+		{
+			CapabilityID: triggerCapability.CapabilityId,
+			Metadata:     triggerCapabilityMetadata,
+		},
+	}
+
+	// Create nodes
+	nodes := []CapabilitiesRegistryNodeParams{
+		{
+			NodeOperatorID:      uint32(1),
+			Signer:              signer1,
+			EncryptionPublicKey: encryptionPublicKey,
+			P2pID:               p2pID1,
+			CapabilityIDs:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
+			CsaKey:              csaKey,
+		},
+		{
+			NodeOperatorID:      uint32(2),
+			Signer:              signer2,
+			EncryptionPublicKey: encryptionPublicKey,
+			P2pID:               p2pID2,
+			CapabilityIDs:       []string{writeChainCapability.CapabilityId, triggerCapability.CapabilityId},
+			CsaKey:              csaKey,
+		},
+	}
+
+	nodeSet := []string{}
+	for _, n := range nodes {
+		nodeSet = append(nodeSet, n.P2pID)
+	}
+
+	// Create capability configurations
+	configMap := map[string]interface{}{
+		"defaultConfig": map[string]interface{}{},
+		"remoteTriggerConfig": map[string]interface{}{
+			"registrationRefresh":     "20s",
+			"registrationExpiry":      "60s",
+			"minResponsesToAggregate": 2,
+			"messageExpiry":           "120s",
+		},
+	}
+
+	DONs := []CapabilitiesRegistryNewDONParams{
+		{
+			Name:        "test-don-mcms-1",
+			DonFamilies: []string{"don-family-mcms-1"},
+			Config: map[string]interface{}{
+				"name": "test-don-mcms-config",
+				"type": "workflow",
+			},
+			CapabilityConfigurations: []CapabilitiesRegistryCapabilityConfiguration{
+				{
+					CapabilityID: writeChainCapability.CapabilityId,
+					Config:       configMap,
+				},
+			},
+			Nodes:            nodeSet,
+			F:                1,
+			IsPublic:         true,
+			AcceptsWorkflows: false,
+		},
+	}
+
+	// Create the input with MCMS enabled
+	configureInput := ConfigureCapabilitiesRegistryInput{
+		ChainSelector:               chainSelector,
+		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
+		MCMSConfig: &ocr3.MCMSConfig{
+			MinDuration: 30 * time.Second,
+		},
+		Nops:         nops,
+		Capabilities: capabilities,
+		Nodes:        nodes,
+		DONs:         DONs,
+		Qualifier:    "",
+	}
+
+	return &testFixture{
+		env:                         mcmsEnv,
+		chainSelector:               chainSelector,
+		capabilitiesRegistryAddress: capabilitiesRegistryAddress,
+		nops:                        nops,
+		capabilities:                capabilities,
+		nodes:                       nodes,
+		DONs:                        DONs,
+		configureInput:              configureInput,
+	}
 }
 
 func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
@@ -458,7 +693,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	configureInput := ConfigureCapabilitiesRegistryInput{
 		ChainSelector:               chainSelector,
 		CapabilitiesRegistryAddress: capabilitiesRegistryAddress,
-		UseMCMS:                     false,
+		MCMSConfig:                  nil,
 		Nops:                        nops,
 		Capabilities:                capabilities,
 		Nodes:                       nodes,

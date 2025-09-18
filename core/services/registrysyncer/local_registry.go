@@ -63,12 +63,54 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
 	}
 
+	var methodConfigs map[string]capabilities.CapabilityMethodConfig
+	if cconf.MethodConfigs != nil {
+		methodConfigs = make(map[string]capabilities.CapabilityMethodConfig, len(cconf.MethodConfigs))
+		for method, methodConfig := range cconf.MethodConfigs {
+			var config capabilities.CapabilityMethodConfig
+			switch remoteCfg := methodConfig.RemoteConfig.(type) {
+			case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
+				config = capabilities.CapabilityMethodConfig{
+					RemoteTriggerConfig: &capabilities.RemoteTriggerConfig{
+						RegistrationRefresh:     remoteCfg.RemoteTriggerConfig.RegistrationRefresh.AsDuration(),
+						RegistrationExpiry:      remoteCfg.RemoteTriggerConfig.RegistrationExpiry.AsDuration(),
+						MinResponsesToAggregate: remoteCfg.RemoteTriggerConfig.MinResponsesToAggregate,
+						MessageExpiry:           remoteCfg.RemoteTriggerConfig.MessageExpiry.AsDuration(),
+						MaxBatchSize:            remoteCfg.RemoteTriggerConfig.MaxBatchSize,
+						BatchCollectionPeriod:   remoteCfg.RemoteTriggerConfig.BatchCollectionPeriod.AsDuration(),
+					},
+				}
+			case *capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig:
+				config = capabilities.CapabilityMethodConfig{
+					RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{
+						TransmissionSchedule:      capabilities.TransmissionSchedule(remoteCfg.RemoteExecutableConfig.TransmissionSchedule),
+						DeltaStage:                remoteCfg.RemoteExecutableConfig.DeltaStage.AsDuration(),
+						RequestTimeout:            remoteCfg.RemoteExecutableConfig.RequestTimeout.AsDuration(),
+						ServerMaxParallelRequests: remoteCfg.RemoteExecutableConfig.ServerMaxParallelRequests,
+						RequestHasherType:         capabilities.RequestHasherType(remoteCfg.RemoteExecutableConfig.RequestHasherType),
+					},
+				}
+			default:
+				return capabilities.CapabilityConfiguration{}, fmt.Errorf("unknown method config type for method %s", method)
+			}
+
+			if methodConfig.AggregatorConfig != nil {
+				config.AggregatorConfig = &capabilities.AggregatorConfig{
+					AggregatorType: capabilities.AggregatorType(methodConfig.AggregatorConfig.AggregatorType),
+				}
+			}
+
+			methodConfigs[method] = config
+		}
+	}
+
 	return capabilities.CapabilityConfiguration{
-		DefaultConfig:       dc,
-		RestrictedKeys:      cconf.RestrictedKeys,
-		RestrictedConfig:    rc,
-		RemoteTriggerConfig: remoteTriggerConfig,
-		RemoteTargetConfig:  remoteTargetConfig,
+		DefaultConfig:          dc,
+		RestrictedKeys:         cconf.RestrictedKeys,
+		RestrictedConfig:       rc,
+		RemoteTriggerConfig:    remoteTriggerConfig,
+		RemoteTargetConfig:     remoteTargetConfig,
+		CapabilityMethodConfig: methodConfigs,
 	}, nil
 }
 
@@ -169,6 +211,59 @@ func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (
 		WorkflowDON:         workflowDON,
 		CapabilityDONs:      capabilityDONs,
 	}, nil
+}
+
+func (l *LocalRegistry) DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error) {
+	err := l.ensureNotEmpty()
+	if err != nil {
+		return []capabilities.DONWithNodes{}, err
+	}
+
+	foundDONs := []capabilities.DONWithNodes{}
+	for _, don := range l.IDsToDONs {
+		for cid := range don.CapabilityConfigurations {
+			if cid == capabilityID {
+				nodes, err := l.nodesForDON(ctx, don.DON)
+				if err != nil {
+					return nil, fmt.Errorf("could not fetch nodes for DON %d: %w", don.ID, err)
+				}
+				donWithNodes := capabilities.DONWithNodes{DON: don.DON, Nodes: nodes}
+				foundDONs = append(foundDONs, donWithNodes)
+			}
+		}
+	}
+
+	if len(foundDONs) == 0 {
+		return nil, fmt.Errorf("could not find DON for capability %s", capabilityID)
+	}
+
+	for _, d := range foundDONs {
+		nodes := []capabilities.Node{}
+		for _, n := range d.DON.Members {
+			node, err := l.NodeByPeerID(ctx, n)
+			if err != nil {
+				return nil, fmt.Errorf("could not find node for peerID %s: %w", n.String(), err)
+			}
+
+			nodes = append(nodes, node)
+		}
+		(&d).Nodes = nodes
+	}
+
+	return foundDONs, nil
+}
+
+func (l *LocalRegistry) nodesForDON(ctx context.Context, don capabilities.DON) ([]capabilities.Node, error) {
+	nodes := []capabilities.Node{}
+	for _, n := range don.Members {
+		node, err := l.NodeByPeerID(ctx, n)
+		if err != nil {
+			return nil, fmt.Errorf("could not find node for peerID %s: %w", n.String(), err)
+		}
+
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
 }
 
 func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {

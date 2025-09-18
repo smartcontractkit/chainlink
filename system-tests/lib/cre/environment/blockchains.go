@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -8,6 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -24,18 +27,17 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	libnix "github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 )
 
 type BlockchainsInput struct {
 	blockchainsInput []blockchain.Input
-	infra            *infra.Input
-	nixShell         *libnix.Shell
+	infra            infra.Input
 }
 
 type BlockchainOutput struct {
@@ -66,7 +68,7 @@ func CreateBlockchains(
 			}
 		}
 
-		bcOut, err := deployBlockchain(testLogger, input.infra, input.nixShell, bi)
+		bcOut, err := deployBlockchain(testLogger, input.infra, bi)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s", bi.Type)
 		}
@@ -94,6 +96,8 @@ func CreateBlockchains(
 // Will be set as --mint when spin up local solana validator, unless env variable with a different key provided
 var defaultSolanaPrivateKey = solana.MustPrivateKeyFromBase58("4u2itaM9r5kxsmoti3GMSDZrQEFpX14o6qPWY9ZrrYTR6kduDBr4YAZJsjawKzGP3wDzyXqterFmfcLUmSBro5AT")
 
+var once = &sync.Once{}
+
 func initSolanaInput(bi *blockchain.Input) error {
 	err := SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey)
 	if err != nil {
@@ -101,10 +105,42 @@ func initSolanaInput(bi *blockchain.Input) error {
 	}
 	bi.PublicKey = defaultSolanaPrivateKey.PublicKey().String()
 	bi.ContractsDir = getSolProgramsPath(bi.ContractsDir)
+
+	if bi.SolanaPrograms != nil {
+		var err2 error
+		once.Do(func() {
+			if hasSolanaArtifacts(bi.ContractsDir) {
+				return
+			}
+			// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
+			err2 = memory.DownloadSolanaProgramArtifacts(context.Background(), bi.ContractsDir, logger.Nop(), "b0f7cd3fbdbb")
+		})
+		if err2 != nil {
+			return fmt.Errorf("failed to download solana artifacts: %w", err2)
+		}
+	}
+
 	return nil
 }
 
-func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell *libnix.Shell, bi blockchain.Input) (*blockchain.Output, error) {
+func hasSolanaArtifacts(dir string) bool {
+	ents, err := os.ReadDir(dir)
+	if err != nil { // dir missing or unreadable -> treat as not present
+		return false
+	}
+	for _, e := range ents {
+		if e.IsDir() {
+			continue
+		}
+		n := e.Name()
+		if strings.HasSuffix(n, ".so") || strings.HasSuffix(n, ".json") {
+			return true
+		}
+	}
+	return false
+}
+
+func deployBlockchain(testLogger zerolog.Logger, infraIn infra.Input, bi blockchain.Input) (*blockchain.Output, error) {
 	if infraIn.Type != infra.CRIB {
 		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
 		if err != nil {
@@ -114,13 +150,8 @@ func deployBlockchain(testLogger zerolog.Logger, infraIn *infra.Input, nixShell 
 		return bcOut, nil
 	}
 
-	if nixShell == nil {
-		return nil, pkgerrors.New("nix shell is nil")
-	}
-
 	deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
 		BlockchainInput: &bi,
-		NixShell:        nixShell,
 		CribConfigsDir:  cribConfigsDir,
 		Namespace:       infraIn.CRIB.Namespace,
 	}
@@ -212,6 +243,10 @@ type BlockchainLoggers struct {
 type StartBlockchainsOutput struct {
 	BlockChainOutputs []*cre.WrappedBlockchainOutput
 	BlockChains       map[uint64]chain.BlockChain
+}
+
+func (s *StartBlockchainsOutput) RegistryChain() *cre.WrappedBlockchainOutput {
+	return s.BlockChainOutputs[0]
 }
 
 func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartBlockchainsOutput, error) {

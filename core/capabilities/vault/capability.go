@@ -2,49 +2,86 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	vaultapi "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
 type Capability struct {
-	lggr         logger.Logger
-	clock        clockwork.Clock
-	expiresAfter time.Duration
-	handler      *requests.Handler[*Request, *Response]
+	lggr                 logger.Logger
+	clock                clockwork.Clock
+	expiresAfter         time.Duration
+	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
+	requestAuthorizer    RequestAuthorizer
+	capabilitiesRegistry core.CapabilitiesRegistry
+	publicKey            *LazyPublicKey
 }
 
 func (s *Capability) Start(ctx context.Context) error {
-	return s.handler.Start(ctx)
+	if err := s.handler.Start(ctx); err != nil {
+		return fmt.Errorf("error starting vault DON request handler: %w", err)
+	}
+
+	closeHandler := func() {
+		ierr := s.handler.Close()
+		if ierr != nil {
+			s.lggr.Errorf("error closing vault DON request handler after failed registration: %v", ierr)
+		}
+	}
+
+	err := s.capabilitiesRegistry.Add(ctx, s)
+	if err != nil {
+		closeHandler()
+		return fmt.Errorf("error registering vault capability: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Capability) Close() error {
-	return s.handler.Close()
+	err := s.capabilitiesRegistry.Remove(context.Background(), vaultcommon.CapabilityID)
+	if err != nil {
+		err = fmt.Errorf("error unregistering vault capability: %w", err)
+	}
+
+	ierr := s.handler.Close()
+	if ierr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
+	}
+
+	return err
 }
 
-func (s *Capability) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+func (s *Capability) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.NewCapabilityInfo(vaultcommon.CapabilityID, capabilities.CapabilityTypeAction, "Vault Capability")
 }
 
-func (s *Capability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+func (s *Capability) RegisterToWorkflow(_ context.Context, _ capabilities.RegisterToWorkflowRequest) error {
 	// Left unimplemented as this method will never be called
 	// for this capability
 	return nil
 }
 
-func (s *Capability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+func (s *Capability) UnregisterFromWorkflow(_ context.Context, _ capabilities.UnregisterFromWorkflowRequest) error {
 	// Left unimplemented as this method will never be called
 	// for this capability
 	return nil
@@ -55,7 +92,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("capability does not support v1 requests")
 	}
 
-	if request.Method != vaultapi.MethodSecretsGet {
+	if request.Method != vaulttypes.MethodSecretsGet {
 		return capabilities.CapabilityResponse{}, errors.New("unsupported method: can only call GetSecrets via capability interface")
 	}
 
@@ -90,25 +127,270 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 
 	// Note: we can drop the signatures from the response above here
 	// since only a valid report will be successfully decryptable by the workflow DON.
-	resppb := &vaultcommon.GetSecretsResponse{}
-	err = proto.Unmarshal(resp.Payload, resppb)
+	respPB := &vaultcommon.GetSecretsResponse{}
+	err = proto.Unmarshal(resp.Payload, respPB)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal response to GetSecretsResponse: %w", err)
 	}
 
-	anyproto, err := anypb.New(resppb)
+	anyProto, err := anypb.New(respPB)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not marshal response to anypb: %w", err)
 	}
 
 	return capabilities.CapabilityResponse{
-		Payload: anyproto,
+		Payload: anyProto,
 	}, nil
 }
 
-func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*Response, error) {
-	respCh := make(chan *Response, 1)
-	s.handler.SendRequest(ctx, &Request{
+func ValidateCreateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest) error {
+	return validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
+}
+
+// validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests
+// It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet
+func validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+	if id == "" {
+		return errors.New("request ID must not be empty")
+	}
+	if len(encryptedSecrets) >= vaulttypes.MaxBatchSize {
+		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
+	}
+	if len(encryptedSecrets) == 0 {
+		return errors.New("request batch must contain at least 1 item")
+	}
+
+	uniqueIDs := map[string]bool{}
+	cipherText := &tdh2easy.Ciphertext{}
+	for idx, req := range encryptedSecrets {
+		if req.Id == nil {
+			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
+		}
+
+		if req.Id.Key == "" || req.Id.Namespace == "" {
+			return errors.New("secret ID must have key and namespace set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		}
+
+		if req.EncryptedValue == "" {
+			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		}
+
+		// Validate that the encrypted value was indeed encrypted by the Vault public key
+		cipherBytes, err := hex.DecodeString(req.EncryptedValue)
+		if err != nil {
+			return errors.New("failed to decode encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
+		}
+		if publicKey != nil { // Public key can be nil if gateway cache isn't populated yet
+			err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
+			if err != nil {
+				return errors.New("failed to verify encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
+			}
+		}
+
+		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
+		if ok {
+			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
+		}
+
+		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
+	}
+
+	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-155): encryptedSecrets should be encrypted by the right public key
+	return nil
+}
+
+func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
+	s.lggr.Infof("Received Request: %s", request.String())
+	err := ValidateCreateSecretsRequest(s.publicKey.Get(), request)
+	if err != nil {
+		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		return nil, err
+	}
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsCreate)
+	if !authorized || err != nil {
+		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
+		return nil, errors.New("request not authorized: " + err.Error())
+	}
+	if !strings.HasPrefix(request.RequestId, owner) {
+		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+	}
+	for _, req := range request.EncryptedSecrets {
+		// Right owner for secrets can only be set here, after authorization
+		// This ensures that users cannot access secrets belonging to other owners
+		req.Id.Owner = owner
+	}
+	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func ValidateUpdateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest) error {
+	return validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
+}
+
+func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
+	s.lggr.Infof("Received Request: %s", request.String())
+	err := ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
+	if err != nil {
+		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		return nil, err
+	}
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsUpdate)
+	if !authorized || err != nil {
+		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
+		return nil, errors.New("request not authorized: " + err.Error())
+	}
+	if !strings.HasPrefix(request.RequestId, owner) {
+		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+	}
+	for _, req := range request.EncryptedSecrets {
+		// Right owner for secrets can only be set here, after authorization
+		// This ensures that users cannot access secrets belonging to other owners
+		req.Id.Owner = owner
+	}
+	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func ValidateDeleteSecretsRequest(request *vaultcommon.DeleteSecretsRequest) error {
+	if request.RequestId == "" {
+		return errors.New("request ID must not be empty")
+	}
+	if len(request.Ids) >= vaulttypes.MaxBatchSize {
+		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
+	}
+
+	uniqueIDs := map[string]bool{}
+	for idx, id := range request.Ids {
+		if id.Key == "" {
+			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + id.String())
+		}
+
+		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
+		if ok {
+			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + id.String())
+		}
+
+		uniqueIDs[vaulttypes.KeyFor(id)] = true
+	}
+	return nil
+}
+
+func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
+	s.lggr.Infof("Received Request: %s", request.String())
+	err := ValidateDeleteSecretsRequest(request)
+	if err != nil {
+		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		return nil, err
+	}
+
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsDelete)
+	if !authorized || err != nil {
+		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
+		return nil, errors.New("request not authorized: " + err.Error())
+	}
+	if !strings.HasPrefix(request.RequestId, owner) {
+		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+	}
+	for _, req := range request.Ids {
+		// Right owner for secrets can only be set here, after authorization
+		// This ensures that users cannot access secrets belonging to other owners
+		req.Owner = owner
+	}
+	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func ValidateGetSecretsRequest(request *vaultcommon.GetSecretsRequest) error {
+	if len(request.Requests) == 0 {
+		return errors.New("no GetSecret request specified in request")
+	}
+	if len(request.Requests) >= vaulttypes.MaxBatchSize {
+		return fmt.Errorf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize)
+	}
+
+	for idx, req := range request.Requests {
+		if req.Id.Key == "" {
+			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
+		}
+	}
+
+	return nil
+}
+
+func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
+	s.lggr.Infof("Received Request: %s", request.String())
+	if err := ValidateGetSecretsRequest(request); err != nil {
+		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		return nil, err
+	}
+
+	// No auth needed, as this method is not exposed externally
+	return s.handleRequest(ctx, requestID, request)
+}
+
+func ValidateListSecretIdentifiersRequest(request *vaultcommon.ListSecretIdentifiersRequest) error {
+	if request.RequestId == "" {
+		return errors.New("request ID must not be empty")
+	}
+	return nil
+}
+
+func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
+	s.lggr.Infof("Received Request: %s", request.String())
+	err := ValidateListSecretIdentifiersRequest(request)
+	if err != nil {
+		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		return nil, err
+	}
+
+	authorized, owner, err := s.isAuthorizedRequest(ctx, request, vaulttypes.MethodSecretsList)
+	if !authorized || err != nil {
+		s.lggr.Infof("Request [%s] not authorized for owner: %s", request.String(), owner)
+		return nil, errors.New("request not authorized: " + err.Error())
+	}
+	if !strings.HasPrefix(request.RequestId, owner) {
+		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
+		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
+	}
+	// Right owner for secrets can only be set here, after authorization
+	// This ensures that users cannot access secrets belonging to other owners
+	request.Owner = owner
+
+	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	return s.handleRequest(ctx, request.RequestId, request)
+}
+
+func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetPublicKeyRequest) (*vaultcommon.GetPublicKeyResponse, error) {
+	l := logger.With(s.lggr, "method", "GetPublicKey")
+	l.Infof("Received Request: GetPublicKeyRequest")
+
+	pubKey := s.publicKey.Get()
+	if pubKey == nil {
+		l.Info("could not get public key: is the plugin initialized?")
+		return nil, errors.New("could not get public key: is the plugin initialized?")
+	}
+
+	pkb, err := pubKey.Marshal()
+	if err != nil {
+		l.Infof("could not marshal public key: %s", err.Error())
+		return nil, fmt.Errorf("could not marshal public key: %w", err)
+	}
+
+	return &vaultcommon.GetPublicKeyResponse{
+		PublicKey: hex.EncodeToString(pkb),
+	}, nil
+}
+
+func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
+	respCh := make(chan *vaulttypes.Response, 1)
+	s.handler.SendRequest(ctx, &vaulttypes.Request{
 		Payload:      request,
 		ResponseChan: respCh,
 
@@ -130,106 +412,36 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	}
 }
 
-func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*Response, error) {
-	// TODO validate the request
-	s.lggr.Infof("Received CreateSecrets call: %s", request.String())
-	if len(request.EncryptedSecrets) >= vaultapi.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
+func (s *Capability) isAuthorizedRequest(ctx context.Context, request any, method string) (bool, string, error) {
+	var params json.RawMessage
+	params, err := json.Marshal(request)
+	if err != nil {
+		return false, "", fmt.Errorf("could not marshal CreateSecretsRequest: %w", err)
 	}
-	return s.handleRequest(ctx, request.RequestId, request)
-}
-
-func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*Response, error) {
-	if request.RequestId == "" {
-		return nil, errors.New("request ID must not be empty")
+	jsonRequest := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		Method:  method,
+		Params:  &params,
 	}
-
-	if len(request.EncryptedSecrets) >= vaultapi.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
-	}
-
-	uniqueIDs := map[string]bool{}
-	for _, req := range request.EncryptedSecrets {
-		if req.Id == nil {
-			return nil, errors.New("secret ID must not be nil")
-		}
-
-		if req.Id.Key == "" || req.Id.Owner == "" {
-			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", req.Id)
-		}
-
-		_, ok := uniqueIDs[KeyFor(req.Id)]
-		if ok {
-			return nil, fmt.Errorf("duplicate secret ID found: %v", req.Id)
-		}
-
-		uniqueIDs[KeyFor(req.Id)] = true
-	}
-
-	// TODO: secrets should be encrypted with the correct key
-	return s.handleRequest(ctx, request.RequestId, request)
-}
-
-func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*Response, error) {
-	if request.RequestId == "" {
-		return nil, errors.New("request ID must not be empty")
-	}
-
-	if len(request.Ids) >= vaultapi.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
-	}
-
-	uniqueIDs := map[string]bool{}
-	for _, id := range request.Ids {
-		if id.Key == "" || id.Owner == "" {
-			return nil, fmt.Errorf("secret ID must have both key and owner set: %v", id)
-		}
-
-		_, ok := uniqueIDs[KeyFor(id)]
-		if ok {
-			return nil, fmt.Errorf("duplicate secret ID found: %v", id)
-		}
-
-		uniqueIDs[KeyFor(id)] = true
-	}
-
-	return s.handleRequest(ctx, request.RequestId, request)
-}
-
-func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*Response, error) {
-	if request.RequestId == "" {
-		return nil, errors.New("request ID must not be empty")
-	}
-
-	if request.Owner == "" {
-		return nil, errors.New("owner must not be empty")
-	}
-
-	return s.handleRequest(ctx, request.RequestId, request)
-}
-
-func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*Response, error) {
-	s.lggr.Infof("Received GetSecrets call: %s", request.String())
-	if len(request.Requests) == 0 {
-		return nil, errors.New("no GetSecret request specified in request")
-	}
-	if len(request.Requests) >= vaultapi.MaxBatchSize {
-		return nil, fmt.Errorf("request batch size exceeds maximum of %d", vaultapi.MaxBatchSize)
-	}
-	return s.handleRequest(ctx, requestID, request)
+	return s.requestAuthorizer.AuthorizeRequest(ctx, jsonRequest)
 }
 
 func NewCapability(
 	lggr logger.Logger,
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
-	handler *requests.Handler[*Request, *Response],
+	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
+	requestAuthorizer RequestAuthorizer,
+	capabilitiesRegistry core.CapabilitiesRegistry,
+	publicKey *LazyPublicKey,
 ) *Capability {
 	return &Capability{
-
-		lggr:         lggr.Named("VaultCapability"),
-		clock:        clock,
-		expiresAfter: expiresAfter,
-		handler:      handler,
+		lggr:                 logger.Named(lggr, "VaultCapability"),
+		clock:                clock,
+		expiresAfter:         expiresAfter,
+		handler:              handler,
+		requestAuthorizer:    requestAuthorizer,
+		capabilitiesRegistry: capabilitiesRegistry,
+		publicKey:            publicKey,
 	}
 }

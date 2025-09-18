@@ -241,8 +241,10 @@ jobs:
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
 
-  deploy-nightly:
-    if: ${{ github.event_name == 'schedule' }}
+  deploy-nightly-core:
+    if: false
+    # temporarily disabled
+    # if: ${{ github.event_name == 'schedule' }}
     needs: [docker-core]
     permissions:
       contents: read
@@ -258,3 +260,29 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink', secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
+          pr-close-enabled: false
+          products: |
+            cre
+
+  deploy-nightly-ccip:
+    if: ${{ github.event_name == 'schedule' }}
+    needs: [docker-ccip]
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
+          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/ccip', secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
+          pr-close-enabled: false
+          products: |
+            ccip-nightlies

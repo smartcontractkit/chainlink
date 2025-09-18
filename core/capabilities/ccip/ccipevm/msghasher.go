@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 var (
@@ -37,6 +37,9 @@ var (
 
 	// bytes4 public constant SVM_EXTRA_EXTRA_ARGS_V1_TAG = 0x1f3b3aba
 	svmExtraArgsV1Tag = hexutil.MustDecode("0x1f3b3aba")
+
+	// bytes4 public constant SUI_EXTRA_ARGS_V1_TAG = 0x21ea4ca9
+	suiVMExtraArgsV1Tag = hexutil.MustDecode("0x21ea4ca9")
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
@@ -44,10 +47,10 @@ var (
 // - "OnRamp 1.6.0"
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodec
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,

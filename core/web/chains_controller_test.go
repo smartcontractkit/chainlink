@@ -177,10 +177,18 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	// the difference in index value here seems to be due to the fact
 	// that cltest always has a default EVM chain, which is the off-by-one
 	// in the indices
-	assert.Equal(t, gotChains[2].ID, configuredChains[1].ChainID.String())
+	var chainFound bool
+	var gotChain presenters.ChainResource
+	for _, chain := range gotChains {
+		if chain.ID == configuredChains[1].ChainID.String() {
+			chainFound = true
+			gotChain = chain
+		}
+	}
+	assert.True(t, chainFound)
 	toml, err := configuredChains[1].TOMLString()
 	require.NoError(t, err)
-	assert.Equal(t, toml, gotChains[2].Config)
+	assert.Equal(t, toml, gotChain.Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
@@ -238,6 +246,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 					ID:      validID,
 					Enabled: true,
 					Config: `ChainID = 'Chainlink-12'
+Enabled = true
 BlockTime = '500ms'
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
@@ -263,6 +272,16 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 Nodes = []
+
+[Workflow]
+AcceptanceTimeout = '45s'
+ForwarderAddress = '11111111111111111111111111111111'
+ForwarderState = '11111111111111111111111111111111'
+FromAddress = '11111111111111111111111111111111'
+GasLimitDefault = 300000
+Local = false
+PollPeriod = '3s'
+TxAcceptanceState = 3
 
 [MultiNode]
 Enabled = false

@@ -190,6 +190,7 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	if want.ChainName == "" {
 		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
 	}
+
 	c, ok := n.SelToOCRConfig[want]
 	return c, ok
 }
@@ -242,7 +243,7 @@ type NodeChainConfigsLister interface {
 var ErrMissingNodeMetadata = errors.New("missing node metadata")
 
 // Gathers all the node info through JD required to be able to set
-// OCR config for example. nodeIDs can be JD IDs or PeerIDs
+// OCR config for example. nodeIDs can be JD IDs or PeerIDs starting with `p2p_`.
 //
 // It is optimistic execution and will attempt to return an element for all
 // nodes in the input list that exists in JD

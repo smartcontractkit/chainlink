@@ -1,13 +1,6 @@
 package contracts
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
-	"fmt"
-	"sort"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
@@ -31,62 +24,14 @@ type RegisteredDonConfig struct {
 	Registry         *capabilities_registry_v2.CapabilitiesRegistry
 }
 
-type ConfigureCREDON struct {
+type DonNodeSet struct {
 	Name    string
 	NodeIDs []string
 }
 
-// RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data
+// RegisteredDon is a representation of a don that exists in the capabilities registry all with the enriched node data
 type RegisteredDon struct {
 	Name  string
 	Info  capabilities_registry_v2.CapabilitiesRegistryDONInfo
 	Nodes []deployment.Node
-}
-
-func newRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
-	if cfg.Registry == nil {
-		return nil, errors.New("capabilities registry not found in config")
-	}
-
-	var (
-		err    error
-		capReg = cfg.Registry
-	)
-
-	di, err := capReg.GetDONs(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get dons: %w", err)
-	}
-	// load the nodes from the offchain client
-	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get node info: %w", err)
-	}
-	want := sortedHash(nodes.PeerIDs())
-	var don *capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	for i, d := range di {
-		got := sortedHash(d.NodeP2PIds)
-		if got == want {
-			don = &di[i]
-		}
-	}
-	if don == nil {
-		return nil, errors.New("don not found in registry")
-	}
-	return &RegisteredDon{
-		Name:  cfg.Name,
-		Info:  *don,
-		Nodes: nodes,
-	}, nil
-}
-
-func sortedHash(p2pids [][32]byte) string {
-	sha256Hash := sha256.New()
-	sort.Slice(p2pids, func(i, j int) bool {
-		return bytes.Compare(p2pids[i][:], p2pids[j][:]) < 0
-	})
-	for _, id := range p2pids {
-		sha256Hash.Write(id[:])
-	}
-	return hex.EncodeToString(sha256Hash.Sum(nil))
 }

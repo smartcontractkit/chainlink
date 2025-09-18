@@ -50,6 +50,8 @@ type GatewayConnectorHandler interface {
 }
 
 type gatewayConnector struct {
+	core.UnimplementedGatewayConnector
+
 	services.StateMachine
 
 	config      *ConnectorConfig
@@ -161,6 +163,21 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 	// add all or nothing
 	for _, method := range methods {
 		c.handlers[method] = handler
+	}
+	return nil
+}
+
+func (c *gatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	for _, method := range methods {
+		_, exists := c.handlers[method]
+		if !exists {
+			return fmt.Errorf("handler for method %s does not exist", method)
+		}
+	}
+
+	// remove all or nothing
+	for _, method := range methods {
+		delete(c.handlers, method)
 	}
 	return nil
 }

@@ -38,6 +38,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 
@@ -80,6 +81,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -138,6 +140,7 @@ var (
 	DefaultAptosKey    = aptoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultTronKey     = tronkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultTONKey      = tonkey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
+	DefaultSuiKey      = suikey.MustNewInsecure(keystest.NewRandReaderFromSeed(KeyBigIntSeed))
 	DefaultVRFKey      = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(KeyBigIntSeed))
 )
 
@@ -410,15 +413,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	var evmFactoryConfigFn func(config *chainlink.EVMFactoryConfig)
 	// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
-	if cfg.EVMEnabled() {
+	if cfg.EVMEnabled() && env.EVMPlugin.Cmd.Get() == "" {
 		if ethClient == nil {
 			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
 		}
-		chainId := ethClient.ConfiguredChainID()
+		chainID := ethClient.ConfiguredChainID()
 		evmFactoryConfigFn = func(fc *chainlink.EVMFactoryConfig) {
 			fc.GenEthClient = func(_ *big.Int) evmclient.Client {
-				if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+				if chainID.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainID, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
 				}
 				return ethClient
 			}
@@ -564,6 +567,12 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	for _, tonKey := range tons {
 		tonIDs = append(tonIDs, tonKey.ID())
 	}
+	suies, err := kr.Sui().GetAll()
+	require.NoError(t, err)
+	suiIDs := make([]string, len(suies))
+	for _, suiKey := range suies {
+		suiIDs = append(suiIDs, suiKey.ID())
+	}
 	vrfs, err := kr.VRF().GetAll()
 	require.NoError(t, err)
 	vrfIDs := make([]string, len(vrfs))
@@ -611,6 +620,9 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	}
 	if len(tonIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d TON keys", len(tonIDs)), "keys", tonIDs)
+	}
+	if len(suiIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Sui keys", len(suiIDs)), "keys", suiIDs)
 	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)

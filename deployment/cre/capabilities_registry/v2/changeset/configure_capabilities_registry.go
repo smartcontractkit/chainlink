@@ -7,7 +7,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
@@ -18,15 +21,17 @@ var _ cldf.ChangeSetV2[ConfigureCapabilitiesRegistryInput] = ConfigureCapabiliti
 type ConfigureCapabilitiesRegistryInput struct {
 	ChainSelector               uint64                             `json:"chainSelector" yaml:"chainSelector"`
 	CapabilitiesRegistryAddress string                             `json:"capabilitiesRegistryAddress" yaml:"capabilitiesRegistryAddress"`
-	UseMCMS                     bool                               `json:"useMCMS" yaml:"useMCMS"`
+	MCMSConfig                  *ocr3.MCMSConfig                   `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
 	Nops                        []CapabilitiesRegistryNodeOperator `json:"nops,omitempty" yaml:"nops,omitempty"`
 	Capabilities                []CapabilitiesRegistryCapability   `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
 	Nodes                       []CapabilitiesRegistryNodeParams   `json:"nodes,omitempty" yaml:"nodes,omitempty"`
 	DONs                        []CapabilitiesRegistryNewDONParams `json:"dons,omitempty" yaml:"dons,omitempty"`
+	Qualifier                   string                             `json:"qualifier,omitempty" yaml:"qualifier,omitempty"`
 }
 
 type ConfigureCapabilitiesRegistryDeps struct {
-	Env *cldf.Environment
+	Env           *cldf.Environment
+	MCMSContracts *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig input is not nil
 }
 
 type ConfigureCapabilitiesRegistry struct{}
@@ -43,6 +48,16 @@ func (l ConfigureCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, c
 }
 
 func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config ConfigureCapabilitiesRegistryInput) (cldf.ChangesetOutput, error) {
+	// Get MCMS contracts if needed
+	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	if config.MCMSConfig != nil {
+		var err error
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, config.Qualifier)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
+		}
+	}
+
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperator, len(config.Nops))
 	for i, nop := range config.Nops {
 		nops[i] = nop.ToWrapper()
@@ -78,10 +93,13 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 	capabilitiesRegistryConfigurationReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		sequences.ConfigureCapabilitiesRegistry,
-		sequences.ConfigureCapabilitiesRegistryDeps{Env: &e},
+		sequences.ConfigureCapabilitiesRegistryDeps{
+			Env:           &e,
+			MCMSContracts: mcmsContracts,
+		},
 		sequences.ConfigureCapabilitiesRegistryInput{
 			RegistryChainSel: config.ChainSelector,
-			UseMCMS:          config.UseMCMS,
+			MCMSConfig:       config.MCMSConfig,
 			ContractAddress:  config.CapabilitiesRegistryAddress,
 			Nops:             nops,
 			Capabilities:     capabilities,
@@ -97,6 +115,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 	reports = append(reports, capabilitiesRegistryConfigurationReport.ToGenericReport())
 
 	return cldf.ChangesetOutput{
-		Reports: reports,
+		Reports:               reports,
+		MCMSTimelockProposals: capabilitiesRegistryConfigurationReport.Output.MCMSTimelockProposals,
 	}, nil
 }

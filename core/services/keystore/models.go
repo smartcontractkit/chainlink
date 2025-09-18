@@ -16,12 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/suikey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tonkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -153,37 +155,41 @@ func (ks *keyStates) delete(addr common.Address) {
 }
 
 type keyRing struct {
-	CSA        map[string]csakey.KeyV2
-	Eth        map[string]ethkey.KeyV2
-	OCR        map[string]ocrkey.KeyV2
-	OCR2       map[string]ocr2key.KeyBundle
-	P2P        map[string]p2pkey.KeyV2
-	Cosmos     map[string]cosmoskey.Key
-	Solana     map[string]solkey.Key
-	StarkNet   map[string]starkkey.Key
-	Aptos      map[string]aptoskey.Key
-	Tron       map[string]tronkey.Key
-	TON        map[string]tonkey.Key
-	VRF        map[string]vrfkey.KeyV2
-	Workflow   map[string]workflowkey.Key
-	LegacyKeys LegacyKeyStorage
+	CSA          map[string]csakey.KeyV2
+	Eth          map[string]ethkey.KeyV2
+	OCR          map[string]ocrkey.KeyV2
+	OCR2         map[string]ocr2key.KeyBundle
+	P2P          map[string]p2pkey.KeyV2
+	Cosmos       map[string]cosmoskey.Key
+	Solana       map[string]solkey.Key
+	StarkNet     map[string]starkkey.Key
+	Sui          map[string]suikey.Key
+	Aptos        map[string]aptoskey.Key
+	Tron         map[string]tronkey.Key
+	TON          map[string]tonkey.Key
+	VRF          map[string]vrfkey.KeyV2
+	Workflow     map[string]workflowkey.Key
+	DKGRecipient map[string]dkgrecipientkey.Key
+	LegacyKeys   LegacyKeyStorage
 }
 
 func newKeyRing() *keyRing {
 	return &keyRing{
-		CSA:      make(map[string]csakey.KeyV2),
-		Eth:      make(map[string]ethkey.KeyV2),
-		OCR:      make(map[string]ocrkey.KeyV2),
-		OCR2:     make(map[string]ocr2key.KeyBundle),
-		P2P:      make(map[string]p2pkey.KeyV2),
-		Cosmos:   make(map[string]cosmoskey.Key),
-		Solana:   make(map[string]solkey.Key),
-		StarkNet: make(map[string]starkkey.Key),
-		Aptos:    make(map[string]aptoskey.Key),
-		Tron:     make(map[string]tronkey.Key),
-		TON:      make(map[string]tonkey.Key),
-		VRF:      make(map[string]vrfkey.KeyV2),
-		Workflow: make(map[string]workflowkey.Key),
+		CSA:          make(map[string]csakey.KeyV2),
+		Eth:          make(map[string]ethkey.KeyV2),
+		OCR:          make(map[string]ocrkey.KeyV2),
+		OCR2:         make(map[string]ocr2key.KeyBundle),
+		P2P:          make(map[string]p2pkey.KeyV2),
+		Cosmos:       make(map[string]cosmoskey.Key),
+		Solana:       make(map[string]solkey.Key),
+		StarkNet:     make(map[string]starkkey.Key),
+		Sui:          make(map[string]suikey.Key),
+		Aptos:        make(map[string]aptoskey.Key),
+		Tron:         make(map[string]tronkey.Key),
+		TON:          make(map[string]tonkey.Key),
+		VRF:          make(map[string]vrfkey.KeyV2),
+		Workflow:     make(map[string]workflowkey.Key),
+		DKGRecipient: make(map[string]dkgrecipientkey.Key),
 	}
 }
 
@@ -250,11 +256,17 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, tonkey := range kr.TON {
 		rawKeys.TON = append(rawKeys.TON, internal.RawBytes(tonkey))
 	}
+	for _, suikey := range kr.Sui {
+		rawKeys.Sui = append(rawKeys.Sui, internal.RawBytes(suikey))
+	}
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, internal.RawBytes(vrfKey))
 	}
 	for _, workflowKey := range kr.Workflow {
 		rawKeys.Workflow = append(rawKeys.Workflow, internal.RawBytes(workflowKey))
+	}
+	for _, dkgRecipientKey := range kr.DKGRecipient {
+		rawKeys.DKGRecipient = append(rawKeys.DKGRecipient, internal.RawBytes(dkgRecipientKey))
 	}
 	return rawKeys
 }
@@ -305,9 +317,17 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, tonKey := range kr.TON {
 		tonIDs = append(tonIDs, tonKey.ID())
 	}
+	suiIDs := []string{}
+	for _, suiKey := range kr.Sui {
+		suiIDs = append(suiIDs, suiKey.ID())
+	}
 	var vrfIDs []string
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
+	}
+	dkgRecipientIDs := []string{}
+	for _, dkgRecipientKey := range kr.DKGRecipient {
+		dkgRecipientIDs = append(dkgRecipientIDs, dkgRecipientKey.ID())
 	}
 	workflowIDs := make([]string, len(kr.Workflow))
 	i := 0
@@ -348,8 +368,14 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(tonIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d TON keys", len(tonIDs)), "keys", tonIDs)
 	}
+	if len(suiIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Sui keys", len(suiIDs)), "keys", suiIDs)
+	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
+	}
+	if len(dkgRecipientIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d DKGRecipient keys", len(dkgRecipientIDs)), "keys", dkgRecipientIDs)
 	}
 	if len(workflowIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Workflow keys", len(workflowIDs)), "keys", workflowIDs)
@@ -363,20 +389,22 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 // it holds only the essential key information to avoid adding unnecessary data
 // (like public keys) to the database
 type rawKeyRing struct {
-	Eth        [][]byte
-	CSA        [][]byte
-	OCR        [][]byte
-	OCR2       [][]byte
-	P2P        [][]byte
-	Cosmos     [][]byte
-	Solana     [][]byte
-	StarkNet   [][]byte
-	Aptos      [][]byte
-	Tron       [][]byte
-	TON        [][]byte
-	VRF        [][]byte
-	Workflow   [][]byte
-	LegacyKeys LegacyKeyStorage `json:"-"`
+	Eth          [][]byte
+	CSA          [][]byte
+	OCR          [][]byte
+	OCR2         [][]byte
+	P2P          [][]byte
+	Cosmos       [][]byte
+	Solana       [][]byte
+	StarkNet     [][]byte
+	Sui          [][]byte
+	Aptos        [][]byte
+	Tron         [][]byte
+	TON          [][]byte
+	VRF          [][]byte
+	Workflow     [][]byte
+	DKGRecipient [][]byte
+	LegacyKeys   LegacyKeyStorage `json:"-"`
 }
 
 func (rawKeys rawKeyRing) keys() (*keyRing, error) {
@@ -426,6 +454,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 		tonKey := tonkey.KeyFor(internal.NewRaw(rawTONKey))
 		keyRing.TON[tonKey.ID()] = tonKey
 	}
+	for _, rawSuiKey := range rawKeys.Sui {
+		suiKey := suikey.KeyFor(internal.NewRaw(rawSuiKey))
+		keyRing.Sui[suiKey.ID()] = suiKey
+	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := vrfkey.KeyFor(internal.NewRaw(rawVRFKey))
 		keyRing.VRF[vrfKey.ID()] = vrfKey
@@ -433,6 +465,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawWorkflowKey := range rawKeys.Workflow {
 		workflowKey := workflowkey.KeyFor(internal.NewRaw(rawWorkflowKey))
 		keyRing.Workflow[workflowKey.ID()] = workflowKey
+	}
+	for _, rawDKGRecipientKey := range rawKeys.DKGRecipient {
+		dkgRecipientKey := dkgrecipientkey.KeyFor(internal.NewRaw(rawDKGRecipientKey))
+		keyRing.DKGRecipient[dkgRecipientKey.ID()] = dkgRecipientKey
 	}
 
 	keyRing.LegacyKeys = rawKeys.LegacyKeys

@@ -7,18 +7,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	ptypes "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
@@ -32,9 +31,10 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	donTopology *cre.DonTopology,
 	ds datastore.DataStore,
 	nodeSetInput []*cre.CapabilitiesAwareNodeSet,
-	infraInput *infra.Input,
+	infraInput infra.Input,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
+	dataStoreOCR3ContractKeyProvider DataStoreOCR3ContractKeyProvider,
 	capabilityEnabler CapabilityEnabler,
 	enabledChainsProvider EnabledChainsProvider,
 	jobConfigGenerator JobConfigGenerator,
@@ -43,9 +43,6 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 ) (cre.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")
-	}
-	if infraInput == nil {
-		return nil, errors.New("infra input is nil")
 	}
 	if configMerger == nil {
 		return nil, errors.New("config merger is nil")
@@ -74,7 +71,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 		capabilityConfig, ok := capabilitiesConfig[flag]
 		if !ok {
-			return nil, errors.New("evm config not found in capabilities config")
+			return nil, fmt.Errorf("%s config not found in capabilities config: %v", flag, capabilitiesConfig)
 		}
 
 		containerPath, pathErr := crecapabilities.DefaultContainerDirectory(infraInput.Type)
@@ -89,6 +86,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			return nil, errors.Wrap(err, "failed to find worker nodes")
 		}
 
+		donName := donWithMetadata.Name
 		// look for boostrap node and then for required values in its labels
 		bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 		if bootErr != nil {
@@ -103,6 +101,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 					if strings.Contains(p2pValue, donTopology.OCRPeeringData.OCRBootstraperPeerID) {
 						bootstrapNode = n
+						donName = don.Name
 						found = true
 						break
 					}
@@ -119,9 +118,9 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
 		}
 
-		internalHostsBS, err := getBoostrapWorkflowNames(bootstrapNode, donWithMetadata, infraInput)
+		internalHostsBS, err := getBoostrapWorkflowNames(bootstrapNode, donName, infraInput)
 		if err != nil {
-			return nil, fmt.Errorf("no bootstrap node found for DON %s", donWithMetadata.Name)
+			return nil, fmt.Errorf("couldn't generate bootstrap node host for DON %s: %w", donName, err)
 		}
 
 		chainIDs, err := enabledChainsProvider(donTopology, nodeSetInput[donIdx], flag)
@@ -152,14 +151,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			}
 
 			contractName := contractNamer(chainIDUint64)
-
-			ocr3Key := datastore.NewAddressRefKey(
-				cs,
-				datastore.ContractType(keystone_changeset.OCR3Capability.String()),
-				semver.MustParse("1.0.0"),
-				contractName,
-			)
-
+			ocr3Key := dataStoreOCR3ContractKeyProvider(contractName, cs)
 			ocr3ConfigContractAddress, err := ds.Addresses().Get(ocr3Key)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to get EVM capability address")
@@ -184,9 +176,14 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 					return nil, errors.Wrap(tErr, "failed to get transmitter address from bootstrap node labels")
 				}
 
-				keyBundle, kErr := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
-				if kErr != nil {
-					return nil, errors.Wrap(kErr, "failed to get key bundle id from worker node labels")
+				bundlesPerFamily, kbErr := node.ExtractBundleKeysPerFamily(workerNode)
+				if kbErr != nil {
+					return nil, errors.Wrap(kbErr, "failed to get ocr families bundle id from worker node labels")
+				}
+
+				keyBundle, ok := bundlesPerFamily["evm"] // we can always expect evm bundle key id present since evm is homechain
+				if !ok {
+					return nil, errors.New("failed to get key bundle id for evm family")
 				}
 
 				keyNodeAddress := node.AddressKeyFromSelector(chain.Selector)
@@ -200,6 +197,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 				if pErr != nil {
 					return nil, errors.Wrap(pErr, "failed to get p2p key id from bootstrap node labels")
 				}
+
 				// remove the prefix if it exists, to match the expected format
 				bootstrapNodeP2pKeyID = strings.TrimPrefix(bootstrapNodeP2pKeyID, "p2p_")
 				bootstrapPeers := make([]string, len(internalHostsBS))
@@ -207,6 +205,10 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 					bootstrapPeers[i] = fmt.Sprintf("%s@%s:5001", bootstrapNodeP2pKeyID, workflowName)
 				}
 
+				strategyName := "single-chain"
+				if len(bundlesPerFamily) > 1 {
+					strategyName = "multi-chain"
+				}
 				oracleFactoryConfigInstance := job.OracleFactoryConfig{
 					Enabled:            true,
 					ChainID:            chainIDStr,
@@ -215,8 +217,8 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 					OCRKeyBundleID:     keyBundle,
 					TransmitterID:      transmitterAddress,
 					OnchainSigning: job.OnchainSigningStrategy{
-						StrategyName: "single-chain",
-						Config:       map[string]string{"evm": keyBundle},
+						StrategyName: strategyName,
+						Config:       bundlesPerFamily,
 					},
 				}
 
@@ -245,6 +247,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 				}
 
 				jobSpec := jobs.WorkerStandardCapability(nodeID, jobName, binaryPath, jobConfig, oracleStr)
+				jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &flag}}
 
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
 					donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)
@@ -258,7 +261,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	return donToJobSpecs, nil
 }
 
-func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donWithMetadata *cre.DonWithMetadata, infraInput *infra.Input) ([]string, error) {
+func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput infra.Input) ([]string, error) {
 	nodeIndexStr, nErr := node.FindLabelValue(bootstrapNode, node.IndexKey)
 	if nErr != nil {
 		return nil, errors.Wrap(nErr, "failed to find index label")
@@ -269,7 +272,7 @@ func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donWithMetadata *
 		return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
 	}
 
-	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donWithMetadata.Name, *infraInput)
+	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donName, infraInput)
 	return []string{internalHostBS}, nil
 }
 
@@ -287,3 +290,5 @@ type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.
 
 // ContractNamer is a function that returns the name of the OCR3 contract  used in the datastore
 type ContractNamer func(chainID uint64) string
+
+type DataStoreOCR3ContractKeyProvider func(contractName string, chainSelector uint64) datastore.AddressRefKey

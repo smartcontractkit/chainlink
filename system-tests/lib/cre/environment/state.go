@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -32,7 +33,15 @@ import (
 // Artifact paths are recorded in `artifact_paths.json` in the environment
 // directory (typically `core/scripts/cre/environment`).
 // Returns the reconstructed CLDF environment, wrapped blockchain outputs, and an error.
-func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact EnvArtifact) (*cre.FullCLDEnvironmentOutput, []*cre.WrappedBlockchainOutput, error) {
+func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.FullCLDEnvironmentOutput, []*cre.WrappedBlockchainOutput, error) {
+	if cachedInput == nil {
+		return nil, nil, errors.New("cached input cannot be nil")
+	}
+
+	if envArtifact == nil {
+		return nil, nil, errors.New("environment artifact cannot be nil")
+	}
+
 	if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
 		return nil, nil, pkErr
 	}
@@ -94,7 +103,6 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to get node info for don %s", don.DonName)
 		}
-
 		offChain, offChainErr := deployment_devenv.NewJDClient(ctx, deployment_devenv.JDConfig{
 			WSRPC:    envArtifact.JdConfig.ExternalGRPCUrl,
 			GRPC:     envArtifact.JdConfig.ExternalGRPCUrl,
@@ -109,7 +117,6 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		if !ok {
 			return nil, nil, errors.Errorf("offchain client is not a JobDistributor for don %s", don.DonName)
 		}
-
 		registeredDon, donErr := deployment_devenv.NewRegisteredDON(ctx, nodeInfo, *jd)
 		if donErr != nil {
 			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)
@@ -152,7 +159,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		func() context.Context {
 			return ctx
 		},
-		cldf.XXXGenerateTestOCRSecrets(),
+		focr.XXXGenerateTestOCRSecrets(),
 		blockChains,
 	)
 
@@ -168,7 +175,7 @@ func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {
 		if setErr != nil {
 			return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
 		}
-		framework.L.Info().Msgf("Set PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
+		framework.L.Info().Msgf("Set PRIVATE_KEY environment variable to default value: %s", os.Getenv("PRIVATE_KEY"))
 	}
 
 	return nil
@@ -180,7 +187,7 @@ func SetDefaultSolanaPrivateKeyIfEmpty(key solana.PrivateKey) error {
 		if setErr != nil {
 			return fmt.Errorf("failed to set SOLANA_PRIVATE_KEY environment variable: %w", setErr)
 		}
-		framework.L.Info().Msgf("Set SOLANA_PRIVATE_KEY environment variable to default value: %s\n", os.Getenv("PRIVATE_KEY"))
+		framework.L.Info().Msgf("Set SOLANA_PRIVATE_KEY environment variable to default value: %s", os.Getenv("PRIVATE_KEY"))
 	}
 
 	return nil

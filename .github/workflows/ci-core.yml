@@ -242,7 +242,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
         uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
-          CLI_VERSION: 7.2.0
+          CLI_VERSION: 7.8.1
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
@@ -306,22 +306,21 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: ${{ matrix.type.use-trunk }}
+          JUNIT_FILE: ${{ github.workspace }}/junit.xml
         run: |
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
 
-      - name: Upload Test Results to Trunk.io
+      - name: Run branch-out-upload
         if: ${{ matrix.type.should-run == 'true' && matrix.type.use-trunk == 'true' && !cancelled() }}
-        uses: trunk-io/analytics-uploader@f2631c653f9675d391e6e68cc877370db927c64c # v2.0.0
-        continue-on-error: true # TODO: Remove this once ready
-        env:
-          TRUNK_TELEMETRY: "off"
-          JOB_URL: ${{ steps.run-url.outputs.run_url }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
-          junit-paths: "./junit.xml,*/junit.xml"
-          org-slug: chainlink
-          token: ${{ secrets.TRUNK_API_KEY }}
-          previous-step-outcome: ${{ steps.run-tests.outcome }}
+          junit-file-path: './junit.xml'
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-upload-only: "true"
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-job-url: ${{ steps.run-url.outputs.run_url }}
 
       - name: Print Races
         id: print-races
@@ -577,11 +576,12 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     env:
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_LINT_RUNNER: runs-on=${{ github.run_id }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      # include unique label (core/deployment/etc...) to ensure jobs are not competing for the same runner
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}-core/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}-fuzz/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_LINT_RUNNER: runs-on=${{ github.run_id }}-lint/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
       GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB
       GH_BASE_RUNNER: ubuntu-latest

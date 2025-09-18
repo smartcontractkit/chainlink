@@ -138,6 +138,7 @@ Only if you want to run the tests on non-default topology you need to set follow
 
 - `CTF_CONFIGS` -- either `configs/workflow-gateway-don.toml` or `configs/workflow-gateway-capabilities-don.toml`
 - `CRE_TOPOLOGY` -- either `workflow-gateway` or `workflow-gateway-capabilities`
+- `CTF_LOG_LEVEL=debug` -- to display test debug-level logs
 
 ---
 
@@ -173,7 +174,7 @@ Example `launch.json` entry:
   "request": "launch",
   "mode": "test",
   "program": "${workspaceFolder}/system-tests/tests/smoke/cre",
-  "args": ["-test.run", "Test_CRE_Workflow_Don"]
+  "args": ["-test.run", "Test_CRE_Suite"]
 }
 ```
 
@@ -578,20 +579,12 @@ After compilation, workflow files must be distributed to the appropriate contain
 containerTargetDir := "/home/chainlink/workflows"
 
 // Copy compiled workflow binary
-workflowCopyErr := creworkflow.CopyArtifactToDockerContainers(
-    compressedWorkflowWasmPath,
-    "workflow-node",
+workflowCopyErr := creworkflow.CopyArtifactsToDockerContainers(
     containerTargetDir,
+    "workflow-node",
+    compressedWorkflowWasmPath, workflowConfigFilePath
 )
 require.NoError(t, workflowCopyErr, "failed to copy workflow to docker containers")
-
-// Copy configuration file
-configCopyErr := creworkflow.CopyArtifactToDockerContainers(
-    workflowConfigFilePath,
-    "workflow-node",
-    containerTargetDir,
-)
-require.NoError(t, configCopyErr, "failed to copy workflow config to docker containers")
 ```
 
 #### Container Discovery
@@ -681,11 +674,11 @@ func setupWorkflow(t *testing.T, workflowSourcePath, workflowName string, config
 
     // 3. Copy files to containers
     containerTargetDir := "/home/chainlink/workflows"
-    err := creworkflow.CopyArtifactToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+    err := creworkflow.CopyArtifactsToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
     require.NoError(t, err, "failed to copy workflow binary")
 
     if configFilePath != "" {
-        err = creworkflow.CopyArtifactToDockerContainers(configFilePath, "workflow-node", containerTargetDir)
+        err = creworkflow.CopyArtifactsToDockerContainers(configFilePath, "workflow-node", containerTargetDir)
         require.NoError(t, err, "failed to copy config file")
     }
 
@@ -777,7 +770,7 @@ encryptedSecretsPath, err := creworkflow.PrepareSecrets(
 require.NoError(t, err, "failed to prepare secrets")
 
 // 3. Copy encrypted secrets to containers
-err = creworkflow.CopyArtifactToDockerContainers(
+err = creworkflow.CopyArtifactsToDockerContainers(
     encryptedSecretsPath,
     "workflow-node",
     "/home/chainlink/workflows",
@@ -869,10 +862,10 @@ func setupWorkflowWithSecrets(t *testing.T, workflowSourcePath, workflowName, se
 
     // Copy files to containers
     containerTargetDir := "/home/chainlink/workflows"
-    err = creworkflow.CopyArtifactToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
+    err = creworkflow.CopyArtifactsToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
     require.NoError(t, err, "failed to copy workflow")
 
-    err = creworkflow.CopyArtifactToDockerContainers(encryptedSecretsPath, "workflow-node", containerTargetDir)
+    err = creworkflow.CopyArtifactsToDockerContainers(encryptedSecretsPath, "workflow-node", containerTargetDir)
     require.NoError(t, err, "failed to copy secrets")
 
     // Register workflow with secrets

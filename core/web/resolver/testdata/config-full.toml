@@ -293,9 +293,23 @@ DeltaDial = '1m0s'
 DeltaReconcile = '2s'
 ListenAddresses = ['foo', 'bar']
 
+[Capabilities.SharedPeering]
+Enabled = false
+Bootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
+
+[Capabilities.SharedPeering.StreamConfig]
+IncomingMessageBufferSize = 500
+OutgoingMessageBufferSize = 500
+MaxMessageLenBytes = 500000
+MessageRateLimiterRate = 100.0
+MessageRateLimiterCapacity = 500
+BytesRateLimiterRate = 5000000.0
+BytesRateLimiterCapacity = 10000000
+
 [Capabilities.Dispatcher]
 SupportedVersion = 1
 ReceiverBufferSize = 10000
+SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -360,6 +374,7 @@ PerOwner = 200
 
 [CRE]
 UseLocalTimeProvider = true
+EnableDKGRecipient = false
 
 [CRE.Streams]
 WsURL = 'streams.url'
@@ -367,6 +382,10 @@ RestURL = 'streams.url'
 
 [CRE.WorkflowFetcher]
 URL = 'https://workflow.fetcher.url'
+
+[CRE.Linking]
+URL = ''
+TLSEnabled = true
 
 [Billing]
 URL = 'localhost:4319'
@@ -490,7 +509,7 @@ EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
-ExternalRequestMaxResponseSize = 0
+ExternalRequestMaxResponseSize = 15000
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
@@ -545,7 +564,7 @@ SendOnly = true
 
 [[Solana]]
 ChainID = 'mainnet'
-Enabled = false
+Enabled = true
 BlockTime = '500ms'
 BalancePollPeriod = '1m0s'
 ConfirmPollPeriod = '1s'
@@ -571,6 +590,16 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 
+[Solana.Workflow]
+AcceptanceTimeout = '45s'
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
+GasLimitDefault = 0
+Local = true
+PollPeriod = '3s'
+TxAcceptanceState = 3
+
 [Solana.MultiNode]
 Enabled = false
 PollFailureThreshold = 5
@@ -579,6 +608,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '5s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'

@@ -39,6 +39,10 @@ func (ekr *evmKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Re
 }
 
 func (ekr *evmKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
+	return ReportToSigData(reportCtx, report)
+}
+
+func ReportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
 	sigData := crypto.Keccak256(report)
 	sigData = append(sigData, rawReportContext[0][:]...)

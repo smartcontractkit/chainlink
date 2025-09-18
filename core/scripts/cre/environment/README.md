@@ -50,8 +50,9 @@ Slack: #topic-local-dev-environments
     - [Important Notes](#important-notes-1)
     - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
 7. [Binary Location and Naming](#binary-location-and-naming)
-8. [Telemetry Configuration](#telemetry-configuration)
-9. [Troubleshooting](#troubleshooting)
+8. [Hot swapping](#hot-swapping)
+9. [Telemetry Configuration](#telemetry-configuration)
+10. [Troubleshooting](#troubleshooting)
 
 # Using the CLI
 
@@ -122,6 +123,15 @@ Optional parameters:
 - `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
 - `-c`: List of configuration files for `.proto` files that will be registered in Beholder (only if `--with-beholder/-b` flag is used). Defaults to [./proto-configs/default.toml](./proto-configs/default.toml)
 
+## Purging environment state
+To remove all state and cache files used by the environment execute:
+```bash
+# while in core/scripts/cre/environment
+go run . env state purge
+```
+
+This might be helpful if you suspect that state files might be corrupt and you're unable to start the environment.
+
 ### Using existing Docker Plugins image
 
 If you don't want to build Chainlink image from your local branch (default behaviour) or you don't want to go through the hassle of downloading capabilities binaries in order to enable them on your environment you should use the `--with-plugins-docker-image` flag. It is recommended to use a nightly `core plugins` image that's build by [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml) as it contains all supported capability binaries.
@@ -140,7 +150,7 @@ If environment is aready running you can start just the Beholder stack (and regi
 go run . env beholder start
 ```
 
-> This assumes you have `chip-ingress:qa-latest` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:qa-latest .`
+> This assumes you have `chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf` Docker image on your local machine. Without it Beholder won't be able to start. If you do not, close the [Atlas](https://github.com/smartcontractkit/atlas) repository, and then in `atlas/chip-ingress` run `docker build -t chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf .`
 
 ### Storage
 
@@ -172,6 +182,41 @@ If you are using Blockscout and you restart the environment **you need to restar
 ctf bs r
 ```
 ---
+
+## Debugging core nodes 
+Before start the environment set the `CTF_CLNODE_DLV` environment variable to `true`
+```bash
+export CTF_CLNODE_DLV="true"
+```
+Nodes will open a Delve server on port `40000 + node index` (e.g. first node will be on `40000`, second on `40001` etc). You can connect to it using your IDE or `dlv` CLI.
+
+## Debugging capabilities (mac)
+Build the capability with the following flags (this ensures that the binary is not run using rosetta as this prevents dlv from attaching)
+```bash
+GOOS=linux GOARCH=arm64 go build -gcflags "all=-N -l" -o <capability binary name>
+```
+Copy the capability binary to `core/scripts/cre/environment/binaries` folder.
+
+Add or update the `custom_ports` entry in the topology file (e.g., `core/scripts/cre/environment/configs/workflow-don.toml`) to include the port mapping for the Delve debugger. For example:
+```toml
+custom_ports = ["5002:5002", "15002:15002", "45000:45000"]
+```
+
+Start the environment and verify that the container is exposing the new port.  Start a shell session on the relevant container, e.g:
+```bash
+docker exec -it workflow-node1 /bin/bash
+```
+
+In the shell session list all processes (`ps -aux`) and identify the PID of the capability you want to debug.  Also, verify
+that rosetta is not being used to run the capability binary that you want to debug.
+
+Attach dlv to the capability process using the PID you identified above, e.g:
+```bash
+dlv attach <PID> --headless --listen=:45000 --api-version=2 --accept-multiclient
+```
+
+Attach your IDE to the dlv server on port `45000` (or whatever port you exposed).
+
 
 ## Workflow Commands
 
@@ -1128,6 +1173,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
 
   [nodesets.chain_capabilities]
     write-evm = ["1337"]
+    evm = ["1337"]
 
 # Capabilities DON for data feeds
 [[nodesets]]
@@ -1138,6 +1184,7 @@ go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.ama
   [nodesets.chain_capabilities]
     read-contract = ["1337", "2337"]
     log-event-trigger = ["1337"]
+    evm = ["1337"]
 ```
 
 ### Custom Capability Configuration
@@ -1206,6 +1253,79 @@ core/scripts/cre/environment/
 ```
 
 To check expected filenames, refer to the `binary_path` field in `capability_defaults.toml` for each capability.
+
+---
+
+## Hot swapping
+
+### Chainlink nodes' Docker image
+
+Swap the Docker images of all Chainlink nodes in the environment without completely restarting the environment. If the environment is configured to build Docker images from source, images will be rebuilt if changes are detected.
+
+**Usage:**
+```bash
+go run . env swap nodes [flags]
+```
+
+**Key flags:**
+- `-f, --force`: Force removal of Docker containers (default: `true`). Set to `false` for graceful shutdown
+- `-w, --wait-time`: Time to wait for container removal after failed restart (default: `2m`)
+
+**Example:**
+```bash
+# Force restart all nodes (faster)
+go run . env swap n
+
+# Graceful restart with longer wait time
+go run . env swap n --force=false --wait-time=5m
+```
+
+### Capability binary
+
+Swap individual capability binaries in running Chainlink nodes without restarting the entire environment. This targets only the DONs that have the specified capability enabled.
+
+**Usage:**
+```bash
+go run . env swap capability [flags]
+```
+
+**Key flags:**
+- `-n, --name`: Name of the capability to swap (required)
+- `-b, --binary`: Path to the new binary on the host machine (required)
+- `-f, --force`: Force container restart (default: `true`)
+
+**Example:**
+```bash
+go run . env swap c --name cron --binary ./new-cron-binary
+```
+
+**Supported capabilities for hot swapping:**
+Run `go run . env swap capability --name unsupported-cap` to see the current list of swappable capabilities.
+
+### Automated Hot Swapping with fswatch
+
+For development workflows, you can automate capability hot swapping using `fswatch` to monitor file changes:
+
+**Install fswatch:**
+```bash
+brew install fswatch
+```
+
+**Example usage:**
+```bash
+# Monitor cron capability source directory and auto-rebuild + hot swap
+# (from within your capability source directory)
+fswatch -o . | xargs -n1 sh -c '
+  export PATH="$HOME/.asdf/shims:$PATH" &&
+  GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o /tmp/cron &&
+  cd /path/to/chainlink/core/scripts/cre/environment &&
+  go run . env swap c --name cron --binary /tmp/cron
+'
+```
+
+**⚠️ Important:** Pay attention to the binary output location in the build command. In the example above, the binary is compiled to `/tmp/cron` (outside the source directory). If you compile to the current directory (`.`), it would trigger an infinite loop as `fswatch` would detect the newly created binary as a change.
+
+**⚠️ Important:** If you are using ASDF it is crucial to add `export PATH="$HOME/.asdf/shims:$PATH"` to avoid using system's Go binary and resulting download of all `go.mod` dependencies (both for the capability and the whole local CRE).
 
 ---
 

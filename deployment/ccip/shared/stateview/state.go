@@ -16,11 +16,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20_with_drip"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
@@ -29,11 +29,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	tonstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/ton"
 
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -95,6 +95,8 @@ import (
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer-registry"
 )
 
+const chainNotSupportedErr = "chain not supported"
+
 // CCIPOnChainState state always derivable from an address book.
 // Offchain state always derivable from a list of nodeIds.
 // Note can translate this into Go struct needed for MCMS/Docs/UI.
@@ -113,6 +115,7 @@ type CCIPStateView struct {
 	Chains      map[string]view.ChainView
 	SolChains   map[string]view.SolChainView
 	AptosChains map[string]view.AptosChainView
+	TONChains   map[string]tonstate.TONChainView
 }
 
 func (c CCIPOnChainState) EVMChains() []uint64 {
@@ -515,6 +518,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	m := sync.Map{}
 	sm := sync.Map{}
 	am := sync.Map{}
+	tm := sync.Map{}
 
 	// Create worker pool with fixed number of goroutines
 	const numWorkers = 8
@@ -546,7 +550,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 				switch family {
 				case chain_selectors.FamilyEVM:
 					if _, ok := c.EVMChainState(chainSelector); !ok {
-						return fmt.Errorf("chain not supported %d", chainSelector)
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
 					chainState := c.MustGetEVMChainState(chainSelector)
 					chainView, err := chainState.GenerateView(e.Logger, name)
@@ -559,7 +563,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					e.Logger.Infow("Completed view for", "chainSelector", chainSelector, "chainName", name, "chainID", id)
 				case chain_selectors.FamilySolana:
 					if _, ok := c.SolChains[chainSelector]; !ok {
-						return fmt.Errorf("chain not supported %d", chainSelector)
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
 					chainState := c.SolChains[chainSelector]
 					chainView, err := chainState.GenerateView(e, chainSelector)
@@ -572,7 +576,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 				case chain_selectors.FamilyAptos:
 					chainState, ok := c.AptosChains[chainSelector]
 					if !ok {
-						return fmt.Errorf("chain not supported %d", chainSelector)
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
 					}
 					chainView, err := chainState.GenerateView(e, chainSelector, name)
 					if err != nil {
@@ -581,6 +585,16 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 					chainView.ChainSelector = chainSelector
 					chainView.ChainID = id
 					am.Store(name, chainView)
+				case chain_selectors.FamilyTon:
+					if _, ok := c.TonChains[chainSelector]; !ok {
+						return fmt.Errorf("%s %d", chainNotSupportedErr, chainSelector)
+					}
+					chainState := c.TonChains[chainSelector]
+					chainView, err := chainState.GenerateView(e, chainSelector, name)
+					if err != nil {
+						return err
+					}
+					tm.Store(name, chainView)
 				default:
 					return fmt.Errorf("unsupported chain family %s", family)
 				}
@@ -602,6 +616,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 		Chains:      make(map[string]view.ChainView),
 		SolChains:   make(map[string]view.SolChainView),
 		AptosChains: make(map[string]view.AptosChainView),
+		TONChains:   make(map[string]tonstate.TONChainView),
 	}
 	m.Range(func(key, value interface{}) bool {
 		stateView.Chains[key.(string)] = value.(view.ChainView)
@@ -613,6 +628,10 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	})
 	am.Range(func(key, value interface{}) bool {
 		stateView.AptosChains[key.(string)] = value.(view.AptosChainView)
+		return true
+	})
+	tm.Range(func(key, value interface{}) bool {
+		stateView.TONChains[key.(string)] = value.(tonstate.TONChainView)
 		return true
 	})
 	return stateView, grp.Wait()
@@ -635,7 +654,8 @@ func (c CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, 
 		offRampAddress = ccipAddress[:]
 	case chain_selectors.FamilyTon:
 		or := c.TonChains[chainSelector].OffRamp
-		offRampAddress = or.Data()
+		rawBytes := codec.ToRawAddr(&or)
+		offRampAddress = rawBytes[:]
 
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
@@ -668,6 +688,14 @@ func (c CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, e
 			return nil, fmt.Errorf("no ccip address found in the state for Aptos chain %d", chainSelector)
 		}
 		onRampAddressBytes = ccipAddress[:]
+	case chain_selectors.FamilyTon:
+		ramp := c.TonChains[chainSelector].OnRamp
+		if ramp.IsAddrNone() {
+			return nil, fmt.Errorf("no onramp found in the state for TON chain %d", chainSelector)
+		}
+		rawAddress := codec.ToRawAddr(&ramp)
+		onRampAddressBytes = rawAddress[:]
+
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}
@@ -792,13 +820,9 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 		evmMu:       &sync.RWMutex{},
 	}
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
 		if err != nil {
-			if !errors.Is(err, cldf.ErrChainNotFound) {
-				return state, err
-			}
-			// Chain not found in address book, initialize empty
-			addresses = make(map[string]cldf.TypeAndVersion)
+			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
 		}
 		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
 		if err != nil {
@@ -1397,6 +1421,16 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 				return err
 			}
 		}
+	case chain_selectors.FamilyTon:
+		chain, ok := env.BlockChains.TonChains()[chainSel]
+		if !ok {
+			return fmt.Errorf("ton chain with selector %d does not exist in environment", chainSel)
+		}
+		_, ok = state.TonChains[chainSel]
+		if !ok {
+			return fmt.Errorf("%s does not exist in state", chain)
+		}
+		// TODO validate ton mcms after implemented
 	default:
 		return fmt.Errorf("%s family not support", family)
 	}

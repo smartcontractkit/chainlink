@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
-	handler_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
-	net_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
+	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
+	netmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
 
 func parseTOMLConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
@@ -46,7 +46,7 @@ type handlerFactory struct {
 	handlers map[string]handlers.Handler
 }
 
-func (h *handlerFactory) NewHandler(handlerType gateway.HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
+func (h *handlerFactory) NewHandler(handlerType gateway.HandlerType, _ json.RawMessage, _ *config.DONConfig, _ handlers.DON) (handlers.Handler, error) {
 	return h.handlers[handlerType], nil
 }
 
@@ -68,7 +68,7 @@ Address = "0x0001020304050607080900010203040506070809"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
 }
 
@@ -86,7 +86,7 @@ HandlerName = "dummy"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -100,7 +100,7 @@ HandlerName = "no_such_handler"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -114,7 +114,7 @@ SomeOtherField = "abcd"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -132,7 +132,7 @@ Address = "0xnot_an_address"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -140,9 +140,9 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	gatewayObj, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr), lggr)
 	require.NoError(t, err)
-	servicetest.Run(t, gateway)
+	servicetest.Run(t, gatewayObj)
 }
 
 func requireJSONRPCResult(t *testing.T, method string, response []byte, expectedID string, expectedResult string) {
@@ -160,14 +160,14 @@ func requireJSONRPCError(t *testing.T, responseBytes []byte, expectedID string, 
 	require.Nil(t, response.Error.Data)
 }
 
-func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handler_mocks.Handler) {
-	httpServer := net_mocks.NewHttpServer(t)
+func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handlermocks.Handler) {
+	httpServer := netmocks.NewHttpServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	handler := handler_mocks.NewHandler(t)
-	handlers := map[string]handlers.Handler{
+	handler := handlermocks.NewHandler(t)
+	handlersObj := map[string]handlers.Handler{
 		"testDON": handler,
 	}
-	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlers, map[string]string{"testDON": "testDON"}, nil, logger.Test(t))
+	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, logger.Test(t))
 	return gw, handler
 }
 
@@ -250,12 +250,13 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*api.Message)
-		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		callback := args.Get(2).(handlers.Callback)
 		// echo back to sender with attached payload
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
 		codec := api.JsonRPCCodec{}
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
+		err := callback.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
+		require.NoError(t, err)
 	})
 
 	method := "request"
@@ -272,9 +273,9 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		request := args.Get(1).(jsonrpc.Request[json.RawMessage])
-		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		callback := args.Get(2).(handlers.Callback)
 		// echo back to sender with attached payload
-		rawResult := json.RawMessage([]byte(`{"result":"OK"}`))
+		rawResult := json.RawMessage(`{"result":"OK"}`)
 		response := jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      request.ID,
@@ -283,7 +284,8 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 		}
 		rawMsg, err := json.Marshal(&response)
 		require.NoError(t, err)
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}
+		err = callback.SendResponse(handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError})
+		require.NoError(t, err)
 	})
 
 	req := newJSONRpcRequest(t, "abcd", "testDON", []byte(`{"type":"new"}`))
@@ -318,12 +320,12 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 	require.Equal(t, 400, statusCode)
 }
 
-func newMockHandler(t *testing.T, method string) *handler_mocks.Handler {
-	handler := handler_mocks.NewHandler(t)
+func newMockHandler(t *testing.T, method string) *handlermocks.Handler {
+	handler := handlermocks.NewHandler(t)
 	handler.On("Methods").Return([]string{method})
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*api.Message)
-		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		callback := args.Get(2).(handlers.Callback)
 		// echo back to sender with attached payload
 		if msg.Body.Method != method {
 			require.Fail(t, fmt.Sprintf("Expected method to be '%s'", method))
@@ -331,16 +333,17 @@ func newMockHandler(t *testing.T, method string) *handler_mocks.Handler {
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
 		codec := api.JsonRPCCodec{}
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
+		err := callback.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
+		require.NoError(t, err)
 	})
 	handler.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(jsonrpc.Request[json.RawMessage])
-		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		callback := args.Get(2).(handlers.Callback)
 		// echo back to sender with attached payload
 		if msg.Method != method {
 			require.Fail(t, fmt.Sprintf("Expected method to be '%s'", method))
 		}
-		rm := json.RawMessage([]byte(`{"result":"OK"}`))
+		rm := json.RawMessage(`{"result":"OK"}`)
 		resp, err := json.Marshal(&jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      msg.ID,
@@ -348,7 +351,8 @@ func newMockHandler(t *testing.T, method string) *handler_mocks.Handler {
 			Result:  &rm,
 		})
 		require.NoError(t, err)
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: resp, ErrorCode: api.NoError}
+		err = callback.SendResponse(handlers.UserCallbackPayload{RawResponse: resp, ErrorCode: api.NoError})
+		require.NoError(t, err)
 	})
 	return handler
 }
@@ -374,39 +378,39 @@ Address = "0x0001020304050607080900010203040506070809"
 	lggr := logger.Test(t)
 	handler := newMockHandler(t, "dummy.dummy")
 	handler2 := newMockHandler(t, "dummy2.dummy2")
-	handlers := map[string]handlers.Handler{
+	handlersObj := map[string]handlers.Handler{
 		"dummy":  handler,
 		"dummy2": handler2,
 	}
-	mhf := &handlerFactory{handlers: handlers}
+	mhf := &handlerFactory{handlers: handlersObj}
 
-	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), mhf, lggr)
+	gatewayObj, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), mhf, lggr)
 	require.NoError(t, err)
 
 	method := "dummy.dummy"
 	req := newSignedLegacyRequest(t, "abcd", method, "1", []byte{})
-	response, statusCode := gateway.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode := gatewayObj.ProcessRequest(testutils.Context(t), req, "")
 	require.Equal(t, 200, statusCode, string(response))
 	requireJSONRPCResult(t, method, response, "abcd",
 		`{"signature":"","body":{"message_id":"abcd","method":"dummy.dummy","don_id":"1","receiver":"","payload":{"result":"OK"}}}`)
 
 	method = "dummy2.dummy2"
 	req = newSignedLegacyRequest(t, "abcd", method, "1", []byte{})
-	response, statusCode = gateway.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode = gatewayObj.ProcessRequest(testutils.Context(t), req, "")
 	require.Equal(t, 200, statusCode, string(response))
 	requireJSONRPCResult(t, method, response, "abcd",
 		`{"signature":"","body":{"message_id":"abcd","method":"dummy2.dummy2","don_id":"1","receiver":"","payload":{"result":"OK"}}}`)
 
 	method = "dummy.dummy"
 	req = newJSONRpcRequest(t, "abcd", method, []byte(`{"type":"new"}`))
-	response, statusCode = gateway.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode = gatewayObj.ProcessRequest(testutils.Context(t), req, "")
 	require.Equal(t, 200, statusCode, string(response))
 	requireJSONRPCResult(t, method, response, "abcd",
 		`{"result":"OK"}`)
 
 	method = "dummy2.dummy2"
 	req = newJSONRpcRequest(t, "abcd", method, []byte(`{"type":"new"}`))
-	response, statusCode = gateway.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode = gatewayObj.ProcessRequest(testutils.Context(t), req, "")
 	require.Equal(t, 200, statusCode, string(response))
 	requireJSONRPCResult(t, method, response, "abcd",
 		`{"result":"OK"}`)

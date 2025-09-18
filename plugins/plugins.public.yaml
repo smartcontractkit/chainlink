@@ -10,15 +10,20 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20250818164129-fa2e60d95157"
-      installPath: "github.com/smartcontractkit/chainlink-aptos/cmd/chainlink-aptos"
+      gitRef: "v0.0.0-20250916164650-970686360fbf"
+      installPath: "./cmd/chainlink-aptos"
+
+  sui:
+    - moduleURI: "github.com/smartcontractkit/chainlink-sui"
+      gitRef: "v0.0.0-20250905130432-a45f4cd002a5"
+      installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
     - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
       # Git reference - can be a tag, branch, or commit hash
       # If not specified, uses the latest version.
       gitRef: "f740e9ae54e79762991bdaf8ad6b50363261c056" # 2025-02-07
-      installPath: "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/cmd/chainlink-cosmos"
+      installPath: "./pkg/cosmos/cmd/chainlink-cosmos"
       # These will be copied into /usr/lib in the container.
       libs:
         - /go/pkg/mod/github.com/!cosm!wasm/wasmvm@v*/internal/api/libwasmvm.*.so
@@ -26,19 +31,29 @@ plugins:
   feeds:
     - moduleURI: "github.com/smartcontractkit/chainlink-feeds"
       gitRef: "v0.1.2-0.20250227211209-7cd000095135"
-      installPath: "github.com/smartcontractkit/chainlink-feeds/cmd/chainlink-feeds"
+      installPath: "./cmd/chainlink-feeds"
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20250820135304-632bebc0e802"
-      installPath: "github.com/smartcontractkit/chainlink-solana/pkg/solana/cmd/chainlink-solana"
+      gitRef: "v1.1.2-0.20250910230900-fa42dad2d413"
+      installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
     - moduleURI: "github.com/smartcontractkit/chainlink-starknet/relayer"
       gitRef: "7e854bab99ef4a9cdbaa8dc2cac1fdf059238682" # 2025-05-15
-      installPath: "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/cmd/chainlink-starknet"
+      installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
       gitRef: "v0.1.2"
-      installPath: "github.com/smartcontractkit/chainlink-data-streams/mercury/cmd/chainlink-mercury"
+      installPath: "./mercury/cmd/chainlink-mercury"
+
+  ton:
+    - moduleURI: "github.com/smartcontractkit/chainlink-ton"
+      gitRef: "1cf9b1c64c811bcf30d4731991223f6ef2d14542"
+      installPath: "./cmd/chainlink-ton"
+
+  tron:
+    - moduleURI: "github.com/smartcontractkit/chainlink-tron/relayer"
+      gitRef: "825077b2d5a7603be953fa23f98f18a6f2139cc0"
+      installPath: "./cmd/chainlink-tron"

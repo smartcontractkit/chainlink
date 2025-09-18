@@ -138,7 +138,8 @@ jobs:
       contents: read
       pull-requests: write
     outputs:
-      builder-runner-label: ${{ steps.runner-labels.outputs.builder-runner-label }}
+      builder-runner-label-core: ${{ steps.runner-labels.outputs.builder-runner-label-core || steps.runner-labels.outputs.builder-runner-label }}
+      builder-runner-label-plugins: ${{ steps.runner-labels.outputs.builder-runner-label-plugins || steps.runner-labels.outputs.builder-runner-label }}
       solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
@@ -161,23 +162,26 @@ jobs:
         env:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
-          SH_BUILDER_RUNNER: runs-on=${{ github.run_id }}/cpu=32/memory=64/family=c6i/extras=s3-cache+tmpfs
           GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
-          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+          # include unique label (core/plugins/solana) to ensure jobs are not competing for the same runner
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32/memory=64/family=c6i/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32/memory=64/family=c6i/extras=s3-cache+tmpfs
+          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
             echo "solana-runner-label=${GH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "builder-runner-label=${SH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
+            echo "builder-runner-label-core=${SH_BUILDER_RUNNER_CORE}" | tee -a "$GITHUB_OUTPUT"
+            echo "builder-runner-label-plugins=${SH_BUILDER_RUNNER_PLUGINS}" | tee -a "$GITHUB_OUTPUT"
             echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           fi
 
   build-chainlink:
     name: Build Chainlink Image ${{ matrix.image.name }}
     if: github.actor != 'dependabot[bot]'
-    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
     environment: integration
+    runs-on: ${{ matrix.image.runner }}
     needs:
       [
         labels,
@@ -194,6 +198,7 @@ jobs:
       matrix:
         image:
           - name: ""
+            runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             # todo: optimize this conditional
@@ -206,6 +211,7 @@ jobs:
               }}
 
           - name: (plugins)
+            runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             # todo: optimize this conditional
@@ -410,7 +416,6 @@ jobs:
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
-      extraArgs: ${{ (github.event_name == 'merge_group' || github.event_name == 'push') && '{"flakeguard_enable":"false","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -431,8 +436,6 @@ jobs:
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
-      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
@@ -509,7 +512,6 @@ jobs:
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
-      extraArgs: ${{ (github.event_name == 'merge_group' || github.event_name == 'push') && '{"flakeguard_enable":"false","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       team: "CCIP"
@@ -534,8 +536,6 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
-      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
-      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
 
@@ -864,7 +864,7 @@ jobs:
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Image
         if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get-solana-sha.outputs.sha }}

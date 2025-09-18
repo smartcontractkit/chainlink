@@ -42,3 +42,23 @@ func (p *DefaultCapbilityFlagsProvider) GlobalCapabilityFlags() []cre.Capability
 func (p *DefaultCapbilityFlagsProvider) ChainSpecificCapabilityFlags() []cre.CapabilityFlag {
 	return p.chainSpecificCapabilities
 }
+
+// NewSwappableCapabilityFlagsProvider returns a capability flags provider that supports all capabilities that can be swapped (hot-reloaded)
+// All of these capabilities are provided as external binaries
+func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
+	return &DefaultCapbilityFlagsProvider{
+		globalCapabilities: []cre.CapabilityFlag{
+			cre.ConsensusCapability,
+			cre.ConsensusCapabilityV2,
+			cre.CronCapability,
+			cre.MockCapability,
+			cre.HTTPTriggerCapability,
+			cre.HTTPActionCapability,
+		},
+		chainSpecificCapabilities: []cre.CapabilityFlag{
+			cre.EVMCapability,
+			cre.ReadContractCapability,
+			cre.LogTriggerCapability,
+		},
+	}
+}

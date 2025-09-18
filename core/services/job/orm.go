@@ -49,7 +49,7 @@ type ORM interface {
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
 	FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *big.Big) (int32, error)
-	FindOCR2JobIDByAddress(ctx context.Context, contractID string, feedID *common.Hash) (int32, error)
+	FindOCR2JobIDByAddress(ctx context.Context, relay string, chainID int64, contractID string, feedID *common.Hash) (int32, error)
 	FindJobIDsWithBridge(ctx context.Context, name string) ([]int32, error)
 	DeleteJob(ctx context.Context, id int32, jobType Type) error
 	RecordError(ctx context.Context, jobID int32, description string) error
@@ -695,6 +695,11 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no TON key matching: %q", key)
 		}
+	case relay.NetworkSui:
+		_, err := keyStore.Sui().Get(key)
+		if err != nil {
+			return errors.Errorf("no Sui key matching: %q", key)
+		}
 	}
 	return nil
 }
@@ -1062,26 +1067,39 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 	return
 }
 
-func (o *orm) FindOCR2JobIDByAddress(ctx context.Context, contractID string, feedID *common.Hash) (jobID int32, err error) {
+func (o *orm) FindOCR2JobIDByAddress(ctx context.Context, relay string, chainID int64, contractID string, feedID *common.Hash) (int32, error) {
 	// NOTE: We want to explicitly match on NULL feed_id hence usage of `IS
 	// NOT DISTINCT FROM` instead of `=`
 	stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr2_oracle_specs ocr2spec on ocr2spec.contract_id = $1 AND ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND ocr2spec.id = jobs.ocr2_oracle_spec_id
-LEFT JOIN bootstrap_specs bs on bs.contract_id = $1 AND bs.feed_id IS NOT DISTINCT FROM $2 AND bs.id = jobs.bootstrap_spec_id
+LEFT JOIN ocr2_oracle_specs ocr2spec on 
+	ocr2spec.contract_id = $1 AND 
+	ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND 
+	ocr2spec.id = jobs.ocr2_oracle_spec_id AND
+	ocr2spec.relay = $3 AND
+	ocr2spec.relay_config->'chainID' = $4
+LEFT JOIN bootstrap_specs bs on 
+	bs.contract_id = $1 AND 
+	bs.feed_id IS NOT DISTINCT FROM $2 AND 
+	bs.id = jobs.bootstrap_spec_id AND
+	bs.relay = $3 AND
+	bs.relay_config->'chainID' = $4
 WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 `
-	err = o.ds.GetContext(ctx, &jobID, stmt, contractID, feedID)
+	var results []int64
+	err := o.ds.SelectContext(ctx, &results, stmt, contractID, feedID, relay, chainID)
 	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			err = errors.Wrapf(err, "error searching for job by contract id=%s and feed id=%s", contractID, feedID)
-		}
-		err = errors.Wrap(err, "FindOCR2JobIDByAddress failed")
-		return
+		return 0, errors.Wrapf(err, "error searching for job by contract id=%s and feed id=%s", contractID, feedID)
 	}
-
-	return
+	if len(results) > 1 {
+		return 0, errors.Errorf("For contract id=%s, feed id=%s, find returned > 1 job results with ids = %v", contractID, feedID, results)
+	}
+	if len(results) == 0 {
+		return 0, nil
+	}
+	//nolint:gosec // Sqlx scans into int64 types irrespectively of the underlying db type; id is serial4, which is 4 bytes.
+	return int32(results[0]), nil
 }
 
 func (o *orm) findJob(ctx context.Context, jb *Job, col string, arg interface{}) error {

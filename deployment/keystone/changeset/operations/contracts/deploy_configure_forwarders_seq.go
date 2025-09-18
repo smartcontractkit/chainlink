@@ -20,6 +20,7 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	mcmsOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	mcmsSeqs "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
+	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -49,7 +50,7 @@ type ForwarderDeploymentOps struct {
 
 type DeployConfigureForwardersSeqInput struct {
 	// chains to deploy forwarders to
-	ForwaderDeploymentChains map[uint64]ForwarderDeploymentOps
+	ForwarderDeploymentChains map[uint64]ForwarderDeploymentOps
 	// capabilities registry chain selector
 	RegistryChainSel uint64
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
@@ -82,7 +83,7 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 		evmChain := deps.Env.BlockChains.EVMChains()
 		donMapCache := make(map[string]internal.RegisteredDon) // cache for registered dons
 		// 1. forwarder deployment, forwarder configuration and ownership transfer to timelock if MCMS is used
-		for target, ops := range input.ForwaderDeploymentChains {
+		for target, ops := range input.ForwarderDeploymentChains {
 			allChainAddresses := deps.Env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(target))
 			var timelockAddr common.Address
 			var proposerAddr common.Address
@@ -104,7 +105,7 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 
 			// 1.1 deploy forwarder
 			lggr.Infof("Deploying Keystone Forwarder for chain selector %d", target)
-			forwarderAddress, err := deployForwarderOp(b, deps, input, target, ab, as)
+			forwarderAddress, err := deployForwarderOp(b, deps, target, ops.Qualifier, ab, as)
 			if err != nil {
 				return DeployConfigureForwardersSeqOutput{
 					AddressBook: ab,
@@ -214,14 +215,14 @@ func resolveChainDons(
 func deployForwarderOp(
 	b operations.Bundle,
 	deps DeployConfigureForwardersSeqDeps,
-	input DeployConfigureForwardersSeqInput,
 	target uint64,
+	qualifier string,
 	ab cldf.AddressBook,
 	as *datastore.MemoryDataStore,
 ) (common.Address, error) {
-	deployForwarderDep := DeployForwarderOpDeps{Env: deps.Env}
-	deployForwarderInput := DeployForwarderOpInput{ChainSelector: target}
-	deployForwarderReport, err := operations.ExecuteOperation(b, DeployKeystoneForwarderOp, deployForwarderDep, deployForwarderInput)
+	deployForwarderDep := creforwarder.DeployOpDeps{Env: deps.Env}
+	deployForwarderInput := creforwarder.DeployOpInput{ChainSelector: target, Qualifier: qualifier}
+	deployForwarderReport, err := operations.ExecuteOperation(b, creforwarder.DeployOp, deployForwarderDep, deployForwarderInput)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to deploy Keystone Forwarder for target %d: %w", target, err)
 	}
@@ -262,14 +263,27 @@ func configureForwarderOp(
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
 	}
-	_, err = operations.ExecuteOperation(b, ConfigureForwarderOp, ConfigureForwarderOpDeps{
-		Env:      deps.Env,
-		Chain:    &chain,
-		Contract: forwarderContract.Contract,
-		Dons:     chainDons,
-	}, ConfigureForwarderOpInput{UseMCMS: input.UseMCMS(), ChainSelector: target})
-	if err != nil {
-		return fmt.Errorf("configure-forwarders-seq failed for chain selector %d: %w", target, err)
+	// configure forwarder for each wf don
+	for _, don := range chainDons {
+		if !don.Info.AcceptsWorkflows {
+			continue
+		}
+		cfg := creforwarder.Config{
+			DonID:         don.Info.Id,
+			F:             don.Info.F,
+			ConfigVersion: don.Info.ConfigCount,
+			Signers:       don.Signers("evm"),
+		}
+
+		_, err = operations.ExecuteOperation(b, creforwarder.ConfigureOp, creforwarder.ConfigureOpDeps{
+			Env:      deps.Env,
+			Chain:    &chain,
+			Contract: forwarderContract.Contract,
+			Config:   cfg,
+		}, creforwarder.ConfigureOpInput{UseMCMS: input.UseMCMS(), ChainSelector: target})
+		if err != nil {
+			return fmt.Errorf("configure-forwarders-seq failed for chain selector %d, donID: %d: %w", target, don.Info.Id, err)
+		}
 	}
 	return nil
 }

@@ -318,9 +318,23 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
+[Capabilities.SharedPeering]
+Enabled = false
+Bootstrappers = []
+
+[Capabilities.SharedPeering.StreamConfig]
+IncomingMessageBufferSize = 500
+OutgoingMessageBufferSize = 500
+MaxMessageLenBytes = 500000
+MessageRateLimiterRate = 100.0
+MessageRateLimiterCapacity = 500
+BytesRateLimiterRate = 5000000.0
+BytesRateLimiterCapacity = 10000000
+
 [Capabilities.Dispatcher]
 SupportedVersion = 1
 ReceiverBufferSize = 10000
+SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
@@ -353,13 +367,10 @@ TLSEnabled = true
 ChainIDForNodeKey = ''
 NodeAddress = ''
 DonID = ''
+Gateways = []
 WSHandshakeTimeoutMillis = 0
 AuthMinChallengeLen = 0
 AuthTimestampToleranceSec = 0
-
-[[Capabilities.GatewayConnector.Gateways]]
-ID = ''
-URL = ''
 
 [Telemetry]
 Enabled = false
@@ -381,6 +392,7 @@ PerOwner = 200
 
 [CRE]
 UseLocalTimeProvider = true
+EnableDKGRecipient = false
 
 [CRE.Streams]
 WsURL = ''
@@ -388,6 +400,10 @@ RestURL = ''
 
 [CRE.WorkflowFetcher]
 URL = ''
+
+[CRE.Linking]
+URL = ''
+TLSEnabled = true
 
 [Billing]
 URL = 'localhost:4319'

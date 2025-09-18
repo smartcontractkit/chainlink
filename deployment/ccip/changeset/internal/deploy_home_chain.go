@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -27,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -400,7 +401,7 @@ func BuildSetOCR3ConfigArgsAptos(
 
 func BuildOCR3ConfigForCCIPHome(
 	ccipHome *ccip_home.CCIPHome,
-	ocrSecrets cldf.OCRSecrets,
+	ocrSecrets focr.OCRSecrets,
 	offRampAddress []byte,
 	destSelector uint64,
 	nodes deployment.Nodes,
@@ -578,7 +579,9 @@ func BuildOCR3ConfigForCCIPHome(
 				if pk == nil || pk.IsAddrNone() {
 					return nil, fmt.Errorf("failed to parse TON address '%s'", transmitter)
 				}
-				parsed = pk.Data()
+				// TODO: this reimplements addrCodec's ToRawAddr helper
+				parsed = binary.BigEndian.AppendUint32(nil, uint32(pk.Workchain())) //nolint:gosec // G115
+				parsed = append(parsed, pk.Data()...)
 			case chain_selectors.FamilyAptos:
 				parsed, err = hex.DecodeString(strings.TrimPrefix(string(transmitter), "0x"))
 				if err != nil {

@@ -36,7 +36,7 @@ on:
 
 jobs:
   define-test-matrix:
-    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -65,12 +65,52 @@ jobs:
         shell: bash
         working-directory: system-tests/tests/smoke/cre
         run: |
-          # Get the list of tests, for each test add each of supported DON topologies and convert to JSON format
-          # This only needs to be updated if we want to run all tests on a new DON topology.
-          # Otherwise tests are auto-discovered and run on all topologies.
-          tests=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v "ok" | grep -v "^$" | jq -R -s 'split("\n")[:-1] | map([{"test_name": ., "topology": "workflow", "configs":"configs/workflow-don.toml"}, {"test_name": ., "topology": "workflow-gateway", "configs":"configs/workflow-gateway-don.toml"}, {"test_name": ., "topology": "workflow-gateway-capabilities", "configs":"configs/workflow-gateway-capabilities-don.toml"}]) | flatten')
-          tests=$(echo $tests | jq -c .)
+          # Get the list of tests, for each test add each of supported DON topologies and create JSON array to form a job matrix.
+          # - This only needs to be updated if we want to run all tests on a new DON topology.
+          # - Otherwise tests are auto-discovered and run on all topologies.
+          PER_TEST_MODE='replace'
+          TOPOLOGIES_JSON='[
+            {"topology":"workflow","configs":"configs/workflow-don.toml"},
+            {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
+            {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
+          ]'
+  
+          # Add list of tests with certain topologies
+          PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
+            "Test_SecureMint": [
+               {"topology":"workflow","configs":"configs/workflow-solana-don.toml"}
+             ]
+              }'}
+          PER_TEST_MODE=${PER_TEST_MODE:-append}
 
+          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
+          tests=$(echo "$test_names" | jq -R -s \
+            --argjson tops "$TOPOLOGIES_JSON" \
+            --argjson per  "$PER_TEST_TOPOLOGIES_JSON" \
+            --arg mode "$PER_TEST_MODE" '
+            # Parse names into an array
+            (split("\n") | map(select(length>0))) as $names
+
+            # Base cartesian product: names x base topologies
+            | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
+
+            # If mode == replace, drop base combos for tests that have per-test topologies
+            | (if $mode == "replace"
+                 then $baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))
+                 else $baseAll
+               end) as $base
+
+            # Build per-test combos from the override map
+            | [ $per | to_entries[] as $e
+                | $e.value[] | {test_name: $e.key} + .
+              ] as $extra
+
+            # Combine and add test_id
+            | ($base + $extra)
+            | to_entries | map(.value + {test_id: .key})
+          ')
+
+          tests=$(echo "$tests" | jq -c .)
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
@@ -82,7 +122,9 @@ jobs:
       matrix:
         tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
     needs: [define-test-matrix]
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    # we need a `test_id` and `run_attempt` here to stop runner stealing
+    # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
+    runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{ github.run_attempt }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
     timeout-minutes: 40
     steps:
@@ -146,19 +188,15 @@ jobs:
             exit $exit_code
           fi
 
-          echo "env_config_path=$(jq -r '.env_config' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
-          echo "env_artifact_path=$(jq -r '.env_artifact' artifact_paths.json)" >> "${GITHUB_OUTPUT}"
-
       - name: Run CRE system tests
         shell: bash
         working-directory: system-tests/tests
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
-          ENV_ARTIFACT_PATH: ${{ steps.start-local-cre.outputs.env_artifact_path }}
-          CTF_CONFIGS: ${{ steps.start-local-cre.outputs.env_config_path }}
           # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
           # Beholder stack will be started only for the Beholder test
-          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:qa-latest
+          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
+          BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.36.2-amd64
           TEST_TIMEOUT: 30m
         run: |
           # Sleep to allow testcontainers to stop

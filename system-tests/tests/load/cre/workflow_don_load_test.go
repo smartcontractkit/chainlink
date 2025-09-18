@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -127,20 +128,21 @@ func setupLoadTestEnvironment(
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
-		JdInput:                              *in.JD,
+		JdInput:                              in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
+		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// Set inputs in the test config, so that they can be saved
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, forwarderErr := crecontracts.FindAddressesForChain(
+	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
 		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // will not migrate now
 		universalSetupOutput.BlockchainOutput[0].ChainSelector,
 		keystone_changeset.KeystoneForwarder.String(),
@@ -347,7 +349,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
 		if flags.HasFlag(don.Flags, cretypes.MockCapability) {
 			for _, n := range don.DON.Nodes {
-				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
+				key, err2 := n.ExportOCR2Keys(n.ChainsOcr2KeyBundlesID["evm"])
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
 					require.NoError(t, err3, "could not marshal OCR2 key")
@@ -684,7 +686,8 @@ func (s *StreamsGun) createReport() (capabilities.OCRTriggerEvent, string, time.
 }
 
 func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
-	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle) (*capabilities.OCRTriggerEvent, string, error) {
+	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle,
+) (*capabilities.OCRTriggerEvent, string, error) {
 	values := make([]datastreamsllo.StreamValue, 0)
 
 	priceBytes, err := price.MarshalBinary()
@@ -758,7 +761,7 @@ func decodeTargetInput(inputs *values.Map) (evm.TargetRequest, error) {
 
 func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 	cacheDir := "cache/keys"
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -770,7 +773,7 @@ func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 		}
 
 		filename := fmt.Sprintf("%s/key_bundle_%d.json", cacheDir, i)
-		if err := os.WriteFile(filename, bytes, 0600); err != nil {
+		if err := os.WriteFile(filename, bytes, 0o600); err != nil {
 			return fmt.Errorf("failed to write key bundle %d to file: %w", i, err)
 		}
 	}
@@ -828,7 +831,7 @@ func NewFeedIDDF2(t *testing.T) ([32]byte, string) {
 
 func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 	cacheDir := "cache/feeds"
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -838,7 +841,7 @@ func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 		return fmt.Errorf("failed to marshal feed addresses: %w", err)
 	}
 
-	if err := os.WriteFile(filename, bytes, 0600); err != nil {
+	if err := os.WriteFile(filename, bytes, 0o600); err != nil {
 		return fmt.Errorf("failed to write feed addresses to file: %w", err)
 	}
 
@@ -918,7 +921,6 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
  `
 
 	tmpl, err := template.New("workflow").Parse(workflowTemplateLoad)
-
 	if err != nil {
 		panic(err)
 	}
@@ -934,7 +936,8 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
-		Spec:   renderedTemplate.String()}
+		Spec:   renderedTemplate.String(),
+	}
 }
 
 func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
@@ -954,7 +957,6 @@ func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *
  		{{- end }}
 			"""`
 	tmpl, err := template.New("mock-job").Parse(jobTemplate)
-
 	if err != nil {
 		panic(err)
 	}
@@ -998,14 +1000,6 @@ func capTypeToInt(capType string) uint8 {
 	default:
 		panic("unknown capability type " + capType)
 	}
-}
-
-func logTestInfo(l zerolog.Logger, feedID, workflowName, dataFeedsCacheAddr, forwarderAddr string) {
-	l.Info().Msg("------ Test configuration:")
-	l.Info().Msgf("Feed ID: %s", feedID)
-	l.Info().Msgf("Workflow name: %s", workflowName)
-	l.Info().Msgf("DataFeedsCache address: %s", dataFeedsCacheAddr)
-	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
 func compareBenchmarkReports(t *testing.T, baselineReport, currentReport *benchspy.StandardReport) {
@@ -1149,7 +1143,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"capability_ocr3",
+			crecontracts.OCR3ContractQualifier,
 		)
 		ocr3CapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(ocr3Key)
 		if err != nil {
@@ -1160,7 +1154,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"DONTime",
+			crecontracts.DONTimeContractQualifier,
 		)
 		donTimeAddress, err := input.CldEnvironment.DataStore.Addresses().Get(donTimeKey)
 		if err != nil {
@@ -1224,7 +1218,12 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 				if ocr2Err != nil {
 					return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
 				}
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
+				if ocr2kbErr != nil {
+					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
+				}
+
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocr2KeyBundlesPerFamily, ocrPeeringData, chainID))
 				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, donTimeAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
 			}
 		}
