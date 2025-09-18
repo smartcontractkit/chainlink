@@ -21,6 +21,8 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/e
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative => ./smoke/cre/evm/evmread-negative
 
+replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative => ./smoke/cre/evm/evmread-negative
+
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/confluentinc/confluent-kafka-go v1.9.2
