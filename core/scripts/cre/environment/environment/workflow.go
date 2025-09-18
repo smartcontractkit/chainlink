@@ -34,7 +34,7 @@ const (
 
 // getWorkflowRegistryTypeVersion returns the appropriate TypeAndVersion based on the contracts version flag
 func getWorkflowRegistryTypeVersion(contractsVersion string) deployment.TypeAndVersion {
-	switch contractsVersion {
+	switch strings.ToLower(contractsVersion) {
 	case "v1":
 		return deployment.TypeAndVersion{
 			Version: *semver.MustParse("1.0.0"),
