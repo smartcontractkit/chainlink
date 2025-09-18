@@ -1089,7 +1089,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := memory.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], "60d3ba6bf24b"))
+		contractVersion := "60d3ba6bf24b"
+		// Allow overriding with a custom version, it's set to "loal" on chainlink-ton CI
+		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
+			contractVersion = version
+		}
+		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], contractVersion))
 		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{cs})
 		require.NoError(t, err, "failed to deploy TON ccip contracts")
 	}
