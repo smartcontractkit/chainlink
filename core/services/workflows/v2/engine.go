@@ -107,7 +107,6 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		platform.WorkflowRegistryChain, cfg.WorkflowRegistryChainSelector,
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
-		// TODO platform.KeyOrganizationID, "TODO",
 	}
 
 	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...)
@@ -144,7 +143,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
 		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2),
 		metrics:                 metricsLabeler,
 	}
 	engine.Service, engine.srvcEng = services.Config{
@@ -381,7 +380,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 // startExecution initiates a new workflow execution, blocking until completed
 func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
 	triggerEvent := wrappedTriggerEvent.event.Event
-	executionID, err := types.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
 	if err != nil {
 		e.lggr.Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 		return

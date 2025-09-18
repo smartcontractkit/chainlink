@@ -79,7 +79,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3
 	github.com/smartcontractkit/chain-selectors v1.0.70
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250915164817-46a35eda083d
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250916164650-970686360fbf
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250911201806-5a095deaeb52
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
@@ -94,12 +94,13 @@ require (
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250729142306-508e798f6a5d
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20250722225531-876fd6b94976
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250911124514-5874cc6d62b2
+	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20250903120418-25d11e43d98d
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250912140847-cbfb1710ac76
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250910230900-fa42dad2d413
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20250916145228-cc9dd5b92c88
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250916113541-1cf9b1c64c81
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250917170425-f6b7494e763a
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335
 	github.com/smartcontractkit/cre-sdk-go v0.7.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0

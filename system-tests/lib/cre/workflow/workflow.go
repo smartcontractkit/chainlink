@@ -206,7 +206,7 @@ func GetWorkflowNames(ctx context.Context, sc *seth.Client,
 		for _, m := range md {
 			workflows = append(workflows, m.WorkflowName)
 		}
-		return workflows, errors.New("not implemented")
+		return workflows, nil
 	default:
 		workflowRegistryInstance, err := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
 		if err != nil {

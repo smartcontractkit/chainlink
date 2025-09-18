@@ -24,6 +24,7 @@ import (
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -2484,8 +2485,8 @@ func GenTestTransferOwnershipConfig(
 	}
 }
 
-func DeployCCIPContractsTest(t *testing.T, solChains int) {
-	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
+func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
+	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains), WithTonChains(tonChains))
 	// Deploy all the CCIP contracts.
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -2493,6 +2494,7 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyAptos))...)
+	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyTon))...)
 	stateView, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
@@ -2508,6 +2510,9 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	require.NoError(t, err)
 	fmt.Println(string(b))
 	b, err = json.MarshalIndent(stateView.AptosChains, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+	b, err = json.MarshalIndent(stateView.TONChains, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }

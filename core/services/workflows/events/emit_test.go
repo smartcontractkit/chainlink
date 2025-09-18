@@ -71,7 +71,7 @@ func TestEmit(t *testing.T) {
 	})
 
 	t.Run(events.CapabilityExecutionFinished, func(t *testing.T) {
-		require.NoError(t, events.EmitCapabilityFinishedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "status"))
+		require.NoError(t, events.EmitCapabilityFinishedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "status", nil))
 		require.Len(t, labels, 1)
 
 		msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v1."+events.CapabilityExecutionFinished)
