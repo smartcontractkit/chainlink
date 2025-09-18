@@ -8,32 +8,38 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsui"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 // initializePluginConfig returns a PluginConfig for Aptos chains.
 func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
 	return func(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
 		var cwProvider ccipcommon.ChainRWProvider
+		var transmitterFactory types.ContractTransmitterFactory
 		var msgHasher ccipocr3.MessageHasher
 
 		if chainselFamily == chainsel.FamilyAptos {
 			cwProvider = ChainCWProvider{}
+			transmitterFactory = ocrimpls.NewAptosContractTransmitterFactory(extraDataCodec)
 			msgHasher = NewMessageHasherV1(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV1"), extraDataCodec)
 		} else {
 			cwProvider = ccipsui.ChainCWProvider{}
+			transmitterFactory = ocrimpls.NewSuiContractTransmitterFactory(extraDataCodec)
 			msgHasher = ccipsui.NewMessageHasherV1(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV1"), extraDataCodec)
 		}
 
 		return ccipcommon.PluginConfig{
-			CommitPluginCodec:   NewCommitPluginCodecV1(),
-			ExecutePluginCodec:  NewExecutePluginCodecV1(extraDataCodec),
-			MessageHasher:       msgHasher,
-			TokenDataEncoder:    NewAptosTokenDataEncoder(),
-			GasEstimateProvider: NewGasEstimateProvider(),
-			RMNCrypto:           nil,
-			ChainRW:             cwProvider,
-			ExtraDataCodec:      ExtraDataDecoder{},
-			AddressCodec:        AddressCodec{},
+			CommitPluginCodec:          NewCommitPluginCodecV1(),
+			ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
+			MessageHasher:              msgHasher,
+			TokenDataEncoder:           NewAptosTokenDataEncoder(),
+			GasEstimateProvider:        NewGasEstimateProvider(),
+			RMNCrypto:                  nil,
+			ContractTransmitterFactory: transmitterFactory,
+			ChainRW:                    cwProvider,
+			ExtraDataCodec:             ExtraDataDecoder{},
+			AddressCodec:               AddressCodec{},
 		}
 	}
 }
