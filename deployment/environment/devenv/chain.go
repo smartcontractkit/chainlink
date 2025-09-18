@@ -301,13 +301,13 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 				fullNodeURL := strings.Replace(chainCfg.HTTPRPCs[0].External, "/jsonrpc", "/wallet", 1)
 				solidityNodeURL := strings.Replace(chainCfg.HTTPRPCs[0].External, "/jsonrpc", "/walletsolidity", 1)
 
-				tronRpcProvider := tronprovider.NewRPCChainProvider(chainDetails.ChainSelector, tronprovider.RPCChainProviderConfig{
+				tronRPCProvider := tronprovider.NewRPCChainProvider(chainDetails.ChainSelector, tronprovider.RPCChainProviderConfig{
 					FullNodeURL:       fullNodeURL,
 					SolidityNodeURL:   solidityNodeURL,
 					DeployerSignerGen: signerGen,
 				})
 
-				tronChain, err := tronRpcProvider.Initialize(context.Background())
+				tronChain, err := tronRPCProvider.Initialize(context.Background())
 				if err != nil {
 					return fmt.Errorf("failed to initialize tron chain: %w", err)
 				}

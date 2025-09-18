@@ -35,7 +35,7 @@ func (c *CapabilitiesRegistryDeployer) Contract() *capabilities_registry.Capabil
 }
 
 func (c *CapabilitiesRegistryDeployer) Deploy(req DeployRequest) (*DeployResponse, error) {
-	est, err := estimateDeploymentGas(req.Chain.Client, capabilities_registry.CapabilitiesRegistryBin)
+	est, err := estimateDeploymentGas(req.Chain.Client, capabilities_registry.CapabilitiesRegistryABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
 	}

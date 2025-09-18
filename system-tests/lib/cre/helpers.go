@@ -47,7 +47,7 @@ func ChainConfigFromWrapped(w *WrappedBlockchainOutput) (devenv.ChainConfig, err
 			return devenv.ChainConfig{}, errors.Wrap(err, "failed to parse private key for Tron")
 		}
 
-		deployerKey, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(int64(w.ChainID)))
+		deployerKey, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(int64(w.ChainID))) //nolint:gosec // G115
 		if err != nil {
 			return devenv.ChainConfig{}, errors.Wrap(err, "failed to create transactor for Tron")
 		}

@@ -402,7 +402,7 @@ func deployTronForwarders(env *cldf.Environment, chainSelectors []uint64) error 
 		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
 	}
 
-	env.ExistingAddresses = updatedEnv.ExistingAddresses
+	env.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
 
 	if updatedEnv.DataStore != nil {
 		memoryDS := datastore.NewMemoryDataStore()

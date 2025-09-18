@@ -297,7 +297,7 @@ func fundTronAddress(ctx context.Context, testLogger zerolog.Logger, node devenv
 		return fmt.Errorf("TRON chain not found for selector %d", bcOut.ChainSelector)
 	}
 
-	tx, err := tronChain.Client.Transfer(tronChain.Address, receiverAddress, int64(fundingAmount))
+	tx, err := tronChain.Client.Transfer(tronChain.Address, receiverAddress, int64(fundingAmount)) //nolint:gosec // G115: potential integer overflow
 	if err != nil {
 		return pkgerrors.Wrapf(err, "failed to create transfer transaction for TRON node %s", nodeAddress)
 	}

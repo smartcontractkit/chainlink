@@ -68,7 +68,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		}
 
 		if bc.Type == blockchain.FamilyTron {
-			w, err := wrapTron(&bc)
+			w, err := wrapTron(&bc, bc.Out)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "failed to wrap tron")
 			}

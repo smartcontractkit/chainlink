@@ -102,8 +102,6 @@ func (s *SetupInput) Validate() error {
 	return nil
 }
 
-var stageCount = 7
-
 func SetupTestEnvironment(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -276,6 +274,7 @@ func SetupTestEnvironment(
 			FundingAmountPerChainFamily: preFundingOutput.Output.FundingPerChainFamilyForEachNode,
 			PrivateKeyPerChainFamily:    preFundingOutput.Output.PrivateKeysPerChainFamily,
 		})
+
 		return fundErr
 	})
 

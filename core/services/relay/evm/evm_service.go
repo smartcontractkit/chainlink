@@ -200,7 +200,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evmtypes.S
 
 	fromAddress := config.EVM().Workflow().FromAddress().Address()
 	var gasLimit uint64
-	if txRequest.GasConfig != nil {
+	if txRequest.GasConfig != nil && txRequest.GasConfig.GasLimit != nil {
 		gasLimit = *txRequest.GasConfig.GasLimit
 	}
 

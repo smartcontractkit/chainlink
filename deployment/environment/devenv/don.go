@@ -296,15 +296,15 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		if chain.ChainType == "TRON" {
 			chainType = "EVM"
 		}
-		ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chainType)
+		ocr2BundleID, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chainType)
 		if err != nil {
 			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, err)
 		}
-		if ocr2BundleId == "" {
+		if ocr2BundleID == "" {
 			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
 
-		n.ChainsOcr2KeyBundlesID[strings.ToLower(chainType)] = ocr2BundleId
+		n.ChainsOcr2KeyBundlesID[strings.ToLower(chainType)] = ocr2BundleID
 
 		// fetch node labels to know if the node is bootstrap or plugin
 		// if multi address is set, then it's a bootstrap node
@@ -346,7 +346,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				Ocr2IsBootstrap:  isBootstrap,
 				Ocr2Multiaddr:    n.multiAddr,
 				Ocr2P2PPeerID:    value(peerID),
-				Ocr2KeyBundleID:  ocr2BundleId,
+				Ocr2KeyBundleID:  ocr2BundleID,
 				Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
 			})
 			// todo: add a check if the chain config failed because of a duplicate in that case, should we update or return success?

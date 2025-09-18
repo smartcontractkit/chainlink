@@ -74,7 +74,7 @@ func CreateBlockchains(
 		}
 
 		if isTron {
-			w, err := wrapTron(&bi)
+			w, err := wrapTron(&bi, bcOut)
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "failed to wrap Tron")
 			}
@@ -177,17 +177,26 @@ func deployBlockchain(testLogger zerolog.Logger, infraIn infra.Input, bi blockch
 	return bcOut, nil
 }
 
-func wrapTron(bi *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
+func wrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
 	chainID, err := strconv.ParseUint(bi.ChainID, 10, 64)
 	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bi.ChainID)
 	}
 	selector, err := chainselectors.SelectorFromChainId(chainID)
 	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", bi.ChainID)
+		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %s", bi.ChainID)
 	}
 
-	externalHTTPURL := fmt.Sprintf("http://localhost:%s/jsonrpc", bi.Port)
-	internalHTTPURL := strings.Replace(externalHTTPURL, "localhost", "host.docker.internal", 1)
+	// if jsonrpc is not present, add it
+	if !strings.Contains(bcOut.Nodes[0].ExternalHTTPUrl, "/jsonrpc") {
+		bcOut.Nodes[0].ExternalHTTPUrl = bcOut.Nodes[0].ExternalHTTPUrl + "/jsonrpc"
+	}
+	if !strings.Contains(bcOut.Nodes[0].InternalHTTPUrl, "/jsonrpc") {
+		bcOut.Nodes[0].InternalHTTPUrl = bcOut.Nodes[0].InternalHTTPUrl + "/jsonrpc"
+	}
+
+	externalHTTPURL := bcOut.Nodes[0].ExternalHTTPUrl
+	internalHTTPURL := bcOut.Nodes[0].InternalHTTPUrl
 
 	return &cre.WrappedBlockchainOutput{
 		ChainSelector: selector,
