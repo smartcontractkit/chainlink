@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -25,6 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+const (
+	BASE_MAINNET_ID = 8453
 )
 
 // Helper to deploy signer registry directly for testing
@@ -58,7 +60,10 @@ func TestEVMSignerRegistryConfiguration_Preconditions(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
-	selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	selector := uint64(ccip_attestation.BaseMainnetSelector)
+	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+	)
 
 	tests := []struct {
 		name        string
@@ -141,7 +146,10 @@ func TestEVMSignerRegistryConfiguration_StateValidation(t *testing.T) {
 		Chains: 1,
 	})
 
-	selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	selector := uint64(ccip_attestation.BaseMainnetSelector)
+	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+	)
 
 	// Deploy registry with known signers
 	signer1 := utils.RandomAddress()
@@ -187,7 +195,10 @@ func TestEVMSignerRegistryConfiguration_DirectExecution(t *testing.T) {
 		Chains: 1,
 	})
 
-	selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	selector := uint64(ccip_attestation.BaseMainnetSelector)
+	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+	)
 
 	// Deploy registry with signers
 	signer1 := utils.RandomAddress()
@@ -237,7 +248,10 @@ func TestEVMSignerRegistryConfiguration_MCMSProposal(t *testing.T) {
 		Chains: 1,
 	})
 
-	selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	selector := uint64(ccip_attestation.BaseMainnetSelector)
+	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+	)
 
 	// Deploy registry
 	signer1 := utils.RandomAddress()
@@ -275,7 +289,11 @@ func TestEVMSignerRegistryConfiguration_NoRegistries(t *testing.T) {
 		Chains: 1,
 	})
 
-	selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	selector := uint64(ccip_attestation.BaseMainnetSelector)
+	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
+		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BASE_MAINNET_ID}, 1),
+	)
+
 	// No registries deployed
 	config := ccip_attestation.SetNewSignerAddressesConfig{
 		UpdatesByChain: map[uint64]map[common.Address]common.Address{

@@ -39,6 +39,15 @@ func signerRegistrySetNewSignerAddressesPrecondition(env cldf.Environment, confi
 
 	// Per-chain basic validation and duplicate checks
 	for chainSelector, updates := range config.UpdatesByChain {
+		_, ok := env.BlockChains.EVMChains()[chainSelector]
+		if !ok {
+			return fmt.Errorf("chain selector %d not found in environment", chainSelector)
+		}
+
+		if chainSelector != BaseMainnetSelector && chainSelector != BaseSepoliaSelector {
+			return fmt.Errorf("chain selector %d is not a Base chain", chainSelector)
+		}
+
 		if len(updates) == 0 {
 			return fmt.Errorf("no signer updates provided for chain selector %d", chainSelector)
 		}
