@@ -1,0 +1,222 @@
+package v1_5_1
+
+import (
+	"fmt"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+)
+
+// UpdateAdminRoleChangesetV2 is a changeset that can propose AND transfer administrator roles for tokens
+// on the token admin registry. It takes array of TokenAdminInfo by chain and infers whether an the admin
+// should be proposed or transferred. The TokenAdminInfo expects a TokenAddress and AdminAddress as input
+// and splits the data into one of two groups (either propose or transfer). Then it'll reuse the existing
+// validations + logic for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2.
+var UpdateAdminRoleChangesetV2 = cldf.CreateChangeSet(updateAdminRoleLogic, updateAdminRolePrecondition)
+
+type UpdateAdminRoleConfig struct {
+	// Only applicable when **proposing** a new admin - this allows the existing pending administrator to be
+	// overriden if set to true. Use with caution as this will replace any existing pending admin proposals.
+	OverridePendingAdmin bool `json:"overridePendingAdmin"`
+
+	// A map of chain selector => slice of TokenAdminInfo which describes the updates to make on each chain
+	ChainUpdates map[uint64][]TokenAdminInfo `json:"ChainUpdates"`
+
+	// The timelock config - all updates can be folded into one MCMS proposal with this setting
+	MCMS *proposalutils.TimelockConfig `json:"mcms"`
+
+	// Internal property for caching purposes
+	configs *updateAdminRoleConfigs
+}
+
+type updateAdminRoleConfigs struct {
+	orchestrateChangesetsConfig *ccipcommoncs.OrchestrateChangesetsConfig
+	transferAdminRoleConfig     *TransferAdminRoleConfig
+	proposeAdminRoleConfig      *ProposeAdminRoleConfig
+}
+
+func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleConfigs, error) {
+	if cfg.configs != nil {
+		return *cfg.configs, nil
+	}
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return updateAdminRoleConfigs{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	transferAdminRoleConfig := TransferAdminRoleConfig{
+		TransferAdminByChain: map[uint64][]TokenAdminInfo{},
+		MCMS:                 cfg.MCMS,
+	}
+
+	proposeAdminRoleConfig := ProposeAdminRoleConfig{
+		ProposeAdminByChain:  map[uint64][]TokenAdminInfo{},
+		OverridePendingAdmin: cfg.OverridePendingAdmin,
+		MCMS:                 cfg.MCMS,
+	}
+
+	for selector, updates := range cfg.ChainUpdates {
+		chainState, ok := state.EVMChainState(selector)
+		if !ok {
+			return updateAdminRoleConfigs{}, fmt.Errorf("selector %d does not exist in state", selector)
+		}
+
+		tokenConfigCache := map[common.Address]token_admin_registry.TokenAdminRegistryTokenConfig{}
+		transferInfo := []TokenAdminInfo{}
+		proposeInfo := []TokenAdminInfo{}
+
+		for _, info := range updates {
+			tokenConfig, hit := tokenConfigCache[info.TokenAddress]
+			if !hit {
+				e.Logger.Infof(
+					"fetching token config for token '%s' from token admin registry at '%s' (chain selector = '%d')",
+					info.TokenAddress.Hex(),
+					chainState.TokenAdminRegistry.Address().Hex(),
+					selector,
+				)
+
+				tokenCfg, err := chainState.TokenAdminRegistry.GetTokenConfig(&bind.CallOpts{Context: e.GetContext()}, info.TokenAddress)
+				if err != nil {
+					return updateAdminRoleConfigs{}, fmt.Errorf(
+						"failed to get token config for token '%s' from chain with selector '%d'",
+						info.TokenAddress.Hex(),
+						selector,
+					)
+				}
+
+				e.Logger.Infof(
+					"found token config for token '%s' in token admin registry at '%s' (chain selector = '%d'): %+v",
+					info.TokenAddress.Hex(),
+					chainState.TokenAdminRegistry.Address().Hex(),
+					selector,
+					tokenCfg,
+				)
+
+				tokenConfigCache[info.TokenAddress] = tokenCfg
+				tokenConfig = tokenCfg
+			}
+
+			// If no admin exists for the token, then propose one otherwise transfer ownership
+			if tokenConfig.Administrator == (common.Address{}) {
+				proposeInfo = append(proposeInfo, info)
+			} else {
+				transferInfo = append(transferInfo, info)
+			}
+		}
+
+		if len(transferInfo) > 0 {
+			transferAdminRoleConfig.TransferAdminByChain[selector] = transferInfo
+		}
+
+		if len(proposeInfo) > 0 {
+			proposeAdminRoleConfig.ProposeAdminByChain[selector] = proposeInfo
+		}
+	}
+
+	changesets := []ccipcommoncs.WithConfig{}
+	configs := updateAdminRoleConfigs{
+		orchestrateChangesetsConfig: nil,
+		transferAdminRoleConfig:     nil,
+		proposeAdminRoleConfig:      nil,
+	}
+
+	if len(transferAdminRoleConfig.TransferAdminByChain) > 0 {
+		configs.transferAdminRoleConfig = &transferAdminRoleConfig
+		changesets = append(changesets, ccipcommoncs.CreateGenericChangeSetWithConfig(
+			TransferAdminRoleChangesetV2,
+			transferAdminRoleConfig,
+		))
+	}
+
+	if len(proposeAdminRoleConfig.ProposeAdminByChain) > 0 {
+		configs.proposeAdminRoleConfig = &proposeAdminRoleConfig
+		changesets = append(changesets, ccipcommoncs.CreateGenericChangeSetWithConfig(
+			ProposeAdminRoleChangesetV2,
+			proposeAdminRoleConfig,
+		))
+	}
+
+	if cfg.MCMS != nil {
+		configs.orchestrateChangesetsConfig = &ccipcommoncs.OrchestrateChangesetsConfig{
+			Description: "Propose or transfer admin roles",
+			MCMS:        cfg.MCMS,
+			ChangeSets:  changesets,
+		}
+	}
+
+	cfg.configs = &configs
+	return configs, nil
+}
+
+func updateAdminRolePrecondition(e cldf.Environment, cfg UpdateAdminRoleConfig) error {
+	if len(cfg.ChainUpdates) == 0 {
+		return nil
+	}
+
+	configs, err := cfg.populate(e)
+	if err != nil {
+		return fmt.Errorf("failed to populate internal configs: %w", err)
+	}
+
+	if configs.orchestrateChangesetsConfig != nil {
+		return ccipcommoncs.OrchestrateChangesets.VerifyPreconditions(e, *configs.orchestrateChangesetsConfig)
+	}
+
+	if configs.transferAdminRoleConfig != nil {
+		err := TransferAdminRoleChangesetV2.VerifyPreconditions(e, *configs.transferAdminRoleConfig)
+		if err != nil {
+			return err
+		}
+	}
+
+	if configs.proposeAdminRoleConfig != nil {
+		err := ProposeAdminRoleChangesetV2.VerifyPreconditions(e, *configs.proposeAdminRoleConfig)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.ChangesetOutput, error) {
+	if len(cfg.ChainUpdates) == 0 {
+		return cldf.ChangesetOutput{}, nil
+	}
+
+	configs, err := cfg.populate(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate internal configs: %w", err)
+	}
+
+	if configs.orchestrateChangesetsConfig != nil {
+		return ccipcommoncs.OrchestrateChangesets.Apply(e, *configs.orchestrateChangesetsConfig)
+	}
+
+	result := cldf.ChangesetOutput{}
+	if configs.transferAdminRoleConfig != nil {
+		transferOutput, err := TransferAdminRoleChangesetV2.Apply(e, *configs.transferAdminRoleConfig)
+		if err != nil {
+			result.Reports = append(result.Reports, transferOutput.Reports...)
+			return cldf.ChangesetOutput{Reports: result.Reports}, fmt.Errorf("failed to apply TransferAdminRoleChangesetV2: %w", err)
+		}
+		e.Logger.Info("successfully applied TransferAdminRoleChangesetV2")
+	}
+	if configs.proposeAdminRoleConfig != nil {
+		proposeOutput, err := ProposeAdminRoleChangesetV2.Apply(e, *configs.proposeAdminRoleConfig)
+		if err != nil {
+			result.Reports = append(result.Reports, proposeOutput.Reports...)
+			return cldf.ChangesetOutput{Reports: result.Reports}, fmt.Errorf("failed to apply ProposeAdminRoleChangesetV2: %w", err)
+		}
+		e.Logger.Info("successfully applied ProposeAdminRoleChangesetV2")
+	}
+
+	return result, nil
+}
