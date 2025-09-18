@@ -35,7 +35,7 @@ type DonConfiguration struct {
 	ID      uint32   // the DON id as registered in the capabilities registry. Is an id corresponding to a DON that run consensus capability
 	F       uint8    // the F value for the DON as registered in the capabilities registry
 	Version uint32   // the config version for the DON as registered in the capabilities registry
-	NodeIDs []string // node IDs (JD IDs or PeerIDs starting with `p2p_`) of the nodes in the DON
+	NodeIDs []string // node IDs (JD IDs or PeerIDs starting with `p2p_` or csa keys) of the nodes in the DON
 }
 
 func (d DonConfiguration) ForwarderConfig(chainFamily string, c offchain.Client) (Config, error) {
@@ -209,7 +209,7 @@ var ConfigureOp = operations.NewOperation[ConfigureOpInput, ConfigureOpOutput, C
 )
 
 // Signers returns the onchain public keys of the given node IDs by retrieving the node info from the offchain client
-// nodeIDs can be JD IDs or PeerIDs starting with `p2p_`.
+// nodeIDs can be JD IDs or PeerIDs starting with `p2p_ or csa keys`.
 func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.Address, error) {
 	// load the nodes from the offchain client
 	nodes, err := deployment.NodeInfo(nodeIDs, c)
