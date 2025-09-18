@@ -79,6 +79,9 @@ jobs:
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
             "Test_SecureMint": [
                {"topology":"workflow","configs":"configs/workflow-solana-don.toml"}
+             ],
+            "Test_CRE_Suite_Tron": [
+               {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
