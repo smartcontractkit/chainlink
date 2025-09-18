@@ -405,9 +405,6 @@ flowchart LR
 	click freeport href "https://github.com/smartcontractkit/freeport"
 	grpc-proxy
 	click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
-	job-distributor --> chainlink-protos/job-distributor
-	job-distributor --> chainlink-protos/orchestrator
-	click job-distributor href "https://github.com/smartcontractkit/job-distributor"
 	libocr
 	click libocr href "https://github.com/smartcontractkit/libocr"
 	mcms --> chainlink-aptos
