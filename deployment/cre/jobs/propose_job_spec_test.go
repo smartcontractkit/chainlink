@@ -239,7 +239,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		err := ds.Addresses().Add(datastore.AddressRef{
 			ChainSelector: chainSelector,
 			Type:          datastore.ContractType(ocr3.OCR3Capability),
-			Version:       semver.MustParse("2.0.0"),
+			Version:       semver.MustParse("1.0.0"),
 			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 			Qualifier:     "ocr3-contract-qualifier",
 		})
@@ -317,7 +317,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		err := ds.Addresses().Add(datastore.AddressRef{
 			ChainSelector: chainSelector,
 			Type:          datastore.ContractType(ocr3.OCR3Capability),
-			Version:       semver.MustParse("2.0.0"),
+			Version:       semver.MustParse("1.0.0"),
 			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 			Qualifier:     "ocr3-contract-qualifier",
 		})
@@ -383,7 +383,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		err := ds.Addresses().Add(datastore.AddressRef{
 			ChainSelector: chainSelector,
 			Type:          datastore.ContractType(ocr3.OCR3Capability),
-			Version:       semver.MustParse("2.0.0"),
+			Version:       semver.MustParse("1.0.0"),
 			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
 			Qualifier:     "ocr3-contract-qualifier",
 		})

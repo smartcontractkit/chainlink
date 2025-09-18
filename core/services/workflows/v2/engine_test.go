@@ -46,6 +46,7 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -341,7 +342,7 @@ func TestEngine_Execution(t *testing.T) {
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 			Run(
 				func(_ context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
-					wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+					wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 					require.NoError(t, err)
 					capExec, ok := executor.(*v2.ExecutionHelper)
 					require.True(t, ok)
@@ -459,7 +460,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 
 	// Wait for execution to finish with timeout status
 	executionID := <-executionFinishedCh
-	wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 	require.NoError(t, err)
 	require.Equal(t, wantExecID, executionID)
 
@@ -581,7 +582,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
@@ -676,7 +677,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
@@ -757,7 +758,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
@@ -852,7 +853,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
@@ -979,7 +980,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 
 	// Wait for execution to finish with error status
 	executionID := <-executionFinishedCh
-	wantExecID, err := types.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 	require.NoError(t, err)
 	require.Equal(t, wantExecID, executionID)
 
@@ -1082,7 +1083,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 			t.Fatalf("unexpected response type %T", output)
 		}
 
-		execID, err := types.GenerateExecutionID(cfg.WorkflowID, "")
+		execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "")
 		require.NoError(t, err)
 
 		require.Equal(t, execID, <-executionFinishedCh)
@@ -1173,7 +1174,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 			t.Fatalf("unexpected response type %T", output)
 		}
 
-		execID, err := types.GenerateExecutionID(cfg.WorkflowID, "")
+		execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "")
 		require.NoError(t, err)
 
 		require.Equal(t, execID, <-executionFinishedCh)
@@ -1364,7 +1365,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		t.Fatalf("unexpected response type %T: %v", output, output)
 	}
 
-	execID, err := types.GenerateExecutionID(cfg.WorkflowID, "")
+	execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "")
 	require.NoError(t, err)
 
 	require.Equal(t, execID, <-executionFinishedCh)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
@@ -162,10 +163,11 @@ func NewAptosChainView() AptosChainView {
 }
 
 type CCIPView struct {
-	Chains      map[string]ChainView      `json:"chains,omitempty"`
-	SolChains   map[string]SolChainView   `json:"solChains,omitempty"`
-	AptosChains map[string]AptosChainView `json:"aptosChains,omitempty"`
-	Nops        map[string]view.NopView   `json:"nops,omitempty"`
+	Chains      map[string]ChainView             `json:"chains,omitempty"`
+	SolChains   map[string]SolChainView          `json:"solChains,omitempty"`
+	AptosChains map[string]AptosChainView        `json:"aptosChains,omitempty"`
+	TonChains   map[string]tonstate.TONChainView `json:"tonChains,omitempty"`
+	Nops        map[string]view.NopView          `json:"nops,omitempty"`
 }
 
 func (v CCIPView) MarshalJSON() ([]byte, error) {

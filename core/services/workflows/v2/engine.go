@@ -143,7 +143,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		allTriggerEventsQueueCh: cfg.LocalLimiters.TriggerEventQueue,
 		executionsSemaphore:     cfg.LocalLimiters.ExecutionConcurrency,
 		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
-		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector),
+		meterReports:            metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2),
 		metrics:                 metricsLabeler,
 	}
 	engine.Service, engine.srvcEng = services.Config{
@@ -217,7 +217,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
 	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID)
+		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.loggerLabels)
 	})
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
@@ -380,10 +380,21 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 // startExecution initiates a new workflow execution, blocking until completed
 func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
 	triggerEvent := wrappedTriggerEvent.event.Event
-	executionID, err := types.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
 	if err != nil {
 		e.lggr.Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 		return
+	}
+
+	// Fetch organization ID for this execution
+	var organizationID string
+	if e.cfg.OrgResolver != nil {
+		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
+		if gerr != nil {
+			e.lggr.Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
+		} else {
+			organizationID = orgID
+		}
 	}
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
@@ -415,6 +426,15 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	defer execCancel()
 	executionLogger := logger.With(e.lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 
+	// Create execution-specific labels with organization ID if available
+	executionLabels := make(map[string]string)
+	for k, v := range e.loggerLabels {
+		executionLabels[k] = v
+	}
+	if organizationID != "" {
+		executionLabels[platform.KeyOrganizationID] = organizationID
+	}
+
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
 		e.lggr.Errorw("Failed to get log event limit", "err", err)
@@ -423,7 +443,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
 	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(execCtx, userLogChan, executionID)
+		e.emitUserLogs(execCtx, userLogChan, executionID, executionLabels)
 	})
 
 	tid, err := safe.IntToUint64(wrappedTriggerEvent.triggerIndex)
@@ -434,7 +454,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
-	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
+	_ = events.EmitExecutionStartedEvent(ctx, executionLabels, triggerEvent.ID, executionID)
 	var executionStatus string // store.StatusStarted
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
@@ -493,7 +513,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds())
-		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, executionLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(err.Error())
 		return
@@ -507,7 +527,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		executionStatus = store.StatusErrored
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds())
-		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, executionLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(result.GetError())
 		return
@@ -597,7 +617,7 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 }
 
 // separate call for each workflow execution
-func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string) {
+func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string, executionLabels map[string]string) {
 	e.lggr.Debugw("Listening for user logs ...")
 	count := 0
 	defer func() { e.lggr.Debugw("Listening for user logs done.", "processedLogLines", count) }()
@@ -631,7 +651,7 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 				logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
 			}
 
-			if err := events.EmitUserLogs(ctx, e.loggerLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
+			if err := events.EmitUserLogs(ctx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
 				e.lggr.Errorw("Failed to emit user logs", "err", err)
 			}
 			count++

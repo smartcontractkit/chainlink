@@ -542,7 +542,7 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 
 	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
 	if !exists {
-		panic(fmt.Sprintf("ocr2 config not found for chain selector %d", registryChainSel))
+		panic(fmt.Sprintf("ocr2 config not found for chain selector %d, node %s", registryChainSel, o.NodeID))
 	}
 	return NodeKeys{
 		EthAddress:            string(evmCC.TransmitAccount),

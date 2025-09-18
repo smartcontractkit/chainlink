@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -578,7 +579,9 @@ func BuildOCR3ConfigForCCIPHome(
 				if pk == nil || pk.IsAddrNone() {
 					return nil, fmt.Errorf("failed to parse TON address '%s'", transmitter)
 				}
-				parsed = pk.Data()
+				// TODO: this reimplements addrCodec's ToRawAddr helper
+				parsed = binary.BigEndian.AppendUint32(nil, uint32(pk.Workchain())) //nolint:gosec // G115
+				parsed = append(parsed, pk.Data()...)
 			case chain_selectors.FamilyAptos:
 				parsed, err = hex.DecodeString(strings.TrimPrefix(string(transmitter), "0x"))
 				if err != nil {

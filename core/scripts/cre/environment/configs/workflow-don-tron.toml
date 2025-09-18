@@ -8,6 +8,8 @@
   chain_id = "3360022319" 
   type = "tron"
   docker_cmd_params = ["-b", "5"]
+  port = "9090"
+  image = "tronbox/tre:dev"
 
 [jd]
   # change to your version

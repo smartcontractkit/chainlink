@@ -11,7 +11,6 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
-	relaymercuryv1 "github.com/smartcontractkit/chainlink-data-streams/mercury/v1"
 	relaymercuryv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 	relaymercuryv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4"
@@ -28,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
 	mercuryv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3"
 	mercuryv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4"
@@ -127,13 +125,6 @@ func NewServices(
 		feedID:                feedID,
 	}
 	switch feedID.Version() {
-	case 1:
-		factory, factoryServices, fErr = newv1factory(fCfg)
-		if fErr != nil {
-			abort()
-			return nil, fmt.Errorf("failed to create mercury v1 factory: %w", fErr)
-		}
-		srvs = append(srvs, factoryServices...)
 	case 2:
 		factory, factoryServices, fErr = newv2factory(fCfg)
 		if fErr != nil {
@@ -307,44 +298,6 @@ func newv2factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 		factory = factoryServer
 	} else {
 		factory = relaymercuryv2.NewFactory(ds, factoryCfg.lggr, factoryCfg.ocr2Provider.OnchainConfigCodec(), factoryCfg.ocr2Provider.ReportCodecV2())
-	}
-	return factory, srvs, nil
-}
-
-func newv1factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.ServiceCtx, error) {
-	var factory ocr3types.MercuryPluginFactory
-	srvs := make([]job.ServiceCtx, 0)
-
-	ds := mercuryv1.NewDataSource(
-		factoryCfg.orm,
-		factoryCfg.pipelineRunner,
-		factoryCfg.jb,
-		*factoryCfg.jb.PipelineSpec,
-		factoryCfg.lggr,
-		factoryCfg.saver,
-		factoryCfg.chEnhancedTelem,
-		factoryCfg.ocr2Provider.MercuryChainReader(),
-		factoryCfg.ocr2Provider.MercuryServerFetcher(),
-		factoryCfg.reportingPluginConfig.InitialBlockNumber.Ptr(),
-		factoryCfg.feedID,
-	)
-
-	loopCmd := env.MercuryPlugin.Cmd.Get()
-	loopEnabled := loopCmd != ""
-
-	if loopEnabled {
-		cmdFn, unregisterer, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to init loop for feed %s: %w", factoryCfg.feedID, err)
-		}
-		// in loopp mode, the factory is grpc server, and we need to handle the server lifecycle
-		// and unregistration of the loop
-		factoryServer := loop.NewMercuryV1Service(mercuryLggr, opts, cmdFn, factoryCfg.ocr2Provider, ds)
-		srvs = append(srvs, factoryServer, unregisterer)
-		// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
-		factory = factoryServer
-	} else {
-		factory = relaymercuryv1.NewFactory(ds, factoryCfg.lggr, factoryCfg.ocr2Provider.OnchainConfigCodec(), factoryCfg.ocr2Provider.ReportCodecV1())
 	}
 	return factory, srvs, nil
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -66,17 +65,6 @@ func CreateBlockchains(
 			err := initSolanaInput(&bi)
 			if err != nil {
 				return nil, pkgerrors.Wrap(err, "failed to init Solana input")
-			}
-		}
-
-		if isTron {
-			// Only assign random port if no port is specified in config
-			if bi.Port == "" {
-				port, err := getRandomPort()
-				if err != nil {
-					return nil, pkgerrors.Wrap(err, "failed to get random port for Tron")
-				}
-				bi.Port = strconv.Itoa(port)
 			}
 		}
 
@@ -324,18 +312,6 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 		BlockChainOutputs: blockchainsOutput,
 		BlockChains:       maps.Collect(blockChains.All()),
 	}, nil
-}
-
-// getRandomPort finds and returns an available random port
-func getRandomPort() (int, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, pkgerrors.Wrap(err, "failed to find available port")
-	}
-	defer listener.Close()
-
-	addr := listener.Addr().(*net.TCPAddr)
-	return addr.Port, nil
 }
 
 func getSolProgramsPath(path string) string {

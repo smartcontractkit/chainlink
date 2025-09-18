@@ -576,11 +576,12 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     env:
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_LINT_RUNNER: runs-on=${{ github.run_id }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      # include unique label (core/deployment/etc...) to ensure jobs are not competing for the same runner
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}-core/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}-fuzz/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_LINT_RUNNER: runs-on=${{ github.run_id }}-lint/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
       GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB
       GH_BASE_RUNNER: ubuntu-latest
