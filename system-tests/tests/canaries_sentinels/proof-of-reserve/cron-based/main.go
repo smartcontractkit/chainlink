@@ -57,7 +57,7 @@ const balanceReaderABIJson = `[
 func RunProofOfReservesWorkflow(config types.WorkflowConfig, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[types.WorkflowConfig], error) {
 	return cre.Workflow[types.WorkflowConfig]{
 		cre.Handler(
-			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}), // every 30 seconds
+			cron.Trigger(&cron.Config{Schedule: "0 * * * * *"}), // every minute
 			onTrigger,
 		),
 	}, nil
@@ -70,7 +70,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	evmClient := evm.Client{ChainSelector: chain_selectors.GETH_TESTNET.Selector}
 	addressesToRead := config.BalanceReaderConfig.AddressesToRead
 	if len(addressesToRead) < 2 {
-		runtime.Logger().Info("need at least 2 addresses to read balances from =>", "addresses", addressesToRead)
+		runtime.Logger().Info("need at least 2 addresses to read balances from:", "addresses", addressesToRead)
 		return "", fmt.Errorf("need at least 2 addresses to read balances from: %v", addressesToRead)
 	}
 
