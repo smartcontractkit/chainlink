@@ -78,15 +78,16 @@ func DeployPriceProvider(authKey string, port int, feedIDs []string, containerNa
 }
 
 func (ps *PriceServer) handlePriceRequest(w http.ResponseWriter, r *http.Request) {
-
-	fmt.Println("Received price request: ", r.URL.String())
 	// Check auth header if provided
 	if ps.authKey != "" {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader != ps.authKey {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+			err := json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+			if err != nil {
+				fmt.Println("Error encoding unauthorized response:", err)
+			}
 			return
 		}
 	}
@@ -95,7 +96,10 @@ func (ps *PriceServer) handlePriceRequest(w http.ResponseWriter, r *http.Request
 	if feedID == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "no feedID provided"})
+		err := json.NewEncoder(w).Encode(map[string]string{"error": "no feedID provided"})
+		if err != nil {
+			fmt.Println("Error encoding bad request response:", err)
+		}
 		return
 	}
 
@@ -107,7 +111,10 @@ func (ps *PriceServer) handlePriceRequest(w http.ResponseWriter, r *http.Request
 	if !exists {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "feedID not found"})
+		err := json.NewEncoder(w).Encode(map[string]string{"error": "feedID not found"})
+		if err != nil {
+			fmt.Println("Error encoding not found response:", err)
+		}
 		return
 	}
 
@@ -122,8 +129,10 @@ func (ps *PriceServer) handlePriceRequest(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Println("Price response: ", response)
-	json.NewEncoder(w).Encode(response)
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		fmt.Println("Error encoding price response:", err)
+	}
 }
 
 func cleanFeedID(feedID string) string {

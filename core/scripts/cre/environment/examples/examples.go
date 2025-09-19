@@ -53,17 +53,10 @@ var DeployFakePriceProviderCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		feedIDs, _ := cmd.Flags().GetStringSlice("feed-ids")
 
-		url, err := fake.DeployPriceProvider(authKey, port, feedIDs, "")
+		_, err := fake.DeployPriceProvider(authKey, port, feedIDs, "")
 		if err != nil {
 			return errors.Wrap(err, "failed to deploy fake price provider")
 		}
-
-		fmt.Printf("\033[32m✅ Fake price provider deployed successfully!\033[0m\n")
-		fmt.Printf("\033[35m🌐 URL: %s\033[0m\n", url)
-		fmt.Printf("\033[33m🔑 Auth Key: %s\033[0m\n", authKey)
-		fmt.Printf("\033[34m📊 Feed IDs: %v\033[0m\n", feedIDs)
-		fmt.Printf("\033[32m🔄 The service is now running locally.\033[0m\n")
-		fmt.Printf("\033[31m⚠️  Press Ctrl+C to stop the service.\033[0m\n")
 
 		// Keep the service running
 		select {}
