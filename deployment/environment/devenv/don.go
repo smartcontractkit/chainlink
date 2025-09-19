@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
@@ -293,8 +294,8 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		}
 
 		chainType := chain.ChainType
-		if chain.ChainType == "TRON" {
-			chainType = "EVM"
+		if strings.EqualFold(chain.ChainType, blockchain.FamilyTron) {
+			chainType = strings.ToUpper(blockchain.FamilyEVM)
 		}
 		ocr2BundleID, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chainType)
 		if err != nil {

@@ -1418,6 +1418,39 @@ These limitations come from the current CRE SDK logic and not Chainlink itself.
 
 ---
 
+## TRON Integration
+
+TRON blockchain support is integrated into the CRE environment by configuring TRON chains as EVM chains. The system wraps the TRON Transaction Manager (TXM) with the EVM chainWriter/write target, while all read operations remain identical to standard EVM chains.
+
+### How It Works
+
+- **Configuration**: TRON chains are configured as EVM chains in TOML files with `family = "tron"`
+- **Read Operations**: All contract reads, balance queries, and data fetching work exactly like EVM chains
+- **Write Operations**: Transaction broadcasting is handled by wrapping TRON's TXM with EVM chainWriter
+- **Contract Deployments**: Use tron-specific deployment logic but the contracts are identical to EVM.
+- **Docker Image**: Uses `tronbox/tre:dev` for TRON network simulation
+- **Funding**: Nodes are automatically funded with 100 TRX (100,000,000 SUN)
+
+### Example Configuration
+
+```toml
+[[blockchains]]
+  chain_id = "3360022319"      # local network chain ID that corresponds to EVM selector
+  type = "tron"
+  port = "9090"                # can use any open port
+  image = "tronbox/tre:dev"    # this specific image works both locally and in CI
+
+...
+[[nodesets]]
+...
+  [nodesets.chain_capabilities]
+    # Tron is configured as an EVM chain so we can use all the EVM capabilities. 
+    read-contract = ["1337", "3360022319"]
+    write-evm = ["1337", "3360022319"]
+```
+
+---
+
 ## Troubleshooting
 
 ### Chainlink Node Migrations Fail

@@ -163,7 +163,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 		g.Go(func() error {
 			family := chainCfg.ChainType
 			if chainCfg.ChainType == TronChainType {
-				family = "EVM"
+				family = EVMChainType
 			}
 			chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, strings.ToLower(family))
 			if err != nil {
@@ -306,8 +306,9 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 					SolidityNodeURL:   solidityNodeURL,
 					DeployerSignerGen: signerGen,
 				})
-
-				tronChain, err := tronRPCProvider.Initialize(context.Background())
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				tronChain, err := tronRPCProvider.Initialize(ctx)
 				if err != nil {
 					return fmt.Errorf("failed to initialize tron chain: %w", err)
 				}

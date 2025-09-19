@@ -7,7 +7,6 @@
 [[blockchains]]
   chain_id = "3360022319" 
   type = "tron"
-  docker_cmd_params = ["-b", "5"]
   port = "9090"
   image = "tronbox/tre:dev"
 
@@ -47,6 +46,7 @@
 
   # Enable capabilities per chain with optional per-chain overrides
   [nodesets.chain_capabilities]
+    # Tron is configured as an EVM chain so we can use all the EVM capabilities. 
     read-contract = ["1337", "3360022319"]
     write-evm = ["1337", "3360022319"]
 

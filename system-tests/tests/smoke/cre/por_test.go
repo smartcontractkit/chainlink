@@ -112,40 +112,13 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
 
-		if chainFamily == blockchain.FamilyTron {
+		switch chainFamily {
+		case blockchain.FamilyTron:
 			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureTronContracts(t, testLogger, chainSelector, fullCldEnvOutput, workflowOwner, uniqueWorkflowName, feedID, forwarderAddress)
-
-			chainFamily = "evm"
-		} else {
+			chainFamily = blockchain.FamilyEVM
+		default:
 			workflowOwner = bcOutput.SethClient.MustGetRootKeyAddress()
-			testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
-			dfAddress, dfOutput, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, fullCldEnvOutput)
-			require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
-
-			rbAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, fullCldEnvOutput)
-
-			require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
-
-			dataFeedsCacheAddress = dfAddress
-			readBalancesAddress = rbAddress
-			crecontracts.MergeAllDataStores(fullCldEnvOutput, dfOutput, rbOutput)
-
-			testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
-
-			configInput := &cre.ConfigureDataFeedsCacheInput{
-				CldEnv:                fullCldEnvOutput.Environment,
-				ChainSelector:         chainSelector,
-				FeedIDs:               []string{feedID},
-				Descriptions:          []string{"PoR test feed"},
-				DataFeedsCacheAddress: dataFeedsCacheAddress,
-				AdminAddress:          bcOutput.SethClient.MustGetRootKeyAddress(),
-				AllowedSenders:        []common.Address{forwarderAddress},
-				AllowedWorkflowNames:  []string{uniqueWorkflowName},
-				AllowedWorkflowOwners: []common.Address{bcOutput.SethClient.MustGetRootKeyAddress()},
-			}
-			_, dfConfigErr := crecontracts.ConfigureDataFeedsCache(testLogger, configInput)
-			require.NoError(t, dfConfigErr, "failed to configure Data Feeds Cache contract")
-			testLogger.Info().Msg("Data Feeds Cache contract configured successfully.")
+			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, fullCldEnvOutput, workflowOwner, uniqueWorkflowName, feedID, forwarderAddress)
 		}
 
 		// reset to avoid incrementing on each iteration
@@ -184,6 +157,37 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 	// final expected total = amount to fund * the number of addresses to create
 	amountToFund.Mul(amountToFund, big.NewInt(int64(numberOfAddressesToCreate)))
 	validatePoRPrices(t, testEnv, priceProvider, &cfg, *amountToFund)
+}
+
+func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
+	testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
+	dfAddress, dfOutput, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, fullCldEnvOutput)
+	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
+
+	rbAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, fullCldEnvOutput)
+
+	require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
+
+	crecontracts.MergeAllDataStores(fullCldEnvOutput, dfOutput, rbOutput)
+
+	testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
+
+	configInput := &cre.ConfigureDataFeedsCacheInput{
+		CldEnv:                fullCldEnvOutput.Environment,
+		ChainSelector:         chainSelector,
+		FeedIDs:               []string{feedID},
+		Descriptions:          []string{"PoR test feed"},
+		DataFeedsCacheAddress: dfAddress,
+		AdminAddress:          workflowOwner,
+		AllowedSenders:        []common.Address{forwarderAddress},
+		AllowedWorkflowNames:  []string{uniqueWorkflowName},
+		AllowedWorkflowOwners: []common.Address{workflowOwner},
+	}
+	_, dfConfigErr := crecontracts.ConfigureDataFeedsCache(testLogger, configInput)
+	require.NoError(t, dfConfigErr, "failed to configure Data Feeds Cache contract")
+	testLogger.Info().Msg("Data Feeds Cache contract configured successfully.")
+
+	return dfAddress, rbAddress
 }
 
 func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
@@ -408,36 +412,17 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 			waitFor := 5 * time.Minute
 			tick := 5 * time.Second
 
-			if bcOutput.BlockchainOutput.Family == "tron" {
+			switch bcOutput.BlockchainOutput.Family {
+			case blockchain.FamilyTron:
 				if err := validateTronPrices(t, testEnv, bcOutput, feedID, priceProvider, startTime, waitFor, tick); err != nil {
 					return err
 				}
-			} else {
-				dataFeedsCacheAddresses, _, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-					testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-					bcOutput.ChainSelector,
-					df_changeset.DataFeedsCache.String(),
-				)
-				if dataFeedsCacheErr != nil {
-					return fmt.Errorf("failed to find Data Feeds Cache address for chain %d: %w", bcOutput.ChainID, dataFeedsCacheErr)
+			case blockchain.FamilyEVM:
+				if err := validateEVMPrices(t, testEnv, bcOutput, feedID, priceProvider, startTime, waitFor, tick); err != nil {
+					return err
 				}
-
-				dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, bcOutput.SethClient.Client)
-				if instanceErr != nil {
-					return fmt.Errorf("failed to create Data Feeds Cache instance: %w", instanceErr)
-				}
-
-				require.Eventually(t, func() bool {
-					elapsed := time.Since(startTime).Round(time.Second)
-					price, err := dataFeedsCacheInstance.GetLatestAnswer(bcOutput.SethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
-					if err != nil {
-						testEnv.Logger.Error().Err(err).Msg("failed to get price from Data Feeds Cache contract")
-						return false
-					}
-
-					// if there are no more prices to be found, we can stop waiting
-					return !priceProvider.NextPrice(feedID, price, elapsed)
-				}, waitFor, tick, "feed %s did not update, timeout after: %s", feedID, waitFor.String())
+			default:
+				return fmt.Errorf("unsupported blockchain family: %s", bcOutput.BlockchainOutput.Family)
 			}
 
 			ppExpectedPrices := priceProvider.ExpectedPrices(feedID)
@@ -463,6 +448,36 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 	require.NoError(t, err, "price validation failed")
 
 	testEnv.Logger.Info().Msgf("All prices were found for all feeds")
+}
+
+func validateEVMPrices(t *testing.T, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
+	dataFeedsCacheAddresses, _, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
+		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+		bcOutput.ChainSelector,
+		df_changeset.DataFeedsCache.String(),
+	)
+	if dataFeedsCacheErr != nil {
+		return fmt.Errorf("failed to find Data Feeds Cache address for chain %d: %w", bcOutput.ChainID, dataFeedsCacheErr)
+	}
+
+	dataFeedsCacheInstance, instanceErr := data_feeds_cache.NewDataFeedsCache(dataFeedsCacheAddresses, bcOutput.SethClient.Client)
+	if instanceErr != nil {
+		return fmt.Errorf("failed to create Data Feeds Cache instance: %w", instanceErr)
+	}
+
+	require.Eventually(t, func() bool {
+		elapsed := time.Since(startTime).Round(time.Second)
+		price, err := dataFeedsCacheInstance.GetLatestAnswer(bcOutput.SethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(feedID)))
+		if err != nil {
+			testEnv.Logger.Error().Err(err).Msg("failed to get price from Data Feeds Cache contract")
+			return false
+		}
+
+		// if there are no more prices to be found, we can stop waiting
+		return !priceProvider.NextPrice(feedID, price, elapsed)
+	}, waitFor, tick, "feed %s did not update, timeout after: %s", feedID, waitFor.String())
+
+	return nil
 }
 
 // Adds the additional price (if any) to each expected price since it's included in actual prices

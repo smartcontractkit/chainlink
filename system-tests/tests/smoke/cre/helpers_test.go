@@ -41,6 +41,7 @@ import (
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -267,24 +268,32 @@ func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 
 		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
 
-		if bcOutput.BlockchainOutput.Family == "tron" {
+		switch bcOutput.BlockchainOutput.Family {
+		case blockchain.FamilyTron:
 			if err := fundTronAddress(t, testLogger, addressToRead, amountToFund, bcOutput, fullCldEnvOutput); err != nil {
 				return nil, err
 			}
-		} else {
-			receipt, funErr := crefunding.SendFunds(t.Context(), testLogger, sethClient, crefunding.FundsToSend{
-				ToAddress:  addressToRead,
-				Amount:     amountToFund,
-				PrivateKey: sethClient.MustGetRootPrivateKey(),
-			})
-			require.NoError(t, funErr, "failed to send funds")
-			testLogger.Info().Msgf("Funds sent successfully to address '%s': txHash='%s'", addressToRead.Hex(), receipt.TxHash)
+		default:
+			if err := fundEthAddress(t, testLogger, addressToRead, amountToFund, sethClient); err != nil {
+				return nil, err
+			}
 		}
 
 		addressesToRead = append(addressesToRead, addressToRead)
 	}
 
 	return addressesToRead, nil
+}
+
+func fundEthAddress(t *testing.T, testLogger zerolog.Logger, addressToRead common.Address, amountToFund *big.Int, sethClient *seth.Client) error {
+	receipt, funErr := crefunding.SendFunds(t.Context(), testLogger, sethClient, crefunding.FundsToSend{
+		ToAddress:  addressToRead,
+		Amount:     amountToFund,
+		PrivateKey: sethClient.MustGetRootPrivateKey(),
+	})
+	require.NoError(t, funErr, "failed to send funds")
+	testLogger.Info().Msgf("Funds sent successfully to address '%s': txHash='%s'", addressToRead.Hex(), receipt.TxHash)
+	return nil
 }
 
 func fundTronAddress(t *testing.T, testLogger zerolog.Logger, addressToRead common.Address, amountToFund *big.Int, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) error {

@@ -18,6 +18,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -67,7 +68,7 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 					continue
 				}
 
-				if bcOut.BlockchainOutput.Family == "tron" {
+				if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
 					requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["tron"] * uint64(len(metaDon.DON.Nodes))
 					continue
 				}
@@ -84,7 +85,7 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 			chainFamily := "evm"
 			if bcOut.SolChain != nil {
 				chainFamily = "solana"
-			} else if bcOut.BlockchainOutput.Family == "tron" {
+			} else if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
 				chainFamily = "tron"
 			}
 
@@ -196,7 +197,7 @@ var FundCLNodesOp = operations.NewOperation(
 					chainFamily := "evm"
 					if bcOut.SolChain != nil {
 						chainFamily = "solana"
-					} else if bcOut.BlockchainOutput.Family == "tron" {
+					} else if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
 						chainFamily = "tron"
 					}
 
@@ -297,7 +298,7 @@ func fundTronAddress(ctx context.Context, testLogger zerolog.Logger, node devenv
 		return fmt.Errorf("TRON chain not found for selector %d", bcOut.ChainSelector)
 	}
 
-	tx, err := tronChain.Client.Transfer(tronChain.Address, receiverAddress, int64(fundingAmount)) //nolint:gosec // G115: potential integer overflow
+	tx, err := tronChain.Client.Transfer(tronChain.Address, receiverAddress, libc.MustSafeInt64(fundingAmount))
 	if err != nil {
 		return pkgerrors.Wrapf(err, "failed to create transfer transaction for TRON node %s", nodeAddress)
 	}

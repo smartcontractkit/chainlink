@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -85,7 +86,7 @@ func DeployKeystoneContracts(
 				continue
 			}
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-				if bcOut.BlockchainOutput.Family == "tron" {
+				if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
 					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
 					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
 				} else {

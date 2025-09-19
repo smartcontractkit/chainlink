@@ -475,7 +475,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	return solChain, nil
 }
 
-func newTronEVMWorkerConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
+func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
 	return evmconfigtoml.EVMConfig{
 		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
@@ -497,13 +497,8 @@ func newTronEVMWorkerConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 	}
 }
 
-func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain) {
-	if evmChain.ChainID == 3360022319 {
-		cfg := newTronEVMWorkerConfig(evmChain)
-		*existingConfig = append(*existingConfig, &cfg)
-		return
-	}
-	*existingConfig = append(*existingConfig, &evmconfigtoml.EVMConfig{
+func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
+	return evmconfigtoml.EVMConfig{
 		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
 		Chain: evmconfigtoml.Chain{
 			AutoCreateKey: ptr.Ptr(false),
@@ -515,5 +510,15 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 				HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
 			},
 		},
-	})
+	}
+}
+
+func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain) {
+	var cfg evmconfigtoml.EVMConfig
+	if evmChain.ChainID == 3360022319 {
+		cfg = buildTronEVMConfig(evmChain)
+	} else {
+		cfg = buildEVMConfig(evmChain)
+	}
+	*existingConfig = append(*existingConfig, &cfg)
 }

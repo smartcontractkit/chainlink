@@ -188,10 +188,10 @@ func wrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlock
 	}
 
 	// if jsonrpc is not present, add it
-	if !strings.Contains(bcOut.Nodes[0].ExternalHTTPUrl, "/jsonrpc") {
+	if !strings.HasSuffix(bcOut.Nodes[0].ExternalHTTPUrl, "/jsonrpc") {
 		bcOut.Nodes[0].ExternalHTTPUrl += "/jsonrpc"
 	}
-	if !strings.Contains(bcOut.Nodes[0].InternalHTTPUrl, "/jsonrpc") {
+	if !strings.HasSuffix(bcOut.Nodes[0].InternalHTTPUrl, "/jsonrpc") {
 		bcOut.Nodes[0].InternalHTTPUrl += "/jsonrpc"
 	}
 
@@ -203,7 +203,7 @@ func wrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlock
 		ChainID:       chainID,
 		BlockchainOutput: &blockchain.Output{
 			ChainID: bi.ChainID,
-			Family:  "tron",
+			Family:  blockchain.FamilyTron,
 			Nodes: []*blockchain.Node{
 				{
 					InternalHTTPUrl: internalHTTPURL,

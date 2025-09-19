@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
@@ -487,7 +488,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 				// Check if any of the blockchain outputs indicate this is a TRON chain
 				isTronChain := false
 				for _, bcOut := range input.BlockchainOutputs {
-					if bcOut.ChainSelector == chainSelector && bcOut.BlockchainOutput.Family == "tron" {
+					if bcOut.ChainSelector == chainSelector && strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
 						tronChainsWithForwarders[chainSelector] = struct{}{}
 						isTronChain = true
 						break
