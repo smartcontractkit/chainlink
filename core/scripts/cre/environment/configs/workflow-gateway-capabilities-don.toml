@@ -52,7 +52,6 @@
     # we want to write only to the home chain, so that we can test whether remote write-evm-2337 capability of the 'capabilities DON' is used
     write-evm = ["1337"]
     read-contract = ["1337"]
-    evm = ["1337"] # TODO: move to capabilities DON when fix for WriteReport is done
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -110,6 +109,7 @@
   [nodesets.chain_capabilities]
   write-evm = ["2337"]
   read-contract = ["2337"]
+  evm = ["1337"]
 
   [nodesets.db]
     image = "postgres:12.0"

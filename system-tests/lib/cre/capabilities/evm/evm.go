@@ -3,17 +3,28 @@ package evm
 import (
 	"bytes"
 	"fmt"
+	"math/big"
 	"strconv"
 	"text/template"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -48,6 +59,7 @@ func New(registryChainID uint64) (*capabilities.Capability, error) {
 		flag,
 		capabilities.WithJobSpecFn(jobSpecWithRegistryChainSelector(registryChainSelector)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithNodeConfigTransformerFn(transformNodeConfig),
 	)
 }
 
@@ -253,4 +265,218 @@ func jobSpecWithRegistryChainSelector(registryChainSelector uint64) cre.JobSpecF
 			input.CapabilityConfigs,
 		)
 	}
+}
+
+type evmData struct {
+	ChainID          uint64
+	ChainSelector    uint64
+	FromAddress      common.Address
+	ForwarderAddress string
+	WorkflowConfig   map[string]any // Configuration for EVM.Workflow section
+}
+
+// TODO PLEX-1732: refactor this method to not duplicate system-tests/lib/cre/capabilities/writeevm/write_evm.go, or guarantee it only looks for fromAddress to add it to the chain's workflow YAML element.
+func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.NodeIndexToConfigOverride) (cre.NodeIndexToConfigOverride, error) {
+	if input.NodeSet == nil {
+		return nil, errors.New("node set input is nil")
+	}
+
+	if input.NodeSet.ChainCapabilities == nil || input.NodeSet.ChainCapabilities[flag] == nil {
+		return existingConfigs, nil
+	}
+
+	if input.CapabilityConfigs == nil {
+		return nil, errors.New("additional capabilities configs are nil, but are required to configure the evm capability")
+	}
+
+	workflowNodeSet, wErr := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
+	if wErr != nil {
+		return nil, errors.Wrap(wErr, "failed to find worker nodes")
+	}
+
+	for nodeIdx := range workflowNodeSet {
+		var nodeIndex int
+		for _, label := range workflowNodeSet[nodeIdx].Labels {
+			if label.Key == node.IndexKey {
+				var nErr error
+				nodeIndex, nErr = strconv.Atoi(label.Value)
+				if nErr != nil {
+					return nil, errors.Wrap(nErr, "failed to convert node index to int")
+				}
+			}
+		}
+
+		// // get all the forwarders and add workflow config (FromAddress + Forwarder) for chains that have evm enabled
+		data := []evmData{}
+		for _, chainID := range input.NodeSet.ChainCapabilities[flag].EnabledChains {
+			chain, exists := chainselectors.ChainByEvmChainID(chainID)
+			if !exists {
+				return nil, errors.Errorf("failed to find selector for chain ID %d", chainID)
+			}
+
+			evmDataValues := evmData{
+				ChainID:       chainID,
+				ChainSelector: chain.Selector,
+			}
+
+			forwarderAddress, fErr := findForwarderAddress(chain, input.AddressBook)
+			if fErr != nil {
+				return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
+			}
+			evmDataValues.ForwarderAddress = forwarderAddress.Hex()
+
+			ethAddress, addrErr := findNodeEthAddressAddress(chain.Selector, workflowNodeSet[nodeIdx].Labels)
+			if addrErr != nil {
+				return nil, errors.Wrapf(addrErr, "failed to get ETH address for chain %d for node at index %d", chain.Selector, nodeIdx)
+			}
+			evmDataValues.FromAddress = *ethAddress
+
+			var mergeErr error
+			evmDataValues, mergeErr = mergeDefaultAndRuntimeConfigValues(evmDataValues, input.CapabilityConfigs, input.NodeSet.ChainCapabilities, chainID)
+			if mergeErr != nil {
+				return nil, errors.Wrap(mergeErr, "failed to merge default and runtime evm config values")
+			}
+
+			data = append(data, evmDataValues)
+		}
+
+		if len(existingConfigs) < nodeIndex+1 {
+			return nil, errors.Errorf("missing config for node index %d", nodeIndex)
+		}
+
+		currentConfig := existingConfigs[nodeIndex]
+
+		var typedConfig corechainlink.Config
+		unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+		if unmarshallErr != nil {
+			return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", nodeIndex)
+		}
+
+		if len(typedConfig.EVM) < len(data) {
+			return nil, fmt.Errorf("not enough EVM chains configured in node index %d to add evm config. Expected at least %d chains, but found %d", nodeIndex, len(data), len(typedConfig.EVM))
+		}
+
+		for _, evmInput := range data {
+			chainFound := false
+		INNER:
+			for idx, evmChain := range typedConfig.EVM {
+				chainIDIsEqual := evmChain.ChainID.Cmp(chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmInput.ChainID)))) == 0
+				if chainIDIsEqual {
+					evmWorkflow, evmErr := buildEVMWorkflowConfig(evmInput)
+					if evmErr != nil {
+						return nil, errors.Wrap(evmErr, "failed to build EVM workflow config")
+					}
+
+					typedConfig.EVM[idx].Workflow = *evmWorkflow
+					typedConfig.EVM[idx].Transactions.ForwardersEnabled = ptr.Ptr(true)
+
+					chainFound = true
+					break INNER
+				}
+			}
+
+			if !chainFound {
+				return nil, fmt.Errorf("failed to find EVM chain with ID %d in the config of node index %d to add evm config", evmInput.ChainID, nodeIndex)
+			}
+		}
+
+		stringifiedConfig, mErr := toml.Marshal(typedConfig)
+		if mErr != nil {
+			return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", nodeIndex)
+		}
+
+		existingConfigs[nodeIndex] = string(stringifiedConfig)
+	}
+
+	return existingConfigs, nil
+}
+
+func findForwarderAddress(chain chainselectors.Chain, addressBook deployment.AddressBook) (*common.Address, error) {
+	addrsForChains, addErr := addressBook.AddressesForChain(chain.Selector)
+	if addErr != nil {
+		return nil, errors.Wrap(addErr, "failed to get addresses from address book")
+	}
+
+	for addr, addrValue := range addrsForChains {
+		if addrValue.Type == keystone_changeset.KeystoneForwarder {
+			return ptr.Ptr(common.HexToAddress(addr)), nil
+		}
+	}
+
+	return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
+}
+
+func findNodeEthAddressAddress(chainSelector uint64, nodeLabels []*cre.Label) (*common.Address, error) {
+	expectedAddressKey := node.AddressKeyFromSelector(chainSelector)
+	for _, label := range nodeLabels {
+		if label.Key == expectedAddressKey {
+			if label.Value == "" {
+				return nil, errors.Errorf("%s label value is empty", expectedAddressKey)
+			}
+			return ptr.Ptr(common.HexToAddress(label.Value)), nil
+		}
+	}
+
+	return nil, errors.Errorf("failed to get from address for chain %d", chainSelector)
+}
+
+func mergeDefaultAndRuntimeConfigValues(data evmData, defaultCapabilityConfigs cre.CapabilityConfigs, nodeSetChainCapabilities map[string]*cre.ChainCapabilityConfig, chainID uint64) (evmData, error) {
+	if evmConfig, ok := defaultCapabilityConfigs[flag]; ok {
+		_, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(
+			cre.EVMCapability,
+			nodeSetChainCapabilities,
+			evmConfig.Config,
+			chainID,
+		)
+		if rErr != nil {
+			return data, errors.Wrapf(rErr, "failed to resolve evm config for chain %d", chainID)
+		}
+
+		runtimeValues := map[string]any{
+			"FromAddress":      data.FromAddress.Hex(),
+			"ForwarderAddress": data.ForwarderAddress,
+		}
+
+		var mErr error
+		data.WorkflowConfig, mErr = don.ApplyRuntimeValues(mergedConfig, runtimeValues)
+		if mErr != nil {
+			return data, errors.Wrap(mErr, "failed to apply runtime values")
+		}
+	}
+
+	return data, nil
+}
+
+const evmWorkflowConfigTemplate = `
+	FromAddress = '{{.FromAddress}}'
+	ForwarderAddress = '{{.ForwarderAddress}}'
+	GasLimitDefault = {{.GasLimitDefault}}
+	TxAcceptanceState = {{.TxAcceptanceState}}
+	PollPeriod = '{{.PollPeriod}}'
+	AcceptanceTimeout = '{{.AcceptanceTimeout}}'
+`
+
+func buildEVMWorkflowConfig(evmInput evmData) (*evmworkflow.Workflow, error) {
+	var evmWorkflow evmworkflow.Workflow
+
+	tmpl, tErr := template.New("evmWorkflowConfig").Parse(evmWorkflowConfigTemplate)
+	if tErr != nil {
+		return nil, errors.Wrap(tErr, "failed to parse evm workflow config template")
+	}
+	var configBuffer bytes.Buffer
+	if executeErr := tmpl.Execute(&configBuffer, evmInput.WorkflowConfig); executeErr != nil {
+		return nil, errors.Wrap(executeErr, "failed to execute evm workflow config template")
+	}
+
+	configStr := configBuffer.String()
+	if err := don.ValidateTemplateSubstitution(configStr, flag); err != nil {
+		return nil, errors.Wrapf(err, "%s template validation failed", flag)
+	}
+
+	unmarshallErr := toml.Unmarshal([]byte(configStr), &evmWorkflow)
+	if unmarshallErr != nil {
+		return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal EVM.Workflow config for chain %d, err: %s", evmInput.ChainID, unmarshallErr.Error())
+	}
+
+	return &evmWorkflow, nil
 }
