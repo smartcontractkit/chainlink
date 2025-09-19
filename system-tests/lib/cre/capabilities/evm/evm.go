@@ -18,6 +18,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -288,7 +289,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 			return nil, errors.Wrap(wErr, "failed to find node index")
 		}
 
-		chainsFromAddress, err := chainsWithFromAddress(input, metadata, nodeIdx)
+		chainsFromAddress, err := findNodeAddressPerChain(input, metadata, nodeIdx)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get chains with from address")
 		}
@@ -310,7 +311,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 		}
 
 		for idx, evmChain := range typedConfig.EVM {
-			chainID := uint64(evmChain.ChainID.Int64()) //nolint:gosec // G115 not relevant in test code
+			chainID := libc.MustSafeUint64(evmChain.ChainID.Int64())
 			addr, ok := chainsFromAddress[chainID]
 			if ok {
 				// if present means we need fromAddress for this chain
@@ -333,7 +334,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 	return existingConfigs, nil
 }
 
-func chainsWithFromAddress(input cre.GenerateConfigsInput, metadata *cre.NodeMetadata, nodeIdx int) (map[uint64]common.Address, error) {
+func findNodeAddressPerChain(input cre.GenerateConfigsInput, metadata *cre.NodeMetadata, nodeIdx int) (map[uint64]common.Address, error) {
 	// get all the forwarders and add workflow config (FromAddress) for chains that have evm enabled
 	data := make(map[uint64]common.Address)
 	for _, chainID := range input.NodeSet.ChainCapabilities[flag].EnabledChains {
