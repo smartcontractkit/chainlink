@@ -14,6 +14,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
@@ -58,6 +59,7 @@ func DeployKeystoneContracts(
 ) (*DeployKeystoneContractsOutput, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
+		Name:              "local CRE",
 		Logger:            singleFileLogger,
 		ExistingAddresses: cldf.NewMemoryAddressBook(),
 		DataStore:         memoryDatastore.Seal(),
@@ -65,6 +67,7 @@ func DeployKeystoneContracts(
 			return ctx
 		},
 		BlockChains: cldf_chain.NewBlockChains(input.CldfBlockchains),
+		OCRSecrets:  focr.XXXGenerateTestOCRSecrets(),
 	}
 	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 

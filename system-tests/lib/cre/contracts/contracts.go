@@ -831,7 +831,7 @@ func MustFindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint6
 }
 
 // MergeAllDataStores merges all DataStores (after contracts deployments)
-func MergeAllDataStores(fullCldEnvOutput *cre.FullCLDEnvironmentOutput, changesetOutputs ...cldf.ChangesetOutput) {
+func MergeAllDataStores(creEnvironment *cre.Environment, changesetOutputs ...cldf.ChangesetOutput) {
 	framework.L.Info().Msg("Merging DataStores (after contracts deployments)...")
 	minChangesetsCap := 2
 	if len(changesetOutputs) < minChangesetsCap {
@@ -850,7 +850,7 @@ func MergeAllDataStores(fullCldEnvOutput *cre.FullCLDEnvironmentOutput, changese
 		}
 	}
 
-	fullCldEnvOutput.Environment.DataStore = baseDataStore.Seal()
+	creEnvironment.CldfEnvironment.DataStore = baseDataStore.Seal()
 }
 
 func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureDataFeedsCacheInput) (*cre.ConfigureDataFeedsCacheOutput, error) {
@@ -922,26 +922,26 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureData
 	return out, nil
 }
 
-func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) (common.Address, cldf.ChangesetOutput, error) {
+func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint64, creEnvironment *cre.Environment) (common.Address, cldf.ChangesetOutput, error) {
 	testLogger.Info().Msg("Deploying Data Feeds Cache contract...")
 	deployDfConfig := df_changeset_types.DeployConfig{
 		ChainsToDeploy: []uint64{chainSelector},
 		Labels:         []string{"data-feeds"}, // label required by the changeset
 	}
 
-	dfOutput, dfErr := commonchangeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployDfConfig)
+	dfOutput, dfErr := commonchangeset.RunChangeset(df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, deployDfConfig)
 	if dfErr != nil {
 		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrapf(dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 	}
 
-	mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	mergeErr := creEnvironment.CldfEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
 	if mergeErr != nil {
 		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(mergeErr, "failed to merge address book of Data Feeds Cache contract")
 	}
 	testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
 
 	dataFeedsCacheAddress, _, dataFeedsCacheErr := FindAddressesForChain(
-		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		creEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		chainSelector,
 		df_changeset.DataFeedsCache.String(),
 	)
@@ -953,22 +953,22 @@ func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint6
 	return dataFeedsCacheAddress, dfOutput, nil
 }
 
-func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) (common.Address, cldf.ChangesetOutput, error) {
+func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64, creEnvironment *cre.Environment) (common.Address, cldf.ChangesetOutput, error) {
 	testLogger.Info().Msg("Deploying Read Balances contract...")
 	deployReadBalanceRequest := &keystone_changeset.DeployRequestV2{ChainSel: chainSelector}
-	rbOutput, rbErr := keystone_changeset.DeployBalanceReaderV2(*fullCldEnvOutput.Environment, deployReadBalanceRequest)
+	rbOutput, rbErr := keystone_changeset.DeployBalanceReaderV2(*creEnvironment.CldfEnvironment, deployReadBalanceRequest)
 	if rbErr != nil {
 		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(rbErr, "failed to deploy Read Balances contract")
 	}
 
-	mergeErr2 := fullCldEnvOutput.Environment.ExistingAddresses.Merge(rbOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	mergeErr2 := creEnvironment.CldfEnvironment.ExistingAddresses.Merge(rbOutput.AddressBook) //nolint:staticcheck // won't migrate now
 	if mergeErr2 != nil {
 		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(mergeErr2, "failed to merge address book of Read Balances contract")
 	}
 	testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
 
 	readBalancesAddress, _, readContractErr := FindAddressesForChain(
-		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		creEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		chainSelector,
 		keystone_changeset.BalanceReader.String(),
 	)
