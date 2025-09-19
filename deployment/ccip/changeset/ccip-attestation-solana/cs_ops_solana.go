@@ -20,10 +20,10 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )
 
-// ExecuteOrBuildMCMSProposal handles the decision to execute instructions directly or build an MCMS proposal.
+// executeOrBuildMCMSProposal handles the decision to execute instructions directly or build an MCMS proposal.
 // If mcmsConfig is nil, it executes the instructions directly on the chain.
 // If mcmsConfig is provided, it builds MCMS transactions and creates a proposal.
-func ExecuteOrBuildMCMSProposal(
+func executeOrBuildMCMSProposal(
 	e cldf.Environment,
 	chain *cldf_solana.Chain,
 	instructions []solana.Instruction,
@@ -116,13 +116,21 @@ func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsCon
 	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signer_registry.ProgramID)
+	currentAuthority := chain.DeployerKey.PublicKey()
+	if c.MCMS != nil {
+		timelockSignerPDA, err := cs_solana.FetchTimelockSigner(e, chain.Selector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get timelock signer: %w", err)
+		}
+		currentAuthority = timelockSignerPDA
+	}
 
 	var instructions []solana.Instruction
 
 	for _, hexKey := range c.NopKeysToRemove {
 		key, _ := parseEVMAddress(hexKey)
 
-		ix, err := signer_registry.NewRemoveSignerInstruction(key, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
+		ix, err := signer_registry.NewRemoveSignerInstruction(key, currentAuthority, configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove signer: %w", err)
 		}
@@ -130,14 +138,14 @@ func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsCon
 	}
 	for _, hexKey := range c.NopKeysToAdd {
 		key, _ := parseEVMAddress(hexKey)
-		ix, err := signer_registry.NewAddSignerInstruction(key, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
+		ix, err := signer_registry.NewAddSignerInstruction(key, currentAuthority, configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add signer: %w", err)
 		}
 		instructions = append(instructions, ix)
 	}
 
-	return ExecuteOrBuildMCMSProposal(
+	return executeOrBuildMCMSProposal(
 		e,
 		&chain,
 		instructions,
@@ -219,6 +227,14 @@ func AddGreenKeysChangeset(e cldf.Environment, c AddGreenKeysConfig) (cldf.Chang
 	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signer_registry.ProgramID)
+	currentAuthority := chain.DeployerKey.PublicKey()
+	if c.MCMS != nil {
+		timelockSignerPDA, err := cs_solana.FetchTimelockSigner(e, chain.Selector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get timelock signer: %w", err)
+		}
+		currentAuthority = timelockSignerPDA
+	}
 
 	var instructions []solana.Instruction
 
@@ -226,14 +242,14 @@ func AddGreenKeysChangeset(e cldf.Environment, c AddGreenKeysConfig) (cldf.Chang
 		blue, _ := parseEVMAddress(keyPair[0])
 		green, _ := parseEVMAddress(keyPair[1])
 
-		ix, err := signer_registry.NewSetSignerNewAddressInstruction(blue, green, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
+		ix, err := signer_registry.NewSetSignerNewAddressInstruction(blue, green, currentAuthority, configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add green key: %w", err)
 		}
 		instructions = append(instructions, ix)
 	}
 
-	return ExecuteOrBuildMCMSProposal(
+	return executeOrBuildMCMSProposal(
 		e,
 		&chain,
 		instructions,
@@ -309,20 +325,28 @@ func PromoteKeysChangeset(e cldf.Environment, c PromoteKeysConfig) (cldf.Changes
 	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signer_registry.ProgramID)
+	currentAuthority := chain.DeployerKey.PublicKey()
+	if c.MCMS != nil {
+		timelockSignerPDA, err := cs_solana.FetchTimelockSigner(e, chain.Selector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get timelock signer: %w", err)
+		}
+		currentAuthority = timelockSignerPDA
+	}
 
 	var instructions []solana.Instruction
 
 	for _, keyHex := range c.KeysToPromote {
 		key, _ := parseEVMAddress(keyHex)
 
-		ix, err := signer_registry.NewPromoteSignerAddressInstruction(key, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
+		ix, err := signer_registry.NewPromoteSignerAddressInstruction(key, currentAuthority, configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to promote key: %w", err)
 		}
 		instructions = append(instructions, ix)
 	}
 
-	return ExecuteOrBuildMCMSProposal(
+	return executeOrBuildMCMSProposal(
 		e,
 		&chain,
 		instructions,
@@ -381,11 +405,18 @@ func SetUpgradeAuthorityChangeset(
 ) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[config.ChainSelector]
 	currentAuthority := chain.DeployerKey.PublicKey()
+	if config.MCMS != nil {
+		timelockSignerPDA, err := cs_solana.FetchTimelockSigner(e, chain.Selector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get timelock signer: %w", err)
+		}
+		currentAuthority = timelockSignerPDA
+	}
 	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
 
 	ixn := cs_solana.SetUpgradeAuthority(&e, &chain, signer_registry.ProgramID, currentAuthority, config.NewUpgradeAuthority, false)
 
-	return ExecuteOrBuildMCMSProposal(
+	return executeOrBuildMCMSProposal(
 		e,
 		&chain,
 		[]solana.Instruction{ixn},
