@@ -14,8 +14,10 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
@@ -152,7 +154,7 @@ func SetupTestEnvironment(
 		testLogger,
 		singleFileLogger,
 		crecontracts.DeployKeystoneContractsInput{
-			CldfBlockchains:           startBlockchainsOutput.BlockChains,
+			CldfEnvironment:           initializeCldfEnvironment(ctx, singleFileLogger, startBlockchainsOutput.BlockChains),
 			CtfBlockchains:            startBlockchainsOutput.BlockChainOutputs,
 			ContractVersions:          input.ContractVersions,
 			WithV2Registries:          input.WithV2Registries,
@@ -515,4 +517,22 @@ func buildCreEnvironment(cldfEnv *cldf.Environment, dons []*devenv.DON, topology
 		CldfEnvironment: cldfEnv,
 		DonTopology:     donTopology,
 	}
+}
+
+func initializeCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains map[uint64]cldf_chain.BlockChain) *cldf.Environment {
+	memoryDatastore := datastore.NewMemoryDataStore()
+	allChainsCLDEnvironment := &cldf.Environment{
+		Name:              "local CRE",
+		Logger:            singleFileLogger,
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
+		DataStore:         memoryDatastore.Seal(),
+		GetContext: func() context.Context {
+			return ctx
+		},
+		BlockChains: cldf_chain.NewBlockChains(cldfBlockchains),
+		OCRSecrets:  focr.XXXGenerateTestOCRSecrets(),
+	}
+	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
+
+	return allChainsCLDEnvironment
 }

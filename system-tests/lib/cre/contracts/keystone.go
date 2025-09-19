@@ -11,10 +11,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
@@ -39,7 +37,7 @@ const (
 )
 
 type DeployKeystoneContractsInput struct {
-	CldfBlockchains           map[uint64]cldf_chain.BlockChain
+	CldfEnvironment           *cldf.Environment
 	CtfBlockchains            []*cre.WrappedBlockchainOutput
 	ContractVersions          map[string]string
 	WithV2Registries          bool
@@ -58,18 +56,6 @@ func DeployKeystoneContracts(
 	input DeployKeystoneContractsInput,
 ) (*DeployKeystoneContractsOutput, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
-	allChainsCLDEnvironment := &cldf.Environment{
-		Name:              "local CRE",
-		Logger:            singleFileLogger,
-		ExistingAddresses: cldf.NewMemoryAddressBook(),
-		DataStore:         memoryDatastore.Seal(),
-		GetContext: func() context.Context {
-			return ctx
-		},
-		BlockChains: cldf_chain.NewBlockChains(input.CldfBlockchains),
-		OCRSecrets:  focr.XXXGenerateTestOCRSecrets(),
-	}
-	allChainsCLDEnvironment.OperationsBundle = operations.NewBundle(allChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
 
 	evmForwardersSelectors := make([]uint64, 0)
 	solForwardersSelectors := make([]uint64, 0)
@@ -112,10 +98,10 @@ func DeployKeystoneContracts(
 	}
 
 	registryContractsReport, seqErr := operations.ExecuteSequence(
-		allChainsCLDEnvironment.OperationsBundle,
+		input.CldfEnvironment.OperationsBundle,
 		deployRegistrySeq,
 		ks_contracts_op.DeployContractsSequenceDeps{
-			Env: allChainsCLDEnvironment,
+			Env: input.CldfEnvironment,
 		},
 		ks_contracts_op.DeployRegistryContractsSequenceInput{
 			RegistryChainSelector: homeChainSelector,
@@ -125,7 +111,7 @@ func DeployKeystoneContracts(
 		return nil, errors.Wrap(seqErr, "failed to deploy Keystone contracts")
 	}
 
-	if err := allChainsCLDEnvironment.ExistingAddresses.Merge(registryContractsReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
+	if err := input.CldfEnvironment.ExistingAddresses.Merge(registryContractsReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
 		return nil, errors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
 	}
 
@@ -135,10 +121,10 @@ func DeployKeystoneContracts(
 	if len(evmForwardersSelectors) > 0 {
 		// deploy evm forwarders
 		evmForwardersReport, seqErr2 := operations.ExecuteSequence(
-			allChainsCLDEnvironment.OperationsBundle,
+			input.CldfEnvironment.OperationsBundle,
 			creforwarder.DeploySequence,
 			creforwarder.DeploySequenceDeps{
-				Env: allChainsCLDEnvironment,
+				Env: input.CldfEnvironment,
 			},
 			creforwarder.DeploySequenceInput{
 				Targets: evmForwardersSelectors,
@@ -148,7 +134,7 @@ func DeployKeystoneContracts(
 			return nil, errors.Wrap(seqErr2, "failed to deploy evm forwarder")
 		}
 
-		if seqErr2 = allChainsCLDEnvironment.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); seqErr2 != nil { //nolint:staticcheck // won't migrate now
+		if seqErr2 = input.CldfEnvironment.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); seqErr2 != nil { //nolint:staticcheck // won't migrate now
 			return nil, errors.Wrap(seqErr2, "failed to merge address book with Keystone contracts addresses")
 		}
 
@@ -176,11 +162,11 @@ func DeployKeystoneContracts(
 			return nil, errors.Wrap(errp, "failed to populate datastore with predeployed contracts")
 		}
 		out, err := operations.ExecuteSequence(
-			allChainsCLDEnvironment.OperationsBundle,
+			input.CldfEnvironment.OperationsBundle,
 			ks_sol_seq.DeployForwarderSeq,
 			ks_sol_op.Deps{
-				Env:       *allChainsCLDEnvironment,
-				Chain:     allChainsCLDEnvironment.BlockChains.SolanaChains()[sel],
+				Env:       *input.CldfEnvironment,
+				Chain:     input.CldfEnvironment.BlockChains.SolanaChains()[sel],
 				Datastore: memoryDatastore.Seal(),
 			},
 			ks_sol_seq.DeployForwarderSeqInput{
@@ -219,7 +205,7 @@ func DeployKeystoneContracts(
 	// TODO move this deeper into the stack when we have all the p2p ids and can deploy and configure in one sequence
 	// deploy OCR3 contract
 	// we deploy OCR3 contract with a qualifier, so that we can distinguish it from other OCR3 contracts (Vault, EVM, ConsensusV2)
-	_, seqErr = deployOCR3Contract(OCR3ContractQualifier, homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
+	_, seqErr = deployOCR3Contract(OCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 	if seqErr != nil {
 		return nil, fmt.Errorf("failed to deploy OCR3 contract %w", seqErr)
 	}
@@ -227,7 +213,7 @@ func DeployKeystoneContracts(
 	testLogger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, ocr3Addr)
 
 	// deploy DONTime contract
-	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
+	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 	if seqErr != nil {
 		return nil, fmt.Errorf("failed to deploy DONTime contract %w", seqErr)
 	}
@@ -236,11 +222,11 @@ func DeployKeystoneContracts(
 
 	// deploy Vault OCR3 contract
 	if vaultOCR3AddrFlag {
-		_, seqErr = deployOCR3Contract(VaultOCR3ContractQualifier, homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
+		_, seqErr = deployOCR3Contract(VaultOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 		if seqErr != nil {
 			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", seqErr)
 		}
-		_, seqErr = deployOCR3Contract(VaultDKGOCR3ContractQualifier, homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
+		_, seqErr = deployOCR3Contract(VaultDKGOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 		if seqErr != nil {
 			return nil, fmt.Errorf("failed to deploy DKG contract %w", seqErr)
 		}
@@ -256,7 +242,7 @@ func DeployKeystoneContracts(
 	if evmOCR3AddrFlag {
 		for chainID, selector := range chainsWithEVMCapability {
 			qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
-			_, seqErr = deployOCR3Contract(qualifier, homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
+			_, seqErr = deployOCR3Contract(qualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 			if seqErr != nil {
 				return nil, fmt.Errorf("failed to deploy EVM OCR3 contract for chainID %d, selector %d: %w", chainID, selector, seqErr)
 			}
@@ -268,17 +254,17 @@ func DeployKeystoneContracts(
 
 	// deploy Consensus V2 OCR3 contract
 	if consensusV2AddrFlag {
-		_, seqErr = deployOCR3Contract(ConsensusV2ContractQualifier, homeChainSelector, allChainsCLDEnvironment, memoryDatastore)
+		_, seqErr = deployOCR3Contract(ConsensusV2ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 		if seqErr != nil {
 			return nil, fmt.Errorf("failed to deploy Consensus V2 OCR3 contract %w", seqErr)
 		}
 		consensusV2OCR3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], ConsensusV2ContractQualifier)
 		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, consensusV2OCR3Addr)
 	}
-	allChainsCLDEnvironment.DataStore = memoryDatastore.Seal()
+	input.CldfEnvironment.DataStore = memoryDatastore.Seal()
 
 	return &DeployKeystoneContractsOutput{
-		Env:             allChainsCLDEnvironment,
+		Env:             input.CldfEnvironment,
 		MemoryDataStore: memoryDatastore,
 	}, nil
 }
