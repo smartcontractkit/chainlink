@@ -312,9 +312,14 @@ var SolanaProgramIDs = map[string]string{
 	"external_program_cpi_stub": "2zZwzyptLqwFJFEFxjPvrdhiGpH9pJ3MfrrmZX6NTKxm",
 	"rmn_remote":                "RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7",
 	"cctp_token_pool":           "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ",
-	"ccip_signer_registry":      "S1GN4jus9XzKVVnoHqfkjo1GN8bX46gjXZQwsdGBPHE",
 	"keystone_forwarder":        "whV7Q5pi17hPPyaPksToDw1nMx6Lh8qmNWKFaLRQ4wz",
 	"data_feeds_cache":          "3kX63udXtYcsdj2737Wi2KGd2PhqiKPgAFAxstrjtRUa",
+}
+
+// Not deployed as part of the other solana programs, as it has its unique
+// repository.
+var SolanaNonCcipProgramIDs = map[string]string{
+	"ccip_signer_registry": "S1GN4jus9XzKVVnoHqfkjo1GN8bX46gjXZQwsdGBPHE",
 }
 
 // Populates datastore with the predeployed program addresses
