@@ -82,6 +82,10 @@ type Config struct {
 	LatestReportDeadline time.Duration
 }
 
+func NewCache(lggr logger.Logger, client Client, cfg Config) Cache {
+	return newMemCache(lggr, client, cfg)
+}
+
 type cacheVal struct {
 	sync.RWMutex
 

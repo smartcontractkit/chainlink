@@ -724,3 +724,14 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 		},
 	}, nil
 }
+
+func MergeReaderConfigs(configs ...config.ContractReader) config.ContractReader {
+	allNamespaces := make(map[string]config.ChainContractReader)
+	for _, c := range configs {
+		for namespace, method := range c.Namespaces {
+			allNamespaces[namespace] = method
+		}
+	}
+
+	return config.ContractReader{Namespaces: allNamespaces}
+}
