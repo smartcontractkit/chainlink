@@ -17,11 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
-	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -42,16 +39,6 @@ import (
 
 func newHead() evmtypes.Head {
 	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), ubig.NewI(0))
-}
-
-func mockEstimator(t *testing.T) gas.EvmFeeEstimator {
-	// note: estimator will only return 1 of legacy or dynamic fees (not both)
-	// assumed to call legacy estimator only
-	estimator := gasmocks.NewEvmFeeEstimator(t)
-	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.EvmFee{
-		GasPrice: assets.GWei(60),
-	}, uint32(60), nil)
-	return estimator
 }
 
 func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (

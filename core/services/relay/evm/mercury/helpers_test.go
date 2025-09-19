@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"encoding/base64"
 	"math/big"
 	"testing"
 	"time"
@@ -41,8 +42,8 @@ var sampleReports [][]byte
 var (
 	sampleV2Report      = buildSampleV2Report(242)
 	sampleV3Report      = buildSampleV3Report(242)
-	sig2                = ocrtypes.AttributedOnchainSignature{Signature: testutils.MustDecodeBase64("kbeuRczizOJCxBzj7MUAFpz3yl2WRM6K/f0ieEBvA+oTFUaKslbQey10krumVjzAvlvKxMfyZo0WkOgNyfF6xwE="), Signer: 2}
-	sig3                = ocrtypes.AttributedOnchainSignature{Signature: testutils.MustDecodeBase64("9jz4b6Dh2WhXxQ97a6/S9UNjSfrEi9016XKTrfN0mLQFDiNuws23x7Z4n+6g0sqKH/hnxx1VukWUH/ohtw83/wE="), Signer: 3}
+	sig2                = ocrtypes.AttributedOnchainSignature{Signature: mustDecodeBase64("kbeuRczizOJCxBzj7MUAFpz3yl2WRM6K/f0ieEBvA+oTFUaKslbQey10krumVjzAvlvKxMfyZo0WkOgNyfF6xwE="), Signer: 2}
+	sig3                = ocrtypes.AttributedOnchainSignature{Signature: mustDecodeBase64("9jz4b6Dh2WhXxQ97a6/S9UNjSfrEi9016XKTrfN0mLQFDiNuws23x7Z4n+6g0sqKH/hnxx1VukWUH/ohtw83/wE="), Signer: 3}
 	sampleSigs          = []ocrtypes.AttributedOnchainSignature{sig2, sig3}
 	sampleReportContext = ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
@@ -176,4 +177,13 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 		verifierContract: verifierContract,
 		logPoller:        lp,
 	}
+}
+
+func mustDecodeBase64(s string) (b []byte) {
+	var err error
+	b, err = base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return
 }

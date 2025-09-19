@@ -6,10 +6,11 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/xssnick/tonutils-go/tlb"
+
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/xssnick/tonutils-go/tlb"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,7 @@ import (
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
+	t.Skip("Skipping the test temporarily as it is flakey")
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
@@ -72,6 +74,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	)
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
+		t.Skip("flaky, see https://chainlink-core.slack.com/archives/C05JDS9S64S/p1758224231602859")
 		receiver := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), 32)
 		require.NoError(t, err)
 

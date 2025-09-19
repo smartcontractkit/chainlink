@@ -89,6 +89,11 @@
       [Billing]
       URL = "host.docker.internal:2223"
       TLSEnabled = false
+
+      [Capabilities.SharedPeering]
+      Enabled = true
+      [Capabilities.Dispatcher]
+      SendToSharedPeer = true
       """
 
 [[nodesets]]
@@ -145,6 +150,11 @@
       [Billing]
       URL = "host.docker.internal:2223"
       TLSEnabled = false
+
+      [Capabilities.SharedPeering]
+      Enabled = true
+      [Capabilities.Dispatcher]
+      SendToSharedPeer = true
       """
 
 [[nodesets]]
@@ -197,4 +207,9 @@
       [Billing]
       URL = "host.docker.internal:2223"
       TLSEnabled = false
+
+      [Capabilities.SharedPeering]
+      Enabled = true
+      [Capabilities.Dispatcher]
+      SendToSharedPeer = true
       """

@@ -646,18 +646,6 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 	return cldf.ChangesetOutput{}, nil
 }
 
-func EnableSelfServedInTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Enable self served token pool", "cfg", cfg)
-
-	return modifySelfServedConfig(e, cfg, true)
-}
-
-func DisableSelfServedInTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Disable self served token pool", "cfg", cfg)
-
-	return modifySelfServedConfig(e, cfg, false)
-}
-
 func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enabled bool) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -2397,84 +2385,6 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Configured token pool allowlist", "token_pubkey", tokenPubKey.String())
-	return cldf.ChangesetOutput{}, nil
-}
-
-func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Init state version for old tp", "cfg", cfg)
-
-	state, err := stateview.LoadOnchainState(e)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	solChainState := state.SolChains[cfg.ChainSelector]
-	if err := cfg.Validate(e, solChainState); err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	var txns []mcmsTypes.Transaction
-	for _, tokenPoolConfig := range cfg.TokenPoolConfigs {
-		tokenPubKey := tokenPoolConfig.TokenPubKey
-		tokenPool := solChainState.GetActiveTokenPool(tokenPoolConfig.PoolType, tokenPoolConfig.Metadata)
-		poolConfig, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate the pool configg: %w", err)
-		}
-
-		// This operation is permisionless, so we don't need to check ownership
-		var initializeStateVersionIx solana.Instruction
-		switch tokenPoolConfig.PoolType {
-		case shared.BurnMintTokenPool:
-			solBurnMintTokenPool.SetProgramID(tokenPool)
-			initializeStateVersionIx, err = solBurnMintTokenPool.NewInitializeStateVersionInstruction(
-				tokenPubKey,
-				poolConfig).ValidateAndBuild()
-		case shared.LockReleaseTokenPool:
-			solLockReleaseTokenPool.SetProgramID(tokenPool)
-			initializeStateVersionIx, err = solLockReleaseTokenPool.NewInitializeStateVersionInstruction(
-				tokenPubKey,
-				poolConfig).ValidateAndBuild()
-		default:
-			return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
-		}
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to init global config: %w", err)
-		}
-
-		useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
-			&e,
-			chain,
-			solChainState,
-			tokenPoolConfig.PoolType,
-			tokenPubKey,
-			tokenPoolConfig.Metadata,
-		)
-
-		instructions := []solana.Instruction{initializeStateVersionIx}
-
-		if useMcms {
-			err := appendTxs(instructions, tokenPool, tokenPoolConfig.PoolType, &txns)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
-			}
-		} else {
-			if err := chain.Confirm(instructions); err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-			}
-		}
-	}
-
-	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to init global config in Solana Token Pool", cfg.MCMS.MinDelay, txns)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
-
 	return cldf.ChangesetOutput{}, nil
 }
 
