@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -233,12 +232,12 @@ func LinkToJobDistributor(ctx context.Context, input *cre.LinkDonsToJDInput) (*c
 	var allNodesInfo []devenv.NodeInfo
 
 	for idx, nodeOutput := range input.NodeSetOutput {
-		bootstrapNodes, err := libnode.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &cre.Label{Key: libnode.NodeTypeKey, Value: cre.BootstrapNode}, libnode.EqualLabels)
+		bootstrapNodes, err := node.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to find bootstrap nodes")
 		}
 
-		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata[idx].ID, len(bootstrapNodes))
+		nodeInfo, err := node.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata[idx].ID, len(bootstrapNodes))
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to get node info")
 		}
@@ -332,25 +331,25 @@ func findSupportedChainsForDON(donMetadata *cre.DonMetadata, blockchainOutputs [
 
 func addOCRKeyLabelsToNodeMetadata(dons []*devenv.DON, topology *cre.Topology) []*devenv.DON {
 	for i, don := range dons {
-		for j, node := range topology.DonsMetadata[i].NodesMetadata {
+		for j, donNode := range topology.DonsMetadata[i].NodesMetadata {
 			// required for job proposals, because they need to include the ID of the node in Job Distributor
-			node.Labels = append(node.Labels, &cre.Label{
-				Key:   libnode.NodeIDKey,
+			donNode.Labels = append(donNode.Labels, &cre.Label{
+				Key:   node.NodeIDKey,
 				Value: don.NodeIds()[j],
 			})
 
 			ocrSupportedFamilies := make([]string, 0)
 			for family, key := range don.Nodes[j].ChainsOcr2KeyBundlesID {
-				node.Labels = append(node.Labels, &cre.Label{
-					Key:   libnode.CreateNodeOCR2KeyBundleIDKey(family),
+				donNode.Labels = append(donNode.Labels, &cre.Label{
+					Key:   node.CreateNodeOCR2KeyBundleIDKey(family),
 					Value: key,
 				})
 				ocrSupportedFamilies = append(ocrSupportedFamilies, family)
 			}
 
-			node.Labels = append(node.Labels, &cre.Label{
-				Key:   libnode.NodeOCRFamiliesKey,
-				Value: libnode.CreateNodeOCRFamiliesListValue(ocrSupportedFamilies),
+			donNode.Labels = append(donNode.Labels, &cre.Label{
+				Key:   node.NodeOCRFamiliesKey,
+				Value: node.CreateNodeOCRFamiliesListValue(ocrSupportedFamilies),
 			})
 		}
 	}
