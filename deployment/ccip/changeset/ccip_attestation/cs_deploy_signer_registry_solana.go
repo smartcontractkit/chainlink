@@ -19,6 +19,7 @@ import (
 
 	sol_binary "github.com/gagliardetto/binary"
 	sol_rpc "github.com/gagliardetto/solana-go/rpc"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -45,7 +46,10 @@ type InitalizeBaseSignerRegistryContractConfig struct {
 
 func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Deploying base signer registry", "chain_selector", c.ChainSelector)
-	c.Validate(e)
+	err := c.Validate(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy base signer registry contract: %w", err)
+	}
 	chainSel := c.ChainSelector
 	chain := e.BlockChains.SolanaChains()[chainSel]
 
@@ -53,7 +57,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 	if err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), c.WorkflowRun, c.ArtifactId, chain.ProgramsPath); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to download release artifacts: %w", err)
 	}
-	_, err := deployBaseSignerRegistryContract(e, chain, newAddresses, c)
+	_, err = deployBaseSignerRegistryContract(e, chain, newAddresses, c)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy base signer registry contract: %w", err)
 	}
@@ -65,7 +69,10 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 
 func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c InitalizeBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Initializing base signer registry", "chain_selector", c.ChainSelector)
-	c.Validate(e)
+	err := c.Validate(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to initialize base signer registry contract: %w", err)
+	}
 	chainSel := c.ChainSelector
 	chain := e.BlockChains.SolanaChains()[chainSel]
 	authority := chain.DeployerKey.PublicKey()
@@ -87,11 +94,11 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initali
 	)
 
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to initialize base signer registry contract: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to initialize base signer registry contract: %w", err)
 	}
 
 	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to initialize base signer registry contract: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to initialize base signer registry contract: %w", err)
 	}
 
 	return cldf.ChangesetOutput{}, nil
@@ -120,7 +127,6 @@ func deployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chai
 	}
 
 	return address, nil
-
 }
 
 func (c DeployBaseSignerRegistryContractConfig) Validate(e cldf.Environment) error {
@@ -216,7 +222,6 @@ func DownloadReleaseArtifactsFromGithubWorkflowRun(
 			targetFile.Close()
 			return fmt.Errorf("failed to write file %s: %w", targetPath, err)
 		}
-
 	}
 
 	return nil

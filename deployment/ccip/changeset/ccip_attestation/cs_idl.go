@@ -28,13 +28,13 @@ const IdlIxTag uint64 = 0x0a69e9a778bcf440
 type BaseIDLConfig struct {
 	ChainSelector uint64
 	WorkflowRun   string
-	ArtifactId    string
+	ArtifactID    string
 }
 
 // resolve artifacts based on workflow run and write anchor.toml file to simulate anchor workspace
-func repoSetup(e cldf.Environment, chain cldf_solana.Chain, run string, artifactId string) error {
+func repoSetup(e cldf.Environment, chain cldf_solana.Chain, run string, artifactID string) error {
 	e.Logger.Debug("Downloading artifacts from workflow run...")
-	err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), run, artifactId, chain.ProgramsPath)
+	err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), run, artifactID, chain.ProgramsPath)
 	if err != nil {
 		return fmt.Errorf("error downloading program artifacts: %w", err)
 	}
@@ -74,7 +74,7 @@ func BaseUploadIDLChangeset(e cldf.Environment, c BaseIDLConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
 	}
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	if err := repoSetup(e, chain, c.WorkflowRun, c.ArtifactId); err != nil {
+	if err := repoSetup(e, chain, c.WorkflowRun, c.ArtifactID); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up repo: %w", err)
 	}
 

@@ -7,9 +7,10 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	signer_registry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -106,7 +107,10 @@ type SetUpgradeAuthorityConfig struct {
 func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Rotating Base signer nops", "chain_selector", c.ChainSelector, "removing", c.NopKeysToAdd, "adding", c.NopKeysToAdd)
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	c.Validate(e)
+	err := c.Validate(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to rotate signer nop: %w", err)
+	}
 
 	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
@@ -119,7 +123,7 @@ func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsCon
 
 		ix, err := signer_registry.NewRemoveSignerInstruction(key, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to remove signer: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to remove signer: %w", err)
 		}
 		instructions = append(instructions, ix)
 	}
@@ -127,7 +131,7 @@ func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsCon
 		key, _ := parseEVMAddress(hexKey)
 		ix, err := signer_registry.NewAddSignerInstruction(key, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to add signer: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add signer: %w", err)
 		}
 		instructions = append(instructions, ix)
 	}
@@ -207,7 +211,10 @@ func (c RotateBaseSignerNopsConfig) Validate(e cldf.Environment) error {
 func AddGreenKeysChangeset(e cldf.Environment, c AddGreenKeysConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Adding green keys to begin rotation", "chain_selector", c.ChainSelector)
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	c.Validate(e)
+	err := c.Validate(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add green keys: %w", err)
+	}
 	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signer_registry.ProgramID)
@@ -220,7 +227,7 @@ func AddGreenKeysChangeset(e cldf.Environment, c AddGreenKeysConfig) (cldf.Chang
 
 		ix, err := signer_registry.NewSetSignerNewAddressInstruction(blue, green, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to add green key: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add green key: %w", err)
 		}
 		instructions = append(instructions, ix)
 	}
@@ -294,7 +301,10 @@ func (c AddGreenKeysConfig) Validate(e cldf.Environment) error {
 func PromoteKeysChangeset(e cldf.Environment, c PromoteKeysConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Promoting green keys to finalize rotation", "chain_selector", c.ChainSelector, "keys", c.KeysToPromote)
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	c.Validate(e)
+	err := c.Validate(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy base signer registry contract: %w", err)
+	}
 	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signer_registry.ProgramID)
@@ -306,7 +316,7 @@ func PromoteKeysChangeset(e cldf.Environment, c PromoteKeysConfig) (cldf.Changes
 
 		ix, err := signer_registry.NewPromoteSignerAddressInstruction(key, chain.DeployerKey.PublicKey(), configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("Failed to promote key: %w", err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to promote key: %w", err)
 		}
 		instructions = append(instructions, ix)
 	}

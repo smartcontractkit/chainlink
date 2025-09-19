@@ -8,16 +8,18 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	signerRegistry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
+	"go.uber.org/zap/zapcore"
+
 	ccip_attestation "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ccip_attestation"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSignerRegistryInitialization(t *testing.T) {
@@ -28,7 +30,8 @@ func TestSignerRegistryInitialization(t *testing.T) {
 	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
 	targetPath := filepath.Join(rootDir, "ccip/changeset/internal", "solana_contracts")
 	// Replace with the desired run to test
-	ccip_attestation.DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), "17459947443", "3925592769", targetPath)
+	err := ccip_attestation.DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), "17459947443", "3925592769", targetPath)
+	require.NoError(t, err)
 
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		SolChains: 1,
@@ -50,8 +53,8 @@ func TestSignerRegistryInitialization(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	programId := solana.MustPublicKeyFromBase58(memory.SolanaProgramIDs["ccip_signer_registry"])
-	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, programId)
+	programID := solana.MustPublicKeyFromBase58(memory.SolanaProgramIDs["ccip_signer_registry"])
+	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, programID)
 
 	var configAccount signerRegistry.Config
 	chain := e.BlockChains.SolanaChains()[solChain1]

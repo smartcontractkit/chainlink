@@ -13,6 +13,7 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	signer_registry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
@@ -156,7 +157,7 @@ func transferOwnershipSignerRegistry(
 ) ([]mcmsTypes.Transaction, error) {
 	var result []mcmsTypes.Transaction
 
-	programId := signer_registry.ProgramID
+	programID := signer_registry.ProgramID
 	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signer_registry.ProgramID)
 
@@ -172,7 +173,7 @@ func transferOwnershipSignerRegistry(
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract data payload from signer registry transfer ownership instruction: %w", err)
 		}
-		transferOwnershipIx := solana.NewInstruction(programId, ix.Accounts(), ixData)
+		transferOwnershipIx := solana.NewInstruction(programID, ix.Accounts(), ixData)
 		for _, acc := range transferOwnershipIx.Accounts() {
 			if acc.PublicKey == timelockSigner {
 				acc.IsSigner = false
@@ -192,7 +193,7 @@ func transferOwnershipSignerRegistry(
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract data payload from fee quoter accept ownership instruction: %w", err)
 		}
-		acceptOwnershipIx := solana.NewInstruction(programId, ix.Accounts(), ixData)
+		acceptOwnershipIx := solana.NewInstruction(programID, ix.Accounts(), ixData)
 		for _, acc := range acceptOwnershipIx.Accounts() {
 			if acc.PublicKey == timelockSigner {
 				acc.IsSigner = false
@@ -204,7 +205,7 @@ func transferOwnershipSignerRegistry(
 	tx, err := cs_solana.TransferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
-		programId,
+		programID,
 		proposedOwner,
 		configPda,
 		currentOwner,
