@@ -12,7 +12,7 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	signer_registry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -213,7 +213,7 @@ func transferOwnershipSignerRegistry(
 		configPda,
 		currentOwner,
 		solChain,
-		shared.BaseSignerRegistry,
+		shared.SVMSignerRegistry,
 		timelockSigner,
 	)
 

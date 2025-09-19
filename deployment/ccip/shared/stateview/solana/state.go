@@ -12,7 +12,7 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	signer_registry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 
 	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
@@ -636,7 +636,7 @@ func ValidateOwnershipSolana(
 		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for cctp_token_pool: %w", err)
 		}
-	case shared.BaseSignerRegistry:
+	case shared.SVMSignerRegistry:
 		programData := signer_registry.Config{}
 		configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), configPda, &programData)

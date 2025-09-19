@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
-	signer_registry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -205,7 +205,7 @@ func (c RotateBaseSignerNopsConfig) Validate(e cldf.Environment) error {
 			finalSignerCount, currentSignerCount, len(keysToRemoveParsed), len(keysToAddParsed))
 	}
 
-	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.BaseSignerRegistry, solana.PublicKey{})
+	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.SVMSignerRegistry, solana.PublicKey{})
 }
 
 func AddGreenKeysChangeset(e cldf.Environment, c AddGreenKeysConfig) (cldf.ChangesetOutput, error) {
@@ -295,7 +295,7 @@ func (c AddGreenKeysConfig) Validate(e cldf.Environment) error {
 		}
 	}
 
-	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.BaseSignerRegistry, solana.PublicKey{})
+	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.SVMSignerRegistry, solana.PublicKey{})
 }
 
 func PromoteKeysChangeset(e cldf.Environment, c PromoteKeysConfig) (cldf.ChangesetOutput, error) {
@@ -366,12 +366,12 @@ func (c PromoteKeysConfig) Validate(e cldf.Environment) error {
 		}
 	}
 
-	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.BaseSignerRegistry, solana.PublicKey{})
+	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.SVMSignerRegistry, solana.PublicKey{})
 }
 
 func (c SetUpgradeAuthorityConfig) Validate(e cldf.Environment) error {
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.BaseSignerRegistry, solana.PublicKey{})
+	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.SVMSignerRegistry, solana.PublicKey{})
 }
 
 func SetUpgradeAuthorityChangeset(

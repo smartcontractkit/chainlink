@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	signer_registry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 

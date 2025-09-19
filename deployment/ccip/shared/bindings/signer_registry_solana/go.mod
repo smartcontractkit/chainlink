@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/ccip-base/chains/solana/go_bindings
+module github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana
 
 go 1.24.5
 

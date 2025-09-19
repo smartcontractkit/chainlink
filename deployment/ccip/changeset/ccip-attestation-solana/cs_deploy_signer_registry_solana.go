@@ -13,8 +13,9 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
-	signer_registry "github.com/smartcontractkit/ccip-base/chains/solana/go_bindings"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -110,7 +111,7 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initali
 
 func deployBaseSignerRegistryContract(e cldf.Environment, chain cldf_solana.Chain, ab cldf.AddressBook, config DeployBaseSignerRegistryContractConfig,
 ) (solana.PublicKey, error) {
-	contractType := shared.BaseSignerRegistry
+	contractType := shared.SVMSignerRegistry
 	programName := deployment.BaseSignerRegistryProgramName
 
 	programID, err := chain.DeployProgram(e.Logger, cldf_solana.ProgramInfo{
