@@ -61,7 +61,7 @@ type LocalBuildConfig struct {
 }
 
 type BuildSolanaConfig struct {
-	GitCommitSha string
+	SolanaContractVersion string // Get the commit sha with VersionToFullCommitSHA[VersionSolanaV0_1_2]
 	// when running using CLD, this should be same as the secret (solana_program_path) or envvar (SOLANA_PROGRAM_PATH)
 	DestinationDir string
 	LocalBuild     LocalBuildConfig
@@ -274,7 +274,13 @@ func buildProject(e cldf.Environment) error {
 func buildLocally(e cldf.Environment, config BuildSolanaConfig) error {
 	e.Logger.Debugw("Starting local build process", "destinationDir", config.DestinationDir)
 	// Clone the repository
-	if err := cloneRepo(e, config.GitCommitSha, config.LocalBuild.CleanGitDir); err != nil {
+
+	commitSha, ok := VersionToFullCommitSHA[config.SolanaContractVersion]
+	if !ok {
+		return fmt.Errorf("solana Contract Version not Found: %s", config.SolanaContractVersion)
+	}
+
+	if err := cloneRepo(e, commitSha, config.LocalBuild.CleanGitDir); err != nil {
 		return fmt.Errorf("error cloning repo: %w", err)
 	}
 
@@ -347,7 +353,12 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig) error {
 func BuildSolana(e cldf.Environment, config BuildSolanaConfig) error {
 	if !config.LocalBuild.BuildLocally {
 		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
-		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
+		commitSha, ok := VersionToShortCommitSHA[config.SolanaContractVersion]
+		if !ok {
+			return fmt.Errorf("solana Contract Version not Found: %s", config.SolanaContractVersion)
+		}
+
+		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, commitSha)
 		if err != nil {
 			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 		}

@@ -36,7 +36,7 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 		Chains:      stateView.Chains,
 		SolChains:   stateView.SolChains,
 		AptosChains: stateView.AptosChains,
-		// TonChains:   stateView.TonChains,
-		Nops: nopsView,
+		TonChains:   stateView.TONChains,
+		Nops:        nopsView,
 	}, nil
 }

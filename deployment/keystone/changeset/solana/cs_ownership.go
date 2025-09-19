@@ -23,7 +23,7 @@ var _ cldf.ChangeSetV2[*TransferOwnershipForwarderRequest] = TransferOwnershipFo
 type TransferOwnershipForwarder struct{}
 
 func (cs TransferOwnershipForwarder) VerifyPreconditions(env cldf.Environment, req *TransferOwnershipForwarderRequest) error {
-	return commonchangeset.GenericVerifyPreconditions(env, req.ChainSel, req.Version, req.Qualifier, "ForwarderContract")
+	return commonchangeset.GenericVerifyPreconditions(env, req.ChainSel, req.Version, req.Qualifier, ForwarderContract)
 }
 
 func (cs TransferOwnershipForwarder) Apply(env cldf.Environment, req *TransferOwnershipForwarderRequest) (cldf.ChangesetOutput, error) {
@@ -35,8 +35,8 @@ func (cs TransferOwnershipForwarder) Apply(env cldf.Environment, req *TransferOw
 		Qualifier:     req.Qualifier,
 		MCMSCfg:       req.MCMSCfg,
 		ContractConfig: commonchangeset.ContractConfig{
-			ContractType: "ForwarderContract",
-			StateType:    "ForwarderState",
+			ContractType: ForwarderContract,
+			StateType:    ForwarderState,
 			OperationID:  "transfer-ownership-forwarder",
 			Description:  "transfers ownership of forwarder to mcms",
 		},

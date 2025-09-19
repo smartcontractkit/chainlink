@@ -74,17 +74,17 @@ func (_c *Handler_Close_Call) RunAndReturn(run func() error) *Handler_Close_Call
 	return _c
 }
 
-// HandleJSONRPCUserMessage provides a mock function with given fields: ctx, jsonRequest, callbackCh
-func (_m *Handler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) error {
-	ret := _m.Called(ctx, jsonRequest, callbackCh)
+// HandleJSONRPCUserMessage provides a mock function with given fields: ctx, jsonRequest, callback
+func (_m *Handler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc2.Request[json.RawMessage], callback handlers.Callback) error {
+	ret := _m.Called(ctx, jsonRequest, callback)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleJSONRPCUserMessage")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, jsonrpc2.Request[json.RawMessage], chan<- handlers.UserCallbackPayload) error); ok {
-		r0 = rf(ctx, jsonRequest, callbackCh)
+	if rf, ok := ret.Get(0).(func(context.Context, jsonrpc2.Request[json.RawMessage], handlers.Callback) error); ok {
+		r0 = rf(ctx, jsonRequest, callback)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -100,14 +100,14 @@ type Handler_HandleJSONRPCUserMessage_Call struct {
 // HandleJSONRPCUserMessage is a helper method to define mock.On call
 //   - ctx context.Context
 //   - jsonRequest jsonrpc2.Request[json.RawMessage]
-//   - callbackCh chan<- handlers.UserCallbackPayload
-func (_e *Handler_Expecter) HandleJSONRPCUserMessage(ctx interface{}, jsonRequest interface{}, callbackCh interface{}) *Handler_HandleJSONRPCUserMessage_Call {
-	return &Handler_HandleJSONRPCUserMessage_Call{Call: _e.mock.On("HandleJSONRPCUserMessage", ctx, jsonRequest, callbackCh)}
+//   - callback handlers.Callback
+func (_e *Handler_Expecter) HandleJSONRPCUserMessage(ctx interface{}, jsonRequest interface{}, callback interface{}) *Handler_HandleJSONRPCUserMessage_Call {
+	return &Handler_HandleJSONRPCUserMessage_Call{Call: _e.mock.On("HandleJSONRPCUserMessage", ctx, jsonRequest, callback)}
 }
 
-func (_c *Handler_HandleJSONRPCUserMessage_Call) Run(run func(ctx context.Context, jsonRequest jsonrpc2.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload)) *Handler_HandleJSONRPCUserMessage_Call {
+func (_c *Handler_HandleJSONRPCUserMessage_Call) Run(run func(ctx context.Context, jsonRequest jsonrpc2.Request[json.RawMessage], callback handlers.Callback)) *Handler_HandleJSONRPCUserMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(jsonrpc2.Request[json.RawMessage]), args[2].(chan<- handlers.UserCallbackPayload))
+		run(args[0].(context.Context), args[1].(jsonrpc2.Request[json.RawMessage]), args[2].(handlers.Callback))
 	})
 	return _c
 }
@@ -117,22 +117,22 @@ func (_c *Handler_HandleJSONRPCUserMessage_Call) Return(_a0 error) *Handler_Hand
 	return _c
 }
 
-func (_c *Handler_HandleJSONRPCUserMessage_Call) RunAndReturn(run func(context.Context, jsonrpc2.Request[json.RawMessage], chan<- handlers.UserCallbackPayload) error) *Handler_HandleJSONRPCUserMessage_Call {
+func (_c *Handler_HandleJSONRPCUserMessage_Call) RunAndReturn(run func(context.Context, jsonrpc2.Request[json.RawMessage], handlers.Callback) error) *Handler_HandleJSONRPCUserMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// HandleLegacyUserMessage provides a mock function with given fields: ctx, msg, callbackCh
-func (_m *Handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-	ret := _m.Called(ctx, msg, callbackCh)
+// HandleLegacyUserMessage provides a mock function with given fields: ctx, msg, callback
+func (_m *Handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
+	ret := _m.Called(ctx, msg, callback)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleLegacyUserMessage")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error); ok {
-		r0 = rf(ctx, msg, callbackCh)
+	if rf, ok := ret.Get(0).(func(context.Context, *api.Message, handlers.Callback) error); ok {
+		r0 = rf(ctx, msg, callback)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -148,14 +148,14 @@ type Handler_HandleLegacyUserMessage_Call struct {
 // HandleLegacyUserMessage is a helper method to define mock.On call
 //   - ctx context.Context
 //   - msg *api.Message
-//   - callbackCh chan<- handlers.UserCallbackPayload
-func (_e *Handler_Expecter) HandleLegacyUserMessage(ctx interface{}, msg interface{}, callbackCh interface{}) *Handler_HandleLegacyUserMessage_Call {
-	return &Handler_HandleLegacyUserMessage_Call{Call: _e.mock.On("HandleLegacyUserMessage", ctx, msg, callbackCh)}
+//   - callback handlers.Callback
+func (_e *Handler_Expecter) HandleLegacyUserMessage(ctx interface{}, msg interface{}, callback interface{}) *Handler_HandleLegacyUserMessage_Call {
+	return &Handler_HandleLegacyUserMessage_Call{Call: _e.mock.On("HandleLegacyUserMessage", ctx, msg, callback)}
 }
 
-func (_c *Handler_HandleLegacyUserMessage_Call) Run(run func(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload)) *Handler_HandleLegacyUserMessage_Call {
+func (_c *Handler_HandleLegacyUserMessage_Call) Run(run func(ctx context.Context, msg *api.Message, callback handlers.Callback)) *Handler_HandleLegacyUserMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*api.Message), args[2].(chan<- handlers.UserCallbackPayload))
+		run(args[0].(context.Context), args[1].(*api.Message), args[2].(handlers.Callback))
 	})
 	return _c
 }
@@ -165,7 +165,7 @@ func (_c *Handler_HandleLegacyUserMessage_Call) Return(_a0 error) *Handler_Handl
 	return _c
 }
 
-func (_c *Handler_HandleLegacyUserMessage_Call) RunAndReturn(run func(context.Context, *api.Message, chan<- handlers.UserCallbackPayload) error) *Handler_HandleLegacyUserMessage_Call {
+func (_c *Handler_HandleLegacyUserMessage_Call) RunAndReturn(run func(context.Context, *api.Message, handlers.Callback) error) *Handler_HandleLegacyUserMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -17,6 +17,7 @@ type GeneralConfig interface {
 	AptosConfigs() RawConfigs
 	TronConfigs() RawConfigs
 	TONConfigs() RawConfigs
+	SuiConfigs() RawConfigs
 	// ConfigTOML returns both the user provided and effective configuration as TOML.
 	ConfigTOML() (user, effective string)
 	ImportedSecretConfig
@@ -28,4 +29,5 @@ type ImportedSecretConfig interface {
 	ImportedP2PKey() coreconfig.ImportableKey
 	ImportedEthKeys() coreconfig.ImportableChainKeyLister
 	ImportedSolKeys() coreconfig.ImportableChainKeyLister
+	ImportedDKGRecipientKey() coreconfig.ImportableKey
 }

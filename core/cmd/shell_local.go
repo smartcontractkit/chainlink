@@ -387,7 +387,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		for _, k := range s.Config.ImportedEthKeys().List() {
 			lggr.Debug("Importing eth key")
 			id, err2 := chain_selectors.GetChainIDFromSelector(k.ChainDetails().ChainSelector)
-			if err != nil {
+			if err2 != nil {
 				return s.errorOut(errors.Wrapf(err2, "error getting chain id from selector when trying to import eth key %v", k.JSON()))
 			}
 			cid, _ := big.NewInt(0).SetString(id, 10)
@@ -447,6 +447,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 		if s.Config.TONEnabled() {
 			enabledChains = append(enabledChains, chaintype.TON)
+		}
+		if s.Config.SuiEnabled() {
+			enabledChains = append(enabledChains, chaintype.Sui)
 		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
@@ -518,8 +521,23 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return errors.Wrap(err2, "failed to ensure ton key")
 		}
 	}
-
+	if s.Config.SuiEnabled() {
+		err2 := app.GetKeyStore().Sui().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure Sui key")
+		}
+	}
 	if s.Config.CRE().EnableDKGRecipient() {
+		if s.Config.ImportedDKGRecipientKey().JSON() != "" {
+			lggr.Debugf("Importing DKG recipient key %s", s.Config.ImportedDKGRecipientKey().JSON())
+			_, err2 := app.GetKeyStore().DKGRecipient().Import(rootCtx, []byte(s.Config.ImportedDKGRecipientKey().JSON()), s.Config.ImportedDKGRecipientKey().Password())
+			if errors.Is(err2, keystore.ErrKeyExists) {
+				lggr.Debugf("DKG recipient key already exists %s", s.Config.ImportedDKGRecipientKey().JSON())
+			} else if err2 != nil {
+				return s.errorOut(errors.Wrap(err2, "error importing dkg recipient key"))
+			}
+		}
+
 		err2 := app.GetKeyStore().DKGRecipient().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure dkg recipient key")

@@ -23,13 +23,11 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
@@ -41,7 +39,6 @@ var sampleFeedID = [32]uint8{28, 145, 107, 74, 167, 229, 124, 167, 182, 138, 225
 var sampleReports [][]byte
 
 var (
-	sampleV1Report      = buildSampleV1Report(242)
 	sampleV2Report      = buildSampleV2Report(242)
 	sampleV3Report      = buildSampleV3Report(242)
 	sig2                = ocrtypes.AttributedOnchainSignature{Signature: testutils.MustDecodeBase64("kbeuRczizOJCxBzj7MUAFpz3yl2WRM6K/f0ieEBvA+oTFUaKslbQey10krumVjzAvlvKxMfyZo0WkOgNyfF6xwE="), Signer: 2}
@@ -60,26 +57,8 @@ var (
 func init() {
 	sampleReports = make([][]byte, 4)
 	for i := 0; i < len(sampleReports); i++ {
-		sampleReports[i] = buildSampleV1Report(int64(i))
+		sampleReports[i] = buildSampleV2Report(int64(i))
 	}
-}
-
-func buildSampleV1Report(p int64) []byte {
-	feedID := sampleFeedID
-	timestamp := uint32(42)
-	bp := big.NewInt(p)
-	bid := big.NewInt(243)
-	ask := big.NewInt(244)
-	currentBlockNumber := uint64(143)
-	currentBlockHash := utils.NewHash()
-	currentBlockTimestamp := uint64(123)
-	validFromBlockNum := uint64(142)
-
-	b, err := reportcodecv1.ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, currentBlockTimestamp, validFromBlockNum)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 func buildSampleV2Report(ts int64) []byte {

@@ -979,8 +979,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	if len(solChains) != 0 {
 		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
 			var buildSolConfig = &ccipChangeSetSolanaV0_1_1.BuildSolanaConfig{
-				GitCommitSha:   ccipChangeSetSolanaV0_1_1.ContractVersionShortSha[ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1],
-				DestinationDir: memory.ProgramsPath,
+				SolanaContractVersion: ccipChangeSetSolanaV0_1_1.VersionSolanaV0_1_1,
+				DestinationDir:        memory.ProgramsPath,
 			}
 			solCs, err := DeployChainContractsToSolChainCSV0_1_1(e, solChains[0], true, buildSolConfig)
 
@@ -1008,7 +1008,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := memory.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], "ecb89d8b6794"))
+		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], "60d3ba6bf24b"))
 		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{cs})
 		require.NoError(t, err, "failed to deploy TON ccip contracts")
 	}

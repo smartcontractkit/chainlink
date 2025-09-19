@@ -11,8 +11,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -124,7 +125,7 @@ func TestPersistenceManagerPrune(t *testing.T) {
 
 	reports := make([][]byte, 25)
 	for i := 0; i < 25; i++ {
-		reports[i] = buildSampleV1Report(int64(i))
+		reports[i] = buildSampleV2Report(int64(i))
 	}
 
 	pm2, _ := bootstrapPersistenceManager(t, jobID2, db)

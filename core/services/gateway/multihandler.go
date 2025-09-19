@@ -49,21 +49,22 @@ func (m *multiHandler) Methods() []string {
 	return slices.Collect(maps.Keys(m.methodToHandler))
 }
 
-func (m *multiHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (m *multiHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
 	h, err := m.getHandler(msg.Body.Method)
 	if err != nil {
 		return fmt.Errorf("failed to get handler for method %s: %w", msg.Body.Method, err)
 	}
 
-	return h.HandleLegacyUserMessage(ctx, msg, callbackCh)
+	return h.HandleLegacyUserMessage(ctx, msg, callback)
 }
-func (m *multiHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) error {
+
+func (m *multiHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callback handlers.Callback) error {
 	h, err := m.getHandler(jsonRequest.Method)
 	if err != nil {
 		return fmt.Errorf("failed to get handler for method %s: %w", jsonRequest.Method, err)
 	}
 
-	return h.HandleJSONRPCUserMessage(ctx, jsonRequest, callbackCh)
+	return h.HandleJSONRPCUserMessage(ctx, jsonRequest, callback)
 }
 
 func (m *multiHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {

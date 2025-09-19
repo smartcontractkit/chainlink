@@ -202,11 +202,11 @@ func (h *functionsHandler) Methods() []string {
 	return []string{MethodSecretsSet, MethodSecretsList, MethodHeartbeat}
 }
 
-func (h *functionsHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ chan<- handlers.UserCallbackPayload) error {
+func (h *functionsHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ handlers.Callback) error {
 	return errors.New("functions handler does not support JSON-RPC user messages")
 }
 
-func (h *functionsHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *functionsHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
 	sender := common.HexToAddress(msg.Body.Sender)
 	if h.allowlist != nil && !h.allowlist.Allow(sender) {
 		h.lggr.Debugw("received a message from a non-allowlisted address", "sender", msg.Body.Sender)
@@ -233,14 +233,14 @@ func (h *functionsHandler) HandleLegacyUserMessage(ctx context.Context, msg *api
 	}
 	switch msg.Body.Method {
 	case MethodSecretsSet, MethodSecretsList:
-		return h.handleRequest(ctx, msg, callbackCh)
+		return h.handleRequest(ctx, msg, callback)
 	case MethodHeartbeat:
 		if _, ok := h.allowedHeartbeatInitiators[msg.Body.Sender]; !ok {
 			h.lggr.Debugw("received heartbeat request from a non-allowed sender", "sender", msg.Body.Sender)
 			promHandlerError.WithLabelValues(h.donConfig.DonId, ErrNotAllowlisted.Error()).Inc()
 			return ErrUnsupportedMethod
 		}
-		return h.handleRequest(ctx, msg, callbackCh)
+		return h.handleRequest(ctx, msg, callback)
 	default:
 		h.lggr.Debugw("unsupported method", "method", msg.Body.Method)
 		promHandlerError.WithLabelValues(h.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
@@ -248,9 +248,9 @@ func (h *functionsHandler) HandleLegacyUserMessage(ctx context.Context, msg *api
 	}
 }
 
-func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
 	h.lggr.Debugw("handleRequest: processing message", "sender", msg.Body.Sender, "messageId", msg.Body.MessageId)
-	err := h.pendingRequests.NewRequest(msg, callbackCh, &PendingRequest{request: msg, responses: make(map[string]*api.Message)})
+	err := h.pendingRequests.NewRequest(h.lggr, msg, callback, &PendingRequest{request: msg, responses: make(map[string]*api.Message)})
 	if err != nil {
 		h.lggr.Warnw("handleRequest: error adding new request", "sender", msg.Body.Sender, "err", err)
 		promHandlerError.WithLabelValues(h.donConfig.DonId, err.Error()).Inc()

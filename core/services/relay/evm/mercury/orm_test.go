@@ -363,7 +363,7 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 
 func Test_ReportCodec_FeedIDFromReport(t *testing.T) {
 	t.Run("FeedIDFromReport extracts the current block number from a valid report", func(t *testing.T) {
-		report := buildSampleV1Report(42)
+		report := buildSampleV2Report(42)
 
 		f, err := FeedIDFromReport(report)
 		require.NoError(t, err)

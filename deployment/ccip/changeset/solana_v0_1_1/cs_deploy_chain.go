@@ -184,7 +184,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	// artifacts will already exist if running locally as chain spin up fetches them
 	// on CI they wont be present and we want to fetch them here
 	if c.BuildConfig != nil {
-		e.Logger.Debugw("Building solana artifacts", "gitCommitSha", c.BuildConfig.GitCommitSha)
+		e.Logger.Debugw("Building solana artifacts", "BuildConfig", c.BuildConfig)
 		err = BuildSolana(e, *c.BuildConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)

@@ -349,7 +349,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
 		if flags.HasFlag(don.Flags, cretypes.MockCapability) {
 			for _, n := range don.DON.Nodes {
-				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
+				key, err2 := n.ExportOCR2Keys(n.ChainsOcr2KeyBundlesID["evm"])
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
 					require.NoError(t, err3, "could not marshal OCR2 key")
@@ -1218,7 +1218,12 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 				if ocr2Err != nil {
 					return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
 				}
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
+				if ocr2kbErr != nil {
+					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
+				}
+
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocr2KeyBundlesPerFamily, ocrPeeringData, chainID))
 				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, donTimeAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
 			}
 		}

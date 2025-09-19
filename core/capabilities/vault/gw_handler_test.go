@@ -198,11 +198,13 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("start", func(t *testing.T) {
+		gwConnector.On("AddHandler", mock.Anything, vaulttypes.GetSupportedMethods(lggr), handler).Return(nil).Once()
 		err := handler.Start(ctx)
 		require.NoError(t, err)
 	})
 
 	t.Run("close", func(t *testing.T) {
+		gwConnector.On("RemoveHandler", mock.Anything, vaulttypes.GetSupportedMethods(lggr)).Return(nil).Once()
 		err := handler.Close()
 		require.NoError(t, err)
 	})
