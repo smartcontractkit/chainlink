@@ -81,7 +81,7 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 		for _, info := range updates {
 			// Ignore zero address (this will always have no token config)
 			if info.TokenAddress == utils.ZeroAddress {
-				e.Logger.Warnf("detected null token address for chain with selector '%s' - skipping", selector)
+				e.Logger.Warnf("detected null token address for chain with selector '%d' - skipping", selector)
 				continue
 			}
 
@@ -127,13 +127,6 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 			if tokenConfig.Administrator != info.AdminAddress {
 				transferInfo = append(transferInfo, info)
 				continue
-			} else {
-				e.Logger.Warnf(
-					"detected a transfer to the same admin (%s) for token '%s' on chain with selector '%d' - skipping",
-					info.AdminAddress,
-					info.TokenAddress,
-					selector,
-				)
 			}
 		}
 
