@@ -522,7 +522,7 @@ func TestIDL(t *testing.T) {
 	// Test transferring ownership of the IDL back to the deployer key and then close and recreate the PDA
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDL),
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetAuthorityIDLByMCMs),
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector: solChain,
 				BurnMintTokenPoolMetadata: []string{
