@@ -836,10 +836,6 @@ func TestPartnerTokenPoolsWithUpgrades(t *testing.T) {
 			BuildConfig: &ccipChangesetSolana.BuildSolanaConfig{
 				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_2,
 				DestinationDir:        e.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
-				LocalBuild: ccipChangesetSolana.LocalBuildConfig{
-					BuildLocally: true,
-					CleanGitDir:  true,
-				},
 			},
 			UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 				NewBurnMintTokenPoolVersion:    &deployment.Version1_0_0,

@@ -522,7 +522,6 @@ func deployChainContractsSolana(
 					DestinationDir:        config.BuildConfig.DestinationDir,
 					LocalBuild: LocalBuildConfig{
 						BuildLocally: true,
-						CleanGitDir:  true,
 						UpgradeKeys: map[cldf.ContractType]string{
 							shared.BurnMintTokenPool: burnMintTokenPool.String(),
 						},
@@ -574,7 +573,6 @@ func deployChainContractsSolana(
 					DestinationDir:        config.BuildConfig.DestinationDir,
 					LocalBuild: LocalBuildConfig{
 						BuildLocally: true,
-						CleanGitDir:  true,
 						UpgradeKeys: map[cldf.ContractType]string{
 							shared.LockReleaseTokenPool: lockReleaseTokenPool.String(),
 						},
