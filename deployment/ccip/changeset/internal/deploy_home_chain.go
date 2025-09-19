@@ -21,7 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -411,7 +412,7 @@ func BuildOCR3ConfigForCCIPHome(
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 	skipChainConfigValidation bool,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
-	addressCodec := ccipcommon.NewAddressCodec(map[string]ccipcommon.ChainSpecificAddressCodec{
+	addressCodec := cciptypes.AddressCodecMap(map[string]cciptypes.ChainSpecificAddressCodec{
 		chain_selectors.FamilyEVM:    ccipevm.AddressCodec{},
 		chain_selectors.FamilySolana: ccipsolana.AddressCodec{},
 	})
@@ -658,12 +659,12 @@ func replaceEmptyTransmitters(transmitters []ocrtypes.Account, addressCodec ccip
 		acct := transmitter
 		if len(acct) == 0 {
 			// #nosec G115 - Overflow is not a concern in this test scenario
-			canonicalAddress, err := addressCodec.OracleIDAsAddressBytes(uint8(oracleID), ccipocr3.ChainSelector(destSelector))
+			canonicalAddress, err := addressCodec.OracleIDAsAddressBytes(uint8(oracleID), cciptypes.ChainSelector(destSelector))
 			if err != nil {
 				return nil, err
 			}
 
-			acctString, err := addressCodec.AddressBytesToString(canonicalAddress, ccipocr3.ChainSelector(destSelector))
+			acctString, err := addressCodec.AddressBytesToString(canonicalAddress, cciptypes.ChainSelector(destSelector))
 			if err != nil {
 				return nil, err
 			}

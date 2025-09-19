@@ -17,13 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -214,11 +214,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get chain selector from chain ID %d", homeChainChainID)
 	}
 
-	pluginServices, err := common.GetPluginServices(d.lggr, d.capabilityConfig.ExternalRegistry().RelayID().Network)
-	if err != nil {
-		return nil, err
-	}
-
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
 	// of other bootstrap oracles. however, plugin oracles, at least initially,
@@ -239,8 +234,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			bootstrapperLocators,
 			hcr,
-			cciptypes.ChainSelector(homeChainChainSelector),
-			pluginServices.AddrCodec,
+			ccipocr3.ChainSelector(homeChainChainSelector),
 			p2pID,
 		)
 	} else {
@@ -251,7 +245,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			d.lggr,
 			homeChainContractReader,
-			pluginServices.AddrCodec,
 		)
 	}
 

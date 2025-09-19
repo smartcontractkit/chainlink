@@ -29,7 +29,6 @@ type PluginConfig struct {
 // PluginServices aggregates services for a specific chain family.
 type PluginServices struct {
 	PluginConfig          PluginConfig
-	AddrCodec             AddressCodec
 	ChainRW               MultiChainRW
 	CCIPProviderSupported map[string]bool
 }
@@ -53,23 +52,24 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	pluginServices := PluginServices{}
 	extraDataCodecRegistry := GetExtraDataCodecRegistry()
-	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
+	addressCodecRegistry := GetAddressCodecRegistry()
 	chainRWProviderMap := make(map[string]ChainRWProvider)
 	CCIPProviderSupported := make(map[string]bool)
 
 	for family, initFunc := range registeredFactories {
 		config := initFunc(lggr, GetExtraDataCodecRegistry())
 		CCIPProviderSupported[family] = config.CCIPProviderSupported
-		if config.AddressCodec != nil {
-			addressCodecMap[family] = config.AddressCodec
-		}
 
-		// Register all known families, this includes families whose SourceChainExtraDataCodec is provided
-		// by the CCIPProvider
+		// Add all families to the registries. If the codecs are provided by the config, set them here, otherwise
+		// ccipProvider will set them later in the oracle creator.
 		extraDataCodecRegistry.RegisterFamily(family)
+		addressCodecRegistry.RegisterFamily(family)
+
 		if config.ExtraDataCodec != nil {
-			// Register the actual codec for this family if we have it defined in core already
 			extraDataCodecRegistry.RegisterCodec(family, config.ExtraDataCodec)
+		}
+		if config.AddressCodec != nil {
+			addressCodecRegistry.RegisterCodec(family, config.AddressCodec)
 		}
 		if config.ChainRW != nil {
 			chainRWProviderMap[family] = config.ChainRW
@@ -79,7 +79,6 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 		}
 	}
 
-	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
 	pluginServices.CCIPProviderSupported = CCIPProviderSupported
 	return pluginServices, nil

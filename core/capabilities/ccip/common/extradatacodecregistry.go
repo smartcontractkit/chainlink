@@ -28,16 +28,6 @@ var (
 	registryOnce     sync.Once
 )
 
-type NoOpSourceChainExtraDataCodec struct{}
-
-func (n NoOpSourceChainExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
-	return make(map[string]any), nil
-}
-
-func (n NoOpSourceChainExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
-	return make(map[string]any), nil
-}
-
 // GetExtraDataCodecRegistry returns the singleton instance of ExtraDataCodecRegistry. This is only called
 // in core node.
 func GetExtraDataCodecRegistry() *ExtraDataCodecRegistry {
@@ -90,4 +80,14 @@ func (r *ExtraDataCodecRegistry) DecodeTokenAmountDestExecData(
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.extraDataCodec.DecodeTokenAmountDestExecData(destExecData, sourceChainSelector)
+}
+
+type NoOpSourceChainExtraDataCodec struct{}
+
+func (n NoOpSourceChainExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+	return make(map[string]any), nil
+}
+
+func (n NoOpSourceChainExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
+	return make(map[string]any), nil
 }

@@ -4,22 +4,23 @@ import (
 	"context"
 	"fmt"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	ccipcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 type configTracker struct {
 	cfg            cctypes.OCR3ConfigWithMeta
-	addressCodec   ccipcommon.AddressCodec
+	addressCodec   ccipcommontypes.AddressCodecBundle
 	contractConfig types.ContractConfig
 }
 
-func NewConfigTracker(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommon.AddressCodec) (*configTracker, error) {
+func NewConfigTracker(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommontypes.AddressCodecBundle) (*configTracker, error) {
 	contractConfig, err := contractConfigFromOCRConfig(cfg, addressCodec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contract config from ocr config: %w", err)
@@ -51,7 +52,7 @@ func (c *configTracker) Notify() <-chan struct{} {
 	return nil
 }
 
-func contractConfigFromOCRConfig(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommon.AddressCodec) (types.ContractConfig, error) {
+func contractConfigFromOCRConfig(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommontypes.AddressCodecBundle) (types.ContractConfig, error) {
 	var signers [][]byte
 	var transmitters [][]byte
 	var err error
@@ -105,7 +106,7 @@ func toOnchainPublicKeys(signers [][]byte) []types.OnchainPublicKey {
 	return keys
 }
 
-func toOCRAccounts(transmitters [][]byte, addressCodec ccipcommon.AddressCodec, chainSelector ccipocr3.ChainSelector) ([]types.Account, error) {
+func toOCRAccounts(transmitters [][]byte, addressCodec ccipcommontypes.AddressCodecBundle, chainSelector ccipocr3.ChainSelector) ([]types.Account, error) {
 	accounts := make([]types.Account, len(transmitters))
 	for i, transmitter := range transmitters {
 		address, err := addressCodec.TransmitterBytesToString(transmitter, chainSelector)
