@@ -37,7 +37,7 @@ type BaseIDLConfig struct {
 // resolve artifacts based on workflow run and write anchor.toml file to simulate anchor workspace
 func repoSetup(e cldf.Environment, chain cldf_solana.Chain, run string, artifactID string) error {
 	programName := deployment.BaseSignerRegistryProgramName
-	idlFileName := fmt.Sprintf("%s.json", programName)
+	idlFileName := programName + ".json"
 	idlFilePath := filepath.Join(chain.ProgramsPath, idlFileName)
 	if _, err := os.Stat(idlFilePath); err != nil {
 		if !os.IsNotExist(err) {

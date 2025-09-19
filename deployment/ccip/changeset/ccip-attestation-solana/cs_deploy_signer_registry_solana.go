@@ -57,7 +57,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 
 	newAddresses := cldf.NewMemoryAddressBook()
 
-	programFileName := fmt.Sprintf("%s.so", deployment.BaseSignerRegistryProgramName)
+	programFileName := deployment.BaseSignerRegistryProgramName + ".so"
 	programFilePath := filepath.Join(chain.ProgramsPath, programFileName)
 	if _, err := os.Stat(programFilePath); err != nil {
 		if !os.IsNotExist(err) {
