@@ -16,13 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-// UpdateAdminRoleChangesetV2 is a changeset that can propose AND transfer administrator roles for tokens
-// on the token admin registry. It takes array of TokenAdminInfo by chain and infers whether an the admin
-// should be proposed or transferred. The TokenAdminInfo expects a TokenAddress and AdminAddress as input
-// and divides the data into one of two groups (either propose or transfer) depending on whether an admin
-// already exists for the token. Then, it will reuse the existing logic for the following CLD migrations:
-// TransferAdminRoleChangesetV2, ProposeAdminRoleChangesetV2. The MCMS config is shared. If it is defined
-// then OrchestrateChangesets will be used. Otherwise, the operations are run individually.
+// UpdateAdminRoleChangesetV2 is a changeset that combines TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2 into
+// one operation. It accepts the same inputs as TransferAdminRoleChangesetV2 + ProposeAdminRoleChangesetV2 then infers which
+// one should be run by analyzing each input token's config from the TokenAdminRegistry. If the administrator is NOT defined
+// then it'll try to propose one. Otherwise, it will assume that the existing admin should be transferred. Once the input is
+// divided into one of two groups (either propose or transfer depending on whether an admin already exists on the token), it
+// will reuse the pre-existing validation checks + logic for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2 so
+// that code duplication is kept at a minimum. This changeset also accepts an optional MCMS property that is reused for both
+// underlying changesets. If it is defined, then OrchestrateChangesets will be used. Otherwise, things are run individually.
 var UpdateAdminRoleChangesetV2 = cldf.CreateChangeSet(updateAdminRoleLogic, updateAdminRolePrecondition)
 
 type UpdateAdminRoleConfig struct {
