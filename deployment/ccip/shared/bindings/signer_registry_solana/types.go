@@ -114,6 +114,175 @@ func UnmarshalConfig(buf []byte) (*Config, error) {
 	return obj, nil
 }
 
+type Initialized struct {
+	Owner solanago.PublicKey `json:"owner"`
+}
+
+func (obj Initialized) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Owner`:
+	err = encoder.Encode(obj.Owner)
+	if err != nil {
+		return errors.NewField("Owner", err)
+	}
+	return nil
+}
+
+func (obj Initialized) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Initialized: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Initialized) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Owner`:
+	err = decoder.Decode(&obj.Owner)
+	if err != nil {
+		return errors.NewField("Owner", err)
+	}
+	return nil
+}
+
+func (obj *Initialized) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Initialized: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalInitialized(buf []byte) (*Initialized, error) {
+	obj := new(Initialized)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type NewOwnerProposed struct {
+	CurrentOwner  solanago.PublicKey `json:"currentOwner"`
+	ProposedOwner solanago.PublicKey `json:"proposedOwner"`
+}
+
+func (obj NewOwnerProposed) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `CurrentOwner`:
+	err = encoder.Encode(obj.CurrentOwner)
+	if err != nil {
+		return errors.NewField("CurrentOwner", err)
+	}
+	// Serialize `ProposedOwner`:
+	err = encoder.Encode(obj.ProposedOwner)
+	if err != nil {
+		return errors.NewField("ProposedOwner", err)
+	}
+	return nil
+}
+
+func (obj NewOwnerProposed) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding NewOwnerProposed: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *NewOwnerProposed) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `CurrentOwner`:
+	err = decoder.Decode(&obj.CurrentOwner)
+	if err != nil {
+		return errors.NewField("CurrentOwner", err)
+	}
+	// Deserialize `ProposedOwner`:
+	err = decoder.Decode(&obj.ProposedOwner)
+	if err != nil {
+		return errors.NewField("ProposedOwner", err)
+	}
+	return nil
+}
+
+func (obj *NewOwnerProposed) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling NewOwnerProposed: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalNewOwnerProposed(buf []byte) (*NewOwnerProposed, error) {
+	obj := new(NewOwnerProposed)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type OwnerChanged struct {
+	OldOwner solanago.PublicKey `json:"oldOwner"`
+	NewOwner solanago.PublicKey `json:"newOwner"`
+}
+
+func (obj OwnerChanged) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `OldOwner`:
+	err = encoder.Encode(obj.OldOwner)
+	if err != nil {
+		return errors.NewField("OldOwner", err)
+	}
+	// Serialize `NewOwner`:
+	err = encoder.Encode(obj.NewOwner)
+	if err != nil {
+		return errors.NewField("NewOwner", err)
+	}
+	return nil
+}
+
+func (obj OwnerChanged) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding OwnerChanged: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *OwnerChanged) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `OldOwner`:
+	err = decoder.Decode(&obj.OldOwner)
+	if err != nil {
+		return errors.NewField("OldOwner", err)
+	}
+	// Deserialize `NewOwner`:
+	err = decoder.Decode(&obj.NewOwner)
+	if err != nil {
+		return errors.NewField("NewOwner", err)
+	}
+	return nil
+}
+
+func (obj *OwnerChanged) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling OwnerChanged: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalOwnerChanged(buf []byte) (*OwnerChanged, error) {
+	obj := new(OwnerChanged)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type Signer struct {
 	EvmAddress    [20]uint8  `json:"evmAddress"`
 	NewEvmAddress *[20]uint8 `bin:"optional" json:"newEvmAddress,omitempty"`

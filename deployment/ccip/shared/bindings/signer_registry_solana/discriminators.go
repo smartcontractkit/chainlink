@@ -11,9 +11,12 @@ var (
 
 // Event discriminators
 var (
-	Event_SignerAdded    = [8]byte{207, 55, 247, 68, 22, 112, 95, 45}
-	Event_SignerModified = [8]byte{56, 67, 72, 51, 67, 134, 60, 40}
-	Event_SignerRemoved  = [8]byte{61, 29, 198, 197, 109, 190, 201, 233}
+	Event_Initialized      = [8]byte{208, 213, 115, 98, 115, 82, 201, 209}
+	Event_NewOwnerProposed = [8]byte{232, 255, 42, 123, 189, 63, 32, 243}
+	Event_OwnerChanged     = [8]byte{34, 223, 103, 225, 239, 231, 51, 53}
+	Event_SignerAdded      = [8]byte{207, 55, 247, 68, 22, 112, 95, 45}
+	Event_SignerModified   = [8]byte{56, 67, 72, 51, 67, 134, 60, 40}
+	Event_SignerRemoved    = [8]byte{61, 29, 198, 197, 109, 190, 201, 233}
 )
 
 // Instruction discriminators

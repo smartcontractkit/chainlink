@@ -15,6 +15,27 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek event discriminator: %w", err)
 	}
 	switch discriminator {
+	case Event_Initialized:
+		value := new(Initialized)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as Initialized: %w", err)
+		}
+		return value, nil
+	case Event_NewOwnerProposed:
+		value := new(NewOwnerProposed)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as NewOwnerProposed: %w", err)
+		}
+		return value, nil
+	case Event_OwnerChanged:
+		value := new(OwnerChanged)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as OwnerChanged: %w", err)
+		}
+		return value, nil
 	case Event_SignerAdded:
 		value := new(SignerAdded)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -39,6 +60,57 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
+}
+
+func ParseEvent_Initialized(eventData []byte) (*Initialized, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_Initialized {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Initialized, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(Initialized)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type Initialized: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_NewOwnerProposed(eventData []byte) (*NewOwnerProposed, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_NewOwnerProposed {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_NewOwnerProposed, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(NewOwnerProposed)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type NewOwnerProposed: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_OwnerChanged(eventData []byte) (*OwnerChanged, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_OwnerChanged {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_OwnerChanged, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(OwnerChanged)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type OwnerChanged: %w", err)
+	}
+	return event, nil
 }
 
 func ParseEvent_SignerAdded(eventData []byte) (*SignerAdded, error) {

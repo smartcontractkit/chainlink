@@ -16,6 +16,8 @@ import (
 func NewAcceptOwnershipInstruction(
 	authorityAccount solanago.PublicKey,
 	configAccount solanago.PublicKey,
+	eventAuthorityAccount solanago.PublicKey,
+	programAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	accounts__ := solanago.AccountMetaSlice{}
 
@@ -25,6 +27,10 @@ func NewAcceptOwnershipInstruction(
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 		// Account 1 "config": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(configAccount, true, false))
+		// Account 2 "event_authority": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(eventAuthorityAccount, false, false))
+		// Account 3 "program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(programAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -88,32 +94,17 @@ func NewAddSignerInstruction(
 }
 
 // Builds a "initialize" instruction.
-// Initializes the CCIP Signer Registry program with initial configuration and owner. //  // This instruction must be called once after program deployment to set up the program's // state accounts. It creates both the Config and Signers accounts with their respective // Program Derived Addresses (PDAs). //  // # Parameters //  // * `ctx` - The context containing all accounts required for initialization: // - `authority`: The signer who is deploying/initializing the program. When the `init_guard` // feature is enabled, this must be the program's upgrade authority. // - `system_program`: The Solana system program for account creation. // - `config`: The Config PDA that will store the program owner and proposed owner. // - `signers`: The Signers PDA that will store the list of authorized CCIP signers. // - `program` (optional): The program account itself (when `init_guard` feature is enabled). // - `program_data` (optional): The program data account (when `init_guard` feature is enabled). //  // * `owner` - The public key that will be set as the program owner. This owner will have // exclusive authority to manage signers and propose ownership transfers. //  // # Returns //  // Returns `Ok(())` on successful initialization. //  // # Errors //  // * `InvalidInitializer` - When `init_guard` feature is enabled and the authority is not // the program's upgrade authority.
+// Initializes the CCIP Signer Registry program with initial configuration and owner. //  // This instruction must be called once after program deployment to set up the program's // state accounts. It creates both the Config and Signers accounts with their respective // Program Derived Addresses (PDAs). The authority account signing this transaction will // be set as the program owner. //  // # Parameters //  // * `ctx` - The context containing all accounts required for initialization: // - `authority`: The signer who is deploying/initializing the program. This account will // become the program owner with exclusive authority to manage signers and propose // ownership transfers. When the `init_guard` feature is enabled, this must be the // program's upgrade authority. // - `system_program`: The Solana system program for account creation. // - `config`: The Config PDA that will store the program owner and proposed owner. // - `signers`: The Signers PDA that will store the list of authorized CCIP signers. // - `program` (optional): The program account itself (when `init_guard` feature is enabled). // - `program_data` (optional): The program data account (when `init_guard` feature is enabled). //  // # Returns //  // Returns `Ok(())` on successful initialization. //  // # Errors //  // * `InvalidInitializer` - When `init_guard` feature is enabled and the authority is not // the program's upgrade authority.
 func NewInitializeInstruction(
-	// Params:
-	ownerParam solanago.PublicKey,
-
-	// Accounts:
 	authorityAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 	configAccount solanago.PublicKey,
 	signersAccount solanago.PublicKey,
+	programForVerificationAccount solanago.PublicKey,
+	programDataAccount solanago.PublicKey,
+	eventAuthorityAccount solanago.PublicKey,
+	programAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_Initialize[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `ownerParam`:
-		err = enc__.Encode(ownerParam)
-		if err != nil {
-			return nil, errors.NewField("ownerParam", err)
-		}
-	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -126,13 +117,21 @@ func NewInitializeInstruction(
 		accounts__.Append(solanago.NewAccountMeta(configAccount, true, false))
 		// Account 3 "signers": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(signersAccount, true, false))
+		// Account 4 "program_for_verification": Read-only, Non-signer, Required, Address: S1GN4jus9XzKVVnoHqfkjo1GN8bX46gjXZQwsdGBPHE
+		accounts__.Append(solanago.NewAccountMeta(programForVerificationAccount, false, false))
+		// Account 5 "program_data": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(programDataAccount, false, false))
+		// Account 6 "event_authority": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(eventAuthorityAccount, false, false))
+		// Account 7 "program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(programAccount, false, false))
 	}
 
 	// Create the instruction.
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		buf__.Bytes(),
+		nil,
 	), nil
 }
 
@@ -197,6 +196,8 @@ func NewProposeNewOwnerInstruction(
 	// Accounts:
 	authorityAccount solanago.PublicKey,
 	configAccount solanago.PublicKey,
+	eventAuthorityAccount solanago.PublicKey,
+	programAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -221,6 +222,10 @@ func NewProposeNewOwnerInstruction(
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 		// Account 1 "config": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(configAccount, true, false))
+		// Account 2 "event_authority": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(eventAuthorityAccount, false, false))
+		// Account 3 "program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(programAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -284,7 +289,7 @@ func NewRemoveSignerInstruction(
 }
 
 // Builds a "set_signer_new_address" instruction.
-// This instruction allows the program owner (configured in the `owner` field of the Config // PDA) to set a new address for a signer to enable blue/green key rotation. //  // This instruction initiates a key rotation process for a signer by setting a new EVM address // while keeping the old address active. This implements a blue/green deployment pattern where // both addresses remain valid during the transition period. Off-chain, the signer will start // exclusively signing with the new key, but on-chain, signatures from both addresses are // accepted until the rotation is completed. //  // # Parameters //  // * `ctx` - The context containing all accounts required for setting a new address: // - `authority`: Must be the current program owner as stored in the Config account. // - `config`: The Config account to verify owner authorization. // - `signers`: The mutable Signers account where the new address will be set. //  // * `signer_evm_address` - A 20-byte array representing the EVM address of the signer // that needs key rotation. This can match either an existing primary address or a // previously set new address (green address) in the list. //  // * `signer_new_evm_address` - A 20-byte array representing the new EVM address that will // replace the old address after rotation is complete. This address must not already exist // in the signers list. If this is the zero address ([0; 20]), the new EVM address will be // cleared. //  // # Returns //  // Returns `Ok(())` when the new address is successfully set for the signer. This is idempotent, // so it will return `Ok(())` even if the operation is a NOOP. //  // # Errors //  // * `Unauthorized` - The authority is not the current program owner. // * `NoMatchingSignerFound` - The signer EVM address does not exist in the signers list // (neither as a primary address nor as a new address). // * `DuplicateSigner` - The new EVM address already exists in the signers list // (either as a primary address or as another signer's new address).
+// This instruction allows the program owner (configured in the `owner` field of the Config // PDA) to set a new address for a signer to enable blue/green key rotation. //  // This instruction initiates a key rotation process for a signer by setting a new EVM address // while keeping the old address active. This implements a blue/green deployment pattern where // both addresses remain valid during the transition period. Off-chain, the signer will start // exclusively signing with the new key, but on-chain, signatures from both addresses are // accepted until the rotation is completed. //  // **Important Note on Key Re-use**: The registry allows rotating a signer back to a previously // used address. For example, an address retired at time t10 can be reinstated at time t100. // The SignerRegistry itself does not prevent key re-use. Consuming applications must account // for this behavior to prevent potential issues such as historic signatures being treated as // valid again. //  // # Parameters //  // * `ctx` - The context containing all accounts required for setting a new address: // - `authority`: Must be the current program owner as stored in the Config account. // - `config`: The Config account to verify owner authorization. // - `signers`: The mutable Signers account where the new address will be set. //  // * `signer_evm_address` - A 20-byte array representing the EVM address of the signer // that needs key rotation. This can match either an existing primary address or a // previously set new address (green address) in the list. //  // * `signer_new_evm_address` - A 20-byte array representing the new EVM address that will // replace the old address after rotation is complete. This address must not already exist // in the signers list. If this is the zero address ([0; 20]), the new EVM address will be // cleared. //  // # Returns //  // Returns `Ok(())` when the new address is successfully set for the signer. This is idempotent, // so it will return `Ok(())` even if the operation is a NOOP. //  // # Errors //  // * `Unauthorized` - The authority is not the current program owner. // * `NoMatchingSignerFound` - The signer EVM address does not exist in the signers list // (neither as a primary address nor as a new address). // * `DuplicateSigner` - The new EVM address already exists in the signers list // (either as a primary address or as another signer's new address).
 func NewSetSignerNewAddressInstruction(
 	// Params:
 	signerEvmAddressParam [20]uint8,

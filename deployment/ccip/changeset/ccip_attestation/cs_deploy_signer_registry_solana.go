@@ -17,6 +17,8 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
+	sol_binary "github.com/gagliardetto/binary"
+	sol_rpc "github.com/gagliardetto/solana-go/rpc"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -71,7 +73,19 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initali
 	configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signer_registry.ProgramID)
-	ix, err := signer_registry.NewInitializeInstruction(authority, solana.SystemProgramID, configPda, signersPda, eventAuthorityPda, signer_registry.ProgramID)
+	programData, err := getSolProgramData(e, chain, signer_registry.ProgramID)
+
+	ix, err := signer_registry.NewInitializeInstruction(
+		authority,
+		solana.SystemProgramID,
+		configPda,
+		signersPda,
+		signer_registry.ProgramID,
+		programData.Address,
+		eventAuthorityPda,
+		signer_registry.ProgramID,
+	)
+
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("Failed to initialize base signer registry contract: %w", err)
 	}
@@ -206,4 +220,26 @@ func DownloadReleaseArtifactsFromGithubWorkflowRun(
 	}
 
 	return nil
+}
+
+func getSolProgramData(e cldf.Environment, chain cldf_solana.Chain, programID solana.PublicKey) (struct {
+	DataType uint32
+	Address  solana.PublicKey
+}, error) {
+	var programData struct {
+		DataType uint32
+		Address  solana.PublicKey
+	}
+	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &sol_rpc.GetAccountInfoOpts{
+		Commitment: sol_rpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		return programData, fmt.Errorf("failed to deploy program: %w", err)
+	}
+
+	err = sol_binary.UnmarshalBorsh(&programData, data.Bytes())
+	if err != nil {
+		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
+	}
+	return programData, nil
 }
