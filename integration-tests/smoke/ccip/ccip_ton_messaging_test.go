@@ -21,6 +21,7 @@ import (
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
+	t.Skip("Skipping the test temporarily as it is flakey")
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))

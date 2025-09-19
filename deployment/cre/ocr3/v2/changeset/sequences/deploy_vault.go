@@ -65,7 +65,7 @@ var DeployVault = operations.NewSequence(
 		}
 
 		ds := datastore.NewMemoryDataStore()
-		err = ds.Merge(output1.Output.Datastore)
+		err = ds.Merge(output1.Output.Datastore.Seal())
 		if err != nil {
 			return DeployVaultOutput{}, fmt.Errorf("failed to merge datastore from plugin contract: %w", err)
 		}
@@ -89,7 +89,7 @@ var DeployVault = operations.NewSequence(
 		vaultOutput.DKGAddress = output2.Output.Address
 		vaultOutput.DKGQualifier = output2.Output.Qualifier
 
-		err = ds.Merge(output2.Output.Datastore)
+		err = ds.Merge(output2.Output.Datastore.Seal())
 		if err != nil {
 			return DeployVaultOutput{}, fmt.Errorf("failed to merge datastore from dkg contract: %w", err)
 		}

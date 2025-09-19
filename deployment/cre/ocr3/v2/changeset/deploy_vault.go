@@ -9,20 +9,14 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
 )
 
 var _ cldf.ChangeSetV2[DeployVaultInput] = DeployVault{}
 
 type DeployVaultInput struct {
-	ChainSelector uint64               `json:"chainSelector" yaml:"chainSelector"`
-	Qualifier     string               `json:"qualifier" yaml:"qualifier"`
-	Don           contracts.DonNodeSet `json:"dons" yaml:"dons"`
-	OracleConfig  *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
-	DryRun        bool                 `json:"dryRun" yaml:"dryRun"`
-	MCMSConfig    *ocr3.MCMSConfig     `json:"mcmsConfig" yaml:"mcmsConfig"`
+	ChainSelector uint64 `json:"chain_selector" yaml:"chain_selector"`
+	Qualifier     string `json:"qualifier" yaml:"qualifier"`
 }
 
 type DeployVaultDeps struct {
