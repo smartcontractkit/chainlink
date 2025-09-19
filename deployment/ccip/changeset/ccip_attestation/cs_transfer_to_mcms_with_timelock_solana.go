@@ -52,6 +52,9 @@ func (c TransferSignerRegistryToMCMSWithTimelockSolanaConfig) Validate(e cldf.En
 	}
 	solChain := e.BlockChains.SolanaChains()[c.ChainSelector]
 	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to get addresses for chain: %w", err)
+	}
 	_, err = state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 	if err != nil {
 		return fmt.Errorf("failed to load mcm state: %w", err)

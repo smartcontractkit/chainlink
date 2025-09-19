@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -35,7 +36,7 @@ type DeployBaseSignerRegistryContractConfig struct {
 	ChainSelector uint64
 	Version       semver.Version
 	WorkflowRun   string
-	ArtifactId    string
+	ArtifactID    string
 	IsUpgrade     bool
 }
 
@@ -54,7 +55,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 	chain := e.BlockChains.SolanaChains()[chainSel]
 
 	newAddresses := cldf.NewMemoryAddressBook()
-	if err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), c.WorkflowRun, c.ArtifactId, chain.ProgramsPath); err != nil {
+	if err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), c.WorkflowRun, c.ArtifactID, chain.ProgramsPath); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to download release artifacts: %w", err)
 	}
 	_, err = deployBaseSignerRegistryContract(e, chain, newAddresses, c)
@@ -81,6 +82,9 @@ func InitializeBaseSignerRegistryContractChangeset(e cldf.Environment, c Initali
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 	eventAuthorityPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("__event_authority")}, signer_registry.ProgramID)
 	programData, err := getSolProgramData(e, chain, signer_registry.ProgramID)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
 
 	ix, err := signer_registry.NewInitializeInstruction(
 		authority,
@@ -156,13 +160,13 @@ func (c InitalizeBaseSignerRegistryContractConfig) Validate(e cldf.Environment) 
 func DownloadReleaseArtifactsFromGithubWorkflowRun(
 	ctx context.Context,
 	run string,
-	artifactId string,
+	artifactID string,
 	targetPath string,
 ) error {
 	url := fmt.Sprintf(
 		"https://github.com/smartcontractkit/ccip-base/actions/runs/%s/artifacts/%s",
 		run,
-		artifactId,
+		artifactID,
 	)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -194,33 +198,47 @@ func DownloadReleaseArtifactsFromGithubWorkflowRun(
 
 	// Extract each file from the zip archive
 	for _, file := range zipReader.File {
-		targetPath := filepath.Join(targetPath, file.Name)
+		// Clean the file path to prevent directory traversal
+		cleanedName := filepath.Clean(file.Name)
+		// Ensure the file path doesn't escape the target directory
+		if strings.Contains(cleanedName, "..") {
+			return fmt.Errorf("invalid file path in archive: %s", file.Name)
+		}
+		filePath := filepath.Join(targetPath, cleanedName)
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(targetPath, file.Mode()); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
+			if err := os.MkdirAll(filePath, file.Mode()); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", filePath, err)
 			}
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-			return fmt.Errorf("failed to create parent directory for %s: %w", targetPath, err)
+		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+			return fmt.Errorf("failed to create parent directory for %s: %w", filePath, err)
 		}
 
 		fileReader, err := file.Open()
 		if err != nil {
 			return fmt.Errorf("failed to open file in zip %s: %w", file.Name, err)
 		}
-		defer fileReader.Close()
 
-		targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, file.Mode())
+		targetFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, file.Mode())
 		if err != nil {
-			return fmt.Errorf("failed to create file %s: %w", targetPath, err)
+			fileReader.Close()
+			return fmt.Errorf("failed to create file %s: %w", filePath, err)
 		}
 
-		if _, err := io.Copy(targetFile, fileReader); err != nil {
-			targetFile.Close()
-			return fmt.Errorf("failed to write file %s: %w", targetPath, err)
+		// Limit the amount of data to copy to prevent decompression bombs
+		const maxFileSize = 100 * 1024 * 1024 // 100MB limit per file
+		limitedReader := io.LimitReader(fileReader, maxFileSize)
+		n, err := io.Copy(targetFile, limitedReader)
+		fileReader.Close()
+		targetFile.Close()
+		if err != nil {
+			return fmt.Errorf("failed to write file %s: %w", filePath, err)
+		}
+		if n == maxFileSize {
+			return fmt.Errorf("file %s exceeds maximum allowed size of %d bytes", filePath, maxFileSize)
 		}
 	}
 
