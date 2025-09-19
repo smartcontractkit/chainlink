@@ -188,7 +188,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
 	}
 
-	// Create chain accessors
+	// Create chain accessors and contract transmitters for relayers that supported them
 	chainAccessors, contractTransmitters, err := i.createChainAccessorsAndContractTransmitters(ctx, extendedReaders, chainWriters, pluginServices, offrampAddrStr, pluginType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain accessors: %w", err)
