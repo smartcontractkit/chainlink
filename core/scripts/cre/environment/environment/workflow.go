@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -35,13 +36,9 @@ const (
 // getWorkflowRegistryTypeVersion returns the appropriate TypeAndVersion based on the contracts version flag
 func getWorkflowRegistryTypeVersion(contractsVersion string) deployment.TypeAndVersion {
 	switch strings.ToLower(contractsVersion) {
-	case "v1":
-		return deployment.TypeAndVersion{
-			Version: *semver.MustParse("1.0.0"),
-		}
 	case "v2":
 		return deployment.TypeAndVersion{
-			Version: *semver.MustParse("2.0.0"),
+			Version: *semver.MustParse(creconfig.WorkflowRegistryV2Semver),
 		}
 	default:
 		// Default to v1 for backward compatibility
