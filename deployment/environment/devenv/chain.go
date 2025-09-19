@@ -2,12 +2,10 @@ package devenv
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -326,27 +324,6 @@ func (c *ChainConfig) SetSolDeployerKey(keyString *string) error {
 
 	c.SolDeployerKey = solKey
 	return nil
-}
-
-func generateSolanaKeypair(privateKey solana.PrivateKey, dir string) (string, error) {
-	privateKeyBytes := []byte(privateKey)
-
-	intArray := make([]int, len(privateKeyBytes))
-	for i, b := range privateKeyBytes {
-		intArray[i] = int(b)
-	}
-
-	keypairJSON, err := json.Marshal(intArray)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal keypair: %w", err)
-	}
-
-	keypairPath := filepath.Join(dir, "solana-keypair.json")
-	if err := os.WriteFile(keypairPath, keypairJSON, 0600); err != nil {
-		return "", fmt.Errorf("failed to write keypair to file: %w", err)
-	}
-
-	return keypairPath, nil
 }
 
 func (c *ChainConfig) SetAptosDeployerKey(keyString *string) error {

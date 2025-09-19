@@ -29,13 +29,3 @@ func HexStringTo32Bytes(hexStr string) ([32]byte, error) {
 	copy(result[:], bytes)
 	return result, nil
 }
-
-// BytesTo32 converts a []byte of length 32 into a [32]byte.
-func BytesTo32(b []byte) ([32]byte, error) {
-	var out [32]byte
-	if len(b) != 32 {
-		return out, fmt.Errorf("expected 32 bytes, got %d", len(b))
-	}
-	copy(out[:], b)
-	return out, nil
-}
