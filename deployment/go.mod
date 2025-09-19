@@ -5,8 +5,7 @@ go 1.24.5
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
-// Use local ccip-base repository for development
-// replace github.com/smartcontractkit/ccip-base/chains/solana/go_bindings => ../../ccip-base/chains/solana/go_bindings
+replace github.com/smartcontractkit/ccip-base/chains/solana/go_bindings => ./ccip/shared/bindings/signer_registry_solana/
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
@@ -34,6 +33,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/rs/zerolog v1.33.0
 	github.com/sethvargo/go-retry v0.2.4
+	github.com/smartcontractkit/ccip-base/chains/solana/go_bindings v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826190403-aed7f5f33cde
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.70
