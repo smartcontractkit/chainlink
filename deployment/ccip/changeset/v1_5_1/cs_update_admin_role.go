@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
-
 	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
@@ -75,10 +73,9 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 			return updateAdminRoleConfigs{}, fmt.Errorf("selector %d does not exist in state", selector)
 		}
 
-		tokenConfigCache := map[common.Address]token_admin_registry.TokenAdminRegistryTokenConfig{}
+		tokenAddrSet := map[common.Address]bool{}
 		transferInfo := []TokenAdminInfo{}
 		proposeInfo := []TokenAdminInfo{}
-
 		for _, info := range updates {
 			// Ignore zero address (this will always have no token config)
 			if info.TokenAddress == utils.ZeroAddress {
@@ -86,36 +83,37 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 				continue
 			}
 
-			// Get token info from in-mem cache or on-chain (duplicates + other checks will be validated at a later stage)
-			tokenConfig, hit := tokenConfigCache[info.TokenAddress]
-			if !hit {
-				e.Logger.Infof(
-					"fetching token config for token '%s' from token admin registry at '%s' (chain selector = '%d')",
-					info.TokenAddress.Hex(),
-					chainState.TokenAdminRegistry.Address().Hex(),
-					selector,
-				)
-
-				tokenCfg, err := chainState.TokenAdminRegistry.GetTokenConfig(&bind.CallOpts{Context: e.GetContext()}, info.TokenAddress)
-				if err != nil {
-					return updateAdminRoleConfigs{}, fmt.Errorf(
-						"failed to get token config for token '%s' from chain with selector '%d'",
-						info.TokenAddress.Hex(),
-						selector,
-					)
-				}
-
-				e.Logger.Infof(
-					"found token config for token '%s' in token admin registry at '%s' (chain selector = '%d'): %+v",
-					info.TokenAddress.Hex(),
-					chainState.TokenAdminRegistry.Address().Hex(),
-					selector,
-					tokenCfg,
-				)
-
-				tokenConfigCache[info.TokenAddress] = tokenCfg
-				tokenConfig = tokenCfg
+			// Ignore duplicate token addresses
+			exists := tokenAddrSet[info.TokenAddress]
+			if exists {
+				e.Logger.Warnf("detected duplicate token address (%s) for chain with selector '%d' - skipping", info.TokenAddress, selector)
+				continue
 			}
+
+			e.Logger.Infof(
+				"fetching token config for token '%s' from token admin registry at '%s' (chain selector = '%d')",
+				info.TokenAddress.Hex(),
+				chainState.TokenAdminRegistry.Address().Hex(),
+				selector,
+			)
+
+			tokenConfig, err := chainState.TokenAdminRegistry.GetTokenConfig(&bind.CallOpts{Context: e.GetContext()}, info.TokenAddress)
+			if err != nil {
+				return updateAdminRoleConfigs{}, fmt.Errorf(
+					"failed to get token config for token '%s' from chain with selector '%d'",
+					info.TokenAddress.Hex(),
+					selector,
+				)
+			}
+
+			tokenAddrSet[info.TokenAddress] = true
+			e.Logger.Infof(
+				"found token config for token '%s' in token admin registry at '%s' (chain selector = '%d'): %+v",
+				info.TokenAddress.Hex(),
+				chainState.TokenAdminRegistry.Address().Hex(),
+				selector,
+				tokenConfig,
+			)
 
 			// If no admin exists for the token, then propose one otherwise transfer ownership
 			if tokenConfig.Administrator == utils.ZeroAddress {
