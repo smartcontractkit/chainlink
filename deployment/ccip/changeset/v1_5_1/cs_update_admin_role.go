@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
@@ -78,6 +79,13 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 		proposeInfo := []TokenAdminInfo{}
 
 		for _, info := range updates {
+			// Ignore zero address (this will always have no token config)
+			if info.TokenAddress == utils.ZeroAddress {
+				e.Logger.Warnf("detected null token address for chain with selector '%s' - skipping", selector)
+				continue
+			}
+
+			// Get token info from in-mem cache or on-chain (duplicates + other checks will be validated at a later stage)
 			tokenConfig, hit := tokenConfigCache[info.TokenAddress]
 			if !hit {
 				e.Logger.Infof(
@@ -109,10 +117,23 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 			}
 
 			// If no admin exists for the token, then propose one otherwise transfer ownership
-			if tokenConfig.Administrator == (common.Address{}) {
+			if tokenConfig.Administrator == utils.ZeroAddress {
 				proposeInfo = append(proposeInfo, info)
-			} else {
+				continue
+			}
+
+			// Instead of throwing an error, ignore transfers to the same admin (this will make it
+			// easier to re-run the changeset with the same inputs in case an error occurs midway)
+			if tokenConfig.Administrator != info.AdminAddress {
 				transferInfo = append(transferInfo, info)
+				continue
+			} else {
+				e.Logger.Warnf(
+					"detected a transfer to the same admin (%s) for token '%s' on chain with selector '%d' - skipping",
+					info.AdminAddress,
+					info.TokenAddress,
+					selector,
+				)
 			}
 		}
 
@@ -172,12 +193,17 @@ func updateAdminRolePrecondition(e cldf.Environment, cfg UpdateAdminRoleConfig) 
 		return fmt.Errorf("failed to populate internal configs: %w", err)
 	}
 
+	if configs.orchestrateChangesetsConfig == nil && configs.transferAdminRoleConfig == nil && configs.proposeAdminRoleConfig == nil {
+		e.Logger.Warn("no operations to perform - exiting precondition stage gracefully")
+		return nil
+	}
+
 	if configs.orchestrateChangesetsConfig != nil {
-		e.Logger.Info("MCMS config detected - using OrchestrateChangesets to verify preconditions")
+		e.Logger.Info("detected MCMS config - using OrchestrateChangesets to verify preconditions")
 		return ccipcommoncs.OrchestrateChangesets.VerifyPreconditions(e, *configs.orchestrateChangesetsConfig)
 	}
 
-	e.Logger.Info("no MCMS config detected - verifying preconditions for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2 individually")
+	e.Logger.Info("no MCMS config detected - verifying preconditions individually")
 	if configs.transferAdminRoleConfig != nil {
 		e.Logger.Info("verifying preconditions TransferAdminRoleChangesetV2...")
 		err := TransferAdminRoleChangesetV2.VerifyPreconditions(e, *configs.transferAdminRoleConfig)
@@ -194,14 +220,12 @@ func updateAdminRolePrecondition(e cldf.Environment, cfg UpdateAdminRoleConfig) 
 		}
 		e.Logger.Info("successfully verified preconditions for ProposeAdminRoleChangesetV2")
 	}
-	e.Logger.Info("all preconditions have been satisfied for TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2")
 
 	return nil
 }
 
 func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.ChangesetOutput, error) {
 	result := cldf.ChangesetOutput{}
-
 	if len(cfg.ChainUpdates) == 0 {
 		e.Logger.Warn("no chain updates were provided - exiting apply stage gracefully")
 		return cldf.ChangesetOutput{}, nil
@@ -213,12 +237,17 @@ func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.C
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate internal configs: %w", err)
 	}
 
+	if configs.orchestrateChangesetsConfig == nil && configs.transferAdminRoleConfig == nil && configs.proposeAdminRoleConfig == nil {
+		e.Logger.Warn("no operations to perform - exiting apply stage gracefully")
+		return cldf.ChangesetOutput{}, nil
+	}
+
 	if configs.orchestrateChangesetsConfig != nil {
-		e.Logger.Info("MCMS config detected - using OrchestrateChangesets to batch all operations into one MCMS proposal")
+		e.Logger.Info("detected MCMS config - using OrchestrateChangesets to batch all operations into one MCMS proposal")
 		return ccipcommoncs.OrchestrateChangesets.Apply(e, *configs.orchestrateChangesetsConfig)
 	}
 
-	e.Logger.Info("no MCMS config detected - applying TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2 sequentially")
+	e.Logger.Info("no MCMS config detected - applying changesets individually")
 	if configs.transferAdminRoleConfig != nil {
 		e.Logger.Info("applying TransferAdminRoleChangesetV2...")
 		transferOutput, err := TransferAdminRoleChangesetV2.Apply(e, *configs.transferAdminRoleConfig)
@@ -226,9 +255,13 @@ func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.C
 			result.Reports = append(result.Reports, transferOutput.Reports...)
 			return cldf.ChangesetOutput{Reports: result.Reports}, fmt.Errorf("failed to apply TransferAdminRoleChangesetV2: %w", err)
 		}
+		err = ccipcommoncs.MergeChangesetOutput(e, &result, transferOutput)
+		if err != nil {
+			result.Reports = append(result.Reports, transferOutput.Reports...)
+			return cldf.ChangesetOutput{Reports: result.Reports}, fmt.Errorf("failed to merge output of TransferAdminRoleChangesetV2: %w", err)
+		}
 		e.Logger.Info("successfully applied TransferAdminRoleChangesetV2")
 	}
-
 	if configs.proposeAdminRoleConfig != nil {
 		e.Logger.Info("applying ProposeAdminRoleChangesetV2...")
 		proposeOutput, err := ProposeAdminRoleChangesetV2.Apply(e, *configs.proposeAdminRoleConfig)
@@ -236,9 +269,13 @@ func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.C
 			result.Reports = append(result.Reports, proposeOutput.Reports...)
 			return cldf.ChangesetOutput{Reports: result.Reports}, fmt.Errorf("failed to apply ProposeAdminRoleChangesetV2: %w", err)
 		}
+		err = ccipcommoncs.MergeChangesetOutput(e, &result, proposeOutput)
+		if err != nil {
+			result.Reports = append(result.Reports, proposeOutput.Reports...)
+			return cldf.ChangesetOutput{Reports: result.Reports}, fmt.Errorf("failed to merge output of ProposeAdminRoleChangesetV2: %w", err)
+		}
 		e.Logger.Info("successfully applied ProposeAdminRoleChangesetV2")
 	}
-	e.Logger.Info("finished applying TransferAdminRoleChangesetV2 and ProposeAdminRoleChangesetV2")
 
 	return result, nil
 }

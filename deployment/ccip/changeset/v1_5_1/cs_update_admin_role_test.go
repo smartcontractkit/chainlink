@@ -94,21 +94,6 @@ func TestUpdateAdminRoleChangesetV2_Validations(t *testing.T) {
 			},
 		},
 		{
-			ErrStr: "token address cannot be zero",
-			MsgStr: "Zero token address",
-			Config: v1_5_1.UpdateAdminRoleConfig{
-				MCMS: mcmsConfig,
-				ChainUpdates: map[uint64][]v1_5_1.TokenAdminInfo{
-					selectorA: {
-						{
-							TokenAddress: utils.ZeroAddress,
-							AdminAddress: utils.RandomAddress(),
-						},
-					},
-				},
-			},
-		},
-		{
 			ErrStr: "admin address cannot be zero",
 			MsgStr: "Zero admin address",
 			Config: v1_5_1.UpdateAdminRoleConfig{
