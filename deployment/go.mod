@@ -9,10 +9,6 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 // creating potential merge conflicts.
 require github.com/smartcontractkit/chainlink/v2 v2.27.3-0.20250908153844-03478edcd69f
 
-require github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana v0.0.0
-
-replace github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana => ./ccip/shared/bindings/signer_registry_solana
-
 require (
 	dario.cat/mergo v1.0.2
 	github.com/AlekSi/pointer v1.1.0
@@ -24,6 +20,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
+	github.com/gagliardetto/anchor-go v0.3.2
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/metaplex-go v0.2.1
 	github.com/gagliardetto/solana-go v1.13.0
@@ -215,7 +212,6 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
-	github.com/gagliardetto/anchor-go v0.3.2 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gagliardetto/utilz v0.1.3 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
