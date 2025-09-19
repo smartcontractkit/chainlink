@@ -74,7 +74,7 @@ jobs:
             {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
           ]'
-  
+
           # Add list of tests with certain topologies
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
             "Test_SecureMint": [
@@ -203,13 +203,17 @@ jobs:
           # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
           go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
 
+      - name: Show Docker containers status
+        if: failure()
+        shell: bash
+        run: docker ps -a
       - name: Save Docker logs
         if: failure()
         shell: bash
         working-directory: system-tests/tests/smoke/cre
         run: |
           mkdir -p logs
-          for c in $(docker ps -a --filter "label=framework=ctf" --format '{{.Names}}'); do
+          for c in $(docker ps -a --format '{{.Names}}'); do
             docker logs "$c" > "logs/${c}.log" 2>&1
           done
 
