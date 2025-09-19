@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"

@@ -6,9 +6,10 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
-	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
