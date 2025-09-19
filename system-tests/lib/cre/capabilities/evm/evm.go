@@ -310,7 +310,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 		}
 
 		for idx, evmChain := range typedConfig.EVM {
-			chainID := uint64(evmChain.ChainID.Int64())
+			chainID := uint64(evmChain.ChainID.Int64()) //nolint:gosec // G115 not relevant in test code
 			addr, ok := chainsFromAddress[chainID]
 			if ok {
 				// if present means we need fromAddress for this chain
