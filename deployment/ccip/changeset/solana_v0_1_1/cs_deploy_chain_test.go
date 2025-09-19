@@ -444,7 +444,7 @@ func TestIDL(t *testing.T) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector:         solChain,
-				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_0,
+				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1,
 				Router:                true,
 				FeeQuoter:             true,
 				OffRamp:               true,
