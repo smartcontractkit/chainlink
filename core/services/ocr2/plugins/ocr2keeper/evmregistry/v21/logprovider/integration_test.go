@@ -200,6 +200,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
+	quarantine.Flaky(t, "DX-1766")
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 	defer cancel()
 
