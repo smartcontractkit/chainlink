@@ -82,18 +82,6 @@ func WithCapabilityRegistryV1ConfigFn(fn cre.CapabilityRegistryConfigFn) Option 
 	}
 }
 
-func WithCapabilityRegistryV2ConfigFn(fn cre.CapabilityRegistryConfigFn) Option {
-	return func(c *Capability) {
-		if c.registryConfigFns == nil {
-			c.registryConfigFns = &registryConfigFns{
-				V2: fn,
-			}
-			return
-		}
-		c.registryConfigFns.V2 = fn
-	}
-}
-
 func WithValidateFn(validateFn func(*Capability) error) Option {
 	return func(c *Capability) {
 		c.validateFn = validateFn

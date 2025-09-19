@@ -10,10 +10,6 @@ import (
 // chainRWProvider is a struct that implements the chainRWProvider.
 type chainRWProvider struct{}
 
-func NewChainRWProvider() common.ChainRWProvider {
-	return chainRWProvider{}
-}
-
 // GetChainWriter chainRWProvider returns a new noop ContractWriter.
 func (n chainRWProvider) GetChainWriter(ctx context.Context, pararms common.ChainWriterProviderOpts) (types.ContractWriter, error) {
 	return pararms.Relayer.NewContractWriter(ctx, nil)
