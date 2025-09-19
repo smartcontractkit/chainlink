@@ -56,8 +56,19 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 	chain := e.BlockChains.SolanaChains()[chainSel]
 
 	newAddresses := cldf.NewMemoryAddressBook()
-	if err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), c.WorkflowRun, c.ArtifactID, chain.ProgramsPath); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to download release artifacts: %w", err)
+
+	programFileName := fmt.Sprintf("%s.so", deployment.BaseSignerRegistryProgramName)
+	programFilePath := filepath.Join(chain.ProgramsPath, programFileName)
+	if _, err := os.Stat(programFilePath); err != nil {
+		if !os.IsNotExist(err) {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check existing program artifact: %w", err)
+		}
+		if strings.TrimSpace(c.WorkflowRun) == "" || strings.TrimSpace(c.ArtifactID) == "" {
+			return cldf.ChangesetOutput{}, fmt.Errorf("program artifact %s not found in %s and workflow run/artifact ID not provided", programFileName, chain.ProgramsPath)
+		}
+		if err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), c.WorkflowRun, c.ArtifactID, chain.ProgramsPath); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to download release artifacts: %w", err)
+		}
 	}
 	_, err = deployBaseSignerRegistryContract(e, chain, newAddresses, c)
 	if err != nil {

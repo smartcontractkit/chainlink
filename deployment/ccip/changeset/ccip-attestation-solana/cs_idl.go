@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -34,10 +36,20 @@ type BaseIDLConfig struct {
 
 // resolve artifacts based on workflow run and write anchor.toml file to simulate anchor workspace
 func repoSetup(e cldf.Environment, chain cldf_solana.Chain, run string, artifactID string) error {
-	e.Logger.Debug("Downloading artifacts from workflow run...")
-	err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), run, artifactID, chain.ProgramsPath)
-	if err != nil {
-		return fmt.Errorf("error downloading program artifacts: %w", err)
+	programName := deployment.BaseSignerRegistryProgramName
+	idlFileName := fmt.Sprintf("%s.json", programName)
+	idlFilePath := filepath.Join(chain.ProgramsPath, idlFileName)
+	if _, err := os.Stat(idlFilePath); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("error checking existing IDL artifact: %w", err)
+		}
+		if strings.TrimSpace(run) == "" || strings.TrimSpace(artifactID) == "" {
+			return fmt.Errorf("IDL artifact %s not found in %s and workflow run/artifact ID not provided", idlFileName, chain.ProgramsPath)
+		}
+		e.Logger.Debug("Downloading artifacts from workflow run...")
+		if err := DownloadReleaseArtifactsFromGithubWorkflowRun(context.Background(), run, artifactID, chain.ProgramsPath); err != nil {
+			return fmt.Errorf("error downloading program artifacts: %w", err)
+		}
 	}
 
 	// get anchor version
