@@ -63,13 +63,6 @@ func (m *testEvtHandler) GetEvents() []syncer.Event {
 	return eventsCopy
 }
 
-func newTestEvtHandler(errFn func() error) *testEvtHandler {
-	return &testEvtHandler{
-		errFn:  errFn,
-		events: make([]syncer.Event, 0),
-	}
-}
-
 type testDonNotifier struct {
 	don capabilities.DON
 	err error

@@ -1,7 +1,6 @@
 package proposalutils
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -17,22 +16,12 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
-
-func verboseDebug(lggr logger.Logger, event *owner_helpers.RBACTimelockCallScheduled) {
-	b, err := json.Marshal(event)
-	if err != nil {
-		panic(err)
-	}
-	lggr.Debugw("scheduled", "event", string(b))
-}
 
 // MCMSWithTimelockContracts holds the Go bindings
 // for a MCMSWithTimelock contract deployment.
