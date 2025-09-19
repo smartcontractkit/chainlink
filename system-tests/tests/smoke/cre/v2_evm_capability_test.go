@@ -211,7 +211,6 @@ func EVMReadFailsTest(t *testing.T, testEnv *TestEnvironment, evmNegativeTest ev
 		crecontracts.MergeAllDataStores(fullCldEnvOutput, rbOutput, rbOutput)
 
 		listenerCtx, messageChan, kafkaErrChan := startBeholder(t, testLogger, testEnv)
-		t.FailNow()
 		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
 		workflowConfig := evm_negative_config.Config{
 			ChainSelector:  bcOutput.ChainSelector,
