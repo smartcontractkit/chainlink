@@ -37,7 +37,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chain-selectors v1.0.71
+	github.com/smartcontractkit/chain-selectors v1.0.72
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.0-solana.0.20250801185822-4d19f7e5570f
 	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250807174108-141496ece254
