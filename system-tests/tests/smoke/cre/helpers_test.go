@@ -221,7 +221,7 @@ func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
 		return errors.New("beholder message validation completed with error: found engine initialization failure message")
 	case <-time.After(timeout):
-		testLogger.Error().Msg("Timed out waiting for expected user log message")
+		testLogger.Error().Str("expected_log", expectedLog).Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {
 			testLogger.Warn().Int("received_user_logs", receivedUserLogs).Msg("Received some UserLogs messages, but none matched expected log")
 		} else {

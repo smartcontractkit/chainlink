@@ -156,10 +156,12 @@ func isReportSubmittedByWorkflow(ctx context.Context, t *testing.T, forwarderCon
 // regression
 const (
 	// find returned errors in the logs of the workflow
-	balanceAtFunction                        = "BalanceAt"
-	expectedBalanceAtError                   = "balanceAt errored"
-	callContractInvalidAddressToReadFunction = "CallContract - invalid address to read"
-	expectedCallContractInvalidAddressToRead = "balances=&[+0]" // expecting empty array of balances
+	balanceAtFunction                          = "BalanceAt"
+	expectedBalanceAtError                     = "balanceAt errored"
+	callContractInvalidAddressToReadFunction   = "CallContract - invalid address to read"
+	expectedCallContractInvalidAddressToRead   = "balances=&[+0]" // expecting empty array of balances
+	callContractInvalidBRContractAddress       = "CallContract - invalid balance reader contract address"
+	expectedCallContractInvalidContractAddress = "callContract errored - invalid contract address"
 )
 
 type evmNegativeTest struct {
@@ -177,6 +179,19 @@ var evmNegativeTests = []evmNegativeTest{
 	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
 	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
 	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+
+	// CallContract - invalid balance reader contract address
+	// TODO: Uncomment tests after evm investigated and fixed evm capability that does not return anything (not error, nor empty response)
+	// "empty" will default to the 0-address which is valid but has no contract deployed, so we expect an error.
+	// {"empty", "", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	// {"a letter", "a", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	// {"a symbol", "/", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	{"a number", "1", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	// {"empty hex", "0x", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress}, // we do not care if anything but contract may be at this address
+	// {"cut hex", "0x0", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},  // we do not care if anything but contract may be at this address
+	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
 
 	// BalanceAt
 	// TODO: Move BalanceAt tests after fixing consensus crash because of invalid address
