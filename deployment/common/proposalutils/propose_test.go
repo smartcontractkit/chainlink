@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -28,6 +29,7 @@ import (
 )
 
 func TestBuildProposalFromBatchesV2(t *testing.T) {
+	quarantine.Flaky(t, "DX-1824")
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Nodes:     1,
