@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	tcommon "github.com/smartcontractkit/chainlink/system-tests/tests/common"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
 /*
@@ -20,12 +20,10 @@ Inside `core/scripts/cre/environment` directory
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
 func Test_CRE_Suite_Regression(t *testing.T) {
-	testEnv := tcommon.SetupTestEnvironmentWithConfig(t, tcommon.GetDefaultTestConfig(t))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	t.Run("[v2] CRE Regression Suite", func(t *testing.T) {
-		// negative tests for cron
-		// TODO: move to a separate package
 		for _, tCase := range cronInvalidSchedulesTests {
-			testName := fmt.Sprintf("[v2] Cron (Beholder) fails when schedule is %s", tCase.name)
+			testName := "[v2] Cron (Beholder) fails when schedule is " + tCase.name
 			t.Run(testName, func(t *testing.T) {
 				CronBeholderFailsWithInvalidScheduleTest(t, testEnv, tCase.invalidSchedule)
 			})
@@ -34,12 +32,10 @@ func Test_CRE_Suite_Regression(t *testing.T) {
 }
 
 func Test_CRE_Suite_EVM(t *testing.T) {
-	testEnv := tcommon.SetupTestEnvironmentWithConfig(t, tcommon.GetDefaultTestConfig(t))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
 
-	// negative tests for evm read
-	// TODO: move to a separate package
 	for _, tCase := range evmNegativeTests {
 		testName := fmt.Sprintf("[v2] EVM.%s fails with %s", tCase.functionToTest, tCase.name)
 		t.Run(testName, func(t *testing.T) {

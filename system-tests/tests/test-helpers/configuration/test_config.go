@@ -1,4 +1,4 @@
-package types
+package configuration
 
 import (
 	"github.com/rs/zerolog"
@@ -25,6 +25,6 @@ type TestEnvironment struct {
 	TestConfig               *TestConfig
 	EnvArtifact              *environment.EnvArtifact
 	Logger                   zerolog.Logger
-	FullCldEnvOutput         *cre.FullCLDEnvironmentOutput
+	CreEnvironment           *cre.Environment
 	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
 }

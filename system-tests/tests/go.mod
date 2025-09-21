@@ -15,6 +15,8 @@ replace github.com/smartcontractkit/chainlink/system-tests/lib => ../lib
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based => ../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
 
+replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based => ../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
+
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron => ../../core/scripts/cre/environment/examples/workflows/v2/cron
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread => ./smoke/cre/evm/evmread
@@ -48,13 +50,12 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.1
-	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-20250826151008-ae5ec0ee6f2c
-	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron v0.0.0-20250916160605-4f051f3d3f51
+	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250906212935-a1521d24f47f
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20250826151008-ae5ec0ee6f2c
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative v0.0.0-20250919212519-2a4a7719401e
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1

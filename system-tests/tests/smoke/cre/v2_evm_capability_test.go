@@ -3,7 +3,6 @@ package cre
 import (
 	"context"
 	"math/big"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -18,6 +17,8 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -26,10 +27,10 @@ import (
 )
 
 // smoke
-func ExecuteEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
+func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	lggr := framework.L
 	const workflowFileLocation = "./evm/evmread/main.go"
-	enabledChains := getEVMEnabledChains(t, testEnv)
+	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
 	var workflowsWg sync.WaitGroup
 	var successfulWorkflowRuns atomic.Int32
@@ -43,7 +44,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 		lggr.Info().Msg("Creating EVM Read workflow configuration...")
 		workflowConfig := configureEVMReadWorkflow(t, lggr, bcOutput)
 		workflowName := "evm-read-workflow-" + chainID
-		compileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 		workflowsWg.Add(1)
 		go func(bcOutput *cre.WrappedBlockchainOutput) {
@@ -58,7 +59,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 	require.Equal(t, len(enabledChains), int(successfulWorkflowRuns.Load()), "Not all workflows executed successfully")
 }
 
-func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig evm_config.Config) {
+func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttypes.TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig evm_config.Config) {
 	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 	require.NoError(t, err, "failed to find forwarder address for chain %s", bcOutput.ChainSelector)
 
@@ -117,7 +118,7 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.Wrap
 	// create and fund an address to be used by the workflow
 	amountToFund := big.NewInt(0).SetUint64(10) // 10 wei
 	numberOfAddressesToCreate := 1
-	addresses, addrErr := createAndFundAddresses(t, lggr, numberOfAddressesToCreate, amountToFund, chainSethClient, chain, nil)
+	addresses, addrErr := t_helpers.CreateAndFundAddresses(t, lggr, numberOfAddressesToCreate, amountToFund, chainSethClient, chain, nil)
 	require.NoError(t, addrErr, "failed to create and fund new addresses")
 	require.Len(t, addresses, numberOfAddressesToCreate, "failed to create the correct number of addresses")
 
@@ -150,23 +151,4 @@ func isReportSubmittedByWorkflow(ctx context.Context, t *testing.T, forwarderCon
 	require.NoError(t, iter.Error(), "error during iteration of forwarder events")
 
 	return iter.Next()
-}
-
-func getEVMEnabledChains(t *testing.T, testEnv *TestEnvironment) map[string]struct{} {
-	t.Helper()
-
-	enabledChains := map[string]struct{}{}
-	for _, nodeSet := range testEnv.Config.NodeSets {
-		require.NoError(t, nodeSet.ParseChainCapabilities())
-		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
-			continue
-		}
-
-		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
-			strChainID := strconv.FormatUint(chainID, 10)
-			enabledChains[strChainID] = struct{}{}
-		}
-	}
-	require.NotEmpty(t, enabledChains, "No chains have EVM capability enabled in any node set")
-	return enabledChains
 }
