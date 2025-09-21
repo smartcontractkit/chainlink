@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	libcre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 func loadBillingStackCache(relativePathToRepoRoot string) (*config.BillingConfig, error) {
@@ -24,7 +26,7 @@ func loadBillingStackCache(relativePathToRepoRoot string) (*config.BillingConfig
 	return c, nil
 }
 
-func startBillingStackIfIsNotRunning(relativePathToRepoRoot, environmentDir, streamsAPIURL string, testEnv *TestEnvironment) error {
+func startBillingStackIfIsNotRunning(relativePathToRepoRoot, environmentDir, streamsAPIURL string, testEnv *ttypes.TestEnvironment) error {
 	if !config.BillingStateFileExists(relativePathToRepoRoot) {
 		// set env vars for billing config
 		cache, err := loadWorkflowRegistryCache(relativePathToRepoRoot)

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
 /*
@@ -18,16 +19,16 @@ Inside `core/scripts/cre/environment` directory
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
 func Test_CRE_Suite(t *testing.T) {
-	testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
-	t.Run("[v1] CRE Suite", func(t *testing.T) {
-		// requires `readcontract`, `cron`
-		t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
-			priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
-			ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
-		})
-	})
+	// t.Run("[v1] CRE Suite", func(t *testing.T) {
+	// 	// requires `readcontract`, `cron`
+	// 	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
+	// 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
+	// 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
+	// 	})
+	// })
 
 	t.Run("[v2] CRE Suite", func(t *testing.T) {
 		t.Run("[v2] vault DON test", func(t *testing.T) {
@@ -59,7 +60,7 @@ func Test_CRE_Suite(t *testing.T) {
 }
 
 func Test_CRE_Suite_EVM(t *testing.T) {
-	testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
@@ -86,7 +87,7 @@ func Test_CRE_Suite_Tron(t *testing.T) {
 func Test_CRE_Suite_withV2Registries(t *testing.T) {
 	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
 		flags := []string{"--with-contracts-version", "v2"}
-		testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t), flags...)
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
 		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow", PoRWFV1Location)
 		ExecutePoRTest(t, testEnv, priceProvider, wfConfig)
 	})

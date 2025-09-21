@@ -16,9 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-func ExecuteBillingTest(t *testing.T, testEnv *TestEnvironment) {
+func ExecuteBillingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 	timeout := 2 * time.Minute
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
@@ -61,7 +63,7 @@ func ExecuteBillingTest(t *testing.T, testEnv *TestEnvironment) {
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *", // every 30 seconds
 	}
-	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// set up a connection to the billing database and run query until data exists
 	assert.Eventually(t, func() bool {

@@ -1,18 +1,16 @@
 package cre
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 
-	tcommon "github.com/smartcontractkit/chainlink/system-tests/tests/common"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/common/types"
 	evm_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
@@ -73,7 +71,7 @@ var evmNegativeTests = []evmNegativeTest{
 func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
 	testLogger := framework.L
 	const workflowFileLocation = "./evm/evmread-negative/main.go"
-	enabledChains := getEVMEnabledChains(t, testEnv)
+	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
 		chainID := bcOutput.BlockchainOutput.ChainID
@@ -89,7 +87,7 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 		crecontracts.MergeAllDataStores(fullCldEnvOutput, rbOutput, rbOutput)
 
-		listenerCtx, messageChan, kafkaErrChan := tcommon.StartBeholder(t, testLogger, testEnv)
+		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
 		workflowConfig := evm_negative_config.Config{
 			ChainSelector:  bcOutput.ChainSelector,
@@ -100,31 +98,12 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 			},
 		}
 		workflowName := "evm-read-fail-workflow-" + chainID
-		tcommon.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		expectedError := evmNegativeTest.expectedError
 		timeout := 2 * time.Minute
-		err := tcommon.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
+		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
 		require.NoError(t, err, "EVM Read Fail test failed")
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")
 	}
-}
-
-func getEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]struct{} {
-	t.Helper()
-
-	enabledChains := map[string]struct{}{}
-	for _, nodeSet := range testEnv.Config.NodeSets {
-		require.NoError(t, nodeSet.ParseChainCapabilities())
-		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
-			continue
-		}
-
-		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
-			strChainID := strconv.FormatUint(chainID, 10)
-			enabledChains[strChainID] = struct{}{}
-		}
-	}
-	require.NotEmpty(t, enabledChains, "No chains have EVM capability enabled in any node set")
-	return enabledChains
 }

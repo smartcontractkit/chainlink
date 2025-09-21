@@ -10,8 +10,8 @@ import (
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 
-	tcommon "github.com/smartcontractkit/chainlink/system-tests/tests/common"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/common/types"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 // regression
@@ -29,18 +29,18 @@ func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.Test
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
 	workflowName := "cronbeholder"
 
-	listenerCtx, messageChan, kafkaErrChan := tcommon.StartBeholder(t, testLogger, testEnv)
+	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 
 	testLogger.Info().Msg("Creating Cron workflow configuration file...")
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: invalidSchedule,
 	}
-	tcommon.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	testLogger.Warn().Msgf("Expecting Cron workflow to fail with invalid schedule: %s", invalidSchedule)
 	expectedBeholderLog := "expecting the error from a Beholder messages test validator" // no empty string, because it may match a message
 	timeout := 1 * time.Minute
-	expectedError := tcommon.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, timeout)
+	expectedError := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, timeout)
 	require.Error(t, expectedError, "Cron (Beholder) test failed. This test expects to fail with an error, but did not.")
 
 	testLogger.Info().Msg("Cron (Beholder) fail test completed")

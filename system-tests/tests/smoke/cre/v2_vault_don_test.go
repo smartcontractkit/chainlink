@@ -17,18 +17,19 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
-func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
+func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	/*
 		BUILD ENVIRONMENT FROM SAVED STATE
 	*/
@@ -93,11 +94,11 @@ func waitUntilReady(t *testing.T, owner, gatewayURL string) {
 
 	uniqueRequestID := uuid.New().String()
 
-	getPublicKeyRequest := jsonrpc.Request[vaultcommon.ListSecretIdentifiersRequest]{
+	getPublicKeyRequest := jsonrpc.Request[vault_helpers.ListSecretIdentifiersRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsList,
-		Params: &vaultcommon.ListSecretIdentifiersRequest{
+		Params: &vault_helpers.ListSecretIdentifiersRequest{
 			Owner: owner,
 		},
 	}
@@ -125,11 +126,11 @@ func fetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 
 	uniqueRequestID := uuid.New().String()
 
-	getPublicKeyRequest := jsonrpc.Request[vaultcommon.GetPublicKeyRequest]{
+	getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodPublicKeyGet,
-		Params:  &vaultcommon.GetPublicKeyRequest{},
+		Params:  &vault_helpers.GetPublicKeyRequest{},
 	}
 	requestBody, err := json.Marshal(getPublicKeyRequest)
 	require.NoError(t, err, "failed to marshal public key request")
@@ -138,7 +139,7 @@ func fetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vaultcommon.GetPublicKeyResponse]
+	var jsonResponse jsonrpc.Response[vault_helpers.GetPublicKeyResponse]
 	err = json.Unmarshal(httpResponseBody, &jsonResponse)
 	require.NoError(t, err, "failed to unmarshal GetPublicKeyResponse")
 	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
@@ -159,15 +160,15 @@ func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owne
 
 	uniqueRequestID := uuid.New().String()
 
-	secretsCreateRequest := jsonrpc.Request[vaultcommon.CreateSecretsRequest]{
+	secretsCreateRequest := jsonrpc.Request[vault_helpers.CreateSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsCreate,
-		Params: &vaultcommon.CreateSecretsRequest{
+		Params: &vault_helpers.CreateSecretsRequest{
 			RequestId: uniqueRequestID,
-			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			EncryptedSecrets: []*vault_helpers.EncryptedSecret{
 				{
-					Id: &vaultcommon.SecretIdentifier{
+					Id: &vault_helpers.SecretIdentifier{
 						Key:   secretID,
 						Owner: owner,
 						// Namespace: "main", // Uncomment if you want to use namespaces
@@ -199,7 +200,7 @@ func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owne
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
 
 	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
-	createSecretsResponse := vaultcommon.CreateSecretsResponse{}
+	createSecretsResponse := vault_helpers.CreateSecretsResponse{}
 	err = protojson.Unmarshal(signedOCRResponse.Payload, &createSecretsResponse)
 	require.NoError(t, err, "failed to decode payload into CreateSecretsResponse proto")
 	framework.L.Info().Msgf("CreateSecretsResponse decoded as: %s", createSecretsResponse.String())
@@ -218,22 +219,22 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 	framework.L.Info().Msg("Updating secret...")
 	uniqueRequestID := uuid.New().String()
 
-	secretsUpdateRequest := jsonrpc.Request[vaultcommon.UpdateSecretsRequest]{
+	secretsUpdateRequest := jsonrpc.Request[vault_helpers.UpdateSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsUpdate,
-		Params: &vaultcommon.UpdateSecretsRequest{
+		Params: &vault_helpers.UpdateSecretsRequest{
 			RequestId: uniqueRequestID,
-			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			EncryptedSecrets: []*vault_helpers.EncryptedSecret{
 				{
-					Id: &vaultcommon.SecretIdentifier{
+					Id: &vault_helpers.SecretIdentifier{
 						Key:   secretID,
 						Owner: owner,
 					},
 					EncryptedValue: encryptedSecret,
 				},
 				{
-					Id: &vaultcommon.SecretIdentifier{
+					Id: &vault_helpers.SecretIdentifier{
 						Key:   "invalid",
 						Owner: "invalid",
 					},
@@ -266,7 +267,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 
 	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
 
-	updateSecretsResponse := vaultcommon.UpdateSecretsResponse{}
+	updateSecretsResponse := vault_helpers.UpdateSecretsResponse{}
 	err = protojson.Unmarshal(signedOCRResponse.Payload, &updateSecretsResponse)
 	require.NoError(t, err, "failed to decode payload into UpdateSecretsResponse proto")
 	framework.L.Info().Msgf("UpdateSecretsResponse decoded as: %s", updateSecretsResponse.String())
@@ -287,13 +288,13 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string) {
 	uniqueRequestID := uuid.New().String()
 	framework.L.Info().Msg("Getting secret...")
-	secretsGetRequest := jsonrpc.Request[vaultcommon.GetSecretsRequest]{
+	secretsGetRequest := jsonrpc.Request[vault_helpers.GetSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		Method:  vaulttypes.MethodSecretsGet,
-		Params: &vaultcommon.GetSecretsRequest{
-			Requests: []*vaultcommon.SecretRequest{
+		Params: &vault_helpers.GetSecretsRequest{
+			Requests: []*vault_helpers.SecretRequest{
 				{
-					Id: &vaultcommon.SecretIdentifier{
+					Id: &vault_helpers.SecretIdentifier{
 						Key:   secretID,
 						Owner: owner,
 					},
@@ -319,7 +320,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 	require.Equal(t, vaulttypes.MethodSecretsGet, jsonResponse.Method)
 
 	/*
-	 * The json unmarshaling is not compatible with the proto oneof in vaultcommon.SecretResponse
+	 * The json unmarshaling is not compatible with the proto oneof in vault_helpers.SecretResponse
 	 * The Data and Error fields are oneof fields in the proto definition, but when unmarshaling to JSON,
 	 * the JSON unmarshaler does not handle oneof fields correctly, leading to issues.
 	 * To work around this, we define custom response types that match the expected structure.
@@ -334,9 +335,9 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 		EncryptedDecryptionKeyShares []*EncryptedShares `protobuf:"bytes,3,rep,name=encrypted_decryption_key_shares,json=encryptedDecryptionKeyShares,proto3" json:"encrypted_decryption_key_shares,omitempty"`
 	}
 	type SecretResponse struct {
-		ID    *vaultcommon.SecretIdentifier `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-		Data  *SecretData                   `protobuf:"bytes,2,opt,name=data,proto3"`
-		Error string                        `protobuf:"bytes,3,opt,name=error,proto3"`
+		ID    *vault_helpers.SecretIdentifier `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+		Data  *SecretData                     `protobuf:"bytes,2,opt,name=data,proto3"`
+		Error string                          `protobuf:"bytes,3,opt,name=error,proto3"`
 	}
 	type GetSecretsResponse struct {
 		Responses []*SecretResponse `protobuf:"bytes,1,rep,name=responses,proto3" json:"responses,omitempty"`
@@ -366,11 +367,11 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 	framework.L.Info().Msg("Listing secret...")
 	uniqueRequestID := uuid.New().String()
 
-	secretsListRequest := jsonrpc.Request[vaultcommon.ListSecretIdentifiersRequest]{
+	secretsListRequest := jsonrpc.Request[vault_helpers.ListSecretIdentifiersRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsList,
-		Params: &vaultcommon.ListSecretIdentifiersRequest{
+		Params: &vault_helpers.ListSecretIdentifiersRequest{
 			RequestId: uniqueRequestID,
 			Owner:     owner,
 		},
@@ -397,7 +398,7 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 
 	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
 
-	listSecretsResponse := vaultcommon.ListSecretIdentifiersResponse{}
+	listSecretsResponse := vault_helpers.ListSecretIdentifiersResponse{}
 	err = protojson.Unmarshal(signedOCRResponse.Payload, &listSecretsResponse)
 	require.NoError(t, err, "failed to decode payload into ListSecretIdentifiersResponse proto")
 	framework.L.Info().Msgf("ListSecretIdentifiersResponse decoded as: %s", listSecretsResponse.String())
@@ -418,13 +419,13 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 	framework.L.Info().Msg("Deleting secret...")
 	uniqueRequestID := uuid.New().String()
 
-	secretsUpdateRequest := jsonrpc.Request[vaultcommon.DeleteSecretsRequest]{
+	secretsUpdateRequest := jsonrpc.Request[vault_helpers.DeleteSecretsRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsDelete,
-		Params: &vaultcommon.DeleteSecretsRequest{
+		Params: &vault_helpers.DeleteSecretsRequest{
 			RequestId: uniqueRequestID,
-			Ids: []*vaultcommon.SecretIdentifier{
+			Ids: []*vault_helpers.SecretIdentifier{
 				{
 					Key:   secretID,
 					Owner: owner,
@@ -459,7 +460,7 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 
 	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
 
-	deleteSecretsResponse := vaultcommon.DeleteSecretsResponse{}
+	deleteSecretsResponse := vault_helpers.DeleteSecretsResponse{}
 	err = protojson.Unmarshal(signedOCRResponse.Payload, &deleteSecretsResponse)
 	require.NoError(t, err, "failed to decode payload into DeleteSecretResponse proto")
 	framework.L.Info().Msgf("DeleteSecretResponse decoded as: %s", deleteSecretsResponse.String())
