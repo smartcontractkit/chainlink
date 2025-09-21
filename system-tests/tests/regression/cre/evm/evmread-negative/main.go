@@ -16,7 +16,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative/config"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 )
 
 func main() {
@@ -123,28 +123,28 @@ func readInvalidBalancesFromContract(evmClient evm.Client, runtime sdk.Runtime, 
 func readWithInvalidReaderContractAddress(evmClient evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.CallContractReply, error) {
 	readBalancesABI, _ := getReadBalanceAbi(runtime)
 	// it is a valid 0-address to read,
-	// it does not make CallContract to error.
+	// it should not make CallContract to error.
 	// Instead, it returns either 0 or some balance depending on a chain used.
 	addressToRead := "0x0000000000000000000000000000000000000000"
 	methodName := "getNativeBalances"
 	readBalancesCall, _ := getPackedReadBalancesCall(methodName, addressToRead, readBalancesABI)
 
-	runtime.Logger().Info("Attempting to read balances using invalid balance reader contract address", "invalid_br_address", wfCfg.InvalidInput)
-	invalidReadBalancesAddress := common.Address(common.HexToAddress(wfCfg.InvalidInput))
-	runtime.Logger().Info("Starting CallContract request with parsed address", "invalid_br_address", invalidReadBalancesAddress.String())
+	runtime.Logger().Info("Attempting to read balances using invalid balance reader contract address", "invalid_rb_address", wfCfg.InvalidInput)
+	invalidReadBalancesContractAddr := common.Address(common.HexToAddress(wfCfg.InvalidInput))
+	runtime.Logger().Info("Starting CallContract request with parsed address", "invalid_rb_address", invalidReadBalancesContractAddr.String())
 	readBalancesOutput, err := evmClient.CallContract(runtime, &evm.CallContractRequest{
 		Call: &evm.CallMsg{
-			To:   invalidReadBalancesAddress.Bytes(),
+			To:   invalidReadBalancesContractAddr.Bytes(),
 			Data: readBalancesCall,
 		},
 	}).Await()
 	runtime.Logger().Info("CallContract completed", "output_data", readBalancesOutput.Data)
 	if err != nil || len(readBalancesOutput.Data) == 0 {
-		runtime.Logger().Error("expected error for invalid balance reader contract address", "invalid_br_address", invalidReadBalancesAddress.String(), "error", err, "output_data", readBalancesOutput.Data)
-		return nil, fmt.Errorf("failed to get balances for address '%s': %w", invalidReadBalancesAddress.String(), err)
+		runtime.Logger().Error("expected error for invalid balance reader contract address", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "error", err, "output_data", readBalancesOutput.Data)
+		return nil, fmt.Errorf("failed to get balances for address '%s': %w", invalidReadBalancesContractAddr.String(), err)
 	}
 
-	runtime.Logger().Info("this is not expected: reading from invalid balance reader contract address should return an error or empty response", "invalid_br_address", invalidReadBalancesAddress.String(), "output", readBalancesOutput.Data)
+	runtime.Logger().Info("this is not expected: reading from invalid balance reader contract address should return an error or empty response", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "output", readBalancesOutput.Data)
 	return readBalancesOutput, nil
 }
 
