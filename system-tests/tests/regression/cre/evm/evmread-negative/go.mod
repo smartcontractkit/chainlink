@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative
+module github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 
 go 1.24.5
 

@@ -1,0 +1,130 @@
+package cre
+
+import (
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+
+	tcommon "github.com/smartcontractkit/chainlink/system-tests/tests/common"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/common/types"
+	evm_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+)
+
+// regression
+const (
+	// find returned errors in the logs of the workflow
+	balanceAtFunction                          = "BalanceAt"
+	expectedBalanceAtError                     = "balanceAt errored"
+	callContractInvalidAddressToReadFunction   = "CallContract - invalid address to read"
+	expectedCallContractInvalidAddressToRead   = "balances=&[+0]" // expecting empty array of balances
+	callContractInvalidBRContractAddress       = "CallContract - invalid balance reader contract address"
+	expectedCallContractInvalidContractAddress = "callContract errored - invalid contract address"
+)
+
+type evmNegativeTest struct {
+	name           string
+	invalidInput   string
+	functionToTest string
+	expectedError  string
+}
+
+var evmNegativeTests = []evmNegativeTest{
+	// CallContract - invalid address to read
+	// Some invalid inputs are skipped (empty, symbols, "0x", "0x0") as they may map to the zero address and return a balance instead of empty.
+	{"a letter", "a", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+	{"a number", "1", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+
+	// CallContract - invalid balance reader contract address
+	// TODO: Uncomment tests after https://smartcontract-it.atlassian.net/browse/CRE-943
+	// "empty" will default to the 0-address which is valid but has no contract deployed, so we expect an error.
+	// {"empty", "", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	// {"a letter", "a", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	// {"a symbol", "/", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	{"a number", "1", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	// {"empty hex", "0x", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress}, // we do not care if anything but contract may be at this address
+	// {"cut hex", "0x0", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},  // we do not care if anything but contract may be at this address
+	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+
+	// BalanceAt
+	// TODO: Move BalanceAt to the top after fixing https://smartcontract-it.atlassian.net/browse/CRE-934
+	{"empty", "", balanceAtFunction, expectedBalanceAtError},
+	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
+	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
+	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
+	{"empty hex", "0x", balanceAtFunction, expectedBalanceAtError},
+	{"cut hex", "0x0", balanceAtFunction, expectedBalanceAtError},
+	{"short address", "0x123456789012345678901234567890123456789", balanceAtFunction, expectedBalanceAtError},
+	{"long address", "0x12345678901234567890123456789012345678901", balanceAtFunction, expectedBalanceAtError},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", balanceAtFunction, expectedBalanceAtError},
+}
+
+func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
+	testLogger := framework.L
+	const workflowFileLocation = "./evm/evmread-negative/main.go"
+	enabledChains := getEVMEnabledChains(t, testEnv)
+
+	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
+		chainID := bcOutput.BlockchainOutput.ChainID
+		chainSelector := bcOutput.ChainSelector
+		fullCldEnvOutput := testEnv.FullCldEnvOutput
+		if _, ok := enabledChains[chainID]; !ok {
+			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
+			continue
+		}
+
+		testLogger.Info().Msgf("Deploying additional contracts to chain %s (%d)", chainID, chainSelector)
+		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, fullCldEnvOutput)
+		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
+		crecontracts.MergeAllDataStores(fullCldEnvOutput, rbOutput, rbOutput)
+
+		listenerCtx, messageChan, kafkaErrChan := tcommon.StartBeholder(t, testLogger, testEnv)
+		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
+		workflowConfig := evm_negative_config.Config{
+			ChainSelector:  bcOutput.ChainSelector,
+			FunctionToTest: evmNegativeTest.functionToTest,
+			InvalidInput:   evmNegativeTest.invalidInput,
+			BalanceReader: evm_negative_config.BalanceReader{
+				BalanceReaderAddress: readBalancesAddress,
+			},
+		}
+		workflowName := "evm-read-fail-workflow-" + chainID
+		tcommon.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+		expectedError := evmNegativeTest.expectedError
+		timeout := 2 * time.Minute
+		err := tcommon.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
+		require.NoError(t, err, "EVM Read Fail test failed")
+		testLogger.Info().Msg("EVM Read Fail test successfully completed")
+	}
+}
+
+func getEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]struct{} {
+	t.Helper()
+
+	enabledChains := map[string]struct{}{}
+	for _, nodeSet := range testEnv.Config.NodeSets {
+		require.NoError(t, nodeSet.ParseChainCapabilities())
+		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
+			continue
+		}
+
+		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
+			strChainID := strconv.FormatUint(chainID, 10)
+			enabledChains[strChainID] = struct{}{}
+		}
+	}
+	require.NotEmpty(t, enabledChains, "No chains have EVM capability enabled in any node set")
+	return enabledChains
+}
