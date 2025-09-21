@@ -1,7 +1,6 @@
 package cre
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -39,15 +38,6 @@ func Test_CRE_Suite(t *testing.T) {
 			ExecuteCronBeholderTest(t, testEnv)
 		})
 
-		// negative tests for cron
-		// TODO: move to a separate package
-		for _, tCase := range cronInvalidSchedulesTests {
-			testName := fmt.Sprintf("[v2] Cron (Beholder) fails when schedule is %s (%s)", tCase.name, tCase.invalidSchedule)
-			t.Run(testName, func(t *testing.T) {
-				CronBeholderFailWithInvalidScheduleTest(t, testEnv, tCase.invalidSchedule)
-			})
-		}
-
 		t.Run("[v2] HTTP trigger and action test", func(t *testing.T) {
 			t.Skip("Skipping flaky test https://chainlink-core.slack.com/archives/C07GQNPVBB5/p1757085817724369")
 			// requires `http_trigger`, `http_action`
@@ -73,7 +63,7 @@ func Test_CRE_Suite_EVM(t *testing.T) {
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
-	t.Run("[v2] EVM Write Test", func(t *testing.T) {
+	t.Run("[v2] EVM Write happy path test", func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
@@ -82,15 +72,6 @@ func Test_CRE_Suite_EVM(t *testing.T) {
 	t.Run("[v2] EVM Read happy path test", func(t *testing.T) {
 		ExecuteEVMReadTest(t, testEnv)
 	})
-
-	// negative tests for evm read
-	// TODO: move to a separate package
-	for _, tCase := range evmNegativeTests {
-		testName := fmt.Sprintf("[v2] EVM.%s fails with %s (%s)", tCase.functionToTest, tCase.name, tCase.invalidInput)
-		t.Run(testName, func(t *testing.T) {
-			EVMReadFailsTest(t, testEnv, tCase)
-		})
-	}
 }
 
 func Test_CRE_Suite_Tron(t *testing.T) {
@@ -102,7 +83,7 @@ func Test_CRE_Suite_Tron(t *testing.T) {
 	})
 }
 
-func Test_withV2Registries(t *testing.T) {
+func Test_CRE_Suite_withV2Registries(t *testing.T) {
 	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
 		flags := []string{"--with-contracts-version", "v2"}
 		testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t), flags...)
