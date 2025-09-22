@@ -1,10 +1,7 @@
 package cre
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
-	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -73,7 +70,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	secretValue := "Secret Value to be stored"
-	vaultPublicKey := fetchVaultPublicKey(t, gatewayURL.String())
+	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
 	encryptedSecret, err := crevault.EncryptSecret(secretValue, vaultPublicKey)
 	require.NoError(t, err, "failed to encrypt secret")
 
@@ -104,54 +101,20 @@ func waitUntilReady(t *testing.T, owner, gatewayURL string) {
 	requestBody, err := json.Marshal(getPublicKeyRequest)
 	require.NoError(t, err, "failed to marshal public key request")
 
-	statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, _ := SendVaultRequestToGateway(t, gatewayURL, requestBody)
 	if statusCode == http.StatusGatewayTimeout {
 		framework.L.Warn().Msg("Received 504 Gateway Timeout. This may be due to the Vault DON not being ready yet. Retrying 1st time in 30 seconds...")
 		time.Sleep(30 * time.Second)
-		statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		statusCode, _ = SendVaultRequestToGateway(t, gatewayURL, requestBody)
 		if statusCode == http.StatusGatewayTimeout {
 			framework.L.Warn().Msg("Received 504 Gateway Timeout again. This may be due to the Vault DON not being ready yet. Retrying 2nd time in 30 seconds...")
 			time.Sleep(30 * time.Second)
-			statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
+			statusCode, _ = SendVaultRequestToGateway(t, gatewayURL, requestBody)
 		}
 	}
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msgf("Received ready response from Vault DON")
-}
-
-func fetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
-	framework.L.Info().Msg("Fetching Vault Public Key...")
-
-	uniqueRequestID := uuid.New().String()
-
-	getPublicKeyRequest := jsonrpc.Request[vaultcommon.GetPublicKeyRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodPublicKeyGet,
-		Params:  &vaultcommon.GetPublicKeyRequest{},
-	}
-	requestBody, err := json.Marshal(getPublicKeyRequest)
-	require.NoError(t, err, "failed to marshal public key request")
-
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-
-	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vaultcommon.GetPublicKeyResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
-	require.NoError(t, err, "failed to unmarshal GetPublicKeyResponse")
-	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
-	if jsonResponse.Error != nil {
-		require.Empty(t, jsonResponse.Error.Error())
-	}
-	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, uniqueRequestID, jsonResponse.ID)
-	require.Equal(t, vaulttypes.MethodPublicKeyGet, jsonResponse.Method)
-
-	publicKeyResponse := jsonResponse.Result
-	framework.L.Info().Msgf("Public Key: %s", publicKeyResponse.PublicKey)
-	return publicKeyResponse.PublicKey
 }
 
 func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string) {
@@ -180,7 +143,7 @@ func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owne
 	requestBody, err := json.Marshal(secretsCreateRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
@@ -245,7 +208,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 	requestBody, err := json.Marshal(secretsUpdateRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
@@ -304,7 +267,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 	}
 	requestBody, err := json.Marshal(secretsGetRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 	framework.L.Info().Msg("Checking jsonResponse structure...")
 	var jsonResponse jsonrpc.Response[json.RawMessage]
@@ -378,7 +341,7 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 	requestBody, err := json.Marshal(secretsListRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
 	err = json.Unmarshal(httpResponseBody, &jsonResponse)
@@ -439,7 +402,7 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 	requestBody, err := json.Marshal(secretsUpdateRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 	framework.L.Info().Msg("Checking jsonResponse structure...")
 	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
@@ -474,23 +437,4 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 	require.Contains(t, result1.Error, "key does not exist")
 
 	framework.L.Info().Msg("Secrets deleted successfully")
-}
-
-func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
-	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
-	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
-	require.NoError(t, err, "failed to create request")
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	require.NoError(t, err, "failed to execute request")
-	defer resp.Body.Close()
-
-	body, err = io.ReadAll(resp.Body)
-	require.NoError(t, err, "failed to read http response body")
-	framework.L.Info().Msgf("HTTP Response Body: %s", string(body))
-	return resp.StatusCode, body
 }

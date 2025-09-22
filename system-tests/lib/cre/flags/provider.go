@@ -7,9 +7,9 @@ type DefaultCapbilityFlagsProvider struct {
 	chainSpecificCapabilities []cre.CapabilityFlag
 }
 
-func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
+func NewDefaultCapabilityFlagsProvider(extraGlobalFlags []string) *DefaultCapbilityFlagsProvider {
 	return &DefaultCapbilityFlagsProvider{
-		globalCapabilities: []cre.CapabilityFlag{
+		globalCapabilities: append([]cre.CapabilityFlag{
 			cre.ConsensusCapability,
 			cre.ConsensusCapabilityV2,
 			cre.CronCapability,
@@ -21,7 +21,7 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
 			cre.WriteSolanaCapability,
-		},
+		}, extraGlobalFlags...),
 		chainSpecificCapabilities: []cre.CapabilityFlag{
 			cre.EVMCapability,
 			cre.WriteEVMCapability,

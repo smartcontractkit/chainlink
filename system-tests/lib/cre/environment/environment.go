@@ -108,6 +108,7 @@ func SetupTestEnvironment(
 	testLogger zerolog.Logger,
 	singleFileLogger logger.Logger,
 	input *SetupInput,
+	relativePathToRepoRoot string,
 ) (*SetupOutput, error) {
 	if input == nil {
 		return nil, pkgerrors.New("input is nil")
@@ -353,7 +354,7 @@ func SetupTestEnvironment(
 
 	appendOutputsToInput(input, nodeSetOutput, startBlockchainsOutput, jdOutput)
 
-	if err := workflowRegistryConfigurationOutput.Store(config.MustWorkflowRegistryStateFileAbsPath("../../../../")); err != nil {
+	if err := workflowRegistryConfigurationOutput.Store(config.MustWorkflowRegistryStateFileAbsPath(relativePathToRepoRoot)); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to store workflow registry configuration output")
 	}
 

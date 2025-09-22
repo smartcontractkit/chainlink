@@ -291,7 +291,7 @@ func startCmd() *cobra.Command {
 
 			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
-				flags.NewDefaultCapabilityFlagsProvider(),
+				flags.NewDefaultCapabilityFlagsProvider(nil),
 				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
 				cre.NewCLIFlagsProvider(withV2Registries),
 			)
@@ -639,7 +639,7 @@ func StartCLIEnvironment(
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
 	defer cancel()
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
