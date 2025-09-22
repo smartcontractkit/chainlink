@@ -75,7 +75,7 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		for _, donMetadata := range testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata {
+		for _, donMetadata := range testEnv.CreEnvironment.DonTopology.DonsWithMetadata {
 			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
 				if !slices.Contains(writeableChains, bcOutput.ChainID) {
 					writeableChains = append(writeableChains, bcOutput.ChainID)
@@ -255,7 +255,7 @@ func drainChannels(messageChan <-chan proto.Message, kafkaErrChan <-chan error) 
 //////////////////////////////
 
 // Creates and funds a specified number of new Ethereum addresses on a given chain.
-func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) ([]common.Address, error) {
+func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
 	var addressesToRead []common.Address
 
@@ -269,7 +269,7 @@ func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 
 		switch bcOutput.BlockchainOutput.Family {
 		case blockchain.FamilyTron:
-			if err := environment.FundTronAddress(t.Context(), testLogger, addressToRead, amountToFund.Uint64(), bcOutput, fullCldEnvOutput.Environment); err != nil {
+			if err := environment.FundTronAddress(t.Context(), testLogger, addressToRead, amountToFund.Uint64(), bcOutput, fullCldEnvOutput.CldfEnvironment); err != nil {
 				return nil, err
 			}
 		default:
@@ -525,14 +525,14 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
 	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
 
-	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.FullCldEnvOutput.DonTopology.ToDonMetadata(), cre.WorkflowDON)
+	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.CreEnvironment.DonTopology.ToDonMetadata(), cre.WorkflowDON)
 	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
 	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDON.Name, workflowConfig, workflowFileLocation)
 
 	// Ignoring the deprecation warning as the suggest solution is not working in CI
 	//lint:ignore SA1019 ignoring deprecation warning for this usage
 	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
-		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
+		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
 		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
 
@@ -544,7 +544,7 @@ func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
 		ChainID:                     homeChainSelector,
-		DonID:                       testEnv.FullCldEnvOutput.DonTopology.DonsWithMetadata[0].ID,
+		DonID:                       testEnv.CreEnvironment.DonTopology.DonsWithMetadata[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
 		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
 	}

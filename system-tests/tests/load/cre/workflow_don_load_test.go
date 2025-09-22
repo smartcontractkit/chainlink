@@ -156,9 +156,9 @@ func setupLoadTestEnvironment(
 		SingleFileLogger:          singleFileLogger,
 		HomeChainBlockchainOutput: universalSetupOutput.BlockchainOutput[0].BlockchainOutput,
 		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
-		FullCLDEnvOutput: &cretypes.FullCLDEnvironmentOutput{
-			Environment: universalSetupOutput.CldEnvironment,
-			DonTopology: universalSetupOutput.DonTopology,
+		CreEnvironment: &cretypes.Environment{
+			CldfEnvironment: universalSetupOutput.CldEnvironment,
+			DonTopology:     universalSetupOutput.DonTopology,
 		},
 	}
 

@@ -37,7 +37,7 @@ type TestEnvironment struct {
 	TestConfig               *TestConfig
 	EnvArtifact              *environment.EnvArtifact
 	Logger                   zerolog.Logger
-	FullCldEnvOutput         *cre.FullCLDEnvironmentOutput
+	CreEnvironment           *cre.Environment
 	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
 }
 
@@ -47,7 +47,7 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *TestConfig, flags ...st
 	createEnvironment(t, tconf, flags...)
 	in := getEnvironmentConfig(t)
 	envArtifact := getEnvironmentArtifact(t, tconf.RelativePathToRepoRoot)
-	fullCldEnvOutput, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
+	creEnvironment, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, err, "failed to load environment")
 
 	return &TestEnvironment{
@@ -55,7 +55,7 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *TestConfig, flags ...st
 		TestConfig:               tconf,
 		EnvArtifact:              envArtifact,
 		Logger:                   framework.L,
-		FullCldEnvOutput:         fullCldEnvOutput,
+		CreEnvironment:           creEnvironment,
 		WrappedBlockchainOutputs: wrappedBlockchainOutputs,
 	}
 }

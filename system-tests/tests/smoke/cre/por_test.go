@@ -93,7 +93,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 		chainSelector := bcOutput.ChainSelector
 		chainType := bcOutput.BlockchainOutput.Type
 		perChainSethClient := bcOutput.SethClient
-		fullCldEnvOutput := testEnv.FullCldEnvOutput
+		creEnvironment := testEnv.CreEnvironment
 		feedID := cfg.FeedIDs[idx]
 
 		if chainType == blockchain.FamilySolana {
@@ -108,22 +108,22 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 		var dataFeedsCacheAddress common.Address
 		var readBalancesAddress common.Address
 
-		uniqueWorkflowName := cfg.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]                                                                     // e.g. 'por-workflow-1337-5f37_config'
-		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+		uniqueWorkflowName := cfg.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4]                                                                       // e.g. 'por-workflow-1337-5f37_config'
+		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(creEnvironment.CldfEnvironment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
 
 		switch chainFamily {
 		case blockchain.FamilyTron:
-			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureTronContracts(t, testLogger, chainSelector, fullCldEnvOutput, workflowOwner, uniqueWorkflowName, feedID, forwarderAddress)
+			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureTronContracts(t, testLogger, chainSelector, creEnvironment, workflowOwner, uniqueWorkflowName, feedID, forwarderAddress)
 			chainFamily = blockchain.FamilyEVM
 		default:
 			workflowOwner = bcOutput.SethClient.MustGetRootKeyAddress()
-			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, fullCldEnvOutput, workflowOwner, uniqueWorkflowName, feedID, forwarderAddress)
+			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, uniqueWorkflowName, feedID, forwarderAddress)
 		}
 
 		// reset to avoid incrementing on each iteration
 		amountToFund = big.NewInt(0).SetUint64(10) // 10 wei
-		addressesToRead, addrErr := createAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, perChainSethClient, bcOutput, fullCldEnvOutput)
+		addressesToRead, addrErr := createAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, perChainSethClient, bcOutput, creEnvironment)
 		require.NoError(t, addrErr, "failed to create and fund addresses to read")
 
 		testLogger.Info().Msg("Creating PoR workflow configuration file...")
@@ -159,21 +159,21 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 	validatePoRPrices(t, testEnv, priceProvider, &cfg, *amountToFund)
 }
 
-func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
+func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
 	testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
-	dfAddress, dfOutput, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, fullCldEnvOutput)
+	dfAddress, dfOutput, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 
-	rbAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, fullCldEnvOutput)
+	rbAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 
 	require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 
-	crecontracts.MergeAllDataStores(fullCldEnvOutput, dfOutput, rbOutput)
+	crecontracts.MergeAllDataStores(creEnvironment, dfOutput, rbOutput)
 
 	testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
 
 	configInput := &cre.ConfigureDataFeedsCacheInput{
-		CldEnv:                fullCldEnvOutput.Environment,
+		CldEnv:                creEnvironment.CldfEnvironment,
 		ChainSelector:         chainSelector,
 		FeedIDs:               []string{feedID},
 		Descriptions:          []string{"PoR test feed"},
@@ -190,7 +190,7 @@ func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, cha
 	return dfAddress, rbAddress
 }
 
-func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
+func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
 	// Use Tron-specific changeset with deploy options
 	deployOptions := cldf_tron.DefaultDeployOptions()
 	deployOptions.FeeLimit = 1_000_000_000
@@ -201,16 +201,16 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		DeployOptions:  deployOptions,
 	}
 
-	dfOutput, dfErr := changeset.RunChangeset(tron_df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, tronDeployConfig)
+	dfOutput, dfErr := changeset.RunChangeset(tron_df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 
-	rbOutput, rbErr := changeset.RunChangeset(tron_keystone_changeset.DeployReadBalanceChangeset, *fullCldEnvOutput.Environment, tronDeployConfig)
+	rbOutput, rbErr := changeset.RunChangeset(tron_keystone_changeset.DeployReadBalanceChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
 	require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 
-	crecontracts.MergeAllDataStores(fullCldEnvOutput, dfOutput, rbOutput)
+	crecontracts.MergeAllDataStores(creEnvironment, dfOutput, rbOutput)
 
 	// Get DataFeedsCache address from merged DataStore
-	dfAddressRefs := fullCldEnvOutput.Environment.DataStore.Addresses().Filter(
+	dfAddressRefs := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByChainSelector(chainSelector),
 		datastore.AddressRefByType(df_changeset.DataFeedsCache),
 	)
@@ -218,7 +218,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 	dataFeedsCacheAddress := common.HexToAddress(dfAddressRefs[0].Address)
 
 	// Get BalanceReader address from merged DataStore
-	rbAddressRefs := fullCldEnvOutput.Environment.DataStore.Addresses().Filter(
+	rbAddressRefs := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByChainSelector(chainSelector),
 		datastore.AddressRefByType("BalanceReader"),
 	)
@@ -228,7 +228,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 	testLogger.Info().Msgf("Tron DataFeedsCache address: %s", dataFeedsCacheAddress.Hex())
 	testLogger.Info().Msgf("Tron BalanceReader address: %s", readBalancesAddress.Hex())
 
-	tronChains := fullCldEnvOutput.Environment.BlockChains.TronChains()
+	tronChains := creEnvironment.CldfEnvironment.BlockChains.TronChains()
 	tronChain, exists := tronChains[chainSelector]
 	require.True(t, exists, "Tron chain %d not found in environment", chainSelector)
 
@@ -243,7 +243,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		TriggerOptions: triggerOptions,
 	}
 
-	_, setDeployerAdminErr := changeset.RunChangeset(tron_df_changeset.SetFeedAdminChangeset, *fullCldEnvOutput.Environment, setDeployerAdminConfig)
+	_, setDeployerAdminErr := changeset.RunChangeset(tron_df_changeset.SetFeedAdminChangeset, *creEnvironment.CldfEnvironment, setDeployerAdminConfig)
 	require.NoError(t, setDeployerAdminErr, "failed to set deployer as admin for Tron chain")
 
 	workflowNameBytes := df_changeset.HashedWorkflowName(uniqueWorkflowName)
@@ -271,7 +271,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		TriggerOptions:   triggerOptions,
 	}
 
-	_, setConfigErr := changeset.RunChangeset(tron_df_changeset.SetFeedConfigChangeset, *fullCldEnvOutput.Environment, setFeedConfigConfig)
+	_, setConfigErr := changeset.RunChangeset(tron_df_changeset.SetFeedConfigChangeset, *creEnvironment.CldfEnvironment, setFeedConfigConfig)
 	require.NoError(t, setConfigErr, "failed to set feed config for Tron chain")
 
 	testLogger.Info().Msgf("Successfully configured Tron data feeds cache for chain %d", chainSelector)
@@ -317,7 +317,7 @@ func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, e
 }
 
 func validateTronPrices(t *testing.T, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
-	dfAddressRefs := testEnv.FullCldEnvOutput.Environment.DataStore.Addresses().Filter(
+	dfAddressRefs := testEnv.CreEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByChainSelector(bcOutput.ChainSelector),
 		datastore.AddressRefByType(df_changeset.DataFeedsCache),
 	)
@@ -328,7 +328,7 @@ func validateTronPrices(t *testing.T, testEnv *TestEnvironment, bcOutput *cre.Wr
 
 	dataFeedsCacheAddresses := common.HexToAddress(dfAddressRefs[0].Address)
 
-	tronChains := testEnv.FullCldEnvOutput.Environment.BlockChains.TronChains()
+	tronChains := testEnv.CreEnvironment.CldfEnvironment.BlockChains.TronChains()
 	tronChain, exists := tronChains[bcOutput.ChainSelector]
 	if !exists {
 		return fmt.Errorf("Tron chain %d not found in environment", bcOutput.ChainSelector)
@@ -452,7 +452,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 
 func validateEVMPrices(t *testing.T, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
 	dataFeedsCacheAddresses, _, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-		testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		bcOutput.ChainSelector,
 		df_changeset.DataFeedsCache.String(),
 	)

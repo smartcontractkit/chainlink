@@ -507,13 +507,32 @@ func deployChainContractsSolana(
 	for _, metadata := range config.BurnMintTokenPoolMetadata {
 		//nolint:gocritic // this is a false positive, we need to check if the address is zero
 		if chainState.BurnMintTokenPools[metadata].IsZero() {
+			e.Logger.Infow("Deploying new burn mint token pool", "metadata", metadata)
 			burnMintTokenPool, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.BurnMintTokenPool, deployment.Version1_0_0, false, metadata)
 			if err != nil {
 				return batches, fmt.Errorf("failed to deploy program: %w", err)
 			}
 			burnMintTokenPools = append(burnMintTokenPools, burnMintTokenPool)
 		} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
+			e.Logger.Infow("Upgrading existing burn mint token pool", "addr", chainState.BurnMintTokenPools[metadata].String())
 			burnMintTokenPool := chainState.BurnMintTokenPools[metadata]
+			if metadata != shared.CLLMetadata {
+				newBuildConfig := BuildSolanaConfig{
+					SolanaContractVersion: config.BuildConfig.SolanaContractVersion,
+					DestinationDir:        config.BuildConfig.DestinationDir,
+					LocalBuild: LocalBuildConfig{
+						BuildLocally: true,
+						UpgradeKeys: map[cldf.ContractType]string{
+							shared.BurnMintTokenPool: burnMintTokenPool.String(),
+						},
+					},
+				}
+				// we have to build on the fly per token pool so the keys are properly set, so we can't use the build call above
+				err = BuildSolana(e, newBuildConfig)
+				if err != nil {
+					return batches, fmt.Errorf("failed to build solana: %w", err)
+				}
+			}
 			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPools[metadata], shared.BurnMintTokenPool)
 			if err != nil {
 				return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
@@ -539,13 +558,32 @@ func deployChainContractsSolana(
 	for _, metadata := range config.LockReleaseTokenPoolMetadata {
 		//nolint:gocritic // this is a false positive, we need to check if the address is zero
 		if chainState.LockReleaseTokenPools[metadata].IsZero() {
+			e.Logger.Infow("Deploying new lock release token pool", "metadata", metadata)
 			lockReleaseTokenPool, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, shared.LockReleaseTokenPool, deployment.Version1_0_0, false, metadata)
 			if err != nil {
 				return batches, fmt.Errorf("failed to deploy program: %w", err)
 			}
 			lockReleaseTokenPools = append(lockReleaseTokenPools, lockReleaseTokenPool)
 		} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
+			e.Logger.Infow("Upgrading existing lock release token pool", "addr", chainState.LockReleaseTokenPools[metadata].String())
 			lockReleaseTokenPool := chainState.LockReleaseTokenPools[metadata]
+			if metadata != shared.CLLMetadata {
+				newBuildConfig := BuildSolanaConfig{
+					SolanaContractVersion: config.BuildConfig.SolanaContractVersion,
+					DestinationDir:        config.BuildConfig.DestinationDir,
+					LocalBuild: LocalBuildConfig{
+						BuildLocally: true,
+						UpgradeKeys: map[cldf.ContractType]string{
+							shared.LockReleaseTokenPool: lockReleaseTokenPool.String(),
+						},
+					},
+				}
+				// we have to build on the fly per token pool so the keys are properly set, so we can't use the build call above
+				err = BuildSolana(e, newBuildConfig)
+				if err != nil {
+					return batches, fmt.Errorf("failed to build solana: %w", err)
+				}
+			}
 			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPools[metadata], shared.LockReleaseTokenPool)
 			if err != nil {
 				return batches, fmt.Errorf("failed to generate upgrade txns: %w", err)
