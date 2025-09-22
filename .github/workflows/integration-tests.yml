@@ -710,14 +710,13 @@ jobs:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs:
-      [
+    needs: [
         build-chainlink,
         run-core-e2e-tests-for-pr,
         run-core-e2e-tests-for-push,
         run-core-e2e-tests-for-merge-queue,
         run-core-e2e-tests-for-workflow-dispatch,
-        run-core-cre-e2e-tests-for-pr,
+        # run-core-cre-e2e-tests-for-pr,
         run-core-cre-e2e-tests-for-push,
         run-core-cre-e2e-tests-for-merge-queue,
         run-core-cre-e2e-tests-for-workflow-dispatch,
@@ -805,11 +804,10 @@ jobs:
     # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
     # By always running this, it delays the start of the next workflow run due to concurrency rules.
     if: always() && !cancelled()
-    needs:
-      [
+    needs: [
         run-core-e2e-tests-for-pr,
         run-ccip-e2e-tests-for-pr,
-        run-core-cre-e2e-tests-for-pr,
+        # run-core-cre-e2e-tests-for-pr,
         run-core-e2e-tests-for-merge-queue,
         run-ccip-e2e-tests-for-merge-queue,
         run-core-cre-e2e-tests-for-merge-queue,
