@@ -594,14 +594,19 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 				DonID:         donID,
 				WorkflowName:  engine.WorkflowName,
 			}
-			events = append(events, &reconciliationEvent{
-				Event: Event{
-					Data:      toDeletedEvent,
-					EventType: WorkflowDeletedEvent,
+			events = append(
+				[]*reconciliationEvent{
+					{
+						Event: Event{
+							Data:      toDeletedEvent,
+							EventType: WorkflowDeletedEvent,
+						},
+						signature: signature,
+						id:        id,
+					},
 				},
-				signature: signature,
-				id:        id,
-			})
+				events...,
+			)
 		}
 	}
 

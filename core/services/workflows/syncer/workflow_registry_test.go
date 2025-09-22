@@ -510,6 +510,63 @@ func Test_generateReconciliationEvents(t *testing.T) {
 		require.Empty(t, pendingEvents)
 	})
 
+	t.Run("delete events are handled before any other events", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		donID := uint32(1)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		// Engine already in the workflow registry
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		owner := []byte{1}
+		wfName := "wf name 1"
+		err := er.Add(EngineRegistryKey{Owner: owner, Name: wfName}, &mockService{}, wfID)
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		// The first workflow is delete and a second workflow is added
+		wfID2 := [32]byte{2}
+		wfName2 := "wf name 2"
+		binaryURL := "b1"
+		configURL := "c1"
+		metadata := []GetWorkflowMetadata{
+			{
+				WorkflowID:   wfID2,
+				Owner:        owner,
+				DonID:        donID,
+				Status:       WorkflowStatusActive,
+				WorkflowName: wfName2,
+				BinaryURL:    binaryURL,
+				ConfigURL:    configURL,
+				SecretsURL:   "",
+			},
+		}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, donID)
+		require.NoError(t, err)
+
+		// Delete event happens before create event
+		require.Equal(t, WorkflowDeletedEvent, events[0].EventType)
+		require.Equal(t, WorkflowRegisteredEvent, events[1].EventType)
+	})
+
 	t.Run("reconciles with a pending event if it has the same signature", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)
