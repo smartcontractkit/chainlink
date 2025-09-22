@@ -23,10 +23,13 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
+	sui_onramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_onramp/onramp"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	aptosState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	suiState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/sui"
 )
 
 // LaneConfig represents a unidirectional lane from source to destination
@@ -327,10 +330,10 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 
 	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
 	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
-	aptosChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyAptos))
+	suiChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySui))
 	//nolint: gocritic // append is fine here
 	allChains := append(evmChains, solChains...)
-	allChains = append(allChains, aptosChains...)
+	allChains = append(allChains, suiChains...)
 
 	// Discover EVM to EVM lanes
 	for _, srcChain := range evmChains {
@@ -386,6 +389,17 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		if err != nil {
 			return fmt.Errorf("failed to get enabled EVM destinations for Aptos chain %d: %w", srcChain, err)
 		}
+
+		for _, dstChain := range destinations {
+			discoveredLanes = append(discoveredLanes, LaneConfig{
+				SourceChain:      srcChain,
+				DestinationChain: dstChain,
+			})
+		}
+	}
+
+	
+	
 
 		for _, dstChain := range destinations {
 			discoveredLanes = append(discoveredLanes, LaneConfig{
@@ -471,6 +485,29 @@ func (lc *LaneConfiguration) getEnabledDestinationsFromAptosRouter(env cldf.Envi
 	return enabledDestinations, nil
 }
 
+// getEnabledDestinationsFromSuiRouter checks which destinations are enabled on the SUI Router
+func (lc *LaneConfiguration) getEnabledDestinationsFromSuiRouter(env cldf.Environment, selector uint64, chainState suiState.CCIPChainState, candidateDestinations []uint64) ([]uint64, error) {
+	var enabledDestinations []uint64
+
+	// For each candidate destination, check if it's enabled on the SUI Router
+	for _, dstChain := range candidateDestinations {
+		if dstChain == selector {
+			continue
+		}
+		// Check if destination is enabled, but log errors for debugging
+		isEnabled, err := lc.isDestinationEnabledOnSuiRouter(env, selector, chainState, dstChain)
+		if err != nil {
+			// Log the error but continue - destination might not be configured
+			fmt.Printf("DEBUG: Failed to check SUI destination %d from source %d: %v\n", dstChain, selector, err)
+		}
+		if isEnabled {
+			enabledDestinations = append(enabledDestinations, dstChain)
+		}
+	}
+
+	return enabledDestinations, nil
+}
+
 // isDestinationEnabledOnOnRamp checks if a destination is enabled on the EVM OnRamp
 func (lc *LaneConfiguration) isDestinationEnabledOnOnRamp(chainState evm.CCIPChainState, destinationChain uint64) (bool, error) {
 	destConfig, err := chainState.OnRamp.GetDestChainConfig(&bind.CallOpts{}, destinationChain)
@@ -511,6 +548,45 @@ func (lc *LaneConfiguration) isDestinationEnabledOnAptosRouter(env cldf.Environm
 	}
 
 	return isSupported, nil
+}
+
+// isDestinationEnabledOnSuiRouter checks if a destination is enabled on the SUI Router
+func (lc *LaneConfiguration) isDestinationEnabledOnSuiRouter(env cldf.Environment, suiChainSelector uint64, chainState suiState.CCIPChainState, destinationChain uint64) (bool, error) {
+
+	suiChain := env.BlockChains.SuiChains()[suiChainSelector]
+
+	onrampContract, err := sui_onramp.NewOnramp(chainState.OnRampAddress, suiChain.Client)
+	if err != nil {
+		return false, fmt.Errorf("failed to create SUI onramp contract binding: %w", err)
+	}
+
+	callOpts := &suiBind.CallOpts{
+		WaitForExecution: false,
+		Signer:           suiChain.Signer,
+	}
+
+	config, err := onrampContract.DevInspect().GetDestChainConfig(
+		env.GetContext(),
+		callOpts,
+		suiBind.Object{Id: chainState.OnRampStateObjectId},
+		destinationChain,
+	)
+	if err != nil {
+		// If we can't get the config, assume it's not enabled (similar to EVM approach)
+		return false, fmt.Errorf("failed to get dest chain config for chain %d on SUI onramp: %w", destinationChain, err)
+	}
+
+	// The first return value is isEnabled (bool), similar to EVM's approach
+	if len(config) == 0 {
+		return false, fmt.Errorf("empty config returned for dest chain %d", destinationChain)
+	}
+
+	isEnabled, ok := config[0].(bool)
+	if !ok {
+		return false, fmt.Errorf("failed to parse isEnabled from config for dest chain %d", destinationChain)
+	}
+
+	return isEnabled, nil
 }
 
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination

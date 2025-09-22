@@ -66,6 +66,13 @@ func (c CRIBEnv) GetConfig(deployerKeys DeployerKeys) (DeployOutput, error) {
 			}
 			chainConfigs[i] = chain
 		}
+		if strings.EqualFold(chain.ChainType, string(chaintype.Sui)) {
+			err := chain.SetSuiDeployerKey(&suiKey)
+			if err != nil {
+				return DeployOutput{}, err
+			}
+			chainConfigs[i] = chain
+		}
 	}
 
 	addressBook, err := reader.ReadAddressBook()

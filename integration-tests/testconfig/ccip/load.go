@@ -34,6 +34,17 @@ type LoadConfig struct {
 	GasLimit             *uint64
 	OOOExecution         *bool
 	SolanaDataSize       *int
+	TestnetConfig        *TestnetConfig
+}
+
+type TestnetConfig struct {
+	Testnet          *bool
+	EVMPrivateKey    *string
+	AptosPrivateKey  *string
+	SolanaPrivateKey *string
+	FundingAmountEth *uint64
+	FundingAmountSol *uint64
+	FundingAmountApt *uint64
 }
 
 const (
@@ -55,6 +66,8 @@ func (l *LoadConfig) Validate(t *testing.T, e *cldf.Environment) {
 		agg += *md.Ratio
 	}
 	require.Equal(t, 100, agg, "Sum of MessageDetails Ratios must be 100")
+
+	require.NoError(t, l.TestnetConfig.Validate())
 
 	require.GreaterOrEqual(t, *l.SolanaDataSize, 0, "SolanaDataSize must be greater than or equal to 0")
 
@@ -143,5 +156,32 @@ func (m *MsgDetails) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+func (t *TestnetConfig) Validate() error {
+	if t == nil {
+		return errors.New("testnet config should be set")
+	}
+	if t.Testnet != nil && *t.Testnet {
+		if t.FundingAmountEth == nil {
+			return errors.New("funding amount should be set for testnet")
+		}
+	}
+	if t.FundingAmountSol == nil {
+		return errors.New("funding amount should be set for testnet")
+	}
+	if t.FundingAmountApt == nil {
+		return errors.New("funding amount should be set for testnet")
+	}
+	if t.EVMPrivateKey == nil {
+		return errors.New("EVM private key should be set for testnet")
+	}
+	if t.SolanaPrivateKey == nil {
+		return errors.New("Solana private key should be set for testnet")
+	}
+	if t.AptosPrivateKey == nil {
+		return errors.New("Aptos private key should be set for testnet")
+	}
 	return nil
 }
