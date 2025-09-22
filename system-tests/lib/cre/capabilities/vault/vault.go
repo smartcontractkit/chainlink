@@ -152,21 +152,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			// create job specs for the bootstrap node
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
 
-			// Create Vault keys in a deterministic manner by setting n = 8
-			// and t = 1, so that we can use the same keys across all tests,
-			// irrespective of the number of nodes in the workflow DON.
-			// We just need to ensure that the number of workflow nodes is at most 8, because dkgKeys()
-			// will generate only 8 shares. If workflow nodes are increased more than 8,
-			// we need to update the n value in dkgKeys() and the value of MasterPublicKeyStr accordingly.
-			if len(workflowNodeSet) > 8 {
-				return nil, errors.New("workflow node set must not exceed 8 nodes for vault capability, please update dkgKeys() and MasterPublicKeyStr accordingly if you want to increase the number of workflow nodes")
-			}
-			pk, sks, err := dkgKeys(8, 1)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate DKG keys")
-			}
-
-			for idx, workerNode := range workflowNodeSet {
+			for _, workerNode := range workflowNodeSet {
 				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
 				if nodeIDErr != nil {
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
@@ -175,11 +161,6 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.AddressKeyFromSelector(input.DonTopology.HomeChainSelector))
 				if ethErr != nil {
 					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
-				}
-
-				encryptedShare, encErr := encryptPrivateShare(input.CldEnvironment.Offchain, nodeID, sks[idx])
-				if encErr != nil {
-					return nil, errors.Wrap(encErr, "failed to encrypt private share")
 				}
 
 				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
@@ -191,7 +172,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 					return nil, errors.New("key bundle ID for evm family is not found")
 				}
 
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, nodeEthAddr, offchainKeyBundleID, input.DonTopology.OCRPeeringData, chainID, pk, encryptedShare))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, nodeEthAddr, offchainKeyBundleID, input.DonTopology.OCRPeeringData, chainID))
 			}
 		}
 
