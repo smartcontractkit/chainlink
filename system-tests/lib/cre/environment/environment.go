@@ -154,7 +154,7 @@ func SetupTestEnvironment(
 		testLogger,
 		singleFileLogger,
 		crecontracts.DeployKeystoneContractsInput{
-			CldfEnvironment:           initializeCldfEnvironment(ctx, singleFileLogger, startBlockchainsOutput.BlockChains),
+			CldfEnvironment:           newCldfEnvironment(ctx, singleFileLogger, startBlockchainsOutput.BlockChains),
 			CtfBlockchains:            startBlockchainsOutput.BlockChainOutputs,
 			ContractVersions:          input.ContractVersions,
 			WithV2Registries:          input.WithV2Registries,
@@ -210,7 +210,7 @@ func SetupTestEnvironment(
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
-	creEnvironment := buildCreEnvironment(cldfEnvironment, dons, topology)
+	creEnvironment := newCreEnvironment(cldfEnvironment, dons, topology)
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
@@ -496,7 +496,7 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 	input.JdInput.Out = jdOutput
 }
 
-func buildCreEnvironment(cldfEnv *cldf.Environment, dons []*devenv.DON, topology *cre.Topology) *cre.Environment {
+func newCreEnvironment(cldfEnv *cldf.Environment, dons []*devenv.DON, topology *cre.Topology) *cre.Environment {
 	donTopology := &cre.DonTopology{
 		WorkflowDonID:           topology.WorkflowDONID,
 		HomeChainSelector:       topology.HomeChainSelector,
@@ -518,7 +518,7 @@ func buildCreEnvironment(cldfEnv *cldf.Environment, dons []*devenv.DON, topology
 	}
 }
 
-func initializeCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains map[uint64]cldf_chain.BlockChain) *cldf.Environment {
+func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains map[uint64]cldf_chain.BlockChain) *cldf.Environment {
 	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
 		Name:              "local CRE",
