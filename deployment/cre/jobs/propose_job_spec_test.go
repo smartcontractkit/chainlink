@@ -254,7 +254,7 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 
 		// oracleFactory presence/type/enabled
 		{"missing oracleFactory", func(m job_types.JobSpecInput) { delete(m, "oracleFactory") }, "oracleFactory is required"},
-		{"oracleFactory wrong type", func(m job_types.JobSpecInput) { m["oracleFactory"] = "not-a-factory" }, "oracleFactory must be of type pkg.OracleFactory"},
+		{"oracleFactory wrong type", func(m job_types.JobSpecInput) { m["oracleFactory"] = "not-a-factory" }, "oracleFactory must be of type OracleFactory or map[string]any"},
 		{"oracleFactory present but disabled", func(m job_types.JobSpecInput) {
 			of := m["oracleFactory"].(pkg.OracleFactory)
 			of.Enabled = false
