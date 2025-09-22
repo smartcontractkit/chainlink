@@ -60,7 +60,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 }
 
 func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig evm_config.Config) {
-	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 	require.NoError(t, err, "failed to find forwarder address for chain %s", bcOutput.ChainSelector)
 
 	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, bcOutput.SethClient.Client)
@@ -199,16 +199,16 @@ func EVMReadFailsTest(t *testing.T, testEnv *TestEnvironment, evmNegativeTest ev
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
 		chainID := bcOutput.BlockchainOutput.ChainID
 		chainSelector := bcOutput.ChainSelector
-		fullCldEnvOutput := testEnv.FullCldEnvOutput
+		creEnvironment := testEnv.CreEnvironment
 		if _, ok := enabledChains[chainID]; !ok {
 			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
 			continue
 		}
 
 		testLogger.Info().Msgf("Deploying additional contracts to chain %s (%d)", chainID, chainSelector)
-		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, fullCldEnvOutput)
+		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
-		crecontracts.MergeAllDataStores(fullCldEnvOutput, rbOutput, rbOutput)
+		crecontracts.MergeAllDataStores(creEnvironment, rbOutput, rbOutput)
 
 		listenerCtx, messageChan, kafkaErrChan := startBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")

@@ -83,7 +83,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 		chainSelector := bcOutput.ChainSelector
 		chainType := bcOutput.BlockchainOutput.Type
 		perChainSethClient := bcOutput.SethClient
-		fullCldEnvOutput := testEnv.FullCldEnvOutput
+		creEnvironment := testEnv.CreEnvironment
 		feedID := cfg.FeedIDs[idx]
 
 		if chainType == blockchain.FamilySolana {
@@ -96,20 +96,20 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 		}
 
 		testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
-		dataFeedsCacheAddress, dfOutput, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, fullCldEnvOutput)
+		dataFeedsCacheAddress, dfOutput, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
 		require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 
-		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, fullCldEnvOutput)
+		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
-		crecontracts.MergeAllDataStores(fullCldEnvOutput, dfOutput, rbOutput)
+		crecontracts.MergeAllDataStores(creEnvironment, dfOutput, rbOutput)
 
 		testLogger.Info().Msgf("Configuring Data Feeds Cache contract...")
-		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(fullCldEnvOutput.Environment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+		forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(creEnvironment.CldfEnvironment.ExistingAddresses, chainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		require.NoError(t, forwarderErr, "failed to find Forwarder address for chain %d", chainSelector)
 
 		uniqueWorkflowName := cfg.WorkflowName + "-" + bcOutput.BlockchainOutput.ChainID + "-" + uuid.New().String()[0:4] // e.g. 'por-workflow-1337-5f37_config'
 		configInput := &cre.ConfigureDataFeedsCacheInput{
-			CldEnv:                fullCldEnvOutput.Environment,
+			CldEnv:                creEnvironment.CldfEnvironment,
 			ChainSelector:         chainSelector,
 			FeedIDs:               []string{feedID},
 			Descriptions:          []string{"PoR test feed"},
@@ -209,7 +209,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 			testEnv.Logger.Info().Msgf("Waiting for feed %s to update...", feedID)
 
 			dataFeedsCacheAddresses, _, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
-				testEnv.FullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+				testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 				bcOutput.ChainSelector,
 				df_changeset.DataFeedsCache.String(),
 			)

@@ -57,16 +57,16 @@ func Test_SecureMint(t *testing.T) {
 }
 
 func executeSecureMintTest(t *testing.T, tenv *TestEnvironment) {
-	fullCldEnvOutput := tenv.FullCldEnvOutput
+	creEnvironment := tenv.CreEnvironment
 	wrappedBlockchainOutputs := tenv.WrappedBlockchainOutputs
-	ds := fullCldEnvOutput.Environment.DataStore
+	ds := creEnvironment.CldfEnvironment.DataStore
 
 	// prevalidate environment
-	forwarders := fullCldEnvOutput.Environment.DataStore.Addresses().Filter(
+	forwarders := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier),
 		datastore.AddressRefByType(ks_sol.ForwarderContract))
 	require.Len(t, forwarders, 1)
-	forwarderStates := fullCldEnvOutput.Environment.DataStore.Addresses().Filter(
+	forwarderStates := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier),
 		datastore.AddressRefByType(ks_sol.ForwarderState))
 	require.Len(t, forwarderStates, 1)
@@ -88,17 +88,17 @@ func executeSecureMintTest(t *testing.T, tenv *TestEnvironment) {
 
 	// configure cache program
 	framework.L.Info().Msg("Deploy and configure data-feeds cache programs...")
-	deployAndConfigureCache(t, &s, *fullCldEnvOutput.Environment, solChain)
+	deployAndConfigureCache(t, &s, *creEnvironment.CldfEnvironment, solChain)
 	framework.L.Info().Msg("Successfully deployed and configured")
 
 	// deploy workflow
 	framework.L.Info().Msg("Generate and propose secure mint job...")
 	jobSpec := createSecureMintWorkflowJobSpec(t, &s, solChain)
-	proposeSecureMintJob(t, fullCldEnvOutput.Environment.Offchain, jobSpec)
+	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, jobSpec)
 	framework.L.Info().Msgf("Secure mint job is successfully posted. Job spec:\n %v", jobSpec)
 
 	// trigger workflow
-	trigger := createFakeTrigger(t, &s, fullCldEnvOutput.DonTopology)
+	trigger := createFakeTrigger(t, &s, creEnvironment.DonTopology)
 	ctx, cancel := context.WithCancel(t.Context())
 	eg := &errgroup.Group{}
 	eg.Go(func() error {
@@ -312,13 +312,13 @@ const secureMintWorkflowTemplate = `
 name: "{{.WorkflowName}}"
 owner: "{{.WorkflowOwner}}"
 triggers:
-  - id: "securemint-trigger@1.0.0" #currently mocked 
+  - id: "securemint-trigger@1.0.0" #currently mocked
     config:
       maxFrequencyMs: 5000
 actions:
   - id: "{{.DeriveID}}"
     ref: "solana_data_feeds_cache_accounts"
-    inputs: 
+    inputs:
       trigger_output: $(trigger.outputs) # don't really need it, but without inputs can't pass wf validation
     config:
       Receiver: "{{.DFCacheAddr}}"
@@ -332,9 +332,9 @@ consensus:
         - event: $(trigger.outputs)
           solana: $(solana_data_feeds_cache_accounts.outputs.remaining_accounts)
     config:
-      report_id: "0003"  
+      report_id: "0003"
       key_id: "solana"
-      aggregation_method: "secure_mint" 
+      aggregation_method: "secure_mint"
       aggregation_config:
         targetChainSelector: "{{.ChainSelector}}" # CHAIN_ID_FOR_WRITE_TARGET: NEW Param, to match write target
         dataID: "{{.DataID}}"
