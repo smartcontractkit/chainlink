@@ -17,6 +17,11 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
+      with_regression:
+        required: false
+        type: boolean
+        description: "Bool that defines whether to run regression tests (default 'false')."
+        default: false
   workflow_call:
     inputs:
       ecr_name:
@@ -33,6 +38,11 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
+      with_regression:
+        required: false
+        type: boolean
+        description: "Bool that defines whether to run regression tests (default 'false')."
+        default: false
 
 jobs:
   define-test-matrix:
@@ -63,7 +73,9 @@ jobs:
       - name: Define test matrix
         id: define-matrix
         shell: bash
-        working-directory: system-tests/tests/smoke/cre
+        working-directory: system-tests/tests
+        env:
+          WITH_REGRESSION: ${{ inputs.with_regression }}
         run: |
           # Get the list of tests, for each test add each of supported DON topologies and create JSON array to form a job matrix.
           # - This only needs to be updated if we want to run all tests on a new DON topology.
@@ -85,8 +97,20 @@ jobs:
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
-
-          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
+          
+          # If regression tests flag is true, include regression tests in the matrix
+          # Otherwise, only include smoke tests
+          if [[ "$WITH_REGRESSION" == 'true' ]]; then
+            echo "Including regression tests in the matrix"
+            test_names=$(go test \
+            github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre \
+            github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre \
+            -list . | grep -v 'ok' | grep -v '^$')
+          else
+            echo "Including only smoke tests in the matrix"
+            test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
+          fi
+            
           tests=$(echo "$test_names" | jq -R -s \
             --argjson tops "$TOPOLOGIES_JSON" \
             --argjson per  "$PER_TEST_TOPOLOGIES_JSON" \
@@ -129,7 +153,13 @@ jobs:
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
     runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{ github.run_attempt }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment: "integration"
-    timeout-minutes: 40
+    timeout-minutes: 60
+    env:
+      # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
+      # Beholder stack will be started only for the Beholder test
+      CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
+      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.36.2-amd64
+
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
@@ -166,12 +196,6 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
-      # gotestloghelper gives us pretty test output
-      - name: Set Up gotestloghelper
-        shell: bash
-        run: go install
-          github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
-
       - name: Start local CRE
         shell: bash
         id: start-local-cre
@@ -191,29 +215,45 @@ jobs:
             exit $exit_code
           fi
 
-      - name: Run CRE system tests
+      - name: Run CRE Smoke system tests
         shell: bash
         working-directory: system-tests/tests
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
-          # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
-          # Beholder stack will be started only for the Beholder test
-          CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
-          BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.36.2-amd64
           TEST_TIMEOUT: 30m
         run: |
-          # Sleep to allow testcontainers to stop
-          # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
-          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 -json 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
+          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 2>&1 | tee /tmp/gotest.log
+
+      - name: Run CRE Regression system tests
+        if: ${{ inputs.with_regression }}
+        shell: bash
+        working-directory: system-tests/tests
+        env:
+          TEST_NAME: ${{ matrix.tests.test_name }}
+          TEST_TIMEOUT: 200m
+        run: |
+          go test github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 2>&1 | tee /tmp/gotest.log
+
 
       - name: Show Docker containers status
         if: failure()
         shell: bash
         run: docker ps -a
-      - name: Save Docker logs
+
+      - name: Save Smoke tests Docker logs
         if: failure()
         shell: bash
         working-directory: system-tests/tests/smoke/cre
+        run: |
+          mkdir -p logs
+          for c in $(docker ps -a --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
+          done
+
+      - name: Save Regression tests Docker logs
+        if: failure()
+        shell: bash
+        working-directory: system-tests/tests/regression/cre
         run: |
           mkdir -p logs
           for c in $(docker ps -a --format '{{.Names}}'); do
@@ -226,6 +266,7 @@ jobs:
         with:
           name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |
+            ./system-tests/tests/regression/cre/logs/
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/
             /tmp/gotest.log

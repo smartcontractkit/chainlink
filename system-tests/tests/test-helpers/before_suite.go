@@ -64,10 +64,10 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 func GetDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
-	return getTestConfig(t, "/configs/workflow-don.toml")
+	return GetTestConfig(t, "/configs/workflow-don.toml")
 }
 
-func getTestConfig(t *testing.T, configPath string) *TestConfig {
+func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 	relativePathToRepoRoot := "../../../../"
 	environmentDirPath := filepath.Join(relativePathToRepoRoot, "core/scripts/cre/environment")
 

@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -280,43 +279,6 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 	testLogger.Info().Msgf("Successfully configured Tron data feeds cache for chain %d", chainSelector)
 
 	return dataFeedsCacheAddress, readBalancesAddress
-}
-
-/*
-Creates .yaml workflow configuration file.
-It stores the values used by a workflow (main.go),
-(i.e. feedID, read/write contract addresses)
-
-The values are written to types.WorkflowConfig.
-The method returns the absolute path to the created config file.
-*/
-func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.WorkflowConfig) (string, error) {
-	feedIDToUse, fIDerr := validateAndFormatFeedID(workflowConfig)
-	if fIDerr != nil {
-		return "", errors.Wrap(fIDerr, "failed to validate and format feed ID")
-	}
-	workflowConfig.FeedID = feedIDToUse
-
-	return t_helpers.CreateWorkflowYamlConfigFile(workflowName, workflowConfig)
-}
-
-func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, error) {
-	feedID := workflowConfig.FeedID
-
-	// validate and format feed ID to fit 32 bytes
-	cleanFeedID := strings.TrimPrefix(feedID, "0x")
-	feedIDLength := len(cleanFeedID)
-	if feedIDLength < 32 {
-		return "", errors.Errorf("feed ID must be at least 32 characters long, but was %d", feedIDLength)
-	}
-
-	if feedIDLength > 32 {
-		cleanFeedID = cleanFeedID[:32]
-	}
-
-	// override feed ID in workflow config to ensure it is exactly 32 bytes
-	feedIDToUse := "0x" + cleanFeedID
-	return feedIDToUse, nil
 }
 
 func validateTronPrices(t *testing.T, testEnv *ttypes.TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
