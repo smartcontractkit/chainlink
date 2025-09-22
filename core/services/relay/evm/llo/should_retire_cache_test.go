@@ -30,12 +30,13 @@ func Test_ShouldRetireCache(t *testing.T) {
 
 	servicetest.Run(t, src)
 
-	testutils.RequireEventually(t, func() bool { return src.latestBlockNum == log.BlockNumber })
+	testutils.RequireEventually(t, func() bool {
+		shouldRetire, err2 := src.ShouldRetire(retiredConfigDigest)
+		require.NoError(t, err2)
+		return shouldRetire
+	})
 
-	shouldRetire, err := src.ShouldRetire(retiredConfigDigest)
-	require.NoError(t, err)
-	assert.True(t, shouldRetire, "Should retire")
-	shouldRetire, err = src.ShouldRetire(ocr2types.ConfigDigest{9})
+	shouldRetire, err := src.ShouldRetire(ocr2types.ConfigDigest{9})
 	require.NoError(t, err)
 	assert.False(t, shouldRetire, "Should not retire")
 }
