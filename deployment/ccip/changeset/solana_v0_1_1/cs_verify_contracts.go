@@ -12,8 +12,12 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -282,4 +286,130 @@ func resolveVerifyInstruction(
 		AccountValues: accounts,
 		DataBytes:     data,
 	}, nil
+}
+
+func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
+	cmdArgs := []string{
+		"config",
+		"set",
+		"--keypair", chain.KeypairPath,
+	}
+	output, err := runCommand("solana", cmdArgs, ".")
+	e.Logger.Infow("solana config set output", "output", output)
+	if err != nil {
+		return fmt.Errorf("failed to set keypair during program verification: %s %w", output, err)
+	}
+	cmdArgs = []string{
+		"config",
+		"set",
+		"--url", chain.URL,
+	}
+	output, err = runCommand("solana", cmdArgs, ".")
+	e.Logger.Infow("solana config set output", "output", output)
+	if err != nil {
+		return fmt.Errorf("failed to set url during program verification: %s %w", output, err)
+	}
+	return nil
+}
+
+func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutput, error) {
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	state, _ := stateview.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+
+	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	var timelockSignerPDA solana.PublicKey
+	if mcmState != nil {
+		timelockSignerPDA = csState.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	}
+
+	verifications := []struct {
+		name       string
+		programID  string
+		programLib string
+		enabled    bool
+	}{
+		{"Fee Quoter", chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, cfg.VerifyFeeQuoter},
+		{"Router", chainState.Router.String(), deployment.RouterProgramName, cfg.VerifyRouter},
+		{"OffRamp", chainState.OffRamp.String(), deployment.OffRampProgramName, cfg.VerifyOffRamp},
+		{"RMN Remote", chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, cfg.VerifyRMNRemote},
+		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
+		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
+		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},
+		{"CCTPTokenPool", chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, cfg.VerifyCCTPTokenPool},
+	}
+	for _, bnmMetadata := range cfg.BurnMintTokenPoolMetadata {
+		verifications = append(verifications, struct {
+			name       string
+			programID  string
+			programLib string
+			enabled    bool
+		}{
+			name:       "Burn Mint Token Pool",
+			programID:  chainState.BurnMintTokenPools[bnmMetadata].String(),
+			programLib: deployment.BurnMintTokenPoolProgramName,
+			enabled:    true,
+		})
+	}
+
+	for _, lnrMetadata := range cfg.LockReleaseTokenPoolMetadata {
+		verifications = append(verifications, struct {
+			name       string
+			programID  string
+			programLib string
+			enabled    bool
+		}{
+			name:       "Lock Release Token Pool",
+			programID:  chainState.LockReleaseTokenPools[lnrMetadata].String(),
+			programLib: deployment.LockReleaseTokenPoolProgramName,
+			enabled:    true,
+		})
+	}
+
+	err = setConfig(e, chain)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set config: %w", err)
+	}
+
+	mcmsTxs := make([]mcmsTypes.Transaction, 0)
+	for _, v := range verifications {
+		if !v.enabled {
+			continue
+		}
+
+		e.Logger.Debugw("Verifying program", "name", v.name, "programID", v.programID, "programLib", v.programLib)
+		err := runSolanaVerify(
+			e,
+			cfg,
+			chain,
+			v.programID,
+			v.programLib,
+			anchorDir,
+			timelockSignerPDA,
+			&mcmsTxs,
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error verifying %s: %w", v.name, err)
+		}
+	}
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to verify CCIP contracts", cfg.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
 }
