@@ -546,7 +546,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20250916193659-4becc28a467f // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.14-0.20250912141514-907781001913 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.14 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20250917170425-f6b7494e763a // indirect
