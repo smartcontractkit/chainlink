@@ -1,6 +1,7 @@
 package job_types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -45,10 +46,10 @@ func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapab
 
 	// oracleFactory is optional; only validate type if provided.
 	var oracleFactory pkg.OracleFactory
-	if rawOF, exists := j["oracleFactory"]; exists {
-		castOF, ok := rawOF.(pkg.OracleFactory)
-		if !ok {
-			return pkg.StandardCapabilityJob{}, errors.New("oracleFactory must be of type OracleFactory")
+	if _, exists := j["oracleFactory"]; exists {
+		castOF, err := DecodeOracleFactory(j)
+		if err != nil {
+			return pkg.StandardCapabilityJob{}, err
 		}
 		oracleFactory = castOF
 	}
@@ -160,6 +161,29 @@ func (j JobSpecInput) ToOCR3JobConfigInput() (pkg.OCR3JobConfigInput, error) {
 		MasterPublicKey:          masterPub,
 		EncryptedPrivateKeyShare: encShare,
 	}, nil
+}
+
+// DecodeOracleFactory extracts an OracleFactory from the generic inputs map.
+// It supports both a concrete pkg.OracleFactory value and a raw map[string]any.
+func DecodeOracleFactory(inputs JobSpecInput) (pkg.OracleFactory, error) {
+	raw, ok := inputs["oracleFactory"]
+	if !ok {
+		return pkg.OracleFactory{}, errors.New("oracleFactory is required")
+	}
+
+	switch v := raw.(type) {
+	case pkg.OracleFactory:
+		return v, nil
+	case map[string]any:
+		var of pkg.OracleFactory
+		b, _ := json.Marshal(v)
+		if err := json.Unmarshal(b, &of); err != nil {
+			return pkg.OracleFactory{}, fmt.Errorf("invalid oracleFactory: %w", err)
+		}
+		return of, nil
+	default:
+		return pkg.OracleFactory{}, errors.New("oracleFactory must be of type OracleFactory or map[string]any")
+	}
 }
 
 // toStringSlice attempts to coerce v into []string, supporting []string and []any with string elements.
