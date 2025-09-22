@@ -55,7 +55,6 @@ func Test_CRE_Suite(t *testing.T) {
 		})
 
 		t.Run("[v2] DON Time test", func(t *testing.T) {
-			t.Skip("Skipping flaky test: https://smartcontract-it.atlassian.net/browse/CRE-888")
 			ExecuteDonTimeTest(t, testEnv)
 		})
 
@@ -80,8 +79,26 @@ func Test_CRE_Suite_EVM(t *testing.T) {
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
 	})
 
-	t.Run("[v2] EVM Read test", func(t *testing.T) {
-		executeEVMReadTest(t, testEnv)
+	t.Run("[v2] EVM Read happy path test", func(t *testing.T) {
+		ExecuteEVMReadTest(t, testEnv)
+	})
+
+	// negative tests for evm read
+	// TODO: move to a separate package
+	for _, tCase := range evmNegativeTests {
+		testName := fmt.Sprintf("[v2] EVM.%s fails with %s (%s)", tCase.functionToTest, tCase.name, tCase.invalidInput)
+		t.Run(testName, func(t *testing.T) {
+			EVMReadFailsTest(t, testEnv, tCase)
+		})
+	}
+}
+
+func Test_CRE_Suite_Tron(t *testing.T) {
+	t.Run("Write Test", func(t *testing.T) {
+		testEnv := SetupTestEnvironmentWithConfig(t, getTestConfig(t, "/configs/workflow-don-tron.toml"))
+
+		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
 	})
 }
 

@@ -1,7 +1,7 @@
 [general]
 aws_profile = "sdlc"
 min_gh_cli_version = "v2.50.0"
-ctf_version = "0.10.3"
+ctf_version = "0.10.28"
 
 [job_distributor.build_config]
 repository = "https://github.com/smartcontractkit/job-distributor"

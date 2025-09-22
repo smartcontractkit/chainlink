@@ -250,12 +250,13 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*api.Message)
-		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		callback := args.Get(2).(handlers.Callback)
 		// echo back to sender with attached payload
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
 		codec := api.JsonRPCCodec{}
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
+		err := callback.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
+		require.NoError(t, err)
 	})
 
 	method := "request"
@@ -272,7 +273,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		request := args.Get(1).(jsonrpc.Request[json.RawMessage])
-		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		callback := args.Get(2).(handlers.Callback)
 		// echo back to sender with attached payload
 		rawResult := json.RawMessage(`{"result":"OK"}`)
 		response := jsonrpc.Response[json.RawMessage]{
@@ -283,7 +284,8 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 		}
 		rawMsg, err := json.Marshal(&response)
 		require.NoError(t, err)
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError}
+		err = callback.SendResponse(handlers.UserCallbackPayload{RawResponse: rawMsg, ErrorCode: api.NoError})
+		require.NoError(t, err)
 	})
 
 	req := newJSONRpcRequest(t, "abcd", "testDON", []byte(`{"type":"new"}`))
@@ -323,7 +325,7 @@ func newMockHandler(t *testing.T, method string) *handlermocks.Handler {
 	handler.On("Methods").Return([]string{method})
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*api.Message)
-		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		callback := args.Get(2).(handlers.Callback)
 		// echo back to sender with attached payload
 		if msg.Body.Method != method {
 			require.Fail(t, fmt.Sprintf("Expected method to be '%s'", method))
@@ -331,11 +333,12 @@ func newMockHandler(t *testing.T, method string) *handlermocks.Handler {
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
 		codec := api.JsonRPCCodec{}
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}
+		err := callback.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
+		require.NoError(t, err)
 	})
 	handler.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(jsonrpc.Request[json.RawMessage])
-		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
+		callback := args.Get(2).(handlers.Callback)
 		// echo back to sender with attached payload
 		if msg.Method != method {
 			require.Fail(t, fmt.Sprintf("Expected method to be '%s'", method))
@@ -348,7 +351,8 @@ func newMockHandler(t *testing.T, method string) *handlermocks.Handler {
 			Result:  &rm,
 		})
 		require.NoError(t, err)
-		callbackCh <- handlers.UserCallbackPayload{RawResponse: resp, ErrorCode: api.NoError}
+		err = callback.SendResponse(handlers.UserCallbackPayload{RawResponse: resp, ErrorCode: api.NoError})
+		require.NoError(t, err)
 	})
 	return handler
 }

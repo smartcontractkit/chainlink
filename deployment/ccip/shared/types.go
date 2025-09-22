@@ -87,8 +87,12 @@ var (
 	AptosRegulatedTokenPoolType deployment.ContractType = "AptosRegulatedTokenPool"
 	AptosManagedTokenType       deployment.ContractType = "AptosManagedTokenType"
 	AptosRegulatedTokenType     deployment.ContractType = "AptosRegulatedTokenType"
+	AptosTestTokenType          deployment.ContractType = "AptosTestToken"
 
 	// TON, [NONEVM-1938] currently added necessary contract for unblocking e2e env setup
 	TonCCIP     deployment.ContractType = "TonCCIP"
 	TonReceiver deployment.ContractType = "TonReceiver"
+
+	// Attestation Service
+	EVMSignerRegistry deployment.ContractType = "SignerRegistry"
 )

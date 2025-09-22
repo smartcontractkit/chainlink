@@ -95,7 +95,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"capability_vault",
+			"capability_vault_plugin",
 		)
 		vaultCapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(vaultOCR3Key)
 		if err != nil {

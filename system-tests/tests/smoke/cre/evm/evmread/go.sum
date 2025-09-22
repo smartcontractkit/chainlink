@@ -173,6 +173,8 @@ github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605 h1:yVH5tLDzW2ZBUpmkHF5nci1SRSXTcU3A1VZ8iS5qudA=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605/go.mod h1:jUC52kZzEnWF9tddHh85zolKybmLpbQ1oNA4FjOHt1Q=
+github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8 h1:ZhpUCMDFATsyS1B+6YaAxWYfh/WsVx9WWtYSOkl5V0g=
+github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8/go.mod h1:96T5PZe9IRPcuMTnS2I2VGAtyDdkL5U9aWUykLtAYb8=
 github.com/smartcontractkit/cre-sdk-go v0.6.0 h1:mEc6gteBwSRYAF4vwCj0+dUM5vI1UwQPill4OvkkoN4=
 github.com/smartcontractkit/cre-sdk-go v0.6.0/go.mod h1:3UcpptqBmJs42bQ62pUQoqfGwbvVQvcdqlUMueicbqs=
 github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.6.0 h1:dbWA/2RItveFYTQUSwQ4oG2yyebQMyFQLrpXwFuz8v4=

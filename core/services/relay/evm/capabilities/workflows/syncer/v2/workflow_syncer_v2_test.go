@@ -118,7 +118,6 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
 
-		tickChan        = make(chan time.Time)
 		giveBinaryURL   = "https://original-url.com"
 		donID           = uint32(1)
 		donFamily1      = "A"
@@ -178,7 +177,6 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 			err: nil,
 		},
 		syncer.NewEngineRegistry(),
-		syncer.WithTicker(tickChan),
 	)
 	require.NoError(t, err)
 
@@ -188,15 +186,9 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 
 	servicetest.Run(t, worker)
 
-	// Trigger a sync
-	tickChan <- time.Now()
-
 	// generate a log event
 	upsertWorkflowV2(t, backendTH, wfRegistryC, skippedWorkflow)
 	upsertWorkflowV2(t, backendTH, wfRegistryC, giveWorkflow)
-
-	// Trigger a sync
-	tickChan <- time.Now()
 
 	require.Eventually(t, func() bool {
 		// we process events in order, and should only receive 1 event
@@ -214,7 +206,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
-		tickChan      = make(chan time.Time)
 		giveBinaryURL = "https://original-url.com"
 		donID         = uint32(1)
 		donFamily     = "A"
@@ -284,7 +275,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 			err: nil,
 		},
 		er,
-		syncer.WithTicker(tickChan),
 	)
 	require.NoError(t, err)
 
@@ -296,9 +286,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 
 	// generate a log event
 	upsertWorkflowV2(t, backendTH, wfRegistryC, giveWorkflow)
-
-	// Trigger a sync
-	tickChan <- time.Now()
 
 	// Paused workflows should generate no events
 	time.Sleep(5 * time.Second)
@@ -317,7 +304,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
-		tickChan      = make(chan time.Time)
 		giveBinaryURL = "https://original-url.com"
 		donID         = uint32(1)
 		donFamily     = "A"
@@ -387,7 +373,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 			err: nil,
 		},
 		er,
-		syncer.WithTicker(tickChan),
 	)
 	require.NoError(t, err)
 
@@ -399,9 +384,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 
 	// generate a log event
 	upsertWorkflowV2(t, backendTH, wfRegistryC, giveWorkflow)
-
-	// Trigger a sync
-	tickChan <- time.Now()
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {

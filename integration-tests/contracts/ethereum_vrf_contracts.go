@@ -4,19 +4,15 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2plus_wrapper_optimism"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
@@ -89,22 +85,6 @@ type VRFConsumerRoundConfirmer struct {
 	context  context.Context
 	cancel   context.CancelFunc
 	done     bool
-}
-
-// NewVRFConsumerRoundConfirmer provides a new instance of a NewVRFConsumerRoundConfirmer
-func NewVRFConsumerRoundConfirmer(
-	contract VRFConsumer,
-	roundID *big.Int,
-	timeout time.Duration,
-) *VRFConsumerRoundConfirmer {
-	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
-	return &VRFConsumerRoundConfirmer{
-		consumer: contract,
-		roundID:  roundID,
-		doneChan: make(chan struct{}),
-		context:  ctx,
-		cancel:   ctxCancel,
-	}
 }
 
 // ReceiveHeader will query the latest VRFConsumer round and check to see whether the round has confirmed
@@ -354,26 +334,6 @@ func DeployVRFMockETHLINKFeed(seth *seth.Client, answer *big.Int) (VRFMockETHLIN
 	}, err
 }
 
-func LoadVRFMockETHLINKFeed(client *seth.Client, address common.Address) (VRFMockETHLINKFeed, error) {
-	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
-	if err != nil {
-		return &EthereumVRFMockETHLINKFeed{}, fmt.Errorf("failed to get VRFMockETHLINKAggregator ABI: %w", err)
-	}
-	client.ContractStore.AddABI("VRFMockETHLINKAggregator", *abi)
-	client.ContractStore.AddBIN("VRFMockETHLINKAggregator", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
-
-	instance, err := vrf_mock_ethlink_aggregator.NewVRFMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumVRFMockETHLINKFeed{}, fmt.Errorf("failed to instantiate VRFMockETHLINKAggregator instance: %w", err)
-	}
-
-	return &EthereumVRFMockETHLINKFeed{
-		address: address,
-		client:  client,
-		feed:    instance,
-	}, nil
-}
-
 func (v *EthereumBlockhashStore) Address() string {
 	return v.address.Hex()
 }
@@ -546,25 +506,6 @@ func LoadVRFV2PlusWrapper(seth *seth.Client, addr string) (VRFV2PlusWrapper, err
 	return &EthereumVRFV2PlusWrapper{
 		client:  seth,
 		address: address,
-		wrapper: contract,
-	}, nil
-}
-
-func LoadVRFV2PlusWrapperOptimism(seth *seth.Client, addr string) (*EthereumVRFV2PlusWrapperOptimism, error) {
-	address := common.HexToAddress(addr)
-	abi, err := vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.GetAbi()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get VRFV2PlusWrapper_Optimism ABI: %w", err)
-	}
-	seth.ContractStore.AddABI("VRFV2PlusWrapper_Optimism", *abi)
-	seth.ContractStore.AddBIN("VRFV2PlusWrapper_Optimism", common.FromHex(vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.Bin))
-	contract, err := vrfv2plus_wrapper_optimism.NewVRFV2PlusWrapperOptimism(address, wrappers.MustNewWrappedContractBackend(nil, seth))
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapper_Optimism instance: %w", err)
-	}
-	return &EthereumVRFV2PlusWrapperOptimism{
-		client:  seth,
-		Address: address,
 		wrapper: contract,
 	}, nil
 }

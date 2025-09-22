@@ -56,6 +56,10 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 	}
 
 	switch config.Template {
+	case job_types.EVM:
+		if err := verifyEVMJobSpecInputs(config.Inputs); err != nil {
+			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
+		}
 	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
@@ -71,7 +75,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
 	var report operations.Report[any, any]
 	switch input.Template {
-	case job_types.Cron: // This will hold all standard capabilities jobs as we add support for them.
+	case job_types.EVM, job_types.Cron: // This will hold all standard capabilities jobs as we add support for them.
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
@@ -99,7 +103,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 bootstrap job input: %w", err)
 		}
 
-		addrRefKey := pkg.GetOCR3CapabilityV2AddressRefKey(jobInput.ChainSelector, jobInput.ContractQualifier)
+		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(jobInput.ChainSelector, jobInput.ContractQualifier)
 		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelector, jobInput.ContractQualifier, err)
@@ -131,7 +135,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 job input: %w", err)
 		}
 
-		addrRefKey := pkg.GetOCR3CapabilityV2AddressRefKey(jobInput.ChainSelectorEVM, jobInput.ContractQualifier)
+		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(jobInput.ChainSelectorEVM, jobInput.ContractQualifier)
 		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
