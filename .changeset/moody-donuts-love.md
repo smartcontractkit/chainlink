@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#fix use on-chain config in vault plugin
+#bug use on-chain config in vault plugin
