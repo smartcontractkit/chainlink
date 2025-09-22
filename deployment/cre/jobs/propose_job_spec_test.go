@@ -233,6 +233,24 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 		require.NoError(t, j.VerifyPreconditions(env, in))
 	})
 
+	t.Run("valid evm spec passes (oracleFactory as map[string]any)", func(t *testing.T) {
+		in := base
+		in.Inputs = validEVMInputs()
+		in.Inputs["oracleFactory"] = map[string]any{
+			"enabled":            true,
+			"bootstrapPeers":     []string{"12D3KooWDnZtWxJCSZNUyPRmEUdmks9FigetxVuvaB3xuxn1hwmW@workflow-node0:5001"},
+			"ocrContractAddress": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+			"ocrKeyBundleID":     "qbwjdbdywefeiwfiewb",
+			"chainID":            "1337",
+			"transmitterID":      "0x27118799c7368C2018052CD29072C0478C76d0e5",
+			"onchainSigningStrategy": map[string]any{
+				"strategyName": "single-chain",
+				"config":       map[string]string{"evm": "deadbeefcafebabefeedface"},
+			},
+		}
+		require.NoError(t, j.VerifyPreconditions(env, in))
+	})
+
 	type negCase struct {
 		name    string
 		mutate  func(job_types.JobSpecInput)
