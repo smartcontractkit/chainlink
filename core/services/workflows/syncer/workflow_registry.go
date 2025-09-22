@@ -605,6 +605,24 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 		}
 	}
 
+	// Clean up create events which no longer need to be attempted because
+	// the workflow no longer exists in the workflow registry contract
+
+	for id, event := range pendingEvents {
+		if event.EventType == WorkflowRegisteredEvent {
+			existsInMetadata := false
+			for _, wfMeta := range workflowMetadata {
+				if wfMeta.WorkflowID.Hex() == event.Data.(WorkflowRegisteredV1).WorkflowID.Hex() {
+					existsInMetadata = true
+					break
+				}
+			}
+			if !existsInMetadata {
+				delete(pendingEvents, id)
+			}
+		}
+	}
+
 	if len(pendingEvents) != 0 {
 		return nil, fmt.Errorf("invariant violation: some pending events were not handled in the reconcile loop: keys=%+v, len=%d", maps.Keys(pendingEvents), len(pendingEvents))
 	}
