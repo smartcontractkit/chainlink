@@ -216,7 +216,8 @@ var FundCLNodesOp = operations.NewOperation(
 							return nil, err
 						}
 					case "tron":
-						if err := fundTronAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily, deps.Env); err != nil {
+						nodeAddress := getTronNodeAddress(node, bcOut)
+						if err := FundTronAddress(ctx, deps.TestLogger, nodeAddress, fundingAmount, bcOut, deps.Env); err != nil {
 							return nil, err
 						}
 					default:
@@ -282,15 +283,19 @@ func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node deve
 	return nil
 }
 
-func fundTronAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, _ map[string]map[uint64][]byte, env *cldf.Environment) error {
+func getTronNodeAddress(node devenv.Node, bcOut *cre.WrappedBlockchainOutput) common.Address {
 	nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
 	if nodeAddress == "" {
-		return nil // Skip nodes without addresses for this chain
+		return common.Address{} // Skip nodes without addresses for this chain
 	}
 
-	testLogger.Info().Msgf("Attempting to fund TRON account %s", nodeAddress)
+	return common.HexToAddress(nodeAddress)
+}
 
-	receiverAddress := address.EVMAddressToAddress(common.HexToAddress(nodeAddress))
+func FundTronAddress(ctx context.Context, testLogger zerolog.Logger, nodeAddress common.Address, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, env *cldf.Environment) error {
+	receiverAddress := address.EVMAddressToAddress(nodeAddress)
+
+	testLogger.Info().Msgf("Attempting to fund TRON account %s", nodeAddress)
 
 	tronChains := env.BlockChains.TronChains()
 	tronChain, exists := tronChains[bcOut.ChainSelector]

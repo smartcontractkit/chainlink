@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -46,16 +45,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	environment "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	crefunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
-
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 )
 
 /////////////////////////
@@ -270,7 +269,7 @@ func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 
 		switch bcOutput.BlockchainOutput.Family {
 		case blockchain.FamilyTron:
-			if err := fundTronAddress(t, testLogger, addressToRead, amountToFund, bcOutput, fullCldEnvOutput); err != nil {
+			if err := environment.FundTronAddress(t.Context(), testLogger, addressToRead, amountToFund.Uint64(), bcOutput, fullCldEnvOutput.Environment); err != nil {
 				return nil, err
 			}
 		default:
@@ -293,31 +292,6 @@ func fundEthAddress(t *testing.T, testLogger zerolog.Logger, addressToRead commo
 	})
 	require.NoError(t, funErr, "failed to send funds")
 	testLogger.Info().Msgf("Funds sent successfully to address '%s': txHash='%s'", addressToRead.Hex(), receipt.TxHash)
-	return nil
-}
-
-func fundTronAddress(t *testing.T, testLogger zerolog.Logger, addressToRead common.Address, amountToFund *big.Int, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) error {
-	tronChains := fullCldEnvOutput.Environment.BlockChains.TronChains()
-	tronChain, exists := tronChains[bcOutput.ChainSelector]
-	if !exists {
-		return fmt.Errorf("TRON chain not found for selector %d", bcOutput.ChainSelector)
-	}
-
-	// Convert EVM address to Tron address format
-	receiverAddress := address.EVMAddressToAddress(addressToRead)
-	testLogger.Info().Msgf("TRON chain %d: Address conversion - EVM: %s -> Tron: %s", bcOutput.ChainSelector, addressToRead.Hex(), receiverAddress.String())
-
-	tx, err := tronChain.Client.Transfer(tronChain.Address, receiverAddress, amountToFund.Int64())
-	if err != nil {
-		return fmt.Errorf("failed to create transfer transaction for TRON address %s: %w", addressToRead.Hex(), err)
-	}
-
-	txInfo, err := tronChain.SendAndConfirm(t.Context(), tx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to send and confirm transfer to TRON address %s: %w", addressToRead.Hex(), err)
-	}
-
-	testLogger.Info().Msgf("Successfully funded TRON address %s with %s SUN, txHash: %s", receiverAddress.String(), amountToFund.String(), txInfo.ID)
 	return nil
 }
 

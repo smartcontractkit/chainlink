@@ -39,6 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
+const TronEVMChainID = 3360022319
+
 func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
 
@@ -515,7 +517,7 @@ func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
 
 func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain) {
 	var cfg evmconfigtoml.EVMConfig
-	if evmChain.ChainID == 3360022319 {
+	if evmChain.ChainID == TronEVMChainID {
 		cfg = buildTronEVMConfig(evmChain)
 	} else {
 		cfg = buildEVMConfig(evmChain)
