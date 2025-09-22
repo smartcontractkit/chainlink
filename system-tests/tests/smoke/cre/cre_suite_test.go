@@ -77,7 +77,7 @@ func Test_CRE_Suite_EVM(t *testing.T) {
 
 func Test_CRE_Suite_Tron(t *testing.T) {
 	t.Run("Write Test", func(t *testing.T) {
-		testEnv := SetupTestEnvironmentWithConfig(t, getTestConfig(t, "/configs/workflow-don-tron.toml"))
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"))
 
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)

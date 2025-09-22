@@ -19,7 +19,7 @@ var cronInvalidSchedulesTests = []struct {
 	name            string
 	invalidSchedule string
 }{
-	{"below default limit (30s)", "*/29 * * * * *"},
+	{"below default limit", "*/29 * * * * *"},
 	{"negative", "*/-1 * * * * *"},
 	{"inappropriately formatted", "*MON/1 * * * * *"},
 }

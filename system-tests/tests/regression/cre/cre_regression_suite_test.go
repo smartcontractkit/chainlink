@@ -31,7 +31,7 @@ func Test_CRE_Suite_Regression(t *testing.T) {
 	})
 }
 
-func Test_CRE_Suite_EVM(t *testing.T) {
+func Test_CRE_Suite_EVM_Regression(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}

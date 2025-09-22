@@ -76,16 +76,16 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
 		chainID := bcOutput.BlockchainOutput.ChainID
 		chainSelector := bcOutput.ChainSelector
-		fullCldEnvOutput := testEnv.FullCldEnvOutput
+		creEnvironment := testEnv.CreEnvironment
 		if _, ok := enabledChains[chainID]; !ok {
 			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
 			continue
 		}
 
 		testLogger.Info().Msgf("Deploying additional contracts to chain %s (%d)", chainID, chainSelector)
-		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, fullCldEnvOutput)
+		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
-		crecontracts.MergeAllDataStores(fullCldEnvOutput, rbOutput, rbOutput)
+		crecontracts.MergeAllDataStores(creEnvironment, rbOutput, rbOutput)
 
 		listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
