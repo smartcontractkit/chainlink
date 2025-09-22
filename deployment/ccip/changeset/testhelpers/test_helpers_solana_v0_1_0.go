@@ -25,7 +25,6 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -877,6 +876,14 @@ func SendRequestSol(
 	}, nil
 }
 
+func SendRequestSui(
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	cfg *ccipclient.CCIPSendReqConfig,
+) (*ccipclient.AnyMsgSentEvent, error) {
+	return SendSuiRequestViaChainWriter(e, cfg)
+}
+
 func ConvertSolanaCrossChainAmountToBigInt(amountLeBytes [32]uint8) *big.Int {
 	bytes := amountLeBytes[:]
 	slices.Reverse(bytes) // convert to big-endian
@@ -1403,11 +1410,6 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tonState := state.TonChains[from]
 		gasPrices[from] = big.NewInt(1e15)
 		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
-	case chainsel.FamilySui:
-		suiState := state.SuiChains[from]
-		gasPrices[from] = big.NewInt(1e17)
-		gasPrices[to] = big.NewInt(1e17)
-		tokenPrices[suiState.LinkTokenCoinMetadataId] = deployment.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 
@@ -2543,8 +2545,8 @@ func GenTestTransferOwnershipConfig(
 	}
 }
 
-func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
-	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains), WithTonChains(tonChains))
+func DeployCCIPContractsTest(t *testing.T, solChains int) {
+	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
 	// Deploy all the CCIP contracts.
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -2552,7 +2554,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyAptos))...)
-	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyTon))...)
 	stateView, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
@@ -2568,9 +2569,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
 	require.NoError(t, err)
 	fmt.Println(string(b))
 	b, err = json.MarshalIndent(stateView.AptosChains, "", "	")
-	require.NoError(t, err)
-	fmt.Println(string(b))
-	b, err = json.MarshalIndent(stateView.TONChains, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }

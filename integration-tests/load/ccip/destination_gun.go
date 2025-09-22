@@ -13,6 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
+<<<<<<< HEAD
+=======
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+>>>>>>> 1082232bdd (Initial setup)
 	"go.uber.org/atomic"
 
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
@@ -49,6 +54,7 @@ type DestinationGun struct {
 	testConfig       *ccip.LoadConfig
 	evmSourceKeys    map[uint64]*bind.TransactOpts
 	solanaSourceKeys map[uint64]*solana.PrivateKey
+	suiSourceKeys    map[uint64]cldf_sui.Chain
 	metricPipe       chan messageData
 	availableSources []uint64 // Cache of available source chains for this destination
 }
@@ -62,6 +68,7 @@ func NewDestinationGun(
 	overrides *ccip.LoadConfig,
 	evmSourceKeys map[uint64]*bind.TransactOpts,
 	solanaSourceKeys map[uint64]*solana.PrivateKey,
+	suiSourceKeys map[uint64]cldf_sui.Chain,
 	metricPipe chan messageData,
 	availableSources []uint64,
 ) (*DestinationGun, error) {
@@ -84,6 +91,7 @@ func NewDestinationGun(
 		testConfig:       overrides,
 		evmSourceKeys:    evmSourceKeys,
 		solanaSourceKeys: solanaSourceKeys,
+		suiSourceKeys:    suiSourceKeys,
 		metricPipe:       metricPipe,
 		availableSources: availableSources,
 	}
@@ -109,6 +117,8 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		err = m.sendEVMSourceMessage(src)
 	case selectors.FamilySolana:
 		err = m.sendSOLSourceMessage(src)
+	case selectors.FamilySui:
+		err = m.sendSuiSourceMessage(src)
 	}
 
 	if err != nil {
@@ -283,6 +293,9 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			AllowOutOfOrderExecution: true, // OOO is always true for Solana
 			ComputeUnits:             150000,
 		}
+	case selectors.FamilySui:
+		rcv = common.LeftPadBytes(m.receiver, 32)
+		extraArgs = []byte{}
 	}
 
 	message := router.ClientEVM2AnyMessage{
@@ -301,6 +314,10 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		return message, int64(2_500_000), nil
 	}
 
+	if dstSelFamily == selectors.FamilySui {
+		return message, int64(2_500_000), nil
+	}
+
 	// Set data length if it's a data transfer
 	if selectedMsgDetails.IsDataTransfer() {
 		dataLength := *selectedMsgDetails.DataLengthBytes
@@ -308,6 +325,8 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		case selectors.FamilyEVM:
 			dataLength = *selectedMsgDetails.DataLengthBytes
 		case selectors.FamilySolana:
+			dataLength = *m.testConfig.SolanaDataSize
+		case selectors.FamilySui:
 			dataLength = *m.testConfig.SolanaDataSize
 		}
 		data := make([]byte, dataLength)
@@ -359,6 +378,14 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			}
 			svmExtraArgs.TokenReceiver = tokenReceiver
 		}
+
+		if dstSelFamily == selectors.FamilySui {
+			dstChainState, exists := m.state.SuiChains[m.chainSelector]
+			if !exists {
+				return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("no Sui state available for destination chain %d", m.chainSelector)
+			}
+			m.l.Debugw("Token transfer to Sui destination configured", "dstChain", m.chainSelector, "linkToken", dstChainState.LinkTokenAddress)
+		}
 	}
 
 	gasLimit := int64(0)
@@ -372,6 +399,10 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("error encoding extra args for sol dest: %w", err)
 		}
 		message.ExtraArgs = extraArgs
+	}
+
+	if dstSelFamily == selectors.FamilySui {
+		message.ExtraArgs = []byte{}
 	}
 
 	return message, gasLimit, nil
@@ -466,6 +497,97 @@ func (m *DestinationGun) getSolanaMessage(src uint64) (ccip_router.SVM2AnyMessag
 				Amount: 1,
 			},
 		}
+	}
+
+	return message, nil
+}
+
+func (m *DestinationGun) sendSuiSourceMessage(src uint64) error {
+	_, exists := m.suiSourceKeys[src]
+	if !exists {
+		return fmt.Errorf("no Sui source key available for chain %d", src)
+	}
+
+	msg, err := m.getSuiMessage(src)
+	if err != nil {
+		return fmt.Errorf("failed to get Sui message: %w", err)
+	}
+
+	sendRequestCfg := ccipclient.CCIPSendReqConfig{
+		SourceChain:  src,
+		DestChain:    m.chainSelector,
+		IsTestRouter: false,
+		Message:      msg,
+		MaxRetries:   1,
+	}
+
+	_, err = testhelpers.SendRequestSui(m.env, *m.state, &sendRequestCfg)
+	if err != nil {
+		m.l.Errorw("SendRequestSui failed",
+			"sourceChain", src,
+			"destChain", m.chainSelector,
+			"err", cldf.MaybeDataErr(err))
+		return fmt.Errorf("failed to send Sui request: %w", err)
+	}
+
+	m.l.Debugw("Successfully sent SUI message",
+		"sourceChain", src,
+		"destChain", m.chainSelector)
+
+	return nil
+}
+
+func (m *DestinationGun) getSuiMessage(src uint64) (testhelpers.SuiSendRequest, error) {
+	// Select a message type based on ratio
+	randomValue := mathrand.Intn(100)
+	accumulatedRatio := 0
+	var selectedMsgDetails *ccip.MsgDetails
+
+	for _, msg := range *m.testConfig.MessageDetails {
+		accumulatedRatio += *msg.Ratio
+		if randomValue < accumulatedRatio {
+			selectedMsgDetails = &msg
+			break
+		}
+	}
+
+	if selectedMsgDetails == nil {
+		return testhelpers.SuiSendRequest{}, errors.New("failed to select message type")
+	}
+
+	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
+
+	srcChainState, exists := m.state.SuiChains[src]
+	if !exists {
+		return testhelpers.SuiSendRequest{}, fmt.Errorf("no Sui state available for source chain %d", src)
+	}
+
+	message := testhelpers.SuiSendRequest{
+		Receiver:         common.LeftPadBytes(m.receiver, 32),
+		ExtraArgs:        []byte{},
+		FeeToken:         "0xbec34d5eb737b776420bb253c4c7447c41d5afd5a632eba37b597d53ccd704dd",
+		FeeTokenMetadata: srcChainState.LinkTokenCoinMetadataId,
+	}
+
+	switch {
+	case selectedMsgDetails.IsDataTransfer():
+		data := make([]byte, *m.testConfig.SolanaDataSize)
+		_, err := rand.Read(data)
+		if err != nil {
+			return testhelpers.SuiSendRequest{}, fmt.Errorf("failed to generate random data: %w", err)
+		}
+		message.Data = data
+
+	case selectedMsgDetails.IsTokenTransfer():
+		message.TokenAmounts = []testhelpers.SuiTokenAmount{
+			{
+				Token:  srcChainState.LinkTokenAddress,
+				Amount: 1,
+			},
+		}
+	}
+	if message.Data == nil {
+		message.Data = []byte{}
 	}
 
 	return message, nil

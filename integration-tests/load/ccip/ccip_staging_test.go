@@ -93,6 +93,7 @@ func TestStaging_CCIP_Load(t *testing.T) {
 			messageKeys,
 			nil,
 			nil,
+			nil,
 			srcChains,
 		)
 		if err != nil {

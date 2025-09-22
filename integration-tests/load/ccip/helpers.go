@@ -46,7 +46,7 @@ const (
 )
 
 var (
-	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 eth
+	fundingAmount = new(big.Int).Mul(deployment.UBigInt(1), deployment.UBigInt(1e16)) // 0.01 eth
 )
 
 type finalSeqNrReport struct {
