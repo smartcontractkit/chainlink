@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -180,7 +179,7 @@ func (c RotateBaseSignerNopsConfig) Validate(e cldf.Environment) error {
 	if len(c.NopKeysToRemove) > 0 {
 		signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 
-		data, err := GetAccountData(e, &chain, signersPda)
+		data, err := solanastateview.GetAccountData(e, &chain, signersPda)
 		if err != nil {
 			return fmt.Errorf("failed to get signers: %w", err)
 		}
@@ -277,7 +276,7 @@ func (c AddGreenKeysConfig) Validate(e cldf.Environment) error {
 	// Get current signers account
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 
-	data, err := GetAccountData(e, &chain, signersPda)
+	data, err := solanastateview.GetAccountData(e, &chain, signersPda)
 	if err != nil {
 		return fmt.Errorf("failed to get signers: %w", err)
 	}
@@ -368,7 +367,7 @@ func (c PromoteKeysConfig) Validate(e cldf.Environment) error {
 	// Get current signers account
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 
-	data, err := GetAccountData(e, &chain, signersPda)
+	data, err := solanastateview.GetAccountData(e, &chain, signersPda)
 	if err != nil {
 		return fmt.Errorf("failed to get signers: %w", err)
 	}
@@ -484,24 +483,4 @@ func findSignerWithKey(key [20]uint8, signers []signer_registry.Signer) *signer_
 		}
 	}
 	return nil
-}
-
-func GetAccountData(
-	e cldf.Environment,
-	chain *cldf_solana.Chain,
-	account solana.PublicKey,
-
-) ([]byte, error) {
-	resp, err := chain.Client.GetAccountInfoWithOpts(
-		e.GetContext(),
-		account,
-		&rpc.GetAccountInfoOpts{
-			Commitment: rpc.CommitmentFinalized,
-			DataSlice:  nil,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return resp.Value.Data.GetBinary(), nil
 }
