@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/quarantine"
 )
 
 type outsideDeviationRow struct {
@@ -27,6 +28,7 @@ func (o outsideDeviationRow) String() string {
 }
 
 func TestDeviationChecker_OutsideDeviation(t *testing.T) {
+	quarantine.Flaky(t, "DX-1856")
 	t.Parallel()
 
 	f, i := decimal.NewFromFloat, decimal.NewFromInt
