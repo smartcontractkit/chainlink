@@ -580,14 +580,15 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidationType:   mt.ValidationTypeExec,
-				TestSetup:        setup,
-				Nonce:            nil, // Solana nonce check is skipped
-				Receiver:         receiver,
-				MsgData:          []byte("hello CCIPReceiver"),
-				ExtraArgs:        extraArgs,
-				NumberOfMessages: 3,
-				UseMulticall3:    true,
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Nonce:                  nil, // Solana nonce check is skipped
+				Receiver:               receiver,
+				MsgData:                []byte("hello CCIPReceiver"),
+				ExtraArgs:              extraArgs,
+				NumberOfMessages:       3,
+				UseMulticall3:          true,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
 	})
