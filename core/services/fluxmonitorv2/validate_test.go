@@ -8,6 +8,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,6 +21,7 @@ func (testcfg) DefaultHTTPTimeout() commonconfig.Duration {
 }
 
 func TestValidate(t *testing.T) {
+	quarantine.Flaky(t, "DX-1852")
 	t.Parallel()
 	var tt = []struct {
 		name      string
