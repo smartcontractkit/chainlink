@@ -23,13 +23,6 @@ ocrVersion = 3
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-{{- if .OCR2AptosKeyBundleID }}
-strategyName = 'multi-chain'
-[onchainSigningStrategy.config]
-evm = "{{ .OCR2EVMKeyBundleID }}"
-aptos = "{{ .OCR2AptosKeyBundleID }}"
-{{ else }}
 strategyName = 'single-chain'
 [onchainSigningStrategy.config]
 evm = "{{ .OCR2EVMKeyBundleID }}"
-{{ end }}
