@@ -19,13 +19,9 @@ pluginName = "ocr-capability"
 providerType = "ocr3-capability"
 telemetryType = "plugin"
 [onchainSigningStrategy]
-{{- if .OCR2AptosKeyBundleID }}
 strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
 evm = "{{ .OCR2EVMKeyBundleID }}"
+{{- if .OCR2AptosKeyBundleID }}
 aptos = "{{ .OCR2AptosKeyBundleID }}"
-{{ else }}
-strategyName = 'single-chain'
-[onchainSigningStrategy.config]
-evm = "{{ .OCR2EVMKeyBundleID }}"
 {{ end }}
