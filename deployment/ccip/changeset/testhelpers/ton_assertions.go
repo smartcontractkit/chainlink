@@ -26,7 +26,7 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 
 	// Create prefixed logger for TON event assertion
 	lggr := logger.Named(logger.Test(t), "TON_EVENT_ASSERTION")
-	lggr.Infof("JADE:WAITING for commit report from srcSelector=%d, expectedSeqNumRange=[%d, %d], timeout=%v",
+	lggr.Infof("waiting for commit report from srcSelector=%d, expectedSeqNumRange=[%d, %d], timeout=%v",
 		srcSelector, expectedSeqNumRange.Start(), expectedSeqNumRange.End(), tests.WaitTimeout(t))
 
 	tonBlockTicker := time.NewTicker(2500 * time.Millisecond)
@@ -34,8 +34,7 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 	// Use a lookback of about 50 blocks to ensure we don't miss commit events
 	var startBlock uint32 = 0
 	if currentBlock, err := tonChain.Client.CurrentMasterchainInfo(t.Context()); err == nil && currentBlock.SeqNo > 50 {
-		startBlock = currentBlock.SeqNo - 50
-		lggr.Infof("JADE:STARTING scan from block %d (50 blocks back from current %d)", startBlock, currentBlock.SeqNo)
+		lggr.Infof("scan from block %d (50 blocks back from current %d)", startBlock, currentBlock.SeqNo)
 	}
 
 	eventCh, errCh := GetEvents[offramp.CommitReportAccepted](t, lggr, t.Context(), tonChain, &offRampContract, startBlock, tonBlockTicker)
@@ -48,11 +47,11 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 		case commitEvent := <-eventCh:
 			// Log event details with proper dereferencing
 			if commitEvent.MerkleRoot != nil {
-				lggr.Infof("JADE:RECEIVED CommitReportAccepted event: MerkleRoot={SourceChainSelector:%d, MinSeqNr:%d, MaxSeqNr:%d, MerkleRoot:%x}, PriceUpdates=%+v",
+				lggr.Infof("received CommitReportAccepted event: MerkleRoot={SourceChainSelector:%d, MinSeqNr:%d, MaxSeqNr:%d, MerkleRoot:%x}, PriceUpdates=%+v",
 					commitEvent.MerkleRoot.SourceChainSelector, commitEvent.MerkleRoot.MinSeqNr, commitEvent.MerkleRoot.MaxSeqNr,
 					commitEvent.MerkleRoot.MerkleRoot, commitEvent.PriceUpdates)
 			} else {
-				lggr.Infof("JADE:RECEIVED CommitReportAccepted event: MerkleRoot=<nil>, PriceUpdates=%+v", commitEvent.PriceUpdates)
+				lggr.Infof("received CommitReportAccepted event: MerkleRoot=<nil>, PriceUpdates=%+v", commitEvent.PriceUpdates)
 			}
 
 			// if merkle root is zero, it only contains price updates
@@ -62,7 +61,6 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 			}
 
 			mr := commitEvent.MerkleRoot
-			lggr.Infof("JADE:PROCESSING MerkleRoot: SourceChainSelector=%d, MinSeqNr=%d, MaxSeqNr=%d", mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
 			require.Equal(t, srcSelector, mr.SourceChainSelector)
 
 			// TODO: this logic is duplicated with verifyCommitReport, share
@@ -85,6 +83,10 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 				tonChain.Selector, srcSelector, expectedSeqNumRange.String())
 		}
 	}
+}
+
+type TxLoader interface {
+	FetchTxsForAddress(ctx context.Context, blockRange *tonlptypes.BlockRange, addr *address.Address) ([]tonlptypes.TxWithBlock, error)
 }
 
 func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, tonChain cldf_ton.Chain, contractAddress *address.Address, startBlock uint32, ticker *time.Ticker) (<-chan T, <-chan error) {
@@ -123,14 +125,14 @@ func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, ton
 				}
 
 				// 2. Fetch transactions
-				txs, err := loader.LoadTxsForAddresses(ctx, blockRange, []*address.Address{contractAddress})
+				txs, err := loader.(TxLoader).FetchTxsForAddress(ctx, blockRange, contractAddress)
 				if err != nil {
 					errorCh <- fmt.Errorf("failed to load transactions: %w", err)
 					return
 				}
 
 				// 3. Get messages in transactions to see if there is event we're looking for
-				events, err := extractEventMessage[T](lggr, txs)
+				events, err := extractEventMessage[T](txs)
 				if err != nil {
 					errorCh <- err
 					return
@@ -138,7 +140,7 @@ func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, ton
 
 				// Send events to channel
 				for _, event := range events {
-					lggr.Infof("JADE:FOUND EVENT: %+v", event)
+					lggr.Infof("TON:FOUND EVENT: %+v", event)
 					select {
 					case ch <- event:
 					case <-ctx.Done():
@@ -197,7 +199,7 @@ func getBlockRange(ctx context.Context, tonChain cldf_ton.Chain, lastProcessedBl
 }
 
 // extractEventMessage processes transactions to extract events of type T from external messages
-func extractEventMessage[T any](lggr logger.Logger, txs []tonlptypes.TxWithBlock) ([]T, error) {
+func extractEventMessage[T any](txs []tonlptypes.TxWithBlock) ([]T, error) {
 	var events []T
 
 	for _, tx := range txs {
@@ -214,30 +216,11 @@ func extractEventMessage[T any](lggr logger.Logger, txs []tonlptypes.TxWithBlock
 			for _, msg := range msgs {
 				if msg.MsgType == tlb.MsgTypeExternalOut {
 					if extOut := msg.AsExternalOut(); extOut != nil {
-						// Log raw message data for debugging
-						bodyHash := extOut.Body.Hash()
-						lggr.Debugf("JADE:DEBUG Raw external message body hash: %x", bodyHash)
-						lggr.Debugf("JADE:DEBUG Cell refs count: %d, bits: %d", extOut.Body.RefsNum(), extOut.Body.BitsSize())
-
-						// Try to read the first few bytes of the message body
-						if extOut.Body.BitsSize() > 0 {
-							parser := extOut.Body.BeginParse()
-							// Try to read first 32 bits as uint32 (common for operation codes)
-							if parser.BitsLeft() >= 32 {
-								opCode, _ := parser.LoadUInt(32)
-								lggr.Debugf("JADE:DEBUG First 32 bits (potential opcode): %d (0x%x)", opCode, opCode)
-							}
-						}
 
 						var event T
 						err := tlb.LoadFromCell(&event, extOut.Body.BeginParse())
 						if err == nil {
-							lggr.Debugf("JADE:DEBUG Successfully parsed event, adding to events list")
-							// Log the actual parsed event content for debugging
-							lggr.Infof("JADE:DEBUG Parsed event content: %+v", event)
 							events = append(events, event)
-						} else {
-							lggr.Debugf("JADE:DEBUG Failed to parse event: %v", err)
 						}
 					}
 				}
