@@ -45,9 +45,6 @@ func generateChainsAptos(t *testing.T, numChains int) []cldf_chain.BlockChain {
 		err = migrateAccountToFA(t, aptosChain.DeployerSigner, aptosChain.Client)
 		require.NoError(t, err)
 	}
-
-	t.Logf("Created %d Aptos chains", len(chains))
-
 	return chains
 }
 
@@ -99,6 +96,18 @@ func migrateAccountToFA(t *testing.T, signer aptos.TransactionSigner, client apt
 	accountAddress := signer.AccountAddress()
 	logger.TestLogger(t).Infof("Migrated account %v to Fungible Asset APT", accountAddress.StringLong())
 	return err
+}
+
+func fundNodesAptos(t *testing.T, aptosChain cldf_aptos.Chain, nodes []*Node) {
+	for _, node := range nodes {
+		aptoskeys, err := node.App.GetKeyStore().Aptos().GetAll()
+		require.NoError(t, err)
+		require.Len(t, aptoskeys, 1)
+		transmitter := aptoskeys[0]
+		transmitterAccountAddress := aptos.AccountAddress{}
+		require.NoError(t, transmitterAccountAddress.ParseStringRelaxed(transmitter.Account()))
+		FundAptosAccount(t, aptosChain.DeployerSigner, transmitterAccountAddress, 100*1e8, aptosChain.Client)
+	}
 }
 
 func FundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.AccountAddress, amount uint64, client aptos.AptosRpcClient) {

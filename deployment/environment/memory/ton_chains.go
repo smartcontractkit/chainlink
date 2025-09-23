@@ -12,6 +12,8 @@ import (
 	"github.com/xssnick/tonutils-go/tlb"
 	"golang.org/x/mod/modfile"
 
+	"github.com/xssnick/tonutils-go/ton/wallet"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_ton_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton/provider"
@@ -73,7 +75,7 @@ func generateChainsTon(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	}
 
 	chains := make([]cldf_chain.BlockChain, 0, numChains)
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		selector := testTonChainSelectors[i]
 
 		c, err := cldf_ton_provider.NewCTFChainProvider(t, selector,
@@ -111,4 +113,19 @@ func createTonChainConfig(chainID string, chain cldf_ton.Chain) chainlink.RawCon
 	}
 
 	return chainConfig
+}
+
+func fundNodesTon(t *testing.T, tonChain cldf_ton.Chain, nodes []*Node) {
+	messages := make([]*wallet.Message, 0, len(nodes))
+	for _, node := range nodes {
+		tonkeys, err := node.App.GetKeyStore().TON().GetAll()
+		require.NoError(t, err)
+		require.Len(t, tonkeys, 1)
+		transmitter := tonkeys[0].PubkeyToAddress()
+		msg, err := tonChain.Wallet.BuildTransfer(transmitter, tlb.MustFromTON("1000"), false, "")
+		require.NoError(t, err)
+		messages = append(messages, msg)
+	}
+	_, _, err := tonChain.Wallet.SendManyWaitTransaction(t.Context(), messages)
+	require.NoError(t, err)
 }

@@ -234,7 +234,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 			},
 		},
 	})
-	assert.ErrorContains(t, err, "capability not found")
+	assert.ErrorContains(t, err, "no compatible capability found")
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
