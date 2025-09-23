@@ -44,7 +44,8 @@ func newMockConfig(t *testing.T) *mockConfig {
 		gatherDuration:       commonconfig.MustNewDuration(testDuration),
 		traceDuration:        commonconfig.MustNewDuration(testDuration),
 		profileSize:          utils.FileSize(testSize),
-		memProfileRate:       runtime.MemProfileRate,
+		cpuProfileRate:       testRate,
+		memProfileRate:       testRate,
 		blockProfileRate:     testRate,
 		mutexProfileFraction: testRate,
 		memThreshold:         utils.FileSize(testSize),
@@ -98,12 +99,18 @@ func (c mockConfig) GoroutineThreshold() int {
 }
 
 func TestNurse(t *testing.T) {
+	origMemProfileRate := runtime.MemProfileRate
+	runtime.MemProfileRate = 0
+	t.Cleanup(func() { runtime.MemProfileRate = origMemProfileRate })
+
 	l := logger.TestLogger(t)
-	nrse := NewNurse(newMockConfig(t), l)
+	cfg := newMockConfig(t)
+	nrse := NewNurse(cfg, l)
 	nrse.AddCheck("test", func() (bool, Meta) { return true, Meta{} })
 
 	require.NoError(t, nrse.Start(t.Context()))
 	defer func() { require.NoError(t, nrse.Close()) }()
+	require.Equal(t, cfg.memProfileRate, runtime.MemProfileRate)
 
 	require.NoError(t, nrse.appendLog(time.Now(), "test", Meta{}))
 

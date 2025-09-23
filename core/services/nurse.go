@@ -82,7 +82,7 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 func (n *Nurse) start(_ context.Context) error {
 	// This must be set *once*, and it must occur as early as possible
 	if n.cfg.MemProfileRate() != runtime.MemProfileRate {
-		runtime.MemProfileRate = n.cfg.BlockProfileRate()
+		runtime.MemProfileRate = n.cfg.MemProfileRate()
 	}
 
 	n.eng.Debugf("Starting nurse with config %+v", n.cfg)
