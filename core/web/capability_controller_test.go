@@ -32,7 +32,7 @@ func TestCapabilityController_ExecuteCapability_MissingBody(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request, err = http.NewRequest("POST", "/v2/capabilities/execute", nil)
+	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", nil)
 	require.NoError(t, err)
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -55,7 +55,7 @@ func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testin
 	c, _ := gin.CreateTestContext(w)
 	reqJSON, err := json.Marshal(requestBody)
 	require.NoError(t, err)
-	c.Request, err = http.NewRequest("POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
+	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
 	require.NoError(t, err)
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -75,7 +75,7 @@ func TestCapabilityController_ExecuteCapability_MissingRequiredFields(t *testing
 
 	invalidRequest := `{"capabilityName": ""}` // missing capabilityRequest
 	var err error
-	c.Request, err = http.NewRequest("POST", "/v2/capabilities/execute", bytes.NewBufferString(invalidRequest))
+	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBufferString(invalidRequest))
 	require.NoError(t, err)
 	c.Request.Header.Set("Content-Type", "application/json")
 
@@ -134,7 +134,7 @@ func TestCapabilityController_ExecuteCapability(t *testing.T) {
 	reqJSON, err := json.Marshal(requestBody)
 	require.NoError(t, err)
 
-	c.Request, err = http.NewRequest("POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
+	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
 	require.NoError(t, err)
 	c.Request.Header.Set("Content-Type", "application/json")
 
