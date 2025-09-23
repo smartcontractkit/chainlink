@@ -3297,13 +3297,6 @@ type ValidationOptionFunc func(opts *validationOptions)
 // PhaseSpecificValidationOptionFunc can specify how exactly you want a phase to fail
 type PhaseSpecificValidationOptionFunc func(*validationOptions)
 
-// WithErrorMessage specifies the expected error message for the phase that is expected to fail.
-func WithErrorMessage(expectedErrorMessage string) PhaseSpecificValidationOptionFunc {
-	return func(opts *validationOptions) {
-		opts.expectedErrorMessage = expectedErrorMessage
-	}
-}
-
 // WithTimeout specifies a custom timeout for validating that the phase failed.
 func WithTimeout(timeout time.Duration) PhaseSpecificValidationOptionFunc {
 	return func(opts *validationOptions) {
@@ -4899,40 +4892,6 @@ func SetMockServerWithLBTCAttestation(mockAdapter *ctftestenv.Parrot, isFaulty b
 		return fmt.Errorf("failed to set mock adapter route: %w", err)
 	}
 	return nil
-}
-
-// SetMockserverWithTokenPriceValue sets the mock responses in mockserver that are read by chainlink nodes
-// to simulate different price feed value.
-// it keeps updating the response every 15 seconds to simulate price feed updates
-func SetMockserverWithTokenPriceValue(mockServer *ctftestenv.Parrot) {
-	wg := &sync.WaitGroup{}
-	path := "token_contract_"
-	wg.Add(1)
-	go func() {
-		set := true
-		// keep updating token value every 15 second
-		for {
-			tokenValue := big.NewInt(time.Now().UnixNano()).String()
-			route := &parrot.Route{
-				Method:             http.MethodGet,
-				Path:               path + "/*",
-				ResponseBody:       tokenValue,
-				ResponseStatusCode: http.StatusOK,
-			}
-			err := mockServer.SetAdapterRoute(route)
-			if err != nil {
-				log.Fatal().Err(err).Msg("failed to set mockserver route")
-				return
-			}
-			if set {
-				set = false
-				wg.Done()
-			}
-			time.Sleep(15 * time.Second)
-		}
-	}()
-	// wait for the first value to be set
-	wg.Wait()
 }
 
 // TokenPricePipelineURLs returns the mockserver urls for the token price pipeline

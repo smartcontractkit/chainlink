@@ -540,12 +540,6 @@ type CCIPIntegrationTestHarness struct {
 	Bootstrap Node
 }
 
-func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, sourceChainSelector, destChainId, destChainSelector uint64) CCIPIntegrationTestHarness {
-	return CCIPIntegrationTestHarness{
-		CCIPContracts: SetupCCIPContracts(t, sourceChainID, sourceChainSelector, destChainId, destChainSelector),
-	}
-}
-
 //nolint:testifylint //require is used for assertions in handlers
 func (c *CCIPIntegrationTestHarness) CreatePricesPipeline(t *testing.T) (string, *httptest.Server, *httptest.Server) {
 	linkUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

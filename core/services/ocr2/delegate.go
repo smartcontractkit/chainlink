@@ -25,7 +25,6 @@ import (
 	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
@@ -64,7 +63,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
@@ -632,47 +630,6 @@ type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
 
-func dkgKeys(key workflowkey.Key, dkgConfig *vaultocrplugin.DKGConfig) (*tdh2easy.PublicKey, *tdh2easy.PrivateShare, error) {
-	if dkgConfig == nil {
-		return nil, nil, nil
-	}
-
-	if dkgConfig.MasterPublicKey == "" || dkgConfig.EncryptedPrivateKeyShare == "" {
-		return nil, nil, nil
-	}
-
-	masterPublicKeyHex := dkgConfig.MasterPublicKey
-	masterPublicKey, err := hex.DecodeString(masterPublicKeyHex)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode master public key hex: %w", err)
-	}
-
-	pk := &tdh2easy.PublicKey{}
-	err = pk.Unmarshal(masterPublicKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal master public key: %w", err)
-	}
-
-	encryptedPrivateKeyShareHex := dkgConfig.EncryptedPrivateKeyShare
-	encryptedPrivateKeyShare, err := hex.DecodeString(encryptedPrivateKeyShareHex)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode encrypted private key share hex: %w", err)
-	}
-
-	plaintextPrivateKeyShare, err := key.Decrypt(encryptedPrivateKeyShare)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decrypt private key share: %w", err)
-	}
-
-	pks := &tdh2easy.PrivateShare{}
-	err = pks.Unmarshal(plaintextPrivateKeyShare)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal insecure private share: %w", err)
-	}
-
-	return pk, pks, nil
-}
-
 func (d *Delegate) newServicesVaultPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -798,21 +755,11 @@ func (d *Delegate) newServicesVaultPlugin(
 		OnchainKeyring:          onchainKeyringAdapter,
 		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	workflowKey, err := keystore.GetDefault(ctx, d.workflowKs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get workflow key: %w", err)
-	}
-	pk, secKeyShare, err := dkgKeys(workflowKey, cfg.DKG)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to get DKG keys: %w", err)
-	}
 	rpf, err := vaultocrplugin.NewReportingPluginFactory(
 		lggr,
 		requestStore,
 		vaultocrplugin.NewVaultORM(d.ds),
 		&dkgRecipientKey,
-		pk,
-		secKeyShare,
 		lpk,
 	)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
@@ -26,11 +27,13 @@ import (
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -478,10 +481,22 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	}
 
 	evmChainsWithForwarders := make(map[uint64]struct{})
+	tronChainsWithForwarders := make(map[uint64]struct{})
 	for chainSelector, addresses := range allAddresses {
 		for _, typeAndVersion := range addresses {
 			if typeAndVersion.Type == keystone_changeset.KeystoneForwarder {
-				evmChainsWithForwarders[chainSelector] = struct{}{}
+				// Check if any of the blockchain outputs indicate this is a TRON chain
+				isTronChain := false
+				for _, bcOut := range input.BlockchainOutputs {
+					if bcOut.ChainSelector == chainSelector && strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
+						tronChainsWithForwarders[chainSelector] = struct{}{}
+						isTronChain = true
+						break
+					}
+				}
+				if !isTronChain {
+					evmChainsWithForwarders[chainSelector] = struct{}{}
+				}
 			}
 		}
 	}
@@ -510,6 +525,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 			if err != nil {
 				return errors.Wrap(err, "failed to configure Solana forwarders")
 			}
+		}
+	}
+
+	// configure TRON forwarders only if we have some
+	if len(tronChainsWithForwarders) > 0 {
+		err = configureTronForwarders(input.CldEnv, input.ChainSelector, input.Topology)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure TRON forwarders")
 		}
 	}
 
@@ -831,7 +854,7 @@ func MustFindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint6
 }
 
 // MergeAllDataStores merges all DataStores (after contracts deployments)
-func MergeAllDataStores(fullCldEnvOutput *cre.FullCLDEnvironmentOutput, changesetOutputs ...cldf.ChangesetOutput) {
+func MergeAllDataStores(creEnvironment *cre.Environment, changesetOutputs ...cldf.ChangesetOutput) {
 	framework.L.Info().Msg("Merging DataStores (after contracts deployments)...")
 	minChangesetsCap := 2
 	if len(changesetOutputs) < minChangesetsCap {
@@ -850,7 +873,7 @@ func MergeAllDataStores(fullCldEnvOutput *cre.FullCLDEnvironmentOutput, changese
 		}
 	}
 
-	fullCldEnvOutput.Environment.DataStore = baseDataStore.Seal()
+	creEnvironment.CldfEnvironment.DataStore = baseDataStore.Seal()
 }
 
 func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureDataFeedsCacheInput) (*cre.ConfigureDataFeedsCacheOutput, error) {
@@ -922,26 +945,26 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureData
 	return out, nil
 }
 
-func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) (common.Address, cldf.ChangesetOutput, error) {
+func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint64, creEnvironment *cre.Environment) (common.Address, cldf.ChangesetOutput, error) {
 	testLogger.Info().Msg("Deploying Data Feeds Cache contract...")
 	deployDfConfig := df_changeset_types.DeployConfig{
 		ChainsToDeploy: []uint64{chainSelector},
 		Labels:         []string{"data-feeds"}, // label required by the changeset
 	}
 
-	dfOutput, dfErr := commonchangeset.RunChangeset(df_changeset.DeployCacheChangeset, *fullCldEnvOutput.Environment, deployDfConfig)
+	dfOutput, dfErr := commonchangeset.RunChangeset(df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, deployDfConfig)
 	if dfErr != nil {
 		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrapf(dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 	}
 
-	mergeErr := fullCldEnvOutput.Environment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	mergeErr := creEnvironment.CldfEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
 	if mergeErr != nil {
 		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(mergeErr, "failed to merge address book of Data Feeds Cache contract")
 	}
 	testLogger.Info().Msgf("Data Feeds Cache contract deployed to %d", chainSelector)
 
 	dataFeedsCacheAddress, _, dataFeedsCacheErr := FindAddressesForChain(
-		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		creEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		chainSelector,
 		df_changeset.DataFeedsCache.String(),
 	)
@@ -953,22 +976,22 @@ func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint6
 	return dataFeedsCacheAddress, dfOutput, nil
 }
 
-func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64, fullCldEnvOutput *cre.FullCLDEnvironmentOutput) (common.Address, cldf.ChangesetOutput, error) {
+func DeployReadBalancesContract(testLogger zerolog.Logger, chainSelector uint64, creEnvironment *cre.Environment) (common.Address, cldf.ChangesetOutput, error) {
 	testLogger.Info().Msg("Deploying Read Balances contract...")
 	deployReadBalanceRequest := &keystone_changeset.DeployRequestV2{ChainSel: chainSelector}
-	rbOutput, rbErr := keystone_changeset.DeployBalanceReaderV2(*fullCldEnvOutput.Environment, deployReadBalanceRequest)
+	rbOutput, rbErr := keystone_changeset.DeployBalanceReaderV2(*creEnvironment.CldfEnvironment, deployReadBalanceRequest)
 	if rbErr != nil {
 		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(rbErr, "failed to deploy Read Balances contract")
 	}
 
-	mergeErr2 := fullCldEnvOutput.Environment.ExistingAddresses.Merge(rbOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	mergeErr2 := creEnvironment.CldfEnvironment.ExistingAddresses.Merge(rbOutput.AddressBook) //nolint:staticcheck // won't migrate now
 	if mergeErr2 != nil {
 		return common.Address{}, cldf.ChangesetOutput{}, errors.Wrap(mergeErr2, "failed to merge address book of Read Balances contract")
 	}
 	testLogger.Info().Msgf("Read Balances contract deployed to %d", chainSelector)
 
 	readBalancesAddress, _, readContractErr := FindAddressesForChain(
-		fullCldEnvOutput.Environment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		creEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		chainSelector,
 		keystone_changeset.BalanceReader.String(),
 	)
@@ -1068,4 +1091,48 @@ func p2pStrings(b [][32]byte) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+func configureTronForwarders(env *cldf.Environment, registryChainSelector uint64, topology *cre.Topology) error {
+	triggerOptions := cldf_tron.DefaultTriggerOptions()
+	triggerOptions.FeeLimit = 1_000_000_000
+
+	var wfNodeIDs []string
+	for _, donMetadata := range topology.DonsMetadata {
+		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
+			continue
+		}
+
+		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
+			Key:   crenode.NodeTypeKey,
+			Value: cre.WorkerNode,
+		}, crenode.EqualLabels)
+		if workerNodesErr != nil {
+			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", workerNodesErr)
+		}
+
+		for _, node := range workerNodes {
+			p2pID, err := crenode.ToP2PID(node, crenode.NoOpTransformFn)
+			if err != nil {
+				return fmt.Errorf("failed to get p2p id for node: %w", err)
+			}
+			wfNodeIDs = append(wfNodeIDs, p2pID)
+		}
+		break
+	}
+
+	configChangeset := commonchangeset.Configure(tronchangeset.ConfigureForwarder{}, &tronchangeset.ConfigureForwarderRequest{
+		WFDonName:        "workflow-don",
+		WFNodeIDs:        wfNodeIDs,
+		RegistryChainSel: registryChainSelector,
+		Chains:           make(map[uint64]struct{}),
+		TriggerOptions:   triggerOptions,
+	})
+
+	_, err := commonchangeset.Apply(nil, *env, configChangeset)
+	if err != nil {
+		return fmt.Errorf("failed to configure Tron forwarders using changesets: %w", err)
+	}
+
+	return nil
 }
