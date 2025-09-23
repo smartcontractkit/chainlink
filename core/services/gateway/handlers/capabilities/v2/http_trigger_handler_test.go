@@ -43,7 +43,6 @@ func requireUserErrorSent(t *testing.T, payload handlers.UserCallbackPayload, er
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
-
 	triggerReq := createTestTriggerRequest()
 	reqBytes, err := json.Marshal(triggerReq)
 	require.NoError(t, err)
@@ -627,8 +626,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		r, err := callback.Wait(t.Context())
-		require.NoError(t, err)
+		r, err2 := callback.Wait(t.Context())
+		require.NoError(t, err2)
 		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
@@ -655,8 +654,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		r, err := callback.Wait(t.Context())
-		require.NoError(t, err)
+		r, err2 := callback.Wait(t.Context())
+		require.NoError(t, err2)
 		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
@@ -687,8 +686,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		r, err := callback.Wait(t.Context())
-		require.NoError(t, err)
+		r, err2 := callback.Wait(t.Context())
+		require.NoError(t, err2)
 		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 }
