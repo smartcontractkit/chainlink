@@ -61,6 +61,8 @@ func orderPizza(sendReqester *http.SendRequester, inputs []byte, customer string
 	if err := json.Unmarshal(inputs, &orderRequest); err != nil {
 		return "", fmt.Errorf("failed to unmarshal order request: %w", err)
 	}
+	// this demonstrates that workflows can have custom logic based on the identity that invoked HTTP trigger
+	// see `onTrigger()` function for how customer can be set based on the authorized key
 	if customer == "Bob" {
 		orderRequest.Toppings = []string{"pineapples"}
 	}
