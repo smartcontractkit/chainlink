@@ -61,7 +61,7 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 		Command: "cron",
 		DONName: "test-don",
 		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+			{Key: offchain.FilterKeyDONName, Value: test.DONName},
 			{Key: "environment", Value: "test"},
 			{Key: "product", Value: offchain.ProductLabel},
 		},

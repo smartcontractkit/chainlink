@@ -263,16 +263,16 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 		// command
 		{"missing command", func(m job_types.JobSpecInput) { delete(m, "command") }, "command is required and must be a string"},
 		{"empty command", func(m job_types.JobSpecInput) { m["command"] = "   " }, "command is required and must be a string"},
-		{"non-string command", func(m job_types.JobSpecInput) { m["command"] = 123 }, "command is required and must be a string"},
+		{"non-string command", func(m job_types.JobSpecInput) { m["command"] = nil }, "command is required and must be a string"},
 
 		// config
 		{"missing config", func(m job_types.JobSpecInput) { delete(m, "config") }, "config is required and must be a string"},
 		{"empty config", func(m job_types.JobSpecInput) { m["config"] = "" }, "config is required and must be a string"},
-		{"non-string config", func(m job_types.JobSpecInput) { m["config"] = 123 }, "config is required and must be a string"},
+		{"non-string config", func(m job_types.JobSpecInput) { m["config"] = nil }, "config is required and must be a string"},
 
 		// oracleFactory presence/type/enabled
 		{"missing oracleFactory", func(m job_types.JobSpecInput) { delete(m, "oracleFactory") }, "oracleFactory is required"},
-		{"oracleFactory wrong type", func(m job_types.JobSpecInput) { m["oracleFactory"] = "not-a-factory" }, "oracleFactory must be of type OracleFactory or map[string]any"},
+		{"oracleFactory wrong type", func(m job_types.JobSpecInput) { m["oracleFactory"] = "not-a-factory" }, "cannot unmarshal !!str `not-a-f...` into pkg.OracleFactory"},
 		{"oracleFactory present but disabled", func(m job_types.JobSpecInput) {
 			of := m["oracleFactory"].(pkg.OracleFactory)
 			of.Enabled = false
@@ -342,7 +342,8 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 		}, "oracleFactory.onchainSigningStrategy.config is required"},
 		{"enabled=true but missing config.evm entry", func(m job_types.JobSpecInput) {
 			of := m["oracleFactory"].(pkg.OracleFactory)
-			of.OnchainSigningStrategy.Config = map[string]string{}
+			of.OnchainSigningStrategy.Config = map[string]string{
+				"something-else": "value"}
 			m["oracleFactory"] = of
 		}, "oracleFactory.onchainSigningStrategy.config.evm is required"},
 		{"enabled=true but empty config.evm entry", func(m job_types.JobSpecInput) {
@@ -379,7 +380,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			DONName:     test.DONName,
 			Template:    job_types.Cron,
 			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -418,7 +419,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			JobName:     "cron-cap-job",
 			Template:    job_types.Cron,
 			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: "don" + test.DONName},
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -460,7 +461,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
 			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -476,6 +477,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
+		// 4 from the previous count + 1 for the bootstrap job.
 		assert.Len(t, reqs, 5)
 
 		expectedChainID := chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID
@@ -500,7 +502,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
 			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -512,8 +514,8 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to convert inputs to OCR3 bootstrap job input")
-		assert.Contains(t, err.Error(), "chain_selector is required and must be a string")
+		assert.Contains(t, err.Error(), "failed to get OCR3 contract address for chain selector 0 and qualifier ocr-contract-qualifier")
+		assert.Contains(t, err.Error(), "failed to get OCR3 contract address for chain selector 0 and qualifier ocr-contract-qualifier")
 	})
 
 	t.Run("successful ocr3 job distribution", func(t *testing.T) {
@@ -538,7 +540,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
 			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -559,6 +561,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
+		// 5 from the previous count + 4 for the additional jobs.
 		assert.Len(t, reqs, 9)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -604,7 +607,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
 			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -628,7 +631,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			DONName:     test.DONName,
 			Template:    job_types.EVM,
 			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
 				{Key: "environment", Value: "test"},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
@@ -658,6 +661,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		reqs, err := testEnv.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
+		// 9 from the previous count + 4 for the additional EVM jobs.
 		assert.Len(t, reqs, 13)
 		for _, req := range reqs {
 			if !strings.Contains(req.Spec, `name = "capability_evm_1337-1337"`) {

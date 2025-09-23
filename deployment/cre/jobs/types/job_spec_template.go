@@ -16,6 +16,7 @@ const (
 	BootstrapOCR3
 	OCR3
 	EVM
+	Gateway
 )
 
 func (jt JobSpecTemplate) String() string {
@@ -28,6 +29,8 @@ func (jt JobSpecTemplate) String() string {
 		return "ocr3"
 	case EVM:
 		return "evm"
+	case Gateway:
+		return "gateway"
 	default:
 		return "unknown"
 	}
@@ -44,6 +47,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return OCR3, nil
 	case "evm":
 		return EVM, nil
+	case "gateway":
+		return Gateway, nil
 	case "", "unknown":
 		return 0, errors.New("job spec template cannot be empty")
 	default:

@@ -20,15 +20,15 @@ import (
 )
 
 type OCR3JobConfigInput struct {
-	TemplateName         string
-	ContractQualifier    string
-	ChainSelectorEVM     uint64
-	ChainSelectorAptos   uint64
-	BootstrapperOCR3Urls []string
+	TemplateName         string        `yaml:"template_name"`
+	ContractQualifier    string        `yaml:"contract_qualifier"`
+	ChainSelectorEVM     ChainSelector `yaml:"chain_selector_evm"`
+	ChainSelectorAptos   ChainSelector `yaml:"chain_selector_aptos"`
+	BootstrapperOCR3Urls []string      `yaml:"bootstrapper_ocr3_urls"`
 
 	// Optionals: specific to the worker vault OCR3 Job spec
-	MasterPublicKey          string
-	EncryptedPrivateKeyShare string
+	MasterPublicKey          string `yaml:"master_public_key"`
+	EncryptedPrivateKeyShare string `yaml:"encrypted_private_key_share"`
 }
 
 type OCR3JobConfig struct {

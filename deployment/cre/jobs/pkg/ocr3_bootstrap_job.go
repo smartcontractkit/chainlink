@@ -12,8 +12,8 @@ import (
 const bootstrapPth = "ocr3_bootstrap.tmpl"
 
 type BootstrapJobInput struct {
-	ContractQualifier string `json:"contract_qualifier" yaml:"contract_qualifier"` // OCR contract address
-	ChainSelector     uint64 `json:"chain_selector" yaml:"chain_selector"`
+	ContractQualifier string        `json:"contract_qualifier" yaml:"contract_qualifier"` // OCR contract address
+	ChainSelector     ChainSelector `json:"chain_selector" yaml:"chain_selector"`
 }
 
 type BootstrapCfg struct {
