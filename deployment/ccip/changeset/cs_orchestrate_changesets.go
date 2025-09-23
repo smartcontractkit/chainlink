@@ -127,7 +127,7 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 			finalOutput.Reports = append(finalOutput.Reports, output.Reports...)
 			return cldf.ChangesetOutput{Reports: finalOutput.Reports}, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}
-		err = mergeChangesetOutput(e, &finalOutput, output)
+		err = MergeChangesetOutput(e, &finalOutput, output)
 		if err != nil {
 			finalOutput.Reports = append(finalOutput.Reports, output.Reports...)
 			return cldf.ChangesetOutput{Reports: finalOutput.Reports}, fmt.Errorf("failed to merge output of changeset at index %d: %w", i, err)
@@ -181,7 +181,7 @@ func orchestrateChangesetsPrecondition(e cldf.Environment, c OrchestrateChangese
 	return nil
 }
 
-func mergeChangesetOutput(e cldf.Environment, dest *cldf.ChangesetOutput, src cldf.ChangesetOutput) error {
+func MergeChangesetOutput(e cldf.Environment, dest *cldf.ChangesetOutput, src cldf.ChangesetOutput) error {
 	err := cldf.MergeChangesetOutput(e, dest, src)
 	if err != nil {
 		return fmt.Errorf("failed to merge changeset output: %w", err)

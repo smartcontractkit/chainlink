@@ -92,33 +92,6 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*ChainlinkK8sClient, e
 	return clients, nil
 }
 
-// ReconnectChainlinkNodes reconnects to Chainlink nodes after they have been modified, say through a Helm upgrade
-// Note: Experimental as of now, will likely not work predictably.
-func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*ChainlinkK8sClient) (err error) {
-	for _, node := range nodes {
-		for _, details := range testEnvironment.ChainlinkNodeDetails {
-			if details.ChartName == node.ChartName { // Make the link from client to pod consistent
-				node, err = NewChainlinkK8sClient(&ChainlinkConfig{
-					URL:        details.LocalIP,
-					Email:      CLNodeTestEmail,
-					Password:   CLNodeTestPassword,
-					InternalIP: parseHostname(details.InternalIP),
-				}, details.PodName, details.ChartName)
-				if err != nil {
-					return err
-				}
-				log.Debug().
-					Str("URL", node.Config.URL).
-					Str("Internal IP", node.Config.InternalIP).
-					Str("Chart Name", node.ChartName).
-					Str("Pod Name", node.PodName).
-					Msg("Reconnected to Chainlink node")
-			}
-		}
-	}
-	return nil
-}
-
 // ConnectChainlinkNodeURLs creates new Chainlink clients based on just URLs, should only be used inside K8s tests
 func ConnectChainlinkNodeURLs(urls []string) ([]*ChainlinkK8sClient, error) {
 	var clients []*ChainlinkK8sClient

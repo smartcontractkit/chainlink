@@ -222,6 +222,10 @@ func (g *generalConfig) TONConfigs() RawConfigs {
 	return g.c.TON
 }
 
+func (g *generalConfig) SuiConfigs() RawConfigs {
+	return g.c.Sui
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
@@ -362,6 +366,15 @@ func (g *generalConfig) TronEnabled() bool {
 
 func (g *generalConfig) TONEnabled() bool {
 	for _, c := range g.c.TON {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) SuiEnabled() bool {
+	for _, c := range g.c.Sui {
 		if c.IsEnabled() {
 			return true
 		}
@@ -550,6 +563,10 @@ func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableChainKeyLister {
 
 func (g *generalConfig) ImportedSolKeys() coreconfig.ImportableChainKeyLister {
 	return &importedSolKeyConfigs{s: g.secrets.Solana}
+}
+
+func (g *generalConfig) ImportedDKGRecipientKey() coreconfig.ImportableKey {
+	return &importedDKGRecipientKeyConfig{s: g.secrets.DKGRecipientKey}
 }
 
 func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {

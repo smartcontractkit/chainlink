@@ -21,7 +21,9 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
@@ -32,9 +34,37 @@ func ExecuteVaultTest(t *testing.T, testEnv *TestEnvironment) {
 	*/
 	var testLogger = framework.L
 
+	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
+	require.Eventually(t, func() bool {
+		for _, nodeSet := range testEnv.Config.NodeSets {
+			var vaultFound bool
+			for _, cap := range nodeSet.Capabilities {
+				if cap == cre.VaultCapability {
+					vaultFound = true
+					break
+				}
+			}
+			if vaultFound {
+				for i := range nodeSet.Nodes {
+					if i != nodeSet.BootstrapNodeIndex {
+						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
+						if err != nil || packageCount != 1 {
+							return false
+						}
+					}
+				}
+				return true
+			}
+		}
+		return false
+	}, time.Second*300, time.Second*5)
+
+	// Wait a bit to ensure the Vault plugin is ready.
+	time.Sleep(30 * time.Second)
+
 	testLogger.Info().Msg("Getting gateway configuration...")
-	require.NotEmpty(t, testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.FullCldEnvOutput.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
+	require.NotEmpty(t, testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
+	gatewayURL, err := url.Parse(testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Protocol + "://" + testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.ExternalPort) + testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations[0].Incoming.Path)
 	require.NoError(t, err, "failed to parse gateway URL")
 	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 

@@ -26,9 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -50,8 +50,6 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
 	donFamily := "A"
-
-	tickChan := make(chan time.Time)
 
 	// Deploy a test workflow_registry
 	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper_v2.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
@@ -101,21 +99,17 @@ func Test_InitialStateSyncV2(t *testing.T) {
 			err: nil,
 		},
 		syncer.NewEngineRegistry(),
-		syncer.WithTicker(tickChan),
 	)
 	require.NoError(t, err)
 
 	servicetest.Run(t, worker)
-
-	// Trigger a sync
-	tickChan <- time.Now()
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegistered, event.Name)
+		assert.Equal(t, syncer.WorkflowActivated, event.Name)
 	}
 }
 
@@ -124,7 +118,6 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
 
-		tickChan        = make(chan time.Time)
 		giveBinaryURL   = "https://original-url.com"
 		donID           = uint32(1)
 		donFamily1      = "A"
@@ -184,7 +177,6 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 			err: nil,
 		},
 		syncer.NewEngineRegistry(),
-		syncer.WithTicker(tickChan),
 	)
 	require.NoError(t, err)
 
@@ -194,15 +186,9 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 
 	servicetest.Run(t, worker)
 
-	// Trigger a sync
-	tickChan <- time.Now()
-
 	// generate a log event
 	upsertWorkflowV2(t, backendTH, wfRegistryC, skippedWorkflow)
 	upsertWorkflowV2(t, backendTH, wfRegistryC, giveWorkflow)
-
-	// Trigger a sync
-	tickChan <- time.Now()
 
 	require.Eventually(t, func() bool {
 		// we process events in order, and should only receive 1 event
@@ -220,7 +206,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
-		tickChan      = make(chan time.Time)
 		giveBinaryURL = "https://original-url.com"
 		donID         = uint32(1)
 		donFamily     = "A"
@@ -290,7 +275,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 			err: nil,
 		},
 		er,
-		syncer.WithTicker(tickChan),
 	)
 	require.NoError(t, err)
 
@@ -302,9 +286,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 
 	// generate a log event
 	upsertWorkflowV2(t, backendTH, wfRegistryC, giveWorkflow)
-
-	// Trigger a sync
-	tickChan <- time.Now()
 
 	// Paused workflows should generate no events
 	time.Sleep(5 * time.Second)
@@ -323,7 +304,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
-		tickChan      = make(chan time.Time)
 		giveBinaryURL = "https://original-url.com"
 		donID         = uint32(1)
 		donFamily     = "A"
@@ -393,7 +373,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 			err: nil,
 		},
 		er,
-		syncer.WithTicker(tickChan),
 	)
 	require.NoError(t, err)
 
@@ -405,9 +384,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 
 	// generate a log event
 	upsertWorkflowV2(t, backendTH, wfRegistryC, giveWorkflow)
-
-	// Trigger a sync
-	tickChan <- time.Now()
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
@@ -489,7 +465,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 		}, 30*time.Second, 1*time.Second)
 
 		for _, event := range testEventHandler.GetEvents() {
-			assert.Equal(t, syncer.WorkflowRegistered, event.Name)
+			assert.Equal(t, syncer.WorkflowActivated, event.Name)
 		}
 	})
 }
@@ -563,7 +539,7 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	}, 30*time.Second, 1*time.Second)
 
 	event := testEventHandler.GetEvents()[0]
-	assert.Equal(t, syncer.WorkflowRegistered, event.Name)
+	assert.Equal(t, syncer.WorkflowActivated, event.Name)
 
 	assert.Equal(t, 1, retryCount)
 }

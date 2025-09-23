@@ -6,8 +6,8 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
@@ -165,19 +165,20 @@ func deployAptosTokenFaucetSequence(b operations.Bundle, deps operation.AptosDep
 	return mcmsOperations, nil
 }
 
-type TransferInput struct {
+type TokenTransferInput struct {
 	TokenCodeObjAddress aptos.AccountAddress
+	TokenType           deployment.ContractType
 	To                  aptos.AccountAddress
 }
 
 type TransferTokenOwnershipsSeqInput struct {
-	Transfers []TransferInput
+	Transfers []TokenTransferInput
 }
 
 var TransferTokenOwnershipsSequence = operations.NewSequence(
 	"transfer-token-ownerships",
 	operation.Version1_0_0,
-	"Transfers the ownership of one or multiple managed token instances",
+	"Transfers the ownership of one or multiple managed/regulated token instances",
 	transferTokenOwnershipsSequence,
 )
 
@@ -191,11 +192,12 @@ func transferTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDe
 			deps,
 			operation.TransferTokenOwnershipInput{
 				TokenCodeObjectAddress: transfer.TokenCodeObjAddress,
+				TokenType:              transfer.TokenType,
 				To:                     transfer.To,
 			},
 		)
 		if err != nil {
-			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d TransferTokenOwnershipOp of token %s: %w", i, transfer.TokenCodeObjAddress.StringLong(), err)
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d TransferTokenOwnershipOp of %v token %s: %w", i, transfer.TokenType.String(), transfer.TokenCodeObjAddress.StringLong(), err)
 		}
 		txs = append(txs, report.Output)
 	}
@@ -206,31 +208,37 @@ func transferTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDe
 	}, nil
 }
 
+type TokenAcceptInput struct {
+	TokenCodeObjAddress aptos.AccountAddress
+	TokenType           deployment.ContractType
+}
+
 type AcceptTokenOwnershipsSeqInput struct {
-	TokenCodeObjAddresses []aptos.AccountAddress
+	Accepts []TokenAcceptInput
 }
 
 var AcceptTokenOwnershipsSequence = operations.NewSequence(
 	"accept-token-ownerships",
 	operation.Version1_0_0,
-	"Accepts the ownership of one or multiple manages token instances",
+	"Accepts the ownership of one or multiple managed/regulated token instances",
 	acceptTokenOwnershipsSequence,
 )
 
 func acceptTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps, in AcceptTokenOwnershipsSeqInput) (mcmstypes.BatchOperation, error) {
 	var txs []mcmstypes.Transaction
 
-	for i, address := range in.TokenCodeObjAddresses {
+	for i, accept := range in.Accepts {
 		report, err := operations.ExecuteOperation(
 			b,
 			operation.AcceptTokenOwnershipOp,
 			deps,
 			operation.AcceptTokenOwnershipInput{
-				TokenCodeObjectAddress: address,
+				TokenCodeObjectAddress: accept.TokenCodeObjAddress,
+				TokenType:              accept.TokenType,
 			},
 		)
 		if err != nil {
-			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d AcceptTokenOwnershipOp of token %s: %w", i, address.StringLong(), err)
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d AcceptTokenOwnershipOp of %v token %s: %w", i, accept.TokenType.String(), accept.TokenCodeObjAddress.StringLong(), err)
 		}
 		txs = append(txs, report.Output)
 	}
@@ -242,13 +250,13 @@ func acceptTokenOwnershipsSequence(b operations.Bundle, deps operation.AptosDeps
 }
 
 type ExecuteTokenOwnershipTransfersSeqInput struct {
-	Transfers []TransferInput
+	Transfers []TokenTransferInput
 }
 
 var ExecuteTokenOwnershipTransfersSequence = operations.NewSequence(
 	"execute-token-ownership-transfers",
 	operation.Version1_0_0,
-	"Executes the pending ownership transfer(s) of one or multiple managed token instances",
+	"Executes the pending ownership transfer(s) of one or multiple managed/regulated token instances",
 	executeTokenOwnershipTransfersSequence,
 )
 
@@ -262,11 +270,83 @@ func executeTokenOwnershipTransfersSequence(b operations.Bundle, deps operation.
 			deps,
 			operation.ExecuteTokenOwnershipTransferInput{
 				TokenCodeObjectAddress: transfer.TokenCodeObjAddress,
+				TokenType:              transfer.TokenType,
 				To:                     transfer.To,
 			},
 		)
 		if err != nil {
-			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d ExecuteTokenOwnershipTransferOp of token %s: %w", i, transfer.TokenCodeObjAddress.StringLong(), err)
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d ExecuteTokenOwnershipTransferOp of %v token %s: %w", i, transfer.TokenType.String(), transfer.TokenCodeObjAddress.StringLong(), err)
+		}
+		txs = append(txs, report.Output)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	}, nil
+}
+
+type TransferTokenAdminsSeqInput struct {
+	Transfers []TokenTransferInput
+}
+
+var TransferTokenAdminsSequence = operations.NewSequence(
+	"transfer-token-admins",
+	operation.Version1_0_0,
+	"Transfers the admin role of one or multiple regulated token instances",
+	transferTokenAdminsSequence,
+)
+
+func transferTokenAdminsSequence(b operations.Bundle, deps operation.AptosDeps, in TransferTokenAdminsSeqInput) (mcmstypes.BatchOperation, error) {
+	var txs []mcmstypes.Transaction
+
+	for i, transfer := range in.Transfers {
+		report, err := operations.ExecuteOperation(
+			b,
+			operation.TransferTokenAdminOp,
+			deps,
+			operation.TransferTokenAdminInput{
+				TokenCodeObjectAddress: transfer.TokenCodeObjAddress,
+				NewAdmin:               transfer.To,
+			},
+		)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d TransferTokenAdminOp of token %s: %w", i, transfer.TokenCodeObjAddress.StringLong(), err)
+		}
+		txs = append(txs, report.Output)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(deps.AptosChain.Selector),
+		Transactions:  txs,
+	}, nil
+}
+
+type AcceptTokenAdminsSeqInput struct {
+	Accepts []TokenAcceptInput
+}
+
+var AcceptTokenAdminsSequence = operations.NewSequence(
+	"accept-token-admins",
+	operation.Version1_0_0,
+	"Accepts the admin role of one or multiple pending admin transfers on regulated token instances",
+	acceptTokenAdminsSequence,
+)
+
+func acceptTokenAdminsSequence(b operations.Bundle, deps operation.AptosDeps, in AcceptTokenAdminsSeqInput) (mcmstypes.BatchOperation, error) {
+	var txs []mcmstypes.Transaction
+
+	for i, accept := range in.Accepts {
+		report, err := operations.ExecuteOperation(
+			b,
+			operation.AcceptTokenAdminOp,
+			deps,
+			operation.AcceptTokenAdminInput{
+				TokenCodeObjectAddress: accept.TokenCodeObjAddress,
+			},
+		)
+		if err != nil {
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to execute %d AcceptTokenAdminOp of token %s: %w", i, accept.TokenCodeObjAddress.StringLong(), err)
 		}
 		txs = append(txs, report.Output)
 	}

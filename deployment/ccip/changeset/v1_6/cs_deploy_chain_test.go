@@ -176,7 +176,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	testhelpers.DeployCCIPContractsTest(t, 0)
+	testhelpers.DeployCCIPContractsTest(t, 0, 0)
 }
 
 func TestDeployStaticLinkToken(t *testing.T) {

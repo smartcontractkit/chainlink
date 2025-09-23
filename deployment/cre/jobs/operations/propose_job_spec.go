@@ -48,7 +48,6 @@ var ProposeJobSpec = operations.NewOperation[ProposeJobSpecInput, ProposeJobSpec
 			DONName:   input.DONName,
 			Env:       deps.Env.Name,
 			JobLabels: input.JobLabels,
-			DONFilter: &node.ListNodesRequest_Filter{},
 		}
 
 		nodeType := PluginNodeType
@@ -65,7 +64,7 @@ var ProposeJobSpec = operations.NewOperation[ProposeJobSpecInput, ProposeJobSpec
 			},
 		}
 		for _, f := range input.DONFilters {
-			filter.Selectors = append(filter.Selectors, f.ToJDSelector())
+			filter = f.AddToFilter(filter)
 		}
 
 		req.DONFilter = filter

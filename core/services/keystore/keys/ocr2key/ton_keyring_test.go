@@ -79,11 +79,11 @@ func TestTONKeyring_Sign3_Verify3(t *testing.T) {
 }
 
 func TestTONKeyring_Marshalling(t *testing.T) {
-	kr1, err := newAptosKeyring(cryptorand.Reader)
+	kr1, err := newEd25519Keyring(cryptorand.Reader)
 	require.NoError(t, err)
 	m, err := kr1.Marshal()
 	require.NoError(t, err)
-	kr2 := aptosKeyring{}
+	kr2 := ed25519Keyring{}
 	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
 	assert.True(t, bytes.Equal(kr1.pubKey, kr2.pubKey))
