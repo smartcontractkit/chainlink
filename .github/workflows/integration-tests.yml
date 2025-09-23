@@ -239,21 +239,21 @@ jobs:
           gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
   # flaky test: https://chainlink-core.slack.com/archives/C07GQNPVBB5/p1758523002485979
-  # run-core-cre-e2e-tests-for-pr:
-  #   name: Run Core CRE E2E Tests For PR
-  #   permissions:
-  #     actions: read
-  #     checks: write
-  #     pull-requests: write
-  #     id-token: write
-  #     contents: read
-  #   needs: [build-chainlink, changes]
-  #   if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'true'
-  #   uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
-  #   with:
-  #     chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-  #     chainlink_image_tag: ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
-  #   secrets: inherit
+  run-core-cre-e2e-tests-for-pr:
+    name: Run Core CRE E2E Tests For PR
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.should-run-cre-tests == 'false'
+    uses: smartcontractkit/chainlink/.github/workflows/cre-system-tests.yaml@53e6348b792989514a6b7b53745bfcc389f706d9 # 27th June 2025
+    with:
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}-plugins', inputs.evm-ref) || inputs.cl_ref && format('{0}-plugins', inputs.cl_ref) || format('{0}-plugins', github.sha) }}
+    secrets: inherit
 
   #TODO migrate to using cre-system-tests.yaml once it has soaked in
   run-core-cre-e2e-tests-for-merge-queue:
@@ -710,13 +710,14 @@ jobs:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [
+    needs:
+      [
         build-chainlink,
         run-core-e2e-tests-for-pr,
         run-core-e2e-tests-for-push,
         run-core-e2e-tests-for-merge-queue,
         run-core-e2e-tests-for-workflow-dispatch,
-        # run-core-cre-e2e-tests-for-pr,
+        run-core-cre-e2e-tests-for-pr,
         run-core-cre-e2e-tests-for-push,
         run-core-cre-e2e-tests-for-merge-queue,
         run-core-cre-e2e-tests-for-workflow-dispatch,
@@ -804,10 +805,11 @@ jobs:
     # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
     # By always running this, it delays the start of the next workflow run due to concurrency rules.
     if: always() && !cancelled()
-    needs: [
+    needs:
+      [
         run-core-e2e-tests-for-pr,
         run-ccip-e2e-tests-for-pr,
-        # run-core-cre-e2e-tests-for-pr,
+        run-core-cre-e2e-tests-for-pr,
         run-core-e2e-tests-for-merge-queue,
         run-ccip-e2e-tests-for-merge-queue,
         run-core-cre-e2e-tests-for-merge-queue,
