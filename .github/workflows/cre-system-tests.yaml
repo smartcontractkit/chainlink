@@ -222,10 +222,11 @@ jobs:
         run: |
           # Sleep to allow testcontainers to stop
           # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
-          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 2>&1 | tee /tmp/gotest.log
+          echo "Running smoke test: ${TEST_NAME}"
+          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 2>&1 | tee /tmp/gotest.log
 
       - name: Run CRE Regression system tests
-        if: ${{ inputs.with_regression == 'true' }}
+        if: ${{ inputs.with_regression }}
         shell: bash
         working-directory: system-tests/tests
         env:
@@ -238,6 +239,7 @@ jobs:
         run: |
           # Sleep to allow testcontainers to stop
           # Before running it with flakeguard add this bit back: { go test... -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; }
+          echo "Running regression test: ${TEST_NAME}"
           go test github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 2>&1 | tee /tmp/gotest.log
 
 

@@ -305,7 +305,6 @@ jobs:
           CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
           RUN_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-regression-label-found }}
         run: |
-          echo "Regression tests run: ${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}"
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
             # Run Core CRE E2E tests on PRs if there are relevant changes
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
@@ -313,7 +312,7 @@ jobs:
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
             fi
             if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
-              echo "Updating initial setup to include CRE regression tests as the label 'run-e2e-regression' is found"
+              echo "Including CRE regression tests as the label 'run-e2e-regression' is found"
               echo "workflow-name=Run Core CRE E2E Regression Tests For PR" | tee -a "$GITHUB_OUTPUT"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
               echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
