@@ -316,6 +316,12 @@ var SolanaProgramIDs = map[string]string{
 	"data_feeds_cache":          "3kX63udXtYcsdj2737Wi2KGd2PhqiKPgAFAxstrjtRUa",
 }
 
+// Not deployed as part of the other solana programs, as it has its unique
+// repository.
+var SolanaNonCcipProgramIDs = map[string]string{
+	"ccip_signer_registry": "S1GN4jus9XzKVVnoHqfkjo1GN8bX46gjXZQwsdGBPHE",
+}
+
 // Populates datastore with the predeployed program addresses
 // pass map [programName]:ContractType of contracts to populate datastore with
 func PopulateDatastore(ds *datastore.MemoryAddressRefStore, contracts map[string]datastore.ContractType, version *semver.Version, qualifier string, chainSel uint64) error {
