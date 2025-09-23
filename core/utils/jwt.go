@@ -5,17 +5,19 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 )
 
 const (
-	defaultJWTExpiryDuration = time.Hour
+	maxJWTExpiryDuration = 5 * time.Minute // Maximum allowed expiry duration
 )
 
 // Option is a function type that allows configuring CreateRequestJWT.
@@ -123,6 +125,7 @@ type JWTClaims struct {
 //
 //	{
 //		digest: "<request-digest>",      // 32 byte hex string with "0x" prefix
+//		jti: "<unique-id>",              // JWT ID (UUID) for replay protection (REQUIRED)
 //		iss: "ethereum-address",         // Ethereum address of the issuer
 //		exp: <timestamp>,                // expiration time (Unix timestamp)
 //		iat: <timestamp>                 // issued at time (Unix timestamp)
@@ -132,8 +135,9 @@ type JWTClaims struct {
 //
 //	{
 //	  "digest": "0x4a1f2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a",
+//	  "jti": "550e8400-e29b-41d4-a716-446655440000",
 //	  "iss": "0xc40B35B10c5003C182e300a9a34F6ff559eB746d",
-//	  "exp": 1717600000,
+//	  "exp": 1717596700,
 //	  "iat": 1717596400
 //	}
 //
@@ -145,10 +149,12 @@ func CreateRequestJWT[T any](req jsonrpc.Request[T], opts ...Option) (*jwt.Token
 		opt(options)
 	}
 
-	// Set defaults if not provided
-	expiryDuration := defaultJWTExpiryDuration
+	expiryDuration := maxJWTExpiryDuration
 	if options.expiryDuration != nil {
 		expiryDuration = *options.expiryDuration
+	}
+	if expiryDuration > maxJWTExpiryDuration {
+		return nil, fmt.Errorf("expiry duration exceeds maximum allowed %.0f minutes", maxJWTExpiryDuration.Minutes())
 	}
 
 	digest, err := req.Digest()
@@ -172,9 +178,12 @@ func CreateRequestJWT[T any](req jsonrpc.Request[T], opts ...Option) (*jwt.Token
 	}
 
 	now := time.Now()
+	jti := uuid.New().String()
+
 	claims := JWTClaims{
 		Digest: "0x" + digest,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti,
 			Issuer:    issuer,
 			Subject:   subject,
 			Audience:  jwt.ClaimStrings(audience),
@@ -238,5 +247,19 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T]) (*JWTCl
 	if verifiedClaims.Digest != "0x"+reqDigest {
 		return nil, gethcommon.Address{}, errors.New("JWT digest does not match request digest")
 	}
+	if verifiedClaims.ID == "" {
+		return nil, gethcommon.Address{}, errors.New("JWT ID (jti) is required but missing")
+	}
+	if verifiedClaims.ExpiresAt == nil {
+		return nil, gethcommon.Address{}, errors.New("expiredAt (exp) is required but missing")
+	}
+	if verifiedClaims.IssuedAt == nil {
+		return nil, gethcommon.Address{}, errors.New("issuedAt (iat) is required but missing")
+	}
+	duration := verifiedClaims.ExpiresAt.Sub(verifiedClaims.IssuedAt.Time)
+	if duration > maxJWTExpiryDuration {
+		return nil, gethcommon.Address{}, fmt.Errorf("expiry duration exceeds maximum allowed %.0f minutes", maxJWTExpiryDuration.Minutes())
+	}
+
 	return verifiedClaims, pubKey, nil
 }
