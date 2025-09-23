@@ -108,6 +108,7 @@ func onTrigger(config None, runtime cre.Runtime, trigger *http.Payload) (string,
 	logger.Info("Processing pizza order with inputs", "inputs", string(trigger.Input))
 
 	customer := "default"
+    // this demonstrates that workflows can have custom logic based on the identity that invoked HTTP trigger
 	if trigger.Key != nil && trigger.Key.PublicKey == "0x4b8d44a7a1302011fbc119407f8ce3baee6ea2ff" {
 		customer = "Bob"
 	}
