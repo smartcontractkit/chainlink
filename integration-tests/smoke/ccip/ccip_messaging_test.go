@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -581,11 +582,12 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidationType:         mt.ValidationTypeExec,
-				TestSetup:              setup,
-				Nonce:                  nil, // Solana nonce check is skipped
-				Receiver:               receiver,
-				MsgData:                []byte("hello CCIPReceiver"),
+				ValidationType: mt.ValidationTypeExec,
+				TestSetup:      setup,
+				Nonce:          nil, // Solana nonce check is skipped
+				Receiver:       receiver,
+				// set a large payload that requires a merkle proof so that we initiate tx buffering.
+				MsgData:                bytes.Repeat([]byte("a"), 1233),
 				ExtraArgs:              extraArgs,
 				NumberOfMessages:       3,
 				UseMulticall3:          true,
