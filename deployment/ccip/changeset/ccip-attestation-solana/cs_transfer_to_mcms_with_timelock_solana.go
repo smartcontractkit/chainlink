@@ -194,7 +194,7 @@ func transferOwnershipSignerRegistry(
 		}
 		ixData, err := ix.Data()
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract data payload from fee quoter accept ownership instruction: %w", err)
+			return nil, fmt.Errorf("failed to extract data payload from signer registry accept ownership instruction: %w", err)
 		}
 		acceptOwnershipIx := solana.NewInstruction(programID, ix.Accounts(), ixData)
 		for _, acc := range acceptOwnershipIx.Accounts() {
@@ -218,7 +218,7 @@ func transferOwnershipSignerRegistry(
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to transfer fee quoter ownership: %w", err)
+		return nil, fmt.Errorf("failed to transfer signer registry ownership: %w", err)
 	}
 
 	result = append(result, tx)
