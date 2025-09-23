@@ -209,10 +209,10 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 
 	// Populate extraDataCodecRegistry with codecs from CCIPProviders
-	err = i.populateCodecRegistriesWithProviderCodecs(ccipProviders)
-	if err != nil {
-		return nil, fmt.Errorf("failed to populate extraDataCodecRegistry with codecs from CCIPProviders: %w", err)
-	}
+	//err = i.populateCodecRegistriesWithProviderCodecs(ccipProviders)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to populate extraDataCodecRegistry with codecs from CCIPProviders: %w", err)
+	//}
 
 	// build the onchain keyring. it will be the signing key for the destination chain family.
 	keybundle, ok := i.ocrKeyBundles[destChainFamily]
