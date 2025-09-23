@@ -6,22 +6,39 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tlb"
+	"github.com/xssnick/tonutils-go/ton"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
+
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/offramp"
-	"github.com/stretchr/testify/require"
-	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tl"
-	"github.com/xssnick/tonutils-go/tlb"
-	"github.com/xssnick/tonutils-go/ton"
-	"github.com/xssnick/tonutils-go/tvm/cell"
+	tonlploader "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/backend/loader/account"
+	tonlptypes "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/types"
 )
 
 func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, tonChain cldf_ton.Chain, offRampContract address.Address, expectedSeqNumRange ccipocr3common.SeqNumRange) (bool, error) {
 	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
+
+	// Create prefixed logger for TON event assertion
+	lggr := logger.Named(logger.Test(t), "TON_EVENT_ASSERTION")
+	lggr.Infof("JADE:WAITING for commit report from srcSelector=%d, expectedSeqNumRange=[%d, %d], timeout=%v",
+		srcSelector, expectedSeqNumRange.Start(), expectedSeqNumRange.End(), tests.WaitTimeout(t))
+
 	tonBlockTicker := time.NewTicker(2500 * time.Millisecond)
-	eventCh, errCh := TONEventEmitter[offramp.CommitReportAccepted](t.Context(), tonChain, offRampContract, 0, tonBlockTicker)
+	// Start from a bit earlier to catch any events we might have missed
+	// Use a lookback of about 50 blocks to ensure we don't miss commit events
+	var startBlock uint32 = 0
+	if currentBlock, err := tonChain.Client.CurrentMasterchainInfo(t.Context()); err == nil && currentBlock.SeqNo > 50 {
+		startBlock = currentBlock.SeqNo - 50
+		lggr.Infof("JADE:STARTING scan from block %d (50 blocks back from current %d)", startBlock, currentBlock.SeqNo)
+	}
+
+	eventCh, errCh := GetEvents[offramp.CommitReportAccepted](t, lggr, t.Context(), tonChain, &offRampContract, startBlock, tonBlockTicker)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -29,13 +46,23 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 	for {
 		select {
 		case commitEvent := <-eventCh:
+			// Log event details with proper dereferencing
+			if commitEvent.MerkleRoot != nil {
+				lggr.Infof("JADE:RECEIVED CommitReportAccepted event: MerkleRoot={SourceChainSelector:%d, MinSeqNr:%d, MaxSeqNr:%d, MerkleRoot:%x}, PriceUpdates=%+v",
+					commitEvent.MerkleRoot.SourceChainSelector, commitEvent.MerkleRoot.MinSeqNr, commitEvent.MerkleRoot.MaxSeqNr,
+					commitEvent.MerkleRoot.MerkleRoot, commitEvent.PriceUpdates)
+			} else {
+				lggr.Infof("JADE:RECEIVED CommitReportAccepted event: MerkleRoot=<nil>, PriceUpdates=%+v", commitEvent.PriceUpdates)
+			}
+
 			// if merkle root is zero, it only contains price updates
 			if commitEvent.MerkleRoot == nil {
-				t.Logf("Skipping CommitReportAccepted with only price updates")
+				lggr.Infof("Skipping CommitReportAccepted with only price updates")
 				continue
 			}
 
 			mr := commitEvent.MerkleRoot
+			lggr.Infof("JADE:PROCESSING MerkleRoot: SourceChainSelector=%d, MinSeqNr=%d, MaxSeqNr=%d", mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
 			require.Equal(t, srcSelector, mr.SourceChainSelector)
 
 			// TODO: this logic is duplicated with verifyCommitReport, share
@@ -58,103 +85,165 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 				tonChain.Selector, srcSelector, expectedSeqNumRange.String())
 		}
 	}
-
 }
 
-func TONEventEmitter[T any](ctx context.Context, tonChain cldf_ton.Chain, contractAddress address.Address, startBlock uint32, ticker *time.Ticker) (<-chan T, <-chan error) {
+func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, tonChain cldf_ton.Chain, contractAddress *address.Address, startBlock uint32, ticker *time.Ticker) (<-chan T, <-chan error) {
 	ch := make(chan T)
 	errorCh := make(chan error)
 
 	go func() {
 		defer ticker.Stop()
+		defer close(ch)
+		defer close(errorCh)
+
+		// lazy client provider
+		clientProvider := func(ctx context.Context) (ton.APIClientWrapped, error) {
+			return tonChain.Client.WithRetry(3), nil
+		}
+		// init loader
+		loader := tonlploader.NewTxLoader(lggr, clientProvider, 100)
+
+		lastProcessedBlock := startBlock
+
 		for {
-			toBlock, err := tonChain.Client.CurrentMasterchainInfo(ctx)
-			if err != nil {
-				errorCh <- err
+			select {
+			case <-ctx.Done():
 				return
-			}
-
-			res, err := tonChain.Client.WaitForBlock(toBlock.SeqNo).GetAccount(ctx, toBlock, &contractAddress)
-			if err != nil {
-				errorCh <- err
-				return
-			}
-
-			txHash := res.LastTxHash
-
-			var resp tl.Serializable
-			err = tonChain.Client.Client().QueryLiteserver(ctx, ton.GetTransactions{
-				Limit: int32(10),
-				AccID: &ton.AccountID{
-					Workchain: contractAddress.Workchain(),
-					ID:        contractAddress.Data(),
-				},
-				LT:     int64(res.LastTxLT),
-				TxHash: txHash,
-			}, &resp)
-
-			if err != nil {
-				errorCh <- err
-				return
-			}
-
-			var out T
-			var txList []*cell.Cell
-			var msgs []tlb.Message
-			switch t := resp.(type) {
-			case ton.TransactionList:
-				if len(t.Transactions) == 0 {
-					errorCh <- ton.ErrNoTransactionsWereFound
+			case <-ticker.C:
+				// 1. Get block range
+				blockRange, newSeqNo, err := getBlockRange(ctx, tonChain, lastProcessedBlock)
+				if err != nil {
+					errorCh <- err
 					return
 				}
 
-				txList, err = cell.FromBOCMultiRoot(t.Transactions)
-				if err != nil {
-					errorCh <- fmt.Errorf("failed to parse cell from transaction bytes: %w", err)
+				// Skip if no new blocks
+				if blockRange == nil {
+					continue
 				}
 
-				for i := 0; i < len(txList); i++ {
-					loader := txList[i].BeginParse()
+				// 2. Fetch transactions
+				txs, err := loader.LoadTxsForAddresses(ctx, blockRange, []*address.Address{contractAddress})
+				if err != nil {
+					errorCh <- fmt.Errorf("failed to load transactions: %w", err)
+					return
+				}
 
-					var tx tlb.Transaction
-					err = tlb.LoadFromCell(&tx, loader)
-					if err != nil {
-						errorCh <- fmt.Errorf("failed to load transaction from cell: %w", err)
+				// 3. Get messages in transactions to see if there is event we're looking for
+				events, err := extractEventMessage[T](lggr, txs)
+				if err != nil {
+					errorCh <- err
+					return
+				}
+
+				// Send events to channel
+				for _, event := range events {
+					lggr.Infof("JADE:FOUND EVENT: %+v", event)
+					select {
+					case ch <- event:
+					case <-ctx.Done():
 						return
 					}
-
-					if tx.IO.Out != nil {
-						msgs, err = tx.IO.Out.ToSlice()
-						if err != nil {
-							// skip this tx
-							continue
-						}
-
-						for _, msg := range msgs {
-							if msg.MsgType != tlb.MsgTypeExternalOut {
-								continue
-							}
-
-							var event T
-							c := msg.AsExternalOut().Body
-							err = tlb.LoadFromCell(&event, c.BeginParse())
-							if err == nil {
-								ch <- out
-							}
-						}
-					}
 				}
 
-			case ton.LSError:
-				if t.Code == 0 {
-					errorCh <- ton.ErrNoTransactionsWereFound
-					return
-				}
-				errorCh <- t
-				return
+				// Update last processed block
+				lastProcessedBlock = newSeqNo
 			}
 		}
 	}()
 
 	return ch, errorCh
+}
+
+// getBlockRange creates a block range from lastProcessedBlock to current masterchain head
+func getBlockRange(ctx context.Context, tonChain cldf_ton.Chain, lastProcessedBlock uint32) (*tonlptypes.BlockRange, uint32, error) {
+	// lazy client provider
+	clientProvider := func(_ context.Context) (ton.APIClientWrapped, error) {
+		return tonChain.Client.WithRetry(3), nil
+	}
+
+	// 1. Get latest block number
+	client, err := clientProvider(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get client: %w", err)
+	}
+
+	toBlock, err := client.CurrentMasterchainInfo(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get current masterchain info: %w", err)
+	}
+
+	// Skip if no new blocks
+	if toBlock.SeqNo <= lastProcessedBlock {
+		return nil, toBlock.SeqNo, nil
+	}
+
+	// 2. Create a block range
+	var prevBlock *ton.BlockIDExt
+	if lastProcessedBlock > 0 {
+		// Get the previous block reference
+		prevBlock, err = client.LookupBlock(ctx, toBlock.Workchain, toBlock.Shard, lastProcessedBlock)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to lookup previous block %d: %w", lastProcessedBlock, err)
+		}
+	}
+
+	blockRange := &tonlptypes.BlockRange{
+		Prev: prevBlock,
+		To:   toBlock,
+	}
+
+	return blockRange, toBlock.SeqNo, nil
+}
+
+// extractEventMessage processes transactions to extract events of type T from external messages
+func extractEventMessage[T any](lggr logger.Logger, txs []tonlptypes.TxWithBlock) ([]T, error) {
+	var events []T
+
+	for _, tx := range txs {
+		if tx.Tx == nil {
+			continue
+		}
+		if tx.Tx.IO.Out != nil {
+			msgs, err := tx.Tx.IO.Out.ToSlice()
+			if err != nil {
+				// skip this tx
+				continue
+			}
+
+			for _, msg := range msgs {
+				if msg.MsgType == tlb.MsgTypeExternalOut {
+					if extOut := msg.AsExternalOut(); extOut != nil {
+						// Log raw message data for debugging
+						bodyHash := extOut.Body.Hash()
+						lggr.Debugf("JADE:DEBUG Raw external message body hash: %x", bodyHash)
+						lggr.Debugf("JADE:DEBUG Cell refs count: %d, bits: %d", extOut.Body.RefsNum(), extOut.Body.BitsSize())
+
+						// Try to read the first few bytes of the message body
+						if extOut.Body.BitsSize() > 0 {
+							parser := extOut.Body.BeginParse()
+							// Try to read first 32 bits as uint32 (common for operation codes)
+							if parser.BitsLeft() >= 32 {
+								opCode, _ := parser.LoadUInt(32)
+								lggr.Debugf("JADE:DEBUG First 32 bits (potential opcode): %d (0x%x)", opCode, opCode)
+							}
+						}
+
+						var event T
+						err := tlb.LoadFromCell(&event, extOut.Body.BeginParse())
+						if err == nil {
+							lggr.Debugf("JADE:DEBUG Successfully parsed event, adding to events list")
+							// Log the actual parsed event content for debugging
+							lggr.Infof("JADE:DEBUG Parsed event content: %+v", event)
+							events = append(events, event)
+						} else {
+							lggr.Debugf("JADE:DEBUG Failed to parse event: %v", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return events, nil
 }
