@@ -38,9 +38,6 @@ import (
 
 const flag = cre.VaultCapability
 
-// MasterPublicKeyStr is the public key used for the vault keys. It is set during environment setup
-var MasterPublicKeyStr = "7b2247726f7570223a2250323536222c22475f626172223a22424c634f345a2b314e7571746f4b656f5264705672334d6e62547762637a31644e524b526472614a68744b426534534a46686a5049346e6e4243692b544c43556e64565968364961623661774b496e45527a4d7137614d3d222c2248223a2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d222c22484172726179223a5b2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d222c2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d222c2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d222c2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d222c2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d222c2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d222c2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d222c2242496c68454d4f43513569436c5437537976614d4a6e3250417269714a70396e672f52462f78623549664965655a43704633364a543933756b674c336641754468327637692f693035676a6451396776344c556357324d3d225d7d"
-
 func New(chainID uint64) (*capabilities.Capability, error) {
 	return capabilities.New(
 		flag,
@@ -56,9 +53,9 @@ func New(chainID uint64) (*capabilities.Capability, error) {
 	)
 }
 
-func EncryptSecret(secret string) (string, error) {
+func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 	masterPublicKey := tdh2easy.PublicKey{}
-	masterPublicKeyBytes, err := hex.DecodeString(MasterPublicKeyStr)
+	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to decode master public key")
 	}
@@ -98,11 +95,22 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			"capability_vault",
+			"capability_vault_plugin",
 		)
 		vaultCapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(vaultOCR3Key)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get Vault capability address")
+		}
+
+		dkgKey := datastore.NewAddressRefKey(
+			input.DonTopology.HomeChainSelector,
+			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+			semver.MustParse("1.0.0"),
+			"capability_vault_dkg",
+		)
+		dkgAddress, err := input.CldEnvironment.DataStore.Addresses().Get(dkgKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get DKG address")
 		}
 
 		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
@@ -144,21 +152,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			// create job specs for the bootstrap node
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
 
-			// Create Vault keys in a deterministic manner by setting n = 8
-			// and t = 1, so that we can use the same keys across all tests,
-			// irrespective of the number of nodes in the workflow DON.
-			// We just need to ensure that the number of workflow nodes is at most 8, because dkgKeys()
-			// will generate only 8 shares. If workflow nodes are increased more than 8,
-			// we need to update the n value in dkgKeys() and the value of MasterPublicKeyStr accordingly.
-			if len(workflowNodeSet) > 8 {
-				return nil, errors.New("workflow node set must not exceed 8 nodes for vault capability, please update dkgKeys() and MasterPublicKeyStr accordingly if you want to increase the number of workflow nodes")
-			}
-			pk, sks, err := dkgKeys(8, 1)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate DKG keys")
-			}
-
-			for idx, workerNode := range workflowNodeSet {
+			for _, workerNode := range workflowNodeSet {
 				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
 				if nodeIDErr != nil {
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
@@ -169,17 +163,16 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
 				}
 
-				ocr2KeyBundleID, ocr2Err := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
-				if ocr2Err != nil {
-					return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
+				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
+				if ocr2kbErr != nil {
+					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
+				}
+				offchainKeyBundleID, ok := ocr2KeyBundlesPerFamily["evm"]
+				if !ok {
+					return nil, errors.New("key bundle ID for evm family is not found")
 				}
 
-				encryptedShare, encErr := encryptPrivateShare(input.CldEnvironment.Offchain, nodeID, sks[idx])
-				if err != nil {
-					return nil, errors.Wrap(encErr, "failed to encrypt private share")
-				}
-
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, input.DonTopology.OCRPeeringData, chainID, pk, encryptedShare))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, nodeEthAddr, offchainKeyBundleID, input.DonTopology.OCRPeeringData, chainID))
 			}
 		}
 
@@ -269,10 +262,6 @@ func dkgKeys(n, t int) (string, []*tdh2easy.PrivateShare, error) {
 
 	pks := hex.EncodeToString(pkb)
 	framework.L.Info().Msg("Generated MasterPublicKey for n=" + strconv.Itoa(n) + ", t=" + strconv.Itoa(t) + ". Key = " + pks)
-	if MasterPublicKeyStr != pks {
-		framework.L.Warn().Msgf("Generated MasterPublicKeyStr is not same as the expected one: %s != %s", MasterPublicKeyStr, pks)
-		return "", nil, errors.New("generated MasterPublicKeyStr does not match the expected one")
-	}
 	return pks, shares, nil
 }
 

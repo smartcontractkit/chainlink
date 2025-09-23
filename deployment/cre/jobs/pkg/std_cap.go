@@ -2,30 +2,27 @@ package pkg
 
 import (
 	"bytes"
-	"embed"
 	"errors"
 	"fmt"
 	"text/template"
 
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg/templates"
 )
 
 const (
 	ErrorEmptyJobName = "job name cannot be empty"
 )
 
-//go:embed *tmpl
-var tmplFS embed.FS
-
 type StandardCapabilityJob struct {
 	JobName string // Must be alphanumeric, with _, -, ., no spaces.
-	Command string
-	Config  string
+	Command string `yaml:"command"`
+	Config  string `yaml:"config"`
 
 	// If not provided, ExternalJobID is automatically filled in by calling `externalJobIDHashFunc`
-	ExternalJobID string
+	ExternalJobID string `yaml:"externalJobID"`
 	// OracleFactory is the configuration for the Oracle Factory job.
-	OracleFactory OracleFactory
+	OracleFactory *OracleFactory `yaml:"oracleFactory"`
 }
 
 func (s *StandardCapabilityJob) Validate() error {
@@ -48,7 +45,7 @@ func (s *StandardCapabilityJob) Resolve() (string, error) {
 		s.ExternalJobID = externalJobID.String()
 	}
 
-	t, err := template.New("s").ParseFS(tmplFS, "stdcap.tmpl")
+	t, err := template.New("s").ParseFS(templates.FS, "stdcap.tmpl")
 	if err != nil {
 		return "", fmt.Errorf("failed to parse stdcap.tmpl: %w", err)
 	}

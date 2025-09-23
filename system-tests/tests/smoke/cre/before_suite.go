@@ -37,27 +37,25 @@ type TestEnvironment struct {
 	TestConfig               *TestConfig
 	EnvArtifact              *environment.EnvArtifact
 	Logger                   zerolog.Logger
-	FullCldEnvOutput         *cre.FullCLDEnvironmentOutput
+	CreEnvironment           *cre.Environment
 	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
 }
 
-// setupTestEnvironment initializes the common test environment
-func SetupTestEnvironment(t *testing.T, flags ...string) *TestEnvironment {
+func SetupTestEnvironmentWithConfig(t *testing.T, tconf *TestConfig, flags ...string) *TestEnvironment {
 	t.Helper()
 
-	defaultTestConfig := getDefaultTestConfig(t)
-	createEnvironment(t, defaultTestConfig, flags...)
+	createEnvironment(t, tconf, flags...)
 	in := getEnvironmentConfig(t)
-	envArtifact := getEnvironmentArtifact(t, defaultTestConfig.RelativePathToRepoRoot)
-	fullCldEnvOutput, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
+	envArtifact := getEnvironmentArtifact(t, tconf.RelativePathToRepoRoot)
+	creEnvironment, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, err, "failed to load environment")
 
 	return &TestEnvironment{
 		Config:                   in,
-		TestConfig:               defaultTestConfig,
+		TestConfig:               tconf,
 		EnvArtifact:              envArtifact,
 		Logger:                   framework.L,
-		FullCldEnvOutput:         fullCldEnvOutput,
+		CreEnvironment:           creEnvironment,
 		WrappedBlockchainOutputs: wrappedBlockchainOutputs,
 	}
 }
@@ -65,13 +63,17 @@ func SetupTestEnvironment(t *testing.T, flags ...string) *TestEnvironment {
 func getDefaultTestConfig(t *testing.T) *TestConfig {
 	t.Helper()
 
+	return getTestConfig(t, "/configs/workflow-don.toml")
+}
+
+func getTestConfig(t *testing.T, configPath string) *TestConfig {
 	relativePathToRepoRoot := "../../../../"
 	environmentDirPath := filepath.Join(relativePathToRepoRoot, "core/scripts/cre/environment")
 
 	return &TestConfig{
 		RelativePathToRepoRoot: relativePathToRepoRoot,
 		EnvironmentDirPath:     environmentDirPath,
-		EnvironmentConfigPath:  filepath.Join(environmentDirPath, "/configs/workflow-don.toml"), // change to your desired config, if you want to use another topology
+		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
 	}
 }

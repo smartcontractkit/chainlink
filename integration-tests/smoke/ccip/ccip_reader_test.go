@@ -171,6 +171,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 		evmtypes.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
+		nil,
 	)
 	require.NoError(t, err)
 	contractWriters[cciptypes.ChainSelector(ch.ChainSelector)] = chainWriter
@@ -322,6 +323,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		evmtypes.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
+		nil,
 	)
 	require.NoError(t, err)
 	contractWriters[chainD] = chainWriter
@@ -894,6 +896,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		evmtypes.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
+		nil,
 	)
 	require.NoError(t, err)
 	contractWriters[chainS1] = chainWriter
@@ -1327,6 +1330,7 @@ func testSetupRealContracts(
 			evmtypes.ChainWriterConfig{
 				MaxGasPrice: assets.GWei(1),
 			},
+			nil,
 		)
 		require.NoError(t, err)
 		contractWriters[chainSelector] = chainWriter
@@ -1441,6 +1445,7 @@ func testSetup(
 		evmtypes.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
+		nil,
 	)
 	require.NoError(t, err)
 	contractWriters[params.DestChain] = chainWriter

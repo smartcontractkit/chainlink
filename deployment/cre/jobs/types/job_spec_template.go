@@ -13,12 +13,24 @@ type JobSpecTemplate int64
 
 const (
 	Cron JobSpecTemplate = iota
+	BootstrapOCR3
+	OCR3
+	EVM
+	Gateway
 )
 
 func (jt JobSpecTemplate) String() string {
 	switch jt {
 	case Cron:
 		return "cron"
+	case BootstrapOCR3:
+		return "bootstrap-ocr3"
+	case OCR3:
+		return "ocr3"
+	case EVM:
+		return "evm"
+	case Gateway:
+		return "gateway"
 	default:
 		return "unknown"
 	}
@@ -29,6 +41,14 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "cron":
 		return Cron, nil
+	case "bootstrap-ocr3":
+		return BootstrapOCR3, nil
+	case "ocr3":
+		return OCR3, nil
+	case "evm":
+		return EVM, nil
+	case "gateway":
+		return Gateway, nil
 	case "", "unknown":
 		return 0, errors.New("job spec template cannot be empty")
 	default:

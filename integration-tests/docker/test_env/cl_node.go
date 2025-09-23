@@ -78,44 +78,6 @@ func WithNodeEnvVars(ev map[string]string) ClNodeOption {
 	}
 }
 
-func WithStartupTimeout(timeout time.Duration) ClNodeOption {
-	return func(n *ClNode) {
-		if timeout != 0 {
-			n.StartupTimeout = timeout
-		}
-	}
-}
-
-// Sets custom node container name if name is not empty
-func WithNodeContainerName(name string) ClNodeOption {
-	return func(c *ClNode) {
-		if name != "" {
-			c.ContainerName = name
-		}
-	}
-}
-
-// Sets custom node db container name if name is not empty
-func WithDbContainerName(name string) ClNodeOption {
-	return func(c *ClNode) {
-		if name != "" {
-			c.PostgresDb.ContainerName = name
-		}
-	}
-}
-
-func WithImage(image string) ClNodeOption {
-	return func(c *ClNode) {
-		c.ContainerImage = image
-	}
-}
-
-func WithVersion(version string) ClNodeOption {
-	return func(c *ClNode) {
-		c.ContainerVersion = version
-	}
-}
-
 func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 	return func(c *ClNode) {
 		var err error

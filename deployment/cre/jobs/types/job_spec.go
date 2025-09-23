@@ -2,59 +2,63 @@ package job_types
 
 import (
 	"errors"
+	"fmt"
+	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 )
 
-type JobSpecInput map[string]interface{}
+type JobSpecInput map[string]any
+
+func (j JobSpecInput) UnmarshalTo(target any) error {
+	bytes, err := yaml.Marshal(j)
+	if err != nil {
+		return fmt.Errorf("failed to marshal job spec input to json: %w", err)
+	}
+
+	return yaml.Unmarshal(bytes, target)
+}
 
 func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapabilityJob, error) {
-	cmd, ok := j["command"].(string)
-	if !ok || cmd == "" {
+	out := pkg.StandardCapabilityJob{
+		JobName: jobName,
+	}
+	err := j.UnmarshalTo(&out)
+	if err != nil {
+		return pkg.StandardCapabilityJob{}, fmt.Errorf("failed to unmarshal job spec input to StandardCapabilityJob: %w", err)
+	}
+
+	if out.Command == "" {
 		return pkg.StandardCapabilityJob{}, errors.New("command is required and must be a string")
 	}
 
-	// config is optional; only validate type if provided.
-	var config string
-	if rawCfg, exists := j["config"]; exists {
-		castCfg, ok := rawCfg.(string)
-		if !ok {
-			return pkg.StandardCapabilityJob{}, errors.New("config must be a string")
-		}
-		if castCfg == "" {
-			return pkg.StandardCapabilityJob{}, errors.New("config cannot be an empty string")
-		}
-		config = castCfg
+	if out.ExternalJobID == "" {
+		return pkg.StandardCapabilityJob{}, errors.New("externalJobID cannot be an empty string")
 	}
 
-	// externalJobID is optional; only validate type if provided.
-	var externalJobID string
-	if rawEJID, exists := j["externalJobID"]; exists {
-		castEJID, ok := rawEJID.(string)
-		if !ok {
-			return pkg.StandardCapabilityJob{}, errors.New("externalJobID must be a string")
-		}
-		if castEJID == "" {
-			return pkg.StandardCapabilityJob{}, errors.New("externalJobID cannot be an empty string")
-		}
-		externalJobID = castEJID
+	return out, nil
+}
+
+func (j JobSpecInput) ToOCR3JobConfigInput() (pkg.OCR3JobConfigInput, error) {
+	out := pkg.OCR3JobConfigInput{}
+	err := j.UnmarshalTo(&out)
+	if err != nil {
+		return pkg.OCR3JobConfigInput{}, fmt.Errorf("failed to unmarshal job spec input to OCR3JobConfigInput: %w", err)
 	}
 
-	// oracleFactory is optional; only validate type if provided.
-	var oracleFactory pkg.OracleFactory
-	if rawOF, exists := j["oracleFactory"]; exists {
-		castOF, ok := rawOF.(pkg.OracleFactory)
-		if !ok {
-			return pkg.StandardCapabilityJob{}, errors.New("oracleFactory must be of type OracleFactory")
-		}
-		oracleFactory = castOF
+	if out.TemplateName == "" || strings.TrimSpace(out.TemplateName) == "" {
+		return pkg.OCR3JobConfigInput{}, errors.New("template_name is required and must be a non-empty string")
 	}
 
-	return pkg.StandardCapabilityJob{
-		JobName:       jobName,
-		Command:       cmd,
-		Config:        config,
-		ExternalJobID: externalJobID,
-		OracleFactory: oracleFactory,
-	}, nil
+	if out.ContractQualifier == "" || strings.TrimSpace(out.ContractQualifier) == "" {
+		return pkg.OCR3JobConfigInput{}, errors.New("contract_qualifier is required and must be a non-empty string")
+	}
+
+	if len(out.BootstrapperOCR3Urls) == 0 {
+		return pkg.OCR3JobConfigInput{}, errors.New("bootstrapper_ocr3_urls is required and cannot be empty")
+	}
+
+	return out, nil
 }

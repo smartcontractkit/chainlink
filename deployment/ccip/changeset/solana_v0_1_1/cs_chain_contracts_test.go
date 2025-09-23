@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	chainSelectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldfSolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldfChain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
@@ -93,8 +93,8 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	e := tenv.Env
 	_, err := stateview.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
-	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilyEVM))
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
@@ -318,9 +318,9 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 func doTestBilling(t *testing.T, mcms bool) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 
-	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	evmChain2 := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
-	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	evmChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilyEVM))[0]
+	evmChain2 := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilyEVM))[1]
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
@@ -557,11 +557,11 @@ func doTestBilling(t *testing.T, mcms bool) {
 	)
 	require.NoError(t, err)
 	// check that the billing account has the right amount
-	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldf_solana.SolDefaultCommitment)
+	_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldfSolana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, 1000, billingResult)
 	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.TokenProgramID, tokenAddress, feeAggregator)
-	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf_solana.SolDefaultCommitment)
+	_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldfSolana.SolDefaultCommitment)
 	require.NoError(t, err)
 	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
@@ -576,10 +576,10 @@ func doTestBilling(t *testing.T, mcms bool) {
 	},
 	)
 	require.NoError(t, err)
-	_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldf_solana.SolDefaultCommitment)
+	_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, billingSignerATA, cldfSolana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, billingResult-1000, newBillingResult)
-	_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldf_solana.SolDefaultCommitment)
+	_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.BlockChains.SolanaChains()[solChain].Client, feeAggregatorATA, cldfSolana.SolDefaultCommitment)
 	require.NoError(t, err)
 	require.Equal(t, feeAggResult+1000, newFeeAggResult)
 }
@@ -598,7 +598,7 @@ func TestBillingWithoutMcms(t *testing.T) {
 func TestSetTokenAuthority(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
-	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 	state, err := stateview.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 	linkTokenAddress := state.SolChains[solChain].LinkToken
@@ -690,7 +690,7 @@ func TestSetTokenAuthority(t *testing.T) {
 func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	ctx := testcontext.Get(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
-	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 	e, tokenAddress, err := deployTokenAndMint(t, tenv.Env, solChain, []string{}, "TEST_TOKEN")
 	require.NoError(t, err)
 	e, tokenAddress2, err := deployTokenAndMint(t, e, solChain, []string{}, "TEST_TOKEN_2")
@@ -831,7 +831,7 @@ func TestTokenAdminRegistryWithoutMcms(t *testing.T) {
 func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMetadata string) {
 	ctx := testcontext.Get(t)
 
-	solChain := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
+	solChain := e.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 
 	var mcmsConfig *proposalutils.TimelockConfig
 	newAdmin := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
@@ -908,10 +908,9 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 			ChainSelector: solChain,
 			SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
 				{
-					TokenPubKey:     tokenAddress,
-					PoolType:        pool,
-					Metadata:        tokenMetadata,
-					WritableIndexes: []uint8{3, 4, 7},
+					TokenPubKey: tokenAddress,
+					PoolType:    pool,
+					Metadata:    tokenMetadata,
 				},
 			},
 			MCMS: mcmsConfig,
@@ -944,7 +943,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	// TODO: Fix this test to use the new changeset
 	t.Parallel()
 	skipInCI(t)
-	testhelpers.DeployCCIPContractsTest(t, 1)
+	testhelpers.DeployCCIPContractsTest(t, 1, 1)
 }
 
 // ocr3 test
@@ -955,9 +954,9 @@ func TestSetOcr3Active(t *testing.T) {
 		testhelpers.WithNumOfBootstrapNodes(3),
 		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	var err error
-	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
-	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))
 	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &tenv.Env, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			OffRamp: true,
@@ -982,9 +981,9 @@ func TestSetOcr3Candidate(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	var err error
-	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	evmSelectors := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilyEVM))
 	homeChainSel := evmSelectors[0]
-	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
+	solChainSelectors := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))
 	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &tenv.Env, solChainSelectors[0], true,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			OffRamp: true,

@@ -3,9 +3,9 @@ package docs
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
+	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
 )
 
 func TestCoreDefaults_notNil(t *testing.T) {
-	cfgtest.AssertFieldsNotNil(t, CoreDefaults())
+	configtest.AssertFieldsNotNil(t, CoreDefaults())
 }

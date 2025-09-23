@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
@@ -135,6 +136,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		if err != nil {
 			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
 		}
+
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
 			if info.MultiAddr == "" {
@@ -210,26 +212,27 @@ func NewNodeWithContext(ctx context.Context, nodeInfo NodeInfo) (*Node, error) {
 		})
 	}
 	return &Node{
-		gqlClient:  gqlClient,
-		restClient: chainlinkClient,
-		Name:       nodeInfo.Name,
-		adminAddr:  nodeInfo.AdminAddr,
-		multiAddr:  nodeInfo.MultiAddr,
-		labels:     labels,
+		gqlClient:              gqlClient,
+		restClient:             chainlinkClient,
+		Name:                   nodeInfo.Name,
+		adminAddr:              nodeInfo.AdminAddr,
+		multiAddr:              nodeInfo.MultiAddr,
+		labels:                 labels,
+		ChainsOcr2KeyBundlesID: make(map[string]string),
 	}, nil
 }
 
 type Node struct {
-	NodeID          string                    // node id returned by job distributor after node is registered with it
-	JDId            string                    // job distributor id returned by node after Job distributor is created in node
-	Name            string                    // name of the node
-	AccountAddr     map[string]string         // chain id to node's account address mapping for supported chains
-	Ocr2KeyBundleID string                    // OCR2 key bundle id of the node
-	gqlClient       client.Client             // graphql client to interact with the node
-	restClient      *clclient.ChainlinkClient // rest client to interact with the node
-	labels          []*ptypes.Label           // labels with which the node is registered with the job distributor
-	adminAddr       string                    // admin address to send payments to, applicable only for non-bootstrap nodes
-	multiAddr       string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
+	NodeID                 string            // node id returned by job distributor after node is registered with it
+	JDId                   string            // job distributor id returned by node after Job distributor is created in node
+	Name                   string            // name of the node
+	AccountAddr            map[string]string // chain id to node's account address mapping for supported chains
+	ChainsOcr2KeyBundlesID map[string]string
+	gqlClient              client.Client             // graphql client to interact with the node
+	restClient             *clclient.ChainlinkClient // rest client to interact with the node
+	labels                 []*ptypes.Label           // labels with which the node is registered with the job distributor
+	adminAddr              string                    // admin address to send payments to, applicable only for non-bootstrap nodes
+	multiAddr              string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
 type JDChainConfigInput struct {
@@ -258,7 +261,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		}
 
 		switch chain.ChainType {
-		case "EVM":
+		case "EVM", "TRON":
 			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
@@ -290,14 +293,19 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			return fmt.Errorf("no peer id found for node %s", n.Name)
 		}
 
-		ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
+		chainType := chain.ChainType
+		if strings.EqualFold(chain.ChainType, blockchain.FamilyTron) {
+			chainType = strings.ToUpper(blockchain.FamilyEVM)
+		}
+		ocr2BundleID, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chainType)
 		if err != nil {
 			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, err)
 		}
-		if ocr2BundleId == "" {
+		if ocr2BundleID == "" {
 			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
-		n.Ocr2KeyBundleID = ocr2BundleId
+
+		n.ChainsOcr2KeyBundlesID[strings.ToLower(chainType)] = ocr2BundleID
 
 		// fetch node labels to know if the node is bootstrap or plugin
 		// if multi address is set, then it's a bootstrap node
@@ -332,14 +340,14 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JDId,
 				ChainID:          chain.ChainID,
-				ChainType:        chain.ChainType,
+				ChainType:        chainType,
 				AccountAddr:      account,
 				AdminAddr:        n.adminAddr,
 				Ocr2Enabled:      true,
 				Ocr2IsBootstrap:  isBootstrap,
 				Ocr2Multiaddr:    n.multiAddr,
 				Ocr2P2PPeerID:    value(peerID),
-				Ocr2KeyBundleID:  ocr2BundleId,
+				Ocr2KeyBundleID:  ocr2BundleID,
 				Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
 			})
 			// todo: add a check if the chain config failed because of a duplicate in that case, should we update or return success?

@@ -44,17 +44,19 @@ type MCMSConfig struct {
 }
 
 type NodeKeys struct {
-	EthAddress            string `json:"EthAddress"`
-	AptosAccount          string `json:"AptosAccount"`
-	AptosBundleID         string `json:"AptosBundleID"`
-	AptosOnchainPublicKey string `json:"AptosOnchainPublicKey"`
-	P2PPeerID             string `json:"P2PPeerID"`             // p2p_<key>
-	OCR2BundleID          string `json:"OCR2BundleID"`          // used only in job spec
-	OCR2OnchainPublicKey  string `json:"OCR2OnchainPublicKey"`  // ocr2on_evm_<key>
-	OCR2OffchainPublicKey string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
-	OCR2ConfigPublicKey   string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
-	CSAPublicKey          string `json:"CSAPublicKey"`
-	EncryptionPublicKey   string `json:"EncryptionPublicKey"`
+	EthAddress             string `json:"EthAddress"`
+	AptosAccount           string `json:"AptosAccount"`
+	AptosBundleID          string `json:"AptosBundleID"`
+	AptosOnchainPublicKey  string `json:"AptosOnchainPublicKey"`
+	SolanaOnchainPublicKey string `json:"SolanaOnchainPublicKey"`
+	SolanaBundleID         string `json:"SolanaBundleID"`
+	P2PPeerID              string `json:"P2PPeerID"`             // p2p_<key>
+	OCR2BundleID           string `json:"OCR2BundleID"`          // used only in job spec
+	OCR2OnchainPublicKey   string `json:"OCR2OnchainPublicKey"`  // ocr2on_evm_<key>
+	OCR2OffchainPublicKey  string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
+	OCR2ConfigPublicKey    string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
+	CSAPublicKey           string `json:"CSAPublicKey"`
+	EncryptionPublicKey    string `json:"EncryptionPublicKey"`
 }
 
 // OCR2OracleConfig is the input configuration for an OCR2/3 contract.
@@ -133,7 +135,7 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets) (OCR2OracleConfig, error) {
+func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
 	// the transmission schedule is very specific; arguably it should be not be a parameter
 	if len(cfg.TransmissionSchedule) != 1 || cfg.TransmissionSchedule[0] != len(nca) {
 		return OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
@@ -160,6 +162,15 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 			}
 			pubKeys[string(chaintype.Aptos)] = aptosPubKey
 		}
+		// add solana key if present
+		if n.SolanaOnchainPublicKey != "" {
+			solPubKey, err := hex.DecodeString(n.SolanaOnchainPublicKey)
+			if err != nil {
+				return OCR2OracleConfig{}, fmt.Errorf("failed to decode SolanaOnchainPublicKey: %w", err)
+			}
+			pubKeys[string(chaintype.Solana)] = solPubKey
+		}
+
 		// validate uniqueness of each individual key
 		for _, key := range pubKeys {
 			raw := hex.EncodeToString(key)
@@ -221,15 +232,17 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 		})
 	}
 
-	var cfgBytes []byte
-	if cfg.OffchainConfig != nil {
-		offchainCfgAsProto, err := cfg.OffchainConfig.ToProto()
-		if err != nil {
-			return OCR2OracleConfig{}, fmt.Errorf("failed to convert offchain config to proto: %w", err)
-		}
-		cfgBytes, err = proto.Marshal(offchainCfgAsProto)
-		if err != nil {
-			return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
+	cfgBytes := reportingPluginConfigOverride
+	if cfgBytes == nil {
+		if cfg.OffchainConfig != nil {
+			offchainCfgAsProto, err := cfg.OffchainConfig.ToProto()
+			if err != nil {
+				return OCR2OracleConfig{}, fmt.Errorf("failed to convert offchain config to proto: %w", err)
+			}
+			cfgBytes, err = proto.Marshal(offchainCfgAsProto)
+			if err != nil {
+				return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
+			}
 		}
 	}
 
@@ -289,6 +302,8 @@ type ConfigureOCR3Request struct {
 	DryRun     bool
 	OcrSecrets focr.OCRSecrets
 
+	ReportingPluginConfigOverride []byte
+
 	UseMCMS bool
 }
 
@@ -297,7 +312,7 @@ func (r ConfigureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
 	if r.Cfg == nil {
 		return OCR2OracleConfig{}, errors.New("OCR3 config is required")
 	}
-	return GenerateOCR3Config(*r.Cfg, nks, r.OcrSecrets)
+	return GenerateOCR3Config(*r.Cfg, nks, r.OcrSecrets, r.ReportingPluginConfigOverride)
 }
 
 type ConfigureOCR3Response struct {
@@ -364,6 +379,8 @@ type ConfigureOCR3Config struct {
 	OCR3Config *OracleConfig
 	DryRun     bool
 
+	ReportingPluginConfigOverride []byte
+
 	UseMCMS bool
 }
 
@@ -390,13 +407,14 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 		return nil, err
 	}
 	r, err := ConfigureOCR3contract(ConfigureOCR3Request{
-		Cfg:        cfg.OCR3Config,
-		Chain:      registryChain,
-		Contract:   contract,
-		Nodes:      nodes,
-		DryRun:     cfg.DryRun,
-		UseMCMS:    cfg.UseMCMS,
-		OcrSecrets: env.OCRSecrets,
+		Cfg:                           cfg.OCR3Config,
+		Chain:                         registryChain,
+		Contract:                      contract,
+		Nodes:                         nodes,
+		DryRun:                        cfg.DryRun,
+		UseMCMS:                       cfg.UseMCMS,
+		OcrSecrets:                    env.OCRSecrets,
+		ReportingPluginConfigOverride: cfg.ReportingPluginConfigOverride,
 	})
 	if err != nil {
 		return nil, err
@@ -419,19 +437,33 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 	var aptosOcr2KeyBundleID string
 	var aptosOnchainPublicKey string
 	var aptosCC *deployment.OCRConfig
+	var solanaOcr2KeyBundleID string
+	var solanaCC *deployment.OCRConfig
+	var solanaOnchainPublickey string
 	for details, cfg := range o.SelToOCRConfig {
-		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil && family == chainsel.FamilyAptos {
-			aptosCC = &cfg
-			break
+		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil {
+			if family == chainsel.FamilyAptos {
+				aptosCC = &cfg
+			}
+			if family == chainsel.FamilySolana {
+				solanaCC = &cfg
+			}
 		}
 	}
+
 	if aptosCC != nil {
 		aptosOcr2KeyBundleID = aptosCC.KeyBundleID
 		aptosOnchainPublicKey = fmt.Sprintf("%x", aptosCC.OnchainPublicKey[:])
 	}
+
+	if solanaCC != nil {
+		solanaOcr2KeyBundleID = solanaCC.KeyBundleID
+		solanaOnchainPublickey = fmt.Sprintf("%x", solanaCC.OnchainPublicKey[:])
+	}
+
 	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
 	if !exists {
-		panic(fmt.Sprintf("ocr2 config not found for chain selector %d", registryChainSel))
+		panic(fmt.Sprintf("ocr2 config not found for chain selector %d, node %s", registryChainSel, o.NodeID))
 	}
 	return NodeKeys{
 		EthAddress:            string(evmCC.TransmitAccount),
@@ -446,7 +478,9 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
 		// TODO Aptos support. How will that be modeled in clo data?
 		// TODO: AptosAccount is unset but probably unused
-		AptosBundleID:         aptosOcr2KeyBundleID,
-		AptosOnchainPublicKey: aptosOnchainPublicKey,
+		AptosBundleID:          aptosOcr2KeyBundleID,
+		AptosOnchainPublicKey:  aptosOnchainPublicKey,
+		SolanaOnchainPublicKey: solanaOnchainPublickey,
+		SolanaBundleID:         solanaOcr2KeyBundleID,
 	}
 }
