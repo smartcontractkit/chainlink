@@ -275,6 +275,17 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 				RawEvent:       iter.Event,
 			}
 		}
+		out.MsgSentEvent = msgSentEvents[len(msgSentEvents)-1]
+
+		// Expect a single root with this sequence number range.
+		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{
+			ccipocr3.SeqNum(msgSentEvents[0].SequenceNumber),
+			ccipocr3.SeqNum(msgSentEvents[len(msgSentEvents)-1].SequenceNumber),
+		}
+		// Expect all messages to be executed.
+		for i := range msgSentEvents {
+			expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEvents[i].SequenceNumber)
+		}
 	} else {
 		// Send sequentially
 		for i := 0; i < tc.NumberOfMessages; i++ {
