@@ -645,6 +645,9 @@ func ValidateOwnershipSolana(
 		}
 
 		configAccount, err := signer_registry.ParseAccount_Config(data)
+		if err != nil {
+			return fmt.Errorf("failed to get config: %w", err)
+		}
 		fmt.Printf("%+v\n", configAccount)
 
 		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, configAccount.Owner); err != nil {

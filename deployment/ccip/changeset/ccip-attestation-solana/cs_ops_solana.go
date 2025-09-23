@@ -282,6 +282,9 @@ func (c AddGreenKeysConfig) Validate(e cldf.Environment) error {
 	}
 
 	signersAccount, err := signer_registry.ParseAccount_Signers(data)
+	if err != nil {
+		return fmt.Errorf("failed to get signers: %w", err)
+	}
 
 	// Check that all blue keys exist in signersAccount (either as EvmAddress or NewEvmAddress)
 	for i, blueKey := range blueKeysParsed {
@@ -373,6 +376,9 @@ func (c PromoteKeysConfig) Validate(e cldf.Environment) error {
 	}
 
 	signersAccount, err := signer_registry.ParseAccount_Signers(data)
+	if err != nil {
+		return fmt.Errorf("failed to get signers: %w", err)
+	}
 
 	// Check that each key exists and has an active blue/green pair
 	for i, keyBytes := range keysParsed {
