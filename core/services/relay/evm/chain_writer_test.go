@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	rollupmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups/mocks"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 

@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -150,6 +151,9 @@ type CCIPChainState struct {
 
 	// Treasury contracts
 	FeeAggregator common.Address
+
+	// Base Attestation contracts
+	SignerRegistry *signer_registry.SignerRegistry
 }
 
 // ValidateHomeChain validates the home chain contracts and their configurations after complete setup.

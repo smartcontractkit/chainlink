@@ -59,81 +59,8 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
 	require.Equal(t, len(enabledChains), int(successfulWorkflowRuns.Load()), "Not all workflows executed successfully")
 }
 
-// regression
-const (
-	balanceAtFunction      = "BalanceAt"
-	expectedBalanceAtError = "balanceAt errored"
-)
-
-type evmNegativeTest struct {
-	name           string
-	invalidInput   string
-	functionToTest string
-	expectedError  string
-}
-
-var evmNegativeTests = []evmNegativeTest{
-	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
-	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
-	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
-	{"empty hex", "0x", balanceAtFunction, expectedBalanceAtError},
-	{"cut hex", "0x0", balanceAtFunction, expectedBalanceAtError},
-	{"short address", "0x123456789012345678901234567890123456789", balanceAtFunction, expectedBalanceAtError},
-	{"long address", "0x12345678901234567890123456789012345678901", balanceAtFunction, expectedBalanceAtError},
-	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", balanceAtFunction, expectedBalanceAtError},
-}
-
-func EVMReadFailsTest(t *testing.T, testEnv *TestEnvironment, evmNegativeTest evmNegativeTest) {
-	testLogger := framework.L
-	const workflowFileLocation = "./evm/evmread-negative/main.go"
-	enabledChains := getEVMEnabledChains(t, testEnv)
-
-	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		chainID := bcOutput.BlockchainOutput.ChainID
-		if _, ok := enabledChains[chainID]; !ok {
-			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
-			continue
-		}
-
-		listenerCtx, messageChan, kafkaErrChan := startBeholder(t, testLogger, testEnv)
-		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
-		workflowConfig := evm_negative_config.Config{
-			ChainSelector:  bcOutput.ChainSelector,
-			FunctionToTest: evmNegativeTest.functionToTest,
-			InvalidInput:   evmNegativeTest.invalidInput,
-		}
-		workflowName := "evm-read-fail-workflow-" + chainID
-		compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
-
-		expectedError := evmNegativeTest.expectedError
-		timeout := 2 * time.Minute
-		err := assertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
-		require.NoError(t, err, "EVM Read Fail test failed")
-		testLogger.Info().Msg("EVM Read Fail test successfully completed")
-	}
-}
-
-func getEVMEnabledChains(t *testing.T, testEnv *TestEnvironment) map[string]struct{} {
-	t.Helper()
-
-	enabledChains := map[string]struct{}{}
-	for _, nodeSet := range testEnv.Config.NodeSets {
-		require.NoError(t, nodeSet.ParseChainCapabilities())
-		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
-			continue
-		}
-
-		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
-			strChainID := strconv.FormatUint(chainID, 10)
-			enabledChains[strChainID] = struct{}{}
-		}
-	}
-	require.NotEmpty(t, enabledChains, "No chains have EVM capability enabled in any node set")
-	return enabledChains
-}
-
 func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig evm_config.Config) {
-	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 	require.NoError(t, err, "failed to find forwarder address for chain %s", bcOutput.ChainSelector)
 
 	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, bcOutput.SethClient.Client)
@@ -149,7 +76,7 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *TestE
 		defer cancel()
 		isSubmitted := isReportSubmittedByWorkflow(ctx, t, forwarderContract, msgEmitterAddr, workflowConfig)
 		if !isSubmitted {
-			lggr.Warn().Msgf("Forwarder has not received any reports from a workflow '%s' yet.", workflowName)
+			lggr.Warn().Msgf("Forwarder has not received any reports from a workflow '%s' yet (delay is permissible due to latency in event propagation, waiting).", workflowName)
 			return false
 		}
 
@@ -191,7 +118,7 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.Wrap
 	// create and fund an address to be used by the workflow
 	amountToFund := big.NewInt(0).SetUint64(10) // 10 wei
 	numberOfAddressesToCreate := 1
-	addresses, addrErr := createAndFundAddresses(t, lggr, numberOfAddressesToCreate, amountToFund, chainSethClient)
+	addresses, addrErr := createAndFundAddresses(t, lggr, numberOfAddressesToCreate, amountToFund, chainSethClient, chain, nil)
 	require.NoError(t, addrErr, "failed to create and fund new addresses")
 	require.Len(t, addresses, numberOfAddressesToCreate, "failed to create the correct number of addresses")
 
@@ -224,4 +151,101 @@ func isReportSubmittedByWorkflow(ctx context.Context, t *testing.T, forwarderCon
 	require.NoError(t, iter.Error(), "error during iteration of forwarder events")
 
 	return iter.Next()
+}
+
+// regression
+const (
+	// find returned errors in the logs of the workflow
+	balanceAtFunction                        = "BalanceAt"
+	expectedBalanceAtError                   = "balanceAt errored"
+	callContractInvalidAddressToReadFunction = "CallContract - invalid address to read"
+	expectedCallContractInvalidAddressToRead = "balances=&[+0]" // expecting empty array of balances
+)
+
+type evmNegativeTest struct {
+	name           string
+	invalidInput   string
+	functionToTest string
+	expectedError  string
+}
+
+var evmNegativeTests = []evmNegativeTest{
+	// CallContract - invalid address to read
+	// Some invalid inputs are skipped (empty, symbols, "0x", "0x0") as they may map to the zero address and return a balance instead of empty.
+	{"a letter", "a", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+	{"a number", "1", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+
+	// BalanceAt
+	// TODO: Move BalanceAt tests after fixing consensus crash because of invalid address
+	{"empty", "", balanceAtFunction, expectedBalanceAtError},
+	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
+	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
+	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
+	{"empty hex", "0x", balanceAtFunction, expectedBalanceAtError},
+	{"cut hex", "0x0", balanceAtFunction, expectedBalanceAtError},
+	{"short address", "0x123456789012345678901234567890123456789", balanceAtFunction, expectedBalanceAtError},
+	{"long address", "0x12345678901234567890123456789012345678901", balanceAtFunction, expectedBalanceAtError},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", balanceAtFunction, expectedBalanceAtError},
+}
+
+func EVMReadFailsTest(t *testing.T, testEnv *TestEnvironment, evmNegativeTest evmNegativeTest) {
+	testLogger := framework.L
+	const workflowFileLocation = "./evm/evmread-negative/main.go"
+	enabledChains := getEVMEnabledChains(t, testEnv)
+
+	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
+		chainID := bcOutput.BlockchainOutput.ChainID
+		chainSelector := bcOutput.ChainSelector
+		creEnvironment := testEnv.CreEnvironment
+		if _, ok := enabledChains[chainID]; !ok {
+			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
+			continue
+		}
+
+		testLogger.Info().Msgf("Deploying additional contracts to chain %s (%d)", chainID, chainSelector)
+		readBalancesAddress, rbOutput, rbErr := crecontracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
+		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
+		crecontracts.MergeAllDataStores(creEnvironment, rbOutput, rbOutput)
+
+		listenerCtx, messageChan, kafkaErrChan := startBeholder(t, testLogger, testEnv)
+		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
+		workflowConfig := evm_negative_config.Config{
+			ChainSelector:  bcOutput.ChainSelector,
+			FunctionToTest: evmNegativeTest.functionToTest,
+			InvalidInput:   evmNegativeTest.invalidInput,
+			BalanceReader: evm_negative_config.BalanceReader{
+				BalanceReaderAddress: readBalancesAddress,
+			},
+		}
+		workflowName := "evm-read-fail-workflow-" + chainID
+		compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+
+		expectedError := evmNegativeTest.expectedError
+		timeout := 2 * time.Minute
+		err := assertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
+		require.NoError(t, err, "EVM Read Fail test failed")
+		testLogger.Info().Msg("EVM Read Fail test successfully completed")
+	}
+}
+
+func getEVMEnabledChains(t *testing.T, testEnv *TestEnvironment) map[string]struct{} {
+	t.Helper()
+
+	enabledChains := map[string]struct{}{}
+	for _, nodeSet := range testEnv.Config.NodeSets {
+		require.NoError(t, nodeSet.ParseChainCapabilities())
+		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
+			continue
+		}
+
+		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
+			strChainID := strconv.FormatUint(chainID, 10)
+			enabledChains[strChainID] = struct{}{}
+		}
+	}
+	require.NotEmpty(t, enabledChains, "No chains have EVM capability enabled in any node set")
+	return enabledChains
 }

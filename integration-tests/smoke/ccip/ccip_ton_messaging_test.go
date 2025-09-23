@@ -6,10 +6,11 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/xssnick/tonutils-go/tlb"
+
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/xssnick/tonutils-go/tlb"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,6 @@ import (
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
-	// Setup 2 chains (EVM and Ton) and a single lane.
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
 
 	t.Logf("Environment: %+v", e.Env)

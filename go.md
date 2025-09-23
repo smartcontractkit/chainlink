@@ -353,6 +353,7 @@ flowchart LR
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink-ton/deployment
 	chainlink/deployment --> chainlink/v2
+	chainlink/deployment --> quarantine
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
 	chainlink/integration-tests --> chainlink-testing-framework/havoc
 	chainlink/integration-tests --> chainlink-testing-framework/sentinel
@@ -413,10 +414,12 @@ flowchart LR
 	click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
 	libocr
 	click libocr href "https://github.com/smartcontractkit/libocr"
-	mcms --> chainlink-aptos
 	mcms --> chainlink-ccip/chains/solana
+	mcms --> chainlink-sui
 	mcms --> chainlink-testing-framework/framework
 	click mcms href "https://github.com/smartcontractkit/mcms"
+	quarantine
+	click quarantine href "https://github.com/smartcontractkit/quarantine"
 	smdkg --> libocr
 	smdkg --> tdh2/go/tdh2
 	click smdkg href "https://github.com/smartcontractkit/smdkg"

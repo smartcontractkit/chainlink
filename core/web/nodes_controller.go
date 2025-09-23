@@ -23,14 +23,6 @@ type NetworkScopedNodeStatuser struct {
 	relayers chainlink.RelayerChainInteroperators
 }
 
-func NewNetworkScopedNodeStatuser(relayers chainlink.RelayerChainInteroperators, network string) *NetworkScopedNodeStatuser {
-	scoped := relayers.List(chainlink.FilterRelayersByType(network))
-	return &NetworkScopedNodeStatuser{
-		network:  network,
-		relayers: scoped,
-	}
-}
-
 func (n *NetworkScopedNodeStatuser) NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error) {
 	return n.relayers.NodeStatuses(ctx, offset, limit, relayIDs...)
 }

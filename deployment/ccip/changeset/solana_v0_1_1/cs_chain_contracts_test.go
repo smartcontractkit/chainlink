@@ -908,10 +908,9 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 			ChainSelector: solChain,
 			SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
 				{
-					TokenPubKey:     tokenAddress,
-					PoolType:        pool,
-					Metadata:        tokenMetadata,
-					WritableIndexes: []uint8{3, 4, 7},
+					TokenPubKey: tokenAddress,
+					PoolType:    pool,
+					Metadata:    tokenMetadata,
 				},
 			},
 			MCMS: mcmsConfig,

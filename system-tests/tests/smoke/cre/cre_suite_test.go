@@ -93,6 +93,15 @@ func Test_CRE_Suite_EVM(t *testing.T) {
 	}
 }
 
+func Test_CRE_Suite_Tron(t *testing.T) {
+	t.Run("Write Test", func(t *testing.T) {
+		testEnv := SetupTestEnvironmentWithConfig(t, getTestConfig(t, "/configs/workflow-don-tron.toml"))
+
+		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
+	})
+}
+
 func Test_withV2Registries(t *testing.T) {
 	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
 		flags := []string{"--with-contracts-version", "v2"}

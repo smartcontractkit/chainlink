@@ -2344,10 +2344,6 @@ func DeployAutomationLogTriggeredStreamsLookupUpkeepConsumerFromKey(client *seth
 	}, nil
 }
 
-func DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer(client *seth.Client) (KeeperConsumer, error) {
-	return DeployAutomationLogTriggeredStreamsLookupUpkeepConsumerFromKey(client, 0)
-}
-
 type EthereumAutomationStreamsLookupUpkeepConsumer struct {
 	client   *seth.Client
 	consumer *streams_lookup_upkeep_wrapper.StreamsLookupUpkeep
@@ -2398,10 +2394,6 @@ func DeployAutomationStreamsLookupUpkeepConsumerFromKey(client *seth.Client, key
 	}, nil
 }
 
-func DeployAutomationStreamsLookupUpkeepConsumer(client *seth.Client, testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
-	return DeployAutomationStreamsLookupUpkeepConsumerFromKey(client, 0, testRange, interval, useArbBlock, staging, verify)
-}
-
 type EthereumAutomationLogCounterConsumer struct {
 	client   *seth.Client
 	consumer *log_upkeep_counter_wrapper.LogUpkeepCounter
@@ -2444,10 +2436,6 @@ func DeployAutomationLogTriggerConsumerFromKey(client *seth.Client, keyNum int, 
 		consumer: instance,
 		address:  &data.Address,
 	}, nil
-}
-
-func DeployAutomationLogTriggerConsumer(client *seth.Client, testInterval *big.Int) (KeeperConsumer, error) {
-	return DeployAutomationLogTriggerConsumerFromKey(client, 0, testInterval)
 }
 
 // EthereumUpkeepCounter represents keeper consumer (upkeep) counter contract
@@ -2691,10 +2679,6 @@ func (v *EthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context
 		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
-}
-
-func DeployAutomationSimpleLogTriggerConsumer(client *seth.Client, isStreamsLookup bool) (KeeperConsumer, error) {
-	return DeployAutomationSimpleLogTriggerConsumerFromKey(client, isStreamsLookup, 0)
 }
 
 func DeployAutomationSimpleLogTriggerConsumerFromKey(client *seth.Client, isStreamsLookup bool, keyNum int) (KeeperConsumer, error) {
