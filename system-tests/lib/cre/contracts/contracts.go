@@ -796,6 +796,27 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 	return oracleConfig, nil
 }
 
+func DefaultChainCapabilityOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
+	cfg, err := DefaultOCR3Config(topology)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate default OCR3 config: %w", err)
+	}
+
+	cfg.DeltaRoundMillis = 1000
+	cfg.OffchainConfigType = ocr3.OffchainConfigTypeChainCap
+	const kib = 1024
+	const mib = 1024 * kib
+	cfg.OffchainConfig = &ocr3.ChainCapOffchainConfig{
+		MaxQueryLengthBytes:       mib,
+		MaxObservationLengthBytes: 97 * kib,
+		MaxReportLengthBytes:      mib,
+		MaxOutcomeLengthBytes:     mib,
+		MaxReportCount:            1000,
+		MaxBatchSize:              200,
+	}
+	return cfg, nil
+}
+
 func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.CapabilitiesAwareNodeSet) (*dkgocrtypes.ReportingPluginConfig, error) {
 	cfg := &dkgocrtypes.ReportingPluginConfig{
 		T: 1,

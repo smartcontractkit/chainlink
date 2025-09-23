@@ -246,8 +246,8 @@ func DeployKeystoneContracts(
 
 	// deploy Vault OCR3 contract
 	if vaultOCR3AddrFlag {
-		_, seqErr = deployOCR3Contract(VaultOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore, ocr3.OffchainConfigTypeConsensusCap) // Switch to dedicated config type once available
-		if seqErr != nil {
+		report, err := deployVaultContracts(VaultOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
+		if err != nil {
 			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", seqErr)
 		}
 
