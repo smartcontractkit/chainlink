@@ -20,6 +20,14 @@ func NewAcceptOwnershipInstruction(
 	programAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	accounts__ := solanago.AccountMetaSlice{}
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AcceptOwnership[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
 
 	// Add the accounts to the instruction.
 	{
@@ -37,7 +45,7 @@ func NewAcceptOwnershipInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		nil,
+		buf__.Bytes(),
 	), nil
 }
 
@@ -106,6 +114,14 @@ func NewInitializeInstruction(
 	programAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	accounts__ := solanago.AccountMetaSlice{}
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_Initialize[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
 
 	// Add the accounts to the instruction.
 	{
@@ -131,7 +147,7 @@ func NewInitializeInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		nil,
+		buf__.Bytes(),
 	), nil
 }
 

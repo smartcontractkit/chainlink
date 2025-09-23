@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -106,7 +107,7 @@ type SetUpgradeAuthorityConfig struct {
 }
 
 func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsConfig) (cldf.ChangesetOutput, error) {
-	e.Logger.Infow("Rotating Base signer nops", "chain_selector", c.ChainSelector, "removing", c.NopKeysToAdd, "adding", c.NopKeysToAdd)
+	e.Logger.Infow("Rotating Base signer nops", "chain_selector", c.ChainSelector, "removing", c.NopKeysToRemove, "adding", c.NopKeysToAdd)
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
 	err := c.Validate(e)
 	if err != nil {
@@ -175,25 +176,25 @@ func (c RotateBaseSignerNopsConfig) Validate(e cldf.Environment) error {
 		keysToRemoveParsed[i] = parsed
 	}
 
-	var signersAccount signer_registry.Signers
-	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
-
 	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	if err := chain.GetAccountDataBorshInto(e.GetContext(), signersPda, &signersAccount); err != nil {
-		return fmt.Errorf("failed to get signers: %w", err)
-	}
+	if len(c.NopKeysToRemove) > 0 {
+		signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 
-	// Check that all NopKeysToRemove exist in signersAccount
-	for i, keyBytes := range keysToRemoveParsed {
-		if !keyExistsInSigners(keyBytes, signersAccount.Signers) {
-			return fmt.Errorf("NopKeysToRemove[%d] (%s) does not exist in current signers", i, c.NopKeysToRemove[i])
+		data, err := GetAccountData(e, &chain, signersPda)
+		if err != nil {
+			return fmt.Errorf("failed to get signers: %w", err)
 		}
-	}
 
-	// Check that none of NopKeysToAdd already exist in signersAccount
-	for i, keyBytes := range keysToAddParsed {
-		if keyExistsInSigners(keyBytes, signersAccount.Signers) {
-			return fmt.Errorf("NopKeysToAdd[%d] (%s) already exists in current signers", i, c.NopKeysToAdd[i])
+		signersAccount, err := signer_registry.ParseAccount_Signers(data)
+
+		if err != nil {
+			return fmt.Errorf("failed to get signers: %w", err)
+		}
+		// Check that all NopKeysToRemove exist in signersAccount
+		for i, keyBytes := range keysToRemoveParsed {
+			if !keyExistsInSigners(keyBytes, signersAccount.Signers) {
+				return fmt.Errorf("NopKeysToRemove[%d] (%s) does not exist in current signers", i, c.NopKeysToRemove[i])
+			}
 		}
 	}
 
@@ -204,14 +205,6 @@ func (c RotateBaseSignerNopsConfig) Validate(e cldf.Environment) error {
 				return fmt.Errorf("key %s appears in both NopKeysToAdd[%d] and NopKeysToRemove[%d]", c.NopKeysToAdd[i], i, j)
 			}
 		}
-	}
-
-	// Check that the final number of signers doesn't exceed 20
-	currentSignerCount := len(signersAccount.Signers)
-	finalSignerCount := currentSignerCount - len(keysToRemoveParsed) + len(keysToAddParsed)
-	if finalSignerCount > 20 {
-		return fmt.Errorf("final signer count would be %d, which exceeds the maximum of 20 (current: %d, removing: %d, adding: %d)",
-			finalSignerCount, currentSignerCount, len(keysToRemoveParsed), len(keysToAddParsed))
 	}
 
 	return solanastateview.ValidateOwnershipSolana(&e, chain, c.MCMS != nil, signer_registry.ProgramID, shared.SVMSignerRegistry, solana.PublicKey{})
@@ -282,12 +275,14 @@ func (c AddGreenKeysConfig) Validate(e cldf.Environment) error {
 	}
 
 	// Get current signers account
-	var signersAccount signer_registry.Signers
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 
-	if err := chain.GetAccountDataBorshInto(e.GetContext(), signersPda, &signersAccount); err != nil {
+	data, err := GetAccountData(e, &chain, signersPda)
+	if err != nil {
 		return fmt.Errorf("failed to get signers: %w", err)
 	}
+
+	signersAccount, err := signer_registry.ParseAccount_Signers(data)
 
 	// Check that all blue keys exist in signersAccount (either as EvmAddress or NewEvmAddress)
 	for i, blueKey := range blueKeysParsed {
@@ -371,12 +366,14 @@ func (c PromoteKeysConfig) Validate(e cldf.Environment) error {
 	}
 
 	// Get current signers account
-	var signersAccount signer_registry.Signers
 	signersPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("signers")}, signer_registry.ProgramID)
 
-	if err := chain.GetAccountDataBorshInto(e.GetContext(), signersPda, &signersAccount); err != nil {
+	data, err := GetAccountData(e, &chain, signersPda)
+	if err != nil {
 		return fmt.Errorf("failed to get signers: %w", err)
 	}
+
+	signersAccount, err := signer_registry.ParseAccount_Signers(data)
 
 	// Check that each key exists and has an active blue/green pair
 	for i, keyBytes := range keysParsed {
@@ -487,4 +484,24 @@ func findSignerWithKey(key [20]uint8, signers []signer_registry.Signer) *signer_
 		}
 	}
 	return nil
+}
+
+func GetAccountData(
+	e cldf.Environment,
+	chain *cldf_solana.Chain,
+	account solana.PublicKey,
+
+) ([]byte, error) {
+	resp, err := chain.Client.GetAccountInfoWithOpts(
+		e.GetContext(),
+		account,
+		&rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentFinalized,
+			DataSlice:  nil,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Value.Data.GetBinary(), nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog/log"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -637,14 +638,17 @@ func ValidateOwnershipSolana(
 			return fmt.Errorf("failed to validate ownership for cctp_token_pool: %w", err)
 		}
 	case shared.SVMSignerRegistry:
-		programData := signer_registry.Config{}
 		configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
-		err = chain.GetAccountDataBorshInto(e.GetContext(), configPda, &programData)
+		data, err := GetAccountData(*e, &chain, configPda)
 		if err != nil {
-			return nil
+			return fmt.Errorf("failed to get config: %w", err)
 		}
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
-			return fmt.Errorf("failed to validate ownership for signer_registry: %w", err)
+
+		configAccount, err := signer_registry.ParseAccount_Config(data)
+		fmt.Printf("%+v\n", configAccount)
+
+		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, configAccount.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for signer_registry at account %s: %w", configPda, err)
 		}
 	default:
 		return fmt.Errorf("unsupported contract type: %s", contractType)
@@ -754,4 +758,24 @@ func IsSolanaProgramOwnedByTimelock(
 func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
 	return receiverTargetAccount
+}
+
+func GetAccountData(
+	e cldf.Environment,
+	chain *cldf_solana.Chain,
+	account solana.PublicKey,
+
+) ([]byte, error) {
+	resp, err := chain.Client.GetAccountInfoWithOpts(
+		e.GetContext(),
+		account,
+		&rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentFinalized,
+			DataSlice:  nil,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Value.Data.GetBinary(), nil
 }

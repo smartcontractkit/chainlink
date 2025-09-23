@@ -43,7 +43,6 @@ type DeployBaseSignerRegistryContractConfig struct {
 
 type InitalizeBaseSignerRegistryContractConfig struct {
 	ChainSelector uint64
-	Owner         solana.PublicKey
 }
 
 func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseSignerRegistryContractConfig) (cldf.ChangesetOutput, error) {

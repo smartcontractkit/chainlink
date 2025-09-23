@@ -91,10 +91,21 @@ func BaseUploadIDLChangeset(e cldf.Environment, c BaseIDLConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting up repo: %w", err)
 	}
 
-	err := cs_solana.IdlInit(e, chain.ProgramsPath, signer_registry.ProgramID.String(), deployment.BaseSignerRegistryProgramName)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
+	idlFile := filepath.Join(chain.ProgramsPath, deployment.BaseSignerRegistryProgramName+".json")
+	if _, err := os.Stat(idlFile); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("idl file not found: %w", err)
 	}
+
+	e.Logger.Infow("Uploading IDL", "programName", deployment.BaseSignerRegistryProgramName)
+	args := []string{"idl", "init", "--filepath", idlFile, signer_registry.ProgramID.String()}
+	e.Logger.Info(args)
+	output, err := cs_solana.RunCommand("anchor", args, chain.ProgramsPath)
+	e.Logger.Debugw("IDL init output", "output", output)
+	if err != nil {
+		e.Logger.Debugw("IDL init error", "error", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("error uploading idl: %w", err)
+	}
+	e.Logger.Infow("IDL uploaded", "programName", deployment.BaseSignerRegistryProgramName)
 	return cldf.ChangesetOutput{}, nil
 }
 
