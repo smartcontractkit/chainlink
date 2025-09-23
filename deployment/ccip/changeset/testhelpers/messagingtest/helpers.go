@@ -235,6 +235,10 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		msgEVM2Any, ok := msg.(router.ClientEVM2AnyMessage)
 		require.True(tc.T, ok, "expected EVM message type")
 
+		onRamp := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).OnRamp
+		nextSeqNum, err := onRamp.GetExpectedNextSequenceNumber(&bind.CallOpts{Context: tc.T.Context()}, tc.DestChain)
+		require.NoError(tc.T, err)
+
 		calls, totalValue, err := testhelpers.GenMessagesForMulticall3(
 			tc.T.Context(),
 			tc.OnchainState.MustGetEVMChainState(tc.SourceChain).Router,
@@ -263,8 +267,12 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		require.NoError(tc.T, err)
 
 		// check that the message was emitted
+		var expectedSeqNums []uint64
+		for i := range tc.NumberOfMessages {
+			expectedSeqNums = append(expectedSeqNums, nextSeqNum+uint64(i))
+		}
 		iter, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).OnRamp.FilterCCIPMessageSent(
-			nil, []uint64{tc.DestChain}, nil,
+			nil, []uint64{tc.DestChain}, expectedSeqNums,
 		)
 		require.NoError(tc.T, err)
 
