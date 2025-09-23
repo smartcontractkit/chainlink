@@ -39,6 +39,7 @@ type WorkflowSpecCfg struct {
 	ConsensusReportID                string
 	ConsensusConfigKeyID             string
 	ConsensusAggregationMethod       string
+	TriggerCapabilityName            string
 	ConsensusAllowedPartialStaleness string
 	ConsensusEncoderABI              string
 	DeltaStageSec                    int
@@ -75,6 +76,7 @@ func CreateWorkflowSpec(
 	consensusRef string,
 	consensusReportID string,
 	consensusAggregationMethod string,
+	triggerCapability string,
 	consensusConfigKeyID string,
 	consensusAllowedPartialStaleness string,
 	consensusEncoderABI string,
@@ -92,6 +94,7 @@ func CreateWorkflowSpec(
 		ConsensusRef:                     consensusRef,
 		ConsensusReportID:                consensusReportID,
 		ConsensusAggregationMethod:       consensusAggregationMethod,
+		TriggerCapabilityName:            triggerCapability,
 		ConsensusConfigKeyID:             consensusConfigKeyID,
 		ConsensusAllowedPartialStaleness: consensusAllowedPartialStaleness,
 		ConsensusEncoderABI:              consensusEncoderABI,

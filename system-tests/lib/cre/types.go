@@ -15,11 +15,9 @@ import (
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -574,16 +572,6 @@ func (m *DonMetadata) RequiresOCR() bool {
 type Label struct {
 	Key   string `toml:"key" json:"key"`
 	Value string `toml:"value" json:"value"`
-}
-
-func LabelFromProto(p *ptypes.Label) (*Label, error) {
-	if p.Value == nil {
-		return nil, errors.New("value not set")
-	}
-	return &Label{
-		Key:   p.Key,
-		Value: *p.Value,
-	}, nil
 }
 
 type NodeMetadata struct {
