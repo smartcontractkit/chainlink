@@ -1,6 +1,8 @@
 module github.com/smartcontractkit/chainlink/deployment
 
-go 1.24.5
+go 1.24.6
+
+toolchain go1.24.7
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
@@ -12,13 +14,13 @@ require github.com/smartcontractkit/chainlink/v2 v2.27.3-0.20250908153844-03478e
 require (
 	dario.cat/mergo v1.0.2
 	github.com/AlekSi/pointer v1.1.0
-	github.com/BurntSushi/toml v1.4.0
+	github.com/BurntSushi/toml v1.5.0
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/aptos-labs/aptos-go-sdk v1.9.1-0.20250613185448-581cb03acb8f
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/deckarep/golang-set/v2 v2.6.0
-	github.com/ethereum/go-ethereum v1.16.2
+	github.com/ethereum/go-ethereum v1.16.3
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/metaplex-go v0.2.1
@@ -35,7 +37,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.71
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250905094443-ac02b032b32b
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250911201806-5a095deaeb52
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250915134957-5014a52895ca
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250912150129-4e42c90b532e
@@ -56,7 +58,7 @@ require (
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cast v1.7.1
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.38.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/xssnick/tonutils-go v1.14.1
@@ -66,8 +68,8 @@ require (
 	golang.org/x/mod v0.26.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.16.0
-	google.golang.org/grpc v1.74.2
-	google.golang.org/protobuf v1.36.7
+	google.golang.org/grpc v1.75.0
+	google.golang.org/protobuf v1.36.8
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.5.2
@@ -183,6 +185,7 @@ require (
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/danieljoos/wincred v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dgraph-io/badger/v4 v4.7.0 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
@@ -220,7 +223,7 @@ require (
 	github.com/go-asn1-ber/asn1-ber v1.5.5 // indirect
 	github.com/go-chi/chi v1.5.5 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250223041408-d3c622f1b874 // indirect
 	github.com/go-kit/kit v0.13.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
@@ -394,6 +397,9 @@ require (
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
+	github.com/smartcontractkit/chainlink-ccv/executor v0.0.0-20250923160325-8ef2d9f1cfcc // indirect
+	github.com/smartcontractkit/chainlink-ccv/protocol v0.0.0-20250922170737-1e298dd1b2dc // indirect
+	github.com/smartcontractkit/chainlink-ccv/verifier v0.0.0-20250923160325-8ef2d9f1cfcc // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
@@ -474,7 +480,7 @@ require (
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.33.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
@@ -483,8 +489,8 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gonum.org/v1/gonum v0.16.0 // indirect
 	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250528174236-200df99c418a // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect

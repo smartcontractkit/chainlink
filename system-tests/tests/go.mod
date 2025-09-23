@@ -1,6 +1,8 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests
 
-go 1.24.5
+go 1.24.6
+
+toolchain go1.24.7
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
@@ -79,7 +81,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
-	github.com/BurntSushi/toml v1.4.0 // indirect
+	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/DataDog/zstd v1.5.6 // indirect
 	github.com/DefangLabs/secret-detector v0.0.0-20250403165618-22662109213e // indirect
 	github.com/Khan/genqlient v0.7.0 // indirect
@@ -255,7 +257,7 @@ require (
 	github.com/go-chi/chi v1.5.5 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250223041408-d3c622f1b874 // indirect
 	github.com/go-kit/kit v0.13.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
@@ -521,9 +523,12 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.71 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250905094443-ac02b032b32b // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250911201806-5a095deaeb52 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250915134957-5014a52895ca // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5 // indirect
+	github.com/smartcontractkit/chainlink-ccv/executor v0.0.0-20250923160325-8ef2d9f1cfcc // indirect
+	github.com/smartcontractkit/chainlink-ccv/protocol v0.0.0-20250922170737-1e298dd1b2dc // indirect
+	github.com/smartcontractkit/chainlink-ccv/verifier v0.0.0-20250923160325-8ef2d9f1cfcc // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.1 // indirect
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250915101441-709f87f7d401 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
@@ -664,7 +669,7 @@ require (
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.33.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
@@ -674,9 +679,9 @@ require (
 	gonum.org/v1/gonum v0.16.0 // indirect
 	google.golang.org/api v0.241.0 // indirect
 	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250528174236-200df99c418a // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
-	google.golang.org/grpc v1.74.2 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+	google.golang.org/grpc v1.75.0 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/guregu/null.v4 v4.0.0 // indirect

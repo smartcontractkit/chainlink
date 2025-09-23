@@ -109,6 +109,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+
+	"github.com/smartcontractkit/chainlink-ccv/executor"
+	"github.com/smartcontractkit/chainlink-ccv/verifier"
 )
 
 // Application implements the common functions used in the core node.
@@ -1249,6 +1252,36 @@ func newCCVServices(
 	//fmt.Println("CCV is Enabled:", cfg.CCV().Enabled())
 	//fmt.Println("Indexer Key:", cfg.CCV().ExecutorIndexerAPIKey())
 
+	// start verifier
+	go func() {
+		verifier, err := verifier.NewVerificationCoordinator()
+		if err != nil {
+			globalLogger.Errorw("Failed to create verification coordinator", "error", err)
+			return
+		}
+
+		for true {
+			globalLogger.Info("hello world, verifier.")
+			globalLogger.Info("verifier:", verifier.HealthCheck(ctx))
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	// start executor
+	go func() {
+		exec, err := executor.NewCoordinator()
+		if err != nil {
+			globalLogger.Errorw("Failed to create execution coordinator", "error", err)
+			return
+		}
+		exec.Start(ctx)
+
+		for true {
+			globalLogger.Info("hello world, executor.")
+			globalLogger.Info("executor is running:", exec.IsRunning())
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
 	return nil, nil
 }
 
