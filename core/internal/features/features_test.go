@@ -32,6 +32,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -499,6 +500,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
+	quarantine.Flaky(t, "DX-1767")
 	t.Parallel()
 	operatorContracts := setupOperatorContracts(t)
 	b := operatorContracts.sim
