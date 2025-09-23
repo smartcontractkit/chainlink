@@ -7,11 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/zksync-sdk/zksync2-go/accounts"
-	"github.com/zksync-sdk/zksync2-go/clients"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -24,50 +21,29 @@ var (
 		"DeployOffRamp",
 		semver.MustParse("1.0.0"),
 		"Deploys OffRamp 1.6 contract on the specified evm chain",
-		cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_6_0),
-		opsutil.VMDeployers[DeployOffRampInput]{
-			DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, input DeployOffRampInput) (common.Address, *types.Transaction, error) {
-				addr, tx, _, err := offramp.DeployOffRamp(
-					opts,
-					backend,
-					offramp.OffRampStaticConfig{
-						ChainSelector:        input.Chain,
-						GasForCallExactCheck: input.Params.GasForCallExactCheck,
-						RmnRemote:            input.RmnRemote,
-						NonceManager:         input.NonceManager,
-						TokenAdminRegistry:   input.TokenAdminRegistry,
-					},
-					offramp.OffRampDynamicConfig{
-						FeeQuoter:                               input.FeeQuoter,
-						PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
-						MessageInterceptor:                      input.Params.MessageInterceptor,
-					},
-					[]offramp.OffRampSourceChainConfigArgs{},
-				)
-				return addr, tx, err
-			},
-			DeployZksyncVM: func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, input DeployOffRampInput) (common.Address, error) {
-				addr, _, _, err := offramp.DeployOffRampZk(
-					opts,
-					client,
-					wallet,
-					backend,
-					offramp.OffRampStaticConfig{
-						ChainSelector:        input.Chain,
-						GasForCallExactCheck: input.Params.GasForCallExactCheck,
-						RmnRemote:            input.RmnRemote,
-						NonceManager:         input.NonceManager,
-						TokenAdminRegistry:   input.TokenAdminRegistry,
-					},
-					offramp.OffRampDynamicConfig{
-						FeeQuoter:                               input.FeeQuoter,
-						PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
-						MessageInterceptor:                      input.Params.MessageInterceptor,
-					},
-					[]offramp.OffRampSourceChainConfigArgs{},
-				)
-				return addr, err
-			},
+		shared.OffRamp,
+		offramp.OffRampMetaData,
+		&opsutil.ContractOpts{
+			Version:          &deployment.Version1_6_0,
+			EVMBytecode:      common.FromHex(offramp.OffRampBin),
+			ZkSyncVMBytecode: offramp.ZkBytecode,
+		},
+		func(input DeployOffRampInput) []interface{} {
+			return []interface{}{
+				offramp.OffRampStaticConfig{
+					ChainSelector:        input.Chain,
+					GasForCallExactCheck: input.Params.GasForCallExactCheck,
+					RmnRemote:            input.RmnRemote,
+					NonceManager:         input.NonceManager,
+					TokenAdminRegistry:   input.TokenAdminRegistry,
+				},
+				offramp.OffRampDynamicConfig{
+					FeeQuoter:                               input.FeeQuoter,
+					PermissionLessExecutionThresholdSeconds: input.Params.PermissionLessExecutionThresholdSeconds,
+					MessageInterceptor:                      input.Params.MessageInterceptor,
+				},
+				[]offramp.OffRampSourceChainConfigArgs{},
+			}
 		},
 	)
 

@@ -972,6 +972,10 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				return state, err
 			}
 			state.FeeQuoter = fq
+			if state.FeeQuotersByVersion == nil {
+				state.FeeQuotersByVersion = make(map[semver.Version]*fee_quoter.FeeQuoter)
+			}
+			state.FeeQuotersByVersion[deployment.Version1_6_0] = fq
 			state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCToken, deployment.Version1_0_0).String():
 			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
@@ -1367,6 +1371,19 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if tvStr.Type == commontypes.ManyChainMultisig && tvStr.Version == deployment.Version1_0_0 {
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 				continue
+			}
+			// New versions of the EVM FeeQuoter are developed to support new chain families.
+			// We need to represent these FeeQuoters in state under FeeQuotersByVersion.
+			if tvStr.Type == ccipshared.FeeQuoter {
+				fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+				if err != nil {
+					return state, err
+				}
+				if state.FeeQuotersByVersion == nil {
+					state.FeeQuotersByVersion = make(map[semver.Version]*fee_quoter.FeeQuoter)
+				}
+				state.FeeQuotersByVersion[tvStr.Version] = fq
+				state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
 			}
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

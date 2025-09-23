@@ -83,15 +83,16 @@ type CCIPChainState struct {
 	state.MCMSWithTimelockState
 	state.LinkTokenState
 	state.StaticLinkTokenState
-	ABIByAddress       map[string]string
-	OnRamp             onramp.OnRampInterface
-	OffRamp            offramp.OffRampInterface
-	FeeQuoter          *fee_quoter.FeeQuoter
-	RMNProxy           *rmn_proxy_contract.RMNProxy
-	NonceManager       *nonce_manager.NonceManager
-	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
-	TokenPoolFactory   *token_pool_factory.TokenPoolFactory
-	RegistryModules1_6 []*registry_module_owner_custom.RegistryModuleOwnerCustom
+	ABIByAddress        map[string]string
+	OnRamp              onramp.OnRampInterface
+	OffRamp             offramp.OffRampInterface
+	FeeQuoter           *fee_quoter.FeeQuoter
+	FeeQuotersByVersion map[semver.Version]*fee_quoter.FeeQuoter
+	RMNProxy            *rmn_proxy_contract.RMNProxy
+	NonceManager        *nonce_manager.NonceManager
+	TokenAdminRegistry  *token_admin_registry.TokenAdminRegistry
+	TokenPoolFactory    *token_pool_factory.TokenPoolFactory
+	RegistryModules1_6  []*registry_module_owner_custom.RegistryModuleOwnerCustom
 	// TODO change this to contract object for v1.5 RegistryModules once we have the wrapper available in chainlink-evm
 	RegistryModules1_5 []*registry_module_owner_custom2.RegistryModuleOwnerCustom
 	Router             *router.Router
@@ -154,6 +155,24 @@ type CCIPChainState struct {
 
 	// Base Attestation contracts
 	SignerRegistry *signer_registry.SignerRegistry
+}
+
+// GetFeeQuoterForVersion returns the FeeQuoter contract for the specified version.
+// If version is nil, it returns the default FeeQuoter in state.
+func (c CCIPChainState) GetFeeQuoterForVersion(version *semver.Version) (*fee_quoter.FeeQuoter, error) {
+	if version == nil {
+		return c.FeeQuoter, nil
+	}
+
+	errNotFound := fmt.Errorf("fee quoter for version %s not found", version.String())
+	if c.FeeQuotersByVersion == nil {
+		return nil, errNotFound
+	}
+	fq, exists := c.FeeQuotersByVersion[*version]
+	if !exists {
+		return nil, errNotFound
+	}
+	return fq, nil
 }
 
 // ValidateHomeChain validates the home chain contracts and their configurations after complete setup.

@@ -5,11 +5,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/zksync-sdk/zksync2-go/accounts"
-	"github.com/zksync-sdk/zksync2-go/clients"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -29,43 +26,36 @@ type RouterApplyRampUpdatesOpInput struct {
 }
 
 var (
-	routerDeployers = opsutil.VMDeployers[DeployRouterInput]{
-		DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, input DeployRouterInput) (common.Address, *types.Transaction, error) {
-			addr, tx, _, err := router.DeployRouter(
-				opts,
-				backend,
-				input.WethAddress,
-				input.RMNProxy,
-			)
-			return addr, tx, err
-		},
-		DeployZksyncVM: func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, input DeployRouterInput) (common.Address, error) {
-			addr, _, _, err := router.DeployRouterZk(
-				opts,
-				client,
-				wallet,
-				backend,
-				input.WethAddress,
-				input.RMNProxy,
-			)
-			return addr, err
-		},
-	}
-
 	DeployRouter = opsutil.NewEVMDeployOperation(
 		"DeployRouter",
 		semver.MustParse("1.0.0"),
 		"Deploys Router 1.2 contract on the specified evm chain",
-		cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0),
-		routerDeployers,
+		shared.Router,
+		router.RouterMetaData,
+		&opsutil.ContractOpts{
+			Version:          &deployment.Version1_2_0,
+			EVMBytecode:      common.FromHex(router.RouterBin),
+			ZkSyncVMBytecode: router.RouterZkBytecode,
+		},
+		func(input DeployRouterInput) []interface{} {
+			return []interface{}{input.WethAddress, input.RMNProxy}
+		},
 	)
 
 	DeployTestRouter = opsutil.NewEVMDeployOperation(
 		"DeployTestRouter",
 		semver.MustParse("1.0.0"),
 		"Deploys TestRouter 1.2 contract on the specified evm chain",
-		cldf.NewTypeAndVersion(shared.TestRouter, deployment.Version1_2_0),
-		routerDeployers,
+		shared.TestRouter,
+		router.RouterMetaData,
+		&opsutil.ContractOpts{
+			Version:          &deployment.Version1_2_0,
+			EVMBytecode:      common.FromHex(router.RouterBin),
+			ZkSyncVMBytecode: router.RouterZkBytecode,
+		},
+		func(input DeployRouterInput) []interface{} {
+			return []interface{}{input.WethAddress, input.RMNProxy}
+		},
 	)
 
 	RouterApplyRampUpdatesOp = opsutil.NewEVMCallOperation(
