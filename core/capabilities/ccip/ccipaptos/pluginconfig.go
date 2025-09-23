@@ -18,22 +18,25 @@ func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
 		var cwProvider ccipcommon.ChainRWProvider
 		var transmitterFactory types.ContractTransmitterFactory
 		var msgHasher ccipocr3.MessageHasher
+		var tokenDataEncoder ccipocr3.TokenDataEncoder
 
 		if chainselFamily == chainsel.FamilyAptos {
 			cwProvider = ChainCWProvider{}
 			transmitterFactory = ocrimpls.NewAptosContractTransmitterFactory(extraDataCodec)
 			msgHasher = NewMessageHasherV1(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV1"), extraDataCodec)
+			tokenDataEncoder = NewAptosTokenDataEncoder()
 		} else {
 			cwProvider = ccipsui.ChainCWProvider{}
 			transmitterFactory = ocrimpls.NewSuiContractTransmitterFactory(extraDataCodec)
 			msgHasher = ccipsui.NewMessageHasherV1(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV1"), extraDataCodec)
+			tokenDataEncoder = ccipsui.NewSuiTokenDataEncoder()
 		}
 
 		return ccipcommon.PluginConfig{
 			CommitPluginCodec:          NewCommitPluginCodecV1(),
 			ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
 			MessageHasher:              msgHasher,
-			TokenDataEncoder:           NewAptosTokenDataEncoder(),
+			TokenDataEncoder:           tokenDataEncoder,
 			GasEstimateProvider:        NewGasEstimateProvider(),
 			RMNCrypto:                  nil,
 			ContractTransmitterFactory: transmitterFactory,
