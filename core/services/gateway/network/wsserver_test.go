@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
+	"github.com/smartcontractkit/quarantine"
 )
 
 const (
@@ -126,6 +127,7 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 }
 
 func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
+	quarantine.Flaky(t, "DX-1752")
 	t.Parallel()
 	server, acceptor, urlStr := startNewWSServer(t, 10_000)
 	defer server.Close()
