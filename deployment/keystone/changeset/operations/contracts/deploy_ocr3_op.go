@@ -8,7 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	contracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
 
 type DeployOCR3ContractSequenceDeps struct {
@@ -16,8 +17,9 @@ type DeployOCR3ContractSequenceDeps struct {
 }
 
 type DeployOCR3ContractSequenceInput struct {
-	ChainSelector uint64
-	Qualifier     string // qualifier for the OCR3 contract deployment
+	ChainSelector      uint64
+	Qualifier          string                  // qualifier for the OCR3 contract deployment
+	OffchainConfigType ocr3.OffchainConfigType // type of offchain config, e.g. consensus or chain capability
 }
 
 type DeployOCR3ContractSequenceOutput struct {
@@ -37,7 +39,12 @@ var DeployOCR3ContractsSequence = operations.NewSequence[DeployOCR3ContractSeque
 		as := datastore.NewMemoryDataStore()
 
 		// OCR3 Contract
-		ocr3DeployReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps(deps), contracts.DeployOCR3Input{ChainSelector: input.ChainSelector, Qualifier: input.Qualifier})
+		deployInput := contracts.DeployOCR3Input{
+			ChainSelector:      input.ChainSelector,
+			Qualifier:          input.Qualifier,
+			OffchainConfigType: input.OffchainConfigType,
+		}
+		ocr3DeployReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps(deps), deployInput)
 		if err != nil {
 			return DeployOCR3ContractSequenceOutput{}, fmt.Errorf("failed to execution operation DeployOCR3: %w", err)
 		}

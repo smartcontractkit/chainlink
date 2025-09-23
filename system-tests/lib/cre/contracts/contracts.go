@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -423,6 +424,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	}
 
 	for chainSelector, evmOCR3Address := range input.EVMOCR3Addresses {
+		println("AAAA Configuring EVM OCR3 for chain selector:", chainSelector, "address:", evmOCR3Address.Hex())
 		// not sure how to map EVM chains to DONs, so for now we assume that there's only one DON that supports EVM chains
 		evmDON, err := dons.shouldBeOneDon(cre.EVMCapability)
 		if err != nil {
@@ -541,14 +543,38 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 		MaxDurationShouldAcceptMillis:     1000,
 		MaxDurationShouldTransmitMillis:   1000,
 		MaxFaultyOracles:                  1,
-		MaxQueryLengthBytes:               1000000,
-		MaxObservationLengthBytes:         1000000,
-		MaxReportLengthBytes:              1000000,
-		MaxBatchSize:                      1000,
 		UniqueReports:                     true,
+		OffchainConfigType:                ocr3.OffchainConfigTypeConsensusCap,
+		OffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+			MaxQueryLengthBytes:       1000000,
+			MaxObservationLengthBytes: 1000000,
+			MaxReportLengthBytes:      1000000,
+			MaxBatchSize:              1000,
+		},
 	}
 
 	return oracleConfig, nil
+}
+
+func DefaultChainCapabilityOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
+	cfg, err := DefaultOCR3Config(topology)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate default OCR3 config: %w", err)
+	}
+
+	cfg.DeltaRoundMillis = 1000
+	cfg.OffchainConfigType = ocr3.OffchainConfigTypeChainCap
+	const kib = 1024
+	const mib = 1024 * kib
+	cfg.OffchainConfig = &ocr3.ChainCapOffchainConfig{
+		MaxQueryLengthBytes:       mib,
+		MaxObservationLengthBytes: 97 * kib,
+		MaxReportLengthBytes:      mib,
+		MaxOutcomeLengthBytes:     mib,
+		MaxReportCount:            1000,
+		MaxBatchSize:              200,
+	}
+	return cfg, nil
 }
 
 func FindAddressesForChain(addressBook cldf.AddressBook, chainSelector uint64, contractName string) (common.Address, cldf.TypeAndVersion, error) {
