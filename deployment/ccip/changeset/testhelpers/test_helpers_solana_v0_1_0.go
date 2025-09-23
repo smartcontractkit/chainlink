@@ -69,6 +69,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -460,6 +461,49 @@ func CCIPSendCalldata(
 
 	calldata = append(routerABI.Methods["ccipSend"].ID, calldata...)
 	return calldata, nil
+}
+
+// GenMessagesForMulticall3 generates the calls and total value for the messages so that they can be used
+// with a multicall3 transaction.
+// Note that this is EVM-specific.
+func GenMessagesForMulticall3(
+	ctx context.Context,
+	sourceRouter *router.Router,
+	destChainSelector uint64,
+	count int,
+	baseMsg router.ClientEVM2AnyMessage,
+) (calls []multicall3.Multicall3Call3Value, totalValue *big.Int, err error) {
+	totalValue = big.NewInt(0)
+	for range count {
+		msg := router.ClientEVM2AnyMessage{
+			Receiver:     baseMsg.Receiver,
+			Data:         baseMsg.Data,
+			TokenAmounts: baseMsg.TokenAmounts,
+			FeeToken:     baseMsg.FeeToken,
+			ExtraArgs:    baseMsg.ExtraArgs,
+		}
+
+		fee, err := sourceRouter.GetFee(&bind.CallOpts{Context: ctx}, destChainSelector, msg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("router get fee: %w", err)
+		}
+
+		totalValue.Add(totalValue, fee)
+
+		calldata, err := CCIPSendCalldata(destChainSelector, msg)
+		if err != nil {
+			return nil, nil, fmt.Errorf("generate calldata: %w", err)
+		}
+
+		calls = append(calls, multicall3.Multicall3Call3Value{
+			Target:       sourceRouter.Address(),
+			AllowFailure: false,
+			CallData:     calldata,
+			Value:        fee,
+		})
+	}
+
+	return calls, totalValue, nil
 }
 
 // testhelpers.SendRequest(t, e, state, src, dest, msg, opts...)

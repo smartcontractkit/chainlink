@@ -96,6 +96,7 @@ type TestCase struct {
 	ExpRevertOnSource      bool
 	ExtraAssertions        []func(t *testing.T)
 	NumberOfMessages       int // number of messages to send, use same data and extraArgs
+	UseMulticall3          bool
 }
 
 type ValidationType int
@@ -228,28 +229,77 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	}
 
 	// send all messages first, then validate them
-	for i := 0; i < tc.NumberOfMessages; i++ {
-		msgSentEventLocal := testhelpers.TestSendRequest(
-			tc.T,
-			tc.Env,
-			tc.OnchainState,
-			tc.SourceChain,
+	if tc.UseMulticall3 {
+		require.Equal(t, chain_selectors.FamilyEVM, family, "only EVM family supported for multicall3 usage")
+
+		msgEVM2Any, ok := msg.(router.ClientEVM2AnyMessage)
+		require.True(tc.T, ok, "expected EVM message type")
+
+		calls, totalValue, err := testhelpers.GenMessagesForMulticall3(
+			tc.T.Context(),
+			tc.OnchainState.MustGetEVMChainState(tc.SourceChain).Router,
 			tc.DestChain,
-			tc.TestRouter,
-			msg)
+			tc.NumberOfMessages,
+			msgEVM2Any,
+		)
+		require.NoError(tc.T, err)
 
-		_, ok := expectedSeqNumRange[sourceDest]
-		if !ok {
-			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+		sender := tc.Env.BlockChains.EVMChains()[tc.SourceChain].DeployerKey
+		currBalance, err := tc.Env.BlockChains.EVMChains()[tc.SourceChain].Client.BalanceAt(tc.T.Context(), sender.From, nil)
+		require.NoError(tc.T, err)
+		require.True(tc.T, currBalance.Cmp(totalValue) >= 0, "sender balance should be greater than or equal to total value")
+
+		tx, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).Multicall3.Aggregate3Value(
+			&bind.TransactOpts{
+				From:   sender.From,
+				Signer: sender.Signer,
+				Value:  totalValue,
+			},
+			calls,
+		)
+		require.NoError(tc.T, err)
+
+		_, err = cldf.ConfirmIfNoError(tc.Env.BlockChains.EVMChains()[tc.SourceChain], tx, err)
+		require.NoError(tc.T, err)
+
+		// check that the message was emitted
+		iter, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).OnRamp.FilterCCIPMessageSent(
+			nil, []uint64{tc.DestChain}, nil,
+		)
+		require.NoError(tc.T, err)
+
+		for i := 0; i < tc.NumberOfMessages; i++ {
+			require.True(tc.T, iter.Next())
+			msgSentEvents[i] = &ccipclient.AnyMsgSentEvent{
+				SequenceNumber: iter.Event.SequenceNumber,
+				RawEvent:       iter.Event,
+			}
 		}
-		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
-			ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+	} else {
+		// Send sequentially
+		for i := 0; i < tc.NumberOfMessages; i++ {
+			msgSentEventLocal := testhelpers.TestSendRequest(
+				tc.T,
+				tc.Env,
+				tc.OnchainState,
+				tc.SourceChain,
+				tc.DestChain,
+				tc.TestRouter,
+				msg)
 
-		expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)
-		// TODO: If this feature is needed more we can refactor the function to return a slice of events
-		// return only last msg event
-		out.MsgSentEvent = msgSentEventLocal
-		msgSentEvents[i] = msgSentEventLocal
+			_, ok := expectedSeqNumRange[sourceDest]
+			if !ok {
+				expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+			}
+			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
+				ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+
+			expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)
+			// TODO: If this feature is needed more we can refactor the function to return a slice of events
+			// return only last msg event
+			out.MsgSentEvent = msgSentEventLocal
+			msgSentEvents[i] = msgSentEventLocal
+		}
 	}
 
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
