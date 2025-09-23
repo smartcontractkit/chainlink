@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -51,6 +52,9 @@ func (c *configTracker) Notify() <-chan struct{} {
 }
 
 func contractConfigFromOCRConfig(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipcommontypes.AddressCodecBundle) (types.ContractConfig, error) {
+	addressCodecRegistry := ccipcommon.GetAddressCodecRegistry(nil)
+	addressCodecRegistry.LogRegisteredCodecs("config_tracker")
+
 	var signers [][]byte
 	var transmitters [][]byte
 	var err error

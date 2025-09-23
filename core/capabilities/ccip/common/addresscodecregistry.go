@@ -42,7 +42,9 @@ func GetAddressCodecRegistry(lggr logger.Logger) *AddressCodecRegistry {
 	return addressRegistryInstance
 }
 
-func (r *AddressCodecRegistry) LogRegisteredCodecs() {
+func (r *AddressCodecRegistry) LogRegisteredCodecs(source ...string) {
+	r.lggr.Debugw("OGT AddressCodecRegistry LogRegisteredCodecs called", "source", source)
+	// Defensive check, should never be nil if called via GetAddressCodecRegistry
 	if addressRegistryInstance == nil {
 		r.lggr.Warn("OGT AddressCodecRegistry instance is nil, no codecs registered, can't log")
 		return

@@ -140,7 +140,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 
 	addressCodecRegistry := ccipcommon.GetAddressCodecRegistry(i.lggr)
-	addressCodecRegistry.LogRegisteredCodecs()
+	addressCodecRegistry.LogRegisteredCodecs("plugin_oracle_creator")
 
 	i.lggr.Debugw("OGT calling NewConfigTracker with chain selector", "chainSelector", chainSelector, "destChainFamily", destChainFamily, "destChainID", destChainID, "pluginType", pluginType.String(), "donID", donID, "externalJobID", i.externalJobID, "jobID", i.jobID, "isNewlyCreatedJob", i.isNewlyCreatedJob)
 	configTracker, err := ocrimpls.NewConfigTracker(config, ccipcommon.GetAddressCodecRegistry(i.lggr))
