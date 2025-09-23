@@ -54,6 +54,6 @@ func (cfg BootstrapCfg) ResolveSpec() (string, error) {
 	return b.String(), nil
 }
 
-func BootstrapExternalJobID(donName string, evmChainSel uint64) (string, error) {
-	return ExternalJobID(donName+"-bootstrap", evmChainSel)
+func BootstrapExternalJobID(donName, contractID string, evmChainSel uint64) (string, error) {
+	return ExternalJobID(donName+"-bootstrap", contractID, "ocr3_bootstrap", evmChainSel)
 }
