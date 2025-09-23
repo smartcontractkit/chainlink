@@ -107,6 +107,7 @@
 
       [CRE]
       EnableDKGRecipient = true
+      UseLocalTimeProvider = false
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -134,6 +135,7 @@
 
       [CRE]
       EnableDKGRecipient = true
+      UseLocalTimeProvider = false
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -161,6 +163,7 @@
 
       [CRE]
       EnableDKGRecipient = true
+      UseLocalTimeProvider = false
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
@@ -188,6 +191,7 @@
 
       [CRE]
       EnableDKGRecipient = true
+      UseLocalTimeProvider = false
 
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]

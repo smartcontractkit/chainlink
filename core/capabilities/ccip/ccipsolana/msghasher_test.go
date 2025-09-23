@@ -31,6 +31,7 @@ func TestMessageHasher_EVM2SVM(t *testing.T) {
 		chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 		chainsel.FamilySolana: ExtraDataDecoder{},
+		chainsel.FamilySui:    ccipaptos.ExtraDataDecoder{},
 	}
 	var extraDataCodec = ccipocr3.ExtraDataCodec(registeredExtraDataCodecMap)
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)

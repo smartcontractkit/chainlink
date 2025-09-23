@@ -254,7 +254,7 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseUncurseAptos$" -timeout 20m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.7.0
+    aptos_cli_version: 7.8.1
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseMCMS
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -443,9 +443,9 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIP_Messaging_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.7.0
+    aptos_cli_version: 7.8.1
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_messaging_test.go:Test_CCIP_Messaging_Aptos2EVM
@@ -455,9 +455,9 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIP_Messaging_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.7.0
+    aptos_cli_version: 7.8.1
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_Aptos2EVM
@@ -467,9 +467,9 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIP_TokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.7.0
+    aptos_cli_version: 7.8.1
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_EVM2Aptos
@@ -479,9 +479,81 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIP_TokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.7.0
+    aptos_cli_version: 7.8.1
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_BnM_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.8.1
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_BnM_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.8.1
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.8.1
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.8.1
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.8.1
+    install_plugins_public: true
+
+  - id: smoke/ccip/ccip_aptos_token_transfer_test.go:Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM
+    path: integration-tests/smoke/ccip/ccip_aptos_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    aptos_cli_version: 7.8.1
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_msghasher_test.go:*
@@ -491,9 +563,9 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIP_AptosMessageHasher_OnChainVerification" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_AptosMessageHasher_OnChainVerification" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.7.0
+    aptos_cli_version: 7.8.1
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_regulated_token_transfer_test.go:Test_CCIP_RegulatedTokenTransfer_EVM2Aptos
@@ -503,9 +575,9 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIP_RegulatedTokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_RegulatedTokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.7.0
+    aptos_cli_version: 7.8.1
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_aptos_regulated_token_transfer_test.go:Test_CCIP_RegulatedTokenTransfer_Aptos2EVM
@@ -515,9 +587,9 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIP_RegulatedTokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: go test ./smoke/ccip -run "Test_CCIP_RegulatedTokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    aptos_cli_version: 7.7.0
+    aptos_cli_version: 7.8.1
     install_plugins_public: true
 
   # TON tests

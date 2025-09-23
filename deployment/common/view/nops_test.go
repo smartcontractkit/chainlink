@@ -22,7 +22,7 @@ func TestGenerateNopsView(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	// Create 3 node IDs
-	nodeIDs := []string{"node1", "node2", "node3"}
+	nodeIDs := []string{"node_1", "node_2", "node_3"}
 
 	// Set up mock nodes with different configurations
 	p2pIDs := []string{}
@@ -90,7 +90,7 @@ func TestGenerateNopsView(t *testing.T) {
 	})
 
 	t.Run("node not found in JD", func(t *testing.T) {
-		v, err := GenerateNopsView(lggr, []string{"unknown_node"}, jdService)
+		v, err := GenerateNopsView(lggr, []string{"node_uknown"}, jdService)
 		require.NoError(t, err)
 		assert.Empty(t, v)
 	})

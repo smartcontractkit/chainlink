@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 )
 
 func newValidReportFields() v2.ReportFields {

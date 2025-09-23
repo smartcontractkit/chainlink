@@ -17,6 +17,7 @@ const (
 	OCR3
 	HTTPTrigger
 	HTTPAction
+	EVM
 )
 
 func (jt JobSpecTemplate) String() string {
@@ -31,6 +32,8 @@ func (jt JobSpecTemplate) String() string {
 		return "http-trigger"
 	case HTTPAction:
 		return "http-action"
+	case EVM:
+		return "evm"
 	default:
 		return "unknown"
 	}
@@ -49,6 +52,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return HTTPTrigger, nil
 	case "http-action":
 		return HTTPAction, nil
+	case "evm":
+		return EVM, nil
 	case "", "unknown":
 		return 0, errors.New("job spec template cannot be empty")
 	default:

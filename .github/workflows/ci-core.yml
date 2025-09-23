@@ -182,7 +182,7 @@ jobs:
           - cmd: go_core_tests
             os: ${{ needs.runner-config.outputs.core-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            use-trunk: "true"
+            trunk-auto-quarantine: "true"
 
           - cmd: go_core_tests_integration
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
@@ -202,7 +202,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
             setup-aptos: "true"
-            use-trunk: "true"
+            trunk-auto-quarantine: "true"
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -242,7 +242,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
         uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
-          CLI_VERSION: 7.7.0
+          CLI_VERSION: 7.8.1
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
@@ -283,7 +283,7 @@ jobs:
 
       - name: Derive Job/Run URL
         # Fetch job run url - used for trunk.io uploads, and race test failure notifications
-        if: ${{ matrix.type.should-run == 'true' && ( matrix.type.cmd == 'go_core_race_tests' || matrix.type.use-trunk == 'true' ) }}
+        if: ${{ matrix.type.should-run == 'true' && ( matrix.type.cmd == 'go_core_race_tests' || matrix.type.trunk-auto-quarantine == 'true' ) }}
         id: run-url
         env:
           GH_REPO: ${{ github.repository }}
@@ -300,27 +300,30 @@ jobs:
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
         timeout-minutes: ${{ github.event_name == 'schedule' && 37 || 22 }} # leave time for remaining steps
+        continue-on-error: ${{ matrix.type.trunk-auto-quarantine == 'true' }}
         id: run-tests
         shell: bash
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
-          PRODUCE_JUNIT_XML: ${{ matrix.type.use-trunk }}
+          PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
+          RUN_QUARANTINED_TESTS: 'true' # always run quarantined tests in CI
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
         run: |
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
 
       - name: Run branch-out-upload
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.use-trunk == 'true' && !cancelled() }}
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
           junit-file-path: './junit.xml'
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
-          trunk-upload-only: "true"
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           trunk-job-url: ${{ steps.run-url.outputs.run_url }}
+           # when auto-quarantine is enabled, allow this to determine test failures
+          trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
 
       - name: Print Races
         id: print-races
@@ -576,11 +579,12 @@ jobs:
     needs: [filter]
     runs-on: ubuntu-latest
     env:
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_LINT_RUNNER: runs-on=${{ github.run_id }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      # include unique label (core/deployment/etc...) to ensure jobs are not competing for the same runner
+      SH_TEST_RUNNER: runs-on=${{ github.run_id }}-core/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}-fuzz/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/disk=large/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      SH_LINT_RUNNER: runs-on=${{ github.run_id }}-lint/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
       GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
       GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB
       GH_BASE_RUNNER: ubuntu-latest

@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 )
 
 func ExecuteBillingTest(t *testing.T, testEnv *TestEnvironment) {
@@ -55,7 +57,11 @@ func ExecuteBillingTest(t *testing.T, testEnv *TestEnvironment) {
 
 	initialCredits := credits[0]
 
-	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &None{}, workflowFileLocation)
+	testLogger.Info().Msg("Creating Cron workflow configuration file...")
+	workflowConfig := crontypes.WorkflowConfig{
+		Schedule: "*/30 * * * * *", // every 30 seconds
+	}
+	compileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// set up a connection to the billing database and run query until data exists
 	assert.Eventually(t, func() bool {

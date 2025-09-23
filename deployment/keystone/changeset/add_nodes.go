@@ -13,7 +13,6 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
@@ -129,20 +128,6 @@ type CreateNodeRequest struct {
 	P2PID                [32]byte // p2p ID of the node
 	EncryptionPublicKey  [32]byte // encryption public key of the node
 	CapabilityIdentities          // the capabilities of the node; must all exist in the capabilities registry
-}
-
-func NewCreateNodeRequest(nop NOPIdentity, node deployment.Node, capabilities CapabilityIdentities, registryChainSel uint64) (*CreateNodeRequest, error) {
-	s, e, err := internal.ExtractSignerEncryptionKeys(node, registryChainSel)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract signer and encryption keys: %w", err)
-	}
-	return &CreateNodeRequest{
-		NOPIdentity:          nop,
-		Signer:               s,
-		P2PID:                node.PeerID,
-		EncryptionPublicKey:  e,
-		CapabilityIdentities: capabilities,
-	}, nil
 }
 
 func (r *CreateNodeRequest) Validate() error {

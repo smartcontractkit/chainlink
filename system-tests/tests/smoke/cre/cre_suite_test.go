@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -18,7 +19,7 @@ Inside `core/scripts/cre/environment` directory
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
 func Test_CRE_Suite(t *testing.T) {
-	testEnv := SetupTestEnvironment(t)
+	testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t))
 	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
 	t.Run("[v1] CRE Suite", func(t *testing.T) {
@@ -34,6 +35,19 @@ func Test_CRE_Suite(t *testing.T) {
 			ExecuteVaultTest(t, testEnv)
 		})
 
+		t.Run("[v2] Cron (Beholder) happy path", func(t *testing.T) {
+			ExecuteCronBeholderTest(t, testEnv)
+		})
+
+		// negative tests for cron
+		// TODO: move to a separate package
+		for _, tCase := range cronInvalidSchedulesTests {
+			testName := fmt.Sprintf("[v2] Cron (Beholder) fails when schedule is %s (%s)", tCase.name, tCase.invalidSchedule)
+			t.Run(testName, func(t *testing.T) {
+				CronBeholderFailWithInvalidScheduleTest(t, testEnv, tCase.invalidSchedule)
+			})
+		}
+
 		t.Run("[v2] HTTP trigger and action test", func(t *testing.T) {
 			t.Skip("Skipping flaky test https://chainlink-core.slack.com/archives/C07GQNPVBB5/p1757085817724369")
 			// requires `http_trigger`, `http_action`
@@ -42,10 +56,6 @@ func Test_CRE_Suite(t *testing.T) {
 
 		t.Run("[v2] DON Time test", func(t *testing.T) {
 			ExecuteDonTimeTest(t, testEnv)
-		})
-
-		t.Run("[v2] Beholder test", func(t *testing.T) {
-			ExecuteBeholderTest(t, testEnv)
 		})
 
 		t.Run("[v2] Billing test", func(t *testing.T) {
@@ -59,27 +69,43 @@ func Test_CRE_Suite(t *testing.T) {
 }
 
 func Test_CRE_Suite_EVM(t *testing.T) {
-	testEnv := SetupTestEnvironment(t)
+	testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
-	t.Run("Write Test", func(t *testing.T) {
+	t.Run("[v2] EVM Write Test", func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
 	})
 
-	t.Run("Read test", func(t *testing.T) {
-		executeEVMReadTest(t, testEnv)
+	t.Run("[v2] EVM Read happy path test", func(t *testing.T) {
+		ExecuteEVMReadTest(t, testEnv)
+	})
+
+	// negative tests for evm read
+	// TODO: move to a separate package
+	for _, tCase := range evmNegativeTests {
+		testName := fmt.Sprintf("[v2] EVM.%s fails with %s (%s)", tCase.functionToTest, tCase.name, tCase.invalidInput)
+		t.Run(testName, func(t *testing.T) {
+			EVMReadFailsTest(t, testEnv, tCase)
+		})
+	}
+}
+
+func Test_CRE_Suite_Tron(t *testing.T) {
+	t.Run("Write Test", func(t *testing.T) {
+		testEnv := SetupTestEnvironmentWithConfig(t, getTestConfig(t, "/configs/workflow-don-tron.toml"))
+
+		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
 	})
 }
 
 func Test_withV2Registries(t *testing.T) {
 	t.Run("[v1] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
-		const skipReason = "Integrate v2 registry contracts in local CRE/test setup - https://smartcontract-it.atlassian.net/browse/CRE-635"
-		t.Skipf("Skipping test for the following reason: %s", skipReason)
 		flags := []string{"--with-contracts-version", "v2"}
-		testEnv := SetupTestEnvironment(t, flags...)
+		testEnv := SetupTestEnvironmentWithConfig(t, getDefaultTestConfig(t), flags...)
 		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow", PoRWFV1Location)
 		ExecutePoRTest(t, testEnv, priceProvider, wfConfig)
 	})

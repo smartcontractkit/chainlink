@@ -6,11 +6,11 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 )
 
-func GetOCR3CapabilityV2AddressRefKey(chainSel uint64, qualifier string) datastore.AddressRefKey {
+func GetOCR3CapabilityAddressRefKey(chainSel uint64, qualifier string) datastore.AddressRefKey {
 	return datastore.NewAddressRefKey(
 		chainSel,
 		"OCR3Capability",
-		semver.MustParse("2.0.0"),
+		semver.MustParse("1.0.0"),
 		qualifier,
 	)
 }

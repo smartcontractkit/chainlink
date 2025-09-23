@@ -125,24 +125,6 @@ func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2_5.VRFCoo
 	return nil, errors.New("expected SubscriptionCreated log")
 }
 
-// returns subscription ID that belongs to the given owner. Returns result found first
-func FindSubscriptionID(e helpers.Environment, coordinator *vrf_coordinator_v2_5.VRFCoordinatorV25) *big.Int {
-	// Use most recent 500 blocks as search window.
-	head, err := e.Ec.BlockNumber(context.Background())
-	helpers.PanicErr(err)
-	fopts := &bind.FilterOpts{
-		Start: head - 500,
-	}
-
-	subscriptionIterator, err := coordinator.FilterSubscriptionCreated(fopts, nil)
-	helpers.PanicErr(err)
-
-	if !subscriptionIterator.Next() {
-		helpers.PanicErr(fmt.Errorf("expected at least 1 subID for the given owner %s", e.Owner.From.Hex()))
-	}
-	return subscriptionIterator.Event.SubId
-}
-
 func EoaDeployConsumer(e helpers.Environment,
 	coordinatorAddress string,
 	linkAddress string) (

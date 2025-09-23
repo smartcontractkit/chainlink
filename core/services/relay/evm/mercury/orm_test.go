@@ -9,7 +9,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
@@ -363,7 +363,7 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 
 func Test_ReportCodec_FeedIDFromReport(t *testing.T) {
 	t.Run("FeedIDFromReport extracts the current block number from a valid report", func(t *testing.T) {
-		report := buildSampleV1Report(42)
+		report := buildSampleV2Report(42)
 
 		f, err := FeedIDFromReport(report)
 		require.NoError(t, err)

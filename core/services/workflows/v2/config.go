@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -55,6 +56,9 @@ type EngineConfig struct {
 	WorkflowRegistryAddress string
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
 	WorkflowRegistryChainSelector string
+
+	// OrgResolver is used to resolve organization IDs from workflow owners
+	OrgResolver orgresolver.OrgResolver
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
