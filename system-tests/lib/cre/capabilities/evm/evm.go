@@ -8,12 +8,19 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -48,6 +55,7 @@ func New(registryChainID uint64) (*capabilities.Capability, error) {
 		flag,
 		capabilities.WithJobSpecFn(jobSpecWithRegistryChainSelector(registryChainSelector)),
 		capabilities.WithCapabilityRegistryV1ConfigFn(registerWithV1),
+		capabilities.WithNodeConfigTransformerFn(transformNodeConfig),
 	)
 }
 
@@ -253,4 +261,121 @@ func jobSpecWithRegistryChainSelector(registryChainSelector uint64) cre.JobSpecF
 			input.CapabilityConfigs,
 		)
 	}
+}
+
+// transformNodeConfig modifies the node config to add any required values for the evm capability
+// specifically it adds the fromAddress for each chain that has evm enabled which will be used for the WriteReport method
+func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.NodeIndexToConfigOverride) (cre.NodeIndexToConfigOverride, error) {
+	if input.NodeSet == nil {
+		return nil, errors.New("node set input is nil")
+	}
+
+	if input.NodeSet.ChainCapabilities == nil || input.NodeSet.ChainCapabilities[flag] == nil {
+		return existingConfigs, nil
+	}
+
+	if input.CapabilityConfigs == nil {
+		return nil, errors.New("additional capabilities configs are nil, but are required to configure the evm capability")
+	}
+
+	workflowNodeSet, wErr := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
+	if wErr != nil {
+		return nil, errors.Wrap(wErr, "failed to find worker nodes")
+	}
+
+	for nodeIdx, metadata := range workflowNodeSet {
+		nodeIndex, err := getNodeIndex(workflowNodeSet, nodeIdx)
+		if err != nil {
+			return nil, errors.Wrap(wErr, "failed to find node index")
+		}
+
+		chainsFromAddress, err := findNodeAddressPerChain(input, metadata, nodeIdx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get chains with from address")
+		}
+
+		if len(existingConfigs) < nodeIndex+1 {
+			return nil, errors.Errorf("missing config for node index %d", nodeIndex)
+		}
+
+		currentConfig := existingConfigs[nodeIndex]
+
+		var typedConfig corechainlink.Config
+		unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+		if unmarshallErr != nil {
+			return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", nodeIndex)
+		}
+
+		if len(typedConfig.EVM) < len(chainsFromAddress) {
+			return nil, fmt.Errorf("not enough EVM chains configured in node index %d to add evm config. Expected at least %d chains, but found %d", nodeIndex, len(chainsFromAddress), len(typedConfig.EVM))
+		}
+
+		for idx, evmChain := range typedConfig.EVM {
+			chainID := libc.MustSafeUint64(evmChain.ChainID.Int64())
+			addr, ok := chainsFromAddress[chainID]
+			if ok {
+				// if present means we need fromAddress for this chain
+				address, err := types.NewEIP55Address(addr.Hex())
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to convert fromAddress to EIP55Address for chain %d", chainID)
+				}
+				typedConfig.EVM[idx].Workflow.FromAddress = &address
+			}
+		}
+
+		stringifiedConfig, mErr := toml.Marshal(typedConfig)
+		if mErr != nil {
+			return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", nodeIndex)
+		}
+
+		existingConfigs[nodeIndex] = string(stringifiedConfig)
+	}
+
+	return existingConfigs, nil
+}
+
+func findNodeAddressPerChain(input cre.GenerateConfigsInput, metadata *cre.NodeMetadata, nodeIdx int) (map[uint64]common.Address, error) {
+	// get all the forwarders and add workflow config (FromAddress) for chains that have evm enabled
+	data := make(map[uint64]common.Address)
+	for _, chainID := range input.NodeSet.ChainCapabilities[flag].EnabledChains {
+		chain, exists := chainselectors.ChainByEvmChainID(chainID)
+		if !exists {
+			return nil, errors.Errorf("failed to find selector for chain ID %d", chainID)
+		}
+
+		ethAddress, addrErr := findNodeEthAddressAddress(chain.Selector, metadata.Labels)
+		if addrErr != nil {
+			return nil, errors.Wrapf(addrErr, "failed to get ETH address for chain %d for node at index %d", chain.Selector, nodeIdx)
+		}
+		data[chainID] = *ethAddress
+	}
+	return data, nil
+}
+
+func getNodeIndex(workflowNodeSet []*cre.NodeMetadata, nodeIdx int) (int, error) {
+	var nodeIndex int
+	for _, label := range workflowNodeSet[nodeIdx].Labels {
+		if label.Key == node.IndexKey {
+			var nErr error
+			nodeIndex, nErr = strconv.Atoi(label.Value)
+			if nErr != nil {
+				return 0, errors.Wrap(nErr, "failed to convert node index to int")
+			}
+		}
+	}
+	return nodeIndex, nil
+}
+
+func findNodeEthAddressAddress(chainSelector uint64, nodeLabels []*cre.Label) (*common.Address, error) {
+	expectedAddressKey := node.AddressKeyFromSelector(chainSelector)
+	for _, label := range nodeLabels {
+		if label.Key == expectedAddressKey {
+			if label.Value == "" {
+				return nil, errors.Errorf("%s label value is empty", expectedAddressKey)
+			}
+			return ptr.Ptr(common.HexToAddress(label.Value)), nil
+		}
+	}
+
+	return nil, errors.Errorf("failed to get from address for chain %d", chainSelector)
 }

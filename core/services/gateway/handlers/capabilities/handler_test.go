@@ -259,16 +259,6 @@ func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, method
 	return msg
 }
 
-func requireNoChanMsg[T any](t *testing.T, ch <-chan T) {
-	timedOut := false
-	select {
-	case <-ch:
-	case <-time.After(100 * time.Millisecond):
-		timedOut = true
-	}
-	require.True(t, timedOut)
-}
-
 func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, _, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)

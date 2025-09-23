@@ -68,12 +68,6 @@ func WithRetention(retention time.Duration) OCRTransmitterOption {
 	}
 }
 
-func WithMaxLogsKept(maxLogsKept uint64) OCRTransmitterOption {
-	return func(ct *transmitterOps) {
-		ct.maxLogsKept = maxLogsKept
-	}
-}
-
 func WithReportToEthMetadata(reportToEvmTxMeta ReportToEthMetadata) OCRTransmitterOption {
 	return func(ct *transmitterOps) {
 		if reportToEvmTxMeta != nil {

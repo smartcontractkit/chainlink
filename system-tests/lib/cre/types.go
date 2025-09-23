@@ -15,12 +15,9 @@ import (
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -414,6 +411,7 @@ type ConfigureKeystoneInput struct {
 	CldEnv                      *cldf.Environment
 	NodeSets                    []*CapabilitiesAwareNodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
+	BlockchainOutputs           []*WrappedBlockchainOutput
 
 	OCR3Config  keystone_changeset.OracleConfig
 	OCR3Address *common.Address // v1 consensus contract address
@@ -574,16 +572,6 @@ func (m *DonMetadata) RequiresOCR() bool {
 type Label struct {
 	Key   string `toml:"key" json:"key"`
 	Value string `toml:"value" json:"value"`
-}
-
-func LabelFromProto(p *ptypes.Label) (*Label, error) {
-	if p.Value == nil {
-		return nil, errors.New("value not set")
-	}
-	return &Label{
-		Key:   p.Key,
-		Value: *p.Value,
-	}, nil
 }
 
 type NodeMetadata struct {
@@ -916,17 +904,15 @@ func (g *GenerateSecretsInput) Validate() error {
 	return nil
 }
 
-type FullCLDEnvironmentInput struct {
+type LinkDonsToJDInput struct {
 	JdOutput          *jd.Output
 	BlockchainOutputs []*WrappedBlockchainOutput
 	NodeSetOutput     []*WrappedNodeOutput
-	ExistingAddresses cldf.AddressBook
-	Datastore         datastore.DataStore
 	Topology          *Topology
-	OperationsBundle  operations.Bundle
+	CldfEnvironment   *cldf.Environment
 }
 
-func (f *FullCLDEnvironmentInput) Validate() error {
+func (f *LinkDonsToJDInput) Validate() error {
 	if f.JdOutput == nil {
 		return errors.New("jd output not set")
 	}
@@ -951,15 +937,16 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 	if len(f.Topology.DonsMetadata) == 0 {
 		return errors.New("metadata not set")
 	}
-	if f.Topology.WorkflowDONID == 0 {
-		return errors.New("workflow don id not set")
+	if f.CldfEnvironment == nil {
+		return errors.New("cldf environment not set")
 	}
+
 	return nil
 }
 
-type FullCLDEnvironmentOutput struct {
-	Environment *cldf.Environment
-	DonTopology *DonTopology
+type Environment struct {
+	CldfEnvironment *cldf.Environment
+	DonTopology     *DonTopology
 }
 
 type DeployCribDonsInput struct {

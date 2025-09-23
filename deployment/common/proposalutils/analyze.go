@@ -432,22 +432,6 @@ func GetChainNameBySelector(selector uint64) (string, error) {
 	return chainInfo.ChainName, nil
 }
 
-func DescribeProposal(proposal *mcmslib.Proposal, describedOperations []string) string {
-	var describedProposal strings.Builder
-	for opIdx, opDesc := range describedOperations {
-		chainSelector := uint64(proposal.Operations[opIdx].ChainSelector)
-		chainName, err := GetChainNameBySelector(chainSelector)
-		if err != nil || chainName == "" {
-			chainName = "<chain unknown>"
-		}
-		describedProposal.WriteString("Operation #" + strconv.Itoa(opIdx))
-		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
-		describedProposal.WriteString(indentString(opDesc))
-		describedProposal.WriteString("\n")
-	}
-	return describedProposal.String()
-}
-
 func DescribeTimelockProposal(proposal *mcmslib.TimelockProposal, describedBatches [][]string) string {
 	var describedProposal strings.Builder
 	for batchIdx, describedOperations := range describedBatches {

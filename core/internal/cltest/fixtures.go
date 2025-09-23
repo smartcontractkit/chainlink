@@ -24,14 +24,3 @@ func LogFromFixture(t *testing.T, path string) types.Log {
 
 	return el
 }
-
-// TxReceiptFromFixture create ethtypes.log from file path
-func TxReceiptFromFixture(t *testing.T, path string) *types.Receipt {
-	jsonStr := JSONFromFixture(t, path).Get("result").String()
-
-	var receipt types.Receipt
-	err := json.Unmarshal([]byte(jsonStr), &receipt)
-	require.NoError(t, err)
-
-	return &receipt
-}
