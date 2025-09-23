@@ -16,13 +16,13 @@ const (
 
 type StandardCapabilityJob struct {
 	JobName string // Must be alphanumeric, with _, -, ., no spaces.
-	Command string
-	Config  string
+	Command string `yaml:"command"`
+	Config  string `yaml:"config"`
 
 	// If not provided, ExternalJobID is automatically filled in by calling `externalJobIDHashFunc`
-	ExternalJobID string
+	ExternalJobID string `yaml:"externalJobID"`
 	// OracleFactory is the configuration for the Oracle Factory job.
-	OracleFactory OracleFactory
+	OracleFactory *OracleFactory `yaml:"oracleFactory"`
 }
 
 func (s *StandardCapabilityJob) Validate() error {
