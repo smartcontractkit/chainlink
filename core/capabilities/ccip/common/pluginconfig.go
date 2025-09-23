@@ -52,7 +52,7 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	pluginServices := PluginServices{}
 	extraDataCodecRegistry := GetExtraDataCodecRegistry()
-	addressCodecRegistry := GetAddressCodecRegistry()
+	addressCodecRegistry := GetAddressCodecRegistry(lggr)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
 	CCIPProviderSupported := make(map[string]bool)
 

@@ -178,7 +178,7 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 		config.ConfigDigest,
 	)
 
-	configTracker, err := ocrimpls.NewConfigTracker(config, ccipcommon.GetAddressCodecRegistry())
+	configTracker, err := ocrimpls.NewConfigTracker(config, ccipcommon.GetAddressCodecRegistry(i.lggr))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config tracker: %w", err)
 	}

@@ -3,6 +3,7 @@ package common
 import (
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
@@ -20,6 +21,7 @@ var _ cciptypes.AddressCodecBundle = (*AddressCodecRegistry)(nil)
 type AddressCodecRegistry struct {
 	addressCodec cciptypes.AddressCodecMap
 	mu           sync.RWMutex
+	lggr         logger.Logger
 }
 
 var (
@@ -29,13 +31,32 @@ var (
 
 // GetAddressCodecRegistry returns the singleton instance of AddressCodecRegistry. This is only called
 // in core node.
-func GetAddressCodecRegistry() *AddressCodecRegistry {
+func GetAddressCodecRegistry(lggr logger.Logger) *AddressCodecRegistry {
 	addressRegistryOnce.Do(func() {
+		lggr.Debugw("OGT AddressCodecRegistry singleton instance created")
 		addressRegistryInstance = &AddressCodecRegistry{
 			addressCodec: make(cciptypes.AddressCodecMap),
+			lggr:         lggr,
 		}
 	})
 	return addressRegistryInstance
+}
+
+func (r *AddressCodecRegistry) LogRegisteredCodecs() {
+	if addressRegistryInstance == nil {
+		r.lggr.Warn("OGT AddressCodecRegistry instance is nil, no codecs registered, can't log")
+		return
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for family := range r.addressCodec {
+		r.lggr.Info("OGT AddressCodecRegistry registered codec for chain family: ", family)
+		codecInstanceIsNoop := false
+		_, codecInstanceIsNoop = r.addressCodec[family].(NoOpChainSpecificAddressCodec)
+		if codecInstanceIsNoop {
+			r.lggr.Warnw("OGT AddressCodecRegistry codec instance is NoOpChainSpecificAddressCodec, functionality may be limited", "chainFamily", family)
+		}
+	}
 }
 
 // RegisterFamily registers a chain family with a no-op ChainSpecificAddressCodec if not already registered.
@@ -44,7 +65,9 @@ func GetAddressCodecRegistry() *AddressCodecRegistry {
 func (r *AddressCodecRegistry) RegisterFamily(chainFamily string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.lggr.Debugw("OGT RegisterFamily called", "chainFamily", chainFamily)
 	if _, exists := r.addressCodec[chainFamily]; !exists {
+		r.lggr.Debugw("OGT RegisterFamily adding NoOpChainSpecificAddressCodec", "chainFamily", chainFamily)
 		r.addressCodec[chainFamily] = NoOpChainSpecificAddressCodec{}
 	}
 }
@@ -53,6 +76,7 @@ func (r *AddressCodecRegistry) RegisterFamily(chainFamily string) {
 func (r *AddressCodecRegistry) RegisterCodec(chainFamily string, codec ChainSpecificAddressCodec) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.lggr.Debugw("OGT RegisterCodec called", "chainFamily", chainFamily)
 	r.addressCodec[chainFamily] = codec
 }
 

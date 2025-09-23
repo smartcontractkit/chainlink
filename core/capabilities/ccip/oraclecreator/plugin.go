@@ -133,12 +133,17 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	destRelayID := types.NewRelayID(destChainFamily, destChainID)
 
 	// GetPluginServices() initializes the ExtraDataCodecRegistry and AddressCodecRegistry singletons
+	i.lggr.Debugw("OGT initializing plugin services", "chainFamily", destChainFamily)
 	pluginServices, err := ccipcommon.GetPluginServices(i.lggr, destChainFamily)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize plugin config: %w", err)
 	}
 
-	configTracker, err := ocrimpls.NewConfigTracker(config, ccipcommon.GetAddressCodecRegistry())
+	addressCodecRegistry := ccipcommon.GetAddressCodecRegistry(i.lggr)
+	addressCodecRegistry.LogRegisteredCodecs()
+
+	i.lggr.Debugw("OGT calling NewConfigTracker with chain selector", "chainSelector", chainSelector, "destChainFamily", destChainFamily, "destChainID", destChainID, "pluginType", pluginType.String(), "donID", donID, "externalJobID", i.externalJobID, "jobID", i.jobID, "isNewlyCreatedJob", i.isNewlyCreatedJob)
+	configTracker, err := ocrimpls.NewConfigTracker(config, ccipcommon.GetAddressCodecRegistry(i.lggr))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config tracker: %w, %d", err, chainSelector)
 	}
@@ -167,7 +172,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		"maxDurationShouldTransmitAcceptedReport", publicConfig.MaxDurationShouldTransmitAcceptedReport,
 	)
 
-	offrampAddrStr, err := ccipcommon.GetAddressCodecRegistry().AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
+	offrampAddrStr, err := ccipcommon.GetAddressCodecRegistry(i.lggr).AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert offramp address to string using address codec: %w", err)
 	}
@@ -342,7 +347,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				OcrConfig:         ccipreaderpkg.OCR3ConfigWithMeta(config),
 				CommitCodec:       pluginConfig.CommitPluginCodec,
 				MsgHasher:         pluginConfig.MessageHasher,
-				AddrCodec:         ccipcommon.GetAddressCodecRegistry(),
+				AddrCodec:         ccipcommon.GetAddressCodecRegistry(i.lggr),
 				HomeChainReader:   i.homeChainReader,
 				HomeChainSelector: i.homeChainSelector,
 				ChainAccessors:    chainAccessors,
@@ -407,7 +412,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				OcrConfig:        ccipreaderpkg.OCR3ConfigWithMeta(config),
 				ExecCodec:        pluginConfig.ExecutePluginCodec,
 				MsgHasher:        pluginConfig.MessageHasher,
-				AddrCodec:        ccipcommon.GetAddressCodecRegistry(),
+				AddrCodec:        ccipcommon.GetAddressCodecRegistry(i.lggr),
 				HomeChainReader:  i.homeChainReader,
 				TokenDataEncoder: pluginConfig.TokenDataEncoder,
 				EstimateProvider: pluginConfig.GasEstimateProvider,
@@ -530,7 +535,7 @@ func (i *pluginOracleCreator) createChainAccessors(
 				chainSelector,
 				extendedReaders[chainSelector],
 				chainWriters[chainSelector],
-				ccipcommon.GetAddressCodecRegistry(),
+				ccipcommon.GetAddressCodecRegistry(i.lggr),
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create default chain accessor for relay ID %s: %w", relayID, err)
@@ -546,7 +551,7 @@ func (i *pluginOracleCreator) populateCodecRegistriesWithProviderCodecs(
 	ccipProviders map[cciptypes.ChainSelector]types.CCIPProvider,
 ) error {
 	edcr := ccipcommon.GetExtraDataCodecRegistry()
-	acr := ccipcommon.GetAddressCodecRegistry()
+	acr := ccipcommon.GetAddressCodecRegistry(i.lggr)
 	for chainSelector, provider := range ccipProviders {
 		codec := provider.Codec()
 		chainFamily, err := chainsel.GetSelectorFamily(uint64(chainSelector))
