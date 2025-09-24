@@ -44,10 +44,6 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 	func(b operations.Bundle, deps DeployOCR3Deps, input DeployOCR3Input) (DeployOCR3Output, error) {
 		lggr := deps.Env.Logger
 
-		if input.OffchainConfigType == "" {
-			return DeployOCR3Output{}, fmt.Errorf("OffchainConfigType is required")
-		}
-
 		// Get the target chain
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
@@ -86,7 +82,9 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			labels.Add(label)
 		}
 
-		labels.Add(input.OffchainConfigType.String())
+		if input.OffchainConfigType != "" {
+			labels.Add(input.OffchainConfigType.String())
+		}
 
 		addressRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
