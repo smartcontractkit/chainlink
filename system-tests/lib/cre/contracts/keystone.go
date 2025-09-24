@@ -248,7 +248,7 @@ func DeployKeystoneContracts(
 	if vaultOCR3AddrFlag {
 		report, err := deployVaultContracts(VaultOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 		if err != nil {
-			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", seqErr)
+			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
 		}
 
 		vaultOCR3Addr := report.PluginAddress
