@@ -22,7 +22,9 @@ Inside `core/scripts/cre/environment` directory
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
 func Test_CRE_Suite_Regression(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+	flags := []string{"--with-contracts-version", "v2"}
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
+
 	t.Run("[v2] CRE Regression Suite", func(t *testing.T) {
 		for _, tCase := range cronInvalidSchedulesTests {
 			testName := "[v2] Cron (Beholder) fails when schedule is " + tCase.name
@@ -34,7 +36,8 @@ func Test_CRE_Suite_Regression(t *testing.T) {
 }
 
 func Test_CRE_Suite_EVM_Regression(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+	flags := []string{"--with-contracts-version", "v2"}
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
 
