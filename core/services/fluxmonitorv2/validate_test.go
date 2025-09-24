@@ -4,11 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
