@@ -2,6 +2,7 @@ package executable
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
@@ -71,11 +72,18 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
+	if req.Payload == nil {
+		return [32]byte{}, errors.New("capability request payload is nil")
+	}
 
 	var wrReq evmcappb.WriteReportRequest
 	if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
 	}
+	if wrReq.Report == nil {
+		return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+	}
+
 	wrReq.Report.Sigs = nil // exclude signatures from hash
 	filteredPayload, err := proto.Marshal(&wrReq)
 	if err != nil {

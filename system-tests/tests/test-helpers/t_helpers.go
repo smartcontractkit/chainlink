@@ -13,15 +13,18 @@
 // Recommendations:
 // 1. Keep naming action-oriented: mustStartDB, withEnv, seedUsers.
 // 2. Ensure proper cleanup after steps, where necessary, to avoid side effects.
-package cre
+package helpers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -36,8 +39,10 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread-negative/config"
+
+	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -68,7 +73,7 @@ If a chain requires a Forwarder contract, it is considered a "writable" chain.
 Recommendation: Use it to determine on which chains to deploy certain contracts and register workflows.
 See an example in a test using PoR workflow.
 */
-func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvironment) []uint64 {
+func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.TestEnvironment) []uint64 {
 	t.Helper()
 
 	testLogger := framework.L
@@ -87,6 +92,25 @@ func getWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *TestEnvir
 	return writeableChains
 }
 
+func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]struct{} {
+	t.Helper()
+
+	enabledChains := map[string]struct{}{}
+	for _, nodeSet := range testEnv.Config.NodeSets {
+		require.NoError(t, nodeSet.ParseChainCapabilities())
+		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
+			continue
+		}
+
+		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
+			strChainID := strconv.FormatUint(chainID, 10)
+			enabledChains[strChainID] = struct{}{}
+		}
+	}
+	require.NotEmpty(t, enabledChains, "No chains have EVM capability enabled in any node set")
+	return enabledChains
+}
+
 /*
 Starts Beholder
 1. Starts Beholder if it is not running already
@@ -100,7 +124,7 @@ Returns:
 
 Recommendation: Use it in tests that need to listen for Beholder messages.
 */
-func startBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
+func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
 	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, err, "failed to create beholder instance")
@@ -129,7 +153,7 @@ func startBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *TestEnviron
 }
 
 // Logs all messages received from Beholder until the context is done
-func logBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger, testEnv *TestEnvironment, messageChan <-chan proto.Message, errChan <-chan error) {
+func LogBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment, messageChan <-chan proto.Message, errChan <-chan error) {
 	t.Helper()
 
 	for {
@@ -157,7 +181,7 @@ func logBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.L
 Asserts that a specific log message is received from a Beholder within a timeout period.
 Returns an error if found in error channel or timeouts if a log message is not received.
 */
-func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
+func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
@@ -221,7 +245,7 @@ func assertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
 		return errors.New("beholder message validation completed with error: found engine initialization failure message")
 	case <-time.After(timeout):
-		testLogger.Error().Msg("Timed out waiting for expected user log message")
+		testLogger.Error().Str("expected_log", expectedLog).Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {
 			testLogger.Warn().Int("received_user_logs", receivedUserLogs).Msg("Received some UserLogs messages, but none matched expected log")
 		} else {
@@ -255,7 +279,9 @@ func drainChannels(messageChan <-chan proto.Message, kafkaErrChan <-chan error) 
 //////////////////////////////
 
 // Creates and funds a specified number of new Ethereum addresses on a given chain.
-func createAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
+func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
+	t.Helper()
+
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
 	var addressesToRead []common.Address
 
@@ -313,6 +339,11 @@ type WorkflowConfig interface {
 // None represents an empty workflow configuration
 // It is used to satisfy the workflowConfigFactory, avoiding workflow config creation
 type None struct{}
+
+type HTTPWorkflowConfig struct {
+	AuthorizedKey common.Address `json:"authorizedKey"`
+	URL           string         `json:"url"`
+}
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
 type WorkflowRegistrationConfig struct {
@@ -377,14 +408,8 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 		case *portypes.WorkflowConfig:
 			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR workflow config file")
-			testLogger.Info().Msg("PoR workflow config file created.")
-
-		case *crontypes.WorkflowConfig:
-			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
-			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create Cron workflow config file")
-			testLogger.Info().Msg("Cron workflow config file created.")
+			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
+			testLogger.Info().Msg("PoR v2 workflow config file created.")
 
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)
@@ -392,14 +417,20 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create HTTP workflow config file")
 			testLogger.Info().Msg("HTTP workflow config file created.")
 
+		case *crontypes.WorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create Cron workflow config file")
+			testLogger.Info().Msg("Cron workflow config file created.")
+
 		case *evmread_config.Config:
-			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread workflow config file")
 			testLogger.Info().Msg("EVM Read workflow config file created.")
 
 		case *evmread_negative_config.Config:
-			workflowCfgFilePath, configErr := createWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread-negative workflow config file")
 			testLogger.Info().Msg("EVM Read negative workflow config file created.")
@@ -412,9 +443,76 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 }
 
 /*
+Creates .yaml workflow configuration file.
+It stores the values used by a workflow (main.go),
+(i.e. feedID, read/write contract addresses)
+
+The values are written to types.WorkflowConfig.
+The method returns the absolute path to the created config file.
+*/
+func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.WorkflowConfig) (string, error) {
+	feedIDToUse, fIDerr := validateAndFormatFeedID(workflowConfig)
+	if fIDerr != nil {
+		return "", errors.Wrap(fIDerr, "failed to validate and format feed ID")
+	}
+	workflowConfig.FeedID = feedIDToUse
+
+	return CreateWorkflowYamlConfigFile(workflowName, workflowConfig)
+}
+
+func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, error) {
+	feedID := workflowConfig.FeedID
+
+	// validate and format feed ID to fit 32 bytes
+	cleanFeedID := strings.TrimPrefix(feedID, "0x")
+	feedIDLength := len(cleanFeedID)
+	if feedIDLength < 32 {
+		return "", errors.Errorf("feed ID must be at least 32 characters long, but was %d", feedIDLength)
+	}
+
+	if feedIDLength > 32 {
+		cleanFeedID = cleanFeedID[:32]
+	}
+
+	// override feed ID in workflow config to ensure it is exactly 32 bytes
+	feedIDToUse := "0x" + cleanFeedID
+	return feedIDToUse, nil
+}
+
+func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) (string, error) {
+	testLogger := framework.L
+	mockServerURL := cfg.URL
+	parsedURL, urlErr := url.Parse(mockServerURL)
+	if urlErr != nil {
+		return "", errors.Wrap(urlErr, "failed to parse HTTP mock server URL")
+	}
+
+	url := fmt.Sprintf("%s:%s", framework.HostDockerInternal(), parsedURL.Port())
+	testLogger.Info().Msgf("Mock server URL transformed from '%s' to '%s' for Docker access", mockServerURL, url)
+
+	// override values in the initial workflow configuration
+	cfg.URL = url + "/orders"
+
+	configBytes, marshalErr := json.Marshal(cfg)
+	if marshalErr != nil {
+		return "", errors.Wrap(marshalErr, "failed to marshal HTTP workflow config")
+	}
+
+	configFileName := fmt.Sprintf("test_http_workflow_config_%s.json", workflowName)
+	configPath := filepath.Join(os.TempDir(), configFileName)
+
+	writeErr := os.WriteFile(configPath, configBytes, 0o644) //nolint:gosec // this is a test file
+	if writeErr != nil {
+		return "", errors.Wrap(writeErr, "failed to write HTTP workflow config file")
+	}
+
+	return configPath, nil
+}
+
+/*
 Creates .yaml workflow configuration file and returns the absolute path to the created config file.
 */
-func createWorkflowYamlConfigFile(workflowName string, workflowConfig any) (string, error) {
+func CreateWorkflowYamlConfigFile(workflowName string, workflowConfig any) (string, error) {
 	// Write workflow config to a .yaml file
 	configMarshalled, err := yaml.Marshal(workflowConfig)
 	if err != nil {
@@ -516,8 +614,8 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 }
 
-func compileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
-	testEnv *TestEnvironment, testLogger zerolog.Logger, workflowName string,
+func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
+	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,
 ) {
 	t.Helper()
