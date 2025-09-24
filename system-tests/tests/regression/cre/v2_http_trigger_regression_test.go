@@ -83,8 +83,8 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	require.NoError(t, err, "failed to get free port")
 
 	// Start fake HTTP server with unique port and endpoint
-	testId := uuid.New().String()[0:8]
-	fakeServer, err := startTestOrderServer(t, freePort, testId)
+	testID := uuid.New().String()[0:8]
+	fakeServer, err := startTestOrderServer(t, freePort, testID)
 	require.NoError(t, err, "failed to start fake HTTP server")
 
 	// Ensure cleanup of the fake server
@@ -112,7 +112,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 
 	workflowConfig := http_negative_config.Config{
 		AuthorizedKey: authorizedKeyToUse,
-		URL:           fakeServer.BaseURLHost + "/orders-" + testId,
+		URL:           fakeServer.BaseURLHost + "/orders-" + testID,
 		TestCase:      httpNegativeTest.testCase,
 	}
 
@@ -256,7 +256,7 @@ func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner s
 }
 
 // startTestOrderServer creates a fake HTTP server for testing with unique endpoint
-func startTestOrderServer(t *testing.T, port int, testId string) (*fake.Output, error) {
+func startTestOrderServer(t *testing.T, port int, testID string) (*fake.Output, error) {
 	fakeInput := &fake.Input{
 		Port: port,
 	}
@@ -267,9 +267,9 @@ func startTestOrderServer(t *testing.T, port int, testId string) (*fake.Output, 
 	}
 
 	// Set up a unique endpoint for this test
-	endpoint := "/orders-" + testId
+	endpoint := "/orders-" + testID
 	response := map[string]interface{}{
-		"orderId": "test-order-regression-" + testId,
+		"orderId": "test-order-regression-" + testID,
 		"status":  "success",
 		"message": "Order processed successfully",
 	}
