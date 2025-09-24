@@ -2,6 +2,7 @@ package ocr3
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -73,7 +74,7 @@ func (oc OracleConfig) MarshalJSON() ([]byte, error) {
 	if oc.OffchainConfigType == "" && oc.OffchainConfig != nil {
 		_, ok := oc.OffchainConfig.(*ConsensusCapOffchainConfig)
 		if !ok {
-			return nil, fmt.Errorf("OffchainConfigType must be set when OffchainConfig is set")
+			return nil, errors.New("OffchainConfigType must be set when OffchainConfig is set")
 		}
 	}
 
@@ -82,15 +83,15 @@ func (oc OracleConfig) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("failed to marshal OffchainConfig: %w", err)
 	}
 
-	oc.RawOffchainConfig = offchainConfigAsJSON
+	cfgToMarshal := oc
+	cfgToMarshal.RawOffchainConfig = offchainConfigAsJSON
 
 	type aliasT OracleConfig
-	asJSON, err := json.Marshal((aliasT)(oc))
+	asJSON, err := json.Marshal((aliasT)(cfgToMarshal))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal OracleConfig: %w", err)
 	}
 
-	oc.RawOffchainConfig = nil // clear raw data after marshalling
 	return asJSON, nil
 }
 
@@ -101,8 +102,8 @@ type OffchainConfig interface {
 
 type OffchainConfigType string
 
-func (Oct OffchainConfigType) String() string {
-	return string(Oct)
+func (t OffchainConfigType) String() string {
+	return string(t)
 }
 
 const (

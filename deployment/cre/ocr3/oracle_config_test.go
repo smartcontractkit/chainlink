@@ -14,11 +14,11 @@ func TestOracleConfig_JSON(t *testing.T) {
 		err := json.Unmarshal([]byte(ocr3Cfg), &cfg)
 		require.NoError(t, err)
 		// ensure the values were correctly unmarshalled
-		require.Equal(t, cfg.MaxFaultyOracles, 3)
+		require.Equal(t, 3, cfg.MaxFaultyOracles)
 		require.IsType(t, &ConsensusCapOffchainConfig{}, cfg.OffchainConfig)
 		consensusCapCfg := cfg.OffchainConfig.(*ConsensusCapOffchainConfig)
-		require.Equal(t, consensusCapCfg.RequestTimeout, 30*time.Second)
-		require.Equal(t, consensusCapCfg.MaxBatchSize, uint32(20))
+		require.Equal(t, 30*time.Second, consensusCapCfg.RequestTimeout)
+		require.Equal(t, uint32(20), consensusCapCfg.MaxBatchSize)
 		// ensure that marshalling back to JSON works
 		asJSON, err := json.Marshal(cfg)
 		require.NoError(t, err)

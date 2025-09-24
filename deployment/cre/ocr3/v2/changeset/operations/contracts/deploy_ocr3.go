@@ -78,7 +78,7 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 
 		// Create labels from the operation output
 		labels := datastore.NewLabelSet()
-		for _, label := range append(tv.Labels.List()) {
+		for _, label := range tv.Labels.List() {
 			labels.Add(label)
 		}
 
