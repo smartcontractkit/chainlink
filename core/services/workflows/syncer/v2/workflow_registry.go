@@ -584,6 +584,9 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 
 // getWorkflowMetadata uses contract reader to query the contract for all workflow metadata using the method getWorkflowListByDON
 func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
+	if contractReader == nil {
+		return nil, nil, errors.New("cannot fetch workflow metadata: nil contract reader")
+	}
 	contractBinding := types.BoundContract{
 		Address: w.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,
@@ -652,6 +655,9 @@ func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_
 
 // GetAllowlistedRequests uses contract reader to query the contract for all allowlisted requests
 func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractReader types.ContractReader) ([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, *types.Head, error) {
+	if contractReader == nil {
+		return nil, nil, errors.New("cannot fetch allow listed requests: nil contract reader")
+	}
 	contractBinding := types.BoundContract{
 		Address: w.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,
