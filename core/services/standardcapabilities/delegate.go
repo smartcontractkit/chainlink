@@ -51,7 +51,7 @@ type Delegate struct {
 	relayers                RelayGetter
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
-	externalPeerWrapper     p2ptypes.PeerWrapper
+	getPeerID               func() (p2ptypes.PeerID, error)
 	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
@@ -79,7 +79,7 @@ func NewDelegate(
 	relayers RelayGetter,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	ks keystore.Master,
-	externalPeerWrapper p2ptypes.PeerWrapper,
+	getPeerID func() (p2ptypes.PeerID, error),
 	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
@@ -97,7 +97,7 @@ func NewDelegate(
 		isNewlyCreatedJob:       false,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		ks:                      ks,
-		externalPeerWrapper:     externalPeerWrapper,
+		getPeerID:               getPeerID,
 		ocrPeerWrapper:          ocrPeerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
 		computeFetcherFactoryFn: fetcherFactoryFn,
@@ -132,10 +132,14 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			decrypter = &workflowKeys[0]
 		}
 	}
-	if d.ks.P2P() != nil && d.externalPeerWrapper != nil {
-		p2pKey, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(d.externalPeerWrapper.GetPeer().ID()))
+	if d.ks.P2P() != nil && d.getPeerID != nil {
+		peerID, err := d.getPeerID()
 		if err != nil {
-			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", d.externalPeerWrapper.GetPeer().ID(), err)
+			log.Warnw("getPeerID() failed, will extract default peerID from Keystore", "error", err)
+		}
+		p2pKey, err := d.ks.P2P().GetOrFirst(p2pkey.PeerID(peerID))
+		if err != nil {
+			return nil, fmt.Errorf("external peer wrapper does not pertain to a valid P2P key %x: %w", peerID, err)
 		}
 		signer = p2pKey
 	}
