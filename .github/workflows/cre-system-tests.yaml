@@ -89,10 +89,10 @@ jobs:
 
           # Add list of tests with certain topologies
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
-            "Test_SecureMint": [
+            "Test_CRE_Suite_V1_SecureMint": [
                {"topology":"workflow","configs":"configs/workflow-solana-don.toml"}
              ],
-            "Test_CRE_Suite_Tron": [
+            "Test_CRE_Suite_V1_Tron": [
                {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
              ]
               }'}
@@ -132,9 +132,20 @@ jobs:
                 | $e.value[] | {test_name: $e.key} + .
               ] as $extra
 
-            # Combine and add test_id
+            # Combine and add test_id and CRE version
             | ($base + $extra)
-            | to_entries | map(.value + {test_id: .key})
+            | to_entries 
+            | map(
+                .value + {
+                  test_id: .key,
+                  # Add CRE version based on test name pattern
+                  cre_version: (
+                    if (.value.test_name | test("V2")) then "v2"
+                    else "v1"
+                    end
+                  )
+                }
+              )
           ')
 
           tests=$(echo "$tests" | jq -c .)
@@ -204,7 +215,7 @@ jobs:
           go install gotest.tools/gotestsum@v1.12.3
           echo "::endgroup::"
 
-      - name: Start local CRE
+      - name: Start local CRE${{ matrix.tests.cre_version }}
         shell: bash
         id: start-local-cre
         env:
@@ -213,17 +224,27 @@ jobs:
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
           CTF_CONFIGS: ${{ matrix.tests.configs }}
+          CRE_VERSION: ${{ matrix.tests.cre_version }}
+          TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
           cd core/scripts/cre/environment
-          go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
-          exit_code=$?
 
+          # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
+          if [[ "${CRE_VERSION}" == "v1" ]]; then
+            echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
+          else
+            echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --with-contracts-version v2
+          fi
+          
+          exit_code=$?
           if [ $exit_code -ne 0 ]; then
-            echo "Error: failed to start local CRE, exit code $exit_code"
+            echo "Error: failed to start local CRE ${CRE_VERSION}, exit code $exit_code"
             exit $exit_code
           fi
 
-      - name: Run CRE Smoke system tests
+      - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
         id: run-tests
         shell: bash
         working-directory: system-tests/tests
@@ -252,7 +273,7 @@ jobs:
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
 
-      - name: Run CRE Regression system tests
+      - name: Run CRE${{ matrix.tests.cre_version }} Regression system tests
         if: ${{ inputs.with_regression }}
         shell: bash
         working-directory: system-tests/tests
