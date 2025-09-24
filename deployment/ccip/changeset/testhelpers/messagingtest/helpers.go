@@ -20,7 +20,7 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -220,7 +220,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.NumberOfMessages = 1 // default to sending one message if not specified
 	}
 
-	expectedSeqNumRange := map[testhelpers.SourceDestPair]ccipocr3.SeqNumRange{}
+	expectedSeqNumRange := map[testhelpers.SourceDestPair]ccipocr3common.SeqNumRange{}
 	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{}
 	msgSentEvents := make([]*ccipclient.AnyMsgSentEvent, tc.NumberOfMessages)
 	sourceDest := testhelpers.SourceDestPair{
@@ -251,7 +251,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		sender := tc.Env.BlockChains.EVMChains()[tc.SourceChain].DeployerKey
 		currBalance, err := tc.Env.BlockChains.EVMChains()[tc.SourceChain].Client.BalanceAt(tc.T.Context(), sender.From, nil)
 		require.NoError(tc.T, err)
-		require.True(tc.T, currBalance.Cmp(totalValue) >= 0, "sender balance should be greater than or equal to total value")
+		require.Greater(tc.T, currBalance, totalValue, "sender balance should be greater than total value")
 
 		tx, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).Multicall3.Aggregate3Value(
 			&bind.TransactOpts{
@@ -269,7 +269,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		// check that the message was emitted
 		var expectedSeqNums []uint64
 		for i := range tc.NumberOfMessages {
-			expectedSeqNums = append(expectedSeqNums, nextSeqNum+uint64(i))
+			expectedSeqNums = append(expectedSeqNums, nextSeqNum+uint64(i)) //nolint:gosec no overflow risk here.
 		}
 		iter, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).OnRamp.FilterCCIPMessageSent(
 			nil, []uint64{tc.DestChain}, expectedSeqNums,
@@ -286,9 +286,9 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		out.MsgSentEvent = msgSentEvents[len(msgSentEvents)-1]
 
 		// Expect a single root with this sequence number range.
-		expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{
-			ccipocr3.SeqNum(msgSentEvents[0].SequenceNumber),
-			ccipocr3.SeqNum(msgSentEvents[len(msgSentEvents)-1].SequenceNumber),
+		expectedSeqNumRange[sourceDest] = ccipocr3common.SeqNumRange{
+			ccipocr3common.SeqNum(msgSentEvents[0].SequenceNumber),
+			ccipocr3common.SeqNum(msgSentEvents[len(msgSentEvents)-1].SequenceNumber),
 		}
 		// Expect all messages to be executed.
 		for i := range msgSentEvents {
@@ -308,10 +308,10 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 
 			_, ok := expectedSeqNumRange[sourceDest]
 			if !ok {
-				expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+				expectedSeqNumRange[sourceDest] = ccipocr3common.SeqNumRange{ccipocr3common.SeqNum(msgSentEventLocal.SequenceNumber)}
 			}
-			expectedSeqNumRange[sourceDest] = ccipocr3.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
-				ccipocr3.SeqNum(msgSentEventLocal.SequenceNumber)}
+			expectedSeqNumRange[sourceDest] = ccipocr3common.SeqNumRange{expectedSeqNumRange[sourceDest].Start(),
+				ccipocr3common.SeqNum(msgSentEventLocal.SequenceNumber)}
 
 			expectedSeqNumExec[sourceDest] = append(expectedSeqNumExec[sourceDest], msgSentEventLocal.SequenceNumber)
 			// TODO: If this feature is needed more we can refactor the function to return a slice of events
