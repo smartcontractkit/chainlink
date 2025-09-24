@@ -1634,6 +1634,8 @@ github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d h1:/0/80Ic
 github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d/go.mod h1:Acy3BTBxou83ooMESLO90s8PKSu7RvLCzwSTbxxfOK0=
 github.com/smartcontractkit/mcms v0.25.0 h1:GTkG6jQ2CYoVQFKkRQnA42IvUrR4gObeHqwrQNRhmGM=
 github.com/smartcontractkit/mcms v0.25.0/go.mod h1:7v5DNfWqIS81nISbuFBrlV1QHZfD+pFQzjsxqqhcK9o=
+github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618 h1:rN8PnOZj53L70zlm1aYz1k14lXNCt7NoV666TDfcTJA=
+github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618/go.mod h1:iwy4yWFuK+1JeoIRTaSOA9pl+8Kf//26zezxEXrAQEQ=
 github.com/smartcontractkit/smdkg v0.0.0-20250910095332-fcfc37af3920 h1:jPVBYcBq2RCMBns5nf8MR5CSAi7qfbJh0vCxkvcSg7s=
 github.com/smartcontractkit/smdkg v0.0.0-20250910095332-fcfc37af3920/go.mod h1:LruPoZcjytOUK4mjQ92dZ0XfXu7pkr+fg8Y58XKkKC8=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de h1:n0w0rKF+SVM+S3WNlup6uabXj2zFlFNfrlsKCMMb/co=
