@@ -15,6 +15,8 @@ const (
 	Cron JobSpecTemplate = iota
 	BootstrapOCR3
 	OCR3
+	HTTPTrigger
+	HTTPAction
 	EVM
 	Gateway
 )
@@ -27,6 +29,10 @@ func (jt JobSpecTemplate) String() string {
 		return "bootstrap-ocr3"
 	case OCR3:
 		return "ocr3"
+	case HTTPTrigger:
+		return "http-trigger"
+	case HTTPAction:
+		return "http-action"
 	case EVM:
 		return "evm"
 	case Gateway:
@@ -45,6 +51,10 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return BootstrapOCR3, nil
 	case "ocr3":
 		return OCR3, nil
+	case "http-trigger":
+		return HTTPTrigger, nil
+	case "http-action":
+		return HTTPAction, nil
 	case "evm":
 		return EVM, nil
 	case "gateway":

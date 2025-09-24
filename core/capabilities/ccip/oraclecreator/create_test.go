@@ -112,6 +112,7 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 		"1",
 		ccipcommon.PluginConfig{},
 		"",
+		map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte]{},
 	)
 
 	require.Error(t, err, "expected error when peer wrapper not started")
@@ -139,6 +140,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 	chainAccessors := map[cciptypes.ChainSelector]cciptypes.ChainAccessor{}
 	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{}
 	chainWriters := map[cciptypes.ChainSelector]types.ContractWriter{}
+	contractTransmitters := map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte]{}
 	fakeTransmitAccount := ocrtypes.Account("blahblah")
 	publicCfg := ocr3confighelper.PublicConfig{
 		OracleIdentities: []confighelper.OracleIdentity{
@@ -195,6 +197,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 				destChainID,
 				pluginCfg,
 				offrampAddrStr,
+				contractTransmitters,
 			)
 
 			require.NoError(t, err)

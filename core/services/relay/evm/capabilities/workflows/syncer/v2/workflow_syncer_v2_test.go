@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -603,7 +602,7 @@ func updateAuthorizedAddressV2(
 	require.NoError(t, err)
 
 	// Sign the message
-	signature, err := th.ContractsOwnerKey.Sign(messageHash)
+	signature, err := th.ContractsOwnerSign(messageHash)
 	require.NoError(t, err)
 	// For Ethereum - add 27 to the recovery ID
 	signature[64] += 27

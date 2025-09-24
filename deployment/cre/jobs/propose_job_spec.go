@@ -60,7 +60,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifyEVMJobSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
-	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway:
+	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -75,7 +75,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
 	var report operations.Report[any, any]
 	switch input.Template {
-	case job_types.EVM, job_types.Cron: // This will hold all standard capabilities jobs as we add support for them.
+	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction: // This will hold all standard capabilities jobs as we add support for them.
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)

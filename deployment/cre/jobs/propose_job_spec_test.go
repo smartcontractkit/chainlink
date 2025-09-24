@@ -49,6 +49,48 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "valid http trigger job",
+			input: jobs.ProposeJobSpecInput{
+				Environment: "test",
+				JobName:     "http-trigger-test",
+				Domain:      "cre",
+				DONName:     "test-don",
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: "d"},
+					{Key: "environment", Value: "e"},
+					{Key: "product", Value: offchain.ProductLabel},
+				},
+				Template: job_types.HTTPTrigger,
+				Inputs: job_types.JobSpecInput{
+					"command":       "http_trigger",
+					"config":        `{}`,
+					"externalJobID": "http-trigger-job-id",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "valid http action job",
+			input: jobs.ProposeJobSpecInput{
+				Environment: "test",
+				JobName:     "http-action-test",
+				Domain:      "cre",
+				DONName:     "test-don",
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: "d"},
+					{Key: "environment", Value: "e"},
+					{Key: "product", Value: offchain.ProductLabel},
+				},
+				Template: job_types.HTTPAction,
+				Inputs: job_types.JobSpecInput{
+					"command":       "http_action",
+					"config":        `{"proxyMode": "direct"}`,
+					"externalJobID": "http-action-job-id",
+				},
+			},
+			expectError: false,
+		},
+		{
 			name: "valid evm job",
 			input: jobs.ProposeJobSpecInput{
 				Environment: "test",
@@ -738,6 +780,131 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
 		assert.Contains(t, err.Error(), "command is required and must be a string")
 	})
+	t.Run("successful http trigger job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "http-trigger-job",
+			DONName:     test.DONName,
+			Template:    job_types.HTTPTrigger,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":       "http_trigger",
+				"config":        `{}`,
+				"externalJobID": "http-trigger-job-id",
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		for _, req := range reqs {
+			if !strings.Contains(req.Spec, `name = "http-trigger-job"`) {
+				continue
+			}
+			// log each spec in readable format
+			t.Logf("HTTP Trigger Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `name = "http-trigger-job"`)
+			assert.Contains(t, req.Spec, `command = "http_trigger"`)
+			assert.Contains(t, req.Spec, `config = """{}"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "http-trigger-job-id"`)
+		}
+	})
+
+	t.Run("successful http action job distribution", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "http-action-job",
+			DONName:     test.DONName,
+			Template:    job_types.HTTPAction,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":       "http_action",
+				"config":        `{"proxyMode": "direct"}`,
+				"externalJobID": "http-action-job-id",
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+		for _, req := range reqs {
+			if !strings.Contains(req.Spec, `name = "http-action-job"`) {
+				continue
+			}
+			// log each spec in readable format
+			t.Logf("HTTP Action Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `name = "http-action-job"`)
+			assert.Contains(t, req.Spec, `command = "http_action"`)
+			assert.Contains(t, req.Spec, `config = """{"proxyMode": "direct"}"""`)
+			assert.Contains(t, req.Spec, `externalJobID = "http-action-job-id"`)
+		}
+	})
+
+	t.Run("failed http trigger job distribution due to bad input", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "http-trigger-job",
+			DONName:     test.DONName,
+			Template:    job_types.HTTPTrigger,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				// Missing "command"
+				"config":        `{}`,
+				"externalJobID": "http-trigger-job-id",
+			},
+		}
+
+		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
+		assert.Contains(t, err.Error(), "command is required and must be a string")
+	})
+
+	t.Run("failed http action job distribution due to bad input", func(t *testing.T) {
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "http-action-job",
+			DONName:     test.DONName,
+			Template:    job_types.HTTPAction,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: "don-" + test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"config":        `{"proxyMode": "direct"}`,
+				"externalJobID": "http-action-job-id",
+			},
+		}
+
+		_, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
+		assert.Contains(t, err.Error(), "command is required and must be a string")
+	})
 
 	t.Run("failed evm job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
@@ -774,5 +941,4 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
 		assert.Contains(t, err.Error(), "command is required and must be a string")
 	})
-
 }

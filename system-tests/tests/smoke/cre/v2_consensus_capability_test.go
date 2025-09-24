@@ -14,12 +14,15 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
+func executeConsensusTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	beholder, err := NewBeholder(testLogger, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
+	beholder, err := t_helpers.NewBeholder(testLogger, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, err, "failed to create beholder instance")
 
 	ctxWithTimeout, cancelCtx := context.WithTimeout(t.Context(), 4*time.Minute)
@@ -36,7 +39,7 @@ func executeConsensusTest(t *testing.T, testEnv *TestEnvironment) {
 		},
 	}
 
-	compileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
+	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(ctxWithTimeout, beholderMessageTypes)
 
 	expectedUserLog := "Successfully fetched"

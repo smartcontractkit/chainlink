@@ -37,13 +37,12 @@ func createTestMetrics(t *testing.T) *metrics.Metrics {
 	return m
 }
 
-func requireUserErrorSent(t *testing.T, payload handlers.UserCallbackPayload, errorCode int) {
+func requireUserErrorSent(t *testing.T, payload handlers.UserCallbackPayload, errorCode int64) {
 	require.NotEmpty(t, payload.RawResponse)
-	require.Equal(t, api.ErrorCode(errorCode), payload.ErrorCode)
+	require.Equal(t, api.FromJSONRPCErrorCode(errorCode), payload.ErrorCode)
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
-
 	triggerReq := createTestTriggerRequest()
 	reqBytes, err := json.Marshal(triggerReq)
 	require.NoError(t, err)
@@ -94,10 +93,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		err := handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
 		require.Error(t, err)
-
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrParse))
+		requireUserErrorSent(t, r, jsonrpc.ErrParse)
 	})
 
 	t.Run("empty request ID", func(t *testing.T) {
@@ -122,7 +120,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("request ID contains slash", func(t *testing.T) {
@@ -152,7 +150,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("invalid method", func(t *testing.T) {
@@ -182,7 +180,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrMethodNotFound))
+		requireUserErrorSent(t, r, jsonrpc.ErrMethodNotFound)
 	})
 
 	t.Run("duplicate request ID", func(t *testing.T) {
@@ -219,9 +217,10 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback2, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "in-flight request")
+
 		r, err := callback2.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrConflict))
+		requireUserErrorSent(t, r, jsonrpc.ErrConflict)
 	})
 
 	t.Run("invalid input JSON", func(t *testing.T) {
@@ -627,9 +626,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		r, ierr := callback.Wait(t.Context())
-		require.NoError(t, ierr)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		r, err2 := callback.Wait(t.Context())
+		require.NoError(t, err2)
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("unauthorized signer", func(t *testing.T) {
@@ -655,9 +654,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		r, ierr := callback.Wait(t.Context())
-		require.NoError(t, ierr)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		r, err2 := callback.Wait(t.Context())
+		require.NoError(t, err2)
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("workflow not found", func(t *testing.T) {
@@ -687,9 +686,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "auth failure")
 
-		r, err := callback.Wait(t.Context())
-		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		r, err2 := callback.Wait(t.Context())
+		require.NoError(t, err2)
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 }
 
@@ -788,7 +787,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 }
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
@@ -819,7 +818,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("workflowOwner without 0x prefix", func(t *testing.T) {
@@ -849,7 +848,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("workflowID uppercase", func(t *testing.T) {
@@ -877,7 +876,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("workflowOwner uppercase", func(t *testing.T) {
@@ -907,7 +906,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 }
 

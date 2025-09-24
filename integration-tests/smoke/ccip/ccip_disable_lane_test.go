@@ -129,7 +129,7 @@ func TestDisableLane(t *testing.T) {
 
 	// re-enable all the disabled lanes
 	for _, pair := range pairs {
-		testhelpers.AddLane(t, &tenv, pair.SourceChainSelector, pair.DestChainSelector, false,
+		err := testhelpers.AddLane(t, &tenv, state, pair.SourceChainSelector, pair.DestChainSelector, false,
 			map[uint64]*big.Int{
 				pair.DestChainSelector: testhelpers.DefaultGasPrice,
 			},
@@ -138,6 +138,7 @@ func TestDisableLane(t *testing.T) {
 				state.MustGetEVMChainState(pair.SourceChainSelector).Weth9.Address().String():     wethPrice,
 			},
 			v1_6.DefaultFeeQuoterDestChainConfig(true))
+		require.NoError(t, err)
 	}
 	// send a message in all the lane including re-enabled lanes
 	for _, pair := range pairs {
