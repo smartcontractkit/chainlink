@@ -143,6 +143,10 @@ func Test_PluginConfig(t *testing.T) {
 			err := toml.Unmarshal([]byte(rawToml), &mc)
 			assert.Contains(t, err.Error(), "toml: hex string without 0x prefix")
 
+			rawToml = `LinkFeedID = "0xtest000000000000000000000000000000000000000000000000000000000000"`
+			err = toml.Unmarshal([]byte(rawToml), &mc)
+			assert.Contains(t, err.Error(), `toml: invalid hex string`)
+
 			rawToml = `LinkFeedID = "0xtest"`
 			err = toml.Unmarshal([]byte(rawToml), &mc)
 			assert.Contains(t, err.Error(), `toml: hex string has length 4, want 64 for Hash`)
