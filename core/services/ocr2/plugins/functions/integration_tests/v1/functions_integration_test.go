@@ -6,9 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	utils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/integration_tests/v1/internal"
-	"github.com/smartcontractkit/quarantine"
 )
 
 var (
