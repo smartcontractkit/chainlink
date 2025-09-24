@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -22,18 +21,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
-type FeeQDeploymentOpts struct {
-	ABI      *abi.ABI
-	Bytecode []byte
-}
-
 type DeployFeeQInput struct {
-	DeploymentOpts *FeeQDeploymentOpts
-	Chain          uint64
-	Params         FeeQuoterParams
-	LinkAddr       common.Address
-	WethAddr       common.Address
-	PriceUpdaters  []common.Address
+	Chain         uint64
+	Params        FeeQuoterParams
+	LinkAddr      common.Address
+	WethAddr      common.Address
+	PriceUpdaters []common.Address
 }
 
 type ApplyTokenTransferFeeConfigUpdatesConfigPerChain struct {

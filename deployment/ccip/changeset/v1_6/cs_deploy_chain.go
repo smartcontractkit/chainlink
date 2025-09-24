@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -111,6 +112,11 @@ func deployChainContractsForChains(
 		return operations.SequenceReport[ccipseq.DeployChainContractsSeqConfig, map[uint64]map[string]string]{}, err
 	}
 
+	var version *semver.Version
+	if c.FeeQuoterOpts != nil {
+		version = c.FeeQuoterOpts.Version
+	}
+
 	addresses := make(map[uint64]ccipseq.CCIPAddresses)
 	for chainSel := range c.ContractParamsPerChain {
 		linkToken, err := existingState.Chains[chainSel].LinkTokenAddress()
@@ -129,7 +135,7 @@ func deployChainContractsForChains(
 			TestRouterAddress:         getAddressSafely(existingState.Chains[chainSel].TestRouter),
 			OffRampAddress:            getAddressSafely(existingState.Chains[chainSel].OffRamp),
 			NonceManagerAddress:       getAddressSafely(existingState.Chains[chainSel].NonceManager),
-			FeeQuoterAddress:          getAddressSafely(existingState.Chains[chainSel].FeeQuoter),
+			FeeQuoterAddress:          getAddressSafely(existingState.Chains[chainSel].MustGetFeeQuoterForVersion(version)),
 			RMNRemoteAddress:          getAddressSafely(existingState.Chains[chainSel].RMNRemote),
 		}
 	}

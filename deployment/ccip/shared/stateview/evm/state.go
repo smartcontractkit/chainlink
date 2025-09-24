@@ -159,20 +159,20 @@ type CCIPChainState struct {
 
 // GetFeeQuoterForVersion returns the FeeQuoter contract for the specified version.
 // If version is nil, it returns the default FeeQuoter in state.
-func (c CCIPChainState) GetFeeQuoterForVersion(version *semver.Version) (*fee_quoter.FeeQuoter, error) {
+func (c CCIPChainState) MustGetFeeQuoterForVersion(version *semver.Version) *fee_quoter.FeeQuoter {
 	if version == nil {
-		return c.FeeQuoter, nil
+		return c.FeeQuoter
 	}
 
 	errNotFound := fmt.Errorf("fee quoter for version %s not found", version.String())
 	if c.FeeQuotersByVersion == nil {
-		return nil, errNotFound
+		panic(errNotFound)
 	}
 	fq, exists := c.FeeQuotersByVersion[*version]
 	if !exists {
-		return nil, errNotFound
+		panic(errNotFound)
 	}
-	return fq, nil
+	return fq
 }
 
 // ValidateHomeChain validates the home chain contracts and their configurations after complete setup.
