@@ -13,7 +13,6 @@ on:
 
 jobs:
   analyze-reviews:
-    if: false
     name: "analyze"
     runs-on: ubuntu-latest
     permissions:
