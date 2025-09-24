@@ -251,7 +251,8 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		sender := tc.Env.BlockChains.EVMChains()[tc.SourceChain].DeployerKey
 		currBalance, err := tc.Env.BlockChains.EVMChains()[tc.SourceChain].Client.BalanceAt(tc.T.Context(), sender.From, nil)
 		require.NoError(tc.T, err)
-		require.Greater(tc.T, currBalance, totalValue, "sender balance should be greater than total value")
+		//nolint:testifylint // incorrect lint, GreaterOrEqual can't be used with *big.Int.
+		require.True(tc.T, currBalance.Cmp(totalValue) >= 0, "sender balance should be greater than or equal to total value")
 
 		tx, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).Multicall3.Aggregate3Value(
 			&bind.TransactOpts{
