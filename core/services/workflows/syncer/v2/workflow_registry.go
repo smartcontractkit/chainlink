@@ -138,6 +138,7 @@ func NewWorkflowRegistry(
 		lggr:                    lggr,
 		contractReaderFn:        contractReaderFn,
 		workflowRegistryAddress: addr,
+		allowListedRequests:     []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{},
 		config:                  config,
 		eventCh:                 make(chan Event),
 		stopCh:                  make(services.StopChan),
@@ -434,9 +435,12 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 				continue
 			}
 			w.allowListedMu.Lock()
-			w.allowListedRequests = allowListedRequests
+			w.allowListedRequests = []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}
+			w.allowListedRequests = append(w.allowListedRequests, allowListedRequests...)
+			if len(w.allowListedRequests) > 0 {
+				w.lggr.Infow("fetched allowlisted requests", "allowListedRequests", w.allowListedRequests, "blockHeight", head.Height)
+			}
 			w.allowListedMu.Unlock()
-			w.lggr.Debugw("fetched allowlisted requests", "numRequests", len(allowListedRequests), "blockHeight", head.Height)
 		}
 	}
 }
@@ -627,7 +631,10 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
 	w.allowListedMu.RLock()
 	defer w.allowListedMu.RUnlock()
-	return w.allowListedRequests
+	allowListedRequests := make([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, len(w.allowListedRequests))
+	copy(allowListedRequests, w.allowListedRequests)
+	w.lggr.Infow("GetAllowlistedRequests", "len(w.allowListedRequests)", len(w.allowListedRequests), "len(allowListedRequests)", len(allowListedRequests), "allowListedRequests", allowListedRequests)
+	return allowListedRequests
 }
 
 // GetAllowlistedRequests uses contract reader to query the contract for all allowlisted requests
@@ -648,33 +655,27 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 	for {
 		var err error
 		var results struct {
-			Requests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
-			err      error
+			AllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 		}
 
 		// Read at confidenceLevel Unconfirmed, since we want to see new allowlisted requests asap, even if awaiting finalization.
 		// The delay in detecting allowlisted requests will directly affect user experience.
 		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Unconfirmed, params, &results)
 		if err != nil {
+			w.lggr.Infow("onchain call GetLatestValueWithHeadData failed ", "err", err)
 			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
 		}
 
-		for _, request := range results.Requests {
-			// TODO: https://smartcontract-it.atlassian.net/browse/CAPPL-1021 load balance across workflow nodes in DON Family
-			allAllowlistedRequests = append(allAllowlistedRequests, workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
-				RequestDigest:   request.RequestDigest,
-				Owner:           request.Owner,
-				ExpiryTimestamp: request.ExpiryTimestamp,
-			})
-		}
+		w.lggr.Infow("onchain call  returned allowlisted requests", "readIdentifier", readIdentifier, "allowListedRequests", results.AllowlistedRequests, "blockHeight", headAtLastRead.Height)
+		allAllowlistedRequests = append(allAllowlistedRequests, results.AllowlistedRequests...)
 
 		// if less results than limit, then we have reached the end of the list
-		if uint64(len(results.Requests)) < MaxResultsPerQuery {
+		if uint64(len(results.AllowlistedRequests)) < MaxResultsPerQuery {
 			break
 		}
 
 		// otherwise, increment the start parameter and continue to fetch more workflows
-		params.Start = params.Start.Add(params.Start, big.NewInt(int64(len(results.Requests))))
+		params.Start = params.Start.Add(params.Start, big.NewInt(int64(len(results.AllowlistedRequests))))
 	}
 
 	if headAtLastRead == nil {
