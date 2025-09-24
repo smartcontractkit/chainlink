@@ -36,7 +36,7 @@ var OpEVMDeployBypasserMCM = opsutils.NewEVMDeployOperation(
 	"evm-bypasser-mcm-deploy",
 	semver.MustParse("1.0.0"),
 	"Deploys Bypasser MCM contract",
-	commontypes.ProposerManyChainMultisig,
+	commontypes.BypasserManyChainMultisig,
 	bindings.ManyChainMultiSigMetaData,
 	&opsutils.ContractOpts{
 		Version:     &deployment.Version1_0_0,
@@ -52,7 +52,7 @@ var OpEVMDeployCancellerMCM = opsutils.NewEVMDeployOperation(
 	"evm-canceller-mcm-deploy",
 	semver.MustParse("1.0.0"),
 	"Deploys Canceller MCM contract",
-	commontypes.ProposerManyChainMultisig,
+	commontypes.CancellerManyChainMultisig,
 	bindings.ManyChainMultiSigMetaData,
 	&opsutils.ContractOpts{
 		Version:     &deployment.Version1_0_0,

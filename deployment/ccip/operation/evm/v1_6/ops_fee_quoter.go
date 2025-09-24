@@ -79,6 +79,7 @@ var (
 						Token:                      input.WethAddr,
 					},
 				}, input.Params.MorePremiumMultiplierWeiPerEth...),
+				[]fee_quoter.FeeQuoterDestChainConfigArgs{},
 			}
 		},
 	)

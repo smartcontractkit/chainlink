@@ -36,11 +36,11 @@ var OpEVMDeployTimelock = opsutils.NewEVMDeployOperation(
 	func(input OpEVMDeployTimelockInput) []interface{} {
 		return []interface{}{
 			input.TimelockMinDelay,
+			input.Admin,
 			input.Proposers,
 			input.Executors,
 			input.Cancellers,
 			input.Bypassers,
-			input.Admin,
 		}
 	},
 )

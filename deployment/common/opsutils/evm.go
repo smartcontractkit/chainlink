@@ -301,7 +301,7 @@ func NewEVMDeployOperation[IN any](
 			if chain.IsZkSyncVM {
 				addr, err = deployZkContract(
 					nil,
-					contractOpts.EVMBytecode,
+					contractOpts.ZkSyncVMBytecode,
 					chain.ClientZkSyncVM,
 					chain.DeployerKeyZkSyncVM,
 					parsedABI,
@@ -311,7 +311,7 @@ func NewEVMDeployOperation[IN any](
 				addr, tx, _, err = bind.DeployContract(
 					CloneTransactOptsWithGas(chain.DeployerKey, input.GasLimit, input.GasPrice),
 					*parsedABI,
-					contractOpts.ZkSyncVMBytecode,
+					contractOpts.EVMBytecode,
 					chain.Client,
 					makeArgs(input.DeployInput)...,
 				)
@@ -327,7 +327,6 @@ func NewEVMDeployOperation[IN any](
 					b.Logger.Errorw("Failed to confirm deployment", "typeAndVersion", typeAndVersion, "chain", chain.String(), "err", err.Error())
 					return EVMDeployOutput{}, fmt.Errorf("failed to confirm deployment of %s on %s: %w", typeAndVersion, chain, err)
 				}
-				b.Logger.Infow("Confirmed deployment", "typeAndVersion", typeAndVersion, "chain", chain.String())
 			}
 			return EVMDeployOutput{
 				Address:        addr,

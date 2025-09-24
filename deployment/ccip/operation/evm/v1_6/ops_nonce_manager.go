@@ -26,11 +26,7 @@ var (
 			ZkSyncVMBytecode: nonce_manager.ZkBytecode,
 		},
 		func(input []common.Address) []interface{} {
-			ret := make([]interface{}, len(input))
-			for i, v := range input {
-				ret[i] = v
-			}
-			return ret
+			return []interface{}{input}
 		},
 	)
 
