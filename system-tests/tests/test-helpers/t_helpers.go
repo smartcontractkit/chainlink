@@ -41,6 +41,7 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
@@ -337,7 +338,8 @@ type WorkflowConfig interface {
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
 		evmread_config.Config |
-		evmread_negative_config.Config
+		evmread_negative_config.Config |
+		http_negative_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -438,6 +440,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread-negative workflow config file")
 			testLogger.Info().Msg("EVM Read negative workflow config file created.")
+
+		case *http_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create http-negative workflow config file")
+			testLogger.Info().Msg("HTTP negative workflow config file created.")
 
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
