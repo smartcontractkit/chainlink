@@ -394,6 +394,9 @@ func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvi
 			expected := totalPoRExpectedPrices(ppExpectedPrices, &additionalPrice)
 			actual := priceProvider.ActualPrices(feedID)
 
+			testEnv.Logger.Info().Msgf("Feed %s - expected): %v", feedID, expected)
+			testEnv.Logger.Info().Msgf("Feed %s - actual: %v", feedID, actual)
+
 			if len(expected) != len(actual) {
 				return fmt.Errorf("expected %d prices, got %d", len(expected), len(actual))
 			}
