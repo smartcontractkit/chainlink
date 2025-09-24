@@ -189,7 +189,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 
 	// Create chain accessors and contract transmitters for relayers that supported them
-	chainAccessors, contractTransmitters, err := i.createChainAccessorsAndContractTransmitters(ctx, extendedReaders, chainWriters, pluginServices, offrampAddrStr, pluginType)
+	chainAccessors, contractTransmitters, err := i.createChainAccessorsAndContractTransmitters(ctx, extendedReaders, chainWriters, pluginServices, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain accessors: %w", err)
 	}
@@ -474,8 +474,7 @@ func (i *pluginOracleCreator) createChainAccessorsAndContractTransmitters(
 	extendedReaders map[cciptypes.ChainSelector]contractreader.Extended,
 	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
 	pluginServices ccipcommon.PluginServices,
-	offrampAddrStr string,
-	pluginType cctypes.PluginType,
+	config cctypes.OCR3ConfigWithMeta,
 ) (map[cciptypes.ChainSelector]cciptypes.ChainAccessor, map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte], error) {
 	chainAccessors := make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
 	contractTransmitters := make(map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte])
@@ -491,9 +490,14 @@ func (i *pluginOracleCreator) createChainAccessorsAndContractTransmitters(
 		var provider types.CCIPProvider
 		ccipProviderSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
 		if ccipProviderSupported && ok {
+			transmitter := i.transmitters[relayID]
+			if len(transmitter) == 0 {
+				return nil, nil, errors.New("transmitter list is empty")
+			}
 			provider, err = relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{
-				OffRampAddress: offrampAddrStr,
-				PluginType:     uint32(pluginType),
+				PluginType:     cciptypes.PluginType(config.Config.PluginType),
+				OffRampAddress: config.Config.OfframpAddress,
+				Transmitter:    transmitter[0],
 			})
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
