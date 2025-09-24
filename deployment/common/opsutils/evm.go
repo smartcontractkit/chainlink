@@ -275,6 +275,9 @@ func NewEVMDeployOperation[IN any](
 			if input.ChainSelector != chain.Selector {
 				return EVMDeployOutput{}, fmt.Errorf("mismatch between inputted chain selector and selector defined within dependencies: %d != %d", input.ChainSelector, chain.Selector)
 			}
+			if contractMetadata == nil {
+				return EVMDeployOutput{}, errors.New("contract metadata must be provided for deployment")
+			}
 			contractOpts := defaultContractOpts
 			if input.ContractOpts != nil {
 				contractOpts = input.ContractOpts
