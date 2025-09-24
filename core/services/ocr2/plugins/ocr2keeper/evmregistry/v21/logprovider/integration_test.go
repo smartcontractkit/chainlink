@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -23,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
