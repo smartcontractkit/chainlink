@@ -29,9 +29,9 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.71
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250916164650-970686360fbf
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250922180238-ed8659d72c66
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
-	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250910210251-724af8ee41ad
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250910210251-724af8ee41ad
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250910210251-724af8ee41ad
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20250924155255-91f3f788735b
 	github.com/smartcontractkit/chainlink-deployments-framework v0.49.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250915101441-709f87f7d401
@@ -487,7 +487,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20250912140847-cbfb1710ac76 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250924161218-640f09e63d31 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250924164340-6369099dd7d6 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20250916193659-4becc28a467f // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
