@@ -24,7 +24,7 @@ Inside `core/scripts/cre/environment` directory
  6. Execute the tests in `system-tests/tests/smoke/cre` with CTF_CONFIG set to the corresponding topology file:
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
-func Test_CRE_Suite(t *testing.T) {
+func Test_CRE_Suite_V1(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
@@ -37,22 +37,31 @@ func Test_CRE_Suite(t *testing.T) {
 	})
 }
 
-func Test_CRE_Suite_Tron(t *testing.T) {
-	t.Run("[v1] Tron Write Test with PoR", func(t *testing.T) {
-		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"))
+func Test_CRE_Suite_V1_Tron(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"))
 
+	t.Run("[v1] Tron Write Test with PoR", func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
 	})
 }
 
+func Test_CRE_Suite_V1_SecureMint(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-solana-don.toml"))
+
+	t.Run("[v1] SecureMint Test with PoR", func(t *testing.T) {
+		ExecuteSecureMintTest(t, testEnv)
+	})
+}
+
+//////////// V2 TESTS /////////////
 /*
 To execute tests with v2 contracts start the local CRE first:
  1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-beholder --with-contracts-version v2`
  2. Execute the tests in `system-tests/tests/smoke/cre` with CTF_CONFIG set to the corresponding topology file:
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
-func Test_CRE_Suite_WithV2Registries(t *testing.T) {
+func Test_CRE_Suite_V2(t *testing.T) {
 	flags := []string{"--with-contracts-version", "v2"}
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
 
@@ -86,7 +95,7 @@ func Test_CRE_Suite_WithV2Registries(t *testing.T) {
 	})
 }
 
-func Test_CRE_Suite_EVM(t *testing.T) {
+func Test_CRE_Suite_V2_EVM(t *testing.T) {
 	flags := []string{"--with-contracts-version", "v2"}
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
 
