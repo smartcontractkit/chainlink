@@ -57,9 +57,6 @@ type workflowRegistry struct {
 	// close stopCh to stop the workflowRegistry.
 	stopCh services.StopChan
 
-	// events sent to the event channel to be handled.
-	eventCh chan Event
-
 	// all goroutines are waited on with wg.
 	wg sync.WaitGroup
 
@@ -145,7 +142,6 @@ func NewWorkflowRegistry(
 		contractReaderFn:        contractReaderFn,
 		workflowRegistryAddress: addr,
 		config:                  config,
-		eventCh:                 make(chan Event),
 		stopCh:                  make(services.StopChan),
 		handler:                 handler,
 		workflowDonNotifier:     workflowDonNotifier,
@@ -218,7 +214,11 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-			don, _ := w.workflowDonNotifier.WaitForDon(ctx)
+			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			if err != nil {
+				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
+				return
+			}
 			w.syncUsingReconciliationStrategy(ctx, don)
 		}()
 
@@ -252,7 +252,7 @@ func (w *workflowRegistry) Ready() error {
 }
 
 func (w *workflowRegistry) HealthReport() map[string]error {
-	return nil
+	return map[string]error{w.Name(): w.Healthy()}
 }
 
 func (w *workflowRegistry) Name() string {
