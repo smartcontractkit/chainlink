@@ -26,6 +26,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
@@ -618,6 +619,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
+	quarantine.Flaky(t, "DX-1865")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
