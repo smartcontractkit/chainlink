@@ -89,6 +89,12 @@ type workflowRegistry struct {
 	retryInterval    time.Duration
 	maxRetryInterval time.Duration
 	clock            clockwork.Clock
+
+	hooks Hooks
+}
+
+type Hooks struct {
+	OnStartFailure func(error)
 }
 
 type evtHandler interface {
@@ -148,6 +154,9 @@ func NewWorkflowRegistry(
 		retryInterval:           defaultRetryInterval,
 		maxRetryInterval:        defaultMaxRetryInterval,
 		clock:                   clockwork.NewRealClock(),
+		hooks: Hooks{
+			OnStartFailure: func(_ error) {},
+		},
 	}
 
 	for _, opt := range opts {
@@ -172,13 +181,12 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 
 		w.wg.Add(1)
 		go func() {
-			defer w.lggr.Debugw("Received DON and set ContractReader")
 			defer w.wg.Done()
-			defer close(initDoneCh)
 
 			w.lggr.Debugw("Waiting for DON...")
 			if _, err := w.workflowDonNotifier.WaitForDon(ctx); err != nil {
 				w.lggr.Errorw("failed to wait for don", "err", err)
+				w.hooks.OnStartFailure(err)
 				return
 			}
 
@@ -189,10 +197,14 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			reader, err := w.newWorkflowRegistryContractReader(ctx)
 			if err != nil {
 				w.lggr.Criticalf("contract reader unavailable : %s", err)
+				w.hooks.OnStartFailure(err)
+				cancel()
 				return
 			}
 
 			w.contractReader = reader
+			close(initDoneCh)
+			w.lggr.Debugw("Received DON and set ContractReader")
 		}()
 
 		w.wg.Add(1)
@@ -200,7 +212,11 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 			// Start goroutines to gather changes from Workflow Registry contract
-			<-initDoneCh
+			select {
+			case <-initDoneCh:
+			case <-ctx.Done():
+				return
+			}
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
 			don, _ := w.workflowDonNotifier.WaitForDon(ctx)
 			w.syncUsingReconciliationStrategy(ctx, don)
@@ -211,7 +227,11 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 			// Start goroutines to gather allowlisted requests from Workflow Registry contract
-			<-initDoneCh
+			select {
+			case <-initDoneCh:
+			case <-ctx.Done():
+				return
+			}
 			w.syncAllowlistedRequests(ctx)
 		}()
 
