@@ -4,7 +4,6 @@ on:
   pull_request:
     types:
       - labeled # when adding 'cora' label
-      - unlabeled
 
   pull_request_review:
     types:
