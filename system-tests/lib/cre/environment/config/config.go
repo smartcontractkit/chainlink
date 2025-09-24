@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -286,7 +287,9 @@ func (c *ChipIngressConfig) Load(absPath string) error {
 }
 
 const (
-	ChipIngressStateFilename = "chip_ingress.toml"
+	ChipIngressStateFilename      = "chip_ingress.toml"
+	BillingStateFilename          = "billing-platform-service.toml"
+	WorkflowRegistryStateFilename = "workflow_registry.toml"
 )
 
 func (c *ChipIngressConfig) Store(absPath string) error {
@@ -341,4 +344,71 @@ func copyExportedFields(dst, src any) {
 		}
 		dv.Field(i).Set(sv.Field(i))
 	}
+}
+
+type BillingConfig struct {
+	BillingService *billingplatformservice.Input `toml:"billing_platform_service"`
+
+	mu     sync.Mutex
+	loaded bool
+}
+
+func (c *BillingConfig) Store(absPath string) error {
+	framework.L.Info().Msgf("Storing Billing state file: %s", absPath)
+	return storeLocalArtifact(c, absPath)
+}
+
+func (c *BillingConfig) Load(absPath string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.loaded {
+		return nil
+	}
+
+	previousCTFconfigs := os.Getenv("CTF_CONFIGS")
+	defer func() {
+		setErr := os.Setenv("CTF_CONFIGS", previousCTFconfigs)
+		if setErr != nil {
+			framework.L.Warn().Err(setErr).Msg("failed to restore previous CTF_CONFIGS env var")
+		}
+	}()
+
+	setErr := os.Setenv("CTF_CONFIGS", absPath)
+	if setErr != nil {
+		return errors.Wrap(setErr, "failed to set CTF_CONFIGS env var")
+	}
+
+	in, err := framework.Load[BillingConfig](nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to load billing config")
+	}
+
+	copyExportedFields(c, in)
+	c.loaded = true
+
+	return nil
+}
+
+func MustBillingStateFileAbsPath(relativePathToRepoRoot string) string {
+	absPath, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, StateDirname, BillingStateFilename))
+	if err != nil {
+		panic(fmt.Errorf("failed to get absolute path for local CRE state file: %w", err))
+	}
+
+	return absPath
+}
+
+func BillingStateFileExists(relativePathToRepoRoot string) bool {
+	_, statErr := os.Stat(MustBillingStateFileAbsPath(relativePathToRepoRoot))
+	return statErr == nil
+}
+
+func MustWorkflowRegistryStateFileAbsPath(relativePathToRepoRoot string) string {
+	absPath, err := filepath.Abs(filepath.Join(relativePathToRepoRoot, StateDirname, WorkflowRegistryStateFilename))
+	if err != nil {
+		panic(fmt.Errorf("failed to get absolute path for local CRE state file: %w", err))
+	}
+
+	return absPath
 }

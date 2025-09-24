@@ -44,7 +44,7 @@ var ProposeOCR3BootstrapJob = operations.NewOperation[ProposeOCR3BootstrapJobInp
 	semver.MustParse("1.0.0"),
 	"Propose OCR3 Bootstrap Job",
 	func(b operations.Bundle, deps ProposeOCR3BootstrapJobDeps, input ProposeOCR3BootstrapJobInput) (ProposeOCR3BootstrapJobOutput, error) {
-		extJobID, err := pkg.BootstrapExternalJobID(input.DONName, input.ChainSelectorEVM)
+		extJobID, err := pkg.BootstrapExternalJobID(input.DONName, input.ContractID, input.ChainSelectorEVM)
 		if err != nil {
 			return ProposeOCR3BootstrapJobOutput{}, fmt.Errorf("failed to generate external job ID: %w", err)
 		}

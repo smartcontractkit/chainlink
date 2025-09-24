@@ -63,7 +63,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 
 	t.Run("invalid command type", func(t *testing.T) {
 		input := job_types.JobSpecInput{
-			"command":       123,
+			"command":       nil,
 			"config":        "param=value",
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
@@ -73,7 +73,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 		assert.Contains(t, err.Error(), "command is required and must be a string")
 	})
 
-	t.Run("empty config", func(t *testing.T) {
+	t.Run("config is optional", func(t *testing.T) {
 		input := job_types.JobSpecInput{
 			"command":       "run",
 			"config":        "",
@@ -81,32 +81,31 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 			"oracleFactory": pkg.OracleFactory{},
 		}
 		_, err := input.ToStandardCapabilityJob(jobName)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "config cannot be an empty string")
+		require.NoError(t, err)
 	})
 
 	t.Run("invalid config type", func(t *testing.T) {
 		input := job_types.JobSpecInput{
 			"command":       "run",
-			"config":        123,
+			"config":        struct{}{},
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
 		}
 		_, err := input.ToStandardCapabilityJob(jobName)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "config must be a string")
+		assert.Contains(t, err.Error(), "cannot unmarshal !!map into string")
 	})
 
 	t.Run("invalid externalJobID type", func(t *testing.T) {
 		input := job_types.JobSpecInput{
 			"command":       "run",
 			"config":        "param=value",
-			"externalJobID": 123,
+			"externalJobID": struct{}{},
 			"oracleFactory": pkg.OracleFactory{},
 		}
 		_, err := input.ToStandardCapabilityJob(jobName)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "externalJobID must be a string")
+		assert.Contains(t, err.Error(), "cannot unmarshal !!map into string")
 	})
 
 	t.Run("empty externalJobID", func(t *testing.T) {
@@ -118,7 +117,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 		}
 		_, err := input.ToStandardCapabilityJob(jobName)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "externalJobID cannot be an empty string")
+		assert.Contains(t, err.Error(), "cannot be an empty string")
 	})
 
 	t.Run("invalid oracleFactory type", func(t *testing.T) {
@@ -130,6 +129,6 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 		}
 		_, err := input.ToStandardCapabilityJob(jobName)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "oracleFactory must be of type OracleFactory")
+		assert.Contains(t, err.Error(), "cannot unmarshal !!str")
 	})
 }

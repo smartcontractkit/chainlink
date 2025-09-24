@@ -12,8 +12,8 @@ import (
 const bootstrapPth = "ocr3_bootstrap.tmpl"
 
 type BootstrapJobInput struct {
-	ContractQualifier string `json:"contract_qualifier" yaml:"contract_qualifier"` // OCR contract address
-	ChainSelector     uint64 `json:"chain_selector" yaml:"chain_selector"`
+	ContractQualifier string        `json:"contract_qualifier" yaml:"contract_qualifier"` // OCR contract address
+	ChainSelector     ChainSelector `json:"chain_selector" yaml:"chain_selector"`
 }
 
 type BootstrapCfg struct {
@@ -54,6 +54,6 @@ func (cfg BootstrapCfg) ResolveSpec() (string, error) {
 	return b.String(), nil
 }
 
-func BootstrapExternalJobID(donName string, evmChainSel uint64) (string, error) {
-	return ExternalJobID(donName+"-bootstrap", evmChainSel)
+func BootstrapExternalJobID(donName, contractID string, evmChainSel uint64) (string, error) {
+	return ExternalJobID(donName+"-bootstrap", contractID, "ocr3_bootstrap", evmChainSel)
 }

@@ -4,6 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -66,7 +69,7 @@ func TestToV2ConfigureInput(t *testing.T) {
 	}
 
 	// Call the method under test
-	result := d.toV2ConfigureInput(123, "0x1234567890abcdef")
+	result := d.mustToV2ConfigureInput(123, "0x1234567890abcdef")
 
 	// Verify the transformation
 	if result.RegistryChainSel != 123 {
@@ -117,4 +120,57 @@ func TestToV2ConfigureInput(t *testing.T) {
 	if len(result.DONs[0].CapabilityConfigurations) != 1 {
 		t.Errorf("expected DON to have 1 capability configuration, got %d", len(result.DONs[0].CapabilityConfigurations))
 	}
+}
+
+// TestGenerateAdminAddresses contains all the test cases for the function.
+func TestGenerateAdminAddresses(t *testing.T) {
+	// Test Case 1: Basic Functionality
+	t.Run("Basic_Functionality_10_Addresses", func(t *testing.T) {
+		count := 10
+		addresses, err := generateAdminAddresses(count)
+		require.NoError(t, err, "Expected no error, but got: %v", err)
+		require.Len(t, len(addresses), count, "Expected slice of length %d, but got %d", count, len(addresses))
+
+		// Check for uniqueness and validity
+		addressMap := make(map[common.Address]bool)
+		for _, addr := range addresses {
+			require.True(t, common.IsHexAddress(addr.Hex()))
+			require.NotEqual(t, 0, addr.Cmp(common.HexToAddress("0x0000000000000000000000000000000000000000")), "Generated a zero address, which should be avoided")
+			addressMap[addr] = true
+		}
+		require.Len(t, len(addressMap), count, "Expected slice of length %d, but got %d", count, len(addressMap))
+	})
+
+	// Test Case 2: Smallest Valid Input
+	t.Run("Smallest_Valid_Input_1_Address", func(t *testing.T) {
+		count := 1
+		addresses, err := generateAdminAddresses(count)
+		require.NoError(t, err, "Expected no error, but got: %v", err)
+		require.Len(t, len(addresses), count, "Expected slice of length %d, but got %d", count, len(addresses))
+	})
+
+	// Test Case 3: Invalid Input (Zero and Negative Count)
+	t.Run("Invalid_Input_Zero_Count", func(t *testing.T) {
+		count := 0
+		_, err := generateAdminAddresses(count)
+		require.Error(t, err, "Expected an error for count %d, but got none", count)
+	})
+
+	t.Run("Invalid_Input_Negative_Count", func(t *testing.T) {
+		count := -5
+		_, err := generateAdminAddresses(count)
+		require.Error(t, err, "Expected an error for count %d, but got none", count)
+	})
+
+	// Test that 5 digit padding starts at boundary
+	t.Run("Boundary_Condition_65536_Addresses", func(t *testing.T) {
+		count := 65536
+		addresses, err := generateAdminAddresses(count)
+		require.NoError(t, err, "Expected no error, but got: %v", err)
+		require.Len(t, len(addresses), count, "Expected slice of length %d, but got %d", count, len(addresses))
+
+		for _, addr := range addresses {
+			require.True(t, common.IsHexAddress(addr.String()), "invalid address: %s", addr)
+		}
+	})
 }

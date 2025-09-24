@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -189,8 +188,8 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
 	}
 
-	// Create chain accessors
-	chainAccessors, err := i.createChainAccessors(ctx, extendedReaders, chainWriters, pluginServices)
+	// Create chain accessors and contract transmitters for relayers that supported them
+	chainAccessors, contractTransmitters, err := i.createChainAccessorsAndContractTransmitters(ctx, extendedReaders, chainWriters, pluginServices, offrampAddrStr, pluginType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain accessors: %w", err)
 	}
@@ -232,6 +231,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		destChainID,
 		pluginServices.PluginConfig,
 		offrampAddrStr,
+		contractTransmitters,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
@@ -299,6 +299,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	destChainID string,
 	pluginConfig ccipcommon.PluginConfig,
 	offrampAddrStr string,
+	existingContractTransmitterMap map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte],
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
@@ -344,7 +345,37 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			destChainID,
 			"CCIPCommit",
 		)
-		if destChainWriter == nil {
+
+		// there are three cases:
+		//	1. contract transmitter is provided by the CCIP provider
+		//  2. CCIP doesn't provide contract transmitter, we use CT factory with CW to create one
+		//  3. Contract transmitter not supported, use noop transmitter
+		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
+		switch {
+		case exist && ct != nil:
+			// case 1
+			i.lggr.Infow("contracts transmitter provided from CCIP provider",
+				"destChainID", destChainID,
+				"destChainSelector", config.Config.ChainSelector)
+			transmitter = ct
+		case destChainWriter != nil:
+			// case 2
+			if len(destFromAccounts) == 0 {
+				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
+			}
+			transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
+				i.lggr.
+					Named("CCIPCommitTransmitter").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
+				destChainWriter,
+				ocrtypes.Account(destFromAccounts[0]),
+				offrampAddrStr,
+				consts.MethodCommit,
+				pluginConfig.PriceOnlyCommitFn,
+			)
+		default:
+			// case 3
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
@@ -360,21 +391,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
 				i.p2pID.PeerID().String(),
 				transmitAccount,
-			)
-		} else {
-			if len(destFromAccounts) == 0 {
-				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
-			}
-			transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(
-				i.lggr.
-					Named("CCIPCommitTransmitter").
-					Named(destRelayID.String()).
-					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
-				destChainWriter,
-				ocrtypes.Account(destFromAccounts[0]),
-				offrampAddrStr,
-				consts.MethodCommit,
-				pluginConfig.PriceOnlyCommitFn,
 			)
 		}
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
@@ -405,7 +421,30 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			"CCIPExec",
 		)
 
-		if destChainWriter == nil {
+		ct, exist := existingContractTransmitterMap[config.Config.ChainSelector]
+		switch {
+		case exist && ct != nil:
+			// case 1
+			i.lggr.Infow("contracts transmitter provided from CCIP provider",
+				"destChainID", destChainID,
+				"destChainSelector", config.Config.ChainSelector)
+			transmitter = ct
+		case destChainWriter != nil:
+			// case 2
+			if len(destFromAccounts) == 0 {
+				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
+			}
+			transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
+				i.lggr.
+					Named("CCIPExecTransmitter").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
+				destChainWriter,
+				ocrtypes.Account(destFromAccounts[0]),
+				offrampAddrStr,
+			)
+		default:
+			// case 3
 			i.lggr.Infow("no chain writer found for dest chain, creating nil transmitter",
 				"destChainID", destChainID,
 				"destChainSelector", config.Config.ChainSelector)
@@ -423,19 +462,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				i.p2pID.PeerID().String(),
 				transmitAccount,
 			)
-		} else {
-			if len(destFromAccounts) == 0 {
-				return nil, nil, fmt.Errorf("transmitter array is empty for dest relay ID %s", destRelayID)
-			}
-			transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(
-				i.lggr.
-					Named("CCIPExecTransmitter").
-					Named(destRelayID.String()).
-					Named(fmt.Sprintf("%d", config.Config.ChainSelector)),
-				destChainWriter,
-				ocrtypes.Account(destFromAccounts[0]),
-				offrampAddrStr,
-			)
 		}
 	} else {
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
@@ -443,33 +469,41 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	return factory, transmitter, nil
 }
 
-func (i *pluginOracleCreator) createChainAccessors(
+func (i *pluginOracleCreator) createChainAccessorsAndContractTransmitters(
 	ctx context.Context,
 	extendedReaders map[cciptypes.ChainSelector]contractreader.Extended,
 	chainWriters map[cciptypes.ChainSelector]types.ContractWriter,
 	pluginServices ccipcommon.PluginServices,
-) (map[cciptypes.ChainSelector]cciptypes.ChainAccessor, error) {
+	offrampAddrStr string,
+	pluginType cctypes.PluginType,
+) (map[cciptypes.ChainSelector]cciptypes.ChainAccessor, map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte], error) {
 	chainAccessors := make(map[cciptypes.ChainSelector]cciptypes.ChainAccessor)
+	contractTransmitters := make(map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte])
 	for relayID, relayer := range i.relayers {
 		chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(relayID.ChainID, relayID.Network)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get chain selector from relay ID %s and family %s: %w", relayID.ChainID, relayID.Network, err)
+			return nil, nil, fmt.Errorf("failed to get chain selector from relay ID %s and family %s: %w", relayID.ChainID, relayID.Network, err)
 		}
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		// check if CCIP provider is supported, otherwise create default chain accessor
 		var ca cciptypes.ChainAccessor
+		var ct ocr3types.ContractTransmitter[[]byte]
 		var provider types.CCIPProvider
 		ccipProviderSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
 		if ccipProviderSupported && ok {
-			provider, err = relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{})
+			provider, err = relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{
+				OffRampAddress: offrampAddrStr,
+				PluginType:     uint32(pluginType),
+			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
+				return nil, nil, fmt.Errorf("failed to create CCIP provider for relay ID %s: %w", relayID, err)
 			}
 			ca = provider.ChainAccessor()
+			ct = provider.ContractTransmitter()
 		} else {
 			// use default chain accessor if cr and cw exist
 			if extendedReaders[chainSelector] == nil || chainWriters[chainSelector] == nil {
-				return nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
+				return nil, nil, fmt.Errorf("cannot create default chain accessor for relay ID %s, contract reader and chain writer need to be present", relayID)
 			}
 			ca, err = chainaccessor.NewDefaultAccessor(
 				i.lggr,
@@ -479,13 +513,15 @@ func (i *pluginOracleCreator) createChainAccessors(
 				pluginServices.AddrCodec,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create default chain accessor for relay ID %s: %w", relayID, err)
+				return nil, nil, fmt.Errorf("failed to create default chain accessor for relay ID %s: %w", relayID, err)
 			}
 		}
 
 		chainAccessors[chainSelector] = ca
+		// TODO ct can be nil, which is considered in createFactoryAndTransmitter case 1 check. But maybe better to move to if clause and remove the nil check
+		contractTransmitters[chainSelector] = ct
 	}
-	return chainAccessors, nil
+	return chainAccessors, contractTransmitters, nil
 }
 
 func (i *pluginOracleCreator) getTransmitterFromPublicConfig(publicConfig ocr3confighelper.PublicConfig) (ocrtypes.Account, error) {
@@ -571,7 +607,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			Transmitters:    i.transmitters,
 		})
 		if err1 != nil {
-			// Some Chain family might not need crcw to be created, and if createChainAccessors will catch error if it does
+			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
 			i.lggr.Debugf("skipping creating reader and writers for chain %s, reader creation: %v", chainID, err1)
 			continue
 		}
@@ -607,7 +643,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			SolanaChainWriterConfigVersion: solanaChainWriterConfigVersion,
 		})
 		if err1 != nil {
-			// Some Chain family might not need crcw to be created, and if createChainAccessors will catch error if it does
+			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
 			i.lggr.Debugf("skipping creating chain writer for chain %s, writer creation: %v", chainID, err1)
 			continue
 		}

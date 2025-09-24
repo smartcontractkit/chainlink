@@ -20,15 +20,15 @@ import (
 )
 
 type OCR3JobConfigInput struct {
-	TemplateName         string
-	ContractQualifier    string
-	ChainSelectorEVM     uint64
-	ChainSelectorAptos   uint64
-	BootstrapperOCR3Urls []string
+	TemplateName         string        `yaml:"template_name"`
+	ContractQualifier    string        `yaml:"contract_qualifier"`
+	ChainSelectorEVM     ChainSelector `yaml:"chain_selector_evm"`
+	ChainSelectorAptos   ChainSelector `yaml:"chain_selector_aptos"`
+	BootstrapperOCR3Urls []string      `yaml:"bootstrapper_ocr3_urls"`
 
 	// Optionals: specific to the worker vault OCR3 Job spec
-	MasterPublicKey          string
-	EncryptedPrivateKeyShare string
+	MasterPublicKey          string `yaml:"master_public_key"`
+	EncryptedPrivateKeyShare string `yaml:"encrypted_private_key_share"`
 }
 
 type OCR3JobConfig struct {
@@ -127,7 +127,7 @@ func BuildOCR3JobConfigSpecs(
 		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
 	}
 
-	extJobID, err := ExternalJobID(donName, evmChainSel)
+	extJobID, err := ExternalJobID(donName, contractID, templateName, evmChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get external job ID: %w", err)
 	}
@@ -191,8 +191,8 @@ func BuildOCR3JobConfigSpecs(
 }
 
 // NOTE: consider adding contract address to the hash
-func ExternalJobID(donName string, evmChainSel uint64) (string, error) {
-	in := []byte(donName + "-ocr3-capability-job-spec")
+func ExternalJobID(donName, contractID, templateName string, evmChainSel uint64) (string, error) {
+	in := []byte(donName + "-" + contractID + "-" + templateName + "-ocr3-capability-job-spec")
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, evmChainSel)
 	in = append(in, b...)

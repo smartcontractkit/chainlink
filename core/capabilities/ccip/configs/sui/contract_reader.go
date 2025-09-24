@@ -202,6 +202,12 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
+								Name:       "object_ref_id",
+								Type:       "object_id",
+								PointerTag: &ccipObjectRefStatePointer,
+								Required:   true,
+							},
+							{
 								Name:       "off_ramp_state_id",
 								PointerTag: &offRampStatePointer,
 								Type:       "object_id",
@@ -214,6 +220,12 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
 							{
+								Name:       "object_ref_id",
+								Type:       "object_id",
+								PointerTag: &ccipObjectRefStatePointer,
+								Required:   true,
+							},
+							{
 								Name:       "off_ramp_state_id",
 								PointerTag: &offRampStatePointer,
 								Type:       "object_id",
@@ -225,6 +237,12 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 						Name:          "get_source_chain_config",
 						SignerAddress: fromAddress,
 						Params: []codec.SuiFunctionParam{
+							{
+								Name:       "object_ref_id",
+								Type:       "object_id",
+								PointerTag: &ccipObjectRefStatePointer,
+								Required:   true,
+							},
 							{
 								Name:       "off_ramp_state_id",
 								PointerTag: &offRampStatePointer,

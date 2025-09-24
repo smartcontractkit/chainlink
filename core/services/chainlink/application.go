@@ -77,6 +77,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2pwrapper "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
@@ -109,6 +110,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+
+	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 )
 
 // Application implements the common functions used in the core node.
@@ -820,6 +823,7 @@ type CREOpts struct {
 	FetcherFactoryFn compute.FetcherFactory
 
 	BillingClient metering.BillingClient
+	LinkingClient linkingclient.LinkingServiceClient
 
 	StorageClient storage.WorkflowClient
 
@@ -877,7 +881,6 @@ func newCREServices(
 ) (*CREServices, error) {
 	capCfg := cfg.Capabilities()
 	wCfg := cfg.Workflows()
-	creCfg := cfg.CRE()
 	var srvcs []services.ServiceCtx
 	engineLimiters, err := v2.NewLimiters(lf, nil)
 	if err != nil {
@@ -1165,6 +1168,30 @@ func newCREServices(
 
 					engineRegistry := syncerV2.NewEngineRegistry()
 
+					// Create OrgResolver for workflow owner organization resolution
+					var orgResolver orgresolver.OrgResolver
+					if cfg.CRE().Linking().URL() != "" {
+						// Convert chain selector from string to uint64
+						chainSelector, err2 := strconv.ParseUint(capCfg.WorkflowRegistry().ChainID(), 10, 64)
+						if err2 != nil {
+							return nil, fmt.Errorf("invalid workflow registry chain selector: %w", err2)
+						}
+
+						orgResolverConfig := orgresolver.Config{
+							URL:                           cfg.CRE().Linking().URL(),
+							TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
+							WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
+							WorkflowRegistryChainSelector: chainSelector,
+						}
+						orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
+						if err != nil {
+							return nil, fmt.Errorf("failed to create org resolver: %w", err)
+						}
+						srvcs = append(srvcs, orgResolver)
+					} else {
+						globalLogger.Warn("OrgResolver not created - no linking service URL configured")
+					}
+
 					eventHandler, err := syncerV2.NewEventHandler(
 						lggr,
 						workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -1180,7 +1207,7 @@ func newCREServices(
 						key,
 						syncerV2.WithBillingClient(billingClient),
 						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
-						syncerV2.WithLinking(creCfg.Linking().URL(), creCfg.Linking().TLSEnabled()),
+						syncerV2.WithOrgResolver(orgResolver),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)

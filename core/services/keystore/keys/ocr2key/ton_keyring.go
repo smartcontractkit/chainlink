@@ -7,6 +7,7 @@ import (
 
 	"github.com/hdevalence/ed25519consensus"
 	"github.com/pkg/errors"
+	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -57,12 +58,18 @@ func (tkr *tonKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes
 
 func (tkr *tonKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, report ocrtypes.Report) []byte {
 	rawReportContext := RawReportContext3(digest, seqNr)
-	h := sha256.New()
-	h.Write([]byte{uint8(len(report))}) //nolint:gosec // assumes len(report) < 256
-	h.Write(report)
-	h.Write(rawReportContext[0][:])
-	h.Write(rawReportContext[1][:])
-	return h.Sum(nil)
+
+	reportCell, err := cell.FromBOC(report)
+	if err != nil {
+		panic(err)
+	}
+
+	return cell.BeginCell().
+		MustStoreRef(reportCell).
+		MustStoreSlice(rawReportContext[0][:], 256).
+		MustStoreSlice(rawReportContext[1][:], 256).
+		EndCell().
+		Hash()
 }
 
 func (tkr *tonKeyring) SignBlob(b []byte) ([]byte, error) {

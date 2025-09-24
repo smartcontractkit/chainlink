@@ -1,0 +1,16 @@
+{
+  "config": {
+    "method_configs": {
+      "GetTransactionByHash": {
+        "RemoteConfig": {
+          "RemoteExecutableConfig": {
+            "request_timeout": {
+              "seconds": 30
+            },
+            "server_max_parallel_requests": 10
+          }
+        }
+      }
+    }
+  }
+}

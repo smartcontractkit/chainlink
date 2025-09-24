@@ -35,6 +35,8 @@ type ConfigureOCR3Input struct {
 	Config          *ocr3.OracleConfig
 	DryRun          bool
 
+	ReportingPluginConfigOverride []byte
+
 	MCMSConfig *ocr3.MCMSConfig
 }
 
@@ -66,12 +68,13 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 		}
 
 		resp, err := ocr3.ConfigureOCR3ContractFromJD(deps.Env, ocr3.ConfigureOCR3Config{
-			ChainSel:   input.ChainSelector,
-			NodeIDs:    input.DON.NodeIDs,
-			OCR3Config: input.Config,
-			Contract:   contract.Contract,
-			DryRun:     input.DryRun,
-			UseMCMS:    input.UseMCMS(),
+			ChainSel:                      input.ChainSelector,
+			NodeIDs:                       input.DON.NodeIDs,
+			OCR3Config:                    input.Config,
+			Contract:                      contract.Contract,
+			DryRun:                        input.DryRun,
+			UseMCMS:                       input.UseMCMS(),
+			ReportingPluginConfigOverride: input.ReportingPluginConfigOverride,
 		})
 		if err != nil {
 			return ConfigureOCR3OpOutput{}, fmt.Errorf("failed to configure OCR3Capability: %w", err)

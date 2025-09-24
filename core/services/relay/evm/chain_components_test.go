@@ -38,12 +38,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -412,10 +412,6 @@ func (h *helper) Accounts(t *testing.T) []*bind.TransactOpts {
 	require.NoError(t, err)
 
 	return []*bind.TransactOpts{deployer, sender}
-}
-
-func (h *helper) MustGenerateRandomKey(t *testing.T) ethkey.KeyV2 {
-	return cltest.MustGenerateRandomKey(t)
 }
 
 func (h *helper) GasPriceBufferPercent() int64 {

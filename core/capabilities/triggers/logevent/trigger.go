@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 // LogEventTrigger struct to listen for Contract events using ContractReader gRPC client
@@ -26,6 +27,9 @@ import (
 type logEventTrigger struct {
 	ch   chan<- capabilities.TriggerResponse
 	lggr logger.Logger
+
+	// Workflow ID that this trigger belongs to
+	workflowID string
 
 	// Contract address and Event Signature to monitor for
 	reqConfig      *logeventcap.Config
@@ -99,6 +103,7 @@ func newLogEventTrigger(ctx context.Context,
 		ch:   callbackCh,
 		lggr: logger.Named(lggr, "LogEventTrigger."+workflowID),
 
+		workflowID:     workflowID,
 		reqConfig:      reqConfig,
 		contractReader: contractReader,
 		relayer:        relayer,
@@ -177,6 +182,18 @@ func (l *logEventTrigger) listen() {
 					continue
 				}
 				triggerResp := createTriggerResponse(log, l.logEventConfig.Version(ID))
+
+				// Emit trigger execution started event
+				workflowExecutionID, err := events.GenerateExecutionID(l.workflowID, triggerResp.Event.ID)
+				if err != nil {
+					l.lggr.Errorw("failed to generate execution ID", "err", err)
+					workflowExecutionID = ""
+				}
+				err = events.EmitTriggerExecutionStarted(ctx, map[string]string{}, triggerResp.Event.ID, workflowExecutionID)
+				if err != nil {
+					l.lggr.Errorw("failed to emit trigger execution started event", "err", err)
+				}
+
 				l.ch <- triggerResp
 				cursor = log.Cursor
 			}

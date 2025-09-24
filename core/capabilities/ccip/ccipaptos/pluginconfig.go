@@ -26,8 +26,6 @@ func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
 			msgHasher = NewMessageHasherV1(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV1"), extraDataCodec)
 			tokenDataEncoder = NewAptosTokenDataEncoder()
 		} else {
-			cwProvider = ccipsui.ChainCWProvider{}
-			transmitterFactory = ocrimpls.NewSuiContractTransmitterFactory(extraDataCodec)
 			msgHasher = ccipsui.NewMessageHasherV1(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV1"), extraDataCodec)
 			tokenDataEncoder = ccipsui.NewSuiTokenDataEncoder()
 		}

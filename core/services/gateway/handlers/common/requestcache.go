@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 )
@@ -15,7 +16,7 @@ import (
 // Additionally, each request has a timeout, after which the netry will be removed from the cache and an error sent to the callback channel.
 // All methods are thread-safe.
 type RequestCache[T any] interface {
-	NewRequest(request *api.Message, callbackCh chan<- handlers.UserCallbackPayload, responseData *T) error
+	NewRequest(lggr logger.Logger, request *api.Message, callback handlers.Callback, responseData *T) error
 	ProcessResponse(response *api.Message, process ResponseProcessor[T]) error
 }
 
@@ -36,7 +37,7 @@ type globalId struct {
 }
 
 type pendingRequest[T any] struct {
-	callbackCh   chan<- handlers.UserCallbackPayload
+	handlers.Callback
 	responseData *T
 	timeoutTimer *time.Timer
 	mu           sync.Mutex
@@ -46,7 +47,7 @@ func NewRequestCache[T any](timeout time.Duration, maxCacheSize uint32) RequestC
 	return &requestCache[T]{cache: make(map[globalId]*pendingRequest[T]), timeout: timeout, maxCacheSize: maxCacheSize}
 }
 
-func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- handlers.UserCallbackPayload, responseData *T) error {
+func (c *requestCache[T]) NewRequest(lggr logger.Logger, request *api.Message, callback handlers.Callback, responseData *T) error {
 	if request == nil {
 		return errors.New("request is nil")
 	}
@@ -65,9 +66,12 @@ func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- han
 	}
 	codec := api.JsonRPCCodec{}
 	timer := time.AfterFunc(c.timeout, func() {
-		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(request), ErrorCode: api.RequestTimeoutError})
+		err := c.deleteAndSendOnce(key, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(request), ErrorCode: api.RequestTimeoutError})
+		if err != nil {
+			lggr.Errorw("failed to send timeout response", "error", err)
+		}
 	})
-	c.cache[key] = &pendingRequest[T]{callbackCh: callbackCh, responseData: responseData, timeoutTimer: timer}
+	c.cache[key] = &pendingRequest[T]{Callback: callback, responseData: responseData, timeoutTimer: timer}
 	return nil
 }
 
@@ -99,19 +103,20 @@ func (c *requestCache[T]) ProcessResponse(response *api.Message, process Respons
 		return err
 	}
 	if aggregated != nil {
-		c.deleteAndSendOnce(key, *aggregated)
+		return c.deleteAndSendOnce(key, *aggregated)
 	}
 	return nil
 }
 
-func (c *requestCache[T]) deleteAndSendOnce(key globalId, callbackResponse handlers.UserCallbackPayload) {
+func (c *requestCache[T]) deleteAndSendOnce(key globalId, callbackResponse handlers.UserCallbackPayload) error {
 	c.mu.Lock()
 	entry, deleted := c.cache[key]
 	delete(c.cache, key)
 	c.mu.Unlock()
 	if deleted {
 		entry.timeoutTimer.Stop()
-		entry.callbackCh <- callbackResponse
-		close(entry.callbackCh)
+		return entry.SendResponse(callbackResponse)
 	}
+
+	return nil
 }

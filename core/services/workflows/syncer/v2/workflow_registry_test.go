@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
+	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -34,8 +36,8 @@ func (m *mockService) Name() string { return "svc" }
 func Test_generateReconciliationEventsV2(t *testing.T) {
 	// Validate that if no engines are on the node in the registry,
 	// and we see that the contract has workflow state,
-	// that we generate a WorkflowRegisteredEvent
-	t.Run("WorkflowRegisteredEvent_whenNoEnginesInRegistry", func(t *testing.T) {
+	// that we generate a WorkflowActivatedEvent
+	t.Run("WorkflowActivatedEvent_whenNoEnginesInRegistry", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
@@ -83,13 +85,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
-		// The only event is WorkflowRegisteredEvent
+		// The only event is WorkflowActivatedEvent
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowRegistered, events[0].Name)
-		expectedRegisteredEvent := WorkflowRegisteredEvent{
+		require.Equal(t, WorkflowActivated, events[0].Name)
+		expectedActivatedEvent := WorkflowActivatedEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			CreatedAt:     createdAt,
@@ -100,7 +102,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Tag:           tag,
 			Attributes:    attributes,
 		}
-		require.Equal(t, expectedRegisteredEvent, events[0].Data)
+		require.Equal(t, expectedActivatedEvent, events[0].Data)
 	})
 
 	t.Run("WorkflowUpdatedEvent", func(t *testing.T) {
@@ -155,7 +157,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		require.Len(t, events, 2)
@@ -164,8 +166,8 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			WorkflowID: wfID,
 		}
 		require.Equal(t, expectedDeletedEvent, events[0].Data)
-		require.Equal(t, WorkflowRegistered, events[1].Name)
-		expectedRegisteredEvent := WorkflowRegisteredEvent{
+		require.Equal(t, WorkflowActivated, events[1].Name)
+		expectedActivatedEvent := WorkflowActivatedEvent{
 			WorkflowID:    wfID2,
 			WorkflowOwner: owner,
 			CreatedAt:     createdAt,
@@ -176,7 +178,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Tag:           tag,
 			Attributes:    attributes,
 		}
-		require.Equal(t, expectedRegisteredEvent, events[1].Data)
+		require.Equal(t, expectedActivatedEvent, events[1].Data)
 	})
 
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
@@ -208,7 +210,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		metadata := []WorkflowMetadataView{}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		// The only event is WorkflowDeletedEvent
@@ -268,13 +270,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
-		// The only event is WorkflowRegisteredEvent
+		// The only event is WorkflowActivatedEvent
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowRegistered, events[0].Name)
-		expectedRegisteredEvent := WorkflowRegisteredEvent{
+		require.Equal(t, WorkflowActivated, events[0].Name)
+		expectedActivatedEvent := WorkflowActivatedEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			CreatedAt:     createdAt,
@@ -285,14 +287,14 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Tag:           tag,
 			Attributes:    attributes,
 		}
-		require.Equal(t, expectedRegisteredEvent, events[0].Data)
+		require.Equal(t, expectedActivatedEvent, events[0].Data)
 
 		// Add the workflow to the engine registry as the handler would
 		err = er.Add(wfID, &mockService{})
 		require.NoError(t, err)
 
 		// Repeated ticks do not make any new events
-		events, err = wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err = wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 		require.Empty(t, events)
 	})
@@ -345,7 +347,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 		// No events
 		require.Empty(t, events)
@@ -402,16 +404,16 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
-		// The only event is WorkflowDeletedEvent
+		// The only event is WorkflowPausedEvent
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowDeleted, events[0].Name)
-		expectedDeletedEvent := WorkflowDeletedEvent{
+		require.Equal(t, WorkflowPaused, events[0].Name)
+		expectedPausedEvent := WorkflowPausedEvent{
 			WorkflowID: wfID,
 		}
-		require.Equal(t, expectedDeletedEvent, events[0].Data)
+		require.Equal(t, expectedPausedEvent.WorkflowID, events[0].Data.(WorkflowPausedEvent).WorkflowID)
 	})
 
 	t.Run("reconciles with a pending event if it has the same signature", func(t *testing.T) {
@@ -463,7 +465,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 		}
 
-		event := WorkflowRegisteredEvent{
+		event := WorkflowActivatedEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			CreatedAt:     createdAt,
@@ -474,14 +476,14 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Tag:           tag,
 			Attributes:    attributes,
 		}
-		signature := fmt.Sprintf("%s-%s-%s", WorkflowRegistered, event.WorkflowID.Hex(), toSpecStatus(WorkflowStatusActive))
+		signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, event.WorkflowID.Hex(), toSpecStatus(WorkflowStatusActive))
 		retryCount := 2
 		nextRetryAt := fakeClock.Now().Add(5 * time.Minute)
 		pendingEvents := map[string]*reconciliationEvent{
 			event.WorkflowID.Hex(): {
 				Event: Event{
 					Data: event,
-					Name: WorkflowRegistered,
+					Name: WorkflowActivated,
 				},
 				signature:   signature,
 				id:          event.WorkflowID.Hex(),
@@ -489,21 +491,21 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				nextRetryAt: nextRetryAt,
 			},
 		}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
-		// The only event is WorkflowRegisteredEvent
+		// The only event is WorkflowActivatedEvent
 		// Since there's a failing event in the pendingEvents queue, we should expect to see
 		// that event returned to us.
 		require.Empty(t, pendingEvents)
 		require.Len(t, events, 1)
-		require.Equal(t, WorkflowRegistered, events[0].Name)
+		require.Equal(t, WorkflowActivated, events[0].Name)
 		require.Equal(t, event, events[0].Data)
 		require.Equal(t, retryCount, events[0].retryCount)
 		require.Equal(t, nextRetryAt, events[0].nextRetryAt)
 	})
 
-	t.Run("a paused workflow clears a pending created event", func(t *testing.T) {
+	t.Run("a paused workflow clears a pending activated event", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
@@ -553,7 +555,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 		// Now let's emit an event with the same signature; this should remove the event
 		// from the pending queue.
-		event := WorkflowRegisteredEvent{
+		event := WorkflowActivatedEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			CreatedAt:     createdAt,
@@ -579,7 +581,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				nextRetryAt: nextRetryAt,
 			},
 		}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
 		require.Empty(t, pendingEvents)
@@ -639,12 +641,12 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		}
 
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 
-		// Delete event happens before create event
+		// Delete event happens before activate event
 		require.Equal(t, events[0].Name, WorkflowDeleted)
-		require.Equal(t, events[1].Name, WorkflowRegistered)
+		require.Equal(t, events[1].Name, WorkflowActivated)
 	})
 
 	t.Run("pending delete events are handled when workflow metadata no longer exists", func(t *testing.T) {
@@ -694,14 +696,14 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// No workflows in metadata
 		metadata := []WorkflowMetadataView{}
 
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
 		require.Empty(t, pendingEvents)
 	})
 
-	t.Run("pending create events are handled when workflow metadata no longer exists", func(t *testing.T) {
+	t.Run("pending activate events are handled when workflow metadata no longer exists", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
@@ -733,7 +735,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		createdAt := uint64(1000000)
 		tag := "tag1"
 		attributes := []byte{}
-		event := WorkflowRegisteredEvent{
+		event := WorkflowActivatedEvent{
 			WorkflowID:    wfID,
 			WorkflowOwner: owner,
 			CreatedAt:     createdAt,
@@ -748,10 +750,10 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			hex.EncodeToString(wfID[:]): {
 				Event: Event{
 					Data: event,
-					Name: WorkflowRegistered,
+					Name: WorkflowActivated,
 				},
 				id:          hex.EncodeToString(wfID[:]),
-				signature:   fmt.Sprintf("%s-%s-%s", WorkflowRegistered, hex.EncodeToString(wfID[:]), toSpecStatus(WorkflowStatusActive)),
+				signature:   fmt.Sprintf("%s-%s-%s", WorkflowActivated, hex.EncodeToString(wfID[:]), toSpecStatus(WorkflowStatusActive)),
 				nextRetryAt: time.Now(),
 				retryCount:  5,
 			},
@@ -760,10 +762,51 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		// The workflow then gets removed
 		metadata := []WorkflowMetadataView{}
 
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata)
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"})
 		require.NoError(t, err)
 		require.Empty(t, events)
 		require.Empty(t, pendingEvents)
+	})
+}
+
+func Test_Start(t *testing.T) {
+	t.Run("successful start and close with failure to start contract reader", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		expectedErr := errors.New("failed to start")
+		mockReader := &mockContractReader{startErr: expectedErr}
+		er := NewEngineRegistry()
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return mockReader, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{
+				engineRegistry: &EngineRegistry{},
+			},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		errCh := make(chan error, 1)
+		wr.hooks.OnStartFailure = func(err error) {
+			errCh <- err
+		}
+
+		require.NoError(t, wr.Start(ctx))
+		workflowDonNotifier.NotifyDonSet(commonCap.DON{})
+		<-errCh
+		require.Nil(t, wr.contractReader)
+		require.NoError(t, wr.Close())
 	})
 }
 
@@ -821,6 +864,8 @@ func Test_GetAllowlistedRequests(t *testing.T) {
 // Mock contract reader implementation
 type mockContractReader struct {
 	types.ContractReader
+	bindErr             error
+	startErr            error
 	allowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 }
 
@@ -840,4 +885,17 @@ func (m *mockContractReader) GetLatestValueWithHeadData(
 		return &types.Head{Height: "123"}, nil
 	}
 	return &types.Head{Height: "0"}, nil
+}
+
+func (m *mockContractReader) Bind(
+	_ context.Context,
+	_ []types.BoundContract,
+) error {
+	return m.bindErr
+}
+
+func (m *mockContractReader) Start(
+	_ context.Context,
+) error {
+	return m.startErr
 }
