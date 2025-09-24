@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ Client = &clientCheckout{}
@@ -71,7 +70,7 @@ func (conn *connection) checkin(checkinCco *clientCheckout) {
 	var removed bool
 	for i, cco := range conn.checkouts {
 		if cco == checkinCco {
-			conn.checkouts = utils.DeleteUnstable(conn.checkouts, i)
+			conn.checkouts = deleteUnstable(conn.checkouts, i)
 			removed = true
 			break
 		}
@@ -94,7 +93,7 @@ func (conn *connection) forceCloseAll() (err error) {
 	defer conn.mu.Unlock()
 	if conn.Client != nil {
 		err = conn.Client.Close()
-		if errors.Is(err, utils.ErrAlreadyStopped) {
+		if errors.Is(err, services.ErrAlreadyStopped) {
 			// ignore error if it has already been stopped; no problem
 			err = nil
 		}
@@ -225,4 +224,12 @@ func (p *pool) HealthReport() map[string]error {
 	hp := map[string]error{p.Name(): p.Ready()}
 	services.CopyHealth(hp, p.cacheSet.HealthReport())
 	return hp
+}
+
+// deleteUnstable destructively removes slice element at index i
+// It does no bounds checking and may re-order the slice
+func deleteUnstable[T any](s []T, i int) []T {
+	s[i] = s[len(s)-1]
+	s = s[:len(s)-1]
+	return s
 }
