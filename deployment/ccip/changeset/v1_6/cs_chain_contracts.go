@@ -10,7 +10,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -366,7 +365,6 @@ type OnRampDynamicConfigUpdate struct {
 	MessageInterceptor common.Address
 	FeeAggregator      common.Address
 	AllowlistAdmin     common.Address
-	FeeQuoterVersion   *semver.Version
 }
 
 type UpdateOnRampDynamicConfig struct {
@@ -385,7 +383,7 @@ func (cfg UpdateOnRampDynamicConfig) Validate(e cldf.Environment, state statevie
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
 			return err
 		}
-		if state.Chains[chainSel].MustGetFeeQuoterForVersion(config.FeeQuoterVersion) == nil {
+		if state.Chains[chainSel].FeeQuoter == nil {
 			return fmt.Errorf("FeeQuoter is not on state of chain %d", chainSel)
 		}
 		if config.FeeAggregator == (common.Address{}) {
@@ -419,15 +417,14 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 			return cldf.ChangesetOutput{}, err
 		}
 		// Do not update dynamic config if it is already in desired state
-		fq := state.Chains[chainSel].MustGetFeeQuoterForVersion(update.FeeQuoterVersion)
-		if dynamicConfig.FeeQuoter == fq.Address() &&
+		if dynamicConfig.FeeQuoter == state.Chains[chainSel].FeeQuoter.Address() &&
 			dynamicConfig.MessageInterceptor == update.MessageInterceptor &&
 			dynamicConfig.FeeAggregator == update.FeeAggregator &&
 			dynamicConfig.AllowlistAdmin == update.AllowlistAdmin {
 			continue
 		}
 		tx, err := onRamp.SetDynamicConfig(txOps, onramp.OnRampDynamicConfig{
-			FeeQuoter:              fq.Address(),
+			FeeQuoter:              state.Chains[chainSel].FeeQuoter.Address(),
 			ReentrancyGuardEntered: false,
 			MessageInterceptor:     update.MessageInterceptor,
 			FeeAggregator:          update.FeeAggregator,
@@ -640,7 +637,6 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 }
 
 type WithdrawOnRampFeeTokensConfig struct {
-	FeeQuoterVersion *semver.Version
 	FeeTokensByChain map[uint64][]common.Address
 	MCMS             *proposalutils.TimelockConfig
 }
@@ -653,7 +649,10 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(e cldf.Environment, state stat
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
 			return err
 		}
-		feeQuoter := state.Chains[chainSel].MustGetFeeQuoterForVersion(cfg.FeeQuoterVersion)
+		feeQuoter := state.Chains[chainSel].FeeQuoter
+		if feeQuoter == nil {
+			return fmt.Errorf("no fee quoter for chain %d", chainSel)
+		}
 		onchainFeeTokens, err := feeQuoter.GetFeeTokens(nil)
 		if len(onchainFeeTokens) == 0 {
 			return fmt.Errorf("no fee tokens configured on fee quoter %s for chain %d", feeQuoter.Address().Hex(), chainSel)
@@ -746,9 +745,8 @@ type UpdateFeeQuoterPricesConfig struct {
 }
 
 type FeeQuoterPriceUpdatePerSource struct {
-	FeeQuoterVersion *semver.Version
-	TokenPrices      map[common.Address]*big.Int // token address -> price
-	GasPrices        map[uint64]*big.Int         // dest chain -> gas price
+	TokenPrices map[common.Address]*big.Int // token address -> price
+	GasPrices   map[uint64]*big.Int         // dest chain -> gas price
 }
 
 func (cfg UpdateFeeQuoterPricesConfig) Validate(e cldf.Environment) error {
@@ -849,7 +847,7 @@ func (cfg UpdateFeeQuoterPricesConfig) ToSequenceInput(state stateview.CCIPOnCha
 		}
 		updates[chainSel] = opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates]{
 			ChainSelector: chainSel,
-			Address:       state.Chains[chainSel].MustGetFeeQuoterForVersion(prices.FeeQuoterVersion).Address(),
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: fee_quoter.InternalPriceUpdates{
 				TokenPriceUpdates: tokenPriceUpdates,
 				GasPriceUpdates:   gasPriceUpdates,
@@ -882,7 +880,6 @@ func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPrice
 }
 
 type UpdateFeeQuoterDestsConfig struct {
-	FeeQuoterVersion *semver.Version
 	// UpdatesByChain is a mapping from source -> dest -> config update.
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
@@ -961,7 +958,7 @@ func (cfg UpdateFeeQuoterDestsConfig) ToSequenceInput(state stateview.CCIPOnChai
 			i++
 		}
 		updates[chainSel] = opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs]{
-			Address:       state.Chains[chainSel].MustGetFeeQuoterForVersion(cfg.FeeQuoterVersion).Address(),
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			ChainSelector: chainSel,
 			CallInput:     args,
 			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
@@ -1548,9 +1545,8 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 }
 
 type UpdateDynamicConfigOffRampConfig struct {
-	FeeQuoterVersion *semver.Version
-	Updates          map[uint64]ccipops.OffRampParams
-	MCMS             *proposalutils.TimelockConfig
+	Updates map[uint64]ccipops.OffRampParams
+	MCMS    *proposalutils.TimelockConfig
 }
 
 func (cfg UpdateDynamicConfigOffRampConfig) Validate(e cldf.Environment) error {
@@ -1565,7 +1561,7 @@ func (cfg UpdateDynamicConfigOffRampConfig) Validate(e cldf.Environment) error {
 		if state.Chains[chainSel].OffRamp == nil {
 			return fmt.Errorf("missing offramp for chain %d", chainSel)
 		}
-		if state.Chains[chainSel].MustGetFeeQuoterForVersion(cfg.FeeQuoterVersion) == nil {
+		if state.Chains[chainSel].FeeQuoter == nil {
 			return fmt.Errorf("missing fee quoter for chain %d", chainSel)
 		}
 		if params.GasForCallExactCheck > 0 {
@@ -1610,7 +1606,7 @@ func UpdateDynamicConfigOffRampChangeset(e cldf.Environment, cfg UpdateDynamicCo
 		}
 		offRamp := state.Chains[chainSel].OffRamp
 		dCfg := offramp.OffRampDynamicConfig{
-			FeeQuoter:                               state.Chains[chainSel].MustGetFeeQuoterForVersion(cfg.FeeQuoterVersion).Address(),
+			FeeQuoter:                               state.Chains[chainSel].FeeQuoter.Address(),
 			PermissionLessExecutionThresholdSeconds: params.PermissionLessExecutionThresholdSeconds,
 			MessageInterceptor:                      params.MessageInterceptor,
 		}
@@ -1764,9 +1760,8 @@ type ApplyFeeTokensUpdatesConfig struct {
 }
 
 type ApplyFeeTokensUpdatesConfigPerChain struct {
-	FeeQuoterVersion *semver.Version
-	TokensToRemove   []shared.TokenSymbol
-	TokensToAdd      []shared.TokenSymbol
+	TokensToRemove []shared.TokenSymbol
+	TokensToAdd    []shared.TokenSymbol
 }
 
 func (cfg ApplyFeeTokensUpdatesConfig) Validate(e cldf.Environment) error {
@@ -1801,7 +1796,7 @@ func (cfg ApplyFeeTokensUpdatesConfig) Validate(e cldf.Environment) error {
 			cfg.MCMSConfig != nil,
 			e.BlockChains.EVMChains()[chainSel].DeployerKey.From,
 			state.Chains[chainSel].Timelock.Address(),
-			state.Chains[chainSel].MustGetFeeQuoterForVersion(updates.FeeQuoterVersion),
+			state.Chains[chainSel].FeeQuoter,
 		); err != nil {
 			return err
 		}
@@ -1844,7 +1839,7 @@ func (cfg ApplyFeeTokensUpdatesConfig) ToSequenceInput(state stateview.CCIPOnCha
 		}
 		input[chainSel] = opsutil.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]{
 			ChainSelector: chainSel,
-			Address:       state.Chains[chainSel].MustGetFeeQuoterForVersion(updates.FeeQuoterVersion).Address(),
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: ccipops.ApplyFeeTokensUpdatesInput{
 				FeeTokensToAdd:    tokensToAdd,
 				FeeTokensToRemove: tokensToRemove,
@@ -1858,7 +1853,6 @@ func (cfg ApplyFeeTokensUpdatesConfig) ToSequenceInput(state stateview.CCIPOnCha
 }
 
 type UpdateTokenPriceFeedsConfig struct {
-	FeeQuoterVersion  *semver.Version
 	Updates           map[uint64][]UpdateTokenPriceFeedsConfigPerChain
 	FeedChainSelector uint64
 	MCMS              *proposalutils.TimelockConfig
@@ -1906,7 +1900,7 @@ func (cfg UpdateTokenPriceFeedsConfig) Validate(e cldf.Environment) error {
 			cfg.MCMS != nil,
 			e.BlockChains.EVMChains()[chainSel].DeployerKey.From,
 			state.Chains[chainSel].Timelock.Address(),
-			state.Chains[chainSel].MustGetFeeQuoterForVersion(cfg.FeeQuoterVersion),
+			state.Chains[chainSel].FeeQuoter,
 		); err != nil {
 			return err
 		}
@@ -1935,7 +1929,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e cldf.Environment, cfg UpdateToken
 		if cfg.MCMS != nil {
 			txOpts = cldf.SimTransactOpts()
 		}
-		fq := state.Chains[chainSel].MustGetFeeQuoterForVersion(cfg.FeeQuoterVersion)
+		fq := state.Chains[chainSel].FeeQuoter
 		tokenAddresses, err := state.Chains[chainSel].TokenAddressBySymbol()
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("error getting token addresses for chain %d: %w", chainSel, err)
@@ -2014,9 +2008,8 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e cldf.Environment, cfg UpdateToken
 }
 
 type PremiumMultiplierWeiPerEthUpdatesConfig struct {
-	FeeQuoterVersion *semver.Version
-	Updates          map[uint64][]PremiumMultiplierWeiPerEthUpdatesConfigPerChain
-	MCMS             *proposalutils.TimelockConfig
+	Updates map[uint64][]PremiumMultiplierWeiPerEthUpdatesConfigPerChain
+	MCMS    *proposalutils.TimelockConfig
 }
 
 func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) Validate(e cldf.Environment) error {
@@ -2049,7 +2042,7 @@ func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) Validate(e cldf.Environment) 
 			cfg.MCMS != nil,
 			e.BlockChains.EVMChains()[chainSel].DeployerKey.From,
 			state.Chains[chainSel].Timelock.Address(),
-			state.Chains[chainSel].MustGetFeeQuoterForVersion(cfg.FeeQuoterVersion),
+			state.Chains[chainSel].FeeQuoter,
 		); err != nil {
 			return err
 		}
@@ -2096,7 +2089,7 @@ func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) ToSequenceInput(state statevi
 		}
 		input[chainSel] = opsutil.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs]{
 			ChainSelector: chainSel,
-			Address:       state.Chains[chainSel].MustGetFeeQuoterForVersion(cfg.FeeQuoterVersion).Address(),
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput:     premiumMultiplierUpdates,
 			NoSend:        cfg.MCMS != nil, // If MCMS exists, we do not want to send the transaction.
 		}
@@ -2179,7 +2172,6 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e cldf.Environment)
 }
 
 type ApplyTokenTransferFeeConfigUpdatesConfigPerChain struct {
-	FeeQuoterVersion                 *semver.Version
 	TokenTransferFeeConfigArgs       []TokenTransferFeeConfigArg
 	TokenTransferFeeConfigRemoveArgs []TokenTransferFeeConfigRemoveArg
 }
@@ -2246,7 +2238,7 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) ToSequenceInput(state statev
 		}
 		input[chainSel] = opsutil.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]{
 			ChainSelector: chainSel,
-			Address:       state.Chains[chainSel].MustGetFeeQuoterForVersion(updates.FeeQuoterVersion).Address(),
+			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
 				TokenTransferFeeConfigs:       tokenTransferFeeConfigs,
 				TokenTransferFeeConfigsRemove: tokenTransferFeeConfigsRemove,

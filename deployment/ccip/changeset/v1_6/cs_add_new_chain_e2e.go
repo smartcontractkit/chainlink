@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -677,8 +676,6 @@ type ConnectionConfig struct {
 type ConnectNewChainConfig struct {
 	// NewChainSelector is the selector of the new chain to connect.
 	NewChainSelector uint64 `json:"newChainSelector"`
-	// FeeQuoterVersion is the version of the fee quoter to use.
-	FeeQuoterVersion *semver.Version `json:"feeQuoterVersion,omitempty"`
 	// NewChainConnectionConfig defines how the new chain should connect with other chains.
 	NewChainConnectionConfig ConnectionConfig `json:"newChainConnectionConfig"`
 	// RemoteChains are the chains to connect the new chain to.
@@ -792,7 +789,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 		allContracts := []commoncs.Ownable{
 			state.Chains[c.NewChainSelector].OnRamp,
 			state.Chains[c.NewChainSelector].OffRamp,
-			state.Chains[c.NewChainSelector].MustGetFeeQuoterForVersion(c.FeeQuoterVersion),
+			state.Chains[c.NewChainSelector].FeeQuoter,
 			state.Chains[c.NewChainSelector].RMNProxy,
 			state.Chains[c.NewChainSelector].NonceManager,
 			state.Chains[c.NewChainSelector].TokenAdminRegistry,

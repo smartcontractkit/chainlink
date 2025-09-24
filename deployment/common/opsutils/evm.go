@@ -247,10 +247,10 @@ func (c *ContractOpts) Validate(isZkSyncVM bool) error {
 	if c.Version == nil {
 		return errors.New("version must be defined")
 	}
-	if isZkSyncVM && (c.ZkSyncVMBytecode == nil || len(c.ZkSyncVMBytecode) == 0) {
+	if isZkSyncVM && len(c.ZkSyncVMBytecode) == 0 {
 		return errors.New("zkSyncVM bytecode must be defined")
 	}
-	if !isZkSyncVM && (c.EVMBytecode == nil || len(c.EVMBytecode) == 0) {
+	if !isZkSyncVM && len(c.EVMBytecode) == 0 {
 		return errors.New("evm bytecode must be defined")
 	}
 	return nil

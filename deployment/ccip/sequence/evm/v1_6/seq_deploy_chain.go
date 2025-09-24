@@ -28,6 +28,7 @@ import (
 )
 
 type ChainContractParams struct {
+	FeeQuoterOpts   *opsutil.ContractOpts
 	FeeQuoterParams ccipopsv1_6.FeeQuoterParams
 	OffRampParams   ccipopsv1_6.OffRampParams
 }
@@ -45,7 +46,6 @@ func (c ChainContractParams) Validate(selector uint64) error {
 
 type DeployChainContractsConfig struct {
 	HomeChainSelector      uint64
-	FeeQuoterOpts          *opsutil.ContractOpts
 	ContractParamsPerChain map[uint64]ChainContractParams
 	GasBoostConfigPerChain map[uint64]commontypes.GasBoostConfig
 }
@@ -246,7 +246,7 @@ var (
 					if chainAddresses.FeeQuoterAddress == (common.Address{}) {
 						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployFeeQuoterOp, chain, opsutil.EVMDeployInput[ccipopsv1_6.DeployFeeQInput]{
 							ChainSelector: chainSelector,
-							ContractOpts:  input.FeeQuoterOpts,
+							ContractOpts:  contractParams.FeeQuoterOpts,
 							DeployInput: ccipopsv1_6.DeployFeeQInput{
 								Chain:    chainSelector,
 								Params:   contractParams.FeeQuoterParams,

@@ -966,17 +966,6 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.TestRouter = r
 			state.ABIByAddress[address] = router.RouterABI
-		case cldf.NewTypeAndVersion(ccipshared.FeeQuoter, deployment.Version1_6_0).String():
-			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.FeeQuoter = fq
-			if state.FeeQuotersByVersion == nil {
-				state.FeeQuotersByVersion = make(map[semver.Version]*fee_quoter.FeeQuoter)
-			}
-			state.FeeQuotersByVersion[deployment.Version1_6_0] = fq
-			state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCToken, deployment.Version1_0_0).String():
 			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1373,17 +1362,18 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				continue
 			}
 			// New versions of the EVM FeeQuoter are developed to support new chain families.
-			// We need to represent these FeeQuoters in state under FeeQuotersByVersion.
+			// The FeeQuoter added to state should be the FeeQuoter in the environment with the highest version.
 			if tvStr.Type == ccipshared.FeeQuoter {
-				fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
-				if err != nil {
-					return state, err
+				if state.FeeQuoter == nil || tvStr.Version.GreaterThan(state.FeeQuoterVersion) {
+					fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+					if err != nil {
+						return state, err
+					}
+					state.FeeQuoter = fq
+					state.FeeQuoterVersion = &tvStr.Version
+					state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
 				}
-				if state.FeeQuotersByVersion == nil {
-					state.FeeQuotersByVersion = make(map[semver.Version]*fee_quoter.FeeQuoter)
-				}
-				state.FeeQuotersByVersion[tvStr.Version] = fq
-				state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
+				continue
 			}
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
