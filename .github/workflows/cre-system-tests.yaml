@@ -231,6 +231,7 @@ jobs:
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 30m
+          RUN_QUARANTINED_TESTS: 'true' # always run quarantined tests in CI
         run: |
           gotestsum \
             --jsonfile=/tmp/gotest.log \
