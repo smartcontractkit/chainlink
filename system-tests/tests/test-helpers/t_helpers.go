@@ -149,6 +149,7 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	})
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
+	drainChannels(beholderMsgChan, beholderErrChan) // drain any old messages, if any
 	return listenerCtx, beholderMsgChan, beholderErrChan
 }
 
@@ -185,9 +186,6 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
-
-	// Drain any existing messages in the channels before validation
-	drainChannels(messageChan, kafkaErrChan)
 
 	// Start message processor goroutine
 	go func() {
@@ -607,11 +605,13 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	switch tv.Version.Major() {
 	case 2:
 		// TODO(CRE-876): delete with workflowID
+		testLogger.Warn().Msg("Skipping workflow deletion from the registry for v2 workflows (not implemented yet, see CRE-876)")
 		return
 	default:
 	}
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
+	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
 
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,

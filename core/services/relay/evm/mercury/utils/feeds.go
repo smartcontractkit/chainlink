@@ -3,7 +3,7 @@ package utils
 import (
 	"encoding/binary"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var legacyV1FeedIDs = []FeedID{
@@ -90,15 +90,15 @@ const (
 type FeedID [32]byte
 
 func BytesToFeedID(b []byte) FeedID {
-	return (FeedID)(utils.BytesToHash(b))
+	return (FeedID)(common.BytesToHash(b))
 }
 
-func (f FeedID) Hex() string { return (utils.Hash)(f).Hex() }
+func (f FeedID) Hex() string { return (common.Hash)(f).Hex() }
 
-func (f FeedID) String() string { return (utils.Hash)(f).String() }
+func (f FeedID) String() string { return (common.Hash)(f).String() }
 
 func (f *FeedID) UnmarshalText(input []byte) error {
-	return (*utils.Hash)(f).UnmarshalText(input)
+	return (*common.Hash)(f).UnmarshalText(input)
 }
 
 func (f FeedID) Version() FeedVersion {

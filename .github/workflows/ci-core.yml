@@ -281,22 +281,6 @@ jobs:
           echo "COUNT=50" >> $GITHUB_ENV
           echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
-      - name: Derive Job/Run URL
-        # Fetch job run url - used for trunk.io uploads, and race test failure notifications
-        if: ${{ matrix.type.should-run == 'true' && ( matrix.type.cmd == 'go_core_race_tests' || matrix.type.trunk-auto-quarantine == 'true' ) }}
-        id: run-url
-        env:
-          GH_REPO: ${{ github.repository }}
-          GH_RUN_ID: ${{ github.run_id }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
-        run: |
-          run_url=$(
-            gh run view --repo "$GH_REPO" "$GH_RUN_ID" --json jobs |
-              jq -r --arg matrix "($MATRIX_TYPE_CMD)" '.jobs[] | select(.name | contains($matrix)) | .url'
-          )
-          echo "run_url=$run_url" | tee -a "$GITHUB_OUTPUT"
-
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
         timeout-minutes: ${{ github.event_name == 'schedule' && 37 || 22 }} # leave time for remaining steps
@@ -321,8 +305,8 @@ jobs:
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
-          trunk-job-url: ${{ steps.run-url.outputs.run_url }}
-           # when auto-quarantine is enabled, allow this to determine test failures
+          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, job.check_run_id) }}
+          # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
 
       - name: Print Races
@@ -377,7 +361,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TOPIC_DATA_RACES_CHANNEL_ID}}
-            text: "Race Tests Failed: <${{ steps.run-url.outputs.run_url }}|Run>"
+            text: "Race Tests Failed: <${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, job.check_run_id) }}|Run>"
 
   core-scripts-tests:
     name: test-scripts

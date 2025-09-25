@@ -19,7 +19,7 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-func executeConsensusTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+func ExecuteConsensusTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
 	beholder, err := t_helpers.NewBeholder(testLogger, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
