@@ -20,6 +20,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
+	github.com/gagliardetto/anchor-go v0.3.2
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/metaplex-go v0.2.1
 	github.com/gagliardetto/solana-go v1.13.0
@@ -49,8 +50,8 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250910230900-fa42dad2d413
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.24
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250919164929-61041e787935
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250919164929-61041e787935
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250923115307-8be0359fbce5
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250923115307-8be0359fbce5
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/smartcontractkit/mcms v0.25.0

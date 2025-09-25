@@ -23,7 +23,6 @@ import (
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 )
@@ -49,7 +48,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	require.NoError(t, err)
 	txm := txmmocks.NewMockEvmTxManager(t)
-	fromAddress := cltest.MustGenerateRandomKey(t).Address
+	fromAddress := testutils.NewAddress()
 	ethKeyStore := keystest.Addresses{fromAddress}
 	gasLimit := uint64(1000)
 	effectiveTransmitterAddress := fromAddress
@@ -90,7 +89,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	lp := lpmocks.NewLogPoller(t)
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	txm := txmmocks.NewMockEvmTxManager(t)
-	fromAddress := cltest.MustGenerateRandomKey(t).Address
+	fromAddress := testutils.NewAddress()
 	ethKeyStore := keystest.Addresses{fromAddress}
 	gasLimit := uint64(1000)
 	effectiveTransmitterAddress := fromAddress
@@ -164,7 +163,7 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	lp := lpmocks.NewLogPoller(t)
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	txm := txmmocks.NewMockEvmTxManager(t)
-	fromAddress := cltest.MustGenerateRandomKey(t).Address
+	fromAddress := testutils.NewAddress()
 	ethKeyStore := keystest.Addresses{fromAddress}
 	gasLimit := uint64(1000)
 

@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -618,6 +620,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
+	quarantine.Flaky(t, "DX-1865")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 

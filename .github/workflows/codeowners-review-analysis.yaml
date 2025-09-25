@@ -1,0 +1,45 @@
+name: "CodeOwners Review Analysis (cora)"
+
+on:
+  pull_request:
+    types:
+      - labeled # when adding 'cora' label
+
+  pull_request_review:
+    types:
+      - submitted
+      - edited
+      - dismissed
+
+jobs:
+  analyze-reviews:
+    name: "analyze"
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read # needed to pull actions run url
+      contents: read # needed to pull codeowners file
+      pull-requests: write # needed to read pull request and add comments
+      id-token: write # used to assume aws role
+    steps:
+      - name: Comment Label
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'cora') }}
+        run: |
+          echo "Label 'cora' not found on PR. Skipping analysis."
+          echo "Add label 'cora' to enable analysis."
+
+      - name: Setup github token
+        id: setup-github-token
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'cora') }}
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.GATI_CODEOWNERS_IAM_ARN }}
+          aws-lambda-url: ${{ secrets.GATI_CODEOWNERS_LAMBDA_URL }}
+          aws-region: us-west-2
+
+      - name: CODEOWNERS Review Analysis
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'cora') }}
+        uses: smartcontractkit/.github/actions/codeowners-review-analysis@codeowners-review-analysis/0.2.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          members-read-github-token: ${{ steps.setup-github-token.outputs.access-token }}

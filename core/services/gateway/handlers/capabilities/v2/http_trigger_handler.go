@@ -305,7 +305,6 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	if err != nil {
 		return err
 	}
-
 	delete(h.callbacks, resp.ID)
 	latencyMs := time.Since(saved.requestStartTime).Milliseconds()
 	h.metrics.Trigger.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
@@ -347,6 +346,7 @@ func (h *httpTriggerHandler) reapExpiredCallbacks(ctx context.Context) {
 	var expiredCount int
 	for reqID, callback := range h.callbacks {
 		if now.Sub(callback.createdAt) > time.Duration(h.config.MaxTriggerRequestDurationMs)*time.Millisecond {
+			h.metrics.Trigger.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
 			delete(h.callbacks, reqID)
 			expiredCount++
 		}
@@ -386,8 +386,8 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 		h.lggr.Errorw("failed to marshal error response", "err", err, "requestID", requestID)
 		return
 	}
-	errorCode := api.ErrorCode(code)
-	h.metrics.Trigger.IncrementRequestErrors(ctx, errorCode.String(), h.lggr)
+	errorCode := api.FromJSONRPCErrorCode(code)
+	h.metrics.Trigger.IncrementRequestErrors(ctx, code, h.lggr)
 	err = callback.SendResponse(handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   errorCode,

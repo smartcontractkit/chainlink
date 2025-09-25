@@ -17,15 +17,14 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 
-	"github.com/smartcontractkit/chainlink-data-streams/rpc"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // MaxConsecutiveRequestFailures controls how many consecutive requests are

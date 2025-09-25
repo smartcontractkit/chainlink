@@ -76,6 +76,7 @@ var (
 	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
 	CCTPTokenPool        deployment.ContractType = "CCTPTokenPool"
 	BPFUpgradeable       deployment.ContractType = "BPFUpgradeable"
+	SVMSignerRegistry    deployment.ContractType = "SVMSignerRegistry"
 	// CLL Identifier
 	CLLMetadata = "CLL"
 

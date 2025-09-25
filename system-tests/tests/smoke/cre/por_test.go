@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -33,8 +32,11 @@ import (
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 const PoRWFV1Location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
@@ -46,7 +48,7 @@ type WorkflowTestConfig struct {
 	FeedIDs              []string
 }
 
-func beforePoRTest(t *testing.T, testEnv *TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
+func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
 	porWfCfg := WorkflowTestConfig{
 		FeedIDs:              []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"},
 		WorkflowName:         workflowName,
@@ -65,11 +67,11 @@ func beforePoRTest(t *testing.T, testEnv *TestEnvironment, workflowName, workflo
 	return priceProvider, porWfCfg
 }
 
-func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, cfg WorkflowTestConfig) {
+func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider PriceProvider, cfg WorkflowTestConfig) {
 	testLogger := framework.L
 	blockchainOutputs := testEnv.WrappedBlockchainOutputs
 
-	writeableChains := getWritableChainsFromSavedEnvironmentState(t, testEnv)
+	writeableChains := t_helpers.GetWritableChainsFromSavedEnvironmentState(t, testEnv)
 	require.Len(t, cfg.FeedIDs, len(writeableChains), "a number of writeable chains must match the number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
 
 	/*
@@ -123,7 +125,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 
 		// reset to avoid incrementing on each iteration
 		amountToFund = big.NewInt(0).SetUint64(10) // 10 wei
-		addressesToRead, addrErr := createAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, perChainSethClient, bcOutput, creEnvironment)
+		addressesToRead, addrErr := t_helpers.CreateAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, perChainSethClient, bcOutput, creEnvironment)
 		require.NoError(t, addrErr, "failed to create and fund addresses to read")
 
 		testLogger.Info().Msg("Creating PoR workflow configuration file...")
@@ -148,7 +150,7 @@ func ExecutePoRTest(t *testing.T, testEnv *TestEnvironment, priceProvider PriceP
 		testLogger.Info().Msgf("Workflow config for chain %d: WriteTarget=%s, DataFeedsCache=%s", chainID, writeTargetName, dataFeedsCacheAddress.Hex())
 		workflowFileLocation := cfg.WorkflowFileLocation
 
-		compileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
+		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
 	}
 	/*
 		START THE VALIDATION PHASE
@@ -279,44 +281,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 	return dataFeedsCacheAddress, readBalancesAddress
 }
 
-/*
-Creates .yaml workflow configuration file.
-It stores the values used by a workflow (main.go),
-(i.e. feedID, read/write contract addresses)
-
-The values are written to types.WorkflowConfig.
-The method returns the absolute path to the created config file.
-*/
-func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.WorkflowConfig) (string, error) {
-	feedIDToUse, fIDerr := validateAndFormatFeedID(workflowConfig)
-	if fIDerr != nil {
-		return "", errors.Wrap(fIDerr, "failed to validate and format feed ID")
-	}
-	workflowConfig.FeedID = feedIDToUse
-
-	return createWorkflowYamlConfigFile(workflowName, workflowConfig)
-}
-
-func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, error) {
-	feedID := workflowConfig.FeedID
-
-	// validate and format feed ID to fit 32 bytes
-	cleanFeedID := strings.TrimPrefix(feedID, "0x")
-	feedIDLength := len(cleanFeedID)
-	if feedIDLength < 32 {
-		return "", errors.Errorf("feed ID must be at least 32 characters long, but was %d", feedIDLength)
-	}
-
-	if feedIDLength > 32 {
-		cleanFeedID = cleanFeedID[:32]
-	}
-
-	// override feed ID in workflow config to ensure it is exactly 32 bytes
-	feedIDToUse := "0x" + cleanFeedID
-	return feedIDToUse, nil
-}
-
-func validateTronPrices(t *testing.T, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
+func validateTronPrices(t *testing.T, testEnv *ttypes.TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
 	dfAddressRefs := testEnv.CreEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByChainSelector(bcOutput.ChainSelector),
 		datastore.AddressRefByType(df_changeset.DataFeedsCache),
@@ -395,7 +360,7 @@ func validateTronPrices(t *testing.T, testEnv *TestEnvironment, bcOutput *cre.Wr
 }
 
 // validatePoRPrices validates that all feeds receive the expected prices from the price provider
-func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig, additionalPrice big.Int) {
+func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider PriceProvider, config *WorkflowTestConfig, additionalPrice big.Int) {
 	t.Helper()
 	eg := &errgroup.Group{}
 
@@ -450,7 +415,7 @@ func validatePoRPrices(t *testing.T, testEnv *TestEnvironment, priceProvider Pri
 	testEnv.Logger.Info().Msgf("All prices were found for all feeds")
 }
 
-func validateEVMPrices(t *testing.T, testEnv *TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
+func validateEVMPrices(t *testing.T, testEnv *ttypes.TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, feedID string, priceProvider PriceProvider, startTime time.Time, waitFor time.Duration, tick time.Duration) error {
 	dataFeedsCacheAddresses, _, dataFeedsCacheErr := crecontracts.FindAddressesForChain(
 		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
 		bcOutput.ChainSelector,

@@ -1291,8 +1291,9 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	capreg.EXPECT().GetExecutable(matches.AnyContext, vault.CapabilityID).Return(mc, nil)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	valueMap, err := values.NewMap[string](map[string]string{
-		"VaultPublicKey": hex.EncodeToString(vaultPublicKeyBytes),
+	valueMap, err := values.WrapMap(v2.VaultCapabilityRegistryConfig{
+		VaultPublicKey: hex.EncodeToString(vaultPublicKeyBytes),
+		Threshold:      1,
 	})
 	require.NoError(t, err)
 	capConfig := capabilities.CapabilityConfiguration{

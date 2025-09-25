@@ -55,7 +55,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250911124514-5874cc6d62b2
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.24
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.14-0.20250912141514-907781001913
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.14
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-20250826151008-ae5ec0ee6f2c
@@ -248,6 +248,7 @@ require (
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
+	github.com/gagliardetto/anchor-go v0.3.2 // indirect
 	github.com/gagliardetto/binary v0.8.0 // indirect
 	github.com/gagliardetto/metaplex-go v0.2.1 // indirect
 	github.com/gagliardetto/solana-go v1.13.0 // indirect
@@ -495,8 +496,8 @@ require (
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20250916193659-4becc28a467f // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250919164929-61041e787935 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250919164929-61041e787935 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250923115307-8be0359fbce5 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250923115307-8be0359fbce5 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250908203554-5bd9d2fe9513 // indirect
 	github.com/smartcontractkit/cre-sdk-go v0.7.0 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect

@@ -220,9 +220,10 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		MaxIdentifierNamespaceLengthBytes: int(configProto.MaxIdentifierNamespaceLengthBytes),
 	}
 	return &ReportingPlugin{
-			lggr:  r.lggr.Named("VaultReportingPlugin"),
-			store: r.store,
-			cfg:   cfg,
+			lggr:       r.lggr.Named("VaultReportingPlugin"),
+			store:      r.store,
+			cfg:        cfg,
+			onchainCfg: config,
 		}, ocr3_1types.ReportingPluginInfo{
 			Name: "VaultReportingPlugin",
 			Limits: ocr3_1types.ReportingPluginLimits{
