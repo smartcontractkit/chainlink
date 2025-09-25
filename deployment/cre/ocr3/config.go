@@ -234,14 +234,21 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 
 	cfgBytes := reportingPluginConfigOverride
 	if cfgBytes == nil {
-		if cfg.OffchainConfig != nil {
-			offchainCfgAsProto, err := cfg.OffchainConfig.ToProto()
+		var offchainCfg offchainConfig
+		switch {
+		case cfg.ConsensusCapOffchainConfig != nil:
+			offchainCfg = cfg.ConsensusCapOffchainConfig
+		case cfg.ChainCapOffchainConfig != nil:
+			offchainCfg = cfg.ChainCapOffchainConfig
+		}
+		if offchainCfg != nil {
+			offchainCfgAsProto, err := offchainCfg.ToProto()
 			if err != nil {
-				return OCR2OracleConfig{}, fmt.Errorf("failed to convert offchain config to proto: %w", err)
+				return OCR2OracleConfig{}, fmt.Errorf("failed to convert offchainConfig to proto: %w", err)
 			}
 			cfgBytes, err = proto.Marshal(offchainCfgAsProto)
 			if err != nil {
-				return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
+				return OCR2OracleConfig{}, fmt.Errorf("failed to marshal offchainConfig to proto: %w", err)
 			}
 		}
 	}

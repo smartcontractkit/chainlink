@@ -13,8 +13,9 @@ import (
 var _ cldf.ChangeSetV2[DeployOCR3Input] = DeployOCR3{}
 
 type DeployOCR3Input struct {
-	ChainSelector uint64 `json:"chain_selector" yaml:"chain_selector"`
-	Qualifier     string `json:"qualifier" yaml:"qualifier"`
+	ChainSelector uint64   `json:"chain_selector" yaml:"chain_selector"`
+	Qualifier     string   `json:"qualifier" yaml:"qualifier"`
+	Labels        []string `json:"labels" yaml:"labels"`
 }
 
 type DeployOCR3Deps struct {
@@ -41,6 +42,7 @@ func (l DeployOCR3) Apply(e cldf.Environment, config DeployOCR3Input) (cldf.Chan
 		contracts.DeployOCR3Input{
 			ChainSelector: config.ChainSelector,
 			Qualifier:     config.Qualifier,
+			Labels:        config.Labels,
 		},
 	)
 	if err != nil {

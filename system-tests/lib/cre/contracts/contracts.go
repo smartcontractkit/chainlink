@@ -803,10 +803,9 @@ func DefaultChainCapabilityOCR3Config(topology *cre.Topology) (*keystone_changes
 	}
 
 	cfg.DeltaRoundMillis = 1000
-	cfg.OffchainConfigType = ocr3.OffchainConfigTypeChainCap
 	const kib = 1024
 	const mib = 1024 * kib
-	cfg.OffchainConfig = &ocr3.ChainCapOffchainConfig{
+	cfg.ChainCapOffchainConfig = &ocr3.ChainCapOffchainConfig{
 		MaxQueryLengthBytes:       mib,
 		MaxObservationLengthBytes: 97 * kib,
 		MaxReportLengthBytes:      mib,

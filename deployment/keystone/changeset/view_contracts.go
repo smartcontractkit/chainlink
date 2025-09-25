@@ -286,8 +286,7 @@ func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Cap
 		return OCR3ConfigView{}, err
 	}
 	oracleConfig := OracleConfig{
-		OffchainConfigType: ocr3.OffchainConfigTypeConsensusCap,
-		OffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+		ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
 			MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
 			MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
 			MaxReportLengthBytes:      cfg.MaxReportLengthBytes,

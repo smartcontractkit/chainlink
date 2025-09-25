@@ -9,8 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 )
 
@@ -19,9 +17,9 @@ type DeployOCR3Deps struct {
 }
 
 type DeployOCR3Input struct {
-	ChainSelector      uint64
-	Qualifier          string
-	OffchainConfigType ocr3.OffchainConfigType
+	ChainSelector uint64
+	Qualifier     string
+	Labels        []string
 }
 
 type DeployOCR3Output struct {
@@ -82,8 +80,8 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			labels.Add(label)
 		}
 
-		if input.OffchainConfigType != "" {
-			labels.Add(input.OffchainConfigType.String())
+		for _, label := range input.Labels {
+			labels.Add(label)
 		}
 
 		addressRef := datastore.AddressRef{

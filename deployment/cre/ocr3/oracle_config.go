@@ -2,23 +2,18 @@ package ocr3
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"gopkg.in/yaml.v3"
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	evmcapocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/consensus/ocr3/types"
 )
 
 type OracleConfig struct {
-	// Excluded from JSON to maintain backward compatibility with previous versions where ReportingPluginConfig was embedded
-	OffchainConfig     OffchainConfig  `json:"-"`
-	RawOffchainConfig  json.RawMessage `json:"OffchainConfig"`
-	OffchainConfigType OffchainConfigType
-
 	UniqueReports                     bool
 	DeltaProgressMillis               uint32
 	DeltaResendMillis                 uint32
@@ -36,121 +31,62 @@ type OracleConfig struct {
 	MaxDurationShouldTransmitMillis uint32
 
 	MaxFaultyOracles int
+
+	ConsensusCapOffchainConfig *ConsensusCapOffchainConfig
+	ChainCapOffchainConfig     *ChainCapOffchainConfig
 }
 
 func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
+	// ensure that caller migrated to new OracleConfig structure, where ConsensusCapOffchainConfig is not embedded
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("failed to unmarshal OracleConfig into map[string]interface{}: %w", err)
+	}
+
+	var legacyOffchainConfigFields = []string{"MaxQueryLengthBytes", "MaxObservationLengthBytes", "MaxReportLengthBytes", "MaxOutcomeLengthBytes", "MaxReportCount", "MaxBatchSize", "OutcomePruningThreshold", "RequestTimeout"}
+	err := ensureNoLegacyFields(legacyOffchainConfigFields, raw)
+	if err != nil {
+		return err
+	}
+
 	type aliasT OracleConfig
-	err := json.Unmarshal(data, (*aliasT)(oc))
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal OracleConfig: %w", err)
+	err = json.Unmarshal(data, (*aliasT)(oc))
+	return err
+}
+
+func ensureNoLegacyFields(legacyFields []string, raw map[string]interface{}) error {
+	for _, f := range legacyFields {
+		if _, exists := raw[f]; exists {
+			return fmt.Errorf("not supported config format detected: field %s is not supported. All %v must be moved into ConsensusCapOffchainConfig", f, legacyFields)
+		}
 	}
 
-	switch oc.OffchainConfigType {
-	case "", OffchainConfigTypeConsensusCap:
-		oc.OffchainConfig = &ConsensusCapOffchainConfig{}
-	case OffchainConfigTypeChainCap:
-		oc.OffchainConfig = &ChainCapOffchainConfig{}
-	default:
-		return fmt.Errorf("unsupported OffchainConfigType: %s", oc.OffchainConfigType)
-	}
-
-	// if offchain_config is empty, try to use previous version, where OffchainConfig was embedded
-	rawOffchainConfig := oc.RawOffchainConfig
-	if len(rawOffchainConfig) == 0 {
-		rawOffchainConfig = data
-	}
-	// try to use previous version, where OffchainConfig was embedded
-	err = json.Unmarshal(rawOffchainConfig, &oc.OffchainConfig)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal OffchainConfig: %w", err)
-	}
-
-	oc.RawOffchainConfig = nil // clear raw data after successful unmarshalling
 	return nil
 }
 
-func (oc OracleConfig) MarshalJSON() ([]byte, error) {
-	// ensure that caller did not forget to set OffchainConfigType
-	if oc.OffchainConfigType == "" && oc.OffchainConfig != nil {
-		_, ok := oc.OffchainConfig.(*ConsensusCapOffchainConfig)
-		if !ok {
-			return nil, errors.New("OffchainConfigType must be set when OffchainConfig is set")
-		}
+func (oc *OracleConfig) UnmarshalYAML(value *yaml.Node) error {
+	// ensure that caller migrated to new OracleConfig structure, where ConsensusCapOffchainConfig is not embedded
+	var raw map[string]interface{}
+	if err := value.Decode(&raw); err != nil {
+		return fmt.Errorf("failed to decode OracleConfig into map[string]interface{}: %w", err)
 	}
 
-	offchainConfigAsJSON, err := json.Marshal(oc.OffchainConfig)
+	var legacyOffchainConfigFields = []string{"maxQueryLengthBytes", "maxObservationLengthBytes", "maxReportLengthBytes", "maxOutcomeLengthBytes", "maxReportCount", "maxBatchSize", "outcomePruningThreshold", "requestTimeout"}
+	err := ensureNoLegacyFields(legacyOffchainConfigFields, raw)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal OffchainConfig: %w", err)
+		return err
 	}
-
-	cfgToMarshal := oc
-	cfgToMarshal.RawOffchainConfig = offchainConfigAsJSON
 
 	type aliasT OracleConfig
-	asJSON, err := json.Marshal((aliasT)(cfgToMarshal))
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal OracleConfig: %w", err)
+	if err := value.Decode((*aliasT)(oc)); err != nil {
+		return err
 	}
 
-	return asJSON, nil
+	return nil
 }
 
-type OffchainConfig interface {
+type offchainConfig interface {
 	ToProto() (proto.Message, error)
-	isOffchainConfig()
-}
-
-type OffchainConfigType string
-
-func (t OffchainConfigType) String() string {
-	return string(t)
-}
-
-const (
-	OffchainConfigTypeConsensusCap OffchainConfigType = "consensus-cap"
-	OffchainConfigTypeChainCap     OffchainConfigType = "chain-cap"
-)
-
-func ChainCapChainSelectorLabel(chainSelector uint64) string {
-	return fmt.Sprintf("chain-selector-%d", chainSelector)
-}
-
-func NewOffchainConfigFromProto(cfgType OffchainConfigType, raw []byte) (OffchainConfig, error) {
-	switch cfgType {
-	case OffchainConfigTypeConsensusCap:
-		cfg := &capocr3types.ReportingPluginConfig{}
-		err := proto.Unmarshal(raw, cfg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal ConsensusCap OffchainConfig from proto: %w", err)
-		}
-
-		return &ConsensusCapOffchainConfig{
-			MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
-			MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
-			MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
-			MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
-			MaxReportCount:            cfg.MaxReportCount,
-			MaxBatchSize:              cfg.MaxBatchSize,
-			OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
-			RequestTimeout:            cfg.RequestTimeout.AsDuration(),
-		}, nil
-	case OffchainConfigTypeChainCap:
-		cfg := &evmcapocr3types.ReportingPluginConfig{}
-		err := proto.Unmarshal(raw, cfg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal ChainCap OffchainConfig from proto: %w", err)
-		}
-		return &ChainCapOffchainConfig{
-			MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
-			MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
-			MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
-			MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
-			MaxReportCount:            cfg.MaxReportCount,
-			MaxBatchSize:              cfg.MaxBatchSize,
-		}, nil
-	default:
-		return nil, fmt.Errorf("unsupported OffchainConfigType: %s", cfgType)
-	}
 }
 
 type ConsensusCapOffchainConfig struct {
@@ -219,8 +155,6 @@ func (oc *ConsensusCapOffchainConfig) ToProto() (proto.Message, error) {
 	}, nil
 }
 
-func (*ConsensusCapOffchainConfig) isOffchainConfig() {}
-
 type ChainCapOffchainConfig struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
@@ -240,5 +174,3 @@ func (oc *ChainCapOffchainConfig) ToProto() (proto.Message, error) {
 		MaxBatchSize:              oc.MaxBatchSize,
 	}, nil
 }
-
-func (*ChainCapOffchainConfig) isOffchainConfig() {}
