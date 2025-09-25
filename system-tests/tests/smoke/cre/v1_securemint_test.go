@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"path/filepath"
 	"strings"
 	"testing"
 	texttmpl "text/template"
@@ -46,20 +45,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 
-	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-func Test_SecureMint(t *testing.T) {
-	tconf := t_helpers.GetDefaultTestConfig(t)
-	tconf.EnvironmentConfigPath = filepath.Join(tconf.EnvironmentDirPath, "/configs/workflow-solana-don.toml")
-
-	tenv := t_helpers.SetupTestEnvironmentWithConfig(t, tconf)
-
-	executeSecureMintTest(t, tenv)
-}
-
-func executeSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
+func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	creEnvironment := tenv.CreEnvironment
 	wrappedBlockchainOutputs := tenv.WrappedBlockchainOutputs
 	ds := creEnvironment.CldfEnvironment.DataStore

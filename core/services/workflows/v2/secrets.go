@@ -121,18 +121,9 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, errors.New("failed to get vault capability config for donID: " + strconv.FormatUint(uint64(donID), 10) + ". Error: " + err.Error())
 	}
 
-	vaultPublicKeyStr, err := extractVaultPublicKeyFromCapabilityConfig(vaultCapConfig)
+	cfg, err := unmarshalConfig(vaultCapConfig)
 	if err != nil {
 		return nil, errors.New("failed to extract vault public key from capability config: " + err.Error())
-	}
-	vaultPublicKeyBytes, err := hex.DecodeString(vaultPublicKeyStr)
-	if err != nil {
-		return nil, errors.New("failed to decode vault public key from registry: " + err.Error())
-	}
-	vaultPublicKey := tdh2easy.PublicKey{}
-	err = vaultPublicKey.Unmarshal(vaultPublicKeyBytes)
-	if err != nil {
-		return nil, errors.New("failed to construct vault public key from raw bytes: " + err.Error())
 	}
 
 	encryptionKeys, err := s.getEncryptionKeys(ctx)
@@ -203,13 +194,13 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, r.Namespace, &vaultPublicKey, resp)
+		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, r.Namespace, cfg, resp)
 		sdkResp = append(sdkResp, &response)
 	}
 	return sdkResp, nil
 }
 
-func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, namespace string, vaultPublicKey *tdh2easy.PublicKey, response *vault.SecretResponse) sdkpb.SecretResponse {
+func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, namespace string, cfg *vaultConfig, response *vault.SecretResponse) sdkpb.SecretResponse {
 	owner := s.workflowOwner
 	if response.GetId() != nil {
 		if response.GetId().GetKey() != "" {
@@ -245,7 +236,7 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, names
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
-	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, localNodeShares, vaultPublicKey)
+	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, localNodeShares, cfg)
 	if err != nil {
 		errorMessage := "failed to decrypt secret: " + err.Error()
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
@@ -277,11 +268,11 @@ func (s *secretsFetcher) wrapErrorResponse(lggr logger.Logger, id, namespace, ow
 	}
 }
 
-func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares []string, vaultPublicKey *tdh2easy.PublicKey) (string, error) {
+func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares []string, cfg *vaultConfig) (string, error) {
 	lggr.Debug("decrypting secret...")
 
 	cipherText := &tdh2easy.Ciphertext{}
-	errOuter := cipherText.UnmarshalVerify(encryptedSecretBytes, vaultPublicKey)
+	errOuter := cipherText.UnmarshalVerify(encryptedSecretBytes, cfg.VaultPublicKey)
 	if errOuter != nil {
 		return "", errors.New("failed to unmarshal encrypted secret: " + errOuter.Error())
 	}
@@ -290,28 +281,32 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	for i, encryptedDecryptionShare := range encryptedDecryptionShares {
 		encryptedDecryptionShareBytes, err := hex.DecodeString(encryptedDecryptionShare)
 		if err != nil {
-			lggr.Debugw("failed to hex decode the encryptedDecryptionShare", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			lggr.Debugw("failed to hex decode the encryptedDecryptionShare", "index", i)
 			continue
 		}
 		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
 		if err != nil {
-			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i)
 			continue
 		}
 		decryptionShare := &tdh2easy.DecryptionShare{}
 		err = decryptionShare.Unmarshal(decryptionShareBytes)
 		if err != nil {
-			lggr.Debugw("failed to unmarshal decryption share", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			lggr.Debugw("failed to unmarshal decryption share", "index", i)
 			continue
 		}
-		err = tdh2easy.VerifyShare(cipherText, vaultPublicKey, decryptionShare)
+		err = tdh2easy.VerifyShare(cipherText, cfg.VaultPublicKey, decryptionShare)
 		if err != nil {
-			lggr.Debugw("failed to verify decryption share", "index", i, "encryptedDecryptionShare", encryptedDecryptionShare, "err", err)
+			lggr.Debugw("failed to verify decryption share", "index", i)
 			continue
 		}
 		decryptionShares = append(decryptionShares, decryptionShare)
 	}
-	lggr.Debugw("decryption shares collected", "count", len(decryptionShares), "expected", len(encryptedDecryptionShares))
+	lggr.Debugw("decryption shares collected", "count", len(decryptionShares), "expected", len(encryptedDecryptionShares), "threshold", cfg.Threshold)
+
+	if len(decryptionShares) < cfg.Threshold {
+		return "", fmt.Errorf("not enough decryption shares to decrypt the secret: have %d, need at least %d", len(encryptedDecryptionShares), cfg.Threshold)
+	}
 
 	// Note that the last parameter 'n' to tdh2easy.Aggregate() isn't verified by the library at all.
 	// Thus, the len(encryptedDecryptionShares) set below is just an optional hint for memory allocation.
@@ -342,17 +337,44 @@ func (s *secretsFetcher) getEncryptionKeys(ctx context.Context) ([]string, error
 	return encryptionKeys, nil
 }
 
-func extractVaultPublicKeyFromCapabilityConfig(config capabilities.CapabilityConfiguration) (string, error) {
-	capConfigMap := make(map[string]string)
-	err := config.DefaultConfig.UnwrapTo(&capConfigMap)
+type VaultCapabilityRegistryConfig struct {
+	VaultPublicKey string
+	Threshold      int
+}
+
+type vaultConfig struct {
+	VaultPublicKey *tdh2easy.PublicKey
+	Threshold      int
+}
+
+func unmarshalConfig(config capabilities.CapabilityConfiguration) (*vaultConfig, error) {
+	cfg := &VaultCapabilityRegistryConfig{}
+	err := config.DefaultConfig.UnwrapTo(cfg)
 	if err != nil {
-		return "", fmt.Errorf("failed to unwrap capability config: %w", err)
+		return nil, fmt.Errorf("failed to unwrap capability config: %w", err)
 	}
 
-	vaultPublicKey, ok := capConfigMap["VaultPublicKey"]
-	if !ok {
-		return "", errors.New("VaultPublicKey is not provided in the capability config")
+	if cfg.Threshold <= 0 {
+		return nil, errors.New("invalid Threshold in the capability config")
 	}
 
-	return vaultPublicKey, nil
+	if cfg.VaultPublicKey == "" {
+		return nil, errors.New("VaultPublicKey is not provided in the capability config")
+	}
+
+	pkBytes, err := hex.DecodeString(cfg.VaultPublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode vault public key from registry: %w", err)
+	}
+
+	pk := tdh2easy.PublicKey{}
+	err = pk.Unmarshal(pkBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct vault public key from raw bytes: %w", err)
+	}
+
+	return &vaultConfig{
+		Threshold:      cfg.Threshold,
+		VaultPublicKey: &pk,
+	}, nil
 }

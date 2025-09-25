@@ -84,6 +84,9 @@ func NewDon2DonSharedPeer(singletonPeerWrapper *ocrcommon.SingletonPeerWrapper, 
 
 func (sp *don2DonSharedPeer) start(ctx context.Context) error {
 	sp.lggr.Info("Starting Don2DonSharedPeer ...")
+	if sp.singletonPeerWrapper == nil {
+		return errors.New("field SingletonPeerWrapper is not set")
+	}
 	sp.pgFactory = sp.singletonPeerWrapper.PeerGroupFactory
 	if sp.pgFactory == nil {
 		return errors.New("PeerGroupFactory is not set in SingletonPeerWrapper. It's possible that SingletonPeerWrapper was not started before Don2DonSharedPeer or somehow failed to initialize")
@@ -308,7 +311,7 @@ func (sp *don2DonSharedPeer) updateConnections(donPairs []p2ptypes.DonPair, desi
 		for pid := range sp.remotePeers {
 			if _, ok := desiredRemotePeers[pid]; !ok {
 				rp := sp.remotePeers[pid]
-				if rp.peerPairGroup != nil {
+				if rp != nil && rp.peerPairGroup != nil {
 					rp.peerPairGroup.Close() // closes the stream
 				}
 				delete(sp.remotePeers, pid)

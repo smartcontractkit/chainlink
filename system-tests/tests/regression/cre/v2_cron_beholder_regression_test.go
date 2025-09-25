@@ -38,8 +38,8 @@ func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.Test
 	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	testLogger.Warn().Msgf("Expecting Cron workflow to fail with invalid schedule: %s", invalidSchedule)
-	expectedBeholderLog := "expecting the error from a Beholder messages test validator" // no empty string, because it may match a message
-	timeout := 1 * time.Minute
+	expectedBeholderLog := "beholder found engine initialization failure message!"
+	timeout := 2 * time.Minute
 	expectedError := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedBeholderLog, testLogger, messageChan, kafkaErrChan, timeout)
 	require.Error(t, expectedError, "Cron (Beholder) test failed. This test expects to fail with an error, but did not.")
 
