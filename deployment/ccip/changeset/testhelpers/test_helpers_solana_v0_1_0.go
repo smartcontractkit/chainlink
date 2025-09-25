@@ -991,7 +991,7 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		onRamp, err := state.GetOnRampAddressBytes(to)
+		onRamp, err := state.GetOnRampAddressBytes(from)
 		if err != nil {
 			return err
 		}
