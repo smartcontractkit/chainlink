@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strconv"
@@ -14,19 +13,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	libcre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
-
-var defaultPriceProvider *billingPriceProvider
 
 var feedPriceResponses = map[string]map[string]string{
 	"GET /api/v1/reports/bulk": {
@@ -77,11 +76,9 @@ func loadBillingStackCache(relativePathToRepoRoot string) (*config.BillingConfig
 
 func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, environmentDir string, testEnv *ttypes.TestEnvironment) error {
 	if !config.BillingStateFileExists(relativePathToRepoRoot) {
-		defaultPriceProvider = newBillingPriceProvider(t)
+		priceURL := setupFakeBillingPriceProvider(t, testEnv.Config.Fake)
 
 		t.Cleanup(func() {
-			defaultPriceProvider.Close()
-
 			/*
 				cmd := exec.Command("go", "run", ".", "env", "billing", "stop")
 				cmd.Dir = environmentDir
@@ -94,8 +91,6 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 			*/
 		})
 
-		defaultPriceProvider.Start()
-
 		// set env vars for billing config
 		cache, err := loadWorkflowRegistryCache(relativePathToRepoRoot)
 		if err != nil {
@@ -104,10 +99,6 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 
 		if len(testEnv.WrappedBlockchainOutputs) == 0 {
 			return errors.New("no blockchain outputs found in the test environment")
-		}
-
-		replaceHost := func(url string) string {
-			return strings.Replace(url, "127.0.0.1", "host.docker.internal", 1)
 		}
 
 		for _, ref := range testEnv.EnvArtifact.AddressRefs {
@@ -127,7 +118,7 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 
 		os.Setenv("MAINNET_WORKFLOW_REGISTRY_CHAIN_SELECTOR", strconv.FormatUint(cache.ChainSelector, 10))
 		os.Setenv("MAINNET_CAPABILITIES_REGISTRY_CHAIN_SELECTOR", strconv.FormatUint(cache.ChainSelector, 10))
-		os.Setenv("STREAMS_API_URL", replaceHost(defaultPriceProvider.URL()))
+		os.Setenv("STREAMS_API_URL", priceURL)
 		os.Setenv("STREAMS_API_KEY", "cannot be empty")
 		os.Setenv("STREAMS_API_SECRET", "cannot be empty")
 		os.Setenv("TEST_OWNERS", strings.Join(cache.WorkflowOwnersStrings(), ","))
@@ -147,7 +138,7 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 				return errors.Wrap(err, fmt.Sprintf("configured chain selector does not exist in the current topology: %d", cache.ChainSelector))
 			}
 
-			rpcURL := replaceHost(selectedChain.Nodes[0].ExternalHTTPUrl)
+			rpcURL := strings.Replace(selectedChain.Nodes[0].ExternalHTTPUrl, "127.0.0.1", "host.docker.internal", 1)
 
 			os.Setenv("MAINNET_WORKFLOW_REGISTRY_RPC_URL", rpcURL)
 			os.Setenv("MAINNET_CAPABILITIES_REGISTRY_RPC_URL", rpcURL)
@@ -185,8 +176,8 @@ func loadWorkflowRegistryCache(relativePathToRepoRoot string) (*libcre.WorkflowR
 }
 
 type billingAssertionState struct {
-	Credits  float32
-	Reserved float32
+	Credits  float64
+	Reserved float64
 	DB       *sql.DB
 }
 
@@ -202,7 +193,7 @@ func getBillingAssertionState(t *testing.T, relativePathToRepoRoot string) billi
 
 	credits := queryCredits(t, db)
 	require.Len(t, credits, 1, "expected one row in organization_credits table")
-	require.Greater(t, credits[0].Credits, float32(0.0), "expected initial credits to be greater than 0")
+	require.Greater(t, credits[0].Credits, float64(0.0), "expected initial credits to be greater than 0")
 
 	return billingAssertionState{
 		Credits:  credits[0].Credits,
@@ -211,7 +202,7 @@ func getBillingAssertionState(t *testing.T, relativePathToRepoRoot string) billi
 	}
 }
 
-func assertBillingStateChanged(t *testing.T, initial billingAssertionState, timeout time.Duration, expectedMinChange float32) {
+func assertBillingStateChanged(t *testing.T, initial billingAssertionState, timeout time.Duration, expectedMinChange float64) {
 	t.Helper()
 
 	// set up a connection to the billing database and run query until data exists
@@ -225,10 +216,10 @@ func assertBillingStateChanged(t *testing.T, initial billingAssertionState, time
 		credit := finalCredits[0]
 
 		framework.L.Info().
-			Float32("final_credits", credit.Credits).
-			Float32("initial_credits", initial.Credits).
-			Float32("final_reserved", credit.Reserved).
-			Float32("initial_reserved", initial.Reserved).
+			Float64("final_credits", credit.Credits).
+			Float64("initial_credits", initial.Credits).
+			Float64("final_reserved", credit.Reserved).
+			Float64("initial_reserved", initial.Reserved).
 			Msg("checking billing credits")
 
 		// if no credits reserved and no change in credits; nothing was billed
@@ -237,10 +228,10 @@ func assertBillingStateChanged(t *testing.T, initial billingAssertionState, time
 		}
 
 		if expectedMinChange > 0 {
-			creditDiff := float32(math.Floor(float64(initial.Credits - credit.Credits)))
-			reservDiff := float32(math.Floor(float64(initial.Reserved - credit.Reserved)))
+			creditDiff := math.Floor(initial.Credits - credit.Credits)
 
-			if creditDiff < expectedMinChange && reservDiff < expectedMinChange {
+			// credits should have decreased by at least expectedMinChange and there should be no reserved credits
+			if creditDiff < expectedMinChange || credit.Reserved > 0 {
 				return false
 			}
 		}
@@ -250,8 +241,8 @@ func assertBillingStateChanged(t *testing.T, initial billingAssertionState, time
 }
 
 type billingCredit struct {
-	Credits   float32
-	Reserved  float32
+	Credits   float64
+	Reserved  float64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -283,92 +274,50 @@ func queryCredits(t *testing.T, db *sql.DB) []billingCredit {
 	return credits
 }
 
-type billingPriceProvider struct {
-	t *testing.T
-
-	server   *httptest.Server
-	handlers map[string]http.HandlerFunc // handlers with key in form METHOD PATH: ex: "GET /prices"
-}
-
-func newBillingPriceProvider(t *testing.T) *billingPriceProvider {
+func setupFakeBillingPriceProvider(t *testing.T, input *fake.Input) string {
 	t.Helper()
 
-	provider := &billingPriceProvider{
-		t:        t,
-		handlers: map[string]http.HandlerFunc{},
-	}
+	fakeProviderStarted.Do(func() {
+		_, err := fake.NewFakeDataProvider(input)
+		require.NoError(t, err)
+	})
 
-	for path, prices := range feedPriceResponses {
-		provider.handlers[path] = provider.makePriceHandler(prices)
-	}
+	_, err := fake.NewFakeDataProvider(input)
+	require.NoError(t, err)
 
-	provider.server = httptest.NewUnstartedServer(nil)
+	host := framework.HostDockerInternal()
+	url := fmt.Sprintf("%s:%d", host, input.Port)
 
-	return provider
-}
-
-func (b *billingPriceProvider) URL() string {
-	b.t.Helper()
-	return b.server.URL
-}
-
-func (b *billingPriceProvider) Start() {
-	b.t.Helper()
-
-	b.server.Config.Handler = b.createHandler()
-	b.server.Start()
-}
-
-func (b *billingPriceProvider) Close() {
-	b.t.Helper()
-	b.server.Close()
-}
-
-func (b *billingPriceProvider) createHandler() http.Handler {
-	b.t.Helper()
-
-	mux := http.NewServeMux()
-	for key, handler := range b.handlers {
-		mux.HandleFunc(key, handler)
-	}
-
-	return mux
-}
-
-func (b *billingPriceProvider) makePriceHandler(prices map[string]string) http.HandlerFunc {
-	b.t.Helper()
-
-	return func(writer http.ResponseWriter, request *http.Request) {
-		if err := request.ParseForm(); err != nil {
-			writer.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		ids := strings.Split(request.FormValue("feedIDs"), ",")
+	err = fake.Func("GET", "/api/v1/reports/bulk", func(c *gin.Context) {
+		ids := strings.Split(c.Query("feedIDs"), ",")
 		if len(ids) != 1 {
-			writer.WriteHeader(http.StatusBadRequest)
-			_, _ = writer.Write([]byte("feedIDs parameter is required"))
+			c.Data(http.StatusBadRequest, "text/plain", []byte("feedIDs parameter is required"))
 			return
 		}
 
 		if ids[0] == "" {
-			writer.WriteHeader(http.StatusBadRequest)
-			_, _ = writer.Write([]byte("mock price handler only supports one feedID"))
+			c.Data(http.StatusBadRequest, "text/plain", []byte("mock price handler only supports one feedID"))
 			return
 		}
+
+		prices := feedPriceResponses["GET /api/v1/reports/bulk"]
 
 		priceDataStr, exists := prices[ids[0]]
 		if !exists {
-			writer.WriteHeader(http.StatusNotFound)
+			c.Data(http.StatusNotFound, "text/plain", []byte("price not found"))
 			return
 		}
 
-		priceData, err := hex.DecodeString(priceDataStr) // just to verify it's valid hex
-		if err != nil {
-			writer.WriteHeader(http.StatusInternalServerError)
+		priceData, decodeErr := hex.DecodeString(priceDataStr) // just to verify it's valid hex
+		if decodeErr != nil {
+			c.Data(http.StatusInternalServerError, "text/plain", []byte("failed to decode price data"))
 			return
 		}
 
-		_, _ = writer.Write(priceData)
-	}
+		c.Data(http.StatusOK, "application/json", priceData)
+	})
+
+	require.NoError(t, err)
+
+	return url
 }

@@ -563,7 +563,7 @@ func Test_Report_Deduct(t *testing.T) {
 		require.Len(t, limits, 2)
 		assert.Equal(t, testUnitA, string(limits[0].SpendType))
 		assert.Equal(t, testUnitGas, string(limits[1].SpendType))
-		assert.Equal(t, "2000.000", limits[0].Limit)            // conversion rate of 2 at 40% ratio
+		assert.Equal(t, "2000.0000000000", limits[0].Limit)     // conversion rate of 2 at 40% ratio
 		assert.Equal(t, "1380843684444444000", limits[1].Limit) // gas should be a fixed precision integer
 		assert.False(t, report.meteringMode, "should not switch to metering mode")
 
@@ -609,8 +609,8 @@ func Test_Report_Deduct(t *testing.T) {
 		require.Len(t, limits, 2)
 		assert.Equal(t, testUnitA, string(limits[0].SpendType))
 		assert.Equal(t, testUnitC, string(limits[1].SpendType))
-		assert.Equal(t, "2000.000", limits[0].Limit) // conversion rate of 2 at 40% ratio
-		assert.Equal(t, "2000.000", limits[1].Limit) // conversion rate of 3 at 60% ratio
+		assert.Equal(t, "2000.0000000000", limits[0].Limit) // conversion rate of 2 at 40% ratio
+		assert.Equal(t, "2000.0000000000", limits[1].Limit) // conversion rate of 3 at 60% ratio
 		assert.False(t, report.meteringMode)
 
 		billingClient.AssertExpectations(t)
@@ -976,12 +976,12 @@ func Test_Report_FormatReport(t *testing.T) {
 						Peer_2PeerId:  "xyz",
 						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
 						SpendValue:    "42",
-						SpendValueCre: "84.000",
+						SpendValueCre: "84.0000000000",
 					},
 				},
-				AggSpendValue:    "42.000",
+				AggSpendValue:    "42.0000000000",
 				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
-				AggSpendValueCre: "84.000",
+				AggSpendValueCre: "84.0000000000",
 			}
 		}
 
@@ -1021,24 +1021,24 @@ func Test_Report_FormatReport(t *testing.T) {
 						Peer_2PeerId:  "xyz",
 						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
 						SpendValue:    "42",
-						SpendValueCre: "84.000",
+						SpendValueCre: "84.0000000000",
 					},
 					{
 						Peer_2PeerId:  "abc",
 						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
 						SpendValue:    "44",
-						SpendValueCre: "88.000",
+						SpendValueCre: "88.0000000000",
 					},
 					{
 						Peer_2PeerId:  "lmno",
 						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
 						SpendValue:    "12",
-						SpendValueCre: "24.000",
+						SpendValueCre: "24.0000000000",
 					},
 				},
-				AggSpendValue:    "42.000", // median of 42, 44, 12
+				AggSpendValue:    "42.0000000000", // median of 42, 44, 12
 				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
-				AggSpendValueCre: "84.000",
+				AggSpendValueCre: "84.0000000000",
 			}
 		}
 
@@ -1262,15 +1262,15 @@ func Test_Report_EmitReceipt(t *testing.T) {
 			}))
 
 			expected[stepRef] = &eventspb.MeteringReportStep{
-				AggSpendValue:    "42.000",
+				AggSpendValue:    "42.0000000000",
 				AggSpendUnit:     "a",
-				AggSpendValueCre: "0.000",
+				AggSpendValueCre: "0.0000000000",
 				Nodes: []*eventspb.MeteringReportNodeDetail{
 					{
 						Peer_2PeerId:  "xyz",
 						SpendUnit:     "a",
 						SpendValue:    "42",
-						SpendValueCre: "0.000",
+						SpendValueCre: "0.0000000000",
 					},
 				}}
 		}
