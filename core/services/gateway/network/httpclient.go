@@ -43,20 +43,20 @@ var (
 	defaultAllowedSchemes = []string{"http", "https"}
 	defaultAllowedMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
 	defaultBlockedHeaders = []string{
-		"host",              // host header is derived from the URL
-		"content-length",    // computed from the request body
-		"transfer-encoding", // set by the http client if needed
-		"user-agent",        // set by the http client
-		"upgrade",           // prevent protocol upgrade attacks
-		"expect",            // prevent 100-continue attacks
-		"connection",        // prevent connection manipulation
-		"keep-alive",        // prevent connection manipulation
-		"te",                // prevent transfer encoding attacks
-		"trailer",           // prevent trailer header attacks
-		"x-forwarded-for",   // prevent IP spoofing
-		"x-forwarded-host",  // Prevent host spoofing
-		"x-forwarded-proto", // Prevent protocol spoofing
-		"x-real-ip",         // prevent IP spoofing
+		"host",              // target host is set in the http client
+		"content-length",    // length is computed from actual body to ensure integrity
+		"transfer-encoding", // http client manages encoding based on actual content
+		"user-agent",        // gateway controls its own identification to backend services
+		"upgrade",           // prevents protocol upgrade attacks
+		"expect",            // prevents 100-continue exploitation
+		"connection",        // external developers cannot control connection behavior or persistence
+		"keep-alive",        // gateway manages its own connection pooling and timeouts
+		"te",                // blocks attempts to manipulate how request bodies are processed
+		"trailer",           // blocks delayed header injection after request body
+		"x-forwarded-for",   // prevents IP spoofing
+		"x-forwarded-host",  // prevents host header spoofing
+		"x-forwarded-proto", // prevents protocol spoofing
+		"x-real-ip",         // prevents IP address spoofing
 	}
 	defaultMaxResponseBytes   = uint32(26.4 * utils.KB)
 	defaultMaxRequestDuration = 60 * time.Second
