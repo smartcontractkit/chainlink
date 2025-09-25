@@ -39,8 +39,7 @@ var oracleConfig = changeset.OracleConfig{
 	MaxDurationShouldAcceptMillis:     1000,
 	MaxDurationShouldTransmitMillis:   1000,
 	MaxFaultyOracles:                  1,
-	OffchainConfigType:                ocr3.OffchainConfigTypeConsensusCap,
-	OffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+	ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
 		MaxQueryLengthBytes:       1000000,
 		MaxObservationLengthBytes: 1000000,
 		MaxReportLengthBytes:      1000000,
