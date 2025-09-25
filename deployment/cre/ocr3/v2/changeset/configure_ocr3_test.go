@@ -33,7 +33,9 @@ func TestConfigureOCR3(t *testing.T) {
 				OracleConfig: &ocr3.OracleConfig{
 					MaxFaultyOracles:     1,
 					TransmissionSchedule: []int{len(env.Env.NodeIDs)}, // Single entry with number of nodes
-					OffchainConfigType:   ocr3.OffchainConfigTypeConsensusCap,
+					ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+						MaxQueryLengthBytes: 1000000,
+					},
 				},
 			},
 		},
@@ -49,8 +51,7 @@ func TestConfigureOCR3(t *testing.T) {
 				OracleConfig: &ocr3.OracleConfig{
 					MaxFaultyOracles:     1,
 					TransmissionSchedule: []int{len(env.Env.NodeIDs)}, // Single entry with number of nodes
-					OffchainConfigType:   ocr3.OffchainConfigTypeChainCap,
-					OffchainConfig: &ocr3.ChainCapOffchainConfig{
+					ChainCapOffchainConfig: &ocr3.ChainCapOffchainConfig{
 						MaxQueryLengthBytes:       1,
 						MaxObservationLengthBytes: 2,
 						MaxReportLengthBytes:      3,
