@@ -439,6 +439,61 @@ func TestNewEVMCallOperation(t *testing.T) {
 }
 
 func TestContractOpts_Validate(t *testing.T) {
+	tests := []struct {
+		desc       string
+		opts       *opsutils.ContractOpts
+		isZkSyncVM bool
+		err        string
+	}{
+		{
+			desc: "valid evm opts",
+			opts: &opsutils.ContractOpts{
+				Version:     semver.MustParse("1.0.0"),
+				EVMBytecode: []byte{0x01, 0x02, 0x03},
+			},
+			isZkSyncVM: false,
+		},
+		{
+			desc: "valid zksyncvm opts",
+			opts: &opsutils.ContractOpts{
+				Version:          semver.MustParse("1.0.0"),
+				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+			},
+			isZkSyncVM: true,
+		},
+		{
+			desc: "nil version",
+			opts: &opsutils.ContractOpts{},
+			err:  "version must be defined",
+		},
+		{
+			desc: "missing evm bytecode",
+			opts: &opsutils.ContractOpts{
+				Version: semver.MustParse("1.0.0"),
+			},
+			isZkSyncVM: false,
+			err:        "evm bytecode must be defined",
+		},
+		{
+			desc: "missing zkSyncVM bytecode",
+			opts: &opsutils.ContractOpts{
+				Version: semver.MustParse("1.0.0"),
+			},
+			isZkSyncVM: true,
+			err:        "zkSyncVM bytecode must be defined",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			err := test.opts.Validate(test.isZkSyncVM)
+			if test.err == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.err)
+			}
+		})
+	}
 }
 
 func TestNewEVMDeployOperation(t *testing.T) {
