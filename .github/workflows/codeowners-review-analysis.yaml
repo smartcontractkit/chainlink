@@ -38,7 +38,7 @@ jobs:
 
       - name: CODEOWNERS Review Analysis
         if: ${{ contains(github.event.pull_request.labels.*.name, 'cora') }}
-        uses: smartcontractkit/.github/actions/codeowners-review-analysis@codeowners-review-analysis/0.2.0
+        uses: smartcontractkit/.github/actions/codeowners-review-analysis@codeowners-review-analysis/v1
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
