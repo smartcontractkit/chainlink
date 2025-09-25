@@ -17,8 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -229,7 +227,7 @@ func DeployKeystoneContracts(
 	// TODO move this deeper into the stack when we have all the p2p ids and can deploy and configure in one sequence
 	// deploy OCR3 contract
 	// we deploy OCR3 contract with a qualifier, so that we can distinguish it from other OCR3 contracts (Vault, EVM, ConsensusV2)
-	_, seqErr = deployOCR3Contract(OCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore, ocr3.OffchainConfigTypeConsensusCap)
+	_, seqErr = deployOCR3Contract(OCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 	if seqErr != nil {
 		return nil, fmt.Errorf("failed to deploy OCR3 contract %w", seqErr)
 	}
@@ -237,7 +235,7 @@ func DeployKeystoneContracts(
 	testLogger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, ocr3Addr)
 
 	// deploy DONTime contract
-	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore, ocr3.OffchainConfigTypeConsensusCap) // Switch to dedicated config type once available
+	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore) // Switch to dedicated config type once available
 	if seqErr != nil {
 		return nil, fmt.Errorf("failed to deploy DONTime contract %w", seqErr)
 	}
@@ -261,7 +259,7 @@ func DeployKeystoneContracts(
 	if evmOCR3AddrFlag {
 		for chainID, selector := range chainsWithEVMCapability {
 			qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
-			_, seqErr = deployOCR3Contract(qualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore, ocr3.OffchainConfigTypeChainCap)
+			_, seqErr = deployOCR3Contract(qualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 			if seqErr != nil {
 				return nil, fmt.Errorf("failed to deploy EVM OCR3 contract for chainID %d, selector %d: %w", chainID, selector, seqErr)
 			}
@@ -273,7 +271,7 @@ func DeployKeystoneContracts(
 
 	// deploy Consensus V2 OCR3 contract
 	if consensusV2AddrFlag {
-		_, seqErr = deployOCR3Contract(ConsensusV2ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore, ocr3.OffchainConfigTypeConsensusCap)
+		_, seqErr = deployOCR3Contract(ConsensusV2ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 		if seqErr != nil {
 			return nil, fmt.Errorf("failed to deploy Consensus V2 OCR3 contract %w", seqErr)
 		}
@@ -288,7 +286,7 @@ func DeployKeystoneContracts(
 	}, nil
 }
 
-func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore, ocrCfgType ocr3.OffchainConfigType) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, error) {
+func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, error) {
 	ocr3DeployReport, err := operations.ExecuteSequence(
 		env.OperationsBundle,
 		ks_contracts_op.DeployOCR3ContractsSequence,
@@ -296,9 +294,8 @@ func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment
 			Env: env,
 		},
 		ks_contracts_op.DeployOCR3ContractSequenceInput{
-			ChainSelector:      selector,
-			Qualifier:          qualifier,
-			OffchainConfigType: ocrCfgType,
+			ChainSelector: selector,
+			Qualifier:     qualifier,
 		},
 	)
 	if err != nil {
