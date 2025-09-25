@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -33,16 +34,37 @@ type HTTPClientConfig struct {
 	AllowedSchemes     []string
 	AllowedIPs         []string
 	AllowedIPsCIDR     []string
+	AllowedMethods     []string
+	BlockedHeaders     []string
 }
 
 var (
-	defaultAllowedPorts       = []int{80, 443}
-	defaultAllowedSchemes     = []string{"http", "https"}
+	defaultAllowedPorts   = []int{80, 443}
+	defaultAllowedSchemes = []string{"http", "https"}
+	defaultAllowedMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE"}
+	defaultBlockedHeaders = []string{
+		"host",              // host header is derived from the URL
+		"content-length",    // computed from the request body
+		"transfer-encoding", // set by the http client if needed
+		"user-agent",        // set by the http client
+		"upgrade",           // prevent protocol upgrade attacks
+		"expect",            // prevent 100-continue attacks
+		"connection",        // prevent connection manipulation
+		"keep-alive",        // prevent connection manipulation
+		"te",                // prevent transfer encoding attacks
+		"trailer",           // prevent trailer header attacks
+		"x-forwarded-for",   // prevent IP spoofing
+		"x-forwarded-host",  // Prevent host spoofing
+		"x-forwarded-proto", // Prevent protocol spoofing
+		"x-real-ip",         // prevent IP spoofing
+	}
 	defaultMaxResponseBytes   = uint32(26.4 * utils.KB)
 	defaultMaxRequestDuration = 60 * time.Second
 	defaultTimeout            = 5 * time.Second
 	ErrHTTPSend               = errors.New("failed to send HTTP request")
 	ErrHTTPRead               = errors.New("failed to read HTTP response body")
+	ErrInvalidMethod          = errors.New("HTTP method not allowed")
+	ErrBlockedHeader          = errors.New("HTTP header not allowed")
 )
 
 func (c *HTTPClientConfig) ApplyDefaults() {
@@ -52,6 +74,14 @@ func (c *HTTPClientConfig) ApplyDefaults() {
 
 	if len(c.AllowedSchemes) == 0 {
 		c.AllowedSchemes = defaultAllowedSchemes
+	}
+
+	if len(c.AllowedMethods) == 0 {
+		c.AllowedMethods = defaultAllowedMethods
+	}
+
+	if len(c.BlockedHeaders) == 0 {
+		c.BlockedHeaders = defaultBlockedHeaders
 	}
 
 	if c.MaxResponseBytes == 0 {
@@ -118,10 +148,39 @@ func disableRedirects(req *http.Request, via []*http.Request) error {
 	return errors.New("redirects are not allowed")
 }
 
+func (c *httpClient) validateMethod(method string) error {
+	methodUpper := strings.ToUpper(method)
+	for _, allowedMethod := range c.config.AllowedMethods {
+		if strings.ToUpper(allowedMethod) == methodUpper {
+			return nil
+		}
+	}
+	return fmt.Errorf("HTTP method not allowed: %s", method)
+}
+
+func (c *httpClient) validateHeaders(headers map[string]string) error {
+	for headerName := range headers {
+		headerNameLower := strings.ToLower(headerName)
+		for _, blockedHeader := range c.config.BlockedHeaders {
+			if strings.ToLower(blockedHeader) == headerNameLower {
+				return fmt.Errorf("HTTP header not allowed: %s", headerName)
+			}
+		}
+	}
+	return nil
+}
+
 // Send executes an http request that is always time limited by at least the
 // default timeout.  Override the default timeout with a non-zero duration by
 // passing a Timeout value on the request.
 func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
+	if err := c.validateMethod(req.Method); err != nil {
+		return nil, err
+	}
+	if err := c.validateHeaders(req.Headers); err != nil {
+		return nil, err
+	}
+
 	to := req.Timeout
 	if to == 0 {
 		to = c.config.DefaultTimeout

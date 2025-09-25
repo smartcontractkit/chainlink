@@ -599,5 +599,148 @@ func Test_ConfigApplyDefaults(t *testing.T) {
 		require.Equal(t, defaultTimeout, config.DefaultTimeout)
 		require.Equal(t, defaultAllowedPorts, config.AllowedPorts)
 		require.Equal(t, defaultAllowedSchemes, config.AllowedSchemes)
+		require.Equal(t, defaultAllowedMethods, config.AllowedMethods)
+		require.Equal(t, defaultBlockedHeaders, config.BlockedHeaders)
 	})
+}
+
+func TestHTTPClient_ValidateMethod(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+
+	tests := []struct {
+		name           string
+		allowedMethods []string
+		requestMethod  string
+		expectedError  string
+	}{
+		{
+			name:           "allowed method - GET",
+			allowedMethods: []string{"GET", "POST"},
+			requestMethod:  "GET",
+			expectedError:  "",
+		},
+		{
+			name:           "allowed method case insensitive",
+			allowedMethods: []string{"GET", "POST"},
+			requestMethod:  "get",
+			expectedError:  "",
+		},
+		{
+			name:           "blocked method - TRACE",
+			allowedMethods: []string{"GET", "POST"},
+			requestMethod:  "TRACE",
+			expectedError:  "HTTP method not allowed",
+		},
+		{
+			name:           "default methods allow common but not TRACE",
+			allowedMethods: []string{}, // Will use defaults
+			requestMethod:  "TRACE",
+			expectedError:  "HTTP method not allowed", // TRACE not in defaults
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := HTTPClientConfig{
+				AllowedMethods: tt.allowedMethods,
+				AllowedIPs:     []string{"127.0.0.1"},
+				AllowedPorts:   []int{80, 443},
+			}
+
+			client, err := NewHTTPClient(config, lggr)
+			require.NoError(t, err)
+
+			httpClient := client.(*httpClient)
+			err = httpClient.validateMethod(tt.requestMethod)
+
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestHTTPClient_ValidateHeaders(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+
+	tests := []struct {
+		name           string
+		blockedHeaders []string
+		requestHeaders map[string]string
+		expectedError  string
+	}{
+		{
+			name:           "safe headers allowed",
+			blockedHeaders: []string{"keep-alive"},
+			requestHeaders: map[string]string{
+				"Content-Type": "application/json",
+				"User-Agent":   "test-client",
+			},
+			expectedError: "",
+		},
+		{
+			name:           "blocked header - host",
+			blockedHeaders: []string{"host", "keep-alive"},
+			requestHeaders: map[string]string{
+				"Host":         "evil.com",
+				"Content-Type": "application/json",
+			},
+			expectedError: "HTTP header not allowed",
+		},
+		{
+			name:           "blocked header case insensitive",
+			blockedHeaders: []string{"HOST", "KEEP_ALIVE"},
+			requestHeaders: map[string]string{
+				"host":         "evil.com",
+				"Content-Type": "application/json",
+			},
+			expectedError: "HTTP header not allowed",
+		},
+		{
+			name:           "blocked header - content-length",
+			blockedHeaders: []string{"content-length"},
+			requestHeaders: map[string]string{
+				"Content-Length": "1000000",
+				"Content-Type":   "application/json",
+			},
+			expectedError: "HTTP header not allowed",
+		},
+		{
+			name:           "defaults block host header",
+			blockedHeaders: []string{},
+			requestHeaders: map[string]string{
+				"Host":         "evil.com",
+				"Content-Type": "application/json",
+			},
+			expectedError: "HTTP header not allowed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := HTTPClientConfig{
+				BlockedHeaders: tt.blockedHeaders,
+				AllowedIPs:     []string{"127.0.0.1"},
+				AllowedPorts:   []int{80, 443},
+			}
+
+			client, err := NewHTTPClient(config, lggr)
+			require.NoError(t, err)
+
+			httpClient := client.(*httpClient)
+			err = httpClient.validateHeaders(tt.requestHeaders)
+
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
