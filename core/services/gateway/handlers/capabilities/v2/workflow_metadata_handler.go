@@ -226,8 +226,8 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 		h.runTicker(h.jwtCache.cleanupPeriod, func() {
 			now := time.Now()
 			expiredCount := h.jwtCache.cleanupOldEntries(now.Add(-h.jwtCache.cleanupPeriod))
-			h.metrics.Trigger.IncrementRequestCacheCleanUpCount(context.Background(), int64(expiredCount), h.lggr)
-			h.metrics.Trigger.RecordRequestCacheSize(context.Background(), int64(len(h.jwtCache.cache)), h.lggr)
+			h.metrics.Trigger.IncrementJwtCacheCleanUpCount(context.Background(), int64(expiredCount), h.lggr)
+			h.metrics.Trigger.RecordJwtCacheSize(context.Background(), int64(len(h.jwtCache.cache)), h.lggr)
 			h.lggr.Debugw("Workflow execution cache cleanup completed", "expired_entries", expiredCount, "remaining_entries", len(h.jwtCache.cache))
 		})
 		return nil
