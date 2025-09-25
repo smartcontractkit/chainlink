@@ -78,11 +78,7 @@ func (oc *OracleConfig) UnmarshalYAML(value *yaml.Node) error {
 	}
 
 	type aliasT OracleConfig
-	if err := value.Decode((*aliasT)(oc)); err != nil {
-		return err
-	}
-
-	return nil
+	return value.Decode((*aliasT)(oc))
 }
 
 type offchainConfig interface {
