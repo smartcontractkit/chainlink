@@ -168,7 +168,7 @@ jobs:
     env:
       ENABLE_AUTO_QUARANTINE: 'true'
       # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
-      # Beholder stack will be started only for the Beholder test
+      # Beholder stack will be started only for the Beholder tests
       CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
       BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.36.2-amd64
 
@@ -262,7 +262,7 @@ jobs:
             -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
             github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
 
-      - name: Run branch-out-upload
+      - name: Process and upload flaky Smoke test results
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
@@ -284,10 +284,23 @@ jobs:
         run: |
           gotestsum \
             --jsonfile=/tmp/gotest-regression.log \
+            --junitfile=/tmp/junit-report-regression.xml \
             --format=github-actions \
             -- \
             -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=1 \
             github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
+
+      - name: Process and upload flaky Regression tests results
+        if: ${{ !cancelled() && inputs.with_regression }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
+        with:
+          junit-file-path: '/tmp/junit-report-regression.xml'
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, job.check_run_id) }}
+          # when auto-quarantine is enabled, allow this to determine test failures
+          trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
 
       - name: Show Docker containers status
         if: failure()
