@@ -331,9 +331,11 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 	evmChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyEVM))
 	solChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySolana))
 	suiChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilySui))
+	aptosChains := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(selectors.FamilyAptos))
 	//nolint: gocritic // append is fine here
 	allChains := append(evmChains, solChains...)
 	allChains = append(allChains, suiChains...)
+	allChains = append(allChains, aptosChains...)
 
 	// Discover EVM to EVM lanes
 	for _, srcChain := range evmChains {
@@ -389,17 +391,6 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		if err != nil {
 			return fmt.Errorf("failed to get enabled EVM destinations for Aptos chain %d: %w", srcChain, err)
 		}
-
-		for _, dstChain := range destinations {
-			discoveredLanes = append(discoveredLanes, LaneConfig{
-				SourceChain:      srcChain,
-				DestinationChain: dstChain,
-			})
-		}
-	}
-
-	
-	
 
 		for _, dstChain := range destinations {
 			discoveredLanes = append(discoveredLanes, LaneConfig{
