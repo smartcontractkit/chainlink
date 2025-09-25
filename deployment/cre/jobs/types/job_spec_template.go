@@ -19,6 +19,7 @@ const (
 	HTTPAction
 	EVM
 	Gateway
+	BootstrapVault
 )
 
 func (jt JobSpecTemplate) String() string {
@@ -37,6 +38,8 @@ func (jt JobSpecTemplate) String() string {
 		return "evm"
 	case Gateway:
 		return "gateway"
+	case BootstrapVault:
+		return "bootstrap-vault"
 	default:
 		return "unknown"
 	}
@@ -59,6 +62,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return EVM, nil
 	case "gateway":
 		return Gateway, nil
+	case "bootstrap-vault":
+		return BootstrapVault, nil
 	case "", "unknown":
 		return 0, errors.New("job spec template cannot be empty")
 	default:
