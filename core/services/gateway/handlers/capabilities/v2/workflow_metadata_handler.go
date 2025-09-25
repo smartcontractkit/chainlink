@@ -78,8 +78,8 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 	}
 
 	if h.jwtCache.isReplay(claims.ID) {
-		h.lggr.Warnw("JWT replay attack detected", "workflowID", workflowID, "signer", signer.Hex(), "jti", claims.ID)
-		return nil, errors.New("JWT token has already been used - replay attack detected")
+		h.lggr.Warnw("JWT token has already been used", "workflowID", workflowID, "signer", signer.Hex(), "jti", claims.ID)
+		return nil, errors.New("JWT token has already been used. Please generate a new one with new id (jti)")
 	}
 
 	keys, exists := h.authorizedKeys[workflowID]
@@ -225,9 +225,10 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 
 		h.runTicker(h.jwtCache.cleanupPeriod, func() {
 			now := time.Now()
-			// TODO: ADD METRICS AFTER REBASING
 			expiredCount := h.jwtCache.cleanupOldEntries(now.Add(-h.jwtCache.cleanupPeriod))
-			h.lggr.Debugw("JWT cache cleanup completed", "expired_entries", expiredCount, "remaining_entries", len(h.jwtCache.cache))
+			h.metrics.Trigger.IncrementRequestCacheCleanUpCount(context.Background(), int64(expiredCount), h.lggr)
+			h.metrics.Trigger.RecordRequestCacheSize(context.Background(), int64(len(h.jwtCache.cache)), h.lggr)
+			h.lggr.Debugw("Workflow execution cache cleanup completed", "expired_entries", expiredCount, "remaining_entries", len(h.jwtCache.cache))
 		})
 		return nil
 	})

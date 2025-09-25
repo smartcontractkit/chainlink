@@ -42,7 +42,7 @@ type httpTriggerHandler struct {
 	donConfig               *config.DONConfig
 	lggr                    logger.Logger
 	callbacksMu             sync.Mutex
-	callbacks               map[string]savedCallback // requestID -> savedCallback
+	callbacks               map[string]savedCallback // executionID -> savedCallback
 	stopCh                  services.StopChan
 	workflowMetadataHandler *WorkflowMetadataHandler
 	userRateLimiter         *ratelimit.RateLimiter
@@ -80,6 +80,16 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
+	executionID, err := workflows.EncodeExecutionID(workflowID, req.ID)
+	if err != nil {
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
+		return errors.New("error generating execution ID: " + err.Error())
+	}
+
+	if err := h.setupCallback(ctx, executionID, req.ID, callback, requestStartTime); err != nil {
+		return err
+	}
+
 	key, err := h.authorizeRequest(ctx, workflowID, req, callback)
 	if err != nil {
 		return err
@@ -89,20 +99,10 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
-	executionID, err := workflows.EncodeExecutionID(workflowID, req.ID)
-	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
-		return errors.New("error generating execution ID: " + err.Error())
-	}
-
 	reqWithKey, err := reqWithAuthorizedKey(triggerReq, *key)
 	if err != nil {
 		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callback)
 		return errors.Join(errors.New("auth failure"), err)
-	}
-
-	if err := h.setupCallback(ctx, req.ID, callback, requestStartTime); err != nil {
-		return err
 	}
 
 	return h.sendWithRetries(ctx, executionID, reqWithKey)
@@ -253,13 +253,14 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	return nil
 }
 
-func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callback handlers.Callback, requestStartTime time.Time) error {
+func (h *httpTriggerHandler) setupCallback(ctx context.Context, executionID, requestID string, callback handlers.Callback, requestStartTime time.Time) error {
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
 
-	if _, found := h.callbacks[requestID]; found {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrConflict, "in-flight request", callback)
-		return errors.New("in-flight request ID: " + requestID)
+	// If executionID is already in the progress, do not process it.
+	if _, found := h.callbacks[executionID]; found {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrConflict, "execution already in progress. Ensure the requestID is unique for each request.", callback)
+		return errors.New("execution already in progress. Ensure the requestID is unique for each request.")
 	}
 
 	// 2f + 1 is chosen to ensure that majority of honest nodes are executing the request
@@ -268,7 +269,7 @@ func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string
 		return errors.New("failed to create response aggregator: " + err.Error())
 	}
 
-	h.callbacks[requestID] = savedCallback{
+	h.callbacks[executionID] = savedCallback{
 		Callback:           callback,
 		requestStartTime:   requestStartTime,
 		createdAt:          time.Now(),
@@ -278,19 +279,21 @@ func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string
 }
 
 func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
-	h.lggr.Debugw("handling trigger response", "requestID", resp.ID, "nodeAddr", nodeAddr, "error", resp.Error, "result", resp.Result)
+	executionID := resp.ID
+	h.lggr.Debugw("handling trigger response", "executionID", executionID, "nodeAddr", nodeAddr, "error", resp.Error, "result", resp.Result)
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
-	saved, exists := h.callbacks[resp.ID]
+
+	saved, exists := h.callbacks[executionID]
 	if !exists {
-		return errors.New("callback not found for request ID: " + resp.ID)
+		return errors.New("callback not found for execution ID: " + executionID)
 	}
 	aggResp, err := saved.responseAggregator.CollectAndAggregate(resp, nodeAddr)
 	if err != nil {
 		return err
 	}
 	if aggResp == nil {
-		h.lggr.Debugw("Not enough responses to aggregate", "requestID", resp.ID, "nodeAddress", nodeAddr)
+		h.lggr.Debugw("Not enough responses to aggregate", "executionID", executionID, "nodeAddress", nodeAddr)
 		return nil
 	}
 	rawResp, err := json.Marshal(aggResp)
@@ -305,7 +308,7 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	if err != nil {
 		return err
 	}
-	delete(h.callbacks, resp.ID)
+	delete(h.callbacks, executionID)
 	latencyMs := time.Since(saved.requestStartTime).Milliseconds()
 	h.metrics.Trigger.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
 	return nil
@@ -344,10 +347,10 @@ func (h *httpTriggerHandler) reapExpiredCallbacks(ctx context.Context) {
 	defer h.callbacksMu.Unlock()
 	now := time.Now()
 	var expiredCount int
-	for reqID, callback := range h.callbacks {
+	for executionID, callback := range h.callbacks {
 		if now.Sub(callback.createdAt) > time.Duration(h.config.MaxTriggerRequestDurationMs)*time.Millisecond {
 			h.metrics.Trigger.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
-			delete(h.callbacks, reqID)
+			delete(h.callbacks, executionID)
 			expiredCount++
 		}
 	}

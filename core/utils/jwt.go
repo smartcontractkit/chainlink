@@ -30,6 +30,13 @@ type jwtOptions struct {
 	subject        *string  // New field for optional subject
 }
 
+// VerifyOption is a function type that allows configuring VerifyRequestJWT.
+type VerifyOption func(*verifyOptions)
+
+type verifyOptions struct {
+	maxExpiryDuration *time.Duration
+}
+
 func WithExpiry(d time.Duration) Option {
 	return func(opts *jwtOptions) {
 		opts.expiryDuration = &d
@@ -51,6 +58,12 @@ func WithAudience(audience []string) Option {
 func WithSubject(subject string) Option {
 	return func(opts *jwtOptions) {
 		opts.subject = &subject
+	}
+}
+
+func WithMaxExpiryDuration(d time.Duration) VerifyOption {
+	return func(opts *verifyOptions) {
+		opts.maxExpiryDuration = &d
 	}
 }
 
@@ -153,9 +166,6 @@ func CreateRequestJWT[T any](req jsonrpc.Request[T], opts ...Option) (*jwt.Token
 	if options.expiryDuration != nil {
 		expiryDuration = *options.expiryDuration
 	}
-	if expiryDuration > maxJWTExpiryDuration {
-		return nil, fmt.Errorf("expiry duration exceeds maximum allowed %.0f minutes", maxJWTExpiryDuration.Minutes())
-	}
 
 	digest, err := req.Digest()
 	if err != nil {
@@ -208,7 +218,16 @@ func splitToken(tokenString string) (string, string, error) {
 // VerifyRequestJWT verifies a signed JWT for a JSON-RPC request
 // It recovers and returns the public key used to sign the JWT, checks the issuer, validates the digest,
 // and performs all validations done by jwt.ParseWithClaims() including expiration checks.
-func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T]) (*JWTClaims, gethcommon.Address, error) {
+func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T], opts ...VerifyOption) (*JWTClaims, gethcommon.Address, error) {
+	options := &verifyOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	maxExpiryDuration := maxJWTExpiryDuration
+	if options.maxExpiryDuration != nil {
+		maxExpiryDuration = *options.maxExpiryDuration
+	}
 	signedString, signature, err := splitToken(tokenString)
 	if err != nil {
 		return nil, gethcommon.Address{}, err
@@ -257,8 +276,8 @@ func VerifyRequestJWT[T any](tokenString string, req jsonrpc.Request[T]) (*JWTCl
 		return nil, gethcommon.Address{}, errors.New("issuedAt (iat) is required but missing")
 	}
 	duration := verifiedClaims.ExpiresAt.Sub(verifiedClaims.IssuedAt.Time)
-	if duration > maxJWTExpiryDuration {
-		return nil, gethcommon.Address{}, fmt.Errorf("expiry duration exceeds maximum allowed %.0f minutes", maxJWTExpiryDuration.Minutes())
+	if duration > maxExpiryDuration {
+		return nil, gethcommon.Address{}, fmt.Errorf("expiry duration exceeds maximum allowed %.0f minutes", maxExpiryDuration.Minutes())
 	}
 
 	return verifiedClaims, pubKey, nil

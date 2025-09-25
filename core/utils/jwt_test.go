@@ -379,6 +379,32 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 			require.Contains(t, err.Error(), "issuedAt (iat) is required but missing")
 		})
 	})
+
+	t.Run("should respect custom max expiry duration option", func(t *testing.T) {
+		digest, err := req.Digest()
+		require.NoError(t, err)
+
+		now := time.Now()
+		claims := JWTClaims{
+			Digest: "0x" + digest,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ID:        "test-jti",
+				ExpiresAt: jwt.NewNumericDate(now.Add(8 * time.Minute)),
+				IssuedAt:  jwt.NewNumericDate(now),
+			},
+		}
+
+		token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		_, _, err = VerifyRequestJWT(tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expiry duration exceeds maximum allowed 5 minutes")
+
+		_, _, err = VerifyRequestJWT(tokenString, req, WithMaxExpiryDuration(10*time.Minute))
+		require.NoError(t, err)
+	})
 }
 
 func TestSigningMethodRegistration(t *testing.T) {
