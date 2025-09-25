@@ -3,6 +3,8 @@ package cre
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
@@ -32,7 +34,7 @@ func Test_CRE_Suite_V1(t *testing.T) {
 		// requires `readcontract`, `cron`
 		t.Run("[v1] Proof of Reserve (PoR) Test", func(t *testing.T) {
 			priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
-			ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
+			ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 		})
 	})
 }
@@ -42,7 +44,7 @@ func Test_CRE_Suite_V1_Tron(t *testing.T) {
 
 	t.Run("[v1] Tron Write Test with PoR", func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
-		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
 }
 
@@ -51,6 +53,29 @@ func Test_CRE_Suite_V1_SecureMint(t *testing.T) {
 
 	t.Run("[v1] SecureMint Test with PoR", func(t *testing.T) {
 		ExecuteSecureMintTest(t, testEnv)
+	})
+}
+
+func Test_CRE_Suite_Billing(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+
+	// TODO remove this when OCR works properly with multiple chains in Local CRE
+	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+
+	require.NoError(
+		t,
+		startBillingStackIfIsNotRunning(t, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath, testEnv),
+		"failed to start Billing stack",
+	)
+
+	t.Run("[v2] EVM Write Test", func(t *testing.T) {
+		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
+		porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
+	})
+
+	t.Run("[v2] Cron Beholder", func(t *testing.T) {
+		ExecuteBillingTest(t, testEnv)
 	})
 }
 
@@ -67,7 +92,7 @@ func Test_CRE_Suite_V2(t *testing.T) {
 
 	t.Run("[v2] CRE Proof of Reserve (PoR) Test", func(t *testing.T) {
 		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow", PoRWFV1Location)
-		ExecutePoRTest(t, testEnv, priceProvider, wfConfig)
+		ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
 	})
 
 	t.Run("[v2] Vault DON test", func(t *testing.T) {
@@ -86,10 +111,6 @@ func Test_CRE_Suite_V2(t *testing.T) {
 		ExecuteDonTimeTest(t, testEnv)
 	})
 
-	t.Run("[v2] Billing test", func(t *testing.T) {
-		ExecuteBillingTest(t, testEnv)
-	})
-
 	t.Run("[v2] Consensus test", func(t *testing.T) {
 		ExecuteConsensusTest(t, testEnv)
 	})
@@ -104,7 +125,7 @@ func Test_CRE_Suite_V2_EVM(t *testing.T) {
 	t.Run("[v2] EVM Write happy path test", func(t *testing.T) {
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
-		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg)
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
 
 	t.Run("[v2] EVM Read happy path test", func(t *testing.T) {

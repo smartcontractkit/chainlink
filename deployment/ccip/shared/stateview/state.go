@@ -966,13 +966,6 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.TestRouter = r
 			state.ABIByAddress[address] = router.RouterABI
-		case cldf.NewTypeAndVersion(ccipshared.FeeQuoter, deployment.Version1_6_0).String():
-			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.FeeQuoter = fq
-			state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCToken, deployment.Version1_0_0).String():
 			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1366,6 +1359,20 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			// so we will compare the type and version only
 			if tvStr.Type == commontypes.ManyChainMultisig && tvStr.Version == deployment.Version1_0_0 {
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
+				continue
+			}
+			// New versions of the EVM FeeQuoter are developed to support new chain families.
+			// The FeeQuoter added to state should be the FeeQuoter in the environment with the highest version.
+			if tvStr.Type == ccipshared.FeeQuoter {
+				if state.FeeQuoter == nil || tvStr.Version.GreaterThan(state.FeeQuoterVersion) {
+					fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+					if err != nil {
+						return state, err
+					}
+					state.FeeQuoter = fq
+					state.FeeQuoterVersion = &tvStr.Version
+					state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
+				}
 				continue
 			}
 			return state, fmt.Errorf("unknown contract %s", tvStr)
