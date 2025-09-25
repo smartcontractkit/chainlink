@@ -357,6 +357,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"starknet", NewStarkNetKeysController(app)},
 			{"aptos", NewAptosKeysController(app)},
 			{"tron", NewTronKeysController(app)},
+			{"sui", NewSuiKeysController(app)},
 			{"ton", NewTONKeysController(app)},
 		} {
 			authv2.GET("/keys/"+keys.path, keys.kc.Index)

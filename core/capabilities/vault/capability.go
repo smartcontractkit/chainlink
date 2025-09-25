@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -19,26 +20,55 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
 type Capability struct {
-	lggr              logger.Logger
-	clock             clockwork.Clock
-	expiresAfter      time.Duration
-	handler           *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	requestAuthorizer RequestAuthorizer
-	publicKey         *LazyPublicKey
+	lggr                 logger.Logger
+	clock                clockwork.Clock
+	expiresAfter         time.Duration
+	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
+	requestAuthorizer    RequestAuthorizer
+	capabilitiesRegistry core.CapabilitiesRegistry
+	publicKey            *LazyPublicKey
 }
 
 func (s *Capability) Start(ctx context.Context) error {
-	return s.handler.Start(ctx)
+	if err := s.handler.Start(ctx); err != nil {
+		return fmt.Errorf("error starting vault DON request handler: %w", err)
+	}
+
+	closeHandler := func() {
+		ierr := s.handler.Close()
+		if ierr != nil {
+			s.lggr.Errorf("error closing vault DON request handler after failed registration: %v", ierr)
+		}
+	}
+
+	err := s.capabilitiesRegistry.Add(ctx, s)
+	if err != nil {
+		closeHandler()
+		return fmt.Errorf("error registering vault capability: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Capability) Close() error {
-	return s.handler.Close()
+	err := s.capabilitiesRegistry.Remove(context.Background(), vaultcommon.CapabilityID)
+	if err != nil {
+		err = fmt.Errorf("error unregistering vault capability: %w", err)
+	}
+
+	ierr := s.handler.Close()
+	if ierr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
+	}
+
+	return err
 }
 
 func (s *Capability) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
@@ -113,11 +143,13 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}, nil
 }
 
-func ValidateCreateSecretsRequest(request *vaultcommon.CreateSecretsRequest) error {
-	return validateWriteRequest(request.RequestId, request.EncryptedSecrets)
+func ValidateCreateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest) error {
+	return validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
 }
 
-func validateWriteRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+// validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests
+// It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet
+func validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
@@ -129,6 +161,7 @@ func validateWriteRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSe
 	}
 
 	uniqueIDs := map[string]bool{}
+	cipherText := &tdh2easy.Ciphertext{}
 	for idx, req := range encryptedSecrets {
 		if req.Id == nil {
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
@@ -140,6 +173,18 @@ func validateWriteRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSe
 
 		if req.EncryptedValue == "" {
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		}
+
+		// Validate that the encrypted value was indeed encrypted by the Vault public key
+		cipherBytes, err := hex.DecodeString(req.EncryptedValue)
+		if err != nil {
+			return errors.New("failed to decode encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
+		}
+		if publicKey != nil { // Public key can be nil if gateway cache isn't populated yet
+			err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
+			if err != nil {
+				return errors.New("failed to verify encrypted value at index " + strconv.Itoa(idx) + ":" + err.Error())
+			}
 		}
 
 		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
@@ -156,7 +201,7 @@ func validateWriteRequest(id string, encryptedSecrets []*vaultcommon.EncryptedSe
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := ValidateCreateSecretsRequest(request)
+	err := ValidateCreateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
@@ -180,13 +225,13 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
-func ValidateUpdateSecretsRequest(request *vaultcommon.UpdateSecretsRequest) error {
-	return validateWriteRequest(request.RequestId, request.EncryptedSecrets)
+func ValidateUpdateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest) error {
+	return validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Infof("Received Request: %s", request.String())
-	err := ValidateUpdateSecretsRequest(request)
+	err := ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
@@ -387,14 +432,16 @@ func NewCapability(
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	requestAuthorizer RequestAuthorizer,
+	capabilitiesRegistry core.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
 ) *Capability {
 	return &Capability{
-		lggr:              logger.Named(lggr, "VaultCapability"),
-		clock:             clock,
-		expiresAfter:      expiresAfter,
-		handler:           handler,
-		requestAuthorizer: requestAuthorizer,
-		publicKey:         publicKey,
+		lggr:                 logger.Named(lggr, "VaultCapability"),
+		clock:                clock,
+		expiresAfter:         expiresAfter,
+		handler:              handler,
+		requestAuthorizer:    requestAuthorizer,
+		capabilitiesRegistry: capabilitiesRegistry,
+		publicKey:            publicKey,
 	}
 }

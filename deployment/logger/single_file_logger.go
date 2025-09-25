@@ -31,13 +31,14 @@ var _ corelogger.Logger = (*SingleFileLogger)(nil)
 func NewSingleFileLogger(tb testing.TB) *SingleFileLogger {
 	// Our logs will go here so GH can upload them:
 	baseDir := "logs"
+	timeLayout := "2006-01-02T15-04-05"
 
 	var filename string
 	if tb == nil {
-		filename = fmt.Sprintf("%s_%d.log", uuid.NewString(), time.Now().UnixNano())
+		filename = fmt.Sprintf("%s_%s.log", time.Now().Format(timeLayout), uuid.NewString())
 	} else {
 		// For uniqueness, include test name + timestamp
-		filename = fmt.Sprintf("%s_%d.log", tb.Name(), time.Now().UnixNano())
+		filename = fmt.Sprintf("%s_%s.log", time.Now().Format(timeLayout), tb.Name())
 	}
 
 	dirOfFilename := filepath.Dir(filename)

@@ -67,6 +67,8 @@ type WorkflowRegistryEventName string
 var (
 	// A WorkflowRegistered event represents when a workflow is registered
 	WorkflowRegistered WorkflowRegistryEventName = "WorkflowRegistered"
+	// A WorkflowActivated event represents when a workflow is activated
+	WorkflowActivated WorkflowRegistryEventName = "WorkflowActivated"
 	// A WorkflowPaused event represents when a workflow is paused
 	WorkflowPaused WorkflowRegistryEventName = "WorkflowPaused"
 	// A WorkflowDeleted event represents when a workflow is deleted
@@ -76,11 +78,38 @@ var (
 type Event struct {
 	Name WorkflowRegistryEventName
 	Data any
+	Head Head
 }
 
 // NOTE: The following types differ from gethwrappers in that they are chain agnostic definitions (owners are represented as bytes / workflow IDs might be more than bytes32)
 
 type WorkflowRegisteredEvent struct {
+	WorkflowID    types.WorkflowID
+	WorkflowOwner []byte
+	CreatedAt     uint64
+	Status        uint8
+	WorkflowName  string
+	WorkflowTag   string
+	BinaryURL     string
+	ConfigURL     string
+	Tag           string
+	Attributes    []byte
+}
+
+type WorkflowActivatedEvent struct {
+	WorkflowID    types.WorkflowID
+	WorkflowOwner []byte
+	CreatedAt     uint64
+	Status        uint8
+	WorkflowName  string
+	WorkflowTag   string
+	BinaryURL     string
+	ConfigURL     string
+	Tag           string
+	Attributes    []byte
+}
+
+type WorkflowPausedEvent struct {
 	WorkflowID    types.WorkflowID
 	WorkflowOwner []byte
 	CreatedAt     uint64

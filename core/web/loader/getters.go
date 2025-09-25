@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -35,24 +34,6 @@ func GetChainByRelayID(ctx context.Context, id string) (*chainlink.NetworkChainS
 	}
 
 	return &chain, nil
-}
-
-// GetNodesByChainID fetches the nodes for a chain.
-func GetNodesByChainID(ctx context.Context, id string) ([]types.Node, error) {
-	ldr := For(ctx)
-
-	thunk := ldr.NodesByChainIDLoader.Load(ctx, dataloader.StringKey(id))
-	result, err := thunk()
-	if err != nil {
-		return nil, err
-	}
-
-	nodes, ok := result.([]types.Node)
-	if !ok {
-		return nil, ErrInvalidType
-	}
-
-	return nodes, nil
 }
 
 // GetFeedsManagerByID fetches the feed manager by ID.

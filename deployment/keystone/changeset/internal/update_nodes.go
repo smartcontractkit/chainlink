@@ -260,23 +260,6 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	return out, nil
 }
 
-// fetchCapabilityIDs fetches the capability ids for the given capabilities
-func fetchCapabilityIDs(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) (map[string][32]byte, error) {
-	out := make(map[string][32]byte)
-	for _, cap := range caps {
-		name := CapabilityID(cap)
-		if _, exists := out[name]; exists {
-			continue
-		}
-		hashId, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get capability id for %s: %w", name, err)
-		}
-		out[name] = hashId
-	}
-	return out, nil
-}
-
 func capabilityIds(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) ([][32]byte, error) {
 	out := make([][32]byte, len(caps))
 	for i, cap := range caps {

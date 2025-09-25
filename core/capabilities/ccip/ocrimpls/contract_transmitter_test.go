@@ -474,7 +474,8 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		simClient,
 		txm,
 		gasEstimator,
-		chainWriterConfigRaw(transmitters[0], assets.GWei(1)))
+		chainWriterConfigRaw(transmitters[0], assets.GWei(1)),
+		nil)
 	require.NoError(t, err, "failed to create chain writer")
 	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })

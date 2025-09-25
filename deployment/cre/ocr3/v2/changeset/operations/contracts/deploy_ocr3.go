@@ -29,7 +29,7 @@ type DeployOCR3Output struct {
 	Type          string
 	Version       string
 	Labels        []string
-	Datastore     datastore.DataStore
+	Datastore     datastore.MutableDataStore
 	AddressBook   cldf.AddressBook // backward compatibility, to be removed in CRE-742
 }
 
@@ -91,10 +91,6 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 
 		// Create a mutable datastore in order to be able to add the ocr3 address and access it from the configure step
 		ds := datastore.NewMemoryDataStore()
-		err = ds.Merge(deps.Env.DataStore)
-		if err != nil {
-			return DeployOCR3Output{}, fmt.Errorf("failed to merge datastore: %w", err)
-		}
 
 		if err := ds.AddressRefStore.Add(addressRef); err != nil {
 			return DeployOCR3Output{}, fmt.Errorf("failed to add OCR3 address %v to datastore: %w", addressRef, err)
@@ -114,7 +110,7 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			Type:          string(tv.Type),
 			Version:       tv.Version.String(),
 			Labels:        tv.Labels.List(),
-			Datastore:     ds.Seal(),
+			Datastore:     ds,
 			AddressBook:   ab, // TODO: CRE-742 remove AddressBook
 		}, nil
 	},

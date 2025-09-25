@@ -21,6 +21,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -37,6 +38,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
+
+const TronEVMChainID = 3360022319
 
 func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
@@ -180,26 +183,27 @@ func addBootstrapNodeConfig(
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
+		appendEVMChain(&existingConfig.EVM, evmChain)
+	}
+
+	if commonInputs.solanaChain != nil {
+		existingConfig.Solana = append(existingConfig.Solana, &solcfg.TOMLConfig{
+			Enabled: ptr.Ptr(true),
+			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
+			Nodes: []*solcfg.Node{
+				&solcfg.Node{
+					Name: &commonInputs.solanaChain.Name,
+					URL:  commonconfig.MustParseURL(commonInputs.solanaChain.NodeURL),
 				},
 			},
 		})
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
 	return existingConfig, nil
@@ -244,19 +248,7 @@ func addWorkerNodeConfig(
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
-				},
-			},
-		})
+		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
 	if commonInputs.solanaChain != nil {
@@ -273,17 +265,19 @@ func addWorkerNodeConfig(
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
 	if flags.HasFlag(donFlags, cre.WorkflowDON) {
 		existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-			Address:   ptr.Ptr(commonInputs.workflowRegistryAddress.Hex()),
-			NetworkID: ptr.Ptr("evm"),
-			ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
+			NetworkID:       ptr.Ptr("evm"),
+			ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+			SyncStrategy:    ptr.Ptr("reconciliation"),
+			ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.versionType.Version.String()),
 		}
 	}
 
@@ -338,39 +332,28 @@ OUTER:
 				continue OUTER
 			}
 		}
-
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
-				},
-			},
-		})
+		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
-		Address:         ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.address.Hex()),
+		Address:         ptr.Ptr(commonInputs.capabilityRegistry.address.Hex()),
 		NetworkID:       ptr.Ptr("evm"),
 		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistryTypeVersion.versionType.Version.String()),
+		ContractVersion: ptr.Ptr(commonInputs.capabilityRegistry.versionType.Version.String()),
 	}
 
 	existingConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:   ptr.Ptr(commonInputs.workflowRegistryAddress.Hex()),
-		NetworkID: ptr.Ptr("evm"),
-		ChainID:   ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+		Address:         ptr.Ptr(commonInputs.workflowRegistry.address.Hex()),
+		NetworkID:       ptr.Ptr("evm"),
+		ChainID:         ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
+		ContractVersion: ptr.Ptr(commonInputs.workflowRegistry.versionType.Version.String()),
+		SyncStrategy:    ptr.Ptr("reconciliation"),
 	}
 
 	return existingConfig, nil
 }
 
-type capRegTypeVersion struct {
+type addressTypeVersion struct {
 	address     common.Address
 	versionType cldf.TypeAndVersion
 }
@@ -379,8 +362,8 @@ type commonInputs struct {
 	registryChainID       uint64
 	registryChainSelector uint64
 
-	workflowRegistryAddress       common.Address
-	capabilityRegistryTypeVersion capRegTypeVersion
+	workflowRegistry   addressTypeVersion
+	capabilityRegistry addressTypeVersion
 
 	evmChains   []*evmChain
 	solanaChain *solanaChain
@@ -400,25 +383,28 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	}
 
 	// find contract addresses
-	capabilitiesRegistryAddress, versionType, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
+	capabilitiesRegistryAddress, capRegTypeVersion, capErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.CapabilitiesRegistry.String())
 	if capErr != nil {
 		return nil, errors.Wrap(capErr, "failed to find CapabilitiesRegistry address")
 	}
 
-	workflowRegistryAddress, _, wfErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddress, wfRegTypeVersion, wfErr := crecontracts.FindAddressesForChain(input.AddressBook, input.HomeChainSelector, keystone_changeset.WorkflowRegistry.String())
 	if wfErr != nil {
 		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
 	}
 
 	return &commonInputs{
-		registryChainID:         registryChainID,
-		registryChainSelector:   input.HomeChainSelector,
-		workflowRegistryAddress: workflowRegistryAddress,
-		evmChains:               evmChains,
-		solanaChain:             solanaChain,
-		capabilityRegistryTypeVersion: capRegTypeVersion{
+		registryChainID:       registryChainID,
+		registryChainSelector: input.HomeChainSelector,
+		workflowRegistry: addressTypeVersion{
+			address:     workflowRegistryAddress,
+			versionType: wfRegTypeVersion,
+		},
+		evmChains:   evmChains,
+		solanaChain: solanaChain,
+		capabilityRegistry: addressTypeVersion{
 			address:     capabilitiesRegistryAddress,
-			versionType: versionType,
+			versionType: capRegTypeVersion,
 		},
 	}, nil
 }
@@ -489,4 +475,52 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	}
 
 	return solChain, nil
+}
+
+func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
+	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
+	return evmconfigtoml.EVMConfig{
+		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		Chain: evmconfigtoml.Chain{
+			AutoCreateKey:         ptr.Ptr(false),
+			ChainType:             chaintype.NewConfig("tron"),
+			LogBroadcasterEnabled: ptr.Ptr(false),
+			NodePool: evmconfigtoml.NodePool{
+				NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
+			},
+		},
+		Nodes: []*evmconfigtoml.Node{
+			{
+				Name:              ptr.Ptr(evmChain.Name),
+				HTTPURL:           commonconfig.MustParseURL(evmChain.HTTPRPC),
+				HTTPURLExtraWrite: commonconfig.MustParseURL(tronRPC),
+			},
+		},
+	}
+}
+
+func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
+	return evmconfigtoml.EVMConfig{
+		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		Chain: evmconfigtoml.Chain{
+			AutoCreateKey: ptr.Ptr(false),
+		},
+		Nodes: []*evmconfigtoml.Node{
+			{
+				Name:    ptr.Ptr(evmChain.Name),
+				WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
+				HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
+			},
+		},
+	}
+}
+
+func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain) {
+	var cfg evmconfigtoml.EVMConfig
+	if evmChain.ChainID == TronEVMChainID {
+		cfg = buildTronEVMConfig(evmChain)
+	} else {
+		cfg = buildEVMConfig(evmChain)
+	}
+	*existingConfig = append(*existingConfig, &cfg)
 }

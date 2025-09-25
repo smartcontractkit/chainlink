@@ -136,12 +136,17 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
 				}
 
-				ocr2KeyBundleID, ocr2Err := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
-				if ocr2Err != nil {
-					return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
+				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
+				if ocr2kbErr != nil {
+					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
 				}
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, donTimeAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+
+				offchainKeyBundleID, ok := ocr2KeyBundlesPerFamily["evm"] // evm is a homechain, so we expect its ocr2 key bundle is always present
+				if !ok {
+					return nil, errors.New("key bundle ID for evm family is not found")
+				}
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, offchainKeyBundleID, ocr2KeyBundlesPerFamily, ocrPeeringData, chainID))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, donTimeAddress.Address, nodeEthAddr, offchainKeyBundleID, ocrPeeringData, chainID))
 			}
 		}
 

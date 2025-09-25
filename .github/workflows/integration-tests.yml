@@ -138,10 +138,12 @@ jobs:
       contents: read
       pull-requests: write
     outputs:
-      builder-runner-label: ${{ steps.runner-labels.outputs.builder-runner-label }}
+      builder-runner-label-core: ${{ steps.runner-labels.outputs.builder-runner-label-core || steps.runner-labels.outputs.builder-runner-label }}
+      builder-runner-label-plugins: ${{ steps.runner-labels.outputs.builder-runner-label-plugins || steps.runner-labels.outputs.builder-runner-label }}
       solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
+      run-e2e-regression-label-found: ${{ steps.label-runs-e2e-regression.outputs.check-label-found || 'false' }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
         id: label-runs-on-opt-out
@@ -156,28 +158,38 @@ jobs:
         with:
           check-label: "run-e2e-tests"
 
+      - name: Get PR Labels (run-e2e-regression)
+        if: github.event_name == 'pull_request'
+        id: label-runs-e2e-regression
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "run-e2e-regression"
+
       - name: Set runner labels
         id: runner-labels
         env:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
-          SH_BUILDER_RUNNER: runs-on=${{ github.run_id }}/cpu=32/memory=64/family=c6i/extras=s3-cache+tmpfs
           GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
-          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+          # include unique label (core/plugins/solana) to ensure jobs are not competing for the same runner
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
+          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
             echo "solana-runner-label=${GH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "builder-runner-label=${SH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
+            echo "builder-runner-label-core=${SH_BUILDER_RUNNER_CORE}" | tee -a "$GITHUB_OUTPUT"
+            echo "builder-runner-label-plugins=${SH_BUILDER_RUNNER_PLUGINS}" | tee -a "$GITHUB_OUTPUT"
             echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           fi
 
   build-chainlink:
     name: Build Chainlink Image ${{ matrix.image.name }}
     if: github.actor != 'dependabot[bot]'
-    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
     environment: integration
+    runs-on: ${{ matrix.image.runner }}
     needs:
       [
         labels,
@@ -194,6 +206,7 @@ jobs:
       matrix:
         image:
           - name: ""
+            runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             # todo: optimize this conditional
@@ -206,6 +219,7 @@ jobs:
               }}
 
           - name: (plugins)
+            runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             # todo: optimize this conditional
@@ -280,6 +294,7 @@ jobs:
       contents: read
     outputs:
       should-run: ${{ steps.form-inputs.outputs.should-run }}
+      with-regression: ${{ steps.form-inputs.outputs.with-regression }}
       workflow-name: ${{ steps.form-inputs.outputs.workflow-name }}
     steps:
       - name: Form Inputs for Core CRE E2E Tests
@@ -288,12 +303,20 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
           CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
+          RUN_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-regression-label-found }}
         run: |
+          echo "Regression tests run: ${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}"
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
             # Run Core CRE E2E tests on PRs if there are relevant changes
-            echo "workflow-name=Run Core CRE E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
+              echo "workflow-name=Run Core CRE E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+            fi
+            if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
+              echo "Including CRE regression tests as the label 'run-e2e-regression' is found"
+              echo "workflow-name=Run Core CRE E2E Regression Tests For PR" | tee -a "$GITHUB_OUTPUT"
+              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+              echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
             fi
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
@@ -334,6 +357,7 @@ jobs:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      with_regression: ${{ needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true' }}
     secrets: inherit
 
   run-core-e2e-tests-setup:
@@ -858,7 +882,7 @@ jobs:
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Image
         if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0 
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get-solana-sha.outputs.sha }}

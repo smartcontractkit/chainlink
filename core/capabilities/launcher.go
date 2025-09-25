@@ -47,6 +47,7 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 type launcher struct {
 	services.StateMachine
 	lggr                logger.Logger
+	myPeerID            p2ptypes.PeerID
 	peerWrapper         p2ptypes.PeerWrapper
 	dispatcher          remotetypes.Dispatcher
 	registry            *Registry
@@ -192,7 +193,15 @@ func (w *launcher) allDONs(localRegistry *registrysyncer.LocalRegistry) []regist
 }
 
 func (w *launcher) Start(ctx context.Context) error {
-	return nil
+	if w.peerWrapper != nil && w.peerWrapper.GetPeer() != nil {
+		w.myPeerID = w.peerWrapper.GetPeer().ID()
+		return nil
+	}
+	if w.don2donSharedPeer != nil {
+		w.myPeerID = w.don2donSharedPeer.ID()
+		return nil
+	}
+	return errors.New("could not get peer ID from any source")
 }
 
 func (w *launcher) Close() error {
@@ -201,8 +210,10 @@ func (w *launcher) Close() error {
 			w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
 		}
 	}
-
-	return w.peerWrapper.GetPeer().UpdateConnections(map[ragetypes.PeerID]p2ptypes.StreamConfig{})
+	if w.peerWrapper != nil {
+		return w.peerWrapper.GetPeer().UpdateConnections(map[ragetypes.PeerID]p2ptypes.StreamConfig{})
+	}
+	return nil
 }
 
 func (w *launcher) Ready() error {
@@ -259,14 +270,13 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	//
 	// We'll also construct a set to record what DONs the current node is a part of,
 	// regardless of any modifiers (public/acceptsWorkflows etc).
-	myID := w.peerWrapper.GetPeer().ID()
 	myWorkflowDONs := []registrysyncer.DON{}
 	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
 	for _, id := range allDONIDs {
 		d := localRegistry.IDsToDONs[id]
 		for _, peerID := range d.Members {
-			if peerID == myID {
+			if peerID == w.myPeerID {
 				myDONs[d.ID] = true
 			}
 		}
@@ -317,7 +327,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	belongsToACapabilityDON := len(myCapabilityDONs) > 0
 	if belongsToACapabilityDON {
 		for _, myDON := range myCapabilityDONs {
-			err := w.exposeCapabilities(ctx, myID, myDON, localRegistry, remoteWorkflowDONs)
+			err := w.exposeCapabilities(ctx, w.myPeerID, myDON, localRegistry, remoteWorkflowDONs)
 			if err != nil {
 				return err
 			}
@@ -334,7 +344,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 		}
 	}
 	if w.don2donSharedPeer != nil {
-		donPairs := w.donPairsToUpdate(myID, localRegistry)
+		donPairs := w.donPairsToUpdate(w.myPeerID, localRegistry)
 		err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, defaultStreamConfig)
 		if err != nil {
 			return fmt.Errorf("failed to update peer connections: %w", err)

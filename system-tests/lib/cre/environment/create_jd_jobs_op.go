@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
@@ -21,9 +20,8 @@ type CreateJobsWithJdOpDeps struct {
 	Logger                    zerolog.Logger
 	SingleFileLogger          common.Logger
 	HomeChainBlockchainOutput *blockchain.Output
-	AddressBook               deployment.AddressBook
 	JobSpecFactoryFunctions   []cre.JobSpecFn
-	FullCLDEnvOutput          *cre.FullCLDEnvironmentOutput
+	CreEnvironment            *cre.Environment
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	CapabilitiesConfigs       cre.CapabilityConfigs
 	Capabilities              []cre.InstallableCapability
@@ -48,9 +46,9 @@ var CreateJobsWithJdOp = operations.NewOperation(
 				continue
 			}
 			singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
-				CldEnvironment:            deps.FullCLDEnvOutput.Environment,
+				CldEnvironment:            deps.CreEnvironment.CldfEnvironment,
 				BlockchainOutput:          deps.HomeChainBlockchainOutput,
-				DonTopology:               deps.FullCLDEnvOutput.DonTopology,
+				DonTopology:               deps.CreEnvironment.DonTopology,
 				InfraInput:                deps.InfraInput,
 				CapabilityConfigs:         deps.CapabilitiesConfigs,
 				CapabilitiesAwareNodeSets: deps.CapabilitiesAwareNodeSets,
@@ -63,8 +61,8 @@ var CreateJobsWithJdOp = operations.NewOperation(
 		}
 
 		createJobsInput := cre.CreateJobsInput{
-			CldEnv:        deps.FullCLDEnvOutput.Environment,
-			DonTopology:   deps.FullCLDEnvOutput.DonTopology,
+			CldEnv:        deps.CreEnvironment.CldfEnvironment,
+			DonTopology:   deps.CreEnvironment.DonTopology,
 			DonToJobSpecs: donToJobSpecs,
 		}
 
@@ -89,9 +87,9 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 
 			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
 				singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
-					CldEnvironment:            deps.FullCLDEnvOutput.Environment,
+					CldEnvironment:            deps.CreEnvironment.CldfEnvironment,
 					BlockchainOutput:          deps.HomeChainBlockchainOutput,
-					DonTopology:               deps.FullCLDEnvOutput.DonTopology,
+					DonTopology:               deps.CreEnvironment.DonTopology,
 					CapabilitiesAwareNodeSets: deps.CapabilitiesAwareNodeSets,
 					CapabilityConfigs:         deps.CapabilitiesConfigs,
 					InfraInput:                deps.InfraInput,
@@ -103,8 +101,8 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 			}
 
 			createJobsInput := cre.CreateJobsInput{
-				CldEnv:        deps.FullCLDEnvOutput.Environment,
-				DonTopology:   deps.FullCLDEnvOutput.DonTopology,
+				CldEnv:        deps.CreEnvironment.CldfEnvironment,
+				DonTopology:   deps.CreEnvironment.DonTopology,
 				DonToJobSpecs: donToJobSpecs,
 			}
 

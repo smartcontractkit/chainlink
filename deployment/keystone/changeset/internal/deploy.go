@@ -350,14 +350,6 @@ type RegisteredCapability struct {
 	Config *capabilitiespb.CapabilityConfig
 }
 
-func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.CapabilitiesRegistryCapability, cfg *capabilitiespb.CapabilityConfig, e cldf.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
-	registry, _, err := getRegistryContract(&e, registryChainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registry: %w", err)
-	}
-	return NewRegisteredCapability(registry, capReg, cfg)
-}
-
 func NewRegisteredCapability(registry *capabilities_registry.CapabilitiesRegistry, capability *capabilities_registry.CapabilitiesRegistryCapability, cfg *capabilitiespb.CapabilityConfig) (*RegisteredCapability, error) {
 	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capability.LabelledName, capability.Version)
 	if err != nil {

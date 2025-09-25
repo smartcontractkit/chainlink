@@ -248,12 +248,10 @@ func DonTimeJob(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBun
 	}
 }
 
-func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress, offchainBundleID string, ocr2KeyBundles map[string]string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
-	return &jobv1.ProposeJobRequest{
-		NodeId: nodeID,
-		Spec: fmt.Sprintf(`
+	spec := fmt.Sprintf(`
 	type = "offchainreporting2"
 	schemaVersion = 1
 	externalJobID = "%s"
@@ -275,24 +273,31 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBun
 	providerType = "ocr3-capability"
 	telemetryType = "plugin"
 	[onchainSigningStrategy]
-	strategyName = 'multi-chain'
+	strategyName = "multi-chain"
 	[onchainSigningStrategy.config]
-	evm = "%s"
 `,
-			uuid,
-			cre.ConsensusCapability,
-			ocr3CapabilityAddress,
-			ocr2KeyBundleID,
-			ocrPeeringData.OCRBootstraperPeerID,
-			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
-			nodeEthAddress,
-			chainID,
-			ocr2KeyBundleID,
-		),
+		uuid,
+		cre.ConsensusCapability,
+		ocr3CapabilityAddress,
+		offchainBundleID,
+		ocrPeeringData.OCRBootstraperPeerID,
+		fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+		nodeEthAddress,
+		chainID,
+	)
+	for family, key := range ocr2KeyBundles {
+		spec += fmt.Sprintf(`
+        %s = "%s"`, family, key)
+		spec += "\n"
+	}
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec:   spec,
 	}
 }
 
-func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64, masterPublicKey string, encryptedPrivateKeyShare string) *jobv1.ProposeJobRequest {
+func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -315,8 +320,7 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2
 	[pluginConfig]
 	requestExpiryDuration = "60s"
 	[pluginConfig.dkg]
-	masterPublicKey = "%s"
-	encryptedPrivateKeyShare = "%s"
+	dkgContractID = "%s"
 `,
 			uuid,
 			"Vault OCR3 Capability",
@@ -327,8 +331,7 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, nodeEthAddress, ocr2
 			types.VaultPlugin,
 			nodeEthAddress,
 			chainID,
-			masterPublicKey,
-			encryptedPrivateKeyShare,
+			dkgAddress,
 		),
 	}
 }

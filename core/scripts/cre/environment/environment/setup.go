@@ -33,22 +33,25 @@ var SetupCmd *cobra.Command
 
 func init() {
 	var (
-		config   SetupConfig
-		noPrompt bool
-		purge    bool
+		config      SetupConfig
+		noPrompt    bool
+		purge       bool
+		withBilling bool
 	)
+
 	SetupCmd = &cobra.Command{
 		Use:   "setup",
 		Short: "Setup the CRE environment prerequisites",
 		Long:  `Checks and sets up prerequisites for the CRE environment including Docker, AWS, Job Distributor, and CRE CLI`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return RunSetup(cmd.Context(), config, noPrompt, purge)
+			return RunSetup(cmd.Context(), config, noPrompt, purge, withBilling)
 		},
 	}
 
 	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
+	SetupCmd.Flags().BoolVar(&withBilling, "with-billing", false, "Include billing service in the setup")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
 
@@ -70,6 +73,7 @@ type config struct {
 	General        generalConfig        `toml:"general"`
 	JobDistributor jobDistributorConfig `toml:"job_distributor"`
 	ChipIngress    chipIngressConfig    `toml:"chip_ingress"`
+	BillingService billingServiceConfig `toml:"billing_platform_service"`
 	Capabilities   capabilitiesConfig   `toml:"capabilities"`
 }
 
@@ -85,6 +89,11 @@ type jobDistributorConfig struct {
 }
 
 type chipIngressConfig struct {
+	BuildConfig BuildConfig `toml:"build_config"`
+	PullConfig  PullConfig  `toml:"pull_config"`
+}
+
+type billingServiceConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
@@ -113,14 +122,15 @@ type SetupConfig struct {
 }
 
 type BuildConfig struct {
-	RepoURL    string `toml:"repository"`
-	LocalRepo  string `toml:"local_repo"`
-	Branch     string `toml:"branch"`
-	Commit     string `toml:"commit"`
-	Dockerfile string `toml:"dockerfile"`
-	DockerCtx  string `toml:"docker_ctx"`
-	LocalImage string `toml:"local_image"`
-	PreRun     string `toml:"pre_run"` // Optional function to run before building
+	RepoURL            string `toml:"repository"`
+	LocalRepo          string `toml:"local_repo"`
+	Branch             string `toml:"branch"`
+	Commit             string `toml:"commit"`
+	RequireGithubToken bool   `toml:"require_github_token"`
+	Dockerfile         string `toml:"dockerfile"`
+	DockerCtx          string `toml:"docker_ctx"`
+	LocalImage         string `toml:"local_image"`
+	PreRun             string `toml:"pre_run"` // Optional function to run before building
 }
 
 // setupRepo clones the repository if it's a remote URL or uses the local path if it's a directory.
@@ -198,6 +208,12 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	name = cases.Title(language.English).String(name)
 	logger.Info().Msgf("Building %s image...", name)
 
+	if c.RequireGithubToken {
+		if os.Getenv("GITHUB_TOKEN") == "" {
+			return "", errors.New("GITHUB_TOKEN environment variable is required to build the billing service from source")
+		}
+	}
+
 	workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo, tag, commit)
 	if err != nil {
 		return "", fmt.Errorf("failed to setup repository: %w", err)
@@ -231,7 +247,12 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	}
 
 	// Build Docker image
-	cmd := exec.CommandContext(ctx, "docker", "build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
+	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
+	if c.RequireGithubToken {
+		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
+	}
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	log.Info("Running command:", "cmd", cmd.String(), "dir", workingDir)
@@ -338,7 +359,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 }
 
 // RunSetup performs the setup for the CRE environment
-func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool) (setupErr error) {
+func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBilling bool) (setupErr error) {
 	logger := framework.L
 	var localDXTracker tracking.Tracker
 	localDXTracker = &tracking.NoOpTracker{}
@@ -436,6 +457,21 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool
 		return
 	}
 
+	var billingLocalImage string
+	if withBilling {
+		billingConfig := ImageConfig{
+			BuildConfig: cfg.BillingService.BuildConfig,
+			PullConfig:  cfg.BillingService.PullConfig,
+		}
+
+		var billingErr error
+		billingLocalImage, billingErr = billingConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, purge)
+		if billingErr != nil {
+			setupErr = errors.Wrap(billingErr, "failed to ensure Billing Platform Service image")
+			return
+		}
+	}
+
 	ctfInstalled, ctfErr := checkCTF(ctx, cfg.General.CTFVersion, noPrompt, purge)
 	if ctfErr != nil {
 		setupErr = errors.Wrap(ctfErr, "failed to ensure CTF CLI")
@@ -454,6 +490,9 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt bool, purge bool
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
 	logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	if withBilling {
+		logger.Info().Msgf("   ✓ Billing Platform Service image %s is available", billingLocalImage)
+	}
 	if ghCli {
 		logger.Info().Msg("   ✓ GitHub CLI is installed")
 	} else {

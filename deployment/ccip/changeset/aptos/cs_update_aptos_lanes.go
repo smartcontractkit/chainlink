@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var _ cldf.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
@@ -133,8 +134,23 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 		timeLockProposals = append(timeLockProposals, *proposal)
 	}
 
+	// Aggregate all Timelock proposals
+	proposal, err := proposalutils.AggregateProposalsV2(
+		env,
+		proposalutils.MCMSStates{
+			MCMSEVMState:   state.EVMMCMSStateByChain(),
+			MCMSAptosState: state.AptosMCMSStateByChain(),
+		},
+		timeLockProposals,
+		"Update lanes Aptos <> EVM",
+		cfg.AptosMCMSConfig, // Using Aptos MCMS config for the aggregated proposal since it's the required one
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+	}
+
 	return cldf.ChangesetOutput{
-		MCMSTimelockProposals: timeLockProposals,
+		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		Reports:               seqReports,
 	}, nil
 }

@@ -77,6 +77,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2pwrapper "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
@@ -109,6 +110,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+
+	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 )
 
 // Application implements the common functions used in the core node.
@@ -315,6 +318,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	if cfg.TONEnabled() {
 		initOps = append(initOps, InitTON(relayerFactory, keyStore.TON(), keyStore.CSA(), cfg.TONConfigs()))
+	}
+	if cfg.SuiEnabled() {
+		initOps = append(initOps, InitSui(relayerFactory, keyStore.Sui(), keyStore.CSA(), cfg.SuiConfigs()))
 	}
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
@@ -624,7 +630,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		relayChainInterops,
 		creServices.gatewayConnectorWrapper,
 		keyStore,
-		creServices.externalPeerWrapper,
+		creServices.getPeerID,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
@@ -817,6 +823,7 @@ type CREOpts struct {
 	FetcherFactoryFn compute.FetcherFactory
 
 	BillingClient metering.BillingClient
+	LinkingClient linkingclient.LinkingServiceClient
 
 	StorageClient storage.WorkflowClient
 
@@ -848,9 +855,10 @@ type CREServices struct {
 	// it is exposed because there are contingent services in the application
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 
-	// externalPeerWrapper is the wrapper for external peering
-	// it is exposed because there are contingent services in the application
-	externalPeerWrapper p2ptypes.PeerWrapper
+	// getter for PeerID from either externalPeerWrapper or don2donSharedPeer
+	// can be called only after the above services are started because
+	// they depend on Keystore, which itself has to be started first
+	getPeerID func() (p2ptypes.PeerID, error)
 
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
@@ -874,7 +882,6 @@ func newCREServices(
 ) (*CREServices, error) {
 	capCfg := cfg.Capabilities()
 	wCfg := cfg.Workflows()
-	creCfg := cfg.CRE()
 	var srvcs []services.ServiceCtx
 	engineLimiters, err := v2.NewLimiters(lf, nil)
 	if err != nil {
@@ -926,6 +933,9 @@ func newCREServices(
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	var don2donSharedPeer p2ptypes.SharedPeer
 	var streamConfig config.StreamConfig
+	getPeerID := func() (p2ptypes.PeerID, error) {
+		return p2ptypes.PeerID{}, errors.New("getPeerID not initialized")
+	}
 	if capCfg.Peering().Enabled() || capCfg.SharedPeering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
 		if opts.CapabilitiesDispatcher == nil {
@@ -940,6 +950,9 @@ func newCREServices(
 			if capCfg.SharedPeering().Enabled() {
 				if !cfg.P2P().Enabled() {
 					return nil, errors.New("top-level P2P must be enabled in order to use SharedPeering")
+				}
+				if singletonPeerWrapper == nil {
+					return nil, errors.New("singleton peer wrapper is required for shared peering (are OCR and P2P enabled?)")
 				}
 				bootstrappers := capCfg.SharedPeering().Bootstrappers()
 				if len(bootstrappers) == 0 {
@@ -977,6 +990,20 @@ func newCREServices(
 				return nil, err
 			}
 
+			getPeerID = func() (p2ptypes.PeerID, error) {
+				if don2donSharedPeer != nil {
+					return don2donSharedPeer.ID(), nil
+				}
+				if externalPeerWrapper != nil {
+					p := externalPeerWrapper.GetPeer()
+					if p == nil {
+						return p2ptypes.PeerID{}, errors.New("could not get peer from externalPeerWrapper")
+					}
+					return p.ID(), nil
+				}
+				return p2ptypes.PeerID{}, errors.New("could not get peer from any source")
+			}
+
 			workflowDonNotifier := capabilities.NewDonNotifier()
 			wfLauncher := capabilities.NewLauncher(
 				globalLogger,
@@ -992,14 +1019,7 @@ func newCREServices(
 			case 1:
 				registrySyncer, err := registrysyncerV1.New(
 					globalLogger,
-					func() (p2ptypes.PeerID, error) {
-						p := externalPeerWrapper.GetPeer()
-						if p == nil {
-							return p2ptypes.PeerID{}, errors.New("could not get peer")
-						}
-
-						return p.ID(), nil
-					},
+					getPeerID,
 					relayer,
 					registryAddress,
 					registrysyncerV1.NewORM(ds, globalLogger),
@@ -1013,14 +1033,7 @@ func newCREServices(
 			case 2:
 				registrySyncer, err := registrysyncerV2.New(
 					globalLogger,
-					func() (p2ptypes.PeerID, error) {
-						p := externalPeerWrapper.GetPeer()
-						if p == nil {
-							return p2ptypes.PeerID{}, errors.New("could not get peer")
-						}
-
-						return p.ID(), nil
-					},
+					getPeerID,
 					relayer,
 					registryAddress,
 					registrysyncerV1.NewORM(ds, globalLogger),
@@ -1162,6 +1175,30 @@ func newCREServices(
 
 					engineRegistry := syncerV2.NewEngineRegistry()
 
+					// Create OrgResolver for workflow owner organization resolution
+					var orgResolver orgresolver.OrgResolver
+					if cfg.CRE().Linking().URL() != "" {
+						// Convert chain selector from string to uint64
+						chainSelector, err2 := strconv.ParseUint(capCfg.WorkflowRegistry().ChainID(), 10, 64)
+						if err2 != nil {
+							return nil, fmt.Errorf("invalid workflow registry chain selector: %w", err2)
+						}
+
+						orgResolverConfig := orgresolver.Config{
+							URL:                           cfg.CRE().Linking().URL(),
+							TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
+							WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
+							WorkflowRegistryChainSelector: chainSelector,
+						}
+						orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
+						if err != nil {
+							return nil, fmt.Errorf("failed to create org resolver: %w", err)
+						}
+						srvcs = append(srvcs, orgResolver)
+					} else {
+						globalLogger.Warn("OrgResolver not created - no linking service URL configured")
+					}
+
 					eventHandler, err := syncerV2.NewEventHandler(
 						lggr,
 						workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -1177,7 +1214,7 @@ func newCREServices(
 						key,
 						syncerV2.WithBillingClient(billingClient),
 						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
-						syncerV2.WithLinking(creCfg.Linking().URL(), creCfg.Linking().TLSEnabled()),
+						syncerV2.WithOrgResolver(orgResolver),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
@@ -1215,7 +1252,7 @@ func newCREServices(
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
-		externalPeerWrapper:     externalPeerWrapper,
+		getPeerID:               getPeerID,
 		srvs:                    srvcs,
 		workflowRegistrySyncer:  workflowRegistrySyncer,
 	}, nil

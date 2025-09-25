@@ -593,10 +593,6 @@ func mcmSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) s
 	return mcmschangesetstate.GetMCMSignerPDA(programID, seed).String()
 }
 
-func timelockSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
-	return mcmschangesetstate.GetTimelockSignerPDA(programID, seed).String()
-}
-
 func solanaTimelockConfig(
 	ctx context.Context, t *testing.T, chain cldf_solana.Chain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
 ) timelockBindings.Config {

@@ -58,9 +58,9 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 			return ProposeOCR3JobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
 
-		nodeIDToP2PID := make(map[string]string)
+		nodeToCSAKey := make(map[string]string)
 		for _, n := range nodes {
-			nodeIDToP2PID[n.Id] = offchain.GetP2pLabel(n.GetLabels())
+			nodeToCSAKey[n.Id] = n.GetPublicKey()
 		}
 
 		specs, err := pkg.BuildOCR3JobConfigSpecs(
@@ -78,8 +78,8 @@ var ProposeOCR3Job = operations.NewSequence[ProposeOCR3JobInput, ProposeOCR3JobO
 			// Let's limit the target to the specific node for this spec.
 			filters := []offchain.TargetDONFilter{
 				{
-					Key:   offchain.P2pIDLabel,
-					Value: nodeIDToP2PID[spec.NodeID],
+					Key:   offchain.FilterKeyCSAPublicKey,
+					Value: nodeToCSAKey[spec.NodeID],
 				},
 			}
 			filters = append(filters, input.DONFilters...)

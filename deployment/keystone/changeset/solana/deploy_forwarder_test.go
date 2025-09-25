@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/wsrpc/logger"
@@ -28,8 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
-// Tests require downloading and building artifacts
-// from chainlink-solana and chainlink-ccip
+// Tests with transfer upgrade authority require downloading and building artifacts
+// from chainlink-solana
 // so we disable them in CI since it will take too long to run
 func TestDeployForwarder(t *testing.T) {
 	skipInCI(t)
@@ -87,7 +88,6 @@ func TestDeployForwarder(t *testing.T) {
 }
 
 func TestConfigureForwarder(t *testing.T) {
-	skipInCI(t)
 	t.Parallel()
 	testCases := []struct {
 		nChains      int
@@ -126,7 +126,6 @@ func TestConfigureForwarder(t *testing.T) {
 				solChain := env.BlockChains.SolanaChains()[solSel]
 				blockchains := make(map[uint64]cldfchain.BlockChain)
 
-				solChain.ProgramsPath = getProgramsPath()
 				blockchains[solSel] = solChain
 
 				for _, ch := range te.Env.BlockChains.All() {
@@ -134,6 +133,14 @@ func TestConfigureForwarder(t *testing.T) {
 				}
 
 				te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
+				ds := datastore.NewMemoryDataStore()
+				populate := map[string]datastore.ContractType{
+					"keystone_forwarder": ForwarderContract,
+				}
+
+				err := memory.PopulateDatastore(ds.AddressRefStore, populate, semver.MustParse("1.0.0"), testQualifier, solSel)
+				require.NoError(t, err)
+				te.Env.DataStore = ds.Seal()
 
 				deployChangeset := commonchangeset.Configure(DeployForwarder{},
 					&DeployForwarderRequest{
@@ -160,7 +167,6 @@ func TestConfigureForwarder(t *testing.T) {
 					&cfg,
 				)
 
-				var err error
 				_, _, err = commonchangeset.ApplyChangesets(t, te.Env, []commonchangeset.ConfiguredChangeSet{deployChangeset, configureChangeset})
 				require.NoError(t, err)
 			})
@@ -191,7 +197,6 @@ func TestConfigureForwarder(t *testing.T) {
 				blockchains := make(map[uint64]cldfchain.BlockChain)
 				blockchains[solSel] = solChain
 
-				solChain.ProgramsPath = getProgramsPath()
 				blockchains[solSel] = solChain
 
 				for _, ch := range te.Env.BlockChains.All() {
@@ -202,7 +207,21 @@ func TestConfigureForwarder(t *testing.T) {
 
 				ds := datastore.NewMemoryDataStore()
 
-				// deploy mcms
+				mcmProgram := datastore.ContractType(commontypes.ManyChainMultisigProgram)
+				timelockProgram := datastore.ContractType(commontypes.RBACTimelockProgram)
+				accessControllerProgram := datastore.ContractType(commontypes.AccessControllerProgram)
+				populate := map[string]datastore.ContractType{
+					"keystone_forwarder": ForwarderContract,
+					"mcm":                mcmProgram,
+					"timelock":           timelockProgram,
+					"access_controller":  accessControllerProgram,
+				}
+
+				err := memory.PopulateDatastore(ds.AddressRefStore, populate, semver.MustParse("1.0.0"), testQualifier, solSel)
+				require.NoError(t, err)
+
+				env.DataStore = ds.Seal()
+
 				mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(env, ds, solChain,
 					commontypes.MCMSWithTimelockConfigV2{
 						Canceller:        proposalutils.SingleGroupMCMSV2(t),
@@ -212,8 +231,7 @@ func TestConfigureForwarder(t *testing.T) {
 					},
 				)
 				require.NoError(t, err)
-
-				te.Env.DataStore = ds.Seal()
+				te.Env.DataStore = env.DataStore
 				fundSignerPDAs(t, te.Env, solSel, mcmsState)
 
 				deployChangeset := commonchangeset.Configure(DeployForwarder{},

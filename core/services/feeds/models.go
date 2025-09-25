@@ -85,6 +85,7 @@ const (
 	ChainTypeStarknet ChainType = "STARKNET"
 	ChainTypeTron     ChainType = "TRON"
 	ChainTypeTON      ChainType = "TON"
+	ChainTypeSui      ChainType = "SUI"
 )
 
 func NewChainType(s string) (ChainType, error) {
@@ -101,6 +102,8 @@ func NewChainType(s string) (ChainType, error) {
 		return ChainTypeTron, nil
 	case "TON":
 		return ChainTypeTON, nil
+	case "SUI":
+		return ChainTypeSui, nil
 	default:
 		return ChainTypeUnknown, errors.New("invalid chain type")
 	}

@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipnoop"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
@@ -16,6 +17,8 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDat
 		CommitPluginCodec:     codec.NewCommitPluginCodecV1(),
 		ExecutePluginCodec:    codec.NewExecutePluginCodecV1(extraDataCodec),
 		ExtraDataCodec:        codec.NewExtraDataDecoder(),
+		GasEstimateProvider:   ccipnoop.NewGasEstimateProvider(extraDataCodec), // TODO: implement
+		TokenDataEncoder:      ccipnoop.NewTokenDataEncoder(),                  // TODO: implement
 		CCIPProviderSupported: true,
 	}
 }

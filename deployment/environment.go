@@ -190,6 +190,7 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	if want.ChainName == "" {
 		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
 	}
+
 	c, ok := n.SelToOCRConfig[want]
 	return c, ok
 }
@@ -268,10 +269,15 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 				},
 			},
 		}
-	} else {
+	} else if strings.HasPrefix(nodeIDs[0], "node_") {
 		filter = &nodev1.ListNodesRequest_Filter{
 			Enabled: 1,
 			Ids:     nodeIDs,
+		}
+	} else {
+		filter = &nodev1.ListNodesRequest_Filter{
+			Enabled:    1,
+			PublicKeys: nodeIDs,
 		}
 	}
 	nodesFromJD, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{

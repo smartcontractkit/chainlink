@@ -2,9 +2,7 @@ package cre
 
 import (
 	"context"
-	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,200 +10,145 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
-	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/config"
+	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
-
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-
 	keystonechangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
-func executeEVMReadTest(t *testing.T, testEnv *TestEnvironment) {
-	enabledChains := map[string]struct{}{}
-	for _, nodeSet := range testEnv.Config.NodeSets {
-		require.NoError(t, nodeSet.ParseChainCapabilities())
-		if nodeSet.ChainCapabilities == nil || nodeSet.ChainCapabilities[cre.EVMCapability] == nil {
-			continue
-		}
-
-		for _, chainID := range nodeSet.ChainCapabilities[cre.EVMCapability].EnabledChains {
-			strChainID := strconv.FormatUint(chainID, 10)
-			enabledChains[strChainID] = struct{}{}
-		}
-	}
-	require.NotEmpty(t, enabledChains, "No chains have EVM capability enabled in any node set")
-	const workflowFileLocation = "./evmread/main.go"
+// smoke
+func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	lggr := framework.L
+	const workflowFileLocation = "./evm/evmread/main.go"
+	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
+
 	var workflowsWg sync.WaitGroup
 	var successfulWorkflowRuns atomic.Int32
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		if _, ok := enabledChains[bcOutput.BlockchainOutput.ChainID]; !ok {
-			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM read workflow test", bcOutput.BlockchainOutput.ChainID)
+		chainID := bcOutput.BlockchainOutput.ChainID
+		if _, ok := enabledChains[chainID]; !ok {
+			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
 			continue
 		}
-		workflowName := "evm-read-workflow-" + bcOutput.BlockchainOutput.ChainID
 
+		lggr.Info().Msg("Creating EVM Read workflow configuration...")
 		workflowConfig := configureEVMReadWorkflow(t, lggr, bcOutput)
-
-		lggr.Info().Msg("Proceeding to register workflow...")
-		compileAndDeployWorkflow(t, testEnv, lggr, fmt.Sprintf("evmreadtest-%d", bcOutput.ChainID), &workflowConfig, workflowFileLocation)
+		workflowName := "evm-read-workflow-" + chainID
+		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 		workflowsWg.Add(1)
-		forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.FullCldEnvOutput.Environment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-		require.NoError(t, err)
-
-		// validate workflow execution
 		go func(bcOutput *cre.WrappedBlockchainOutput) {
 			defer workflowsWg.Done()
-			err := validateWorkflowExecution(t, lggr, bcOutput, workflowName, forwarderAddress, workflowConfig)
-			if err != nil {
-				lggr.Error().Msgf("Workflow %s execution failed on chain %s: %v", workflowName, bcOutput.BlockchainOutput.ChainID, err)
-				return
-			}
-
-			lggr.Info().Msgf("Workflow %s executed successfully on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
+			validateWorkflowExecution(t, lggr, testEnv, bcOutput, workflowName, workflowConfig) //nolint:testifylint // TODO: consider refactoring
 			successfulWorkflowRuns.Add(1)
 		}(bcOutput)
 	}
 
-	ctx, cancel := context.WithCancel(t.Context())
-	go func() {
-		workflowsWg.Wait()
-		cancel()
-	}()
-	logWorkflowLogs(ctx, t, testEnv)
+	// wait for all workflows to complete
+	workflowsWg.Wait()
 	require.Equal(t, len(enabledChains), int(successfulWorkflowRuns.Load()), "Not all workflows executed successfully")
 }
 
-func logWorkflowLogs(ctx context.Context, t *testing.T, testEnv *TestEnvironment) {
-	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
-	require.NoError(t, err, "failed to create beholder instance")
+func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttypes.TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig evm_config.Config) {
+	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+	require.NoError(t, err, "failed to find forwarder address for chain %s", bcOutput.ChainSelector)
 
-	// We are interested in UserLogs (successful execution)
-	// or BaseMessage with specific error message (engine initialization failure)
-	beholderMessageTypes := map[string]func() proto.Message{
-		"workflows.v1.UserLogs": func() proto.Message {
-			return &workflowevents.UserLogs{}
-		},
-		"BaseMessage": func() proto.Message {
-			return &commonevents.BaseMessage{}
-		},
-	}
+	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, bcOutput.SethClient.Client)
+	require.NoError(t, err, "failed to instantiate forwarder contract")
 
-	lggr := framework.L
-	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(ctx, beholderMessageTypes)
-	// Check the beholder logs for the expected messages
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-beholderErrChan:
-			require.FailNowf(t, "Kafka error received from Kafka %s", err.Error())
-		case msg := <-beholderMsgChan:
-			switch typedMsg := msg.(type) {
-			case *commonevents.BaseMessage:
-				lggr.Info().Msgf("Received BaseMessage from Beholder: %s", typedMsg.Msg)
-			case *workflowevents.UserLogs:
-				for _, logLine := range typedMsg.LogLines {
-					lggr.Info().Msgf("Received workflow msg: %s", logLine.Message)
-				}
-			default:
-				lggr.Info().Msgf("Received unknown message of type '%T'", msg)
-			}
+	msgEmitterAddr := common.BytesToAddress(workflowConfig.ContractAddress)
+
+	timeout := 5 * time.Minute
+	tick := 3 * time.Second
+	require.Eventually(t, func() bool {
+		lggr.Info().Msgf("Waiting for workflow '%s' to finish", workflowName)
+		ctx, cancel := context.WithTimeout(t.Context(), timeout)
+		defer cancel()
+		isSubmitted := isReportSubmittedByWorkflow(ctx, t, forwarderContract, msgEmitterAddr, workflowConfig)
+		if !isSubmitted {
+			lggr.Warn().Msgf("Forwarder has not received any reports from a workflow '%s' yet (delay is permissible due to latency in event propagation, waiting).", workflowName)
+			return false
 		}
-	}
+
+		if isSubmitted {
+			lggr.Info().Msgf("🎉 Workflow %s executed successfully on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
+			return true
+		}
+
+		// if there are no more filtered reports, stop
+		return !isReportSubmittedByWorkflow(ctx, t, forwarderContract, msgEmitterAddr, workflowConfig)
+	}, timeout, tick, "workflow %s did not execute within the timeout %s", workflowName, timeout.String())
 }
 
-func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, bcOutput *cre.WrappedBlockchainOutput, workflowName string, forwarderAddr common.Address, cfg config.Config) error {
-	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddr, bcOutput.SethClient.Client)
-	if err != nil {
-		return fmt.Errorf("failed to create forwarder contract instance: %w", err)
-	}
-	msgEmitterAddr := common.BytesToAddress(cfg.ContractAddress)
-	isWorkflowFinished := func(ctx context.Context) (bool, error) {
-		iter, err := forwarderContract.FilterReportProcessed(&bind.FilterOpts{
-			Start:   cfg.ExpectedReceipt.BlockNumber.Uint64(),
-			End:     nil,
-			Context: ctx,
-		}, []common.Address{msgEmitterAddr}, nil, nil)
-		if err != nil {
-			return false, fmt.Errorf("failed to filter forwarder: %w", err)
-		}
+func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.WrappedBlockchainOutput) evm_config.Config {
+	t.Helper()
 
-		if iter.Error() != nil {
-			return false, fmt.Errorf("error while filtering forwarder: %w", iter.Error())
-		}
+	chainID := chain.BlockchainOutput.ChainID
+	chainSethClient := chain.SethClient
 
-		return iter.Next(), nil
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			lggr.Info().Msgf("Checking if workflow %s executed on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
-			ok, err := isWorkflowFinished(ctx)
-			if err != nil {
-				lggr.Error().Msgf("Error checking workflow execution: %v", err)
-				continue
-			}
+	lggr.Info().Msgf("Deploying message emitter for chain %s", chainID)
+	msgEmitterContractAddr, tx, msgEmitter, err := evmreadcontracts.DeployMessageEmitter(chainSethClient.NewTXOpts(), chainSethClient.Client)
+	require.NoError(t, err, "failed to deploy message emitter contract")
 
-			if ok {
-				lggr.Info().Msgf("Workflow %s executed successfully on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
-				return nil
-			}
-		case <-ctx.Done():
-			return fmt.Errorf("workflow %s did not execute on chain %s within the timeout", workflowName, bcOutput.BlockchainOutput.ChainID)
-		}
-	}
-}
+	lggr.Info().Msgf("Deployed message emitter for chain '%s' at '%s'", chainID, msgEmitterContractAddr.String())
+	_, err = chainSethClient.WaitMined(t.Context(), lggr, chainSethClient.Client, tx)
+	require.NoError(t, err, "failed to get message emitter deployment tx")
 
-func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.WrappedBlockchainOutput) config.Config {
-	lggr.Info().Msgf("Deploying message emitter for chain %s", chain.BlockchainOutput.ChainID)
-	msgEmitterContractAddr, tx, msgEmitter, err := evmreadcontracts.DeployMessageEmitter(chain.SethClient.NewTXOpts(), chain.SethClient.Client)
-	require.NoError(t, err)
-	lggr.Info().Msgf("Deployed message emitter for chain %s at %s", chain.BlockchainOutput.ChainID, msgEmitterContractAddr.String())
-	_, err = chain.SethClient.WaitMined(t.Context(), lggr, chain.SethClient.Client, tx)
-	require.NoError(t, err)
-	lggr.Printf("Emitting event to be picked up by workflow for chain %s", chain.BlockchainOutput.ChainID)
-	emittingTx, err := msgEmitter.EmitMessage(chain.SethClient.NewTXOpts(), "Initial message to be read by workflow")
-	require.NoError(t, err)
-	emittingReceipt, err := chain.SethClient.WaitMined(t.Context(), lggr, chain.SethClient.Client, emittingTx)
-	require.NoError(t, err)
-	lggr.Info().Msgf("Updating nonces for chain %s", chain.BlockchainOutput.ChainID)
+	lggr.Printf("Emitting event to be picked up by workflow for chain '%s'", chainID)
+	emittingTx, err := msgEmitter.EmitMessage(chainSethClient.NewTXOpts(), "Initial message to be read by workflow")
+	require.NoError(t, err, "failed to emit message from contract '%s'", msgEmitterContractAddr.String())
+
+	emittingReceipt, err := chainSethClient.WaitMined(t.Context(), lggr, chainSethClient.Client, emittingTx)
+	require.NoError(t, err, "failed to get message emitter event tx")
+
+	lggr.Info().Msgf("Updating nonces for chain %s", chainID)
 	// force update nonces to ensure the transfer works
-	require.NoError(t, chain.SethClient.NonceManager.UpdateNonces())
-	const expectedBalance = 10
-	pk, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	accountAddr := crypto.PubkeyToAddress(pk.PublicKey)
-	lggr.Info().Msgf("Funding account %s for BalanceAt read test for chain %s", accountAddr.Hex(), chain.BlockchainOutput.ChainID)
-	err = chain.SethClient.TransferETHFromKey(t.Context(), 0, accountAddr.Hex(), big.NewInt(expectedBalance), nil)
-	require.NoError(t, err, "failed to transfer ETH to contract %s", msgEmitterContractAddr.String())
+	require.NoError(t, chainSethClient.NonceManager.UpdateNonces(), "failed to update nonces for chain %s", chainID)
+
+	// create and fund an address to be used by the workflow
+	amountToFund := big.NewInt(0).SetUint64(10) // 10 wei
+	numberOfAddressesToCreate := 1
+	addresses, addrErr := t_helpers.CreateAndFundAddresses(t, lggr, numberOfAddressesToCreate, amountToFund, chainSethClient, chain, nil)
+	require.NoError(t, addrErr, "failed to create and fund new addresses")
+	require.Len(t, addresses, numberOfAddressesToCreate, "failed to create the correct number of addresses")
+
 	marshalledTx, err := emittingTx.MarshalBinary()
 	require.NoError(t, err)
-	return config.Config{
+
+	accountAddress := addresses[0].Bytes()
+	return evm_config.Config{
 		ContractAddress:  msgEmitterContractAddr.Bytes(),
 		ChainSelector:    chain.ChainSelector,
-		AccountAddress:   accountAddr.Bytes(),
-		ExpectedBalance:  big.NewInt(expectedBalance),
+		AccountAddress:   accountAddress,
+		ExpectedBalance:  amountToFund,
 		ExpectedReceipt:  emittingReceipt,
 		TxHash:           emittingReceipt.TxHash.Bytes(),
 		ExpectedBinaryTx: marshalledTx,
 	}
+}
+
+// isReportSubmittedByWorkflow checks if a report has been submitted by the workflow by filtering the ReportProcessed events
+func isReportSubmittedByWorkflow(ctx context.Context, t *testing.T, forwarderContract *forwarder.KeystoneForwarder, msgEmitterAddr common.Address, cfg evm_config.Config) bool {
+	iter, err := forwarderContract.FilterReportProcessed(
+		&bind.FilterOpts{
+			Start:   cfg.ExpectedReceipt.BlockNumber.Uint64(),
+			End:     nil,
+			Context: ctx,
+		},
+		[]common.Address{msgEmitterAddr}, nil, nil)
+
+	require.NoError(t, err, "failed to filter forwarder events")
+	require.NoError(t, iter.Error(), "error during iteration of forwarder events")
+
+	return iter.Next()
 }

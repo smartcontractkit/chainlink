@@ -25,7 +25,8 @@ const (
 	Tron ChainType = "tron"
 	// TON for the TON chain
 	TON ChainType = "ton"
-
+	// Sui for the Sui chain
+	Sui ChainType = "sui"
 	// Offchain is used by the MultichainKeyringAdapter when we are signing for offchain (eg. for DKG).
 	Offchain ChainType = "offchain"
 )
@@ -60,6 +61,8 @@ func NewChainType(typ uint8) (ChainType, error) {
 	case 7:
 		return TON, nil
 	case 8:
+		return Sui, nil
+	case 9:
 		return Offchain, nil
 	default:
 		return "", fmt.Errorf("unexpected chaintype.ChainType: %#v", typ)
@@ -82,6 +85,8 @@ func (c ChainType) Type() (uint8, error) {
 		return 6, nil
 	case TON:
 		return 7, nil
+	case Sui:
+		return 8, nil
 	case Offchain:
 		return 8, nil
 	default:
@@ -90,7 +95,7 @@ func (c ChainType) Type() (uint8, error) {
 }
 
 // SupportedChainTypes contain all chains that are supported
-var SupportedChainTypes = ChainTypes{EVM, Cosmos, Solana, StarkNet, Aptos, Tron, TON}
+var SupportedChainTypes = ChainTypes{EVM, Cosmos, Solana, StarkNet, Aptos, Tron, TON, Sui}
 
 // ErrInvalidChainType is an error to indicate an unsupported chain type
 var ErrInvalidChainType error

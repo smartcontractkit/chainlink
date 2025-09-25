@@ -65,9 +65,7 @@ type registrySyncer struct {
 
 var _ services.Service = &registrySyncer{}
 
-var (
-	defaultTickInterval = 12 * time.Second
-)
+var defaultTickInterval = 12 * time.Second
 
 // New instantiates a new RegistrySyncer
 func New(
@@ -359,6 +357,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		select {
 		case <-s.stopCh:
 			s.lggr.Debug("sync cancelled, stopping")
+			return nil
 		case s.updateChan <- latestRegistry:
 			// Successfully sent state
 			s.lggr.Debug("remote registry update triggered successfully")
@@ -431,10 +430,8 @@ func (s *registrySyncer) AddListener(listeners ...registrysyncer.Listener) {
 func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
 		close(s.stopCh)
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		close(s.updateChan)
 		s.wg.Wait()
+		close(s.updateChan)
 		return nil
 	})
 }

@@ -77,6 +77,14 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 		targetSchedule = "oneAtATime"
 	}
 
+	// for legacy tooling
+	var triggerCapability string
+	if workflowSpecConfig.ConsensusAggregationMethod == "llo_streams" {
+		triggerCapability = "streams-trigger:don_asset-1@2.0.0"
+	} else {
+		triggerCapability = "streams-trigger@1.1.0"
+	}
+
 	// create the workflow YAML spec
 	workflowSpec, err := offchain.CreateWorkflowSpec(
 		feedState.Feeds,
@@ -86,6 +94,7 @@ func proposeWFJobsToJDLogic(env cldf.Environment, c types.ProposeWFJobsConfig) (
 		consensusRef,
 		workflowSpecConfig.ConsensusReportID,
 		workflowSpecConfig.ConsensusAggregationMethod,
+		triggerCapability,
 		consensusConfigKeyID,
 		workflowSpecConfig.ConsensusAllowedPartialStaleness,
 		consensusEncoderAbi,

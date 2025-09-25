@@ -6,10 +6,11 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/xssnick/tonutils-go/tlb"
+
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/xssnick/tonutils-go/tlb"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -21,8 +22,6 @@ import (
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
-	// Setup 2 chains (EVM and Ton) and a single lane.
-	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
 
 	t.Logf("Environment: %+v", e.Env)
@@ -52,12 +51,10 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
 	require.NoError(t, err)
 
-	// Should fail, we don't have Fee Quoter support yet for TON chain
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
 	var (
-		//  nonce  uint64
 		sender = addrBytes
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -87,10 +84,11 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 				Replayed:               true,
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
+				Nonce:                  nil, // TON nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              c.ToBOC(),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // state would be failed
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
 	})
@@ -98,8 +96,8 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 	_ = out
 }
 
-func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
-	t.Skip("Skipping the test temporarily - fix required")
+func Test_CCIPMessaging_EVM2TON(t *testing.T) {
+	t.Skip("Test stalls because TON test assertions aren't implemented yet")
 	// Setup 2 chains (EVM and Ton) and a single lane.
 	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
@@ -112,6 +110,7 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	_ = state
 
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
+	slices.Sort(evmChainSelectors)
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := evmChainSelectors[0]
 	destChain := allTonChainSelectors[0]
@@ -139,12 +138,10 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	expected := tlb.MustFromTON("1000")
 	require.GreaterOrEqual(t, acc.State.Balance.Compare(&expected), 0)
 
-	// Should fail, we don't have Fee Quoter support yet for TON chain
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.Error(t, err, "Expected failure when configuring EVM->TON lane")
+	require.NoError(t, err)
 
 	var (
-		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out    mt.TestCaseOutput
 		setup  = mt.NewTestSetupWithDeployedEnv(
@@ -159,7 +156,6 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 	)
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		t.Skip("Skipping test for now, as it requires a deployed contracts on TON chain")
 		ccipChainState := state.TonChains[destChain]
 		receiver := ccipChainState.ReceiverAddress
 		receiverBase64Bytes, err := base64.RawURLEncoding.DecodeString(receiver.String())
@@ -171,7 +167,7 @@ func Test_CCIPMessaging_EVM2Ton(t *testing.T) {
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
-				Nonce:                  &nonce,
+				Nonce:                  nil, // TON nonce check is skipped
 				Receiver:               receiverBase64Bytes,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),

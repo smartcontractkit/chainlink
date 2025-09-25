@@ -52,6 +52,7 @@ type mocks struct {
 	vrf                  *keystoreMocks.VRF
 	solana               *keystoreMocks.Solana
 	aptos                *keystoreMocks.Aptos
+	sui                  *keystoreMocks.Sui
 	cosmos               *keystoreMocks.Cosmos
 	starknet             *keystoreMocks.StarkNet
 	tron                 *keystoreMocks.Tron
@@ -114,6 +115,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		aptos:                keystoreMocks.NewAptos(t),
 		cosmos:               keystoreMocks.NewCosmos(t),
 		starknet:             keystoreMocks.NewStarkNet(t),
+		sui:                  keystoreMocks.NewSui(t),
 		tron:                 keystoreMocks.NewTron(t),
 		ton:                  keystoreMocks.NewTON(t),
 		chain:                legacyEvmORMMocks.NewChain(t),
