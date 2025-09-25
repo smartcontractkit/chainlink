@@ -81,8 +81,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
 		userSpendLimit.Valid = false
 
-		openConcurrentCallSlots, err := c.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx)
-		if err != nil {
+		var openConcurrentCallSlots int
+		if openConcurrentCallSlots, err = c.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx); err != nil {
 			return nil, err
 		}
 
