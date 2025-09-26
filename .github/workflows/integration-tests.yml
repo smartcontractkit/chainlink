@@ -309,12 +309,10 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
             # Run Core CRE E2E tests on PRs if there are relevant changes
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
-              echo "workflow-name=Run Core CRE E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
             fi
             if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
-              echo "Including CRE regression tests as the label 'run-e2e-regression' is found"
-              echo "workflow-name=Run Core CRE E2E Regression Tests For PR" | tee -a "$GITHUB_OUTPUT"
+              echo "Running CRE regression tests as the label 'run-e2e-regression' is found"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
               echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
             fi
@@ -343,7 +341,7 @@ jobs:
           fi
 
   run-core-cre-e2e-tests:
-    name: ${{ needs.run-core-cre-e2e-tests-setup.outputs.workflow-name }}
+    name: Run Core CRE E2E Tests For PR
     needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
@@ -360,7 +358,7 @@ jobs:
     secrets: inherit
 
   run-core-cre-e2e-regression-tests:
-    name: ${{ needs.run-core-cre-e2e-tests-setup.outputs.workflow-name }}
+    name: Run Core CRE E2E Regression Tests For PR
     needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read

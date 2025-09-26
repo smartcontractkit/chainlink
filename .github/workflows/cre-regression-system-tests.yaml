@@ -1,4 +1,4 @@
-name: CRE System Tests
+name: CRE Regression System Tests
 
 on:
   workflow_dispatch:

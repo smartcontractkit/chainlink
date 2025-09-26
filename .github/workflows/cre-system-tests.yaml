@@ -269,25 +269,13 @@ jobs:
             docker logs "$c" > "logs/${c}.log" 2>&1
           done
 
-      - name: Save Regression tests Docker logs
-        if: failure()
-        shell: bash
-        working-directory: system-tests/tests/regression/cre
-        run: |
-          mkdir -p logs
-          for c in $(docker ps -a --format '{{.Names}}'); do
-            docker logs "$c" > "logs/${c}.log" 2>&1
-          done
-
       - name: Upload all artifacts as single package
         if: failure()
         uses: actions/upload-artifact@v4.6.2
         with:
           name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |
-            ./system-tests/tests/regression/cre/logs/
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/
             /tmp/gotest.log
-            /tmp/gotest-regression.log
             /tmp/junit-report.xml
