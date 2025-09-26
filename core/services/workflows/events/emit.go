@@ -405,7 +405,7 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 		entity = "workflows.v2." + TriggerExecutionStarted
 	case *eventsv2.WorkflowUserLog:
 		schema = SchemaUserLogsV2
-		entity = "workflows.v2." + UserLogs
+		entity = "workflows.v2." + WorkflowUserLog
 	case *eventsv2.WorkflowActivated:
 		schema = SchemaWorkflowActivatedV2
 		entity = "workflows.v2." + WorkflowActivated

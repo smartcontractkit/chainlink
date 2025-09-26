@@ -107,7 +107,7 @@ func TestEmit(t *testing.T) {
 		assert.Equal(t, logLines[1].Message, receivedV1.LogLines[1].Message)
 
 		// Verify v2 events are emitted (one per log line)
-		v2Msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v2."+events.UserLogs)
+		v2Msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowUserLog)
 		require.Len(t, v2Msgs, 2)
 
 		var msg1 eventsv2.WorkflowUserLog
