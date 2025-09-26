@@ -76,7 +76,7 @@ jobs:
             split("\n") | map(select(length>0))
             | to_entries
             | map({
-                name: .value,
+                test_name: .value,
                 test_id: .key,
                 cre_version: (if (.value | test("V2")) then "v2" else "v1" end)
               })
