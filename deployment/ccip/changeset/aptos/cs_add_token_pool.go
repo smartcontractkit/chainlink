@@ -3,6 +3,7 @@ package aptos
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
@@ -227,6 +228,12 @@ func isTokenOwnedByMCMS(deps operation.AptosDeps, cfgTokenAddress aptos.AccountA
 	mcmsContract := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
 	isOwned, err := mcmsContract.MCMSRegistry().IsOwnedCodeObject(nil, cfgTokenAddress)
 	if err != nil {
+		eMsg := err.Error()
+		if strings.Contains(eMsg, "E_ADDRESS_NOT_REGISTERED") {
+			// If token is not registered, treat as just not owned by MCMS
+			// This is not an error per se
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to check if token is owned by MCMS: %w", err)
 	}
 	return isOwned, nil
