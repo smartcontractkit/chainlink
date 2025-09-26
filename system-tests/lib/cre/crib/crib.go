@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func Bootstrap(infraInput infra.Input) error {
+func Bootstrap(infraInput infra.Provider) error {
 	plan := crib.NewPlan(
 		"namespace",
 		crib.Namespace(infraInput.CRIB.Namespace),

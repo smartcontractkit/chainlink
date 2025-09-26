@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
@@ -42,7 +43,7 @@ func (g GatewayJob) Validate() error {
 	return nil
 }
 
-func (g GatewayJob) Resolve() (string, error) {
+func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 	externalJobID := g.ExternalJobID
 	if externalJobID == "" {
 		externalJobID = uuid.NewSHA1(uuid.Nil, []byte(g.JobName)).String()
@@ -80,14 +81,14 @@ func (g GatewayJob) Resolve() (string, error) {
 	config := gatewayConfig{
 		ConnectionManagerConfig: connectionManagerConfig{
 			AuthChallengeLen:          10,
-			AuthGatewayID:             g.JobName,
+			AuthGatewayID:             "gateway-node-" + strconv.Itoa(gatewayNodeIdx),
 			AuthTimestampToleranceSec: 5,
 			HeartbeatIntervalSec:      20,
 		},
 		NodeServerConfig: nodeServerConfig{
 			HandshakeTimeoutMillis: 1_000,
 			MaxRequestBytes:        100_000,
-			Path:                   "/node",
+			Path:                   "/",
 			Port:                   5_003,
 			ReadTimeoutMillis:      1_000,
 			RequestTimeoutMillis:   10_000,

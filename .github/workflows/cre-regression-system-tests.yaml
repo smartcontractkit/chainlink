@@ -1,4 +1,4 @@
-name: CRE System Tests
+name: CRE Regression System Tests
 
 on:
   workflow_dispatch:
@@ -64,65 +64,22 @@ jobs:
         id: define-matrix
         shell: bash
         working-directory: system-tests/tests
+        env:
+          WITH_REGRESSION: ${{ inputs.with_regression }}
         run: |
-          # Get the list of tests, for each test add each of supported DON topologies and create JSON array to form a job matrix.
-          # - This only needs to be updated if we want to run all tests on a new DON topology.
-          # - Otherwise tests are auto-discovered and run on all topologies.
-          PER_TEST_MODE='replace'
-          TOPOLOGIES_JSON='[
-            {"topology":"workflow","configs":"configs/workflow-don.toml"},
-            {"topology":"workflow-gateway","configs":"configs/workflow-gateway-don.toml"},
-            {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
-          ]'
+          test_names=$(go test \
+          github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre \
+           -list . | grep -v 'ok' | grep -v '^$')
 
-          # Add list of tests with certain topologies
-          PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
-            "Test_CRE_Suite_V1_SecureMint": [
-               {"topology":"workflow","configs":"configs/workflow-solana-don.toml"}
-             ],
-            "Test_CRE_Suite_V1_Tron": [
-               {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
-             ]
-              }'}
-          PER_TEST_MODE=${PER_TEST_MODE:-append}
-
-          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
-
-          tests=$(echo "$test_names" | jq -R -s \
-            --argjson tops "$TOPOLOGIES_JSON" \
-            --argjson per  "$PER_TEST_TOPOLOGIES_JSON" \
-            --arg mode "$PER_TEST_MODE" '
-            # Parse names into an array
-            (split("\n") | map(select(length>0))) as $names
-
-            # Base cartesian product: names x base topologies
-            | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
-
-            # If mode == replace, drop base combos for tests that have per-test topologies
-            | (if $mode == "replace"
-                 then $baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))
-                 else $baseAll
-               end) as $base
-
-            # Build per-test combos from the override map
-            | [ $per | to_entries[] as $e
-                | $e.value[] | {test_name: $e.key} + .
-              ] as $extra
-
-            # Combine and add test_id and CRE version
-            | ($base + $extra)
+          # generate IDs for each test
+          tests=$(echo "$test_names" | jq -R -s '
+            split("\n") | map(select(length>0))
             | to_entries
-            | map(
-                .value + {
-                  test_id: .key,
-                  # Add CRE version based on test name pattern
-                  cre_version: (
-                    if (.value.test_name | test("V2")) then "v2"
-                    else "v1"
-                    end
-                  )
-                }
-              )
+            | map({
+                test_name: .value,
+                test_id: .key,
+                cre_version: (if (.value | test("V2")) then "v2" else "v1" end)
+              })
           ')
 
           tests=$(echo "$tests" | jq -c .)
@@ -200,7 +157,7 @@ jobs:
           E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
-          CTF_CONFIGS: ${{ matrix.tests.configs }}
+          CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
@@ -221,29 +178,26 @@ jobs:
             exit $exit_code
           fi
 
-      - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
-        id: run-tests
+      - name: Run CRE${{ matrix.tests.cre_version }} Regression system tests
         shell: bash
         working-directory: system-tests/tests
-        continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
-          TEST_TIMEOUT: 30m
-          RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
+          TEST_TIMEOUT: 200m
         run: |
           gotestsum \
-            --jsonfile=/tmp/gotest.log \
-            --junitfile=/tmp/junit-report.xml \
+            --jsonfile=/tmp/gotest-regression.log \
+            --junitfile=/tmp/junit-report-regression.xml \
             --format=github-actions \
             -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
-            github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
+            -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=1 \
+            github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
 
-      - name: Process and upload flaky Smoke test results
+      - name: Process and upload flaky Regression tests results
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
-          junit-file-path: "/tmp/junit-report.xml"
+          junit-file-path: "/tmp/junit-report-regression.xml"
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
@@ -256,16 +210,13 @@ jobs:
         shell: bash
         run: docker ps -a
 
-      - name: Save Smoke tests Docker logs
+      - name: Save Regression tests Docker logs
         if: failure()
         shell: bash
-        working-directory: system-tests/tests/smoke/cre
+        working-directory: system-tests/tests/regression/cre
         run: |
           mkdir -p logs
           for c in $(docker ps -a --format '{{.Names}}'); do
-            docker logs "$c" > "logs/${c}.log" 2>&1
-          done
-          for c in $(docker ps -a --filter "label=com.docker.compose.service=billing-platform-service" --format '{{.Names}}'); do
             docker logs "$c" > "logs/${c}.log" 2>&1
           done
 
@@ -275,7 +226,7 @@ jobs:
         with:
           name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |
-            ./system-tests/tests/smoke/cre/logs/
-            ./system-tests/tests/load/cre/logs/
+            ./system-tests/tests/regression/cre/logs/
             /tmp/gotest.log
+            /tmp/gotest-regression.log
             /tmp/junit-report.xml

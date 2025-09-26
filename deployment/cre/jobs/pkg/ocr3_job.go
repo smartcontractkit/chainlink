@@ -27,8 +27,7 @@ type OCR3JobConfigInput struct {
 	BootstrapperOCR3Urls []string      `yaml:"bootstrapper_ocr3_urls"`
 
 	// Optionals: specific to the worker vault OCR3 Job spec
-	MasterPublicKey          string `yaml:"master_public_key"`
-	EncryptedPrivateKeyShare string `yaml:"encrypted_private_key_share"`
+	DKGContractQualifier string `yaml:"dkg_contract_qualifier"`
 }
 
 type OCR3JobConfig struct {
@@ -43,8 +42,7 @@ type OCR3JobConfig struct {
 	ExternalJobID        string
 	TemplateName         string
 
-	MasterPublicKey          string
-	EncryptedPrivateKeyShare string
+	DKGContractAddress string
 }
 
 func (c OCR3JobConfig) Validate() error {
@@ -106,6 +104,7 @@ func BuildOCR3JobConfigSpecs(
 	nodes []*nodev1.Node,
 	btURLs []string,
 	donName, jobName, templateName string,
+	dkgContractAddress string,
 ) ([]OCR3JobConfigSpec, error) {
 	nodesLen := len(nodes)
 	if nodesLen == 0 {
@@ -142,9 +141,11 @@ func BuildOCR3JobConfigSpecs(
 		if !ok {
 			return nil, fmt.Errorf("no evm ocr2 config for node %s", node.NodeID)
 		}
+
+		aptosKeyBundleID := ""
 		aptosConfig, ok := node.OCRConfigForChainSelector(aptosChainSel)
-		if !ok {
-			return nil, fmt.Errorf("no aptos ocr2 config for node %s", node.NodeID)
+		if ok {
+			aptosKeyBundleID = aptosConfig.KeyBundleID
 		}
 
 		jbName := "OCR3 Multichain Capability (" + node.Name + ")"
@@ -152,18 +153,17 @@ func BuildOCR3JobConfigSpecs(
 			jbName = jobName + " (" + node.Name + ")"
 		}
 		jobConfig := &OCR3JobConfig{
-			JobName:                  jbName,
-			ChainID:                  chainID,
-			P2PID:                    node.PeerID.String(),
-			OCR2EVMKeyBundleID:       evmConfig.KeyBundleID,
-			OCR2AptosKeyBundleID:     aptosConfig.KeyBundleID,
-			ContractID:               contractID,
-			TransmitterID:            string(evmConfig.TransmitAccount),
-			P2Pv2Bootstrappers:       btURLs,
-			ExternalJobID:            extJobID,
-			TemplateName:             templateName,
-			MasterPublicKey:          "",
-			EncryptedPrivateKeyShare: "",
+			JobName:              jbName,
+			ChainID:              chainID,
+			P2PID:                node.PeerID.String(),
+			OCR2EVMKeyBundleID:   evmConfig.KeyBundleID,
+			OCR2AptosKeyBundleID: aptosKeyBundleID,
+			ContractID:           contractID,
+			TransmitterID:        string(evmConfig.TransmitAccount),
+			P2Pv2Bootstrappers:   btURLs,
+			ExternalJobID:        extJobID,
+			TemplateName:         templateName,
+			DKGContractAddress:   dkgContractAddress,
 		}
 
 		err1 := jobConfig.Validate()
@@ -185,12 +185,10 @@ func BuildOCR3JobConfigSpecs(
 			JobName: jobConfig.JobName,
 		})
 	}
-	fmt.Printf("specs len: %d\n", len(specs))
 
 	return specs, nil
 }
 
-// NOTE: consider adding contract address to the hash
 func ExternalJobID(donName, contractID, templateName string, evmChainSel uint64) (string, error) {
 	in := []byte(donName + "-" + contractID + "-" + templateName + "-ocr3-capability-job-spec")
 	b := make([]byte, 8)

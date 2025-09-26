@@ -54,7 +54,7 @@ type SetupOutput struct {
 	BlockchainOutput                    []*cre.WrappedBlockchainOutput
 	DonTopology                         *cre.DonTopology
 	NodeOutput                          []*cre.WrappedNodeOutput
-	InfraInput                          infra.Input
+	InfraInput                          infra.Provider
 	S3ProviderOutput                    *s3provider.Output
 }
 
@@ -62,7 +62,7 @@ type SetupInput struct {
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	BlockchainsInput          []blockchain.Input
 	JdInput                   *jd.Input
-	InfraInput                infra.Input
+	InfraInput                infra.Provider
 	ContractVersions          map[string]string
 	WithV2Registries          bool
 	OCR3Config                *keystone_changeset.OracleConfig
@@ -115,11 +115,6 @@ func SetupTestEnvironment(
 
 	if err := input.Validate(); err != nil {
 		return nil, pkgerrors.Wrap(err, "input validation failed")
-	}
-
-	topologyErr := libdon.ValidateTopology(input.CapabilitiesAwareNodeSets, input.InfraInput)
-	if topologyErr != nil {
-		return nil, pkgerrors.Wrap(topologyErr, "failed to validate topology")
 	}
 
 	if input.InfraInput.Type == infra.CRIB {
@@ -211,7 +206,7 @@ func SetupTestEnvironment(
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
-	creEnvironment := newCreEnvironment(cldfEnvironment, dons, topology)
+	creEnvironment := newCreEnvironment(startBlockchainsOutput.RegistryChain().ChainSelector, cldfEnvironment, dons, topology)
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
@@ -499,10 +494,10 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 	input.JdInput.Out = jdOutput
 }
 
-func newCreEnvironment(cldfEnv *cldf.Environment, dons []*devenv.DON, topology *cre.Topology) *cre.Environment {
+func newCreEnvironment(registryChainSelector uint64, cldfEnv *cldf.Environment, dons []*devenv.DON, topology *cre.Topology) *cre.Environment {
 	donTopology := &cre.DonTopology{
 		WorkflowDonID:           topology.WorkflowDONID,
-		HomeChainSelector:       topology.HomeChainSelector,
+		HomeChainSelector:       registryChainSelector,
 		CapabilitiesPeeringData: topology.CapabilitiesPeeringData,
 		OCRPeeringData:          topology.OCRPeeringData,
 		GatewayConnectorOutput:  topology.GatewayConnectorOutput,

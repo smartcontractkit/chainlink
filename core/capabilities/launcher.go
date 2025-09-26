@@ -50,11 +50,25 @@ type launcher struct {
 	myPeerID            p2ptypes.PeerID
 	peerWrapper         p2ptypes.PeerWrapper
 	dispatcher          remotetypes.Dispatcher
+	cachedShims         cachedShims
 	registry            *Registry
 	subServices         []services.Service
 	workflowDonNotifier donNotifier
 	don2donSharedPeer   p2ptypes.SharedPeer
 	p2pStreamConfig     p2ptypes.StreamConfig
+}
+
+// For V2 capabilities, shims are created once and their config is updated dynamically.
+type cachedShims struct {
+	combinedClients    map[string]remote.CombinedClient
+	triggerSubscribers map[string]remote.TriggerSubscriber
+	executableClients  map[string]executable.Client
+
+	// TODO(CRE-942): add trigger publishers and executable servers
+}
+
+func shimKey(capID string, donID uint32, method string) string {
+	return fmt.Sprintf("%s:%d:%s", capID, donID, method)
 }
 
 type donNotifier interface {
@@ -85,9 +99,14 @@ func NewLauncher(
 		}
 	}
 	return &launcher{
-		lggr:                logger.Named(lggr, "CapabilitiesLauncher"),
-		peerWrapper:         peerWrapper,
-		dispatcher:          dispatcher,
+		lggr:        logger.Named(lggr, "CapabilitiesLauncher"),
+		peerWrapper: peerWrapper,
+		dispatcher:  dispatcher,
+		cachedShims: cachedShims{
+			combinedClients:    make(map[string]remote.CombinedClient),
+			triggerSubscribers: make(map[string]remote.TriggerSubscriber),
+			executableClients:  make(map[string]executable.Client),
+		},
 		registry:            registry,
 		subServices:         []services.Service{},
 		workflowDonNotifier: workflowDonNotifier,
@@ -394,6 +413,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 							return nil, err
 						}
 
+						// deprecated pre-LLO Mercury aggregator
 						aggregator = triggers.NewMercuryRemoteAggregator(
 							codec,
 							signers,
@@ -424,23 +444,21 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 					aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
 				}
 
-				// TODO: We need to implement a custom, Mercury-specific
-				// aggregator here, because there is no guarantee that
-				// all trigger events in the workflow will have the same
-				// payloads. As a workaround, we validate the signatures.
-				// When this is solved, we can move to a generic aggregator
-				// and remove this.
-				triggerCap := remote.NewTriggerSubscriber(
-					capabilityConfig.RemoteTriggerConfig,
-					info,
-					remoteDON.DON,
-					myDON.DON,
-					w.dispatcher,
-					aggregator,
-					"", // empty method name for v1
-					w.lggr,
-				)
-				return triggerCap, nil
+				shimKey := shimKey(capability.ID, remoteDON.ID, "") // empty method name for V1
+				triggerCap, alreadyExists := w.cachedShims.triggerSubscribers[shimKey]
+				if !alreadyExists {
+					triggerCap = remote.NewTriggerSubscriber(
+						capability.ID,
+						"", // empty method name for v1
+						w.dispatcher,
+						w.lggr,
+					)
+					w.cachedShims.triggerSubscribers[shimKey] = triggerCap
+				}
+				if errCfg := triggerCap.SetConfig(capabilityConfig.RemoteTriggerConfig, info, myDON.ID, remoteDON.DON, aggregator); errCfg != nil {
+					return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
+				}
+				return triggerCap.(capabilityService), nil
 			}
 			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newTriggerFn)
 			if err != nil {
@@ -744,60 +762,84 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 	if err != nil {
 		return fmt.Errorf("failed to create remote capability info: %w", err)
 	}
-	cc := remote.NewCombinedClient(info)
 
+	cc, isNewCC := w.getCombinedClient(info)
 	for method, config := range methodConfig {
-		var receiver remotetypes.ReceiverService
-		if config.RemoteTriggerConfig != nil {
+		w.lggr.Infow("addRemoteCapabilityV2", "capID", capID, "method", method)
+		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
+			w.lggr.Errorw("no remote config found", "method", method, "capID", capID)
+			continue
+		}
+
+		shimKey := shimKey(capID, remoteDON.ID, method)
+		if config.RemoteTriggerConfig != nil { // trigger
+			sub, alreadyExists := w.cachedShims.triggerSubscribers[shimKey]
+			if !alreadyExists {
+				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.lggr)
+				cc.SetTriggerSubscriber(method, sub)
+			}
 			// TODO(CRE-590): add support for SignedReportAggregator (needed by LLO Streams Trigger V2)
-			aggregator := aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)
-			sub := remote.NewTriggerSubscriber(
-				config.RemoteTriggerConfig,
-				info,
-				remoteDON.DON,
-				myDON.DON,
-				w.dispatcher,
-				aggregator,
-				method,
-				w.lggr,
-			)
-			receiver = sub
-			cc.AddTriggerSubscriber(method, sub)
+			agg := aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)
+			if errCfg := sub.SetConfig(config.RemoteTriggerConfig, info, myDON.ID, remoteDON.DON, agg); errCfg != nil {
+				return fmt.Errorf("failed to set trigger config: %w", errCfg)
+			}
+
+			if !alreadyExists {
+				if err2 := w.startNewShim(ctx, sub.(remotetypes.ReceiverService), capID, remoteDON.ID, method); err2 != nil {
+					w.lggr.Errorw("failed to start receiver", "capID", capID, "method", method, "error", err2)
+					continue
+				}
+				w.cachedShims.triggerSubscribers[shimKey] = sub
+				w.lggr.Infow("added new remote trigger subscriber", "capID", capID, "method", method)
+			}
+		} else { // executable
+			client, alreadyExists := w.cachedShims.executableClients[shimKey]
+			if !alreadyExists {
+				client = executable.NewClient(
+					info,
+					myDON.DON,
+					w.dispatcher,
+					config.RemoteExecutableConfig.RequestTimeout,
+					&transmission.TransmissionConfig{
+						Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
+						DeltaStage: config.RemoteExecutableConfig.DeltaStage,
+					},
+					method,
+					w.lggr,
+				)
+				cc.SetExecutableClient(method, client)
+			}
+
+			// TODO(CRE-941): implement setters for executable client config
+
+			if !alreadyExists {
+				if err2 := w.startNewShim(ctx, client.(remotetypes.ReceiverService), capID, remoteDON.ID, method); err2 != nil {
+					w.lggr.Errorw("failed to start receiver", "capID", capID, "method", method, "error", err2)
+					continue
+				}
+				w.cachedShims.executableClients[shimKey] = client
+				w.lggr.Infow("added new remote executable client", "capID", capID, "method", method)
+			}
 		}
-		if receiver == nil && config.RemoteExecutableConfig != nil {
-			client := executable.NewClient(
-				info,
-				myDON.DON,
-				w.dispatcher,
-				config.RemoteExecutableConfig.RequestTimeout,
-				&transmission.TransmissionConfig{
-					Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
-					DeltaStage: config.RemoteExecutableConfig.DeltaStage,
-				},
-				method,
-				w.lggr,
-			)
-			receiver = client
-			cc.AddExecutableClient(method, client)
-		}
-		if receiver == nil {
-			return fmt.Errorf("no remote config found for method %s of capability %s", method, capID)
-		}
-		if err = w.dispatcher.SetReceiverForMethod(capID, remoteDON.ID, method, receiver); err != nil {
-			return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
-		}
-		err = receiver.Start(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to start receiver for capability %s, method %s: %w", capID, method, err)
-		}
-		w.subServices = append(w.subServices, receiver)
 	}
 
-	err = w.registry.Add(ctx, cc)
-	if err != nil {
-		return fmt.Errorf("failed to add CombinedClient for capability %s to registry: %w", capID, err)
+	if isNewCC { // add new CombinedClient to registry, only after all methods are configured
+		if err2 := w.registry.Add(ctx, cc); err2 != nil {
+			return fmt.Errorf("failed to add CombinedClient for capability %s to registry: %w", capID, err2)
+		}
 	}
+	return nil
+}
 
+func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.ReceiverService, capID string, remoteDonID uint32, method string) error {
+	if err := receiver.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start receiver for capability %s, method %s: %w", capID, method, err)
+	}
+	if err := w.dispatcher.SetReceiverForMethod(capID, remoteDonID, method, receiver); err != nil {
+		_ = receiver.Close()
+		return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
+	}
+	w.subServices = append(w.subServices, receiver)
 	return nil
 }
 
@@ -886,4 +928,16 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 		w.subServices = append(w.subServices, receiver)
 	}
 	return nil
+}
+
+// retrieve or create a CombinedClient for the given capability
+func (w *launcher) getCombinedClient(info capabilities.CapabilityInfo) (remote.CombinedClient, bool) {
+	key := shimKey(info.ID, info.DON.ID, "") // empty method name - CombinedClient covers all methods
+	cc, exists := w.cachedShims.combinedClients[key]
+	if !exists { // create a new combined client and cache it
+		cc = remote.NewCombinedClient(info)
+		w.cachedShims.combinedClients[key] = cc
+		return cc, true
+	}
+	return cc, false
 }
