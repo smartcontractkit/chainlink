@@ -31,7 +31,7 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	requestBody, err := json.Marshal(getPublicKeyRequest)
 	require.NoError(t, err, "failed to marshal public key request")
 
-	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
@@ -51,7 +51,7 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	return publicKeyResponse.PublicKey
 }
 
-func SendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
+func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
 	req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
 	require.NoError(t, err, "failed to create request")

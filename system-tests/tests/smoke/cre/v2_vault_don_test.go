@@ -102,15 +102,15 @@ func waitUntilReady(t *testing.T, owner, gatewayURL string) {
 	requestBody, err := json.Marshal(getPublicKeyRequest)
 	require.NoError(t, err, "failed to marshal public key request")
 
-	statusCode, _ := SendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	if statusCode == http.StatusGatewayTimeout {
 		framework.L.Warn().Msg("Received 504 Gateway Timeout. This may be due to the Vault DON not being ready yet. Retrying 1st time in 30 seconds...")
 		time.Sleep(30 * time.Second)
-		statusCode, _ = SendVaultRequestToGateway(t, gatewayURL, requestBody)
+		statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
 		if statusCode == http.StatusGatewayTimeout {
 			framework.L.Warn().Msg("Received 504 Gateway Timeout again. This may be due to the Vault DON not being ready yet. Retrying 2nd time in 30 seconds...")
 			time.Sleep(30 * time.Second)
-			statusCode, _ = SendVaultRequestToGateway(t, gatewayURL, requestBody)
+			statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
 		}
 	}
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
@@ -144,7 +144,7 @@ func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owne
 	requestBody, err := json.Marshal(secretsCreateRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
-	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
@@ -209,7 +209,7 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 	requestBody, err := json.Marshal(secretsUpdateRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
-	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
@@ -268,7 +268,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 	}
 	requestBody, err := json.Marshal(secretsGetRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
-	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 	framework.L.Info().Msg("Checking jsonResponse structure...")
 	var jsonResponse jsonrpc.Response[json.RawMessage]
@@ -342,7 +342,7 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 	requestBody, err := json.Marshal(secretsListRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
-	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
 	err = json.Unmarshal(httpResponseBody, &jsonResponse)
@@ -403,7 +403,7 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 	requestBody, err := json.Marshal(secretsUpdateRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
-	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 	framework.L.Info().Msg("Checking jsonResponse structure...")
 	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
