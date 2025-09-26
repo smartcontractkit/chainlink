@@ -20,6 +20,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
+	github.com/gagliardetto/anchor-go v0.3.2
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/metaplex-go v0.2.1
 	github.com/gagliardetto/solana-go v1.13.0
@@ -38,7 +39,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250911201806-5a095deaeb52
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5
-	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250916141452-e1a0681b6bae
+	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250917190204-8817bb81d880
 	github.com/smartcontractkit/chainlink-deployments-framework v0.49.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250915101441-709f87f7d401
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
@@ -49,8 +50,8 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250910230900-fa42dad2d413
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.24
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250917170425-f6b7494e763a
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250917170425-f6b7494e763a
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250923115307-8be0359fbce5
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250923115307-8be0359fbce5
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/smartcontractkit/mcms v0.25.0

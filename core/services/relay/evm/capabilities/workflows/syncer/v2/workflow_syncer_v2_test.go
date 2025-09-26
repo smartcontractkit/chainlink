@@ -26,9 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -603,7 +602,7 @@ func updateAuthorizedAddressV2(
 	require.NoError(t, err)
 
 	// Sign the message
-	signature, err := th.ContractsOwnerKey.Sign(messageHash)
+	signature, err := th.ContractsOwnerSign(messageHash)
 	require.NoError(t, err)
 	// For Ethereum - add 27 to the recovery ID
 	signature[64] += 27

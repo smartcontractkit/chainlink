@@ -60,7 +60,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifyEVMJobSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
-	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3:
+	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -75,7 +75,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
 	var report operations.Report[any, any]
 	switch input.Template {
-	case job_types.EVM, job_types.Cron: // This will hold all standard capabilities jobs as we add support for them.
+	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction: // This will hold all standard capabilities jobs as we add support for them.
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
@@ -98,12 +98,13 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		report = r.ToGenericReport()
 	case job_types.BootstrapOCR3:
-		jobInput, err := input.Inputs.ToOCR3BootstrapJobInput()
+		jobInput := pkg.BootstrapJobInput{}
+		err := input.Inputs.UnmarshalTo(&jobInput)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 bootstrap job input: %w", err)
 		}
 
-		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(jobInput.ChainSelector, jobInput.ContractQualifier)
+		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(jobInput.ChainSelector), jobInput.ContractQualifier)
 		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelector, jobInput.ContractQualifier, err)
@@ -118,7 +119,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				DONName:          input.DONName,
 				ContractID:       contractAddrRef.Address,
 				EnvironmentLabel: input.Environment,
-				ChainSelectorEVM: jobInput.ChainSelector,
+				ChainSelectorEVM: uint64(jobInput.ChainSelector),
 				JobName:          input.JobName,
 				DONFilters:       input.DONFilters,
 				ExtraLabels:      input.ExtraLabels,
@@ -135,7 +136,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 job input: %w", err)
 		}
 
-		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(jobInput.ChainSelectorEVM, jobInput.ContractQualifier)
+		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.ContractQualifier)
 		contractAddrRef, err := e.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
@@ -152,8 +153,8 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				JobName:                  input.JobName,
 				TemplateName:             jobInput.TemplateName,
 				ContractAddress:          contractAddrRef.Address,
-				ChainSelectorEVM:         jobInput.ChainSelectorEVM,
-				ChainSelectorAptos:       jobInput.ChainSelectorAptos,
+				ChainSelectorEVM:         uint64(jobInput.ChainSelectorEVM),
+				ChainSelectorAptos:       uint64(jobInput.ChainSelectorAptos),
 				BootstrapperOCR3Urls:     jobInput.BootstrapperOCR3Urls,
 				MasterPublicKey:          jobInput.MasterPublicKey,
 				EncryptedPrivateKeyShare: jobInput.EncryptedPrivateKeyShare,
@@ -161,8 +162,31 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				ExtraLabels:              input.ExtraLabels,
 			},
 		)
+
 		if rErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose OCR3 job: %w", rErr)
+		}
+
+		report = r.ToGenericReport()
+	case job_types.Gateway:
+		typedInputs := operations2.ProposeGatewayJobInput{
+			Domain:     input.Domain,
+			DONFilters: input.DONFilters,
+			JobLabels:  input.ExtraLabels,
+		}
+		err := input.Inputs.UnmarshalTo(&typedInputs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to unmarshal inputs to gateway job input: %w", err)
+		}
+
+		r, rErr := operations.ExecuteOperation(
+			e.OperationsBundle,
+			operations2.ProposeGatewayJob,
+			operations2.ProposeGatewayJobDeps{Env: e},
+			typedInputs,
+		)
+		if rErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose gateway job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()

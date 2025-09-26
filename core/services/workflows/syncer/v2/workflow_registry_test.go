@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
+	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -767,6 +769,47 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 }
 
+func Test_Start(t *testing.T) {
+	t.Run("successful start and close with failure to start contract reader", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		expectedErr := errors.New("failed to start")
+		mockReader := &mockContractReader{startErr: expectedErr}
+		er := NewEngineRegistry()
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return mockReader, nil
+			},
+			"",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{
+				engineRegistry: &EngineRegistry{},
+			},
+			workflowDonNotifier,
+			er,
+		)
+		fakeClock := clockwork.NewFakeClock()
+		wr.clock = fakeClock
+		require.NoError(t, err)
+
+		errCh := make(chan error, 1)
+		wr.hooks.OnStartFailure = func(err error) {
+			errCh <- err
+		}
+
+		require.NoError(t, wr.Start(ctx))
+		workflowDonNotifier.NotifyDonSet(commonCap.DON{})
+		<-errCh
+		require.Nil(t, wr.contractReader)
+		require.NoError(t, wr.Close())
+	})
+}
+
 func Test_GetAllowlistedRequests(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
@@ -821,6 +864,8 @@ func Test_GetAllowlistedRequests(t *testing.T) {
 // Mock contract reader implementation
 type mockContractReader struct {
 	types.ContractReader
+	bindErr             error
+	startErr            error
 	allowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 }
 
@@ -840,4 +885,17 @@ func (m *mockContractReader) GetLatestValueWithHeadData(
 		return &types.Head{Height: "123"}, nil
 	}
 	return &types.Head{Height: "0"}, nil
+}
+
+func (m *mockContractReader) Bind(
+	_ context.Context,
+	_ []types.BoundContract,
+) error {
+	return m.bindErr
+}
+
+func (m *mockContractReader) Start(
+	_ context.Context,
+) error {
+	return m.startErr
 }

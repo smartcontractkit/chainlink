@@ -70,6 +70,7 @@ func proposeWFJobsToJDV2Logic(env cldf.Environment, c types.ProposeWFJobsV2Confi
 		consensusRef,
 		workflowSpecConfig.ConsensusReportID,
 		workflowSpecConfig.ConsensusAggregationMethod,
+		workflowSpecConfig.TriggerCapability,
 		consensusConfigKeyID,
 		workflowSpecConfig.ConsensusAllowedPartialStaleness,
 		consensusEncoderAbi,
@@ -124,12 +125,16 @@ func proposeWFJobsToJDV2Precondition(env cldf.Environment, c types.ProposeWFJobs
 
 	validTargetEncoder := c.WorkflowSpecConfig.TargetContractEncoderType
 	if validTargetEncoder != "data-feeds_decimal" && validTargetEncoder != "aptos" && validTargetEncoder != "ccip" {
-		return fmt.Errorf("invalid consensus target encoder: %s", c.WorkflowSpecConfig.ConsensusAggregationMethod)
+		return fmt.Errorf("invalid consensus target encoder: %s", c.WorkflowSpecConfig.TargetContractEncoderType)
 	}
 
 	validMethod := c.WorkflowSpecConfig.ConsensusAggregationMethod
 	if validMethod != "data_feeds" && validMethod != "llo_streams" {
 		return fmt.Errorf("invalid consensus aggregation method: %s", c.WorkflowSpecConfig.ConsensusAggregationMethod)
+	}
+
+	if c.WorkflowSpecConfig.TriggerCapability == "" {
+		return errors.New("trigger capability is required")
 	}
 
 	if c.WorkflowSpecConfig.ConsensusReportID == "" {

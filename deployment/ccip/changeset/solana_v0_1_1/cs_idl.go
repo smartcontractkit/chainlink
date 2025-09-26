@@ -122,7 +122,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	}
 	commitSha := VersionToShortCommitSHA[c.SolanaContractVersion]
 
-	return repoSetup(e, chain, commitSha)
+	return RepoSetup(e, chain, commitSha)
 }
 
 // ANCHOR CLI OPERATIONS
@@ -138,45 +138,45 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 
 	// start uploading
 	if c.Router {
-		err := idlInit(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
+		err := IdlInit(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.FeeQuoter {
-		err := idlInit(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName)
+		err := IdlInit(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.OffRamp {
-		err := idlInit(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName)
+		err := IdlInit(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.RMNRemote {
-		err := idlInit(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName)
+		err := IdlInit(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
+		err := IdlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err := idlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
+		err := IdlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.CCTPTokenPool {
-		err := idlInit(e, chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName)
+		err := IdlInit(e, chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
@@ -190,19 +190,19 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
 	if c.MCM {
-		err := idlInit(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName)
+		err := IdlInit(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.Timelock {
-		err := idlInit(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName)
+		err := IdlInit(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
 	}
 	if c.AccessController {
-		err := idlInit(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName)
+		err := IdlInit(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, nil
 		}
@@ -227,45 +227,45 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 
 	// set idl authority
 	if c.Router {
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.FeeQuoter {
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.OffRamp {
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.RMNRemote {
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
 		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.CCTPTokenPool {
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName, "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -281,19 +281,19 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	}
 
 	if c.AccessController {
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String(), "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.AccessControllerProgram.String(), types.AccessControllerProgram.String(), "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.Timelock {
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String(), "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.TimelockProgram.String(), types.RBACTimelockProgram.String(), "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 	}
 	if c.MCM {
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String(), "")
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), chain.ProgramsPath, mcmState.McmProgram.String(), types.ManyChainMultisigProgram.String(), "")
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -303,7 +303,7 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 }
 
 // parse anchor version from running anchor --version
-func parseAnchorVersion(output string) (string, error) {
+func ParseAnchorVersion(output string) (string, error) {
 	const prefix = "anchor-cli "
 	if strings.HasPrefix(output, prefix) {
 		return strings.TrimSpace(strings.TrimPrefix(output, prefix)), nil
@@ -312,7 +312,7 @@ func parseAnchorVersion(output string) (string, error) {
 }
 
 // create Anchor.toml file to simulate anchor workspace
-func writeAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, wallet string) error {
+func WriteAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, wallet string) error {
 	e.Logger.Debugw("Writing Anchor.toml", "filename", filename, "anchorVersion", anchorVersion, "cluster", cluster, "wallet", wallet)
 	config := map[string]interface{}{
 		"toolchain": map[string]string{
@@ -344,7 +344,7 @@ func writeAnchorToml(e cldf.Environment, filename, anchorVersion, cluster, walle
 }
 
 // resolve artifacts based on sha and write anchor.toml file to simulate anchor workspace
-func repoSetup(e cldf.Environment, chain cldfsolana.Chain, gitCommitSha string) error {
+func RepoSetup(e cldf.Environment, chain cldfsolana.Chain, gitCommitSha string) error {
 	e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 	err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), chain.ProgramsPath, e.Logger, gitCommitSha)
 	if err != nil {
@@ -352,18 +352,18 @@ func repoSetup(e cldf.Environment, chain cldfsolana.Chain, gitCommitSha string) 
 	}
 
 	// get anchor version
-	output, err := runCommand("anchor", []string{"--version"}, ".")
+	output, err := RunCommand("anchor", []string{"--version"}, ".")
 	if err != nil {
 		return errors.New("anchor-cli not installed in path")
 	}
 	e.Logger.Debugw("Anchor version command output", "output", output)
-	anchorVersion, err := parseAnchorVersion(output)
+	anchorVersion, err := ParseAnchorVersion(output)
 	if err != nil {
 		return fmt.Errorf("error parsing anchor version: %w", err)
 	}
 	// create Anchor.toml
 	// this creates anchor workspace with cluster and wallet configured
-	if err := writeAnchorToml(e, filepath.Join(chain.ProgramsPath, "Anchor.toml"), anchorVersion, chain.URL, chain.KeypairPath); err != nil {
+	if err := WriteAnchorToml(e, filepath.Join(chain.ProgramsPath, "Anchor.toml"), anchorVersion, chain.URL, chain.KeypairPath); err != nil {
 		return fmt.Errorf("error writing Anchor.toml: %w", err)
 	}
 
@@ -415,7 +415,7 @@ func getIDL(e cldf.Environment, programsPath, programID string, programName stri
 }
 
 // initialize IDL for a program
-func idlInit(e cldf.Environment, programsPath, programID, programName string) error {
+func IdlInit(e cldf.Environment, programsPath, programID, programName string) error {
 	idlFile, err := getIDL(e, programsPath, programID, programName)
 	if err != nil {
 		return fmt.Errorf("error getting IDL: %w", err)
@@ -423,7 +423,7 @@ func idlInit(e cldf.Environment, programsPath, programID, programName string) er
 	e.Logger.Infow("Uploading IDL", "programName", programName)
 	args := []string{"idl", "init", "--filepath", idlFile, programID}
 	e.Logger.Info(args)
-	output, err := runCommand("anchor", args, programsPath)
+	output, err := RunCommand("anchor", args, programsPath)
 	e.Logger.Debugw("IDL init output", "output", output)
 	if err != nil {
 		e.Logger.Debugw("IDL init error", "error", err)
@@ -461,7 +461,7 @@ func writeBuffer(e cldf.Environment, programsPath, programID, programName string
 	e.Logger.Infow("Writing IDL buffer", "programID", programID)
 	args := []string{"idl", "write-buffer", "--filepath", idlFile, programID}
 	e.Logger.Info(args)
-	output, err := runCommand("anchor", args, programsPath)
+	output, err := RunCommand("anchor", args, programsPath)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error writing IDL buffer: %w", err)
 	}
@@ -477,7 +477,7 @@ func writeBuffer(e cldf.Environment, programsPath, programID, programName string
 	return bufferAddress, nil
 }
 
-func setAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, programID, programName, bufferAccount string) error {
+func SetAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, programID, programName, bufferAccount string) error {
 	e.Logger.Infow("Setting IDL authority", "programName", programName, "newAuthority", newAuthority)
 	args := []string{"idl", "set-authority", "-n", newAuthority, "-p", programID}
 	if bufferAccount != "" {
@@ -485,7 +485,7 @@ func setAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, progra
 		args = append(args, bufferAccount)
 	}
 	e.Logger.Info(args)
-	_, err := runCommand("anchor", args, programsPath)
+	_, err := RunCommand("anchor", args, programsPath)
 	if err != nil {
 		return fmt.Errorf("error setting idl authority: %w", err)
 	}
@@ -722,7 +722,7 @@ func upgradeIDLIx(e cldf.Environment, programsPath, programID, programName strin
 	authority := e.BlockChains.SolanaChains()[c.ChainSelector].DeployerKey.PublicKey()
 	if c.MCMS != nil {
 		authority = timelockSignerPDA
-		err = setAuthorityIDLByCLI(e, timelockSignerPDA.String(), programsPath, programID, programName, buffer.String())
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), programsPath, programID, programName, buffer.String())
 		if err != nil {
 			return nil, fmt.Errorf("error setting buffer authority: %w", err)
 		}

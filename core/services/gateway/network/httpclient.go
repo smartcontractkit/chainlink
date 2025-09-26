@@ -41,6 +41,8 @@ var (
 	defaultMaxResponseBytes   = uint32(26.4 * utils.KB)
 	defaultMaxRequestDuration = 60 * time.Second
 	defaultTimeout            = 5 * time.Second
+	ErrHTTPSend               = errors.New("failed to send HTTP request")
+	ErrHTTPRead               = errors.New("failed to read HTTP response body")
 )
 
 func (c *HTTPClientConfig) ApplyDefaults() {
@@ -129,7 +131,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		to = c.config.maxRequestDuration
 	}
 
-	c.lggr.Debugw("sending HTTP request with timeout", "url", req.URL, "request timeout", to)
+	c.lggr.Debugw("sending HTTP request with timeout", "request timeout", to)
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
@@ -146,7 +148,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	resp, err := c.client.Do(r)
 	if err != nil {
 		c.lggr.Errorw("failed to send HTTP request", "url", req.URL, "err", err)
-		return nil, err
+		return nil, errors.Join(err, ErrHTTPSend)
 	}
 	defer resp.Body.Close()
 
@@ -157,7 +159,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		c.lggr.Errorw("failed to read HTTP response body", "url", req.URL, "err", err)
-		return nil, err
+		return nil, errors.Join(err, ErrHTTPRead)
 	}
 	headers := make(map[string]string)
 	for k, v := range resp.Header {
@@ -165,7 +167,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		// joining them to a single string in case array size is greater than 1
 		headers[k] = strings.Join(v, ",")
 	}
-	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode, "url", req.URL, "headers", headers)
+	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode)
 
 	return &HTTPResponse{
 		Headers:    headers,

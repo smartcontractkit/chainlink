@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

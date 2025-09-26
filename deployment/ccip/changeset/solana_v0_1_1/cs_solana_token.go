@@ -446,13 +446,13 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 
-	out1, err1 := runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	out1, err1 := RunCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set url output", "output", out1)
 	if err1 != nil {
 		e.Logger.Errorw("solana config set url error", "error", err1)
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
 	}
-	out2, err2 := runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	out2, err2 := RunCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set keypair output", "output", out2)
 	if err2 != nil {
 		e.Logger.Errorw("solana config set keypair error", "error", err2)
@@ -468,7 +468,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 			e.Logger.Infow("Uploading token metadata", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"create", "metadata", "--mint", metadata.TokenPubkey.String(), "--metadata", metadata.MetadataJSONPath}
 			e.Logger.Info(args)
-			output, err := runCommand("metaboss", args, chain.ProgramsPath)
+			output, err := RunCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
 				e.Logger.Errorw("metaboss create error", "error", err)
@@ -567,13 +567,13 @@ func DisableFreezeAuthority(e cldf.Environment, cfg DisableFreezeAuthorityConfig
 		return cldf.ChangesetOutput{}, errors.New("chain selector is required")
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
-	out1, err1 := runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
+	out1, err1 := RunCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set url output", "output", out1)
 	if err1 != nil {
 		e.Logger.Errorw("solana config set url error", "error", err1)
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
 	}
-	out2, err2 := runCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
+	out2, err2 := RunCommand("solana", []string{"config", "set", "--keypair", chain.KeypairPath}, chain.ProgramsPath)
 	e.Logger.Infow("solana config set keypair output", "output", out2)
 	if err2 != nil {
 		e.Logger.Errorw("solana config set keypair error", "error", err2)
@@ -584,7 +584,7 @@ func DisableFreezeAuthority(e cldf.Environment, cfg DisableFreezeAuthorityConfig
 		e.Logger.Infow("Disabling freeze authority", "tokenPubkey", tokenPubkey.String())
 		args := []string{"authorize", tokenPubkey.String(), "freeze", "--disable"}
 		e.Logger.Info(args)
-		output, err := runCommand("spl-token", args, chain.ProgramsPath)
+		output, err := RunCommand("spl-token", args, chain.ProgramsPath)
 		e.Logger.Debugw("spl-token output", "output", output)
 		if err != nil {
 			e.Logger.Debugw("spl-token authorize error", "error", err)

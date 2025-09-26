@@ -23,6 +23,7 @@ type ProposeJobRequest struct {
 	Environment string
 	// labels to filter nodes by
 	NodeLabels map[string]string
+	PublicKeys []string // optional
 	// labels to set on the new/updated job object
 	JobLabels      map[string]string
 	OffchainClient cldf_offchain.Client
@@ -81,8 +82,9 @@ func ProposeJob(ctx context.Context, req ProposeJobRequest) error {
 	selectors = append(selectors, req.ExtraSelectors...)
 
 	nodes, err := req.OffchainClient.ListNodes(ctx, &nodev1.ListNodesRequest{Filter: &nodev1.ListNodesRequest_Filter{
-		Enabled:   1,
-		Selectors: selectors,
+		Enabled:    1,
+		Selectors:  selectors,
+		PublicKeys: req.PublicKeys,
 	}})
 	if err != nil {
 		return err

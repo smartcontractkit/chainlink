@@ -68,7 +68,7 @@ type BuildSolanaConfig struct {
 }
 
 // Run a command in a specific directory
-func runCommand(command string, args []string, workDir string) (string, error) {
+func RunCommand(command string, args []string, workDir string) (string, error) {
 	cmd := exec.Command(command, args...)
 	cmd.Dir = workDir
 	var stdout, stderr bytes.Buffer
@@ -94,27 +94,27 @@ func cloneRepo(e cldf.Environment, revision string, forceClean bool) error {
 		e.Logger.Debugw("Repository already exists, discarding local changes and updating", "dir", cloneDir)
 
 		// Discard any local changes
-		_, err := runCommand("git", []string{"reset", "--hard"}, cloneDir)
+		_, err := RunCommand("git", []string{"reset", "--hard"}, cloneDir)
 		if err != nil {
 			return fmt.Errorf("failed to discard local changes: %w", err)
 		}
 
 		// Fetch the latest changes from the remote
-		_, err = runCommand("git", []string{"fetch", "origin"}, cloneDir)
+		_, err = RunCommand("git", []string{"fetch", "origin"}, cloneDir)
 		if err != nil {
 			return fmt.Errorf("failed to fetch origin: %w", err)
 		}
 	} else {
 		// Repository does not exist, clone it
 		e.Logger.Debugw("Cloning repository", "url", repoURL, "revision", revision)
-		_, err := runCommand("git", []string{"clone", repoURL, cloneDir}, ".")
+		_, err := RunCommand("git", []string{"clone", repoURL, cloneDir}, ".")
 		if err != nil {
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
 	}
 
 	e.Logger.Debugw("Checking out revision", "revision", revision)
-	_, err := runCommand("git", []string{"checkout", revision}, cloneDir)
+	_, err := RunCommand("git", []string{"checkout", revision}, cloneDir)
 	if err != nil {
 		return fmt.Errorf("failed to checkout revision %s: %w", revision, err)
 	}
@@ -126,7 +126,7 @@ func cloneRepo(e cldf.Environment, revision string, forceClean bool) error {
 func replaceKeys(e cldf.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Replacing keys", "solanaDir", solanaDir)
-	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
+	output, err := RunCommand("make", []string{"docker-update-contracts"}, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor key replacement failed: %s %w", output, err)
 	}
@@ -209,7 +209,7 @@ func generateVanityKeys(e cldf.Environment, keys map[cldf.ContractType]string) e
 		args := []string{"grind", "--starts-with", prefix + ":1"}
 
 		// Run command using helper function
-		output, err := runCommand("solana-keygen", args, "./")
+		output, err := RunCommand("solana-keygen", args, "./")
 		if err != nil {
 			return fmt.Errorf("failed to generate vanity key for program %s: %w", program, err)
 		}
@@ -252,7 +252,7 @@ func generateVanityKeys(e cldf.Environment, keys map[cldf.ContractType]string) e
 }
 
 func copyFile(srcFile string, destDir string) error {
-	output, err := runCommand("cp", []string{srcFile, destDir}, ".")
+	output, err := RunCommand("cp", []string{srcFile, destDir}, ".")
 	if err != nil {
 		return fmt.Errorf("failed to copy file: %s %w", output, err)
 	}
@@ -264,7 +264,7 @@ func buildProject(e cldf.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
 	args := []string{"docker-build-contracts"}
-	output, err := runCommand("make", args, solanaDir)
+	output, err := RunCommand("make", args, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
 	}

@@ -4,14 +4,11 @@ import (
 	"sync"
 	"testing"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
@@ -65,10 +62,9 @@ func createTestTransmissions(t *testing.T) []TestTransmissionWithReport {
 
 func Test_Queue(t *testing.T) {
 	t.Parallel()
-	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 	testTransmissions := createTestTransmissions(t)
 	deleter := mocks.NewAsyncDeleter(t)
-	transmitQueue := NewTransmitQueue(lggr, sURL, "foo feed ID", 7, deleter)
+	transmitQueue := NewTransmitQueue(logger.Test(t), sURL, "foo feed ID", 7, deleter)
 	transmitQueue.Init([]*Transmission{})
 
 	t.Run("successfully add transmissions to transmit queue", func(t *testing.T) {
@@ -99,15 +95,14 @@ func Test_Queue(t *testing.T) {
 			transmitQueue.Push(testTransmissions[1].tr, testTransmissions[1].ctx)
 		}
 
-		// expecting testTransmissions[0] to get evicted and not present in the queue anymore
-		testutils.WaitForLogMessage(t, observedLogs, "Transmit queue is full; dropping oldest transmission (reached max length of 7)")
+		// expecting testTransmissions[0] to get evicted, processed by deleter and not present in the queue anymore
 		for i := 0; i < 7; i++ {
 			tr := transmitQueue.BlockingPop()
 			assert.NotEqual(t, tr.Req, testTransmissions[0].tr)
 		}
 	})
 
-	t.Run("transmit queue blocks when empty and resumes when tranmission available", func(t *testing.T) {
+	t.Run("transmit queue blocks when empty and resumes when transmission available", func(t *testing.T) {
 		assert.True(t, transmitQueue.IsEmpty())
 
 		var wg sync.WaitGroup
@@ -139,7 +134,7 @@ func Test_Queue(t *testing.T) {
 				},
 			},
 		}
-		transmitQueue := NewTransmitQueue(lggr, sURL, "foo feed ID", 7, deleter)
+		transmitQueue := NewTransmitQueue(logger.Test(t), sURL, "foo feed ID", 7, deleter)
 		transmitQueue.Init(transmissions)
 
 		transmission := transmitQueue.BlockingPop()

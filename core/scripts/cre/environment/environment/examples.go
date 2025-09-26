@@ -169,7 +169,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", rpcURL, workflowDonID)
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", rpcURL, "v1", workflowDonID)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
@@ -186,7 +186,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		fmt.Print(libformat.PurpleText("\n[Stage 4/4] Example workflow executed in %.2f seconds\n", time.Since(totalStart).Seconds()))
 		start = time.Now()
 		fmt.Print(libformat.PurpleText("\n[CLEANUP] Deleting example workflow\n\n"))
-		deleteErr := deleteAllWorkflows(cmdContext, rpcURL, workflowRegistryAddress)
+		deleteErr := deleteAllWorkflows(cmdContext, rpcURL, workflowRegistryAddress, "v1")
 		if deleteErr != nil {
 			fmt.Printf("Failed to delete example workflow: %s\nPlease delete it manually\n", deleteErr)
 		}
