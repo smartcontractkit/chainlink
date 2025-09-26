@@ -118,40 +118,6 @@ func waitUntilReady(t *testing.T, owner, gatewayURL string) {
 	framework.L.Info().Msgf("Received ready response from Vault DON")
 }
 
-func fetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
-	framework.L.Info().Msg("Fetching Vault Public Key...")
-
-	uniqueRequestID := uuid.New().String()
-
-	getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodPublicKeyGet,
-		Params:  &vault_helpers.GetPublicKeyRequest{},
-	}
-	requestBody, err := json.Marshal(getPublicKeyRequest)
-	require.NoError(t, err, "failed to marshal public key request")
-
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-
-	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vault_helpers.GetPublicKeyResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
-	require.NoError(t, err, "failed to unmarshal GetPublicKeyResponse")
-	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
-	if jsonResponse.Error != nil {
-		require.Empty(t, jsonResponse.Error.Error())
-	}
-	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, uniqueRequestID, jsonResponse.ID)
-	require.Equal(t, vaulttypes.MethodPublicKeyGet, jsonResponse.Method)
-
-	publicKeyResponse := jsonResponse.Result
-	framework.L.Info().Msgf("Public Key: %s", publicKeyResponse.PublicKey)
-	return publicKeyResponse.PublicKey
-}
-
 func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string) {
 	framework.L.Info().Msg("Creating secret...")
 

@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -22,11 +22,11 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 
 	uniqueRequestID := uuid.New().String()
 
-	getPublicKeyRequest := jsonrpc.Request[vaultcommon.GetPublicKeyRequest]{
+	getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodPublicKeyGet,
-		Params:  &vaultcommon.GetPublicKeyRequest{},
+		Params:  &vault_helpers.GetPublicKeyRequest{},
 	}
 	requestBody, err := json.Marshal(getPublicKeyRequest)
 	require.NoError(t, err, "failed to marshal public key request")
@@ -35,7 +35,7 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vaultcommon.GetPublicKeyResponse]
+	var jsonResponse jsonrpc.Response[vault_helpers.GetPublicKeyResponse]
 	err = json.Unmarshal(httpResponseBody, &jsonResponse)
 	require.NoError(t, err, "failed to unmarshal GetPublicKeyResponse")
 	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
