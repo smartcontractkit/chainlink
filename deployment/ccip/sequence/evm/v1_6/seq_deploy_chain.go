@@ -28,6 +28,7 @@ import (
 )
 
 type ChainContractParams struct {
+	FeeQuoterOpts   *opsutil.ContractOpts
 	FeeQuoterParams ccipopsv1_6.FeeQuoterParams
 	OffRampParams   ccipopsv1_6.OffRampParams
 }
@@ -166,6 +167,8 @@ var (
 				var offRampAddress common.Address
 				var onRampAddress common.Address
 				var testRouterAddress common.Address
+				var newFeeQuoter bool
+				var newNonceManager bool
 				grp.Go(func() error {
 					if chainAddresses.RMNRemoteAddress == (common.Address{}) {
 						if chainAddresses.LegacyRMNAddress == (common.Address{}) {
@@ -238,6 +241,7 @@ var (
 						}
 						nonceManagerAddress = report.Output.Address
 						newAddresses[nonceManagerAddress.Hex()] = report.Output.TypeAndVersion
+						newNonceManager = true
 					} else {
 						nonceManagerAddress = chainAddresses.NonceManagerAddress
 					}
@@ -245,6 +249,7 @@ var (
 					if chainAddresses.FeeQuoterAddress == (common.Address{}) {
 						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployFeeQuoterOp, chain, opsutil.EVMDeployInput[ccipopsv1_6.DeployFeeQInput]{
 							ChainSelector: chainSelector,
+							ContractOpts:  contractParams.FeeQuoterOpts,
 							DeployInput: ccipopsv1_6.DeployFeeQInput{
 								Chain:    chainSelector,
 								Params:   contractParams.FeeQuoterParams,
@@ -260,6 +265,7 @@ var (
 						}
 						feeQuoterAddress = report.Output.Address
 						newAddresses[feeQuoterAddress.Hex()] = report.Output.TypeAndVersion
+						newFeeQuoter = true
 					} else {
 						feeQuoterAddress = chainAddresses.FeeQuoterAddress
 					}
@@ -314,33 +320,36 @@ var (
 					}
 
 					// Add offRamp as an authorized caller on the FeeQuoter
-					// ApplyAuthorizedCaller updates are idempotent, so we can safely call them even if the offRamp and onRamp are already authorized callers
-					_, err = operations.ExecuteOperation(b, ccipopsv1_6.FeeQApplyAuthorizedCallerOp, chain, opsutil.EVMCallInput[fee_quoter.AuthorizedCallersAuthorizedCallerArgs]{
-						ChainSelector: chainSelector,
-						NoSend:        false,
-						Address:       feeQuoterAddress,
-						CallInput: fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
-							AddedCallers: []common.Address{offRampAddress},
-						},
-					}, opsutil.RetryCallWithGasBoost[fee_quoter.AuthorizedCallersAuthorizedCallerArgs](gasBoostConfigs[chainSelector]))
-					if err != nil {
-						return fmt.Errorf("failed to set off ramp as authorized caller of FeeQuoter on chain %s: %w", chain, err)
-					}
-					// Add offRamp and onRamp as authorized callers on the NonceManager
-					_, err = operations.ExecuteOperation(b, ccipopsv1_6.NonceManagerUpdateAuthorizedCallerOp, chain,
-						opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
+					if newFeeQuoter {
+						_, err = operations.ExecuteOperation(b, ccipopsv1_6.FeeQApplyAuthorizedCallerOp, chain, opsutil.EVMCallInput[fee_quoter.AuthorizedCallersAuthorizedCallerArgs]{
 							ChainSelector: chainSelector,
 							NoSend:        false,
-							Address:       nonceManagerAddress,
-							CallInput: nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
-								AddedCallers: []common.Address{
-									offRampAddress,
-									onRampAddress,
-								},
+							Address:       feeQuoterAddress,
+							CallInput: fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+								AddedCallers: []common.Address{offRampAddress},
 							},
-						}, opsutil.RetryCallWithGasBoost[nonce_manager.AuthorizedCallersAuthorizedCallerArgs](gasBoostConfigs[chainSelector]))
-					if err != nil {
-						return fmt.Errorf("failed to set off ramp and on ramp as authorized callers of NonceManager on chain %s: %w", chain, err)
+						}, opsutil.RetryCallWithGasBoost[fee_quoter.AuthorizedCallersAuthorizedCallerArgs](gasBoostConfigs[chainSelector]))
+						if err != nil {
+							return fmt.Errorf("failed to set off ramp as authorized caller of FeeQuoter on chain %s: %w", chain, err)
+						}
+					}
+					// Add offRamp and onRamp as authorized callers on the NonceManager
+					if newNonceManager {
+						_, err = operations.ExecuteOperation(b, ccipopsv1_6.NonceManagerUpdateAuthorizedCallerOp, chain,
+							opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
+								ChainSelector: chainSelector,
+								NoSend:        false,
+								Address:       nonceManagerAddress,
+								CallInput: nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+									AddedCallers: []common.Address{
+										offRampAddress,
+										onRampAddress,
+									},
+								},
+							}, opsutil.RetryCallWithGasBoost[nonce_manager.AuthorizedCallersAuthorizedCallerArgs](gasBoostConfigs[chainSelector]))
+						if err != nil {
+							return fmt.Errorf("failed to set off ramp and on ramp as authorized callers of NonceManager on chain %s: %w", chain, err)
+						}
 					}
 
 					mu.Lock()

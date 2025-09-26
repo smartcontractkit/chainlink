@@ -24,7 +24,7 @@ import (
 func PrepareConfiguration(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
-	infraInput infra.Input,
+	infraInput infra.Provider,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
 	datastore datastore.DataStore,
@@ -32,14 +32,9 @@ func PrepareConfiguration(
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
-	topologyErr := libdon.ValidateTopology(nodeSets, infraInput)
-	if topologyErr != nil {
-		return nil, nil, errors.Wrap(topologyErr, "failed to validate topology")
-	}
-
-	topology, err := libdon.BuildTopology(nodeSets, infraInput, registryChainSelector)
+	topology, err := cre.NewTopology(nodeSets, infraInput)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to build topology")
+		return nil, nil, fmt.Errorf("failed to create topology: %w", err)
 	}
 
 	localNodeSets := copyCapabilityAwareNodeSets(nodeSets)
@@ -140,7 +135,7 @@ func PrepareConfiguration(
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
-					HomeChainSelector:       topology.HomeChainSelector,
+					HomeChainSelector:       registryChainSelector,
 					GatewayConnectorOutput:  topology.GatewayConnectorOutput,
 					NodeSet:                 localNodeSets[i],
 					CapabilityConfigs:       capabilityConfigs,

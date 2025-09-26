@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"main/types"
-
 	"gopkg.in/yaml.v3"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -30,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	workflowpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb"
+	types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
 )
 
 const balanceReaderABIJson = `[

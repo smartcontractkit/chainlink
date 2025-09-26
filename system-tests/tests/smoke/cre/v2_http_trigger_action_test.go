@@ -4,21 +4,16 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -29,9 +24,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
+func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
 	publicKeyAddr, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
@@ -41,12 +39,12 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 	require.NoError(t, err, "failed to start fake HTTP server")
 
 	uniqueWorkflowName := "http-trigger-action-test-" + uuid.New().String()[0:8]
-	httpWorkflowConfig := HTTPWorkflowConfig{
+	httpWorkflowConfig := t_helpers.HTTPWorkflowConfig{
 		AuthorizedKey: publicKeyAddr,
 		URL:           fakeServer.BaseURLHost,
 	}
 
-	compileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &httpWorkflowConfig, "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go")
+	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &httpWorkflowConfig, "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go")
 
 	testEnv.Logger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.CreEnvironment.DonTopology.GatewayConnectorOutput.Configurations, "expected at least one gateway configuration")
@@ -68,7 +66,7 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *TestEnvironment) {
 }
 
 // executeHTTPTriggerRequest executes an HTTP trigger request and waits for successful response
-func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayURL *url.URL, workflowName string, singingKey *ecdsa.PrivateKey, workflowOwnerAddress string) {
+func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, gatewayURL *url.URL, workflowName string, singingKey *ecdsa.PrivateKey, workflowOwnerAddress string) {
 	var finalResponse jsonrpc.Response[json.RawMessage]
 	var triggerRequest jsonrpc.Request[json.RawMessage]
 
@@ -134,7 +132,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *TestEnvironment, gatewayUR
 }
 
 // validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
-func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment) {
+func validateHTTPWorkflowRequest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	tick := 5 * time.Second
 	require.Eventually(t, func() bool {
 		records, err := fake.R.Get("POST", "/orders")
@@ -161,41 +159,6 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *TestEnvironment) {
 	require.Contains(t, workflowRequestBody, "toppings", "expected toppings field")
 }
 
-type HTTPWorkflowConfig struct {
-	AuthorizedKey common.Address `json:"authorizedKey"`
-	URL           string         `json:"url"`
-}
-
-func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) (string, error) {
-	testLogger := framework.L
-	mockServerURL := cfg.URL
-	parsedURL, urlErr := url.Parse(mockServerURL)
-	if urlErr != nil {
-		return "", errors.Wrap(urlErr, "failed to parse HTTP mock server URL")
-	}
-
-	url := fmt.Sprintf("%s:%s", framework.HostDockerInternal(), parsedURL.Port())
-	testLogger.Info().Msgf("Mock server URL transformed from '%s' to '%s' for Docker access", mockServerURL, url)
-
-	// override values in the initial workflow configuration
-	cfg.URL = url + "/orders"
-
-	configBytes, marshalErr := json.Marshal(cfg)
-	if marshalErr != nil {
-		return "", errors.Wrap(marshalErr, "failed to marshal HTTP workflow config")
-	}
-
-	configFileName := fmt.Sprintf("test_http_workflow_config_%s.json", workflowName)
-	configPath := filepath.Join(os.TempDir(), configFileName)
-
-	writeErr := os.WriteFile(configPath, configBytes, 0o644) //nolint:gosec // this is a test file
-	if writeErr != nil {
-		return "", errors.Wrap(writeErr, "failed to write HTTP workflow config file")
-	}
-
-	return configPath, nil
-}
-
 func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner string, privateKey *ecdsa.PrivateKey) jsonrpc.Request[json.RawMessage] {
 	triggerPayload := gateway_common.HTTPTriggerRequest{
 		Workflow: gateway_common.WorkflowSelector{
@@ -203,7 +166,7 @@ func createHTTPTriggerRequestWithKey(t *testing.T, workflowName, workflowOwner s
 			WorkflowName:  workflowName,
 			WorkflowTag:   "TEMP_TAG",
 		},
-		Input: []byte(`{
+		Input: json.RawMessage(`{
 			"customer": "test-customer",
 			"size": "large",
 			"toppings": ["cheese", "pepperoni"],

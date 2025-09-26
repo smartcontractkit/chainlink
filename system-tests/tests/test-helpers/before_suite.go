@@ -1,4 +1,4 @@
-package cre
+package helpers
 
 import (
 	"os"
@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 // TestConfig holds common test specific configurations related to the test execution
@@ -41,7 +42,7 @@ type TestEnvironment struct {
 	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
 }
 
-func SetupTestEnvironmentWithConfig(t *testing.T, tconf *TestConfig, flags ...string) *TestEnvironment {
+func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {
 	t.Helper()
 
 	createEnvironment(t, tconf, flags...)
@@ -50,7 +51,7 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *TestConfig, flags ...st
 	creEnvironment, wrappedBlockchainOutputs, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in, envArtifact)
 	require.NoError(t, err, "failed to load environment")
 
-	return &TestEnvironment{
+	return &ttypes.TestEnvironment{
 		Config:                   in,
 		TestConfig:               tconf,
 		EnvArtifact:              envArtifact,
@@ -60,17 +61,17 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *TestConfig, flags ...st
 	}
 }
 
-func getDefaultTestConfig(t *testing.T) *TestConfig {
+func GetDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
-	return getTestConfig(t, "/configs/workflow-don.toml")
+	return GetTestConfig(t, "/configs/workflow-don.toml")
 }
 
-func getTestConfig(t *testing.T, configPath string) *TestConfig {
+func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 	relativePathToRepoRoot := "../../../../"
 	environmentDirPath := filepath.Join(relativePathToRepoRoot, "core/scripts/cre/environment")
 
-	return &TestConfig{
+	return &ttypes.TestConfig{
 		RelativePathToRepoRoot: relativePathToRepoRoot,
 		EnvironmentDirPath:     environmentDirPath,
 		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
@@ -94,7 +95,7 @@ func getEnvironmentArtifact(t *testing.T, relativePathToRepoRoot string) *enviro
 	return envArtifact
 }
 
-func createEnvironment(t *testing.T, testConfig *TestConfig, flags ...string) {
+func createEnvironment(t *testing.T, testConfig *ttypes.TestConfig, flags ...string) {
 	t.Helper()
 
 	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath)

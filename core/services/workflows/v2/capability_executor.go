@@ -71,28 +71,32 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	if !ok {
 		c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
 	}
+
 	meteringRef := strconv.Itoa(int(request.CallbackId))
+	spendLimits := []capabilities.SpendLimit{}
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step from SDK.
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 parse user max spend for step
-	userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
-	userSpendLimit.Valid = false
+	if meterReport != nil {
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step from SDK.
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 parse user max spend for step
+		userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
+		userSpendLimit.Valid = false
 
-	openConcurrentCallSlots, err := c.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx)
-	if err != nil {
-		return nil, err
-	}
-	spendLimits, err := meterReport.Deduct(
-		meteringRef,
-		metering.ByDerivedAvailability(
-			userSpendLimit,
-			openConcurrentCallSlots,
-			info,
-			config.RestrictedConfig,
-		),
-	)
-	if err != nil {
-		c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		var openConcurrentCallSlots int
+		if openConcurrentCallSlots, err = c.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx); err != nil {
+			return nil, err
+		}
+
+		if spendLimits, err = meterReport.Deduct(
+			meteringRef,
+			metering.ByDerivedAvailability(
+				userSpendLimit,
+				openConcurrentCallSlots,
+				info,
+				config.RestrictedConfig,
+			),
+		); err != nil {
+			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		}
 	}
 
 	capReq := capabilities.CapabilityRequest{
@@ -136,9 +140,10 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
 	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, nil)
 
-	err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
-	if err != nil {
-		c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+	if meterReport != nil {
+		if err = meterReport.Settle(meteringRef, capResp.Metadata.Metering); err != nil {
+			c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		}
 	}
 
 	return &sdkpb.CapabilityResponse{

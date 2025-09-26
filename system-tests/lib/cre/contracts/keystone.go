@@ -87,11 +87,7 @@ func DeployKeystoneContracts(
 
 	var allNodeFlags []string
 	for i := range input.CapabilitiesAwareNodeSets {
-		nodeFlags, err := flags.NodeSetFlags(input.CapabilitiesAwareNodeSets[i])
-		if err != nil {
-			continue
-		}
-		allNodeFlags = append(allNodeFlags, nodeFlags...)
+		allNodeFlags = append(allNodeFlags, input.CapabilitiesAwareNodeSets[i].Flags()...)
 	}
 	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
 	evmOCR3AddrFlag := flags.HasFlagForAnyChain(allNodeFlags, cre.EVMCapability)

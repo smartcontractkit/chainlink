@@ -150,7 +150,7 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 	// Convert status string to v2 ExecutionStatus enum
 	var executionStatus eventsv2.ExecutionStatus
 	switch status {
-	case "completed": // there are enums in workflows/store, but we shouldn't import that here
+	case "completed", "completed_early_exit": // there are enums in workflows/store, but we shouldn't import that here
 		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED
 	case "errored", "timeout":
 		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED
@@ -261,7 +261,7 @@ func EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, 
 	// Convert status string to v2 ExecutionStatus enum
 	var executionStatus eventsv2.ExecutionStatus
 	switch status {
-	case "completed":
+	case "completed", "completed_early_exit":
 		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED
 	case "errored", "timeout":
 		executionStatus = eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED

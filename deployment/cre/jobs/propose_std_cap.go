@@ -57,7 +57,7 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 				Command:       input.Command,
 				Config:        input.Config,
 				ExternalJobID: input.ExternalJobID,
-				OracleFactory: input.OracleFactory,
+				OracleFactory: &input.OracleFactory,
 			},
 			DONFilters:  input.DONFilters,
 			ExtraLabels: input.ExtraLabels,

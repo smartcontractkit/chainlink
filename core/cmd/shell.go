@@ -284,10 +284,19 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 
 	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
-		appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version)
+		appv, err = semver.NewVersion(static.Version)
 		if err != nil {
-			// Exit immediately and don't touch the database if the app version is too old
-			return fmt.Errorf("CheckVersion: %w", err)
+			return fmt.Errorf("failed to parse application version: %w", err)
+		}
+
+		if os.Getenv("CL_SKIP_APP_VERSION_CHECK") == "true" {
+			appLggr.Warn("Skipping app version check")
+		} else {
+			appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version)
+			if err != nil {
+				// Exit immediately and don't touch the database if the app version is too old
+				return fmt.Errorf("CheckVersion: %w", err)
+			}
 		}
 
 		// Take backup if app version is newer than DB version
