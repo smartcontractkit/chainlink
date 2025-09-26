@@ -65,11 +65,6 @@ require (
 )
 
 require (
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250923170055-ba21c6ff1cc2 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250923170055-ba21c6ff1cc2 // indirect
-)
-
-require (
 	cloud.google.com/go/auth v0.16.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
@@ -557,6 +552,8 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.14-0.20250918200130-426cdc905d74 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250923170055-ba21c6ff1cc2 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250923170055-ba21c6ff1cc2 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250908203554-5bd9d2fe9513 // indirect
 	github.com/smartcontractkit/crib-sdk v0.4.0 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e // indirect
