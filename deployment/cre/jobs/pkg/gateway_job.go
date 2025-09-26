@@ -238,8 +238,8 @@ type nodeRateLimiterConfig struct {
 }
 
 type httpCapabilitiesHandlerConfig struct {
-	NodeRateLimiter nodeRateLimiterConfig `toml:"nodeRateLimiter"`
-	CleanUpPeriodMs int                   `toml:"cleanUpPeriodMs"`
+	NodeRateLimiter nodeRateLimiterConfig `toml:"NodeRateLimiter"`
+	CleanUpPeriodMs int                   `toml:"CleanUpPeriodMs"`
 }
 
 func newDefaultHTTPCapabilitiesHandler() handler {
