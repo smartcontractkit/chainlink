@@ -934,7 +934,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("empty input should fail", func(t *testing.T) {
@@ -962,7 +962,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("empty JSON input should pass", func(t *testing.T) {
@@ -1023,7 +1023,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("workflowID wrong length", func(t *testing.T) {
@@ -1051,7 +1051,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("workflowOwner wrong length", func(t *testing.T) {
@@ -1081,7 +1081,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("workflowName too long", func(t *testing.T) {
@@ -1112,7 +1112,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("workflowTag too long", func(t *testing.T) {
@@ -1143,7 +1143,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("missing workflowName when workflowID not provided", func(t *testing.T) {
@@ -1171,7 +1171,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("missing workflowOwner when workflowID not provided", func(t *testing.T) {
@@ -1200,7 +1200,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("missing workflowTag when workflowID not provided", func(t *testing.T) {
@@ -1229,7 +1229,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("invalid hex in workflowID", func(t *testing.T) {
@@ -1257,7 +1257,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("invalid hex in workflowOwner", func(t *testing.T) {
@@ -1287,7 +1287,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
-		requireUserErrorSent(t, r, int(jsonrpc.ErrInvalidRequest))
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 }
 
