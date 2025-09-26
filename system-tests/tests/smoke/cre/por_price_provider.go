@@ -19,11 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
+var fakeProviderStarted sync.Once
+
 func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, expectedPrices map[string][]float64, priceIndexes map[string]*int) (string, error) {
-	_, err := fake.NewFakeDataProvider(input)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to set up fake data provider")
-	}
+	fakeProviderStarted.Do(func() {
+		_, err := fake.NewFakeDataProvider(input)
+		testLogger.Error().Err(err).Msg("Failed to start fake data provider")
+	})
+
 	fakeAPIPath := "/fake/api/price"
 	host := framework.HostDockerInternal()
 	fakeFinalURL := fmt.Sprintf("%s:%d%s", host, input.Port, fakeAPIPath)
@@ -60,7 +63,7 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 		return response, nil
 	}
 
-	err = fake.Func("GET", fakeAPIPath, func(c *gin.Context) {
+	err := fake.Func("GET", fakeAPIPath, func(c *gin.Context) {
 		authHeader := c.Request.Header.Get("Authorization")
 		if authHeader != authKey {
 			testLogger.Info().Msgf("Unauthorized request, expected auth key: %s actual auth key: %s", authKey, authHeader)
