@@ -10,8 +10,6 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
@@ -19,6 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
 var _ cldf.ChangeSetV2[config.AddTokenPoolConfig] = AddTokenPool{}
@@ -155,7 +156,7 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	// Deploy Aptos token pool
 	tokenPoolAddress := cfg.TokenPoolAddress
 	if cfg.TokenPoolAddress == (aptos.AccountAddress{}) {
-		isOwned, err := isTokenOwnedByMCMS(deps, tokenCodeObjAddress)
+		isOwned, err := isTokenOwnedByMCMS(deps, cfg.TokenCodeObjAddress)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if token is owned by MCMS: %w", err)
 		}
