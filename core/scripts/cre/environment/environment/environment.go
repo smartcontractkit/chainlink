@@ -291,7 +291,7 @@ func startCmd() *cobra.Command {
 
 			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
-				flags.NewDefaultCapabilityFlagsProvider(nil),
+				flags.NewDefaultCapabilityFlagsProvider(),
 				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
 				cre.NewCLIFlagsProvider(withV2Registries),
 			)
