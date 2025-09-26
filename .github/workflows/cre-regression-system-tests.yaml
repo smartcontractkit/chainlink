@@ -157,7 +157,7 @@ jobs:
           E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
-          CTF_CONFIGS: ${{ matrix.tests.configs }}
+          CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
