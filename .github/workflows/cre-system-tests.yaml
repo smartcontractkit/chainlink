@@ -291,7 +291,7 @@ jobs:
             github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
 
       - name: Process and upload flaky Regression tests results
-        if: ${{ !cancelled() && inputs.with_regression }}
+        if: ${{ inputs.with_regression && !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
           junit-file-path: '/tmp/junit-report-regression.xml'

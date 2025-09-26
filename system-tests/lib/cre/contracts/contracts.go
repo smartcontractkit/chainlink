@@ -812,7 +812,7 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 		if i == nodeSets[vaultIndex].BootstrapNodeIndex {
 			continue
 		}
-		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, crenode.NodeDKGRecipientKey)
+		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, cre.NodeDKGRecipientKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find DKG recipient key label")
 		}
