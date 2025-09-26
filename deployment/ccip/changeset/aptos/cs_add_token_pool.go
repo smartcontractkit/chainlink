@@ -6,14 +6,12 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
@@ -157,10 +155,15 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 	// Deploy Aptos token pool
 	tokenPoolAddress := cfg.TokenPoolAddress
 	if cfg.TokenPoolAddress == (aptos.AccountAddress{}) {
+		isOwned, err := isTokenOwnedByMCMS(deps, tokenCodeObjAddress)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if token is owned by MCMS: %w", err)
+		}
 		depInput := seq.DeployTokenPoolSeqInput{
 			TokenCodeObjAddress: tokenCodeObjAddress,
 			TokenAddress:        tokenAddress,
 			PoolType:            cfg.PoolType,
+			IsTokenOwnedByMCMS:  isOwned,
 		}
 		deploySeq, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployAptosTokenPoolSequence, deps, depInput)
 		if err != nil {
@@ -212,6 +215,20 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 		MCMSTimelockProposals: proposals,
 		Reports:               seqReports,
 	}, nil
+}
+
+func isTokenOwnedByMCMS(deps operation.AptosDeps, cfgTokenAddress aptos.AccountAddress) (bool, error) {
+	if cfgTokenAddress == (aptos.AccountAddress{}) {
+		// Token cfg not provided, so token is newly deployed and owned by MCMS
+		return true, nil
+	}
+	mcmsAddress := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector].MCMSAddress
+	mcmsContract := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
+	isOwned, err := mcmsContract.MCMSRegistry().IsOwnedCodeObject(nil, cfgTokenAddress)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if token is owned by MCMS: %w", err)
+	}
+	return isOwned, nil
 }
 
 func toRemotePools(evmRemoteCfg map[uint64]config.EVMRemoteConfig) map[uint64]seq.RemotePool {
