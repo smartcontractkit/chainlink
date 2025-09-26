@@ -31,7 +31,7 @@ import (
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
-	t.Skip("I don't care about TON2EVM")
+	t.Skip("Currently skipping TON2EVM, Debugging EVM2TON")
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
 
 	t.Logf("Environment: %+v", e.Env)
