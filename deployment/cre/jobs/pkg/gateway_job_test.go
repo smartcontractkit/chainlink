@@ -235,7 +235,7 @@ forwardingAllowed = false
 [gatewayConfig]
 [gatewayConfig.ConnectionManagerConfig]
 AuthChallengeLen = 10
-AuthGatewayId = 'Gateway1'
+AuthGatewayId = 'gateway-node-1'
 AuthTimestampToleranceSec = 5
 HeartbeatIntervalSec = 20
 
@@ -293,7 +293,7 @@ MaxResponseBytes = 50000000
 [gatewayConfig.NodeServerConfig]
 HandshakeTimeoutMillis = 1000
 MaxRequestBytes = 100000
-Path = '/node'
+Path = '/'
 Port = 5003
 ReadTimeoutMillis = 1000
 RequestTimeoutMillis = 10000
@@ -464,7 +464,7 @@ func TestGateway_Resolve_WithHTTPCapabilitiesHandler(t *testing.T) {
 		},
 	}
 
-	spec, err := g.Resolve()
+	spec, err := g.Resolve(1)
 	require.NoError(t, err)
 	assert.Equal(t, expectedWithHTTPCapabilities, spec)
 }
