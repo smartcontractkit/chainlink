@@ -309,12 +309,10 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
             # Run Core CRE E2E tests on PRs if there are relevant changes
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
-              echo "workflow-name=Run Core CRE E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
             fi
             if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
-              echo "Including CRE regression tests as the label 'run-e2e-regression' is found"
-              echo "workflow-name=Run Core CRE E2E Regression Tests For PR" | tee -a "$GITHUB_OUTPUT"
+              echo "Running CRE regression tests as the label 'run-e2e-regression' is found"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
               echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
             fi
@@ -343,7 +341,7 @@ jobs:
           fi
 
   run-core-cre-e2e-tests:
-    name: ${{ needs.run-core-cre-e2e-tests-setup.outputs.workflow-name }}
+    name: Run Core CRE E2E Tests For PR
     needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
@@ -357,7 +355,23 @@ jobs:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
-      with_regression: ${{ needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true' }}
+    secrets: inherit
+
+  run-core-cre-e2e-regression-tests:
+    name: Run Core CRE E2E Regression Tests For PR
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
+    uses: ./.github/workflows/cre-regression-system-tests.yaml
+    with:
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit
 
   run-core-e2e-tests-setup:
@@ -567,6 +581,7 @@ jobs:
         run-core-e2e-tests,
         run-ccip-e2e-tests,
         run-core-cre-e2e-tests,
+        run-core-cre-e2e-regression-tests,
       ]
     steps:
       - name: Check Core test results
@@ -620,6 +635,21 @@ jobs:
             echo "::warning::Core CRE E2E tests were skipped."
           fi
 
+      - name: Fail the job if core CRE tests were not successful
+        if: always()
+        env:
+          RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
+        run: |
+          if [[ "${RESULT}" == "failure" ]]; then
+            echo "::error::Core CRE E2E regression tests failed."
+            exit 1
+          elif [[ "${RESULT}" == "cancelled" ]]; then
+            echo "::error::Core CRE E2E regression tests were cancelled."
+            exit 1
+          elif [[ "${RESULT}" == "skipped" ]]; then
+            echo "::warning::Core CRE E2E regression tests were skipped."
+          fi
+
       - name: Warn if CCIP tests were not successful
         if: always()
         env:
@@ -642,7 +672,13 @@ jobs:
     # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
     # By always running this, it delays the start of the next workflow run due to concurrency rules.
     if: always() && !cancelled()
-    needs: [run-core-e2e-tests, run-ccip-e2e-tests, run-core-cre-e2e-tests]
+    needs:
+      [
+        run-core-e2e-tests,
+        run-ccip-e2e-tests,
+        run-core-cre-e2e-tests,
+        run-core-cre-e2e-regression-tests,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo

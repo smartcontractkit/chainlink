@@ -68,7 +68,7 @@ func TestStreamsTrigger(t *testing.T) {
 	feeds := newFeedsWithSignedReports(t, nodes, N, P, R)
 
 	allowedSigners := make([][]byte, N)
-	for i := 0; i < N; i++ {
+	for i := range N {
 		allowedSigners[i] = nodes[i].bundle.PublicKey() // bad name - see comment on evmKeyring.PublicKey
 	}
 	lggr := logger.Test(t)
@@ -80,17 +80,19 @@ func TestStreamsTrigger(t *testing.T) {
 		ID: triggerID,
 	}
 	capMembers := make([]p2ptypes.PeerID, N)
-	for i := 0; i < N; i++ {
+	for i := range N {
 		capMembers[i] = nodes[i].peerID
 	}
 	capDonInfo := capabilities.DON{
+		ID:      2,
 		Members: capMembers,
 		F:       uint8(F),
 	}
 	config := &capabilities.RemoteTriggerConfig{
 		MinResponsesToAggregate: uint32(F + 1),
 	}
-	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, capabilities.DON{}, nil, agg, "", lggr)
+	subscriber := remote.NewTriggerSubscriber(triggerID, "method", nil, lggr)
+	require.NoError(t, subscriber.SetConfig(config, capInfo, 1, capDonInfo, agg))
 
 	// register trigger
 	req := capabilities.TriggerRegistrationRequest{

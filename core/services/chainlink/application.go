@@ -128,6 +128,8 @@ type Application interface {
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
+	GetCapabilitiesRegistry() *capabilities.Registry
+
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
@@ -196,6 +198,7 @@ type ChainlinkApplication struct {
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
 	loopRegistrarConfig      plugins.RegistrarConfig
+	capabilitiesRegistry     *capabilities.Registry
 
 	started     bool
 	startStopMu sync.Mutex
@@ -798,6 +801,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
 		loopRegistrarConfig:      loopRegistrarConfig,
+		capabilitiesRegistry:     opts.CapabilitiesRegistry,
 
 		ds: opts.DS,
 
@@ -1432,6 +1436,10 @@ func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
+}
+
+func (app *ChainlinkApplication) GetCapabilitiesRegistry() *capabilities.Registry {
+	return app.capabilitiesRegistry
 }
 
 func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {

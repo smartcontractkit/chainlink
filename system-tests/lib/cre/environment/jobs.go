@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Input) (*jd.Output, error) {
+func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*jd.Output, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
@@ -71,7 +71,7 @@ func CreateJobDistributor(input jd.Input) (*jd.Output, error) {
 	return jdOutput, nil
 }
 
-func StartDONsAndJD(lggr zerolog.Logger, jdInput *jd.Input, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Input, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
+func StartDONsAndJD(lggr zerolog.Logger, jdInput *jd.Input, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Provider, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
 	if jdInput == nil {
 		return nil, nil, errors.New("jd input is nil")
 	}

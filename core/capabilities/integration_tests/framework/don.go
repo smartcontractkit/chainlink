@@ -400,6 +400,30 @@ func (d *DON) AddExternalTriggerCapability(triggerFactory TriggerFactory) {
 	d.publishedCapabilities = append(d.publishedCapabilities, triggerCapability)
 }
 
+func (d *DON) AddExternalTargetCapability(targetFactory TargetFactory, defaultTargetCapabilityConfig *pb.CapabilityConfig) {
+	d.targetFactories = append(d.targetFactories, targetFactory)
+
+	if defaultTargetCapabilityConfig == nil {
+		defaultTargetCapabilityConfig = newCapabilityConfig()
+	}
+	defaultTargetCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTargetConfig{
+		RemoteTargetConfig: &pb.RemoteTargetConfig{
+			RequestHashExcludedAttributes: []string{},
+		},
+	}
+
+	targetCapability := capability{
+		donCapabilityConfig: defaultTargetCapabilityConfig,
+		registryConfig: kcr.CapabilitiesRegistryCapability{
+			LabelledName:   targetFactory.GetTargetName(),
+			Version:        targetFactory.GetTargetVersion(),
+			CapabilityType: uint8(registrysyncer.ContractCapabilityTypeTarget),
+		},
+	}
+
+	d.publishedCapabilities = append(d.publishedCapabilities, targetCapability)
+}
+
 func (d *DON) AddJob(ctx context.Context, j *job.Job) error {
 	for _, node := range d.nodes {
 		err := node.AddJobV2(ctx, j)
