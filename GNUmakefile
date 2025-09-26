@@ -2,7 +2,7 @@
 
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell jq -r '.version' package.json)
-VERSION_TAG ?= $(shell git describe HEAD)
+VERSION_TAG ?= $(shell git describe --always)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
