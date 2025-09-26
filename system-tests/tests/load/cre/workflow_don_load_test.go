@@ -83,7 +83,7 @@ type TestConfigLoadTest struct {
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
-	Infra                         *infra.Input                    `toml:"infra" validate:"required"`
+	Infra                         *infra.Provider                 `toml:"infra" validate:"required"`
 	WorkflowDONLoad               *WorkflowLoad                   `toml:"workflow_load"`
 	MockCapabilities              []*MockCapabilities             `toml:"mock_capabilities"`
 	Chaos                         *Chaos                          `toml:"chaos"`
