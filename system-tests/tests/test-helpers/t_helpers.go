@@ -126,6 +126,7 @@ Recommendation: Use it in tests that need to listen for Beholder messages.
 */
 func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
+
 	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, err, "failed to create beholder instance")
 
@@ -149,31 +150,51 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	})
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
-	drainChannels(beholderMsgChan, beholderErrChan) // drain any old messages, if any
+	drainChannels(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan) // drain any old messages
+
+	// Wait to allow Beholder to fully initialize, it helps to avoid flakiness in tests
+	timeout = 3 * time.Second
+	testLogger.Info().Dur("timeout", timeout).Msg("Forcefully waiting for Beholder to initialize...")
+	time.Sleep(timeout)
+
 	return listenerCtx, beholderMsgChan, beholderErrChan
 }
 
-// Logs all messages received from Beholder until the context is done
-func LogBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment, messageChan <-chan proto.Message, errChan <-chan error) {
+// Drains any remaining messages from the channels to avoid processing stale messages
+func drainChannels(ctx context.Context, t *testing.T, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
 	t.Helper()
+
+	testLogger.Info().Msg("Starting async drain of Beholder channels for stale messages...")
+	msgCount := 0
+	errCount := 0
+
+	// Drain messages for up to 500ms
+	timeout := time.After(500 * time.Millisecond)
 
 	for {
 		select {
-		case <-ctx.Done():
-			return
-		case err := <-errChan:
-			require.FailNowf(t, "Kafka error received from Kafka %s", err.Error())
 		case msg := <-messageChan:
-			switch typedMsg := msg.(type) {
-			case *commonevents.BaseMessage:
-				testLogger.Info().Msgf("Received BaseMessage from Beholder: %s", typedMsg.Msg)
+			msgCount++
+			switch msg.(type) {
 			case *workflowevents.UserLogs:
-				for _, logLine := range typedMsg.LogLines {
-					testLogger.Info().Msgf("Received workflow msg: %s", logLine.Message)
-				}
+				testLogger.Debug().Msg("Drained UserLogs message")
+			case *commonevents.BaseMessage:
+				testLogger.Debug().Msg("Drained BaseMessage")
 			default:
-				testLogger.Info().Msgf("Received unknown message of type '%T'", msg)
+				testLogger.Debug().Msgf("Drained unknown message type: %T", msg)
 			}
+
+		case err := <-kafkaErrChan:
+			errCount++
+			testLogger.Debug().Err(err).Msg("Drained error message")
+
+		case <-timeout:
+			if msgCount > 0 || errCount > 0 {
+				testLogger.Info().Int("messages_drained", msgCount).Int("errors_drained", errCount).Msg("Finished draining Beholder channels")
+			} else {
+				testLogger.Info().Msg("No stale Beholder messages found in channels")
+			}
+			return
 		}
 	}
 }
@@ -255,21 +276,6 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		require.Fail(t, "Kafka listener failed", err.Error())
 	}
 	return nil
-}
-
-func drainChannels(messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
-	// Drain any existing messages
-	for {
-		select {
-		case <-messageChan:
-			// Discard old messages
-		case <-kafkaErrChan:
-			// Discard old errors
-		default:
-			// Channels are empty, exit
-			return
-		}
-	}
 }
 
 //////////////////////////////
