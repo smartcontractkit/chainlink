@@ -59,6 +59,43 @@ func (s *StandardCapabilityJob) Resolve() (string, error) {
 	return b.String(), nil
 }
 
+type StandardCapabilityJobWithOracleFactory struct {
+	// Inline base fields for YAML compatibility and method promotion
+	StandardCapabilityJob `yaml:",inline" json:",inline"`
+
+	ContractQualifier string `yaml:"contractQualifier"`
+
+	// Additional fields used to drive oracle factory creation/config
+	ChainSelectorEVM   ChainSelector `yaml:"chainSelectorEVM"`
+	ChainSelectorAptos ChainSelector `yaml:"chainSelectorAptos"`
+
+	BootstrapPeers []string `yaml:"bootstrapPeers"`
+}
+
+func (s *StandardCapabilityJobWithOracleFactory) Validate() error {
+	if err := s.StandardCapabilityJob.Validate(); err != nil {
+		return err
+	}
+
+	if s.ContractQualifier == "" {
+		return errors.New("contract qualifier cannot be empty")
+	}
+
+	if s.ChainSelectorEVM == 0 {
+		return errors.New("chain selector EVM cannot be zero")
+	}
+
+	if s.ChainSelectorAptos == 0 {
+		return errors.New("chain selector Aptos cannot be zero")
+	}
+
+	if len(s.BootstrapPeers) == 0 {
+		return errors.New("bootstrap peers cannot be empty")
+	}
+
+	return nil
+}
+
 func externalJobIDHashFunc(command, config []byte) (uuid.UUID, error) {
 	var externalJobID uuid.UUID
 	if len(config) > 0 {

@@ -34,8 +34,22 @@ func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapab
 		return pkg.StandardCapabilityJob{}, errors.New("command is required and must be a string")
 	}
 
-	if out.ExternalJobID == "" {
-		return pkg.StandardCapabilityJob{}, errors.New("externalJobID cannot be an empty string")
+	return out, nil
+}
+
+func (j JobSpecInput) ToStandardCapabilityWithOracleFactoryJob(jobName string) (pkg.StandardCapabilityJobWithOracleFactory, error) {
+	out := pkg.StandardCapabilityJobWithOracleFactory{
+		StandardCapabilityJob: pkg.StandardCapabilityJob{
+			JobName: jobName,
+		},
+	}
+	err := j.UnmarshalTo(&out)
+	if err != nil {
+		return pkg.StandardCapabilityJobWithOracleFactory{}, fmt.Errorf("failed to unmarshal job spec input to StandardCapabilityJob: %w", err)
+	}
+
+	if out.Command == "" {
+		return pkg.StandardCapabilityJobWithOracleFactory{}, errors.New("command is required and must be a string")
 	}
 
 	return out, nil
