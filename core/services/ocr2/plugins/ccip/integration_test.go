@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
+	quarantine.Flaky(t, "DX-1902")
 	t.Parallel()
 	// Run tke batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
