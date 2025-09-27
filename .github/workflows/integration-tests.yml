@@ -158,12 +158,12 @@ jobs:
         with:
           check-label: "run-e2e-tests"
 
-      - name: Get PR Labels (run-e2e-regression)
+      - name: Get PR Labels (skip-e2e-regression)
         if: github.event_name == 'pull_request'
         id: label-runs-e2e-regression
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
-          check-label: "run-e2e-regression"
+          check-label: "skip-e2e-regression"
 
       - name: Set runner labels
         id: runner-labels
@@ -310,11 +310,13 @@ jobs:
             # Run Core CRE E2E tests on PRs if there are relevant changes
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-            if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
-              echo "Running CRE regression tests as the label 'run-e2e-regression' is found"
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
               echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
+            fi
+            # Opt-out of CRE regression tests if the label 'skip-e2e-regression' is found
+            if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
+              echo "Skipping CRE regression tests: label 'skip-e2e-regression' is found"
+              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+              echo "with-regression=false" | tee -a "$GITHUB_OUTPUT"
             fi
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then

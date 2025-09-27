@@ -31,6 +31,8 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 		_, err := fake.NewFakeDataProvider(input)
 		if err != nil {
 			testLogger.Error().Err(err).Msg("Failed to start fake data provider")
+		} else {
+			testLogger.Info().Msg("Fake data provider started successfully")
 		}
 	})
 

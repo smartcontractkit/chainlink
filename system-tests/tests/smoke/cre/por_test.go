@@ -51,7 +51,7 @@ type WorkflowTestConfig struct {
 // TODO: Fake Price Provider should be "parallellized" (see: https://github.com/smartcontractkit/chainlink/actions/runs/18059602029/job/51394224440?pr=19587)
 func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
 	porWfCfg := WorkflowTestConfig{
-		FeedIDs:              []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"},
+		FeedIDs:              []string{"018e16c38e000320000000000000000000000000000000000000000000000000", "018e16c39e000320000000000000000000000000000000000000000000000000"},
 		WorkflowName:         workflowName,
 		WorkflowFileLocation: workflowLocation,
 	}
