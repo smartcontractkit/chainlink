@@ -48,6 +48,7 @@ type WorkflowTestConfig struct {
 	FeedIDs              []string
 }
 
+// TODO: Fake Price Provider should be "parallellized" (see: https://github.com/smartcontractkit/chainlink/actions/runs/18059602029/job/51394224440?pr=19587)
 func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
 	porWfCfg := WorkflowTestConfig{
 		FeedIDs:              []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"},
@@ -93,7 +94,6 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	var amountToFund *big.Int
 	numberOfAddressesToCreate := 2
 	var workflowOwner common.Address
-	fmt.Printf("Each address to read will be funded with %s wei\n", amountToFund.String())
 	for idx, bcOutput := range blockchainOutputs {
 		chainFamily := bcOutput.BlockchainOutput.Family
 		chainID := bcOutput.ChainID

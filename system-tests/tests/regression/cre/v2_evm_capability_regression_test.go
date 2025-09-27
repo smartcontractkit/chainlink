@@ -1,6 +1,8 @@
 package cre
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -34,7 +36,21 @@ type evmNegativeTest struct {
 	expectedError  string
 }
 
-var evmNegativeTests = []evmNegativeTest{
+var evmNegativeTestsBalanceAtInvalidAddress = []evmNegativeTest{
+	// BalanceAt
+	// TODO: Move BalanceAt to the top after fixing https://smartcontract-it.atlassian.net/browse/CRE-934
+	{"empty", "", balanceAtFunction, expectedBalanceAtError},
+	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
+	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
+	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
+	{"empty hex", "0x", balanceAtFunction, expectedBalanceAtError},
+	{"cut hex", "0x0", balanceAtFunction, expectedBalanceAtError},
+	{"short address", "0x123456789012345678901234567890123456789", balanceAtFunction, expectedBalanceAtError},
+	{"long address", "0x12345678901234567890123456789012345678901", balanceAtFunction, expectedBalanceAtError},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", balanceAtFunction, expectedBalanceAtError},
+}
+
+var evmNegativeTestsCallContractInvalidAddressToRead = []evmNegativeTest{
 	// CallContract - invalid address to read
 	// Some invalid inputs are skipped (empty, symbols, "0x", "0x0") as they may map to the zero address and return a balance instead of empty.
 	{"a letter", "a", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
@@ -42,7 +58,9 @@ var evmNegativeTests = []evmNegativeTest{
 	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
 	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
 	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+}
 
+var evmNegativeTestsCallContractInvalidBalanceReaderContract = []evmNegativeTest{
 	// CallContract - invalid balance reader contract address
 	// TODO: Uncomment tests after https://smartcontract-it.atlassian.net/browse/CRE-943
 	// "empty" will default to the 0-address which is valid but has no contract deployed, so we expect an error.
@@ -55,7 +73,9 @@ var evmNegativeTests = []evmNegativeTest{
 	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
 	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
 	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+}
 
+var evmNegativeTestsEstimateGasInvalidToAddress = []evmNegativeTest{
 	// EstimateGas - invalid 'to' address
 	// do not use 1, short, long addresses because common.Address will convert them to a valid address
 	// also it does not make sense to use invalid CallMsg.Data because any bytes will be correctly processed
@@ -64,18 +84,6 @@ var evmNegativeTests = []evmNegativeTest{
 	{"a symbol", "/", estimateGasInvalidToAddress, "EVM error StackUnderflow"},
 	{"not authored contract", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", estimateGasInvalidToAddress, "execution reverted"},
 	{"cut hex", "0x", estimateGasInvalidToAddress, "EVM error StackUnderflow"}, // equivalent to "0x0"
-
-	// BalanceAt
-	// TODO: Move BalanceAt to the top after fixing https://smartcontract-it.atlassian.net/browse/CRE-934
-	{"empty", "", balanceAtFunction, expectedBalanceAtError},
-	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
-	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
-	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
-	{"empty hex", "0x", balanceAtFunction, expectedBalanceAtError},
-	{"cut hex", "0x0", balanceAtFunction, expectedBalanceAtError},
-	{"short address", "0x123456789012345678901234567890123456789", balanceAtFunction, expectedBalanceAtError},
-	{"long address", "0x12345678901234567890123456789012345678901", balanceAtFunction, expectedBalanceAtError},
-	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", balanceAtFunction, expectedBalanceAtError},
 }
 
 func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
@@ -107,11 +115,11 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 				BalanceReaderAddress: readBalancesAddress,
 			},
 		}
-		workflowName := "evm-read-fail-workflow-" + chainID
+		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		expectedError := evmNegativeTest.expectedError
-		timeout := 75 * time.Second
+		timeout := 90 * time.Second
 		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
 		require.NoError(t, err, "EVM Read Fail test failed")
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")

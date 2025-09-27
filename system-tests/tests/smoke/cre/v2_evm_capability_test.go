@@ -2,7 +2,9 @@ package cre
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -43,7 +45,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		lggr.Info().Msg("Creating EVM Read workflow configuration...")
 		workflowConfig := configureEVMReadWorkflow(t, lggr, bcOutput)
-		workflowName := "evm-read-workflow-" + chainID
+		workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 		workflowsWg.Add(1)

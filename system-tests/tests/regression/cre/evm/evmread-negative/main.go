@@ -88,6 +88,7 @@ func runCallContractForInvalidAddressesToRead(evmClient evm.Client, runtime sdk.
 			Data: readBalancesCallWithInvalidAddressToRead,
 		},
 	}).Await()
+	runtime.Logger().Info("CallContract balance reading completed", "output_data", readBalancesOutput.Data)
 	if err != nil {
 		runtime.Logger().Error("this is not expected: reading invalid balances should return 0", "invalid_address", invalidAddressToRead, "error", err)
 		return nil, fmt.Errorf("failed to get balances for address '%s': %w", invalidAddressToRead, err)
@@ -144,11 +145,13 @@ func getPackedReadBalancesCall(methodName, addressToRead string, readBalancesABI
 }
 
 func getReadBalanceAbi(runtime sdk.Runtime) (*abi.ABI, error) {
+	runtime.Logger().Info("getting Balance Reader contract ABI")
 	readBalancesABI, abiErr := balance_reader.BalanceReaderMetaData.GetAbi()
 	if abiErr != nil {
 		runtime.Logger().Error("failed to get Balance Reader contract ABI", "error", abiErr)
 		return nil, fmt.Errorf("failed to get Balance Reader contract ABI: %w", abiErr)
 	}
+	runtime.Logger().Info("successfully got Balance Reader contract ABI.")
 	return readBalancesABI, nil
 }
 

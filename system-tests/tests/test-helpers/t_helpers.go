@@ -154,7 +154,7 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	drainChannels(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan) // drain any old messages
 
 	// Wait to allow Beholder to fully initialize, it helps to avoid flakiness in tests
-	timeout = 3 * time.Second
+	timeout = 5 * time.Second
 	testLogger.Info().Dur("timeout", timeout).Msg("Forcefully waiting for Beholder to initialize...")
 	time.Sleep(timeout)
 
