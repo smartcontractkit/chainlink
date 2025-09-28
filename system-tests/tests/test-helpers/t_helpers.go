@@ -616,13 +616,6 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	switch tv.Version.Major() {
-	case 2:
-		// TODO(CRE-876): delete with workflowID
-		testLogger.Warn().Msg("Skipping workflow deletion from the registry for v2 workflows (not implemented yet, see CRE-876)")
-		return
-	default:
-	}
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
