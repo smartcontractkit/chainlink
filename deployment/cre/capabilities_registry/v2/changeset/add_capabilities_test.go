@@ -7,9 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
@@ -58,7 +60,35 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	// Prepare new capability to add
 	newCapID := "new-test-capability@1.0.0"
 	newCapMetadata := map[string]interface{}{"capabilityType": float64(0), "responseType": float64(0)}
-	newCapConfig := map[string]interface{}{"newParam": "value"}
+	newCapConfig := map[string]interface{}{
+		"methodConfigs": map[string]interface{}{
+			"BalanceAt": map[string]interface{}{
+				"remoteExecutableConfig": map[string]interface{}{
+					"requestTimeout":            "30s",
+					"serverMaxParallelRequests": 10,
+				},
+			},
+			"LogTrigger": map[string]interface{}{
+				"remoteTriggerConfig": map[string]interface{}{
+					"registrationRefresh":     "20s",
+					"registrationExpiry":      "60s",
+					"minResponsesToAggregate": 2,
+					"messageExpiry":           "120s",
+					"maxBatchSize":            25,
+					"batchCollectionPeriod":   "0.2s",
+				},
+			},
+			"WriteReport": map[string]interface{}{
+				"remoteExecutableConfig": map[string]interface{}{
+					"transmissionSchedule":      "OneAtATime",
+					"deltaStage":                "38.4s",
+					"requestTimeout":            "268.8s",
+					"serverMaxParallelRequests": 10,
+					"requestHasherType":         "WriteReportExcludeSignatures",
+				},
+			},
+		},
+	}
 
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
@@ -90,15 +120,20 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	jsonNewCapConfig, err := json.Marshal(newCapConfig)
+	require.NoError(t, err)
+
+	pbCapConfig := &pb.CapabilityConfig{}
+	require.NoError(t, protojson.Unmarshal(jsonNewCapConfig, pbCapConfig))
+
 	caps, err := capReg.GetCapabilities(nil)
 	require.NoError(t, err)
 	var found bool
 	for _, c := range caps {
 		if c.CapabilityId == newCapID {
-			// metadata check
-			var gotMeta map[string]interface{}
-			require.NoError(t, json.Unmarshal(c.Metadata, &gotMeta))
-			assert.Equal(t, newCapMetadata, gotMeta)
+			gotMeta := &pb.CapabilityConfig{}
+			require.NoError(t, proto.Unmarshal(c.Metadata, gotMeta))
+			assert.True(t, proto.Equal(gotMeta, pbCapConfig))
 			found = true
 			break
 		}
@@ -118,9 +153,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	var cfgFound bool
 	for _, cfg := range don.CapabilityConfigurations {
 		if cfg.CapabilityId == newCapID {
-			var gotCfg map[string]interface{}
-			require.NoError(t, json.Unmarshal(cfg.Config, &gotCfg))
-			assert.Equal(t, newCapConfig, gotCfg)
+			require.Equal(t, jsonNewCapConfig, cfg.Config)
 			cfgFound = true
 		}
 	}
