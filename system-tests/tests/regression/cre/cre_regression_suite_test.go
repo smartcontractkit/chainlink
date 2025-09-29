@@ -48,3 +48,15 @@ func Test_CRE_Suite_V2_EVM_Regression(t *testing.T) {
 		})
 	}
 }
+
+func Test_CRE_Suite_V2_HTTP_Regression(t *testing.T) {
+	flags := []string{"--with-contracts-version", "v2"}
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
+
+	for _, tCase := range httpNegativeTests {
+		testName := fmt.Sprintf("[v2] HTTP Trigger fails with %s", tCase.name)
+		t.Run(testName, func(t *testing.T) {
+			HTTPTriggerFailsTest(t, testEnv, tCase)
+		})
+	}
+}

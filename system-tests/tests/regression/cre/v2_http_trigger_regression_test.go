@@ -172,50 +172,78 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 	testLogger.Info().Msgf("Attempting HTTP trigger execution that should fail for workflow: %s", workflowName)
 	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	// Create HTTP trigger request with unauthorized key
-	triggerRequest := createHTTPTriggerRequestWithKey(t, workflowName, workflowOwnerAddress, signingKey)
-	triggerRequestBody, err := json.Marshal(triggerRequest)
-	require.NoError(t, err, "failed to marshal trigger request")
+	// Retry logic to wait for workflow to be loaded, then expect auth failure
+	var authFailureDetected bool
+	tick := 5 * time.Second
+	timeout := 3 * time.Minute
 
-	// Execute the HTTP request that should fail due to unauthorized key
-	req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL.String(), bytes.NewBuffer(triggerRequestBody))
-	require.NoError(t, err, "failed to create HTTP request")
-	req.Header.Set("Content-Type", "application/jsonrpc")
-	req.Header.Set("Accept", "application/json")
+	require.Eventually(t, func() bool {
+		// Create HTTP trigger request with unauthorized key
+		triggerRequest := createHTTPTriggerRequestWithKey(t, workflowName, workflowOwnerAddress, signingKey)
+		triggerRequestBody, err := json.Marshal(triggerRequest)
+		if err != nil {
+			testLogger.Warn().Msgf("Failed to marshal trigger request: %v", err)
+			return false
+		}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		testLogger.Info().Msgf("HTTP trigger request failed as expected: %v", err)
-		return true
-	}
-	defer resp.Body.Close()
+		// Execute the HTTP request that should fail due to unauthorized key
+		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL.String(), bytes.NewBuffer(triggerRequestBody))
+		if err != nil {
+			testLogger.Warn().Msgf("Failed to create HTTP request: %v", err)
+			return false
+		}
+		req.Header.Set("Content-Type", "application/jsonrpc")
+		req.Header.Set("Accept", "application/json")
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		testLogger.Warn().Msgf("Failed to read response body: %v", err)
-		return false
-	}
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			testLogger.Info().Msgf("HTTP trigger request failed as expected: %v", err)
+			authFailureDetected = true
+			return true
+		}
+		defer resp.Body.Close()
 
-	testLogger.Info().Msgf("HTTP trigger response (status %d): %s", resp.StatusCode, string(body))
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			testLogger.Warn().Msgf("Failed to read response body: %v", err)
+			return false
+		}
 
-	// Parse the response to check for authorization errors
-	var response jsonrpc.Response[json.RawMessage]
-	if err := json.Unmarshal(body, &response); err == nil {
-		if response.Error != nil {
-			errorMsg := response.Error.Message
-			testLogger.Info().Msgf("Received expected error in JSON-RPC response: %v", errorMsg)
+		testLogger.Info().Msgf("HTTP trigger response (status %d): %s", resp.StatusCode, string(body))
 
-			// Check if this is an auth failure
-			if errorMsg == "Auth failure" {
-				testLogger.Info().Msg("Authorization properly rejected at gateway level")
-				return true
+		// Parse the response to check for authorization errors
+		var response jsonrpc.Response[json.RawMessage]
+		if err := json.Unmarshal(body, &response); err == nil {
+			if response.Error != nil {
+				errorMsg := response.Error.Message
+				testLogger.Info().Msgf("Received error in JSON-RPC response: %v", errorMsg)
+
+				// Check if this is an auth failure (expected)
+				if errorMsg == "Auth failure" {
+					testLogger.Info().Msg("Authorization properly rejected at gateway level")
+					authFailureDetected = true
+					return true
+				}
+
+				// If it's "workflow not found", continue retrying (workflow not loaded yet)
+				if errorMsg == "workflow not found" {
+					testLogger.Info().Msg("Workflow not found yet, retrying...")
+					return false
+				}
+
+				// Any other error is unexpected for this test
+				testLogger.Warn().Msgf("Unexpected error received: %v", errorMsg)
+				return false
 			}
 		}
-	}
 
-	testLogger.Warn().Msg("HTTP trigger execution attempted with unauthorized key - expecting failure")
-	return false
+		// If we get here, no error was returned, which is unexpected for unauthorized request
+		testLogger.Warn().Msg("Expected auth failure but got successful response")
+		return false
+	}, timeout, tick, "should eventually get auth failure once workflow is loaded")
+
+	return authFailureDetected
 }
 
 // createHTTPTriggerRequestWithKey creates an HTTP trigger request (adapted from positive test)
