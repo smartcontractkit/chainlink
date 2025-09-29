@@ -234,12 +234,9 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 
 	cfgBytes := reportingPluginConfigOverride
 	if cfgBytes == nil {
-		var offchainCfg offchainConfig
-		switch {
-		case cfg.ConsensusCapOffchainConfig != nil:
-			offchainCfg = cfg.ConsensusCapOffchainConfig
-		case cfg.ChainCapOffchainConfig != nil:
-			offchainCfg = cfg.ChainCapOffchainConfig
+		offchainCfg, err := getOffchainCfg(cfg)
+		if err != nil {
+			return OCR2OracleConfig{}, fmt.Errorf("failed to get offchain config: %w", err)
 		}
 		if offchainCfg != nil {
 			offchainCfgAsProto, err := offchainCfg.ToProto()
@@ -299,6 +296,23 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 	}
 
 	return config, nil
+}
+
+func getOffchainCfg(oracleCfg OracleConfig) (offchainConfig, error) {
+	var result offchainConfig
+	if oracleCfg.ConsensusCapOffchainConfig != nil {
+		result = oracleCfg.ConsensusCapOffchainConfig
+	}
+
+	if oracleCfg.ChainCapOffchainConfig != nil {
+		if result != nil {
+			return nil, fmt.Errorf("multiple offchain configs specified: %+v. Only one allowed", oracleCfg)
+		}
+
+		result = oracleCfg.ChainCapOffchainConfig
+	}
+
+	return result, nil
 }
 
 type ConfigureOCR3Request struct {
