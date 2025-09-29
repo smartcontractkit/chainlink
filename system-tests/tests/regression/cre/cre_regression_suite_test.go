@@ -54,7 +54,7 @@ func Test_CRE_Suite_V2_HTTP_Regression(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
 
 	for _, tCase := range httpNegativeTests {
-		testName := fmt.Sprintf("[v2] HTTP Trigger fails with %s", tCase.name)
+		testName := "[v2] HTTP Trigger fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
 			HTTPTriggerFailsTest(t, testEnv, tCase)
 		})
