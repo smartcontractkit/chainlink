@@ -6,6 +6,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -26,6 +27,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/credentials"
 
+	"github.com/smartcontractkit/chainlink-ccv/common/storageaccess"
+	"github.com/smartcontractkit/chainlink-ccv/verifier/commit"
+	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -111,6 +115,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink-ccv/executor"
+	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-ccv/verifier"
 )
 
@@ -1248,40 +1253,108 @@ func newCCVServices(
 	cfg GeneralConfig,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 ) (*CCVServices, error) {
-	//fmt.Printf("%v\n", cfg.CCV())
-	//fmt.Println("CCV is Enabled:", cfg.CCV().Enabled())
-	//fmt.Println("Indexer Key:", cfg.CCV().ExecutorIndexerAPIKey())
+	globalLogger = globalLogger.Named("CCV")
+
+	go func(logger logger.Logger) {
+		logger = logger.With("service", "CCV_HELLO")
+		for {
+			logger.Info("hello world, ccv.")
+			legacyEVMChains := relayerChainInterops.LegacyEVMChains()
+
+			for _, chain := range legacyEVMChains.Slice() {
+				legacyChain, ok := chain.(legacyevm.Chain)
+				if !ok {
+					logger.Info("CCV: failed to cast legacyevm.Chain")
+					continue
+				}
+				txm := legacyChain.TxManager()
+				report := legacyChain.HealthReport()
+				info, err := legacyChain.GetChainInfo(ctx)
+				logger.Infow("CCV: legacy chain:",
+					"Txm ready", txm.Ready(),
+					"Chain ID", legacyChain.ID(),
+					"Chain info", info,
+					"Chain info error", err,
+					"health report", report)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}(globalLogger)
 
 	// start verifier
-	go func() {
-		verifier, err := verifier.NewVerificationCoordinator()
+	go func(logger logger.Logger) {
+		logger = logger.With("service", "CCV_VERIFIER")
+		sourceReader := map[protocol.ChainSelector]verifier.SourceReader{}
+
+		// add EVM source readers
+		legacyEVMChains := relayerChainInterops.LegacyEVMChains()
+		for _, chain := range legacyEVMChains.Slice() {
+			legacyChain, ok := chain.(legacyevm.Chain)
+			if !ok {
+				logger.Info("CCV: failed to cast legacyevm.Chain")
+				continue
+			}
+
+			id := legacyChain.ID()
+			if id.Cmp(new(big.Int).SetUint64(math.MaxUint64)) > 0 {
+				logger.Info("CCV: chain ID too large")
+				continue
+			}
+
+			chainSel := protocol.ChainSelector(id.Uint64())
+			// TODO: Add the real contract address
+			sourceReader[chainSel] = reader.NewEVMSourceReader(legacyChain.Client(), "0xaddr", chainSel, logger)
+		}
+
+		cv := commit.NewCommitVerifier(verifier.CoordinatorConfig{}, nil, logger)
+
+		verifier, err := verifier.NewVerificationCoordinator(
+			verifier.WithLogger(logger),
+			verifier.WithSourceReaders(sourceReader),
+			verifier.WithConfig(verifier.CoordinatorConfig{VerifierID: "rubber-ducky"}),
+			verifier.WithVerifier(cv),
+			verifier.WithStorage(storageaccess.NewInMemoryOffchainStorage(logger)),
+		)
 		if err != nil {
-			globalLogger.Errorw("Failed to create verification coordinator", "error", err)
+			logger.Errorw("CCV: Failed to create verification coordinator", "error", err)
 			return
 		}
 
-		for true {
-			globalLogger.Info("hello world, verifier.")
-			globalLogger.Info("verifier:", verifier.HealthCheck(ctx))
+		logger.Infow("CCV: starting verifier")
+		err = verifier.Start(ctx)
+		if err != nil {
+			logger.Errorw("CCV: Failed to start verification coordinator", "error", err)
+			return
+		}
+
+		for {
+			logger.Info("CCV: hello world, verifier.")
+			logger.Info("CCV: verifier:", verifier.HealthCheck(ctx))
 			time.Sleep(100 * time.Millisecond)
 		}
-	}()
+	}(globalLogger)
 
 	// start executor
-	go func() {
-		exec, err := executor.NewCoordinator()
+	go func(logger logger.Logger) {
+		logger = logger.With("service", "CCV_Executor")
+		exec, err := executor.NewCoordinator(
+			executor.WithLogger(logger),
+			executor.WithExecutor(nil),
+			executor.WithLeaderElector(nil),
+			executor.WithCCVResultStreamer(nil),
+		)
 		if err != nil {
-			globalLogger.Errorw("Failed to create execution coordinator", "error", err)
+			logger.Errorw("CCV: Failed to create execution coordinator", "error", err)
 			return
 		}
 		exec.Start(ctx)
 
-		for true {
-			globalLogger.Info("hello world, executor.")
-			globalLogger.Info("executor is running:", exec.IsRunning())
+		for {
+			logger.Info("CCV: hello world, executor.")
+			logger.Info("CCV: executor is running:", exec.IsRunning())
 			time.Sleep(100 * time.Millisecond)
 		}
-	}()
+	}(globalLogger)
 	return nil, nil
 }
 
