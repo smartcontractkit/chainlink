@@ -325,13 +325,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	// cleanExit is used to skip "fail fast" routine
 	cleanExit := make(chan struct{})
-	var shutdownStartTime time.Time
 	defer func() {
 		cancelRootCtx() // Ensure context is always cancelled
 		close(cleanExit)
-		if !shutdownStartTime.IsZero() {
-			log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
-		}
 	}()
 
 	// Enforce closing after grace period
@@ -354,11 +350,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 	go func() {
 		<-rootCtx.Done()
 		lggr.Infof("Shutdown initiated (root context cancelled); beginning graceful shutdown...")
-		shutdownStartTime = time.Now()
+		shutdownStartTime := time.Now()
 
 		select {
 		case <-cleanExit:
 			// Finished gracefully before the timer fired
+			log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
 			return
 		case <-time.After(s.Config.ShutdownGracePeriod()):
 			lggr.Criticalf("Shutdown grace period of %v exceeded; forcing close...", s.Config.ShutdownGracePeriod())
