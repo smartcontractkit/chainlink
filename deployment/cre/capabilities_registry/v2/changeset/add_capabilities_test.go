@@ -166,7 +166,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	var cfgFound bool
 	for _, cfg := range don.CapabilityConfigurations {
 		if cfg.CapabilityId == newCapID {
-			require.Equal(t, jsonNewCapConfig, cfg.Config)
+			require.JSONEq(t, string(jsonNewCapConfig), string(cfg.Config))
 			cfgFound = true
 		}
 	}
