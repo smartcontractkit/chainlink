@@ -27,6 +27,12 @@ const (
 	callContractInvalidBRContractAddress       = "CallContract - invalid balance reader contract address"
 	expectedCallContractInvalidContractAddress = "got expected error for invalid balance reader contract address"
 	estimateGasInvalidToAddress                = "EstimateGas - invalid 'to' address"
+	filterLogsInvalidAddresses                 = "FilterLogs - invalid addresses"
+	expectedFilterLogsInvalidAddresses         = "failed to convert addresses"
+	filterLogsInvalidFromBlock                 = "FilterLogs - invalid FromBlock"
+	expectedFilterLogsInvalidFromBlock         = "got expected error for FilterLogs with invalid fromBlock"
+	filterLogsInvalidToBlock                   = "FilterLogs - invalid ToBlock"
+	expectedFilterLogsInvalidToBlock           = "got expected error for FilterLogs with invalid toBlock"
 )
 
 type evmNegativeTest struct {
@@ -84,6 +90,46 @@ var evmNegativeTestsEstimateGasInvalidToAddress = []evmNegativeTest{
 	{"a symbol", "/", estimateGasInvalidToAddress, "EVM error StackUnderflow"},
 	{"not authored contract", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", estimateGasInvalidToAddress, "execution reverted"},
 	{"cut hex", "0x", estimateGasInvalidToAddress, "EVM error StackUnderflow"}, // equivalent to "0x0"
+}
+
+// TODO: evm.FilterLogs should return an error or nil for invalid/not existing addresses.
+var evmNegativeTestsFilterLogsWithInvalidAddress = []evmNegativeTest{
+	// FilterLogs - invalid addresses
+	// do not use empty, 1, short, long addresses because common.Address will convert them to a valid address
+	// those address are valid for FilterLogs and may return empty logs, which is a valid response
+	{"a letter", "a", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"a number", "1", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"a symbol", "/", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"short address", "0x123456789012345678901234567890123456789", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"long address", "0x12345678901234567890123456789012345678901", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+}
+
+var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
+	// FilterLogs - invalid TromBlock/ToBlock values
+	// Border values and equivalent partitioning for positive integers only
+	// Distance between blocks should not be more than 100
+	{"negative number", "-1", filterLogsInvalidFromBlock, "block number -1 is not supported"},
+	{"zero", "0", filterLogsInvalidFromBlock, "block number 0 is not supported"},
+	{"very large number", "9223372036854775808", filterLogsInvalidFromBlock, "is not an int64"}, // int64 max + 1
+	{"non-numeric string", "abc", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
+	{"empty string", "", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
+	{"decimal", "100.5", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
+	{"fromBlock greater than toBlock by more than 100", "49", filterLogsInvalidFromBlock, "exceeds maximum allowed range of 100"}, // toBlock is 150, so distance is 100+
+}
+
+var evmNegativeTestsFilterLogsWithInvalidToBlock = []evmNegativeTest{
+	// FilterLogs - invalid toBlock values
+	// Border values and equivalent partitioning for positive integers only
+	// Distance between blocks should not be more than 100
+	{"negative number", "-1", filterLogsInvalidToBlock, "block number -1 is not supported"},
+	{"zero", "0", filterLogsInvalidToBlock, "block number 0 is not supported"},
+	{"less then FromBlock", "1", filterLogsInvalidToBlock, "toBlock 1 is less than fromBlock"},
+	{"very large number", "9223372036854775808", filterLogsInvalidToBlock, "is not an int64"}, // int64 max + 1
+	{"non-numeric string", "abc", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"},
+	{"empty string", "", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"}, // equivalent to "current block"
+	{"decimal", "100.5", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"},
+	{"toBlock greater than fromBlock by more than 100", "103", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"}, // fromBlock is 2
 }
 
 func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {

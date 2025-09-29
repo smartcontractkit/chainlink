@@ -34,61 +34,6 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 	}
 }
 
-// a template for EVM negative tests names to avoid duplication
-const evmTestNameTemplate = "[v2] EVM.%s fails with %s" // e.g. "[v2] EVM.<Function> fails with <invalid input>"
-
-func Test_CRE_V2_EVM_BalanceAt_Invalid_Address_Regression(t *testing.T) {
-	for _, tCase := range evmNegativeTestsBalanceAtInvalidAddress {
-		testName := fmt.Sprintf(evmTestNameTemplate, tCase.functionToTest, tCase.name)
-		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
-
-			EVMReadFailsTest(t, testEnv, tCase)
-		})
-	}
-}
-
-func Test_CRE_V2_EVM_CallContract_Invalid_Addr_To_Read_Regression(t *testing.T) {
-	for _, tCase := range evmNegativeTestsCallContractInvalidAddressToRead {
-		testName := fmt.Sprintf(evmTestNameTemplate, tCase.functionToTest, tCase.name)
-		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
-
-			EVMReadFailsTest(t, testEnv, tCase)
-		})
-	}
-}
-
-func Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression(t *testing.T) {
-	for _, tCase := range evmNegativeTestsCallContractInvalidBalanceReaderContract {
-		testName := fmt.Sprintf(evmTestNameTemplate, tCase.functionToTest, tCase.name)
-		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
-
-			EVMReadFailsTest(t, testEnv, tCase)
-		})
-	}
-}
-
-func Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression(t *testing.T) {
-	for _, tCase := range evmNegativeTestsEstimateGasInvalidToAddress {
-		testName := fmt.Sprintf(evmTestNameTemplate, tCase.functionToTest, tCase.name)
-		t.Run(testName, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
-
-			EVMReadFailsTest(t, testEnv, tCase)
-		})
-	}
-}
-
 func Test_CRE_Suite_V2_HTTP_Regression(t *testing.T) {
 	flags := []string{"--with-contracts-version", "v2"}
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
@@ -99,4 +44,50 @@ func Test_CRE_Suite_V2_HTTP_Regression(t *testing.T) {
 			HTTPTriggerFailsTest(t, testEnv, tCase)
 		})
 	}
+}
+
+// runEVMNegativeTestSuite runs a suite of EVM negative tests with the given test cases
+func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
+	// a template for EVM negative tests names to avoid duplication
+	const evmTestNameTemplate = "[v2] EVM.%s fails with %s" // e.g. "[v2] EVM.<Function> fails with <invalid input>"
+
+	for _, tCase := range testCases {
+		testName := fmt.Sprintf(evmTestNameTemplate, tCase.functionToTest, tCase.name)
+		t.Run(testName, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			// TODO remove this when OCR works properly with multiple chains in Local CRE
+			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+
+			EVMReadFailsTest(t, testEnv, tCase)
+		})
+	}
+}
+
+func Test_CRE_V2_EVM_BalanceAt_Invalid_Address_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsBalanceAtInvalidAddress)
+}
+
+func Test_CRE_V2_EVM_CallContract_Invalid_Addr_To_Read_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsCallContractInvalidAddressToRead)
+}
+
+func Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsCallContractInvalidBalanceReaderContract)
+}
+
+func Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsEstimateGasInvalidToAddress)
+}
+
+func Test_CRE_V2_EVM_FilterLogs_Invalid_Addresses_Regression(t *testing.T) {
+	t.Skip("Skipping because evm.FilterLogs does not return an error or nil for invalid/not existing addresses")
+	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidAddress)
+}
+
+func Test_CRE_V2_EVM_FilterLogs_Invalid_FromBlock_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidFromBlock)
+}
+
+func Test_CRE_V2_EVM_FilterLogs_Invalid_ToBlock_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidToBlock)
 }

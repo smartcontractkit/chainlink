@@ -165,7 +165,8 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	validatePoRPrices(t, testEnv, priceProvider, &cfg, *amountToFund)
 
 	if withBilling {
-		assertBillingStateChanged(t, billingState, 2*time.Minute, 49)
+		expectedMinChange := float64(49)
+		assertBillingStateChanged(t, billingState, 2*time.Minute, expectedMinChange)
 	}
 }
 
