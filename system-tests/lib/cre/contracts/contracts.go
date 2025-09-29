@@ -786,6 +786,7 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 		ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
 			MaxQueryLengthBytes:       1000000,
 			MaxObservationLengthBytes: 1000000,
+			MaxOutcomeLengthBytes:     1000000,
 			MaxReportLengthBytes:      1000000,
 			MaxBatchSize:              1000,
 		},
@@ -804,6 +805,7 @@ func DefaultChainCapabilityOCR3Config(topology *cre.Topology) (*keystone_changes
 	cfg.DeltaRoundMillis = 1000
 	const kib = 1024
 	const mib = 1024 * kib
+	cfg.ConsensusCapOffchainConfig = nil
 	cfg.ChainCapOffchainConfig = &ocr3.ChainCapOffchainConfig{
 		MaxQueryLengthBytes:       mib,
 		MaxObservationLengthBytes: 97 * kib,
