@@ -27,6 +27,10 @@ import (
 
 	"github.com/block-vision/sui-go-sdk/models"
 
+	"encoding/hex"
+	"errors"
+
+	"github.com/btcsuite/btcutil/bech32"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
@@ -874,4 +878,28 @@ func FundSuiAccount(t *testing.T, suiChain cldf_sui.Chain, toAddress string, amo
 		toAddress, signerAddress, amount)
 
 	return nil
+}
+
+func hexFromSuiBech32PrivKey(bech string) (string, error) {
+	hrp, data5, err := bech32.Decode(bech)
+	if err != nil {
+		return "", err
+	}
+
+	if hrp != "suiprivkey" {
+		return "", errors.New("unexpected HRP: " + hrp)
+	}
+	dataBytes, err := bech32.ConvertBits(data5, 5, 8, false)
+	if err != nil {
+		return "", err
+	}
+	if len(dataBytes) != 33 {
+		return "", fmt.Errorf("decoded privkey wrong length: %d bytes", len(dataBytes))
+	}
+	seed := dataBytes[1:]
+	if len(seed) != 32 {
+		return "", fmt.Errorf("unexpected seed length: %d", len(seed))
+	}
+	hexStr := hex.EncodeToString(seed)
+	return hexStr, nil
 }

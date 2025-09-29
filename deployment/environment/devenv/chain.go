@@ -2,16 +2,19 @@ package devenv
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/block-vision/sui-go-sdk/sui"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,6 +34,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_client "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
@@ -42,6 +46,7 @@ const (
 	SolChainType   = "SOLANA"
 	AptosChainType = "APTOS"
 	TronChainType  = "TRON"
+	SuiChainType   = "SUI"
 )
 
 type CribRPCs struct {
@@ -63,6 +68,7 @@ type ChainConfig struct {
 	DeployerKeyZkSyncVM *accounts.Wallet
 	SolDeployerKey      solana.PrivateKey
 	SolArtifactDir      string                                 // directory of pre-built solana artifacts, if any
+	SuiDeployerKey      cldf_sui.SuiSigner                     // SUI deployer key signer
 	Users               []*bind.TransactOpts                   // map of addresses to their transact opts to interact with the chain as users
 	MultiClientOpts     []func(c *cldf_evm_client.MultiClient) // options to configure the multi client
 	AptosDeployerKey    aptos.Account
@@ -154,6 +160,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 	var solSyncMap sync.Map
 	var aptosSyncMap sync.Map
 	var tronSyncMap sync.Map
+	var suiSyncMap sync.Map
 
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
@@ -290,6 +297,18 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 					},
 				})
 				return nil
+			case SuiChainType:
+				suiClient := sui.NewSuiClient(chainCfg.HTTPRPCs[0].External)
+
+				suiSyncMap.Store(chainDetails.ChainSelector, cldf_sui.Chain{
+					ChainMetadata: cldf_sui.ChainMetadata{
+						Selector: chainDetails.ChainSelector,
+					},
+					Client: suiClient,
+					Signer: chainCfg.SuiDeployerKey,
+					URL:    chainCfg.HTTPRPCs[0].External,
+				})
+				return nil
 			case TronChainType:
 				signerGen, err := tronprovider.SignerGenCTFDefault()
 				if err != nil {
@@ -345,7 +364,12 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 		return true
 	})
 
-	tronSyncMap.Range(func(sel, value any) bool {
+	suiSyncMap.Range(func(sel, value interface{}) bool {
+		blockChains = append(blockChains, value.(cldf_sui.Chain))
+		return true
+	})
+
+	tronSyncMap.Range(func(sel, value interface{}) bool {
 		blockChains = append(blockChains, value.(cldf_tron.Chain))
 		return true
 	})
@@ -365,6 +389,45 @@ func (c *ChainConfig) SetSolDeployerKey(keyString *string) error {
 
 	c.SolDeployerKey = solKey
 	return nil
+}
+
+func (c *ChainConfig) SetSuiDeployerKey(keyString *string) error {
+	if keyString == nil || *keyString == "" {
+		return errors.New("no SUI private key provided")
+	}
+
+	// Remove 0x prefix if present
+	hexKey := strings.TrimPrefix(*keyString, "0x")
+
+	// Create signer using hex key
+	suiSigner, err := cldf_sui.NewSignerFromHexPrivateKey(hexKey)
+	if err != nil {
+		return fmt.Errorf("invalid SUI private key: %w", err)
+	}
+
+	c.SuiDeployerKey = suiSigner
+	return nil
+}
+
+func generateSolanaKeypair(privateKey solana.PrivateKey, dir string) (string, error) {
+	privateKeyBytes := []byte(privateKey)
+
+	intArray := make([]int, len(privateKeyBytes))
+	for i, b := range privateKeyBytes {
+		intArray[i] = int(b)
+	}
+
+	keypairJSON, err := json.Marshal(intArray)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal keypair: %w", err)
+	}
+
+	keypairPath := filepath.Join(dir, "solana-keypair.json")
+	if err := os.WriteFile(keypairPath, keypairJSON, 0600); err != nil {
+		return "", fmt.Errorf("failed to write keypair to file: %w", err)
+	}
+
+	return keypairPath, nil
 }
 
 func (c *ChainConfig) SetAptosDeployerKey(keyString *string) error {

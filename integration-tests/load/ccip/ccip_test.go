@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -109,12 +110,19 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NoError(t, err)
 	userOverrides := config.CCIP.Load
 
+	// check if sui test key is bech32 and convert to hex
+	if strings.HasPrefix(suiTestKey, "suiprivkey") {
+		suiTestKey, err = hexFromSuiBech32PrivKey(suiTestKey)
+		require.NoError(t, err)
+	}
+
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(crib.DeployerKeys{
 		EVMKey:   simChainTestKey,
 		SolKey:   solTestKey,
 		AptosKey: aptosTestKey,
+		SuiKey:   suiTestKey,
 	})
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)

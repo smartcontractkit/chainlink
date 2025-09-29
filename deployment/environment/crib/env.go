@@ -23,6 +23,7 @@ type DeployerKeys struct {
 	EVMKey   string
 	SolKey   string
 	AptosKey string
+	SuiKey   string
 }
 
 func NewDevspaceEnvFromStateDir(lggr logger.Logger, envStateDir string) CRIBEnv {
@@ -67,7 +68,7 @@ func (c CRIBEnv) GetConfig(deployerKeys DeployerKeys) (DeployOutput, error) {
 			chainConfigs[i] = chain
 		}
 		if strings.EqualFold(chain.ChainType, string(chaintype.Sui)) {
-			err := chain.SetSuiDeployerKey(&suiKey)
+			err := chain.SetSuiDeployerKey(&deployerKeys.SuiKey)
 			if err != nil {
 				return DeployOutput{}, err
 			}
