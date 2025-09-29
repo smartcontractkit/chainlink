@@ -19,7 +19,7 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250906212935-a1521d24f47f
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250926230623-96c13ca2551d
 	github.com/smartcontractkit/chainlink/v2 v2.27.3-0.20250908153844-03478edcd69f
 )
 
