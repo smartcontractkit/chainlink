@@ -64,7 +64,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 			case GatewayHandlerTypeVault:
 				hs = append(hs, newDefaultVaultHandler())
 			case GatewayHandlerTypeHTTPCapabilities:
-				// TODO: implement
+				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
 			default:
 				return "", errors.New("unknown handler type: " + ht)
 			}
@@ -236,4 +236,25 @@ type nodeRateLimiterConfig struct {
 	GlobalRPS      int `toml:"globalRPS"`
 	PerSenderBurst int `toml:"perSenderBurst"`
 	PerSenderRPS   int `toml:"perSenderRPS"`
+}
+
+type httpCapabilitiesHandlerConfig struct {
+	NodeRateLimiter nodeRateLimiterConfig `toml:"NodeRateLimiter"`
+	CleanUpPeriodMs int                   `toml:"CleanUpPeriodMs"`
+}
+
+func newDefaultHTTPCapabilitiesHandler() handler {
+	return handler{
+		Name:        GatewayHandlerTypeHTTPCapabilities,
+		ServiceName: "workflows",
+		Config: httpCapabilitiesHandlerConfig{
+			NodeRateLimiter: nodeRateLimiterConfig{
+				GlobalBurst:    10,
+				GlobalRPS:      50,
+				PerSenderBurst: 10,
+				PerSenderRPS:   10,
+			},
+			CleanUpPeriodMs: 86400000, // 24 hours
+		},
+	}
 }
