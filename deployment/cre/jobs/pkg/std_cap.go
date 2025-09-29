@@ -61,7 +61,7 @@ func (s *StandardCapabilityJob) Resolve() (string, error) {
 
 type StandardCapabilityJobWithOracleFactory struct {
 	// Inline base fields for YAML compatibility and method promotion
-	StandardCapabilityJob `yaml:",inline" json:",inline"`
+	StandardCapabilityJob `yaml:",inline"`
 
 	ContractQualifier string `yaml:"contractQualifier"`
 
