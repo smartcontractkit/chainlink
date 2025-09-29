@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
@@ -120,20 +121,32 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// Add Capability changeset only accepts protojson input as it needs to be converted to proto bytes for on-chain storage
+	// Here we convert protoJSON map[string]interface{} to capability config struct,
+	// encoding to proto bytes is same as in the changeset and decoding to cap cfg is same as in the v2 registry syncer
 	jsonNewCapConfig, err := json.Marshal(newCapConfig)
 	require.NoError(t, err)
 
 	pbCapConfig := &pb.CapabilityConfig{}
 	require.NoError(t, protojson.Unmarshal(jsonNewCapConfig, pbCapConfig))
 
+	protoConfig, err := proto.Marshal(pbCapConfig)
+	require.NoError(t, err)
+
+	capConfig, err := registrysyncer.CapabilityConfiguration{Config: protoConfig}.Unmarshal()
+	require.NoError(t, err)
+
 	caps, err := capReg.GetCapabilities(nil)
 	require.NoError(t, err)
 	var found bool
 	for _, c := range caps {
+		// we could just compare proto bytes here, but this also mimicks/confirms registry syncer decoding behaviour
 		if c.CapabilityId == newCapID {
-			gotMeta := &pb.CapabilityConfig{}
-			require.NoError(t, proto.Unmarshal(c.Metadata, gotMeta))
-			assert.True(t, proto.Equal(gotMeta, pbCapConfig))
+			cfgr := registrysyncer.CapabilityConfiguration{Config: c.Metadata}
+			gotMeta, err := cfgr.Unmarshal()
+			require.NoError(t, err)
+
+			require.Equal(t, capConfig, gotMeta)
 			found = true
 			break
 		}
