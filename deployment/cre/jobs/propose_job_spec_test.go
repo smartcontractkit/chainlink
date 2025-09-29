@@ -1181,6 +1181,8 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			assert.Contains(t, req.Spec, fmt.Sprintf(`chain_id = "%d"`, expectedChainID))
 			assert.Contains(t, req.Spec, `command = "consensus"`)
 			assert.Contains(t, req.Spec, `config = """"""`)
+			assert.Contains(t, req.Spec, `[oracle_factory]`)
+			assert.Contains(t, req.Spec, `enabled = true`)
 			assert.Contains(t, req.Spec, `ocr_contract_address = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
 			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
 			assert.Contains(t, req.Spec, `ocr_key_bundle_id = "fake_orc_bundle_evm"`)

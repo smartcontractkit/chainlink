@@ -108,9 +108,9 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
-			operations2.ProposeConsensusStandardCapabilityJob,
-			operations2.ProposeConsensusStandardCapabilityJobDeps{Env: e},
-			operations2.ProposeConsensusStandardCapabilityJobInput{
+			operations2.ProposeStandardCapabilityWithOracleFactoryJob,
+			operations2.ProposeStandardCapabilityWithOracleFactoryJobDeps{Env: e},
+			operations2.ProposeStandardCapabilityWithOracleFactoryJobInput{
 				Job:         job,
 				Domain:      input.Domain,
 				DONName:     input.DONName,
