@@ -77,10 +77,10 @@ jobs:
 
           # Add list of tests with certain topologies
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
-            "Test_CRE_Suite_V1_SecureMint": [
+            "Test_CRE_V1_SecureMint": [
                {"topology":"workflow","configs":"configs/workflow-solana-don.toml"}
              ],
-            "Test_CRE_Suite_V1_Tron": [
+            "Test_CRE_V1_Tron": [
                {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
              ]
               }'}
@@ -231,6 +231,7 @@ jobs:
           TEST_TIMEOUT: 30m
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
         run: |
+          echo "Starting test: '${TEST_NAME}'"
           gotestsum \
             --jsonfile=/tmp/gotest.log \
             --junitfile=/tmp/junit-report.xml \
@@ -239,7 +240,12 @@ jobs:
             -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
             github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
 
-      - name: Process and upload flaky Smoke test results
+          exit_code=$?
+          if [ $exit_code -eq 0 ]; then
+            echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Process and upload flaky Regression tests results (${{ steps.run-tests.outputs.tests_result }})
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:

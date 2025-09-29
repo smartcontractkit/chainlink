@@ -154,7 +154,7 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	drainChannels(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan) // drain any old messages
 
 	// Wait to allow Beholder to fully initialize, it helps to avoid flakiness in tests
-	timeout = 3 * time.Second
+	timeout = 5 * time.Second
 	testLogger.Info().Dur("timeout", timeout).Msg("Forcefully waiting for Beholder to initialize...")
 	time.Sleep(timeout)
 
@@ -616,13 +616,6 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	switch tv.Version.Major() {
-	case 2:
-		// TODO(CRE-876): delete with workflowID
-		testLogger.Warn().Msg("Skipping workflow deletion from the registry for v2 workflows (not implemented yet, see CRE-876)")
-		return
-	default:
-	}
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)

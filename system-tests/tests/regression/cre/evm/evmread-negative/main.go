@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
@@ -54,6 +55,12 @@ func onEVMReadTrigger(wfCfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 	case "EstimateGas - invalid 'to' address":
 		// it does not make sense to test with invalid CallMsg.Data because any bytes will be correctly processed
 		return runEstimateGasForInvalidToAddress(client, runtime, wfCfg)
+	case "FilterLogs - invalid addresses":
+		return runFilterLogsWithInvalidAddresses(client, runtime, wfCfg)
+	case "FilterLogs - invalid FromBlock":
+		return runFilterLogsWithInvalidFromBlock(client, runtime, wfCfg)
+	case "FilterLogs - invalid ToBlock":
+		return runFilterLogsWithInvalidToBlock(client, runtime, wfCfg)
 	default:
 		runtime.Logger().Warn("The provided name for function to execute did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
 	}
@@ -88,6 +95,7 @@ func runCallContractForInvalidAddressesToRead(evmClient evm.Client, runtime sdk.
 			Data: readBalancesCallWithInvalidAddressToRead,
 		},
 	}).Await()
+	runtime.Logger().Info("CallContract balance reading completed", "output_data", readBalancesOutput.Data)
 	if err != nil {
 		runtime.Logger().Error("this is not expected: reading invalid balances should return 0", "invalid_address", invalidAddressToRead, "error", err)
 		return nil, fmt.Errorf("failed to get balances for address '%s': %w", invalidAddressToRead, err)
@@ -144,11 +152,13 @@ func getPackedReadBalancesCall(methodName, addressToRead string, readBalancesABI
 }
 
 func getReadBalanceAbi(runtime sdk.Runtime) (*abi.ABI, error) {
+	runtime.Logger().Info("getting Balance Reader contract ABI")
 	readBalancesABI, abiErr := balance_reader.BalanceReaderMetaData.GetAbi()
 	if abiErr != nil {
 		runtime.Logger().Error("failed to get Balance Reader contract ABI", "error", abiErr)
 		return nil, fmt.Errorf("failed to get Balance Reader contract ABI: %w", abiErr)
 	}
+	runtime.Logger().Info("successfully got Balance Reader contract ABI")
 	return readBalancesABI, nil
 }
 
@@ -171,4 +181,81 @@ func runEstimateGasForInvalidToAddress(client evm.Client, runtime sdk.Runtime, w
 
 	runtime.Logger().Info("this is not expected: GasEstimate for invalid 'to' address should return an error or empty response", "invalid_to_address", invalidToAddress.String(), "output_data", estimatedGasReply)
 	return estimatedGasReply, nil
+}
+
+// runFilterLogsWithInvalidAddresses tries to filter logs using invalid addresses in the request
+// it should return an error or empty logs
+func runFilterLogsWithInvalidAddresses(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.FilterLogsReply, error) {
+	invalidAddress := common.HexToAddress(wfCfg.InvalidInput)
+	runtime.Logger().Info("Attempting to filter logs using invalid addresses", "invalid_address", invalidAddress)
+
+	filterLogsOutput, err := client.FilterLogs(runtime, &evm.FilterLogsRequest{
+		FilterQuery: &evm.FilterQuery{
+			Addresses: [][]byte{invalidAddress.Bytes()},
+			FromBlock: pb.NewBigIntFromInt(big.NewInt(100)),
+			ToBlock:   pb.NewBigIntFromInt(big.NewInt(200)),
+		},
+	}).Await()
+	runtime.Logger().Info("FilterLogs completed", "filtered_logs_output", filterLogsOutput)
+	if err != nil || filterLogsOutput == nil {
+		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput, "error", err)
+		return filterLogsOutput, fmt.Errorf("expected error or empty logs for FilterLogs with invalid address '%s': %w", invalidAddress, err)
+	}
+
+	runtime.Logger().Info("this is not expected: FilterLogs with invalid addresses in the request should return an error or empty logs", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput)
+	return filterLogsOutput, nil
+}
+
+// runFilterLogsWithInvalidFromBlock tries to filter logs using invalid fromBlock values
+// it should return an error
+func runFilterLogsWithInvalidFromBlock(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.FilterLogsReply, error) {
+	return runFilterLogsWithInvalidBlock(client, runtime, wfCfg, "fromBlock")
+}
+
+// runFilterLogsWithInvalidToBlock tries to filter logs using invalid toBlock values
+// it should return an error
+func runFilterLogsWithInvalidToBlock(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.FilterLogsReply, error) {
+	return runFilterLogsWithInvalidBlock(client, runtime, wfCfg, "toBlock")
+}
+
+// runFilterLogsWithInvalidBlock tries to filter logs using invalid block values
+// it should return an error for invalid block values
+func runFilterLogsWithInvalidBlock(client evm.Client, runtime sdk.Runtime, wfCfg config.Config, blockType string) (*evm.FilterLogsReply, error) {
+	invalidBlockStr := wfCfg.InvalidInput
+	runtime.Logger().Info("Attempting to filter logs using invalid block", "block_type", blockType, "invalid_block", invalidBlockStr)
+
+	// Parse the invalid block string to big.Int
+	newBlock := big.NewInt(0)
+	invalidBlock, _ := newBlock.SetString(invalidBlockStr, 10)
+
+	// A valid address for FilterLogs
+	validAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
+
+	// Set up the filter query based on which block type is being tested
+	var filterQuery *evm.FilterQuery
+	if blockType == "fromBlock" {
+		filterQuery = &evm.FilterQuery{
+			Addresses: [][]byte{validAddress.Bytes()},
+			FromBlock: pb.NewBigIntFromInt(invalidBlock),
+			ToBlock:   pb.NewBigIntFromInt(big.NewInt(150)),
+		}
+	} else { // toBlock
+		filterQuery = &evm.FilterQuery{
+			Addresses: [][]byte{validAddress.Bytes()},
+			FromBlock: pb.NewBigIntFromInt(big.NewInt(2)),
+			ToBlock:   pb.NewBigIntFromInt(invalidBlock),
+		}
+	}
+
+	filterLogsOutput, err := client.FilterLogs(runtime, &evm.FilterLogsRequest{
+		FilterQuery: filterQuery,
+	}).Await()
+	runtime.Logger().Info("FilterLogs with invalid block completed", "block_type", blockType, "filtered_logs_output", filterLogsOutput)
+	if err != nil || filterLogsOutput == nil {
+		runtime.Logger().Error("got expected error for FilterLogs with invalid block", "block_type", blockType, "invalid_block", invalidBlockStr, "filter_logs_output", filterLogsOutput, "error", err)
+		return filterLogsOutput, fmt.Errorf("expected error for FilterLogs with invalid %s '%s': %w", blockType, invalidBlockStr, err)
+	}
+
+	runtime.Logger().Info("this is not expected: FilterLogs with invalid block should return an error or nil", "block_type", blockType, "invalid_block", invalidBlockStr, "filter_logs_output", filterLogsOutput)
+	return filterLogsOutput, nil
 }
