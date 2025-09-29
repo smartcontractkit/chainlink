@@ -61,6 +61,8 @@ func onEVMReadTrigger(wfCfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 		return runFilterLogsWithInvalidFromBlock(client, runtime, wfCfg)
 	case "FilterLogs - invalid ToBlock":
 		return runFilterLogsWithInvalidToBlock(client, runtime, wfCfg)
+	case "GetTransactionByHash - invalid hash":
+		return runGetTransactionByHashWithInvalidHash(client, runtime, wfCfg)
 	default:
 		runtime.Logger().Warn("The provided name for function to execute did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
 	}
@@ -192,17 +194,18 @@ func runFilterLogsWithInvalidAddresses(client evm.Client, runtime sdk.Runtime, w
 	filterLogsOutput, err := client.FilterLogs(runtime, &evm.FilterLogsRequest{
 		FilterQuery: &evm.FilterQuery{
 			Addresses: [][]byte{invalidAddress.Bytes()},
-			FromBlock: pb.NewBigIntFromInt(big.NewInt(100)),
+			FromBlock: pb.NewBigIntFromInt(big.NewInt(100)), // 100 blocks is a max valid range between blocks
 			ToBlock:   pb.NewBigIntFromInt(big.NewInt(200)),
 		},
 	}).Await()
+	//TODO: checkout this line runtime.Logger().Info("FilterLogs with invalid block completed", "filtered_logs_output_logs", filterLogsOutput.Logs)
 	runtime.Logger().Info("FilterLogs completed", "filtered_logs_output", filterLogsOutput)
-	if err != nil || filterLogsOutput == nil {
-		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput, "error", err)
+	if err != nil || len(filterLogsOutput.Logs) == 0 {
+		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput.Logs, "error", err)
 		return filterLogsOutput, fmt.Errorf("expected error or empty logs for FilterLogs with invalid address '%s': %w", invalidAddress, err)
 	}
 
-	runtime.Logger().Info("this is not expected: FilterLogs with invalid addresses in the request should return an error or empty logs", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput)
+	runtime.Logger().Info("this is not expected: FilterLogs with invalid addresses in the request should return an error or empty logs", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput.Logs)
 	return filterLogsOutput, nil
 }
 
@@ -258,4 +261,30 @@ func runFilterLogsWithInvalidBlock(client evm.Client, runtime sdk.Runtime, wfCfg
 
 	runtime.Logger().Info("this is not expected: FilterLogs with invalid block should return an error or nil", "block_type", blockType, "invalid_block", invalidBlockStr, "filter_logs_output", filterLogsOutput)
 	return filterLogsOutput, nil
+}
+
+// runGetTransactionByHashWithInvalidHash tries to get a transaction using an invalid hash
+// it should return an error
+func runGetTransactionByHashWithInvalidHash(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.GetTransactionByHashReply, error) {
+	runtime.Logger().Info("Attempting to get transaction using invalid hash", "invalid_hash", wfCfg.InvalidInput)
+
+	// Convert the invalid input to bytes - this will handle various invalid formats
+	// invalidHash := common.HexToHash(wfCfg.InvalidInput)
+	// runtime.Logger().Info("Starting GetTransactionByHash request with parsed hash", "invalid_hash", invalidHash.String())
+	// txByHashOutput, err := client.GetTransactionByHash(runtime, &evm.GetTransactionByHashRequest{
+	// 	Hash: invalidHash.Bytes(),
+	// }).Await()
+	invalidHash := common.FromHex(wfCfg.InvalidInput)
+	runtime.Logger().Info("Starting GetTransactionByHash request with parsed hash", "invalid_hash", invalidHash)
+	txByHashOutput, err := client.GetTransactionByHash(runtime, &evm.GetTransactionByHashRequest{
+		Hash: invalidHash,
+	}).Await()
+	runtime.Logger().Info("GetTransactionByHash completed", "tx_by_hash_output", txByHashOutput)
+	if err != nil || txByHashOutput == nil {
+		runtime.Logger().Error("got expected error for GetTransactionByHash with invalid hash", "invalid_hash", invalidHash, "tx_by_hash_output", txByHashOutput, "error", err)
+		return nil, fmt.Errorf("expected error for GetTransactionByHash with invalid hash '%s': %w", invalidHash, err)
+	}
+
+	runtime.Logger().Info("this is not expected: GetTransactionByHash with invalid hash should return an error or nil", "invalid_hash", invalidHash, "tx_by_hash_output", txByHashOutput)
+	return txByHashOutput, nil
 }

@@ -305,7 +305,6 @@ jobs:
           CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
           RUN_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-regression-label-found }}
         run: |
-          echo "Regression tests run: ${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}"
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
             # Run Core CRE E2E tests on PRs if there are relevant changes
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
