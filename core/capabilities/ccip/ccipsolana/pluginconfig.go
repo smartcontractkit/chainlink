@@ -26,6 +26,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDat
 		ChainRW:                    ChainRWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},
 		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
+		CCIPProviderSupported:      true,
 	}
 }
 
