@@ -64,8 +64,6 @@ jobs:
         id: define-matrix
         shell: bash
         working-directory: system-tests/tests
-        env:
-          WITH_REGRESSION: ${{ inputs.with_regression }}
         run: |
           test_names=$(go test \
           github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre \
@@ -78,7 +76,7 @@ jobs:
             | map({
                 test_name: .value,
                 test_id: .key,
-                cre_version: (if (.value | test("V2")) then "v2" else "v1" end)
+                cre_version: (if (.value | test("V1")) then "v1" else "v2" end)
               })
           ')
 
@@ -157,7 +155,7 @@ jobs:
           E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
-          CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
+          CTF_CONFIGS: configs/workflow-gateway-don.toml
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
@@ -165,10 +163,10 @@ jobs:
 
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
           if [[ "${CRE_VERSION}" == "v1" ]]; then
-            echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
+            echo "Starting CRE with v1 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
             go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
           else
-            echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
+            echo "Starting CRE with v2 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
             go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --with-contracts-version v2
           fi
 
@@ -179,12 +177,14 @@ jobs:
           fi
 
       - name: Run CRE${{ matrix.tests.cre_version }} Regression system tests
+        id: run-regression-tests
         shell: bash
         working-directory: system-tests/tests
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
-          TEST_TIMEOUT: 200m
+          TEST_TIMEOUT: 30m
         run: |
+          echo "Starting test: '${TEST_NAME}'"
           gotestsum \
             --jsonfile=/tmp/gotest-regression.log \
             --junitfile=/tmp/junit-report-regression.xml \
@@ -192,15 +192,21 @@ jobs:
             -- \
             -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=1 \
             github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
+          
+          exit_code=$?
+          if [ $exit_code -eq 0 ]; then
+            echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
+          fi
+          exit $exit_code
 
-      - name: Process and upload flaky Regression tests results
+      - name: Process and upload flaky Regression tests results (${{ steps.run-regression-tests.outputs.tests_result }})
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
         with:
           junit-file-path: "/tmp/junit-report-regression.xml"
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
-          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-previous-step-outcome: ${{ steps.run-regression-tests.outcome }}
           trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, job.check_run_id) }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}

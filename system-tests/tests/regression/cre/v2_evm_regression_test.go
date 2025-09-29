@@ -1,6 +1,8 @@
 package cre
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -25,6 +27,12 @@ const (
 	callContractInvalidBRContractAddress       = "CallContract - invalid balance reader contract address"
 	expectedCallContractInvalidContractAddress = "got expected error for invalid balance reader contract address"
 	estimateGasInvalidToAddress                = "EstimateGas - invalid 'to' address"
+	filterLogsInvalidAddresses                 = "FilterLogs - invalid addresses"
+	expectedFilterLogsInvalidAddresses         = "failed to convert addresses"
+	filterLogsInvalidFromBlock                 = "FilterLogs - invalid FromBlock"
+	expectedFilterLogsInvalidFromBlock         = "got expected error for FilterLogs with invalid fromBlock"
+	filterLogsInvalidToBlock                   = "FilterLogs - invalid ToBlock"
+	expectedFilterLogsInvalidToBlock           = "got expected error for FilterLogs with invalid toBlock"
 )
 
 type evmNegativeTest struct {
@@ -34,7 +42,21 @@ type evmNegativeTest struct {
 	expectedError  string
 }
 
-var evmNegativeTests = []evmNegativeTest{
+var evmNegativeTestsBalanceAtInvalidAddress = []evmNegativeTest{
+	// BalanceAt
+	// TODO: Move BalanceAt to the top after fixing https://smartcontract-it.atlassian.net/browse/CRE-934
+	{"empty", "", balanceAtFunction, expectedBalanceAtError},
+	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
+	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
+	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
+	{"empty hex", "0x", balanceAtFunction, expectedBalanceAtError},
+	{"cut hex", "0x0", balanceAtFunction, expectedBalanceAtError},
+	{"short address", "0x123456789012345678901234567890123456789", balanceAtFunction, expectedBalanceAtError},
+	{"long address", "0x12345678901234567890123456789012345678901", balanceAtFunction, expectedBalanceAtError},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", balanceAtFunction, expectedBalanceAtError},
+}
+
+var evmNegativeTestsCallContractInvalidAddressToRead = []evmNegativeTest{
 	// CallContract - invalid address to read
 	// Some invalid inputs are skipped (empty, symbols, "0x", "0x0") as they may map to the zero address and return a balance instead of empty.
 	{"a letter", "a", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
@@ -42,7 +64,9 @@ var evmNegativeTests = []evmNegativeTest{
 	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
 	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
 	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidAddressToReadFunction, expectedCallContractInvalidAddressToRead},
+}
 
+var evmNegativeTestsCallContractInvalidBalanceReaderContract = []evmNegativeTest{
 	// CallContract - invalid balance reader contract address
 	// TODO: Uncomment tests after https://smartcontract-it.atlassian.net/browse/CRE-943
 	// "empty" will default to the 0-address which is valid but has no contract deployed, so we expect an error.
@@ -55,7 +79,9 @@ var evmNegativeTests = []evmNegativeTest{
 	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
 	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
 	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+}
 
+var evmNegativeTestsEstimateGasInvalidToAddress = []evmNegativeTest{
 	// EstimateGas - invalid 'to' address
 	// do not use 1, short, long addresses because common.Address will convert them to a valid address
 	// also it does not make sense to use invalid CallMsg.Data because any bytes will be correctly processed
@@ -64,18 +90,46 @@ var evmNegativeTests = []evmNegativeTest{
 	{"a symbol", "/", estimateGasInvalidToAddress, "EVM error StackUnderflow"},
 	{"not authored contract", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", estimateGasInvalidToAddress, "execution reverted"},
 	{"cut hex", "0x", estimateGasInvalidToAddress, "EVM error StackUnderflow"}, // equivalent to "0x0"
+}
 
-	// BalanceAt
-	// TODO: Move BalanceAt to the top after fixing https://smartcontract-it.atlassian.net/browse/CRE-934
-	{"empty", "", balanceAtFunction, expectedBalanceAtError},
-	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
-	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
-	{"a number", "1", balanceAtFunction, expectedBalanceAtError},
-	{"empty hex", "0x", balanceAtFunction, expectedBalanceAtError},
-	{"cut hex", "0x0", balanceAtFunction, expectedBalanceAtError},
-	{"short address", "0x123456789012345678901234567890123456789", balanceAtFunction, expectedBalanceAtError},
-	{"long address", "0x12345678901234567890123456789012345678901", balanceAtFunction, expectedBalanceAtError},
-	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", balanceAtFunction, expectedBalanceAtError},
+// TODO: evm.FilterLogs should return an error or nil for invalid/not existing addresses.
+var evmNegativeTestsFilterLogsWithInvalidAddress = []evmNegativeTest{
+	// FilterLogs - invalid addresses
+	// do not use empty, 1, short, long addresses because common.Address will convert them to a valid address
+	// those address are valid for FilterLogs and may return empty logs, which is a valid response
+	{"a letter", "a", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"a number", "1", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"a symbol", "/", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"short address", "0x123456789012345678901234567890123456789", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"long address", "0x12345678901234567890123456789012345678901", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", filterLogsInvalidAddresses, expectedFilterLogsInvalidAddresses},
+}
+
+var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
+	// FilterLogs - invalid TromBlock/ToBlock values
+	// Border values and equivalent partitioning for positive integers only
+	// Distance between blocks should not be more than 100
+	{"negative number", "-1", filterLogsInvalidFromBlock, "block number -1 is not supported"},
+	{"zero", "0", filterLogsInvalidFromBlock, "block number 0 is not supported"},
+	{"very large number", "9223372036854775808", filterLogsInvalidFromBlock, "is not an int64"}, // int64 max + 1
+	{"non-numeric string", "abc", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
+	{"empty string", "", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
+	{"decimal", "100.5", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
+	{"fromBlock greater than toBlock by more than 100", "49", filterLogsInvalidFromBlock, "exceeds maximum allowed range of 100"}, // toBlock is 150, so distance is 100+
+}
+
+var evmNegativeTestsFilterLogsWithInvalidToBlock = []evmNegativeTest{
+	// FilterLogs - invalid toBlock values
+	// Border values and equivalent partitioning for positive integers only
+	// Distance between blocks should not be more than 100
+	{"negative number", "-1", filterLogsInvalidToBlock, "block number -1 is not supported"},
+	{"zero", "0", filterLogsInvalidToBlock, "block number 0 is not supported"},
+	{"less then FromBlock", "1", filterLogsInvalidToBlock, "toBlock 1 is less than fromBlock"},
+	{"very large number", "9223372036854775808", filterLogsInvalidToBlock, "is not an int64"}, // int64 max + 1
+	{"non-numeric string", "abc", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"},
+	{"empty string", "", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"}, // equivalent to "current block"
+	{"decimal", "100.5", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"},
+	{"toBlock greater than fromBlock by more than 100", "103", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"}, // fromBlock is 2
 }
 
 func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
@@ -107,11 +161,11 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 				BalanceReaderAddress: readBalancesAddress,
 			},
 		}
-		workflowName := "evm-read-fail-workflow-" + chainID
+		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		expectedError := evmNegativeTest.expectedError
-		timeout := 75 * time.Second
+		timeout := 90 * time.Second
 		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
 		require.NoError(t, err, "EVM Read Fail test failed")
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")

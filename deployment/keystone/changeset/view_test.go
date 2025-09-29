@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -38,15 +39,17 @@ var oracleConfig = changeset.OracleConfig{
 	MaxDurationShouldAcceptMillis:     1000,
 	MaxDurationShouldTransmitMillis:   1000,
 	MaxFaultyOracles:                  1,
-	MaxQueryLengthBytes:               1000000,
-	MaxObservationLengthBytes:         1000000,
-	MaxReportLengthBytes:              1000000,
-	MaxOutcomeLengthBytes:             1000000,
-	MaxReportCount:                    20,
-	MaxBatchSize:                      20,
-	OutcomePruningThreshold:           3600,
-	UniqueReports:                     true,
-	RequestTimeout:                    30 * time.Second,
+	ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+		MaxQueryLengthBytes:       1000000,
+		MaxObservationLengthBytes: 1000000,
+		MaxReportLengthBytes:      1000000,
+		MaxOutcomeLengthBytes:     1000000,
+		MaxReportCount:            20,
+		MaxBatchSize:              20,
+		OutcomePruningThreshold:   3600,
+		RequestTimeout:            30 * time.Second,
+	},
+	UniqueReports: true,
 }
 
 func TestKeystoneView(t *testing.T) {
