@@ -53,14 +53,12 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 		operations2.ProposeStandardCapabilityJobDeps{Env: e},
 		operations2.ProposeStandardCapabilityJobInput{
 			DONName: input.DONName,
-			Job: pkg.StandardCapabilityJobWithOracleFactory{
-				StandardCapabilityJob: pkg.StandardCapabilityJob{
-					JobName:       input.JobName,
-					Command:       input.Command,
-					Config:        input.Config,
-					ExternalJobID: input.ExternalJobID,
-					OracleFactory: &input.OracleFactory,
-				},
+			Job: pkg.StandardCapabilityJob{
+				JobName:               input.JobName,
+				Command:               input.Command,
+				Config:                input.Config,
+				ExternalJobID:         input.ExternalJobID,
+				OracleFactory:         &input.OracleFactory,
 				GenerateOracleFactory: input.GenerateOracleFactory,
 			},
 			DONFilters:  input.DONFilters,
