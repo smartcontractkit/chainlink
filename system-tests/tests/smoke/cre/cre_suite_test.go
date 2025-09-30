@@ -91,63 +91,62 @@ To execute tests with v2 contracts start the local CRE first:
  2. Execute the tests in `system-tests/tests/smoke/cre` with CTF_CONFIG set to the corresponding topology file:
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
-func Test_CRE_V2_Proof_Of_Reserve(t *testing.T) {
-	// TODO: Review why this test cannot run with two chains? How to configure evm for both chains?
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+func Test_CRE_V2_Suite(t *testing.T) {
+	t.Run("[v2] Proof Of Reserve", func(t *testing.T) {
+		// TODO: Review why this test cannot run with two chains? (CRE-983)
+		// How to configure evm for both chains and capabilities DON (DON<>DON topology)?
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
-	// TODO: remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
-	priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
-	wfConfig.FeedIDs = []string{wfConfig.FeedIDs[0]}
-	ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
+		// TODO: remove this when OCR works properly with multiple chains in Local CRE
+		testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+		priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
+		wfConfig.FeedIDs = []string{wfConfig.FeedIDs[0]}
+		ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
+	})
+
+	t.Run("[v2] Vault DON", func(t *testing.T) {
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+		ExecuteVaultTest(t, testEnv)
+	})
+
+	t.Run("[v2] Cron Beholder", func(t *testing.T) {
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+		ExecuteCronBeholderTest(t, testEnv)
+	})
+
+	t.Run("[v2] HTTP Trigger Action", func(t *testing.T) {
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+		ExecuteHTTPTriggerActionTest(t, testEnv)
+	})
+
+	t.Run("[v2] DON Time", func(t *testing.T) {
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+		ExecuteDonTimeTest(t, testEnv)
+	})
+
+	t.Run("[v2] Consensus", func(t *testing.T) {
+		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+
+		ExecuteConsensusTest(t, testEnv)
+	})
 }
 
-func Test_CRE_V2_Vault_DON(t *testing.T) {
+func Test_CRE_V2_EVM_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-	ExecuteVaultTest(t, testEnv)
-}
-
-func Test_CRE_V2_Cron_Beholder(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-	ExecuteCronBeholderTest(t, testEnv)
-}
-
-func Test_CRE_V2_HTTP_Trigger_Action(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-	ExecuteHTTPTriggerActionTest(t, testEnv)
-}
-
-func Test_CRE_V2_DON_Time(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-	ExecuteDonTimeTest(t, testEnv)
-}
-
-func Test_CRE_V2_Consensus(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-	ExecuteConsensusTest(t, testEnv)
-}
-
-func Test_CRE_V2_EVM_Write(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
-	// TODO: remove this when OCR works properly with multiple chains in Local CRE
-	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
-
-	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
-	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
-	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
-}
-
-func Test_CRE_V2_EVM_Read(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
-
 	// TODO: remove this when OCR works properly with multiple chains in Local CRE
 	testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
 
-	ExecuteEVMReadTest(t, testEnv)
+	t.Run("[v2] EVM Write", func(t *testing.T) {
+		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
+		porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
+		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
+	})
+
+	t.Run("[v2] EVM Read", func(t *testing.T) {
+		ExecuteEVMReadTest(t, testEnv)
+	})
 }
