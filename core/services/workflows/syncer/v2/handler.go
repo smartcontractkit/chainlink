@@ -219,12 +219,18 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		wfID := payload.WorkflowID.Hex()
+		wfOwner := hex.EncodeToString(payload.WorkflowOwner)
+		orgID, ferr := h.fetchOrganizationID(ctx, wfOwner)
+		if ferr != nil {
+			h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", ferr)
+		}
 
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 			platform.KeyWorkflowTag, payload.Tag,
+			platform.KeyOrganizationID, orgID,
 		)
 
 		var err error
@@ -419,6 +425,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 // fetchOrganizationID fetches the organization ID for the given workflow owner using the OrgResolver
 func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner string) (string, error) {
 	if h.orgResolver == nil {
+		h.lggr.Info("OrgResolver is not available")
 		return "", errors.New("org resolver is not available")
 	}
 
@@ -429,11 +436,11 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	}
 
 	if organizationID == "" {
-		h.lggr.Debugw("No organization ID returned from org resolver", "workflowOwner", workflowOwner)
+		h.lggr.Warnw("No organization ID returned from org resolver", "workflowOwner", workflowOwner)
 		return "", errors.New("no organization ID returned from org resolver")
 	}
 
-	h.lggr.Debugw("Successfully retrieved organization ID from org resolver", "workflowOwner", workflowOwner, "organizationId", organizationID)
+	h.lggr.Infow("Successfully retrieved organization ID from org resolver", "workflowOwner", workflowOwner, "organizationId", organizationID)
 	return organizationID, nil
 }
 

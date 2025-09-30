@@ -255,9 +255,9 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subs.Subscriptions))
 	for _, sub := range subs.Subscriptions {
-		triggerCap, err := e.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
-		if err != nil {
-			return fmt.Errorf("trigger capability not found: %w", err)
+		triggerCap, triggerErr := e.cfg.CapRegistry.GetTrigger(ctx, sub.Id)
+		if triggerErr != nil {
+			return fmt.Errorf("trigger capability not found: %w", triggerErr)
 		}
 		triggers = append(triggers, triggerCap)
 	}
@@ -396,6 +396,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			organizationID = orgID
 		}
 	}
+	e.loggerLabels[platform.KeyOrganizationID] = organizationID
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
@@ -426,15 +427,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	defer execCancel()
 	executionLogger := logger.With(e.lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 
-	// Create execution-specific labels with organization ID if available
-	executionLabels := make(map[string]string)
-	for k, v := range e.loggerLabels {
-		executionLabels[k] = v
-	}
-	if organizationID != "" {
-		executionLabels[platform.KeyOrganizationID] = organizationID
-	}
-
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
 		e.lggr.Errorw("Failed to get log event limit", "err", err)
@@ -443,7 +435,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
 	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(execCtx, userLogChan, executionID, executionLabels)
+		e.emitUserLogs(execCtx, userLogChan, executionID, e.loggerLabels)
 	})
 
 	tid, err := safe.IntToUint64(wrappedTriggerEvent.triggerIndex)
@@ -454,7 +446,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
-	_ = events.EmitExecutionStartedEvent(ctx, executionLabels, triggerEvent.ID, executionID)
+	_ = events.EmitExecutionStartedEvent(ctx, e.loggerLabels, triggerEvent.ID, executionID)
 	var executionStatus string // store.StatusStarted
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
@@ -513,7 +505,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds())
-		_ = events.EmitExecutionFinishedEvent(ctx, executionLabels, executionStatus, executionID, e.lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(err.Error())
 		return
@@ -528,7 +520,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds())
-		_ = events.EmitExecutionFinishedEvent(ctx, executionLabels, executionStatus, executionID, e.lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, e.loggerLabels, executionStatus, executionID, e.lggr)
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		e.cfg.Hooks.OnExecutionError(result.GetError())
 		return
