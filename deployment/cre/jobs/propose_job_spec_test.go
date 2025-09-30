@@ -1124,7 +1124,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		}
 	})
 
-	t.Run("successful ocr3 consensus job distribution", func(t *testing.T) {
+	t.Run("successful consensus job distribution", func(t *testing.T) {
 		chainSelector := testEnv.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
@@ -1189,7 +1189,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		}
 	})
 
-	t.Run("failed ocr3 job distribution", func(t *testing.T) {
+	t.Run("failed consensus job distribution", func(t *testing.T) {
 		chainSelector := testEnv.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
@@ -1222,7 +1222,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 		_, err = jobs.ProposeJobSpec{}.Apply(*env, input)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to convert inputs to consensus standard capability job")
+		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
 		assert.Contains(t, err.Error(), "command is required and must be a string")
 	})
 }

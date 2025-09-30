@@ -77,33 +77,11 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	var report operations.Report[any, any]
 	switch input.Template {
 	// This will hold all standard capabilities jobs as we add support for them.
-	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction:
-		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
+	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.Consensus:
+		// Only consensus generates an oracle factory, for now...
+		job, err := input.Inputs.ToStandardCapabilityWithOracleFactoryJob(input.JobName, input.Template == job_types.Consensus)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
-		}
-
-		r, rErr := operations.ExecuteOperation(
-			e.OperationsBundle,
-			operations2.ProposeStandardCapabilityJob,
-			operations2.ProposeStandardCapabilityJobDeps{Env: e},
-			operations2.ProposeStandardCapabilityJobInput{
-				Job:         job,
-				Domain:      input.Domain,
-				DONName:     input.DONName,
-				DONFilters:  input.DONFilters,
-				ExtraLabels: input.ExtraLabels,
-			},
-		)
-		if rErr != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose standard capability job: %w", rErr)
-		}
-
-		report = r.ToGenericReport()
-	case job_types.Consensus:
-		job, err := input.Inputs.ToStandardCapabilityWithOracleFactoryJob(input.JobName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to consensus standard capability job: %w", err)
 		}
 
 		r, rErr := operations.ExecuteSequence(
@@ -119,7 +97,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			},
 		)
 		if rErr != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose consensus standard capability job: %w", rErr)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose standard capability job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()

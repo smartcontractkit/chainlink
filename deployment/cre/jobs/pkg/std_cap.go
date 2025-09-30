@@ -63,18 +63,23 @@ type StandardCapabilityJobWithOracleFactory struct {
 	// Inline base fields for YAML compatibility and method promotion
 	StandardCapabilityJob `yaml:",inline"`
 
-	ContractQualifier string `yaml:"contractQualifier"`
-
 	// Additional fields used to drive oracle factory creation/config
+	ContractQualifier  string        `yaml:"contractQualifier"`
 	ChainSelectorEVM   ChainSelector `yaml:"chainSelectorEVM"`
 	ChainSelectorAptos ChainSelector `yaml:"chainSelectorAptos"`
+	BootstrapPeers     []string      `yaml:"bootstrapPeers"`
 
-	BootstrapPeers []string `yaml:"bootstrapPeers"`
+	GenerateOracleFactory bool
 }
 
 func (s *StandardCapabilityJobWithOracleFactory) Validate() error {
 	if err := s.StandardCapabilityJob.Validate(); err != nil {
 		return err
+	}
+
+	if !s.GenerateOracleFactory {
+		// If not generating the oracle factory, no further validation is needed
+		return nil
 	}
 
 	if s.ContractQualifier == "" {

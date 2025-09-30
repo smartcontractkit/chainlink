@@ -79,6 +79,46 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 			return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
 
+		if !input.Job.GenerateOracleFactory {
+			specs := make(map[string][]string)
+
+			for _, ni := range nodeInfos {
+				spec, err := input.Job.Resolve()
+				if err != nil {
+					return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
+				}
+
+				jobLabels := map[string]string{
+					offchain.CapabilityLabel: input.Job.JobName,
+				}
+				for k, v := range input.ExtraLabels {
+					jobLabels[k] = v
+				}
+
+				// 1 spec per node, each spec is unique to the node due to the oracle factory config
+				report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
+					Domain:    input.Domain,
+					DONName:   input.DONName,
+					Spec:      spec,
+					JobLabels: jobLabels,
+					DONFilters: []offchain.TargetDONFilter{
+						{Key: "p2p_id", Value: ni.PeerID.String()},
+					},
+				})
+				if err != nil {
+					return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
+				}
+
+				for k, v := range report.Output.Specs {
+					specs[k] = v
+				}
+			}
+
+			return ProposeStandardCapabilityWithOracleFactoryJobOutput{Specs: specs}, nil
+		}
+
+		// If no oracle factory is provided, we have to build it
+
 		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(input.Job.ChainSelectorEVM), input.Job.ContractQualifier)
 		contractAddrRef, err := deps.Env.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {

@@ -37,11 +37,12 @@ func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapab
 	return out, nil
 }
 
-func (j JobSpecInput) ToStandardCapabilityWithOracleFactoryJob(jobName string) (pkg.StandardCapabilityJobWithOracleFactory, error) {
+func (j JobSpecInput) ToStandardCapabilityWithOracleFactoryJob(jobName string, generateOracleFactory bool) (pkg.StandardCapabilityJobWithOracleFactory, error) {
 	out := pkg.StandardCapabilityJobWithOracleFactory{
 		StandardCapabilityJob: pkg.StandardCapabilityJob{
 			JobName: jobName,
 		},
+		GenerateOracleFactory: generateOracleFactory,
 	}
 	err := j.UnmarshalTo(&out)
 	if err != nil {
