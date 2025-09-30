@@ -2,6 +2,7 @@ package capabilities
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -381,7 +381,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
+			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %s: %w", cid, hex.EncodeToString(c.Config), err)
 		}
 
 		methodConfig := capabilityConfig.CapabilityMethodConfig
