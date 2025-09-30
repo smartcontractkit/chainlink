@@ -6,17 +6,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	chainevm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	chainevmprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func Test_OpEVMDeployLinkToken(t *testing.T) {
 	t.Parallel()
 
 	var (
-		chainID       uint64 = 11155111
 		chainSelector uint64 = 16015286601757825753
 	)
 
@@ -49,13 +48,18 @@ func Test_OpEVMDeployLinkToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			prov := chainevmprovider.NewSimChainProvider(
+				t, chainSelector, chainevmprovider.SimChainProviderConfig{},
+			)
+			blockchain, err := prov.Initialize(t.Context())
+			require.NoError(t, err)
+
+			chain, ok := blockchain.(chainevm.Chain)
+			require.True(t, ok)
+
 			var (
-				chains = cldf_chain.NewBlockChainsFromSlice(
-					memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{chainID}, 1),
-				).EVMChains()
-				chain = chains[chainSelector]
-				auth  = chain.DeployerKey
-				deps  = OpEVMDeployLinkTokenDeps{
+				auth = chain.DeployerKey
+				deps = OpEVMDeployLinkTokenDeps{
 					Auth:        auth,
 					Backend:     chain.Client,
 					ConfirmFunc: chain.Confirm,
