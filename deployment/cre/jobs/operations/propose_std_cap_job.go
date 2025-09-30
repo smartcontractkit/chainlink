@@ -28,7 +28,7 @@ type ProposeStandardCapabilityJobInput struct {
 	// Job is the standard capability job to propose.
 	// If GenerateOracleFactory is true, the OracleFactory field will be ignored and generated.
 	// If false, the OracleFactory field will be used as-is.
-	Job pkg.StandardCapabilityJobWithOracleFactory
+	Job pkg.StandardCapabilityJob
 
 	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
