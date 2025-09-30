@@ -88,7 +88,7 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	// deploy workflow
 	framework.L.Info().Msg("Generate and propose secure mint job...")
 	jobSpec := createSecureMintWorkflowJobSpec(t, &s, solChain)
-	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, *creEnvironment.DonTopology, jobSpec)
+	proposeSecureMintJob(t, creEnvironment.CldfEnvironment.Offchain, creEnvironment.DonTopology, jobSpec)
 	framework.L.Info().Msgf("Secure mint job is successfully posted. Job spec:\n %v", jobSpec)
 
 	// trigger workflow
@@ -406,7 +406,7 @@ func createSecureMintWorkflowJobSpec(t *testing.T, s *setup, solChain *cre.Wrapp
 	`, workflowJobSpec.Toml())
 }
 
-func proposeSecureMintJob(t *testing.T, offchain offchain.Client, donTopology cre.DonTopology, jobSpec string) {
+func proposeSecureMintJob(t *testing.T, offchain offchain.Client, donTopology *cre.DonTopology, jobSpec string) {
 	workerNodes, err := offchain.ListNodes(t.Context(), &node.ListNodesRequest{
 		Filter: &node.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{{
