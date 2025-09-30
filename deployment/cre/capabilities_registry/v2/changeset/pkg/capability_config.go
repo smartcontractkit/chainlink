@@ -15,7 +15,11 @@ import (
 type CapabilityConfig map[string]interface{}
 
 // MarshalProto marshals the CapabilityConfig to proto bytes
+// If the CapabilityConfig is nil, it returns nil, nil, to support empty configs
 func (c CapabilityConfig) MarshalProto() ([]byte, error) {
+	if c == nil {
+		return nil, nil
+	}
 	jsonEncodedCfg, err := json.Marshal(c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to json marshal config: %w", err)
