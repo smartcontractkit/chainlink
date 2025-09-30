@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	"github.com/smartcontractkit/quarantine"
 )
 
 // REGRESSION TESTS target edge cases, negative conditions, etc., all happy path and sanity checks should go to a `smoke` package.
@@ -76,6 +77,7 @@ func Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression(t *
 }
 
 func Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-1927")
 	runEVMNegativeTestSuite(t, evmNegativeTestsEstimateGasInvalidToAddress)
 }
 
