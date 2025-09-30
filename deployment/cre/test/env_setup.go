@@ -98,13 +98,50 @@ func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel 
 	return registryChainSel, aptosChainSel, env
 }
 
+func initEnvEVM(t *testing.T, lggr logger.Logger) (registryChainSel uint64, env *cldf.Environment) {
+	evmChains := memory.NewMemoryChainsEVM(t, 1, 1)
+	chains := cldf_chain.NewBlockChainsFromSlice([]cldf_chain.BlockChain{
+		evmChains[0],
+	})
+	registryChainSel = evmChains[0].ChainSelector()
+
+	ds := datastore.NewMemoryDataStore()
+	localEnv := cldf.Environment{
+		Logger:           lggr,
+		GetContext:       t.Context,
+		DataStore:        ds.Seal(),
+		BlockChains:      chains,
+		OperationsBundle: operations.NewBundle(t.Context, lggr, operations.NewMemoryReporter()),
+	}
+
+	deployCapRegChangeset := changeset2.DeployCapabilitiesRegistry{}
+	changes := []changeset.ConfiguredChangeSet{
+		changeset.Configure(
+			cldf.CreateChangeSet(deployCapRegChangeset.Apply, deployCapRegChangeset.VerifyPreconditions),
+			changeset2.DeployCapabilitiesRegistryInput{
+				ChainSelector: registryChainSel,
+				Qualifier:     RegistryQualifier,
+			},
+		),
+	}
+
+	localEnv, _, err := changeset.ApplyChangesets(t, localEnv, changes)
+	require.NoError(t, err)
+
+	env = &localEnv
+	require.NotNil(t, env)
+	require.Len(t, env.BlockChains.EVMChains(), 1)
+
+	return registryChainSel, env
+}
+
 // SetupEnvV2 starts an environment with a single DON, 4 nodes and a capabilities registry v2 deployed and configured.
 func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	t.Helper()
 
 	lggr := logger.Test(t)
 
-	registryChainSel, aptosChainSel, envInitiated := initEnv(t, lggr)
+	registryChainSel, envInitiated := initEnvEVM(t, lggr)
 	lggr.Debug("Initialized environment", "registryChainSel", registryChainSel)
 
 	n := 4
@@ -116,7 +153,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	}
 
 	// Only need one DON
-	don, env, jd := setupViewOnlyNodeTest(t, registryChainSel, aptosChainSel, envInitiated.BlockChains, donCfg)
+	don, env, jd := setupViewOnlyNodeTest(t, registryChainSel, chain_selectors.APTOS_LOCALNET.Selector, envInitiated.BlockChains, donCfg)
 
 	env.DataStore = envInitiated.DataStore
 
@@ -244,7 +281,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		t:                t,
 		TestJD:           jd,
 		Env:              &env,
-		AptosSelector:    aptosChainSel,
+		AptosSelector:    chain_selectors.APTOS_LOCALNET.Selector,
 		RegistrySelector: registryChainSel,
 		RegistryAddress:  common.HexToAddress(registryAddrs[0].Address),
 	}

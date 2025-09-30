@@ -1,19 +1,18 @@
 package changeset_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
@@ -121,19 +120,16 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Add Capability changeset only accepts protojson input as it needs to be converted to proto bytes for on-chain storage
-	// Here we convert protoJSON map[string]interface{} to capability config struct,
+	// Here we check that the uptyped input of the changeset was correctly applied on-chain as proto and can be decoded back to the same config
 	// encoding to proto bytes is same as in the changeset and decoding to cap cfg is same as in the v2 registry syncer
-	jsonNewCapConfig, err := json.Marshal(newCapConfig)
-	require.NoError(t, err)
+	configProtoBytes, err := pkg.CapabilityConfig(newCapConfig).MarshalProto() // on chain it is stored as proto bytes
+	require.NoError(t, err, "should be able to marshal new capability config to proto bytes")
 
-	pbCapConfig := &pb.CapabilityConfig{}
-	require.NoError(t, protojson.Unmarshal(jsonNewCapConfig, pbCapConfig))
+	expectedConfig := new(pkg.CapabilityConfig) // expected decoded config, to be compared with decoded on-chain config
+	err = expectedConfig.UnmarshalProto(configProtoBytes)
+	require.NoError(t, err, "should be able to unmarshal new capability config from proto bytes")
 
-	protoConfig, err := proto.Marshal(pbCapConfig)
-	require.NoError(t, err)
-
-	capConfig, err := registrysyncer.CapabilityConfiguration{Config: protoConfig}.Unmarshal()
+	capConfig, err := registrysyncer.CapabilityConfiguration{Config: configProtoBytes}.Unmarshal() // ensure the config can be decoded by the registry syncer code
 	require.NoError(t, err)
 
 	caps, err := capReg.GetCapabilities(nil)
@@ -166,7 +162,13 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	var cfgFound bool
 	for _, cfg := range don.CapabilityConfigurations {
 		if cfg.CapabilityId == newCapID {
-			require.JSONEq(t, string(jsonNewCapConfig), string(cfg.Config))
+			got := new(pkg.CapabilityConfig)
+			err := got.UnmarshalProto(cfg.Config)
+			require.NoError(t, err, "unmarshal capability config proto bytes should not error")
+			if diff := cmp.Diff(expectedConfig, got, protocmp.Transform()); diff != "" {
+				t.Errorf("capability config proto bytes should match: %s", diff)
+			}
+
 			cfgFound = true
 		}
 	}
