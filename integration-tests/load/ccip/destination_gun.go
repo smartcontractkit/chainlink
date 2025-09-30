@@ -558,9 +558,8 @@ func (m *DestinationGun) getSuiMessage(src uint64) (testhelpers.SuiSendRequest, 
 	}
 
 	message := testhelpers.SuiSendRequest{
-		Receiver:         common.LeftPadBytes(m.receiver, 32),
-		ExtraArgs:        []byte{},
-		FeeTokenMetadata: srcChainState.LinkTokenCoinMetadataId,
+		Receiver:  common.LeftPadBytes(m.receiver, 32),
+		ExtraArgs: []byte{},
 	}
 
 	switch {
