@@ -2,17 +2,22 @@ package ccip
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
 
+	"github.com/btcsuite/btcutil/bech32"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/scylladb/go-reflectx"
@@ -27,10 +32,6 @@ import (
 
 	"github.com/block-vision/sui-go-sdk/models"
 
-	"encoding/hex"
-	"errors"
-
-	"github.com/btcsuite/btcutil/bech32"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
@@ -122,7 +123,8 @@ func subscribeSuiTransmitEvents(
 	}
 
 	// Create ChainReader for SUI events
-	chainReader, indexerInstance, err := createSuiChainReader(ctx, t, lggr, suiChain, chainState)
+	suiPrivKeyHex := os.Getenv("SUI_TEST_KEY")
+	chainReader, indexerInstance, err := createSuiChainReader(ctx, t, lggr, suiChain, chainState, suiPrivKeyHex)
 	if err != nil {
 		lggr.Errorw("Failed to create SUI chain reader", "error", err)
 		return
@@ -326,7 +328,8 @@ func subscribeSuiCommitEvents(
 	}
 
 	// Create ChainReader for SUI offramp events
-	chainReader, indexerInstance, err := createSuiChainReader(ctx, t, lggr, suiChain, chainState)
+	suiPrivKeyHex := os.Getenv("SUI_TEST_KEY")
+	chainReader, indexerInstance, err := createSuiChainReader(ctx, t, lggr, suiChain, chainState, suiPrivKeyHex)
 	if err != nil {
 		lggr.Errorw("Failed to create SUI chain reader for commit events", "error", err)
 		return
@@ -534,7 +537,8 @@ func subscribeSuiExecutionEvents(
 	}
 
 	// Create ChainReader for SUI offramp execution events
-	chainReader, indexerInstance, err := createSuiChainReader(ctx, t, lggr, suiChain, chainState)
+	suiPrivKeyHex := os.Getenv("SUI_TEST_KEY")
+	chainReader, indexerInstance, err := createSuiChainReader(ctx, t, lggr, suiChain, chainState, suiPrivKeyHex)
 	if err != nil {
 		lggr.Errorw("Failed to create SUI chain reader for execution events", "error", err)
 		return
@@ -709,7 +713,7 @@ func subscribeSuiExecutionEvents(
 }
 
 // createSuiChainReader creates a SUI ChainReader instance for event subscriptions
-func createSuiChainReader(ctx context.Context, t *testing.T, lggr logger.Logger, suiChain cldf_sui.Chain, chainState suiState.CCIPChainState) (chain_reader_types.ContractReader, *indexer.Indexer, error) {
+func createSuiChainReader(ctx context.Context, t *testing.T, lggr logger.Logger, suiChain cldf_sui.Chain, chainState suiState.CCIPChainState, suiPrivKeyHex string) (chain_reader_types.ContractReader, *indexer.Indexer, error) {
 	chainReaderConfig := crConfig.ChainReaderConfig{
 		IsLoopPlugin: false,
 		Modules: map[string]*crConfig.ChainReaderModule{
@@ -776,11 +780,18 @@ func createSuiChainReader(ctx context.Context, t *testing.T, lggr logger.Logger,
 	}
 
 	keystoreInstance := suitestutils.NewTestKeystore(t)
-	priv, err := cldf_sui.PrivateKey(suiChain.Signer)
+
+	// Convert hex private key to ed25519.PrivateKey
+	privKeyBytes, err := hex.DecodeString(strings.TrimPrefix(suiPrivKeyHex, "0x"))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get private key: %w", err)
+		return nil, nil, fmt.Errorf("failed to decode SUI private key: %w", err)
 	}
-	keystoreInstance.AddKey(priv)
+	if len(privKeyBytes) != 32 {
+		return nil, nil, fmt.Errorf("invalid SUI private key length: expected 32 bytes, got %d", len(privKeyBytes))
+	}
+	ed25519PrivKey := ed25519.NewKeyFromSeed(privKeyBytes)
+
+	keystoreInstance.AddKey(ed25519PrivKey)
 
 	relayerClient, err := client.NewPTBClient(lggr, suiChain.URL, nil, 30*time.Second, keystoreInstance, 5, "WaitForEffectsCert")
 	if err != nil {
@@ -816,6 +827,28 @@ func createSuiChainReader(ctx context.Context, t *testing.T, lggr logger.Logger,
 	}
 
 	return chainReader, indexerInstance, nil
+}
+
+func hexFromSuiBech32PrivKey(bech string) (string, error) {
+	hrp, data5, err := bech32.Decode(bech)
+	if err != nil {
+		return "", err
+	}
+	if hrp != "suiprivkey" {
+		return "", errors.New("unexpected HRP: " + hrp)
+	}
+	dataBytes, err := bech32.ConvertBits(data5, 5, 8, false)
+	if err != nil {
+		return "", err
+	}
+	if len(dataBytes) != 33 {
+		return "", fmt.Errorf("decoded privkey wrong length: %d bytes", len(dataBytes))
+	}
+	seed := dataBytes[1:]
+	if len(seed) != 32 {
+		return "", fmt.Errorf("unexpected seed length: %d", len(seed))
+	}
+	return hex.EncodeToString(seed), nil
 }
 
 // FundSuiAccount transfers SUI tokens from a signer account to a destination account
@@ -878,28 +911,4 @@ func FundSuiAccount(t *testing.T, suiChain cldf_sui.Chain, toAddress string, amo
 		toAddress, signerAddress, amount)
 
 	return nil
-}
-
-func hexFromSuiBech32PrivKey(bech string) (string, error) {
-	hrp, data5, err := bech32.Decode(bech)
-	if err != nil {
-		return "", err
-	}
-
-	if hrp != "suiprivkey" {
-		return "", errors.New("unexpected HRP: " + hrp)
-	}
-	dataBytes, err := bech32.ConvertBits(data5, 5, 8, false)
-	if err != nil {
-		return "", err
-	}
-	if len(dataBytes) != 33 {
-		return "", fmt.Errorf("decoded privkey wrong length: %d bytes", len(dataBytes))
-	}
-	seed := dataBytes[1:]
-	if len(seed) != 32 {
-		return "", fmt.Errorf("unexpected seed length: %d", len(seed))
-	}
-	hexStr := hex.EncodeToString(seed)
-	return hexStr, nil
 }
