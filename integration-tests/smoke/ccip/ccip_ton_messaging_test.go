@@ -170,6 +170,9 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		)
 	)
 
+	// wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
 		ccipChainState := state.TonChains[destChain]
 		receiver := ccipChainState.ReceiverAddress
