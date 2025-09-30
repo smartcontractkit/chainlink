@@ -1430,7 +1430,7 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 	case chain_selectors.FamilyAptos:
 		chain, ok := env.BlockChains.AptosChains()[chainSel]
 		if !ok {
-			return fmt.Errorf("Aptos chain with selector %d does not exist in environment", chainSel)
+			return fmt.Errorf("aptos chain with selector %d does not exist in environment", chainSel)
 		}
 		s, ok := state.AptosChains[chainSel]
 		if !ok {
