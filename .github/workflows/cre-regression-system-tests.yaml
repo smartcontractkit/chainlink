@@ -210,7 +210,7 @@ jobs:
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-regression-tests.outcome }}
-          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}', github.repository, github.run_id, job.check_run_id) }}
+          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}/attempts/{3}', github.repository, github.run_id, job.check_run_id, github.run_attempt) }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
 
