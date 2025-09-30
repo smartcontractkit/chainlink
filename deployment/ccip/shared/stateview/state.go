@@ -1437,7 +1437,7 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 			return fmt.Errorf("%s does not exist in state", chain)
 		}
 		if mcmsCfg != nil {
-			if err := mcmsCfg.ValidateAptos(chain, s); err != nil {
+			if err := mcmsCfg.ValidateAptos(chain, s.MCMSAddress); err != nil {
 				return err
 			}
 		}
