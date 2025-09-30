@@ -84,7 +84,6 @@ type CCIPChainState struct {
 	state.MCMSWithTimelockState
 	state.LinkTokenState
 	state.StaticLinkTokenState
-	RMNRemoteMCMS      state.MCMSWithTimelockState
 	ABIByAddress       map[string]string
 	OnRamp             onramp.OnRampInterface
 	OffRamp            offramp.OffRampInterface

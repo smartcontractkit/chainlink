@@ -341,7 +341,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 		mcmsCfg[chain] = cfg
 	}
 
-	// Deploy a new MCMS with qualifier and transfer LINK tokens to it
+	// Deploy a new MCMS with qualifier and transfer the ownership of the link token to it
 	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
@@ -374,7 +374,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 				MCMSConfig: proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
-				//		Qualifier: linktokenOwnerQualifier,
+				Qualifier: linktokenOwnerQualifier,
 			},
 		),
 		commonchangeset.Configure(

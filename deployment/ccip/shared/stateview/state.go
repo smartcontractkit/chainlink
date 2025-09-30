@@ -849,7 +849,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 		// contracts of the same type and version in datastore which can lead to
 		// ambiguity while loading the state
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
 		}
 		// state is not compatible with datastore, therefore we skip loading from datastore
