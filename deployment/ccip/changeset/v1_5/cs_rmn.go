@@ -110,7 +110,7 @@ func PermaBlessCommitStoreChangeset(env cldf.Environment, c PermaBlessCommitStor
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid PermaBlessCommitStoreConfig: %w", err)
 	}
 
-	state, err := stateview.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}

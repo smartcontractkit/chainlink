@@ -932,7 +932,7 @@ func (cs WrapSetOCR3Config) VerifyPreconditions(env cldf.Environment, config Wra
 
 // NOTE: this should become the new standard function that returns generic OCR3ConfigArgs
 func ocr3ConfigArgs(e cldf.Environment, homeChainSelector uint64, chainSelector uint64, configType globals.ConfigType) ([]tonOperation.OCR3ConfigArgs, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return nil, err
 	}

@@ -91,7 +91,7 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig
 	if c.MCMSConfig == nil {
 		return errors.New("MCMSConfig must be defined")
 	}
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -179,7 +179,7 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig
 }
 
 func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -501,7 +501,7 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 	if c.MCMSConfig == nil {
 		return errors.New("MCMSConfig must be defined")
 	}
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -552,7 +552,7 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 }
 
 func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
