@@ -425,7 +425,6 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 // fetchOrganizationID fetches the organization ID for the given workflow owner using the OrgResolver
 func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner string) (string, error) {
 	if h.orgResolver == nil {
-		h.lggr.Info("OrgResolver is not available")
 		return "", errors.New("org resolver is not available")
 	}
 
@@ -440,7 +439,7 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 		return "", errors.New("no organization ID returned from org resolver")
 	}
 
-	h.lggr.Infow("Successfully retrieved organization ID from org resolver", "workflowOwner", workflowOwner, "organizationId", organizationID)
+	h.lggr.Debugw("Successfully retrieved organization ID from org resolver", "workflowOwner", workflowOwner, "organizationId", organizationID)
 	return organizationID, nil
 }
 
