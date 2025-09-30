@@ -216,7 +216,10 @@ var FundCLNodesOp = operations.NewOperation(
 						}
 					case chainselectors.FamilyTron:
 						nodeAddress := getTronNodeAddress(node, bcOut)
-						if err := FundTronAddress(ctx, deps.TestLogger, nodeAddress, fundingAmount, bcOut, deps.Env); err != nil {
+						if nodeAddress == nil {
+							continue // Skip nodes without EVM keys for this chain
+						}
+						if err := FundTronAddress(ctx, deps.TestLogger, *nodeAddress, fundingAmount, bcOut, deps.Env); err != nil {
 							return nil, err
 						}
 					default:
@@ -287,15 +290,13 @@ func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node *cre
 	return nil
 }
 
-func getTronNodeAddress(node *cre.Node, bcOut *cre.WrappedBlockchainOutput) common.Address {
+func getTronNodeAddress(node *cre.Node, bcOut *cre.WrappedBlockchainOutput) *common.Address {
 	evmKey, ok := node.Keys.EVM[bcOut.ChainID]
 	if !ok {
-		return common.Address{} // Skip nodes without EVM keys for this chain
+		return nil // Skip nodes without EVM keys for this chain
 	}
 
-	nodeAddress := evmKey.PublicAddress.String()
-
-	return common.HexToAddress(nodeAddress)
+	return &evmKey.PublicAddress
 }
 
 func FundTronAddress(ctx context.Context, testLogger zerolog.Logger, nodeAddress common.Address, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, env *cldf.Environment) error {

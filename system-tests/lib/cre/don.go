@@ -46,8 +46,8 @@ type DON struct {
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
-	Flags             []CapabilityFlag                  `toml:"flags" json:"flags"` // capabilities and roles
-	ChainCapabilities map[string]*ChainCapabilityConfig `toml:"chain_capabilities" json:"chain_capabilities"`
+	Flags             []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
+	chainCapabilities map[string]*ChainCapabilityConfig
 
 	gh GatewayHelper
 }
@@ -68,6 +68,7 @@ func (m *DON) ToMetadata() *DonMetadata {
 	return dm
 }
 
+// copied from flags.go to avoid import cycle
 func (m *DON) HasFlag(flag CapabilityFlag) bool {
 	if slices.Contains(m.Flags, flag) {
 		return true
@@ -162,13 +163,17 @@ func (m *DON) NeedsWebAPIGateway() bool {
 	return m.gh.NeedsWebAPIGateway(m.Flags)
 }
 
+func (m *DON) ChainCapabilities() map[string]*ChainCapabilityConfig {
+	return m.chainCapabilities
+}
+
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output, supportedChains []ChainConfig, jd *jd.JobDistributor) (*DON, error) {
 	don := &DON{
 		Nodes:             make([]*Node, 0),
 		Name:              donMetadata.Name,
 		ID:                donMetadata.ID,
 		Flags:             donMetadata.Flags,
-		ChainCapabilities: donMetadata.ns.ChainCapabilities,
+		chainCapabilities: donMetadata.ns.ChainCapabilities,
 	}
 	mu := &sync.Mutex{}
 
@@ -234,7 +239,6 @@ type Node struct {
 	Name                  string                 `toml:"name" json:"name"`
 	Host                  string                 `toml:"host" json:"host"`
 	Index                 int                    `toml:"index" json:"index"`
-	IDs                   NodeIDs                `toml:"ids" json:"ids"`
 	Keys                  *secrets.NodeKeys      `toml:"-" json:"-"`
 	Addresses             Addresses              `toml:"addresses" json:"addresses"`
 	JobDistributorDetails *JobDistributorDetails `toml:"job_distributor_details" json:"job_distributor_details"`
@@ -263,6 +267,7 @@ func (n *Node) GetHost() string {
 	return n.Host
 }
 
+// CleansedPeerID returns the PeerID without the "p2p_" prefix, or an empty string if P2PKey is nil
 func (n *Node) CleansedPeerID() string {
 	return n.Keys.CleansedPeerID()
 }
@@ -312,14 +317,13 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 	for _, role := range node.Roles {
 		switch role {
 		case WorkerNode:
-			// multi address is not applicable for non-bootstrap nodes
-			// explicitly set it to empty string to denote that
+			// multi address is not applicable for non-bootstrap nodes; explicitly set it to empty string to denote that
 			node.Addresses.MultiAddress = ""
 
 			// set admin address for non-bootstrap nodes (capability registry requires non-null admin address; use arbitrary default value if node is not configured)
 			node.Addresses.AdminAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 		case BootstrapNode:
-			// create multi address for OCR2, applicable only for bootstrap nodes
+			// create multi address for OCR2; applicable only for bootstrap nodes
 			p2pURL, err := url.Parse(ctfNode.Node.InternalP2PUrl)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse p2p url: %w", err)
@@ -339,18 +343,15 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 }
 
 type JobDistributorDetails struct {
-	NodeID string `toml:"node_id" json:"node_id"` // node id returned by JD after node is registered with it
-	JDID   string `toml:"jd_id" json:"jd_id"`     // JD id returned by node after Job distributor is created in the node
+	NodeID string `toml:"node_id" json:"node_id"` // nodeID returned by JD after node is registered with it
+	JDID   string `toml:"jd_id" json:"jd_id"`     // JD ID returned by node after Job distributor is created in the node
 }
 
-// Do we need to store public address per chain or is it enough to store keys, so that we can derive public address when needed?
 type Addresses struct {
 	AdminAddress string `toml:"admin_address" json:"admin_address"` // address used to pay for transactions, applicable only for worker nodes
 	MultiAddress string `toml:"multi_address" json:"multi_address"` // multi address used by OCR2, applicable only for bootstrap nodes
-}
 
-type NodeIDs struct {
-	PeerID string `toml:"peer_id" json:"peer_id"`
+	// maybe in the future add public addresses per chain to avoid the need to access node's keys every time?
 }
 
 type NodeClients struct {
@@ -379,7 +380,9 @@ func (n *Node) CreateJDChainConfigs(ctx context.Context, chains []JDChainConfigI
 			}
 
 			evmKey, ok := n.Keys.EVM[chainID]
-			if !ok {
+			if ok {
+				account = evmKey.PublicAddress.Hex()
+			} else {
 				var fetchErr error
 				accountAddr, fetchErr := n.Clients.GQLClient.FetchAccountAddress(ctx, chain.ChainID)
 				if fetchErr != nil {
@@ -389,12 +392,12 @@ func (n *Node) CreateJDChainConfigs(ctx context.Context, chains []JDChainConfigI
 					return fmt.Errorf("no account address found for node %s", n.Name)
 				}
 				account = *accountAddr
-			} else {
-				account = evmKey.PublicAddress.Hex()
 			}
 		case chainselectors.FamilySolana:
 			solKey, ok := n.Keys.Solana[chain.ChainID]
-			if !ok {
+			if ok {
+				account = solKey.PublicAddress.String()
+			} else {
 				accounts, fetchErr := n.Clients.GQLClient.FetchKeys(ctx, chain.ChainType)
 				if fetchErr != nil {
 					return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, fetchErr)
@@ -403,10 +406,9 @@ func (n *Node) CreateJDChainConfigs(ctx context.Context, chains []JDChainConfigI
 					return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainType)
 				}
 				account = accounts[0]
-			} else {
-				account = solKey.PublicAddress.String()
 			}
 		case chainselectors.FamilyAptos:
+			// always fetch; currently Node doesn't have Aptos keys
 			accounts, err := n.Clients.GQLClient.FetchKeys(ctx, chain.ChainType)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
@@ -742,7 +744,7 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 	dons := make([]*DON, len(input.NodeSetOutput))
 
 	for idx, nodeOutput := range input.NodeSetOutput {
-		supportedChains, schErr := FindSupportedChainsForDON(input.Topology.DonsMetadata.List()[idx], input.BlockchainOutputs)
+		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.BlockchainOutputs)
 		if schErr != nil {
 			return nil, nil, errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
@@ -782,7 +784,7 @@ func HasFlagForAnyChain(values []string, capability string) bool {
 }
 
 // TODO do we need to use metadata here? maybe actually some interface that both DON and metadata would implement?
-func FindSupportedChainsForDON(donMetadata *DonMetadata, blockchainOutputs []*WrappedBlockchainOutput) ([]ChainConfig, error) {
+func FindDONsSupportedChains(donMetadata *DonMetadata, blockchainOutputs []*WrappedBlockchainOutput) ([]ChainConfig, error) {
 	chains := make([]ChainConfig, 0)
 
 	for chainSelector, bcOut := range blockchainOutputs {

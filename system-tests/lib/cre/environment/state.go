@@ -121,7 +121,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		}
 
 		donMetadata := topology.DonsMetadata.List()[idx]
-		supportedChains, sErr := cre.FindSupportedChainsForDON(donMetadata, wrappedBlockchainOutputs)
+		supportedChains, sErr := cre.FindDONsSupportedChains(donMetadata, wrappedBlockchainOutputs)
 		if sErr != nil {
 			return nil, nil, errors.Wrapf(sErr, "failed to find supported chains for don %s", don.DonName)
 		}

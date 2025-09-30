@@ -95,12 +95,12 @@ func (t *Topology) BootstrapNode() (*NodeMetadata, error) {
 	return t.DonsMetadata.BootstrapNode()
 }
 
-type PeerableNode interface {
+type PeeringNode interface {
 	GetHost() string
 	CleansedPeerID() string
 }
 
-func PeeringCfgs(bt PeerableNode) (CapabilitiesPeeringData, OCRPeeringData, error) {
+func PeeringCfgs(bt PeeringNode) (CapabilitiesPeeringData, OCRPeeringData, error) {
 	p := bt.CleansedPeerID()
 	if p == "" {
 		return CapabilitiesPeeringData{}, OCRPeeringData{}, errors.New("cannot create peering configs, node has no P2P key")

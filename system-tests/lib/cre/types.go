@@ -343,29 +343,6 @@ type SolChain struct {
 	ArtifactsDir  string
 }
 
-type CreateJobsInput struct {
-	CldEnv        *cldf.Environment
-	DonTopology   *DonTopology
-	DonToJobSpecs DonsToJobSpecs
-}
-
-func (c *CreateJobsInput) Validate() error {
-	if c.CldEnv == nil {
-		return errors.New("chainlink deployment env not set")
-	}
-	if c.DonTopology == nil {
-		return errors.New("don topology not set")
-	}
-	if len(c.DonTopology.Dons.List()) == 0 {
-		return errors.New("topology dons not set")
-	}
-	if len(c.DonToJobSpecs) == 0 {
-		return errors.New("don to job specs not set")
-	}
-
-	return nil
-}
-
 type ConfigureKeystoneInput struct {
 	ChainSelector               uint64
 	Topology                    *Topology

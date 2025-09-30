@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func Create(ctx context.Context, offChainClient cldf_offchain.Client, donTopology cre.DonTopology, jobSpecs cre.DonJobs) error {
+func Create(ctx context.Context, offChainClient cldf_offchain.Client, donTopology *cre.DonTopology, jobSpecs cre.DonJobs) error {
 	if len(jobSpecs) == 0 {
 		return nil
 	}

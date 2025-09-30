@@ -21,10 +21,10 @@ var ConfigMerger = func(flag cre.CapabilityFlag, nodeSetInput *cre.CapabilitiesA
 }
 
 var CapabilityEnabler = func(don *cre.DON, flag cre.CapabilityFlag) bool {
-	if don == nil || don.ChainCapabilities == nil {
+	if don == nil || don.ChainCapabilities() == nil {
 		return false
 	}
-	if cc, ok := don.ChainCapabilities[flag]; !ok || cc == nil || len(cc.EnabledChains) == 0 {
+	if cc, ok := don.ChainCapabilities()[flag]; !ok || cc == nil || len(cc.EnabledChains) == 0 {
 		return false
 	}
 
