@@ -64,12 +64,11 @@ type StandardCapabilityJobWithOracleFactory struct {
 	StandardCapabilityJob `yaml:",inline"`
 
 	// Additional fields used to drive oracle factory creation/config
-	ContractQualifier  string        `yaml:"contractQualifier"`
-	ChainSelectorEVM   ChainSelector `yaml:"chainSelectorEVM"`
-	ChainSelectorAptos ChainSelector `yaml:"chainSelectorAptos"`
-	BootstrapPeers     []string      `yaml:"bootstrapPeers"`
-
-	GenerateOracleFactory bool
+	GenerateOracleFactory bool          // if true, an oracle factory will be generated using the fields below
+	ContractQualifier     string        `yaml:"contractQualifier"`  // used to fetch the OCR contract address
+	ChainSelectorEVM      ChainSelector `yaml:"chainSelectorEVM"`   // used to fetch OCR EVM configs from nodes
+	ChainSelectorAptos    ChainSelector `yaml:"chainSelectorAptos"` // used to fetch OCR Aptos configs from nodes
+	BootstrapPeers        []string      `yaml:"bootstrapPeers"`     // set as value in the oracle factory
 }
 
 func (s *StandardCapabilityJobWithOracleFactory) Validate() error {

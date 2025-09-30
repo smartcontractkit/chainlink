@@ -21,23 +21,7 @@ func (j JobSpecInput) UnmarshalTo(target any) error {
 	return yaml.Unmarshal(bytes, target)
 }
 
-func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapabilityJob, error) {
-	out := pkg.StandardCapabilityJob{
-		JobName: jobName,
-	}
-	err := j.UnmarshalTo(&out)
-	if err != nil {
-		return pkg.StandardCapabilityJob{}, fmt.Errorf("failed to unmarshal job spec input to StandardCapabilityJob: %w", err)
-	}
-
-	if out.Command == "" {
-		return pkg.StandardCapabilityJob{}, errors.New("command is required and must be a string")
-	}
-
-	return out, nil
-}
-
-func (j JobSpecInput) ToStandardCapabilityWithOracleFactoryJob(jobName string, generateOracleFactory bool) (pkg.StandardCapabilityJobWithOracleFactory, error) {
+func (j JobSpecInput) ToStandardCapabilityJob(jobName string, generateOracleFactory bool) (pkg.StandardCapabilityJobWithOracleFactory, error) {
 	out := pkg.StandardCapabilityJobWithOracleFactory{
 		StandardCapabilityJob: pkg.StandardCapabilityJob{
 			JobName: jobName,

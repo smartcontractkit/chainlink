@@ -22,9 +22,14 @@ type ProposeStandardCapabilityJobDeps struct {
 }
 
 type ProposeStandardCapabilityJobInput struct {
-	Domain      string
-	DONName     string
-	Job         pkg.StandardCapabilityJobWithOracleFactory
+	Domain  string
+	DONName string
+
+	// Job is the standard capability job to propose.
+	// If GenerateOracleFactory is true, the OracleFactory field will be ignored and generated.
+	// If false, the OracleFactory field will be used as-is.
+	Job pkg.StandardCapabilityJobWithOracleFactory
+
 	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
 }
