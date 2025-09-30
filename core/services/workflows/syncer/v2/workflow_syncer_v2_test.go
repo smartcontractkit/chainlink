@@ -1,4 +1,4 @@
-package v2_test
+package v2
 
 import (
 	"context"
@@ -37,7 +37,6 @@ import (
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -68,7 +67,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 			Name:      fmt.Sprintf("test-wf-%d", i),
 			Tag:       "sometag",
 			ID:        workflowID,
-			Status:    syncer.WorkflowStatusActive,
+			Status:    WorkflowStatusActive,
 			DonFamily: donFamily,
 			BinaryURL: "someurl",
 			KeepAlive: false,
@@ -79,15 +78,15 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	testEventHandler := newTestEvtHandler(nil)
 
 	// Create the worker
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyReconciliation,
+			SyncStrategy: SyncStrategyReconciliation,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -97,7 +96,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 			},
 			err: nil,
 		},
-		syncer.NewEngineRegistry(),
+		NewEngineRegistry(),
 	)
 	require.NoError(t, err)
 
@@ -108,7 +107,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowActivated, event.Name)
+		assert.Equal(t, WorkflowActivated, event.Name)
 	}
 }
 
@@ -123,7 +122,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 		donFamily2      = "B"
 		skippedWorkflow = RegisterWorkflowCMDV2{
 			Name:      "test-wf2",
-			Status:    syncer.WorkflowStatusActive,
+			Status:    WorkflowStatusActive,
 			BinaryURL: giveBinaryURL,
 			Tag:       "sometag",
 			DonFamily: donFamily2,
@@ -131,7 +130,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 		}
 		giveWorkflow = RegisterWorkflowCMDV2{
 			Name:      "test-wf",
-			Status:    syncer.WorkflowStatusActive,
+			Status:    WorkflowStatusActive,
 			BinaryURL: "someurl",
 			Tag:       "sometag",
 			DonFamily: donFamily1,
@@ -157,15 +156,15 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 
 	handler := newTestEvtHandler(nil)
 
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyReconciliation,
+			SyncStrategy: SyncStrategyReconciliation,
 		},
 		handler,
 		&testDonNotifier{
@@ -175,7 +174,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 			},
 			err: nil,
 		},
-		syncer.NewEngineRegistry(),
+		NewEngineRegistry(),
 	)
 	require.NoError(t, err)
 
@@ -210,7 +209,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 		donFamily     = "A"
 		giveWorkflow  = RegisterWorkflowCMDV2{
 			Name:      "test-wf",
-			Status:    syncer.WorkflowStatusPaused,
+			Status:    WorkflowStatusPaused,
 			BinaryURL: giveBinaryURL,
 			Tag:       "sometag",
 			DonFamily: donFamily,
@@ -236,7 +235,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	er := syncer.NewEngineRegistry()
+	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
@@ -252,18 +251,18 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyReconciliation,
+			SyncStrategy: SyncStrategyReconciliation,
 		},
 		handler,
 		&testDonNotifier{
@@ -308,7 +307,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 		donFamily     = "A"
 		giveWorkflow  = RegisterWorkflowCMDV2{
 			Name:      "test-wf",
-			Status:    syncer.WorkflowStatusActive,
+			Status:    WorkflowStatusActive,
 			BinaryURL: giveBinaryURL,
 			Tag:       "sometag",
 			DonFamily: donFamily,
@@ -334,7 +333,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	er := syncer.NewEngineRegistry()
+	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
@@ -349,19 +348,19 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := syncer.NewEventHandler(lggr, wfStore, nil, true, capRegistry, er,
-		emitter, limiters, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er,
+		emitter, limiters, rl, wl, store, workflowEncryptionKey, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyReconciliation,
+			SyncStrategy: SyncStrategyReconciliation,
 		},
 		handler,
 		&testDonNotifier{
@@ -421,7 +420,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 			require.NoError(t, err)
 			workflow := RegisterWorkflowCMDV2{
 				Name:      fmt.Sprintf("test-wf-%d", i),
-				Status:    syncer.WorkflowStatusActive,
+				Status:    WorkflowStatusActive,
 				BinaryURL: "someurl",
 				Tag:       "sometag",
 				DonFamily: donFamily,
@@ -434,15 +433,15 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 		testEventHandler := newTestEvtHandler(nil)
 
 		// Create the worker
-		worker, err := syncer.NewWorkflowRegistry(
+		worker, err := NewWorkflowRegistry(
 			lggr,
 			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return backendTH.NewContractReader(ctx, t, bytes)
 			},
 			wfRegistryAddr.Hex(),
-			syncer.Config{
+			Config{
 				QueryCount:   20,
-				SyncStrategy: syncer.SyncStrategyReconciliation,
+				SyncStrategy: SyncStrategyReconciliation,
 			},
 			testEventHandler,
 			&testDonNotifier{
@@ -452,8 +451,8 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 				},
 				err: nil,
 			},
-			syncer.NewEngineRegistry(),
-			syncer.WithRetryInterval(1*time.Second),
+			NewEngineRegistry(),
+			WithRetryInterval(1*time.Second),
 		)
 		require.NoError(t, err)
 
@@ -464,7 +463,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 		}, 30*time.Second, 1*time.Second)
 
 		for _, event := range testEventHandler.GetEvents() {
-			assert.Equal(t, syncer.WorkflowActivated, event.Name)
+			assert.Equal(t, WorkflowActivated, event.Name)
 		}
 	})
 }
@@ -489,7 +488,7 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	require.NoError(t, err)
 	workflow := RegisterWorkflowCMDV2{
 		Name:      "test-wf",
-		Status:    syncer.WorkflowStatusActive,
+		Status:    WorkflowStatusActive,
 		BinaryURL: "someurl",
 		Tag:       "sometag",
 		DonFamily: donFamily,
@@ -508,15 +507,15 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	})
 
 	// Create the worker
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyReconciliation,
+			SyncStrategy: SyncStrategyReconciliation,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -526,8 +525,8 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 			},
 			err: nil,
 		},
-		syncer.NewEngineRegistry(),
-		syncer.WithRetryInterval(1*time.Second),
+		NewEngineRegistry(),
+		WithRetryInterval(1*time.Second),
 	)
 	require.NoError(t, err)
 
@@ -538,7 +537,7 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	}, 30*time.Second, 1*time.Second)
 
 	event := testEventHandler.GetEvents()[0]
-	assert.Equal(t, syncer.WorkflowActivated, event.Name)
+	assert.Equal(t, WorkflowActivated, event.Name)
 
 	assert.Equal(t, 1, retryCount)
 }
@@ -702,7 +701,7 @@ func upsertWorkflowV2(
 	// From contract comment:
 	// For ACTIVE workflows this will resolve to the correct DON label.
 	// For PAUSED/never‑assigned workflows the label is the empty string.
-	if input.Status == syncer.WorkflowStatusActive {
+	if input.Status == WorkflowStatusActive {
 		require.Equal(t, input.DonFamily, workflow.DonFamily, "workflow DON family mismatch")
 	}
 }
@@ -754,34 +753,4 @@ func prepareABIArguments() (*abi.Arguments, error) {
 	arguments = append(arguments, abi.Argument{Type: bytes32Type}) // ownership proof hash
 
 	return &arguments, nil
-}
-
-func GenerateWorkflowID(owner []byte, name string, workflow []byte, config []byte, secretsURL string) ([32]byte, error) {
-	s := sha256.New()
-	_, err := s.Write(owner)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	_, err = s.Write([]byte(name))
-	if err != nil {
-		return [32]byte{}, err
-	}
-	_, err = s.Write(workflow)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	_, err = s.Write(config)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	_, err = s.Write([]byte(secretsURL))
-	if err != nil {
-		return [32]byte{}, err
-	}
-
-	sha := [32]byte(s.Sum(nil))
-	versionByte := byte(0)
-	sha[0] = versionByte
-
-	return sha, nil
 }

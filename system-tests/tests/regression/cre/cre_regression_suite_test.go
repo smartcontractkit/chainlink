@@ -80,7 +80,6 @@ func Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_EVM_FilterLogs_Invalid_Addresses_Regression(t *testing.T) {
-	t.Skip("Skipping because evm.FilterLogs does not return an error or nil for invalid/not existing addresses")
 	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidAddress)
 }
 
@@ -90,4 +89,8 @@ func Test_CRE_V2_EVM_FilterLogs_Invalid_FromBlock_Regression(t *testing.T) {
 
 func Test_CRE_V2_EVM_FilterLogs_Invalid_ToBlock_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidToBlock)
+}
+
+func Test_CRE_V2_EVM_GetTransactionByHash_Invalid_Hash_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsGetTransactionByHashInvalidHash)
 }

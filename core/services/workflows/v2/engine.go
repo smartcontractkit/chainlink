@@ -550,6 +550,7 @@ func (e *Engine) close() error {
 	e.triggersRegMu.Lock()
 	e.unregisterAllTriggers(ctx)
 	e.triggersRegMu.Unlock()
+	e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 
 	e.cfg.Module.Close()
 
@@ -576,7 +577,6 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 	}
 	e.triggers = make(map[string]*triggerCapability)
 	e.lggr.Infow("All triggers unregistered", "numTriggers", len(e.triggers))
-	e.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 }
 
 func (e *Engine) heartbeatLoop(ctx context.Context) {
