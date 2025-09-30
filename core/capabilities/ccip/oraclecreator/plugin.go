@@ -519,7 +519,6 @@ func (i *pluginOracleCreator) createCCIPProviders(
 					"relayID.Network", relayID.Network,
 					"chainSelector", chainSelector)
 				return nil, fmt.Errorf("transmitter contains invalid UTF-8: %q", transmitter[0])
-
 			}
 			ccipProvider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{
 				PluginType:           cciptypes.PluginType(config.Config.PluginType),
