@@ -230,6 +230,7 @@ jobs:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 30m
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
+          TOPOLOGY_NAME: ${{ matrix.tests.topology }}
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \
