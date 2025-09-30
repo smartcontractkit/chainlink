@@ -519,7 +519,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	if e.cfg.DebugMode {
+	if e.cfg.DebugMode || true {
 		e.lggr.Debugw("User workflow execution result", "result", result.GetValue(), "err", result.GetError())
 	}
 
