@@ -62,7 +62,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250928011949-78c9ecd94651
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250929215044-5a7f4e4ef952
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/smartcontractkit/mcms v0.25.0
 	github.com/spf13/cobra v1.9.1

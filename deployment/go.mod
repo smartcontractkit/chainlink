@@ -50,7 +50,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250910230900-fa42dad2d413
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.24
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250928011949-78c9ecd94651
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20250929215044-5a7f4e4ef952
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250928011949-78c9ecd94651
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
