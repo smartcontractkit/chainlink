@@ -17,11 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
 
-type ProposeStandardCapabilityWithOracleFactoryJobDeps struct {
+type ProposeStandardCapabilityJobDeps struct {
 	Env cldf.Environment
 }
 
-type ProposeStandardCapabilityWithOracleFactoryJobInput struct {
+type ProposeStandardCapabilityJobInput struct {
 	Domain      string
 	DONName     string
 	Job         pkg.StandardCapabilityJobWithOracleFactory
@@ -29,21 +29,21 @@ type ProposeStandardCapabilityWithOracleFactoryJobInput struct {
 	ExtraLabels map[string]string
 }
 
-type ProposeStandardCapabilityWithOracleFactoryJobOutput struct {
+type ProposeStandardCapabilityJobOutput struct {
 	Specs map[string][]string
 }
 
-var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
-	ProposeStandardCapabilityWithOracleFactoryJobInput,
-	ProposeStandardCapabilityWithOracleFactoryJobOutput,
-	ProposeStandardCapabilityWithOracleFactoryJobDeps,
+var ProposeStandardCapabilityJob = operations.NewSequence[
+	ProposeStandardCapabilityJobInput,
+	ProposeStandardCapabilityJobOutput,
+	ProposeStandardCapabilityJobDeps,
 ](
 	"propose-standard-capability-oracle-factory-job-seq",
 	semver.MustParse("1.0.0"),
 	"Propose Standard Capability w/ Oracle Factory Job",
-	func(b operations.Bundle, deps ProposeStandardCapabilityWithOracleFactoryJobDeps, input ProposeStandardCapabilityWithOracleFactoryJobInput) (ProposeStandardCapabilityWithOracleFactoryJobOutput, error) {
+	func(b operations.Bundle, deps ProposeStandardCapabilityJobDeps, input ProposeStandardCapabilityJobInput) (ProposeStandardCapabilityJobOutput, error) {
 		if err := input.Job.Validate(); err != nil {
-			return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("invalid job: %w", err)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("invalid job: %w", err)
 		}
 
 		filter := &node.ListNodesRequest_Filter{
@@ -66,7 +66,7 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 		}
 		nodes, err := offchain.FetchNodesFromJD(b.GetContext(), deps.Env.Offchain, filter)
 		if err != nil {
-			return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
 
 		nodeIDs := make([]string, len(nodes))
@@ -76,7 +76,7 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 
 		nodeInfos, err := deployment.NodeInfo(nodeIDs, deps.Env.Offchain)
 		if err != nil {
-			return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
 
 		if !input.Job.GenerateOracleFactory {
@@ -85,7 +85,7 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 			for _, ni := range nodeInfos {
 				spec, err := input.Job.Resolve()
 				if err != nil {
-					return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
 				}
 
 				jobLabels := map[string]string{
@@ -106,7 +106,7 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 					},
 				})
 				if err != nil {
-					return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
+					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
 				}
 
 				for k, v := range report.Output.Specs {
@@ -114,7 +114,7 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 				}
 			}
 
-			return ProposeStandardCapabilityWithOracleFactoryJobOutput{Specs: specs}, nil
+			return ProposeStandardCapabilityJobOutput{Specs: specs}, nil
 		}
 
 		// If no oracle factory is provided, we have to build it
@@ -122,12 +122,12 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 		addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(input.Job.ChainSelectorEVM), input.Job.ContractQualifier)
 		contractAddrRef, err := deps.Env.DataStore.Addresses().Get(addrRefKey)
 		if err != nil {
-			return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", input.Job.ChainSelectorEVM, input.Job.ContractQualifier, err)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", input.Job.ChainSelectorEVM, input.Job.ContractQualifier, err)
 		}
 
 		chainID, err := chainsel.GetChainIDFromSelector(uint64(input.Job.ChainSelectorEVM))
 		if err != nil {
-			return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to get chain ID from selector: %w", err)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to get chain ID from selector: %w", err)
 		}
 
 		specs := make(map[string][]string)
@@ -135,11 +135,11 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 		for _, ni := range nodeInfos {
 			evmConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorEVM))
 			if !ok {
-				return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("no evm ocr2 config for node %s", ni.NodeID)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no evm ocr2 config for node %s", ni.NodeID)
 			}
 			aptosConfig, ok := ni.OCRConfigForChainSelector(uint64(input.Job.ChainSelectorAptos))
 			if !ok {
-				return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("no aptos ocr2 config for node %s", ni.NodeID)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no aptos ocr2 config for node %s", ni.NodeID)
 			}
 
 			oracleFactory := &pkg.OracleFactory{
@@ -160,7 +160,7 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 
 			spec, err := input.Job.Resolve()
 			if err != nil {
-				return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to resolve consensus job for node %s: %w", ni.NodeID, err)
 			}
 
 			jobLabels := map[string]string{
@@ -181,7 +181,7 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 				},
 			})
 			if err != nil {
-				return ProposeStandardCapabilityWithOracleFactoryJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
+				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
 			}
 
 			for k, v := range report.Output.Specs {
@@ -189,5 +189,5 @@ var ProposeStandardCapabilityWithOracleFactoryJob = operations.NewSequence[
 			}
 		}
 
-		return ProposeStandardCapabilityWithOracleFactoryJobOutput{Specs: specs}, nil
+		return ProposeStandardCapabilityJobOutput{Specs: specs}, nil
 	})
