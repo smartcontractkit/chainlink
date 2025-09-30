@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	"github.com/smartcontractkit/quarantine"
 )
 
 // REGRESSION TESTS target edge cases, negative conditions, etc., all happy path and sanity checks should go to a `smoke` package.
@@ -24,6 +25,7 @@ Inside `core/scripts/cre/environment` directory
     `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
 */
 func Test_CRE_V2_Cron_Regression(t *testing.T) {
+	quarantine.Flaky(t, "DX-1929")
 	for _, tCase := range cronInvalidSchedulesTests {
 		testName := "[v2] Cron (Beholder) fails when schedule is " + tCase.name
 		t.Run(testName, func(t *testing.T) {
