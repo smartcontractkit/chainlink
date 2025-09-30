@@ -400,6 +400,27 @@ func (lc *LaneConfiguration) DiscoverLanesFromDeployedState(env cldf.Environment
 		}
 	}
 
+	// Discover Sui source lanes
+	for _, srcChain := range suiChains {
+		srcChainState, exists := state.SuiChains[srcChain]
+		if !exists {
+			continue
+		}
+
+		// Check which destination chains are configured on the Sui Router
+		destinations, err := lc.getEnabledDestinationsFromSuiRouter(env, srcChain, srcChainState, allChains)
+		if err != nil {
+			return fmt.Errorf("failed to get enabled destinations for Sui chain %d: %w", srcChain, err)
+		}
+
+		for _, dstChain := range destinations {
+			discoveredLanes = append(discoveredLanes, LaneConfig{
+				SourceChain:      srcChain,
+				DestinationChain: dstChain,
+			})
+		}
+	}
+
 	// Sort lanes for deterministic behavior
 	sort.Slice(discoveredLanes, func(i, j int) bool {
 		if discoveredLanes[i].SourceChain != discoveredLanes[j].SourceChain {
@@ -485,12 +506,8 @@ func (lc *LaneConfiguration) getEnabledDestinationsFromSuiRouter(env cldf.Enviro
 		if dstChain == selector {
 			continue
 		}
-		// Check if destination is enabled, but log errors for debugging
-		isEnabled, err := lc.isDestinationEnabledOnSuiRouter(env, selector, chainState, dstChain)
-		if err != nil {
-			// Log the error but continue - destination might not be configured
-			fmt.Printf("DEBUG: Failed to check SUI destination %d from source %d: %v\n", dstChain, selector, err)
-		}
+		// we don't verify against error because if the destination is not configured, it will return an error
+		isEnabled, _ := lc.isDestinationEnabledOnSuiRouter(env, selector, chainState, dstChain)
 		if isEnabled {
 			enabledDestinations = append(enabledDestinations, dstChain)
 		}
@@ -563,21 +580,20 @@ func (lc *LaneConfiguration) isDestinationEnabledOnSuiRouter(env cldf.Environmen
 		destinationChain,
 	)
 	if err != nil {
-		// If we can't get the config, assume it's not enabled (similar to EVM approach)
-		return false, fmt.Errorf("failed to get dest chain config for chain %d on SUI onramp: %w", destinationChain, err)
+		return false, nil
 	}
 
-	// The first return value is isEnabled (bool), similar to EVM's approach
-	if len(config) == 0 {
-		return false, fmt.Errorf("empty config returned for dest chain %d", destinationChain)
+	if len(config) < 3 {
+		return false, nil
 	}
 
-	isEnabled, ok := config[0].(bool)
+	// The router is at index 2 - check if it's not zero/empty
+	router, ok := config[2].(string)
 	if !ok {
-		return false, fmt.Errorf("failed to parse isEnabled from config for dest chain %d", destinationChain)
+		return false, nil
 	}
 
-	return isEnabled, nil
+	return router != "" && router != "0x0000000000000000000000000000000000000000000000000000000000000000", nil
 }
 
 // GetSourceChainsForDestination returns all source chains that can send to a specific destination
