@@ -73,6 +73,7 @@ type SetupInput struct {
 	CapabilityConfigs         cre.CapabilityConfigs
 	CopyCapabilityBinaries    bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
 	Capabilities              []cre.InstallableCapability
+	Features                  []cre.Feature
 
 	// Deprecated: use Capabilities []cre.InstallableCapability instead
 	ConfigFactoryFunctions []cre.NodeConfigTransformerFn
@@ -179,10 +180,37 @@ func SetupTestEnvironment(
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
 
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before DON startup")))
+	_, preErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PreDONStartupOp, PreDONStartupOpDeps{
+		CldfEnv:           deployKeystoneContractsOutput.Env,
+		Provider:          input.Provider,
+		NodeSetOutput:     updatedNodeSets,
+		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
+		ContractVersions:  input.ContractVersions,
+	}, PreDONStartupOpInput{
+		RegistryChainSelector: startBlockchainsOutput.RegistryChain().ChainSelector,
+		Features:              input.Features,
+	})
+	if preErr != nil {
+		return nil, fmt.Errorf("failed to apply features before DON startup: %w", preErr)
+	}
+	// for _, feature := range input.Features {
+	// 	if err := feature.PreDONStartup(
+	// 		startBlockchainsOutput.RegistryChain().ChainSelector,
+	// 		deployKeystoneContractsOutput.Env,
+	// 		input.Provider,
+	// 		updatedNodeSets,
+	// 		startBlockchainsOutput.BlockChainOutputs,
+	// 		input.CapabilityConfigs,
+	// 	); err != nil {
+	// 		return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), err)
+	// 	}
+	// }
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
 	jdOutput, nodeSetOutput, donJDErr := StartDONsAndJD(
 		testLogger,
 		input.JdInput,
@@ -279,15 +307,15 @@ func SetupTestEnvironment(
 	})
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink Node funding prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
+	// fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Waiting for Log Poller to start tracking OCR3 contract")))
 
 	// Wait for Log Poller to be up and running. If it misses the ConfigSet event, OCR protocol will not start.
 	// TODO: we might want to add similar checks for other OCR3 contracts.
-	if err := waitForLogPollerToBeHealthy(updatedNodeSets, nodeSetOutput); err != nil {
-		return nil, pkgerrors.Wrap(err, "failed while waiting for Log Poller to become healthy")
-	}
+	// if err := waitForLogPollerToBeHealthy(updatedNodeSets, nodeSetOutput); err != nil {
+	// 	return nil, pkgerrors.Wrap(err, "failed while waiting for Log Poller to become healthy")
+	// }
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Log Poller started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	// fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Log Poller started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	wfPool := pond.NewResultPool[*cre.WorkflowRegistryOutput](1)
 	wfTask := wfPool.SubmitErr(func() (*cre.WorkflowRegistryOutput, error) {
@@ -327,12 +355,27 @@ func SetupTestEnvironment(
 		}
 	})
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring OCR3 and Keystone contracts")))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after DON startup")))
+	postDONStartupOutput, postErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PostDONStartupOp, PostDONStartupOpDeps{
+		TestLogger:       testLogger,
+		CreEnv:           creEnvironment,
+		NodeSetOutput:    nodeSetOutput,
+		ContractVersions: input.ContractVersions,
+	}, PostDONStartupOpInput{
+		Features: input.Features,
+	})
+	if postErr != nil {
+		return nil, pkgerrors.Wrap(postErr, "failed to execute PostDONStartup features")
+	}
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring OCR3 and Keystone contracts")))
 	configureKeystoneInput, ksErr := prepareKeystoneConfigurationInput(*input, startBlockchainsOutput.RegistryChain().ChainSelector, topology, updatedNodeSets, creEnvironment.CldfEnvironment, deployKeystoneContractsOutput, startBlockchainsOutput)
 	if ksErr != nil {
 		return nil, pkgerrors.Wrap(ksErr, "failed to prepare keystone configuration input")
 	}
+
+	postDONStartupOutput.Output.MergeWithConfigureInput(configureKeystoneInput)
 
 	keystoneErr := crecontracts.ConfigureKeystone(*configureKeystoneInput)
 	if keystoneErr != nil {
@@ -398,14 +441,14 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		BlockchainOutputs:           startBlockchainsOutput.BlockChainOutputs,
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")),
-		OCR3Address:                 ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.OCR3ContractQualifier)),
-		DONTimeAddress:              ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.DONTimeContractQualifier)),
-		VaultOCR3Address:            crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_plugin"),
-		DKGOCR3Address:              crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_dkg"),
-		EVMOCR3Addresses:            evmOCR3AddressesFromDataStore(startBlockchainsOutput.BlockChainOutputs, updatedNodeSets, deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector),
-		ConsensusV2OCR3Address:      crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
-		NodeSets:                    input.CapabilitiesAwareNodeSets,
-		WithV2Registries:            input.WithV2Registries,
+		// OCR3Address:                 ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.OCR3ContractQualifier)),
+		// DONTimeAddress:              ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.DONTimeContractQualifier)),
+		VaultOCR3Address:       crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_plugin"),
+		DKGOCR3Address:         crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_dkg"),
+		EVMOCR3Addresses:       evmOCR3AddressesFromDataStore(startBlockchainsOutput.BlockChainOutputs, updatedNodeSets, deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector),
+		ConsensusV2OCR3Address: crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
+		NodeSets:               input.CapabilitiesAwareNodeSets,
+		WithV2Registries:       input.WithV2Registries,
 	}
 
 	if input.OCR3Config != nil {

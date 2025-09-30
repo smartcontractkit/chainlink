@@ -37,6 +37,7 @@ import (
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	ocrfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
@@ -635,6 +636,7 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
+		Features:                  []cre.Feature{&ocrfeature.OCR{}},
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
@@ -1023,7 +1025,7 @@ func allEnvironmentStateFiles() ([]string, error) {
 }
 
 func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
-	stages := 9
+	stages := 10
 	if in.S3ProviderInput != nil {
 		stages++
 	}

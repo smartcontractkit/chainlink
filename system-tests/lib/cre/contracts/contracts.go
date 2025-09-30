@@ -352,6 +352,11 @@ func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 			capabilities = append(capabilities, enabledCapabilities...)
 		}
 
+		// add capabilities that were passed directly via the input (from the PostDONStartup of features)
+		if input.DONCapabilityWithConfigs != nil && input.DONCapabilityWithConfigs[donIdx] != nil {
+			capabilities = append(capabilities, input.DONCapabilityWithConfigs[donIdx]...)
+		}
+
 		workerNodes, wErr := donMetadata.WorkerNodes()
 		if wErr != nil {
 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
@@ -533,23 +538,23 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	if err != nil {
 		return fmt.Errorf("failed to get consensus v1 DON: %w", err)
 	}
-	_, err = operations.ExecuteOperation(
-		input.CldEnv.OperationsBundle,
-		ks_contracts_op.ConfigureOCR3Op,
-		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env: input.CldEnv,
-		},
-		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress: input.OCR3Address,
-			ChainSelector:   input.ChainSelector,
-			DON:             consensusV1DON.keystoneDonConfig(),
-			Config:          consensusV1DON.resolveOcr3Config(input.OCR3Config),
-			DryRun:          false,
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to configure OCR3 contract")
-	}
+	// _, err = operations.ExecuteOperation(
+	// 	input.CldEnv.OperationsBundle,
+	// 	ks_contracts_op.ConfigureOCR3Op,
+	// 	ks_contracts_op.ConfigureOCR3OpDeps{
+	// 		Env: input.CldEnv,
+	// 	},
+	// 	ks_contracts_op.ConfigureOCR3OpInput{
+	// 		ContractAddress: input.OCR3Address,
+	// 		ChainSelector:   input.ChainSelector,
+	// 		DON:             consensusV1DON.keystoneDonConfig(),
+	// 		Config:          consensusV1DON.resolveOcr3Config(input.OCR3Config),
+	// 		DryRun:          false,
+	// 	},
+	// )
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to configure OCR3 contract")
+	// }
 
 	// configure EVM forwarders only if we have some
 	if len(evmChainsWithForwarders) > 0 {
@@ -576,23 +581,23 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	}
 
 	// don time happens to be the same as consensus v1 DON, but it doesn't have to be
-	_, err = operations.ExecuteOperation(
-		input.CldEnv.OperationsBundle,
-		ks_contracts_op.ConfigureOCR3Op,
-		ks_contracts_op.ConfigureOCR3OpDeps{
-			Env: input.CldEnv,
-		},
-		ks_contracts_op.ConfigureOCR3OpInput{
-			ContractAddress: input.DONTimeAddress,
-			ChainSelector:   input.ChainSelector,
-			DON:             consensusV1DON.keystoneDonConfig(),
-			Config:          consensusV1DON.resolveOcr3Config(input.DONTimeConfig),
-			DryRun:          false,
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to configure DON Time contract")
-	}
+	// _, err = operations.ExecuteOperation(
+	// 	input.CldEnv.OperationsBundle,
+	// 	ks_contracts_op.ConfigureOCR3Op,
+	// 	ks_contracts_op.ConfigureOCR3OpDeps{
+	// 		Env: input.CldEnv,
+	// 	},
+	// 	ks_contracts_op.ConfigureOCR3OpInput{
+	// 		ContractAddress: input.DONTimeAddress,
+	// 		ChainSelector:   input.ChainSelector,
+	// 		DON:             consensusV1DON.keystoneDonConfig(),
+	// 		Config:          consensusV1DON.resolveOcr3Config(input.DONTimeConfig),
+	// 		DryRun:          false,
+	// 	},
+	// )
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to configure DON Time contract")
+	// }
 
 	if input.VaultOCR3Address != nil && input.VaultOCR3Address.Cmp(common.Address{}) != 0 {
 		vaultDON, err := dons.shouldBeOneDon(cre.VaultCapability)

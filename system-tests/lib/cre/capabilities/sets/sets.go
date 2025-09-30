@@ -5,7 +5,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	customcompute "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/compute"
-	consensusv1capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus/v1"
 	consensusv2capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus/v2"
 	croncapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
 	evmcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
@@ -36,11 +35,11 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 	}
 	capabilities = append(capabilities, customCompute)
 
-	c1, c1Err := consensusv1capability.New(homeChainID)
-	if c1Err != nil {
-		return nil, errors.Wrap(c1Err, "failed to create consensus capability v1")
-	}
-	capabilities = append(capabilities, c1)
+	// c1, c1Err := consensusv1capability.New(homeChainID)
+	// if c1Err != nil {
+	// 	return nil, errors.Wrap(c1Err, "failed to create consensus capability v1")
+	// }
+	// capabilities = append(capabilities, c1)
 
 	c2, c2Err := consensusv2capability.New()
 	if c2Err != nil {

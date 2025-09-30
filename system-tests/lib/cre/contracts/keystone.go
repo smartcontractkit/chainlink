@@ -224,20 +224,20 @@ func DeployKeystoneContracts(
 	// TODO move this deeper into the stack when we have all the p2p ids and can deploy and configure in one sequence
 	// deploy OCR3 contract
 	// we deploy OCR3 contract with a qualifier, so that we can distinguish it from other OCR3 contracts (Vault, EVM, ConsensusV2)
-	_, seqErr = deployOCR3Contract(OCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
-	if seqErr != nil {
-		return nil, fmt.Errorf("failed to deploy OCR3 contract %w", seqErr)
-	}
-	ocr3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], OCR3ContractQualifier)
-	testLogger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, ocr3Addr)
+	// _, seqErr = deployOCR3Contract(OCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
+	// if seqErr != nil {
+	// 	return nil, fmt.Errorf("failed to deploy OCR3 contract %w", seqErr)
+	// }
+	// ocr3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], OCR3ContractQualifier)
+	// testLogger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, ocr3Addr)
 
-	// deploy DONTime contract
-	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore) // Switch to dedicated config type once available
-	if seqErr != nil {
-		return nil, fmt.Errorf("failed to deploy DONTime contract %w", seqErr)
-	}
-	donTimeAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], DONTimeContractQualifier)
-	testLogger.Info().Msgf("Deployed OCR3 %s (DON Time) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, donTimeAddr)
+	// // deploy DONTime contract
+	// _, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore) // Switch to dedicated config type once available
+	// if seqErr != nil {
+	// 	return nil, fmt.Errorf("failed to deploy DONTime contract %w", seqErr)
+	// }
+	// donTimeAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], DONTimeContractQualifier)
+	// testLogger.Info().Msgf("Deployed OCR3 %s (DON Time) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, donTimeAddr)
 
 	// deploy Vault OCR3 contract
 	if vaultOCR3AddrFlag {

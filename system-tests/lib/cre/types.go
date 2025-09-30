@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
@@ -373,6 +375,8 @@ type ConfigureKeystoneInput struct {
 	CapabilitiesRegistryAddress *common.Address
 
 	WithV2Registries bool
+
+	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig
 }
 
 func (c *ConfigureKeystoneInput) Validate() error {
@@ -391,9 +395,9 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
 	}
-	if c.OCR3Address == nil || c.CapabilitiesRegistryAddress == nil {
-		return errors.New("OCR3Address and CapabilitiesRegistryAddress must be set")
-	}
+	// if c.OCR3Address == nil || c.CapabilitiesRegistryAddress == nil {
+	// 	return errors.New("OCR3Address and CapabilitiesRegistryAddress must be set")
+	// }
 
 	return nil
 }
@@ -1317,4 +1321,28 @@ type InstallableCapability interface {
 type PersistentConfig interface {
 	Load(absPath string) error
 	Store(absPath string) error
+}
+
+type Feature interface {
+	Flag() CapabilityFlag
+	PreDONStartup(
+		registryChainSelector uint64,
+		cldfEnv *cldf.Environment,
+		provider infra.Provider,
+		nodeSets []*CapabilitiesAwareNodeSet,
+		blockchainOutputs []*WrappedBlockchainOutput,
+		capabilityConfigs CapabilityConfigs,
+	) error
+	PostDONStartup(
+		ctx context.Context,
+		testLogger zerolog.Logger,
+		creEnv *Environment,
+		nodeSetOutput []*WrappedNodeOutput,
+		contractVersions map[string]string,
+		// postDONStartupOutput *PostDONStartupOutput
+	) (*PostDONStartupOutput, error)
+}
+
+type PostDONStartupOutput struct {
+	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig
 }
