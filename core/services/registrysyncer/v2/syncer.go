@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -257,6 +258,16 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 	for _, d := range dons {
 		cc := map[string]registrysyncer.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
+			rawHex := hex.EncodeToString(dc.Config)
+			isJSON := json.Valid(dc.Config)
+			s.lggr.Infow("imported onchain capability config",
+				"donID", d.Id,
+				"donName", d.Name,
+				"capabilityID", dc.CapabilityId,
+				"rawHex", rawHex,
+				"looksLikeJSON", isJSON,
+			)
+
 			cc[dc.CapabilityId] = registrysyncer.CapabilityConfiguration{
 				Config: dc.Config,
 			}

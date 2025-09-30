@@ -3,6 +3,7 @@ package capabilities
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -379,9 +380,17 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 			return fmt.Errorf("could not find capability matching id %s", cid)
 		}
 
+		rawHex := hex.EncodeToString(c.Config)
+		isJSON := json.Valid(c.Config)
+		w.lggr.Infow("Inspecting capability config before unmarshal",
+			"capabilityID", cid,
+			"rawHex", rawHex,
+			"looksLikeJSON", isJSON,
+		)
+
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %s: %w", cid, hex.EncodeToString(c.Config), err)
+			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %s: %w", cid, rawHex, err)
 		}
 
 		methodConfig := capabilityConfig.CapabilityMethodConfig
@@ -579,9 +588,17 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 			return fmt.Errorf("could not find capability matching id %s", cid)
 		}
 
+		rawHex := hex.EncodeToString(c.Config)
+		isJSON := json.Valid(c.Config)
+		w.lggr.Infow("Inspecting capability config before unmarshal",
+			"capabilityID", cid,
+			"rawHex", rawHex,
+			"looksLikeJSON", isJSON,
+		)
+
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
+			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %s: %w", cid, rawHex, err)
 		}
 
 		methodConfig := capabilityConfig.CapabilityMethodConfig

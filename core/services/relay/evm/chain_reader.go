@@ -203,6 +203,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 		return err
 	}
 
+	cr.lggr.Infow("GetLatestValue", "readName", readName, "address", address)
 	ptrToValue, isValue := returnVal.(*values.Value)
 	if !isValue {
 		_, err = binding.GetLatestValueWithHeadData(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
