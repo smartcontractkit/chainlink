@@ -361,7 +361,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TOPIC_DATA_RACES_CHANNEL_ID}}
-            text: "Race Tests Failed: <${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, job.check_run_id) }}|Run>"
+            text: "Race Tests Failed: <${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}', github.repository, github.run_id, job.check_run_id) }}|Run>"
 
   core-scripts-tests:
     name: test-scripts
