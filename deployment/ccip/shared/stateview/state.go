@@ -62,9 +62,14 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	registryModuleOwnerCustomv15 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
@@ -794,7 +799,19 @@ func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector u
 	return chain, chainState, nil
 }
 
-func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
+type LoadOption func(*loadStateOpts)
+
+type loadStateOpts struct {
+	loadLegacyContracts bool
+}
+
+func WithLoadLegacyContracts(load bool) LoadOption {
+	return func(c *loadStateOpts) {
+		c.loadLegacyContracts = load
+	}
+}
+
+func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState, error) {
 	solanaState, err := LoadOnchainStateSolana(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
@@ -820,7 +837,7 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 		if err != nil {
 			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
 		}
-		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
+		chainState, err := LoadChainState(e.GetContext(), chain, addresses, opts...)
 		if err != nil {
 			return state, err
 		}
@@ -830,7 +847,12 @@ func LoadOnchainState(e cldf.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (evm.CCIPChainState, error) {
+func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion, opts ...LoadOption) (evm.CCIPChainState, error) {
+	config := &loadStateOpts{}
+	for _, opt := range opts {
+		opt(config)
+	}
+
 	var state evm.CCIPChainState
 	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
@@ -1211,7 +1233,10 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.ABIByAddress[address] = erc677.ERC677ABI
 		// legacy addresses below are commented out to avoid loading them by default, to be uncommented for migrations
 		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String():
-			/* onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
+			if !config.loadLegacyContracts {
+				continue
+			}
+			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -1223,9 +1248,12 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				state.EVM2EVMOnRamp = make(map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp)
 			}
 			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
-			state.ABIByAddress[address] = evm_2_evm_onramp.EVM2EVMOnRampABI */
+			state.ABIByAddress[address] = evm_2_evm_onramp.EVM2EVMOnRampABI
 		case cldf.NewTypeAndVersion(ccipshared.OffRamp, deployment.Version1_5_0).String():
-			/* offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(common.HexToAddress(address), chain.Client)
+			if !config.loadLegacyContracts {
+				continue
+			}
+			offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -1237,9 +1265,12 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				state.EVM2EVMOffRamp = make(map[uint64]*evm_2_evm_offramp.EVM2EVMOffRamp)
 			}
 			state.EVM2EVMOffRamp[sCfg.SourceChainSelector] = offRamp
-			state.ABIByAddress[address] = evm_2_evm_offramp.EVM2EVMOffRampABI */
+			state.ABIByAddress[address] = evm_2_evm_offramp.EVM2EVMOffRampABI
 		case cldf.NewTypeAndVersion(ccipshared.CommitStore, deployment.Version1_5_0).String():
-			/* commitStore, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
+			if !config.loadLegacyContracts {
+				continue
+			}
+			commitStore, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
@@ -1251,21 +1282,27 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				state.CommitStore = make(map[uint64]*commit_store.CommitStore)
 			}
 			state.CommitStore[sCfg.SourceChainSelector] = commitStore
-			state.ABIByAddress[address] = commit_store.CommitStoreABI */
+			state.ABIByAddress[address] = commit_store.CommitStoreABI
 		case cldf.NewTypeAndVersion(ccipshared.PriceRegistry, deployment.Version1_2_0).String():
-			/* pr, err := price_registry_1_2_0.NewPriceRegistry(common.HexToAddress(address), chain.Client)
+			if !config.loadLegacyContracts {
+				continue
+			}
+			pr, err := price_registry_1_2_0.NewPriceRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.PriceRegistry = pr
-			state.ABIByAddress[address] = price_registry_1_2_0.PriceRegistryABI */
+			state.ABIByAddress[address] = price_registry_1_2_0.PriceRegistryABI
 		case cldf.NewTypeAndVersion(ccipshared.RMN, deployment.Version1_5_0).String():
-			/* rmnC, err := rmn_contract.NewRMNContract(common.HexToAddress(address), chain.Client)
+			if !config.loadLegacyContracts {
+				continue
+			}
+			rmnC, err := rmn_contract.NewRMNContract(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMN = rmnC
-			state.ABIByAddress[address] = rmn_contract.RMNContractABI */
+			state.ABIByAddress[address] = rmn_contract.RMNContractABI
 		case cldf.NewTypeAndVersion(ccipshared.MockRMN, deployment.Version1_0_0).String():
 			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
 			if err != nil {

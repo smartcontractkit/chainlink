@@ -860,7 +860,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 		}),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	allChains := e.Env.BlockChains.ListChainSelectors(
 		cldf_chain.WithFamily(chainselectors.FamilyEVM),

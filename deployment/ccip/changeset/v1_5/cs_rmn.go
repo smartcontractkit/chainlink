@@ -66,7 +66,7 @@ type PermaBlessCommitStoreConfig struct {
 }
 
 func (c PermaBlessCommitStoreConfig) Validate(env cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
