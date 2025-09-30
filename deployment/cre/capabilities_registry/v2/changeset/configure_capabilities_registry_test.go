@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -739,7 +741,7 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		assert.Equal(t, capability.ConfigurationContract, registeredCapability.ConfigurationContract, "capability configuration contract should match")
 
 		// Convert the struct metadata to bytes for comparison with blockchain data
-		expectedMetadataBytes, err := json.Marshal(capability.Metadata)
+		expectedMetadataBytes, err := pkg.CapabilityConfig(capability.Metadata).MarshalProto()
 		require.NoError(t, err, "failed to marshal expected metadata")
 		assert.Equal(t, expectedMetadataBytes, registeredCapability.Metadata, "capability metadata should match")
 	}
@@ -792,9 +794,17 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		assert.Equal(t, don.DonFamilies, foundDON.DonFamilies, "DON families should match")
 
 		// Convert our config map to JSON bytes for comparison
-		expectedConfigBytes, err := json.Marshal(don.Config)
+		got := new(pkg.CapabilityConfig)
+		err := got.UnmarshalProto(foundDON.Config)
+		require.NoError(t, err, "failed to unmarshal DON config from on chain value")
+		wantB, err := pkg.CapabilityConfig(don.Config).MarshalProto()
 		require.NoError(t, err, "failed to marshal expected DON config")
-		assert.Equal(t, expectedConfigBytes, foundDON.Config, "DON config should match")
+		want := new(pkg.CapabilityConfig)
+		err = want.UnmarshalProto(wantB)
+		require.NoError(t, err, "failed to unmarshal expected DON config")
+		if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+			t.Errorf("DON config mismatch (-want +got):\n%s", diff)
+		}
 
 		assert.Equal(t, don.F, foundDON.F, "DON F value should match")
 		assert.Equal(t, don.IsPublic, foundDON.IsPublic, "DON isPublic flag should match")
