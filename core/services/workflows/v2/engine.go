@@ -562,6 +562,7 @@ func (e *Engine) close() error {
 
 // NOTE: needs to be called under the triggersRegMu lock
 func (e *Engine) unregisterAllTriggers(ctx context.Context) {
+	failCount := 0
 	for registrationID, trigger := range e.triggers {
 		err := trigger.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
@@ -573,10 +574,11 @@ func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 		})
 		if err != nil {
 			e.lggr.Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
+			failCount++
 		}
 	}
+	e.lggr.Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
 	e.triggers = make(map[string]*triggerCapability)
-	e.lggr.Infow("All triggers unregistered", "numTriggers", len(e.triggers))
 }
 
 func (e *Engine) heartbeatLoop(ctx context.Context) {
