@@ -43,13 +43,12 @@ import (
 )
 
 type SuiSendRequest struct {
-	Receiver         []byte
-	Data             []byte
-	ExtraArgs        []byte
-	FeeToken         string
-	FeeTokenStore    string
-	FeeTokenMetadata string
-	TokenAmounts     []SuiTokenAmount
+	Receiver      []byte
+	Data          []byte
+	ExtraArgs     []byte
+	FeeToken      string
+	FeeTokenStore string
+	TokenAmounts  []SuiTokenAmount
 }
 
 type SuiTokenAmount struct {
