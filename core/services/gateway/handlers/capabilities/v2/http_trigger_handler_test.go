@@ -277,7 +277,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 			Result:  &rawRes,
 		}
 
-		// Send responses from multiple nodes (need 2f+1 = 3 for f=1)
+		// Send responses from multiple nodes (need (N+F)//2+1 = (3+1)//2+1 = 3 for N=3, F=1)
 		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node1")
 		require.NoError(t, err)
 
@@ -493,7 +493,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 
 	donConfig := &config.DONConfig{
 		DonId: "test-don",
-		F:     1, // 1 faulty node, so 2*1+1=3 for threshold
+		F:     1, // 1 faulty node, so (N+F)//2+1=(3+1)//2+1=3 for threshold
 		Members: []config.NodeConfig{
 			{Address: "node1"},
 			{Address: "node2"},
@@ -1354,7 +1354,7 @@ func createTestTriggerHandler(t *testing.T) (*httpTriggerHandler, *handlermocks.
 func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpTriggerHandler, *handlermocks.DON) {
 	donConfig := &config.DONConfig{
 		DonId: "test-don",
-		F:     1, // This means we need 2f+1 = 3 responses for consensus
+		F:     1, // This means we need (N+F)//2+1 = (3+1)//2+1 = 3 responses for consensus
 		Members: []config.NodeConfig{
 			{Address: "node1"},
 			{Address: "node2"},
