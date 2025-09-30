@@ -18,6 +18,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -28,6 +29,8 @@ type TransferToMCMSWithTimelockConfig struct {
 	ContractsByChain map[uint64][]common.Address
 	// MCMSConfig is for the accept ownership proposal
 	MCMSConfig proposalutils.TimelockConfig
+	// optional qualifier to find the MCMS proposer/timelock in the data store
+	Qualifier string
 }
 
 type Ownable interface {
@@ -52,9 +55,9 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 
 // searchContractInBothSources searches for a contract type in both AddressBook and DataStore
 // Returns the address if found in either source (similar to cldf.SearchAddressBook)
-func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contractType cldf.ContractType) (string, error) {
+func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contractType cldf.ContractType, qualifier string) (string, error) {
 	// Use the merged address loading from the EVM state function
-	addressesChain, err := state.AddressesForChain(e, chainSelector, "")
+	addressesChain, err := state.AddressesForChain(e, chainSelector, qualifier)
 	if err != nil {
 		return "", fmt.Errorf("failed to load addresses: %w", err)
 	}
@@ -90,10 +93,10 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 			}
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
-		if _, err := searchContractInBothSources(e, chainSelector, types.RBACTimelock); err != nil {
+		if _, err := searchContractInBothSources(e, chainSelector, types.RBACTimelock, t.Qualifier); err != nil {
 			return fmt.Errorf("timelock not present on the chain %w", err)
 		}
-		if _, err := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig); err != nil {
+		if _, err := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig, t.Qualifier); err != nil {
 			return fmt.Errorf("mcms proposer not present on the chain %w", err)
 		}
 	}
@@ -119,8 +122,8 @@ func TransferToMCMSWithTimelockV2(
 	execReports := make([]operations.Report[any, any], 0)
 	for chainSelector, contracts := range cfg.ContractsByChain {
 		// Already validated that the timelock/proposer exists.
-		timelockAddr, _ := searchContractInBothSources(e, chainSelector, types.RBACTimelock)
-		proposerAddr, _ := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig)
+		timelockAddr, _ := searchContractInBothSources(e, chainSelector, types.RBACTimelock, cfg.Qualifier)
+		proposerAddr, _ := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig, cfg.Qualifier)
 		timelockAddressByChain[chainSelector] = timelockAddr
 		proposerAddressByChain[chainSelector] = proposerAddr
 		inspectorPerChain[chainSelector] = evm.NewInspector(evmChains[chainSelector].Client)
