@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
@@ -509,6 +510,16 @@ func (i *pluginOracleCreator) createCCIPProviders(
 			transmitter := i.transmitters[relayID]
 			if len(transmitter) == 0 {
 				return nil, errors.New("transmitter list is empty")
+			}
+
+			// Check if the transmitter string is a valid utf-8 string
+			if !utf8.ValidString(transmitter[0]) {
+				i.lggr.Errorw("transmitter contains invalid UTF-8",
+					"transmitter", transmitter[0],
+					"relayID.Network", relayID.Network,
+					"chainSelector", chainSelector)
+				return nil, fmt.Errorf("transmitter contains invalid UTF-8: %q", transmitter[0])
+
 			}
 			ccipProvider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{
 				PluginType:           cciptypes.PluginType(config.Config.PluginType),
