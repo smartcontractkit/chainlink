@@ -557,7 +557,7 @@ func (m *DestinationGun) getSuiMessage(src uint64) (testhelpers.SuiSendRequest, 
 
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
 
-	srcChainState, exists := m.state.SuiChains[src]
+	_, exists := m.state.SuiChains[src]
 	if !exists {
 		return testhelpers.SuiSendRequest{}, fmt.Errorf("no Sui state available for source chain %d", src)
 	}
@@ -565,6 +565,7 @@ func (m *DestinationGun) getSuiMessage(src uint64) (testhelpers.SuiSendRequest, 
 	message := testhelpers.SuiSendRequest{
 		Receiver:  common.LeftPadBytes(m.receiver, 32),
 		ExtraArgs: []byte{},
+		FeeToken:  "0xdf540d8211c7d9780c7cd1a6853ce7cb793b1503423ba492f4ed9b40fca28d89",
 	}
 
 	switch {
@@ -579,7 +580,7 @@ func (m *DestinationGun) getSuiMessage(src uint64) (testhelpers.SuiSendRequest, 
 	case selectedMsgDetails.IsTokenTransfer():
 		message.TokenAmounts = []testhelpers.SuiTokenAmount{
 			{
-				Token:  srcChainState.LinkTokenAddress,
+				Token:  "0xdf540d8211c7d9780c7cd1a6853ce7cb793b1503423ba492f4ed9b40fca28d89",
 				Amount: 1,
 			},
 		}
