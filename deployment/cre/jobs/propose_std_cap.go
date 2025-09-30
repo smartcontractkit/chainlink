@@ -15,6 +15,7 @@ import (
 var _ cldf.ChangeSetV2[ProposeStandardCapabilityJobInput] = ProposeStandardCapabilityJob{}
 
 type ProposeStandardCapabilityJobInput struct {
+	Domain  string `json:"domain" yaml:"domain"`
 	DONName string `json:"don_name" yaml:"don_name"`
 	JobName string `json:"job_name" yaml:"job_name"`
 	Command string `json:"command" yaml:"command"`
@@ -52,6 +53,7 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 		operations2.ProposeStandardCapabilityJob,
 		operations2.ProposeStandardCapabilityJobDeps{Env: e},
 		operations2.ProposeStandardCapabilityJobInput{
+			Domain:  input.Domain,
 			DONName: input.DONName,
 			Job: pkg.StandardCapabilityJob{
 				JobName:               input.JobName,

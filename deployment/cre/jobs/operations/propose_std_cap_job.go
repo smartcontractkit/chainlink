@@ -43,9 +43,9 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 	ProposeStandardCapabilityJobOutput,
 	ProposeStandardCapabilityJobDeps,
 ](
-	"propose-standard-capability-oracle-factory-job-seq",
+	"propose-standard-capability-job-seq",
 	semver.MustParse("1.0.0"),
-	"Propose Standard Capability w/ Oracle Factory Job",
+	"Propose Standard Capability Job",
 	func(b operations.Bundle, deps ProposeStandardCapabilityJobDeps, input ProposeStandardCapabilityJobInput) (ProposeStandardCapabilityJobOutput, error) {
 		if err := input.Job.Validate(); err != nil {
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("invalid job: %w", err)
