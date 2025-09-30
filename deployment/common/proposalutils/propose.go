@@ -16,9 +16,11 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -161,6 +163,18 @@ func (tc *TimelockConfig) ValidateSolana(e cldf.Environment, chainSelector uint6
 		}
 	default:
 		return fmt.Errorf("invalid MCMS action %s", tc.MCMSAction)
+	}
+
+	return nil
+}
+
+func (tc *TimelockConfig) ValidateAptos(chain cldf_aptos.Chain, state aptosstate.CCIPChainState) error {
+	if err := tc.validateCommon(); err != nil {
+		return err
+	}
+
+	if (state.MCMSAddress == aptos.AccountAddress{}) {
+		return fmt.Errorf("aptos MCMS contract not present on chain %s", chain)
 	}
 
 	return nil
