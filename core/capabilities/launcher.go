@@ -639,11 +639,11 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 		if err = w.addReceiver(ctx, capability, don, newTriggerPublisher); err != nil {
 			return fmt.Errorf("failed to add server-side receiver for a trigger capability '%s' - it won't be exposed remotely: %w", cid, err)
 		}
-	case capabilities.CapabilityTypeAction:
+	case capabilities.CapabilityTypeAction, capabilities.CapabilityTypeTarget:
 		newActionServer := func(bc capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
-			actionCapability, ok := (bc).(capabilities.ActionCapability)
+			ec, ok := (bc).(capabilities.ExecutableCapability)
 			if !ok {
-				return nil, errors.New("capability does not implement ActionCapability")
+				return nil, errors.New("capability does not implement ExecutableCapability")
 			}
 
 			remoteConfig := &capabilities.RemoteExecutableConfig{}
@@ -654,7 +654,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 			return executable.NewServer(
 				remoteConfig,
 				myPeerID,
-				actionCapability,
+				ec,
 				info,
 				don.DON,
 				idsToDONs,
@@ -672,37 +672,6 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 		}
 	case capabilities.CapabilityTypeConsensus:
 		w.lggr.Debug("no remote client configured for capability type consensus, skipping configuration")
-	case capabilities.CapabilityTypeTarget: // TODO: unify Target and Action into Executable
-		newTargetServer := func(bc capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
-			targetCapability, ok := (bc).(capabilities.TargetCapability)
-			if !ok {
-				return nil, errors.New("capability does not implement TargetCapability")
-			}
-
-			remoteConfig := &capabilities.RemoteExecutableConfig{}
-			if capabilityConfig.RemoteTargetConfig != nil {
-				remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
-			}
-
-			return executable.NewServer(
-				remoteConfig,
-				myPeerID,
-				targetCapability,
-				info,
-				don.DON,
-				idsToDONs,
-				w.dispatcher,
-				defaultTargetRequestTimeout,
-				defaultMaxParallelCapabilityExecuteRequests,
-				nil, // TODO: create a capability-specific hasher
-				"",  // empty method name for v1
-				w.lggr,
-			), nil
-		}
-
-		if err = w.addReceiver(ctx, capability, don, newTargetServer); err != nil {
-			return fmt.Errorf("failed to add server-side receiver for a target capability '%s' - it won't be exposed remotely: %w", cid, err)
-		}
 	default:
 		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
 	}
