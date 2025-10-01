@@ -37,7 +37,7 @@ type dummyMultiChainDeployerGroupChangesetConfig struct {
 	address           common.Address
 	mints             []mintConfig
 	MCMS              *proposalutils.TimelockConfig
-	timelockQualifier string
+	timelockQualifier map[uint64]string
 }
 
 type dummyDeployerGroupChangesetConfig struct {
@@ -114,7 +114,7 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e cldf.Environment, cfg dumm
 	}
 
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
-	if cfg.timelockQualifier != "" {
+	if cfg.timelockQualifier != nil {
 		group, err = group.WithTimelockAddressQualifier(cfg.timelockQualifier)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
@@ -156,7 +156,7 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e cldf.Environment, c
 		} else {
 			group = group.WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
 		}
-		if cfg.timelockQualifier != "" {
+		if cfg.timelockQualifier != nil {
 			group, err = group.WithTimelockAddressQualifier(cfg.timelockQualifier)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -306,66 +306,55 @@ func TestDeployerGroupMCMS(t *testing.T) {
 }
 
 func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
+	var err error
 	linktokenOwnerQualifier := "link-owner"
+	selectorIndex := uint64(0)
 	testCfg := dummyMultiChainDeployerGroupChangesetConfig{
 		address: common.HexToAddress("0x455E5AA18469bC6ccEF49594645666C587A3a71B"),
 		mints: []mintConfig{
 			{
-				selectorIndex: 0,
+				selectorIndex: selectorIndex,
 				amount:        big.NewInt(1),
 			},
 			{
-				selectorIndex: 0,
-				amount:        big.NewInt(2),
-			},
-			{
-				selectorIndex: 1,
+				selectorIndex: selectorIndex,
 				amount:        big.NewInt(4),
 			},
 		},
 		MCMS: &proposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
-		timelockQualifier: linktokenOwnerQualifier,
 	}
-	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithPrerequisiteDeploymentOnly(nil))
 
-	contractsByChain := make(map[uint64][]common.Address)
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
-	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-		contractsByChain[chain] = []common.Address{state.MustGetEVMChainState(chain).LinkToken.Address()}
-		cfg := proposalutils.SingleGroupTimelockConfigV2(t)
-		cfg.Qualifier = ptr.To(linktokenOwnerQualifier)
-		mcmsCfg[chain] = cfg
-	}
+	chain := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[selectorIndex]
+	cfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	cfg.Qualifier = ptr.To(linktokenOwnerQualifier)
+	mcmsCfg[chain] = cfg
 
 	// Deploy a new MCMS with qualifier and transfer the ownership of the link token to it
-	e.Env, err = commonchangeset.Apply(t, e.Env,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			mcmsCfg,
-		),
-	)
+	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), mcmsCfg))
 	require.NoError(t, err)
+
 	// Delete the newly deployed MCMS addresses from addressbook so that the state loader does not pick them up
+	// otherwise the mcms state will throw an error for duplicate MCMS contracts
 	addressBookToDelete := cldf.NewMemoryAddressBook()
-	for _, chain := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-		addressesToDelete, err := commonstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier)
-		require.NoError(t, err)
-		for addr, tv := range addressesToDelete {
-			require.NoError(t, addressBookToDelete.Save(chain, addr, tv))
-		}
+	addressesToDelete, err := commonstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier)
+	require.NoError(t, err)
+	for addr, tv := range addressesToDelete {
+		require.NoError(t, addressBookToDelete.Save(chain, addr, tv))
 	}
 	require.NoError(t, e.Env.ExistingAddresses.Remove(addressBookToDelete))
-
-	currentState, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
-	token := currentState.MustGetEVMChainState(e.HomeChainSel).LinkToken
-	sumOfMints, err := token.BalanceOf(nil, testCfg.address)
-	require.NoError(t, err)
+	contractsByChain := make(map[uint64][]common.Address)
+	contractsByChain[chain] = []common.Address{state.MustGetEVMChainState(chain).LinkToken.Address()}
+	qualifierInput := map[uint64]string{
+		chain: linktokenOwnerQualifier,
+	}
+	testCfg.timelockQualifier = qualifierInput
 
 	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
@@ -374,7 +363,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 				MCMSConfig: proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
-				Qualifier: linktokenOwnerQualifier,
+				Qualifier: testCfg.timelockQualifier,
 			},
 		),
 		commonchangeset.Configure(
@@ -388,9 +377,15 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	currentState, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	token := currentState.MustGetEVMChainState(e.HomeChainSel).LinkToken
+
 	amount, err := token.BalanceOf(nil, testCfg.address)
 	require.NoError(t, err)
 
+	sumOfMints := big.NewInt(0)
 	for _, mint := range testCfg.mints {
 		sumOfMints = sumOfMints.Add(sumOfMints, mint.amount)
 	}

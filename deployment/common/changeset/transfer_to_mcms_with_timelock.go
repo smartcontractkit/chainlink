@@ -30,7 +30,7 @@ type TransferToMCMSWithTimelockConfig struct {
 	// MCMSConfig is for the accept ownership proposal
 	MCMSConfig proposalutils.TimelockConfig
 	// optional qualifier to find the MCMS proposer/timelock in the data store
-	Qualifier string
+	Qualifier map[uint64]string
 }
 
 type Ownable interface {
@@ -93,10 +93,14 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 			}
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
-		if _, err := searchContractInBothSources(e, chainSelector, types.RBACTimelock, t.Qualifier); err != nil {
+		qualifier := ""
+		if t.Qualifier != nil {
+			qualifier = t.Qualifier[chainSelector]
+		}
+		if _, err := searchContractInBothSources(e, chainSelector, types.RBACTimelock, qualifier); err != nil {
 			return fmt.Errorf("timelock not present on the chain %w", err)
 		}
-		if _, err := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig, t.Qualifier); err != nil {
+		if _, err := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig, qualifier); err != nil {
 			return fmt.Errorf("mcms proposer not present on the chain %w", err)
 		}
 	}
@@ -122,8 +126,12 @@ func TransferToMCMSWithTimelockV2(
 	execReports := make([]operations.Report[any, any], 0)
 	for chainSelector, contracts := range cfg.ContractsByChain {
 		// Already validated that the timelock/proposer exists.
-		timelockAddr, _ := searchContractInBothSources(e, chainSelector, types.RBACTimelock, cfg.Qualifier)
-		proposerAddr, _ := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig, cfg.Qualifier)
+		qualifier := ""
+		if cfg.Qualifier != nil {
+			qualifier = cfg.Qualifier[chainSelector]
+		}
+		timelockAddr, _ := searchContractInBothSources(e, chainSelector, types.RBACTimelock, qualifier)
+		proposerAddr, _ := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig, qualifier)
 		timelockAddressByChain[chainSelector] = timelockAddr
 		proposerAddressByChain[chainSelector] = proposerAddr
 		inspectorPerChain[chainSelector] = evm.NewInspector(evmChains[chainSelector].Client)

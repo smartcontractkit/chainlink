@@ -35,7 +35,7 @@ type DeployerGroup struct {
 	txDecoder         *proposalutils.TxCallDecoder
 	describeContext   *proposalutils.ArgumentContext
 	// if we need to override the timelock or mcm address with specific qualifiers from datastore
-	timelockAddressQualifier string
+	timelockAddressQualifier map[uint64]string //key is chain selector
 }
 
 type DescribedTransaction interface {
@@ -161,19 +161,20 @@ func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmC
 	}
 }
 
-func (d *DeployerGroup) WithTimelockAddressQualifier(qualifier string) (*DeployerGroup, error) {
-	if qualifier == "" {
+func (d *DeployerGroup) WithTimelockAddressQualifier(qualifier map[uint64]string) (*DeployerGroup, error) {
+	if qualifier == nil {
 		return d, nil
 	}
 	e := d.e
 	if e.DataStore == nil {
 		return nil, fmt.Errorf("datastore is nil, cannot load address ref with qualifier %v", qualifier)
 	}
-	err := d.state.UpdateMCMSStateWithAddressFromDatastore(d.e, qualifier)
-	if err != nil {
-		return nil, err
+	for chain, q := range qualifier {
+		err := d.state.UpdateMCMSStateWithAddressFromDatastoreForChain(d.e, chain, q)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	return d, nil
 }
 
@@ -506,7 +507,7 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 	return cldf.ChangesetOutput{}, nil
 }
 
-func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCIPOnChainState, addressQualifier string) (map[uint64]string, error) {
+func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCIPOnChainState, addressQualifierPerChain map[uint64]string) (map[uint64]string, error) {
 	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.BlockChains.EVMChains() {
 		addressPerChain[chain.Selector] = onchainState.MustGetEVMChainState(chain.Selector).Timelock.Address().Hex()
@@ -519,8 +520,8 @@ func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCI
 		// if we have a qualifier, we load the address from datastore
 		// this is useful when we want to use a different timelock than the one in the onchain state
 		// e.g. when a specific contract is owned by a different timelock
-		if addressQualifier != "" {
-			addresses, err = addressForChainFromDatastore(e, selector, addressQualifier)
+		if addressQualifierPerChain != nil && addressQualifierPerChain[selector] != "" {
+			addresses, err = addressForChainFromDatastore(e, selector, addressQualifierPerChain[selector])
 		} else {
 			addresses, err = addressForChain(e, selector)
 		}
@@ -534,7 +535,7 @@ func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCI
 	return addressPerChain, nil
 }
 
-func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState stateview.CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig, mcmQualifier string) (map[uint64]string, error) {
+func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState stateview.CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig, mcmQualifier map[uint64]string) (map[uint64]string, error) {
 	if mcmCfg == nil {
 		return nil, errors.New("mcm config is nil, cannot get mcms address")
 	}
@@ -554,8 +555,8 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 		// if we have a qualifier, we load the address from datastore
 		// this is useful when we want to use a different mcm than the one in the onchain state
 		// e.g. when a specific contract is owned by a different mcm
-		if mcmQualifier != "" {
-			addresses, err = addressForChainFromDatastore(e, selector, mcmQualifier)
+		if mcmQualifier != nil && mcmQualifier[selector] != "" {
+			addresses, err = addressForChainFromDatastore(e, selector, mcmQualifier[selector])
 		} else {
 			addresses, err = addressForChain(e, selector)
 		}

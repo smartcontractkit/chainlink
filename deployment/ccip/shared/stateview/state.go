@@ -801,9 +801,8 @@ func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector u
 	return chain, chainState, nil
 }
 
-func (c CCIPOnChainState) UpdateMCMSStateWithAddressFromDatastore(e cldf.Environment, qualifier string) error {
-	allEVMChains := maps.Keys(e.BlockChains.EVMChains())
-	mcmsStateWithQualifier, err := commonstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, allEVMChains, qualifier)
+func (c CCIPOnChainState) UpdateMCMSStateWithAddressFromDatastoreForChain(e cldf.Environment, selector uint64, qualifier string) error {
+	mcmsStateWithQualifier, err := commonstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
 	if err != nil {
 		return fmt.Errorf("failed to load mcms state from datastore with qualifier %s: %w", qualifier, err)
 	}

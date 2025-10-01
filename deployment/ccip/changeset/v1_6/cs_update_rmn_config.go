@@ -333,11 +333,11 @@ func SetRMNHomeCandidateConfigChangeset(e cldf.Environment, config SetRMNHomeCan
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
 	}
 
-	timelocks, err := deployergroup.BuildTimelockAddressPerChain(e, state, "")
+	timelocks, err := deployergroup.BuildTimelockAddressPerChain(e, state, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig, "")
+	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -416,11 +416,11 @@ func PromoteRMNHomeCandidateConfigChangeset(e cldf.Environment, config PromoteRM
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
 	}
 
-	timelocks, err := deployergroup.BuildTimelockAddressPerChain(e, state, "")
+	timelocks, err := deployergroup.BuildTimelockAddressPerChain(e, state, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig, "")
+	mcmContract, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, config.MCMSConfig, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

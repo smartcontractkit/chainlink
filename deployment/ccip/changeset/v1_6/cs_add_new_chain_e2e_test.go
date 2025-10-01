@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
@@ -291,6 +292,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			var linkAddress common.Address
 			remoteChainSelectors := make([]uint64, 0, len(chainIDs)-1)
 			addressesByChain := make(map[uint64]map[string]cldf.TypeAndVersion, len(chainIDs)-1)
+			ds := datastore.NewMemoryDataStore()
 			for _, selector := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 				if selector != deployedEnvironment.HomeChainSel && newChainSelector == 0 {
 					newChainSelector = selector
@@ -300,9 +302,19 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					addrs, err := e.ExistingAddresses.AddressesForChain(selector)
 					require.NoError(t, err, "must get addresses for chain")
 					addressesByChain[selector] = addrs
+					for addr, tv := range addrs {
+						require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+							Address:       addr,
+							ChainSelector: selector,
+							Labels:        datastore.NewLabelSet(tv.Labels.String()),
+							Type:          datastore.ContractType(tv.Type),
+							Version:       &tv.Version,
+						}))
+					}
 				}
 			}
 			e.ExistingAddresses = cldf.NewMemoryAddressBookFromMap(addressesByChain)
+			e.DataStore = ds.Seal()
 			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
