@@ -36,6 +36,8 @@ const (
 	expectedFilterLogsInvalidToBlock           = "got expected error for FilterLogs with invalid toBlock"
 	getTransactionByHashInvalidHash            = "GetTransactionByHash - invalid hash"
 	getTransactionReceiptInvalidHash           = "GetTransactionReceipt - invalid hash"
+	expectedGetTransactionByHashInvalidHash    = "not found"
+	headerByNumberInvalidBlock                 = "HeaderByNumber - invalid block number"
 )
 
 type evmNegativeTest struct {
@@ -106,7 +108,6 @@ var evmNegativeTestsFilterLogsWithInvalidAddress = []evmNegativeTest{
 
 var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
 	// FilterLogs - invalid TromBlock/ToBlock values
-	// Border values and equivalent partitioning for positive integers only
 	// Distance between blocks should not be more than 100
 	{"negative number", "-1", filterLogsInvalidFromBlock, "block number -1 is not supported"},
 	{"zero", "0", filterLogsInvalidFromBlock, "block number 0 is not supported"},
@@ -119,7 +120,6 @@ var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
 
 var evmNegativeTestsFilterLogsWithInvalidToBlock = []evmNegativeTest{
 	// FilterLogs - invalid toBlock values
-	// Border values and equivalent partitioning for positive integers only
 	// Distance between blocks should not be more than 100
 	{"negative number", "-1", filterLogsInvalidToBlock, "block number -1 is not supported"},
 	{"zero", "0", filterLogsInvalidToBlock, "block number 0 is not supported"},
@@ -155,6 +155,16 @@ var evmNegativeTestsGetTransactionReceiptInvalidHash = []evmNegativeTest{
 	{"malformed (non-hex) correct length", "0x123gggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", getTransactionReceiptInvalidHash, "got 2 bytes, expected 32"}, // produces x01#
 	{"short hash", "0x647b7f17f9edba01d1f75ce071d0bc10173bc66b5d072f28b644275bf13bb99", getTransactionReceiptInvalidHash, "RPC call failed: not found"},
 	{"non-existent hash", "0x1234567890123456789012345678901234567890123456789012345678901234", getTransactionReceiptInvalidHash, "RPC call failed: not found"},
+}
+
+var evmNegativeTestsHeaderByNumberInvalidBlock = []evmNegativeTest{
+	// HeaderByNumber - invalid block number
+	// empty, non-numeric string, decimal will return nil, when parsed to big.Int,
+	// nil is a valid param for searching the latest block, and won't error.
+	{"negative number", "-1", headerByNumberInvalidBlock, "block number -1 is not supported"},
+	{"zero", "0", headerByNumberInvalidBlock, "block number 0 is not supported"},
+	{"int overflownumber", "9223372036854775808", headerByNumberInvalidBlock, "is not an int64"},             // int64 max + 1
+	{"not existing block)", "9223372036854775807", headerByNumberInvalidBlock, "RPC call failed: not found"}, // int64 max
 }
 
 func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
