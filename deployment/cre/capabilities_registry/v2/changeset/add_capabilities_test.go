@@ -158,8 +158,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	for _, cfg := range don.CapabilityConfigurations {
 		if cfg.CapabilityId == newCapID {
 			got := new(pkg.CapabilityConfig)
-			err := got.UnmarshalProto(cfg.Config)
-			require.NoError(t, err, "unmarshal capability config proto bytes should not error")
+			require.NoError(t, got.UnmarshalProto(cfg.Config), "unmarshal capability config proto bytes should not error")
 			if diff := cmp.Diff(expectedConfig, got, protocmp.Transform()); diff != "" {
 				t.Errorf("capability config proto bytes should match: %s", diff)
 			}
