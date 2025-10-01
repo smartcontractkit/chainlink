@@ -14,6 +14,8 @@ import (
 var (
 	// Version is the semantic version of the build or Unset.
 	Version = Unset
+	// VersionTag is the complete version string, including all suffixes (-ccip, -beta1, etc)
+	VersionTag = Unset
 	// Sha is the commit hash of the build or Unset.
 	Sha = Unset
 )

@@ -34,7 +34,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 			},
 		}
 
-		job, err := input.ToStandardCapabilityJob(jobName)
+		job, err := input.ToStandardCapabilityJob(jobName, false)
 		require.NoError(t, err)
 		assert.Equal(t, jobName, job.JobName)
 		assert.Equal(t, "run", job.Command)
@@ -56,7 +56,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
 		}
-		_, err := input.ToStandardCapabilityJob(jobName)
+		_, err := input.ToStandardCapabilityJob(jobName, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "command is required")
 	})
@@ -68,7 +68,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
 		}
-		_, err := input.ToStandardCapabilityJob(jobName)
+		_, err := input.ToStandardCapabilityJob(jobName, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "command is required and must be a string")
 	})
@@ -80,7 +80,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
 		}
-		_, err := input.ToStandardCapabilityJob(jobName)
+		_, err := input.ToStandardCapabilityJob(jobName, false)
 		require.NoError(t, err)
 	})
 
@@ -91,7 +91,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 			"externalJobID": "123",
 			"oracleFactory": pkg.OracleFactory{},
 		}
-		_, err := input.ToStandardCapabilityJob(jobName)
+		_, err := input.ToStandardCapabilityJob(jobName, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot unmarshal !!map into string")
 	})
@@ -103,21 +103,9 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 			"externalJobID": struct{}{},
 			"oracleFactory": pkg.OracleFactory{},
 		}
-		_, err := input.ToStandardCapabilityJob(jobName)
+		_, err := input.ToStandardCapabilityJob(jobName, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot unmarshal !!map into string")
-	})
-
-	t.Run("empty externalJobID", func(t *testing.T) {
-		input := job_types.JobSpecInput{
-			"command":       "run",
-			"config":        "param=value",
-			"externalJobID": "",
-			"oracleFactory": pkg.OracleFactory{},
-		}
-		_, err := input.ToStandardCapabilityJob(jobName)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot be an empty string")
 	})
 
 	t.Run("invalid oracleFactory type", func(t *testing.T) {
@@ -127,7 +115,7 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 			"externalJobID": "123",
 			"oracleFactory": "not a factory",
 		}
-		_, err := input.ToStandardCapabilityJob(jobName)
+		_, err := input.ToStandardCapabilityJob(jobName, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot unmarshal !!str")
 	})

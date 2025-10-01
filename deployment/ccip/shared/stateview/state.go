@@ -1427,6 +1427,20 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 				return err
 			}
 		}
+	case chain_selectors.FamilyAptos:
+		chain, ok := env.BlockChains.AptosChains()[chainSel]
+		if !ok {
+			return fmt.Errorf("aptos chain with selector %d does not exist in environment", chainSel)
+		}
+		s, ok := state.AptosChains[chainSel]
+		if !ok {
+			return fmt.Errorf("%s does not exist in state", chain)
+		}
+		if mcmsCfg != nil {
+			if err := mcmsCfg.ValidateAptos(chain, s.MCMSAddress); err != nil {
+				return err
+			}
+		}
 	case chain_selectors.FamilyTon:
 		chain, ok := env.BlockChains.TonChains()[chainSel]
 		if !ok {

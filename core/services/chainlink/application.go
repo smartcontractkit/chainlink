@@ -217,6 +217,7 @@ type ApplicationOpts struct {
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
+	VersionTag               string
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
@@ -761,7 +762,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			cfg.OCR2(),
 			legacyEVMChains,
 			globalLogger,
-			opts.Version,
+			opts.VersionTag,
 			loopRegistrarConfig,
 		)
 	} else {

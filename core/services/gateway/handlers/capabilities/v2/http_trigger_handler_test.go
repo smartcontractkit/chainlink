@@ -206,14 +206,14 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Method:  gateway_common.MethodWorkflowExecute,
 			Params:  &rawParams,
 		}
-		req.Auth = createTestJWTToken(t, req, privateKey)
-
 		// First request should succeed
+		req.Auth = createTestJWTToken(t, req, privateKey)
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
 		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback1, time.Now())
 		require.NoError(t, err)
 
 		// Second request with same ID should fail
+		req.Auth = createTestJWTToken(t, req, privateKey)
 		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback2, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "in-flight request")
@@ -221,6 +221,45 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		r, err := callback2.Wait(t.Context())
 		require.NoError(t, err)
 		requireUserErrorSent(t, r, jsonrpc.ErrConflict)
+	})
+
+	t.Run("duplicate JWT token and request ID", func(t *testing.T) {
+		handler, mockDon := createTestTriggerHandler(t)
+		privateKey := createTestPrivateKey(t)
+		registerWorkflow(t, handler, workflowID, privateKey)
+		callback1 := hc.NewCallback()
+		callback2 := hc.NewCallback()
+
+		triggerReq := gateway_common.HTTPTriggerRequest{
+			Workflow: gateway_common.WorkflowSelector{
+				WorkflowID: workflowID,
+			},
+			Input: []byte(`{"key": "value"}`),
+		}
+		reqBytes, err := json.Marshal(triggerReq)
+		require.NoError(t, err)
+
+		rawParams := json.RawMessage(reqBytes)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      requestID,
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &rawParams,
+		}
+		// First request should succeed
+		req.Auth = createTestJWTToken(t, req, privateKey)
+		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback1, time.Now())
+		require.NoError(t, err)
+
+		// Second request with same ID should fail
+		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback2, time.Now())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "token has already been used")
+
+		r, err := callback2.Wait(t.Context())
+		require.NoError(t, err)
+		requireUserErrorSent(t, r, jsonrpc.ErrInvalidRequest)
 	})
 
 	t.Run("invalid input JSON", func(t *testing.T) {
@@ -277,7 +316,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 			Result:  &rawRes,
 		}
 
-		// Send responses from multiple nodes (need 2f+1 = 3 for f=1)
+		// Send responses from multiple nodes (need (N+F)//2+1 = (3+1)//2+1 = 3 for N=3, F=1)
 		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node1")
 		require.NoError(t, err)
 
@@ -380,7 +419,6 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 		Params:  &rawParams,
 	}
 	privateKey := createTestPrivateKey(t)
-	req.Auth = createTestJWTToken(t, req, privateKey)
 	cfg := ServiceConfig{
 		CleanUpPeriodMs:             100,
 		MaxTriggerRequestDurationMs: 50,
@@ -389,6 +427,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 	registerWorkflow(t, handler, workflowID, privateKey)
 
 	t.Run("reap expired callbacks", func(t *testing.T) {
+		req.Auth = createTestJWTToken(t, req, privateKey)
 		callback := hc.NewCallback()
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
 		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
@@ -413,6 +452,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 	})
 
 	t.Run("keep non-expired callbacks", func(t *testing.T) {
+		req.Auth = createTestJWTToken(t, req, privateKey)
 		callback := hc.NewCallback()
 
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
@@ -493,7 +533,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 
 	donConfig := &config.DONConfig{
 		DonId: "test-don",
-		F:     1, // 1 faulty node, so 2*1+1=3 for threshold
+		F:     1, // 1 faulty node, so (N+F)//2+1=(3+1)//2+1=3 for threshold
 		Members: []config.NodeConfig{
 			{Address: "node1"},
 			{Address: "node2"},
@@ -1354,7 +1394,7 @@ func createTestTriggerHandler(t *testing.T) (*httpTriggerHandler, *handlermocks.
 func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpTriggerHandler, *handlermocks.DON) {
 	donConfig := &config.DONConfig{
 		DonId: "test-don",
-		F:     1, // This means we need 2f+1 = 3 responses for consensus
+		F:     1, // This means we need (N+F)//2+1 = (3+1)//2+1 = 3 responses for consensus
 		Members: []config.NodeConfig{
 			{Address: "node1"},
 			{Address: "node2"},
