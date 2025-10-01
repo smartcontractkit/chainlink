@@ -30,6 +30,7 @@ ARG CL_INSTALL_TESTING_PLUGINS=false
 ARG GO_GCFLAGS
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
+ARG VERSION_TAG
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \

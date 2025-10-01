@@ -26,6 +26,7 @@ ARG CL_INSTALL_PRIVATE_PLUGINS=true
 ARG CL_INSTALL_TESTING_PLUGINS=false
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
+ARG VERSION_TAG
 # Build chainlink bin with cover flag https://go.dev/doc/build-cover#FAQ
 ARG GO_COVER_FLAG=false
 
