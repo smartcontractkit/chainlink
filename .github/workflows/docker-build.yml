@@ -188,6 +188,7 @@ jobs:
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
+        CL_SOLANA_CMD=
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
