@@ -374,8 +374,9 @@ func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string
 		return errors.New("in-flight request ID: " + requestID)
 	}
 
-	// 2f + 1 is chosen to ensure that majority of honest nodes are executing the request
-	agg, err := aggregation.NewIdenticalNodeResponseAggregator(2*h.donConfig.F + 1)
+	// (N+F)//2 + 1 threshold where N = number of nodes, F = number of faulty nodes
+	threshold := (len(h.donConfig.Members)+h.donConfig.F)/2 + 1
+	agg, err := aggregation.NewIdenticalNodeResponseAggregator(threshold)
 	if err != nil {
 		return errors.New("failed to create response aggregator: " + err.Error())
 	}

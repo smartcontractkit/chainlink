@@ -163,7 +163,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			codec := NewExecutePluginCodecV1(registeredMockExtraDataCodecMap)
+			codec := NewExecutePluginCodecV1(ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap))
 			// randomExecuteReport now uses the new encoding internally
 			report := tc.report(randomExecuteReport(t, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)

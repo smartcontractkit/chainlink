@@ -22,7 +22,7 @@ func GetMessageHashes(
 	lggr logger.Logger,
 	onrampAddress common.Address,
 	ccipMessageSentEvents []onramp.OnRampCCIPMessageSent,
-	extraDataCodec ccipocr3.ExtraDataCodec,
+	extraDataCodec ccipocr3.ExtraDataCodecBundle,
 ) ([][32]byte, error) {
 	msgHasher := ccipevm.NewMessageHasherV1(
 		lggr,
@@ -107,7 +107,7 @@ func CreateExecutionReport(
 	ccipMessageSentEvents []onramp.OnRampCCIPMessageSent,
 	hashes [][32]byte,
 	flags *big.Int,
-	extraDataCodec ccipocr3.ExtraDataCodec,
+	extraDataCodec ccipocr3.ExtraDataCodecBundle,
 ) (offramp.InternalExecutionReport, error) {
 	var any2EVMs []offramp.InternalAny2EVMRampMessage
 	for _, event := range ccipMessageSentEvents {
