@@ -9,6 +9,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -123,23 +124,23 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
-	ContractAddress                        types.EIP55Address  `json:"contractAddress"`
-	P2PV2Bootstrappers                     pq.StringArray      `json:"p2pv2Bootstrappers"`
-	IsBootstrapPeer                        bool                `json:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *models.Sha256Hash  `json:"keyBundleID"`
-	TransmitterAddress                     *types.EIP55Address `json:"transmitterAddress"`
-	ObservationTimeout                     models.Interval     `json:"observationTimeout"`
-	BlockchainTimeout                      models.Interval     `json:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval     `json:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval     `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16              `json:"contractConfigConfirmations"`
-	CreatedAt                              time.Time           `json:"createdAt"`
-	UpdatedAt                              time.Time           `json:"updatedAt"`
-	EVMChainID                             *big.Big            `json:"evmChainID"`
-	DatabaseTimeout                        *models.Interval    `json:"databaseTimeout"`
-	ObservationGracePeriod                 *models.Interval    `json:"observationGracePeriod"`
-	ContractTransmitterTransmitTimeout     *models.Interval    `json:"contractTransmitterTransmitTimeout"`
-	CollectTelemetry                       bool                `json:"collectTelemetry,omitempty"`
+	ContractAddress                        types.EIP55Address    `json:"contractAddress"`
+	P2PV2Bootstrappers                     pq.StringArray        `json:"p2pv2Bootstrappers"`
+	IsBootstrapPeer                        bool                  `json:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                *models.Sha256Hash    `json:"keyBundleID"`
+	TransmitterAddress                     *types.EIP55Address   `json:"transmitterAddress"`
+	ObservationTimeout                     commontypes.Interval  `json:"observationTimeout"`
+	BlockchainTimeout                      commontypes.Interval  `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval commontypes.Interval  `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      commontypes.Interval  `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16                `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time             `json:"createdAt"`
+	UpdatedAt                              time.Time             `json:"updatedAt"`
+	EVMChainID                             *big.Big              `json:"evmChainID"`
+	DatabaseTimeout                        *commontypes.Interval `json:"databaseTimeout"`
+	ObservationGracePeriod                 *commontypes.Interval `json:"observationGracePeriod"`
+	ContractTransmitterTransmitTimeout     *commontypes.Interval `json:"contractTransmitterTransmitTimeout"`
+	CollectTelemetry                       bool                  `json:"collectTelemetry,omitempty"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
@@ -174,9 +175,9 @@ type OffChainReporting2Spec struct {
 	P2PV2Bootstrappers                pq.StringArray         `json:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
 	TransmitterID                     null.String            `json:"transmitterID"`
-	ObservationTimeout                models.Interval        `json:"observationTimeout"`
-	BlockchainTimeout                 models.Interval        `json:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval        `json:"contractConfigTrackerPollInterval"`
+	ObservationTimeout                commontypes.Interval   `json:"observationTimeout"`
+	BlockchainTimeout                 commontypes.Interval   `json:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval commontypes.Interval   `json:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations       uint16                 `json:"contractConfigConfirmations"`
 	OnchainSigningStrategy            map[string]interface{} `json:"onchainSigningStrategy"`
 	CreatedAt                         time.Time              `json:"createdAt"`
@@ -400,9 +401,9 @@ type BootstrapSpec struct {
 	ContractID                             string                 `json:"contractID"`
 	Relay                                  string                 `json:"relay"` // RelayID.Network
 	RelayConfig                            map[string]interface{} `json:"relayConfig"`
-	BlockchainTimeout                      models.Interval        `json:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval        `json:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval        `json:"contractConfigTrackerPollInterval"`
+	BlockchainTimeout                      commontypes.Interval   `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval commontypes.Interval   `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      commontypes.Interval   `json:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations            uint16                 `json:"contractConfigConfirmations"`
 	CreatedAt                              time.Time              `json:"createdAt"`
 	UpdatedAt                              time.Time              `json:"updatedAt"`
@@ -520,7 +521,7 @@ type JobResource struct {
 	SchemaVersion            uint32                    `json:"schemaVersion"`
 	GasLimit                 clnull.Uint32             `json:"gasLimit"`
 	ForwardingAllowed        bool                      `json:"forwardingAllowed"`
-	MaxTaskDuration          models.Interval           `json:"maxTaskDuration"`
+	MaxTaskDuration          commontypes.Interval      `json:"maxTaskDuration"`
 	ExternalJobID            uuid.UUID                 `json:"externalJobID"`
 	DirectRequestSpec        *DirectRequestSpec        `json:"directRequestSpec"`
 	FluxMonitorSpec          *FluxMonitorSpec          `json:"fluxMonitorSpec"`

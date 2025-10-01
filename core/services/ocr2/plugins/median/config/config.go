@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type DeviationFunctionDefinition map[string]any
@@ -27,9 +27,9 @@ type PluginConfig struct {
 }
 
 type JuelsPerFeeCoinCache struct {
-	Disable                 bool            `json:"disable"`
-	UpdateInterval          models.Interval `json:"updateInterval"`
-	StalenessAlertThreshold models.Interval `json:"stalenessAlertThreshold"`
+	Disable                 bool           `json:"disable"`
+	UpdateInterval          types.Interval `json:"updateInterval"`
+	StalenessAlertThreshold types.Interval `json:"stalenessAlertThreshold"`
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.

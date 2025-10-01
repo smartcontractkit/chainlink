@@ -14,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -90,7 +90,7 @@ func Test_PipelineORM_CreateSpec(t *testing.T) {
 
 	var (
 		source          = ""
-		maxTaskDuration = models.Interval(1 * time.Minute)
+		maxTaskDuration = types.Interval(1 * time.Minute)
 	)
 
 	p := pipeline.Pipeline{
@@ -156,7 +156,7 @@ answer2 [type=bridge name=election_winner index=1];
 	jb := job.Job{
 		Type:            job.DirectRequest,
 		SchemaVersion:   1,
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: types.Interval(1 * time.Minute),
 		DirectRequestSpec: &job.DirectRequestSpec{
 			ContractAddress: cltest.NewEIP55Address(),
 			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
@@ -258,7 +258,7 @@ answer2 [type=bridge name=election_winner index=1];
 	jb := job.Job{
 		Type:            job.DirectRequest,
 		SchemaVersion:   1,
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: types.Interval(1 * time.Minute),
 		DirectRequestSpec: &job.DirectRequestSpec{
 			ContractAddress: cltest.NewEIP55Address(),
 			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
@@ -272,7 +272,7 @@ answer2 [type=bridge name=election_winner index=1];
 	spec := pipeline.Spec{
 		DotDagSource:    s,
 		CreatedAt:       time.Now(),
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: types.Interval(1 * time.Minute),
 		JobID:           jb.ID,
 		JobName:         jb.Name.ValueOrZero(),
 		JobType:         string(jb.Type),
@@ -678,7 +678,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 		Type:            job.Keeper,
 		SchemaVersion:   1,
 		Name:            null.StringFrom("test"),
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: types.Interval(1 * time.Minute),
 	}
 
 	err := jorm.CreateJob(ctx, &keeperJob)
@@ -780,7 +780,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 		Type:            job.DirectRequest,
 		SchemaVersion:   1,
 		Name:            null.StringFrom("test"),
-		MaxTaskDuration: models.Interval(1 * time.Minute),
+		MaxTaskDuration: types.Interval(1 * time.Minute),
 	}
 
 	err := jorm.CreateJob(ctx, &drJob)
