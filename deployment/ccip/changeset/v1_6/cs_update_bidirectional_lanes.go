@@ -285,8 +285,10 @@ func (a *EVMAdapter) ConfigureLaneLegAsSource(env cldf.Environment, cfg ccipapi.
 		TestRouter: cfg.UpdateOnRampDestsConfig.TestRouter,
 		MCMS:       &mcms,
 		UpdatesByChain: map[uint64]RouterUpdates{
-			cfg.RemoteSelector: {
-				OnRampUpdates: cfg.UpdateRouterRampsConfig.OnRampUpdates,
+			cfg.Selector: {
+				OnRampUpdates: map[uint64]bool{
+					cfg.RemoteSelector: true,
+				},
 			},
 		},
 	}
@@ -320,8 +322,10 @@ func (a *EVMAdapter) ConfigureLaneLegAsDest(env cldf.Environment, cfg ccipapi.Up
 		TestRouter: cfg.UpdateOffRampSourcesConfig.IsEnabled,
 		MCMS:       &mcms,
 		UpdatesByChain: map[uint64]RouterUpdates{
-			cfg.RemoteSelector: {
-				OffRampUpdates: cfg.UpdateRouterRampsConfig.OffRampUpdates,
+			cfg.Selector: {
+				OffRampUpdates: map[uint64]bool{
+					cfg.RemoteSelector: true,
+				},
 			},
 		},
 	}
