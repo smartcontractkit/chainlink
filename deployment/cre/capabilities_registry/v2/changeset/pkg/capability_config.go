@@ -52,7 +52,7 @@ func (c *CapabilityConfig) UnmarshalProto(data []byte) error {
 		return fmt.Errorf("failed to protojson marshal %T: %w", pbCfg, err)
 	}
 	if err := json.Unmarshal(jsonEncodedCfg, &c); err != nil {
-		return fmt.Errorf("failed to json unmarshal into CapabililtyConfig: %w", err)
+		return fmt.Errorf("failed to json unmarshal into CapabilityConfig: %w", err)
 	}
 
 	return nil
