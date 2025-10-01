@@ -1,9 +1,12 @@
 package v1_6
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -13,6 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
+	ccipapi "github.com/smartcontractkit/chainlink-ccip/deployment/v1_6"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // UpdateBidirectionalLanesChangeset enables or disables multiple bidirectional lanes on CCIP.
@@ -227,4 +233,151 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 		mcmsConfig,
 		"Update lanes on CCIP 1.6.0",
 	)
+}
+
+// PoC for CLD API usage
+
+func init() {
+	ccipapi.RegisterChainAdapter(chain_selectors.FamilyEVM, &EVMAdapter{})
+}
+
+type EVMAdapter struct{}
+
+// high level API
+func (a *EVMAdapter) ConfigureLaneLegAsSource(env cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
+	mcms := proposalutils.TimelockConfig{
+		MinDelay:     cfg.MCMS.TimelockDelay.Duration,
+		MCMSAction:   cfg.MCMS.TimelockAction,
+		OverrideRoot: cfg.MCMS.OverridePreviousRoot,
+	}
+	updateFeeQuoterDests := UpdateFeeQuoterDestsConfig{
+		MCMS: &mcms,
+		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			cfg.Selector: {
+				cfg.RemoteSelector: a.TranslateFQ(cfg.UpdateFeeQuoterDestsConfig),
+			},
+		},
+	}
+	updateFeeQuoterPrices := UpdateFeeQuoterPricesConfig{
+		MCMS: &mcms,
+		PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
+			cfg.Selector: {
+				TokenPrices: a.TranslateTokenPrices(cfg.UpdateFeeQuoterPrices.TokenPrices),
+				GasPrices:   cfg.UpdateFeeQuoterPrices.GasPrices,
+			},
+		},
+	}
+	updateOnRampDests := UpdateOnRampDestsConfig{
+		MCMS: &mcms,
+		UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+			cfg.Selector: {
+				cfg.RemoteSelector: {
+					IsEnabled:        cfg.UpdateOnRampDestsConfig.IsEnabled,
+					TestRouter:       cfg.UpdateOnRampDestsConfig.TestRouter,
+					AllowListEnabled: cfg.UpdateOnRampDestsConfig.AllowListEnabled,
+				},
+			},
+		},
+	}
+	updateRouterRamps := UpdateRouterRampsConfig{
+		TestRouter: cfg.UpdateOnRampDestsConfig.TestRouter,
+		MCMS:       &mcms,
+		UpdatesByChain: map[uint64]RouterUpdates{
+			cfg.RemoteSelector: {
+				OnRampUpdates: cfg.UpdateRouterRampsConfig.OnRampUpdates,
+			},
+		},
+	}
+	return UpdateLanesLogic(env, &mcms, UpdateBidirectionalLanesChangesetConfigs{
+		UpdateFeeQuoterDestsConfig:  updateFeeQuoterDests,
+		UpdateFeeQuoterPricesConfig: updateFeeQuoterPrices,
+		UpdateOnRampDestsConfig:     updateOnRampDests,
+		UpdateRouterRampsConfig:     updateRouterRamps,
+	})
+}
+
+func (a *EVMAdapter) ConfigureLaneLegAsDest(env cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
+	mcms := proposalutils.TimelockConfig{
+		MinDelay:     cfg.MCMS.TimelockDelay.Duration,
+		MCMSAction:   cfg.MCMS.TimelockAction,
+		OverrideRoot: cfg.MCMS.OverridePreviousRoot,
+	}
+	updateOffRampSources := UpdateOffRampSourcesConfig{
+		MCMS: &mcms,
+		UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
+			cfg.RemoteSelector: {
+				cfg.Selector: {
+					IsEnabled:                 cfg.UpdateOffRampSourcesConfig.IsEnabled,
+					TestRouter:                cfg.UpdateOffRampSourcesConfig.TestRouter,
+					IsRMNVerificationDisabled: cfg.UpdateOffRampSourcesConfig.IsRMNVerificationDisabled,
+				},
+			},
+		},
+	}
+	updateRouterRamps := UpdateRouterRampsConfig{
+		TestRouter: cfg.UpdateOffRampSourcesConfig.IsEnabled,
+		MCMS:       &mcms,
+		UpdatesByChain: map[uint64]RouterUpdates{
+			cfg.RemoteSelector: {
+				OffRampUpdates: cfg.UpdateRouterRampsConfig.OffRampUpdates,
+			},
+		},
+	}
+	return UpdateLanesLogic(env, &mcms, UpdateBidirectionalLanesChangesetConfigs{
+		UpdateOffRampSourcesConfig: updateOffRampSources,
+		UpdateRouterRampsConfig:    updateRouterRamps,
+	})
+}
+
+func (a *EVMAdapter) ConfigureLaneBidirectionally(env cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
+	return cldf.ChangesetOutput{}, fmt.Errorf("not implemented yet")
+}
+
+func (a *EVMAdapter) GetOnRampAddress(env cldf.Environment, chainSelector uint64) ([]byte, error) {
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	return state.GetOnRampAddressBytes(chainSelector)
+}
+
+func (a *EVMAdapter) GetTimelockAddress(e cldf.Environment, chainSelector uint64) (string, error) {
+	return "", nil
+}
+
+func (a *EVMAdapter) GetMcmsMetadata(e cldf.Environment, chainSelector uint64) (mcmstypes.ChainMetadata, error) {
+	return mcmstypes.ChainMetadata{}, nil
+}
+
+func (a *EVMAdapter) TranslateFQ(fqc ccipapi.FeeQuoterDestChainConfig) fee_quoter.FeeQuoterDestChainConfig {
+	return fee_quoter.FeeQuoterDestChainConfig{
+		IsEnabled:                         fqc.IsEnabled,
+		MaxNumberOfTokensPerMsg:           fqc.MaxNumberOfTokensPerMsg,
+		MaxDataBytes:                      fqc.MaxDataBytes,
+		MaxPerMsgGasLimit:                 fqc.MaxPerMsgGasLimit,
+		DestGasOverhead:                   fqc.DestGasOverhead,
+		DestGasPerPayloadByteBase:         fqc.DestGasPerPayloadByteBase,
+		DestGasPerPayloadByteHigh:         fqc.DestGasPerPayloadByteHigh,
+		DestGasPerPayloadByteThreshold:    fqc.DestGasPerPayloadByteThreshold,
+		DestDataAvailabilityOverheadGas:   fqc.DestDataAvailabilityOverheadGas,
+		DestGasPerDataAvailabilityByte:    fqc.DestGasPerDataAvailabilityByte,
+		DestDataAvailabilityMultiplierBps: fqc.DestDataAvailabilityMultiplierBps,
+		ChainFamilySelector:               [4]byte(binary.BigEndian.AppendUint32(nil, fqc.ChainFamilySelector)),
+		EnforceOutOfOrder:                 fqc.EnforceOutOfOrder,
+		DefaultTokenFeeUSDCents:           fqc.DefaultTokenFeeUSDCents,
+		DefaultTokenDestGasOverhead:       fqc.DefaultTokenDestGasOverhead,
+		DefaultTxGasLimit:                 fqc.DefaultTxGasLimit,
+		GasMultiplierWeiPerEth:            fqc.GasMultiplierWeiPerEth,
+		GasPriceStalenessThreshold:        fqc.GasPriceStalenessThreshold,
+		NetworkFeeUSDCents:                fqc.NetworkFeeUSDCents,
+	}
+}
+
+func (a *EVMAdapter) TranslateTokenPrices(prices map[string]*big.Int) map[common.Address]*big.Int {
+	result := make(map[common.Address]*big.Int)
+	for k, v := range prices {
+		result[common.HexToAddress(k)] = v
+	}
+	return result
 }
