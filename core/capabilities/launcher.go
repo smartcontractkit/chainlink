@@ -528,7 +528,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	w.lggr.Debugw("Adding remote capability to registry", "id", info.ID, "don", info.DON)
 	cp, err := newCapFn(info)
 	if err != nil {
-		return fmt.Errorf("failed to instantiate capability: %w", err)
+		return fmt.Errorf("failed to instantiate capability %q: %w", capabilityID, err)
 	}
 
 	err = w.registry.Add(ctx, cp)
