@@ -202,6 +202,7 @@ func (d *dispatcher) removeReceiver(k key) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if receiver, ok := d.receivers[k]; ok {
+		// NOTE: receiver.ch is not drained or closed - handle it if receivers are ever dynamically removed/re-added.
 		receiver.cancel()
 		delete(d.receivers, k)
 		d.lggr.Debugw("receiver removed", "capabilityId", k.capID, "donId", k.donID, "methodName", k.methodName)
@@ -284,7 +285,10 @@ func (d *dispatcher) handleMessage(msg *p2ptypes.Message) {
 		return
 	}
 
-	receiverQueueUsage := float64(len(receiver.ch)) / float64(d.cfg.ReceiverBufferSize())
+	receiverQueueUsage := float64(0)
+	if d.cfg.ReceiverBufferSize() > 0 {
+		receiverQueueUsage = float64(len(receiver.ch)) / float64(d.cfg.ReceiverBufferSize())
+	}
 	capReceiveChannelUsage.WithLabelValues(k.capID, strconv.FormatUint(uint64(k.donID), 10)).Set(receiverQueueUsage)
 	select {
 	case receiver.ch <- body:
