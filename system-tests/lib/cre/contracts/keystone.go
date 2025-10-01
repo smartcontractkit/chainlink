@@ -3,8 +3,6 @@ package contracts
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,15 +10,11 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -28,7 +22,6 @@ import (
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
 	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
-	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -61,28 +54,28 @@ func DeployKeystoneContracts(
 ) (*DeployKeystoneContractsOutput, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
 
-	evmForwardersSelectors := make([]uint64, 0)
+	// evmForwardersSelectors := make([]uint64, 0)
 	solForwardersSelectors := make([]uint64, 0)
-	tronForwardersSelectors := make([]uint64, 0)
+	// tronForwardersSelectors := make([]uint64, 0)
 	for _, bcOut := range input.CtfBlockchains {
-		for _, donMetadata := range input.CapabilitiesAwareNodeSets {
-			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
-				continue
-			}
-			// consider we have just 1 solana chain
-			if bcOut.SolChain != nil {
-				solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
-				continue
-			}
-			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-				if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
-					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
-					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
-				} else {
-					evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
-				}
-			}
+		// for _, donMetadata := range input.CapabilitiesAwareNodeSets {
+		// if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
+		// 	continue
+		// }
+		// consider we have just 1 solana chain
+		if bcOut.SolChain != nil {
+			solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
+			continue
 		}
+		// if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
+		// 	if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
+		// 		testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
+		// 		tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
+		// 	} else {
+		// 		evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
+		// 	}
+		// }
+		// }
 	}
 
 	var allNodeFlags []string
@@ -124,35 +117,35 @@ func DeployKeystoneContracts(
 	if err := memoryDatastore.Merge(registryContractsReport.Output.Datastore); err != nil {
 		return nil, errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
-	if len(evmForwardersSelectors) > 0 {
-		// deploy evm forwarders
-		evmForwardersReport, seqErr2 := operations.ExecuteSequence(
-			input.CldfEnvironment.OperationsBundle,
-			creforwarder.DeploySequence,
-			creforwarder.DeploySequenceDeps{
-				Env: input.CldfEnvironment,
-			},
-			creforwarder.DeploySequenceInput{
-				Targets: evmForwardersSelectors,
-			},
-		)
-		if seqErr2 != nil {
-			return nil, errors.Wrap(seqErr2, "failed to deploy evm forwarder")
-		}
+	// if len(evmForwardersSelectors) > 0 {
+	// 	// deploy evm forwarders
+	// 	evmForwardersReport, seqErr2 := operations.ExecuteSequence(
+	// 		input.CldfEnvironment.OperationsBundle,
+	// 		creforwarder.DeploySequence,
+	// 		creforwarder.DeploySequenceDeps{
+	// 			Env: input.CldfEnvironment,
+	// 		},
+	// 		creforwarder.DeploySequenceInput{
+	// 			Targets: evmForwardersSelectors,
+	// 		},
+	// 	)
+	// 	if seqErr2 != nil {
+	// 		return nil, errors.Wrap(seqErr2, "failed to deploy evm forwarder")
+	// 	}
 
-		if seqErr2 = input.CldfEnvironment.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); seqErr2 != nil { //nolint:staticcheck // won't migrate now
-			return nil, errors.Wrap(seqErr2, "failed to merge address book with Keystone contracts addresses")
-		}
+	// 	if seqErr2 = input.CldfEnvironment.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); seqErr2 != nil { //nolint:staticcheck // won't migrate now
+	// 		return nil, errors.Wrap(seqErr2, "failed to merge address book with Keystone contracts addresses")
+	// 	}
 
-		if seqErr2 = memoryDatastore.Merge(evmForwardersReport.Output.Datastore); seqErr2 != nil {
-			return nil, errors.Wrap(seqErr2, "failed to merge datastore with Keystone contracts addresses")
-		}
+	// 	if seqErr2 = memoryDatastore.Merge(evmForwardersReport.Output.Datastore); seqErr2 != nil {
+	// 		return nil, errors.Wrap(seqErr2, "failed to merge datastore with Keystone contracts addresses")
+	// 	}
 
-		for _, forwarderSelector := range evmForwardersSelectors {
-			forwarderAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-			testLogger.Info().Msgf("Deployed Forwarder %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], forwarderSelector, forwarderAddr)
-		}
-	}
+	// 	for _, forwarderSelector := range evmForwardersSelectors {
+	// 		forwarderAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+	// 		testLogger.Info().Msgf("Deployed Forwarder %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.KeystoneForwarder.String()], forwarderSelector, forwarderAddr)
+	// 	}
+	// }
 
 	// deploy solana forwarders
 	for _, sel := range solForwardersSelectors {
@@ -202,17 +195,17 @@ func DeployKeystoneContracts(
 	}
 
 	// deploy tron forwarders
-	if len(tronForwardersSelectors) > 0 {
-		tronErr := deployTronForwarders(input.CldfEnvironment, tronForwardersSelectors)
-		if tronErr != nil {
-			return nil, errors.Wrap(tronErr, "failed to deploy Tron Keystone forwarder contracts using changesets")
-		}
+	// if len(tronForwardersSelectors) > 0 {
+	// 	tronErr := deployTronForwarders(input.CldfEnvironment, tronForwardersSelectors)
+	// 	if tronErr != nil {
+	// 		return nil, errors.Wrap(tronErr, "failed to deploy Tron Keystone forwarder contracts using changesets")
+	// 	}
 
-		err := memoryDatastore.Merge(input.CldfEnvironment.DataStore)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to merge Tron deployment results into main datastore")
-		}
-	}
+	// 	err := memoryDatastore.Merge(input.CldfEnvironment.DataStore)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "failed to merge Tron deployment results into main datastore")
+	// 	}
+	// }
 
 	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], homeChainSelector, wfRegAddr)
@@ -389,35 +382,35 @@ func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64,
 	return addrRef.Address
 }
 
-func deployTronForwarders(env *cldf.Environment, chainSelectors []uint64) error {
-	deployOptions := cldf_tron.DefaultDeployOptions()
-	deployOptions.FeeLimit = 1_000_000_000
+// func deployTronForwarders(env *cldf.Environment, chainSelectors []uint64) error {
+// 	deployOptions := cldf_tron.DefaultDeployOptions()
+// 	deployOptions.FeeLimit = 1_000_000_000
 
-	deployChangeset := commonchangeset.Configure(tronchangeset.DeployForwarder{}, &tronchangeset.DeployForwarderRequest{
-		ChainSelectors: chainSelectors,
-		Qualifier:      "",
-		DeployOptions:  deployOptions,
-	})
+// 	deployChangeset := commonchangeset.Configure(tronchangeset.DeployForwarder{}, &tronchangeset.DeployForwarderRequest{
+// 		ChainSelectors: chainSelectors,
+// 		Qualifier:      "",
+// 		DeployOptions:  deployOptions,
+// 	})
 
-	updatedEnv, err := commonchangeset.Apply(nil, *env, deployChangeset)
-	if err != nil {
-		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
-	}
+// 	updatedEnv, err := commonchangeset.Apply(nil, *env, deployChangeset)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
+// 	}
 
-	env.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
+// 	env.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
 
-	if updatedEnv.DataStore != nil {
-		memoryDS := datastore.NewMemoryDataStore()
-		err = memoryDS.Merge(env.DataStore)
-		if err != nil {
-			return fmt.Errorf("failed to merge existing datastore: %w", err)
-		}
-		err = memoryDS.Merge(updatedEnv.DataStore)
-		if err != nil {
-			return fmt.Errorf("failed to merge updated datastore: %w", err)
-		}
-		env.DataStore = memoryDS.Seal()
-	}
+// 	if updatedEnv.DataStore != nil {
+// 		memoryDS := datastore.NewMemoryDataStore()
+// 		err = memoryDS.Merge(env.DataStore)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to merge existing datastore: %w", err)
+// 		}
+// 		err = memoryDS.Merge(updatedEnv.DataStore)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to merge updated datastore: %w", err)
+// 		}
+// 		env.DataStore = memoryDS.Seal()
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

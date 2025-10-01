@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"golang.org/x/sync/errgroup"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -22,7 +21,6 @@ import (
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
@@ -36,7 +34,6 @@ import (
 	donconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -73,7 +70,7 @@ type SetupInput struct {
 	CapabilityConfigs         cre.CapabilityConfigs
 	CopyCapabilityBinaries    bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
 	Capabilities              []cre.InstallableCapability
-	Features                  []cre.Feature
+	Features                  cre.Features
 
 	// Deprecated: use Capabilities []cre.InstallableCapability instead
 	ConfigFactoryFunctions []cre.NodeConfigTransformerFn
@@ -184,11 +181,13 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before DON startup")))
 	_, preErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PreDONStartupOp, PreDONStartupOpDeps{
+		TestLogger:        testLogger,
 		CldfEnv:           deployKeystoneContractsOutput.Env,
 		Provider:          input.Provider,
-		NodeSetOutput:     updatedNodeSets,
+		Topology:          topology,
 		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
 		ContractVersions:  input.ContractVersions,
+		CapabilityConfigs: input.CapabilityConfigs,
 	}, PreDONStartupOpInput{
 		RegistryChainSelector: startBlockchainsOutput.RegistryChain().ChainSelector,
 		Features:              input.Features,
@@ -196,18 +195,6 @@ func SetupTestEnvironment(
 	if preErr != nil {
 		return nil, fmt.Errorf("failed to apply features before DON startup: %w", preErr)
 	}
-	// for _, feature := range input.Features {
-	// 	if err := feature.PreDONStartup(
-	// 		startBlockchainsOutput.RegistryChain().ChainSelector,
-	// 		deployKeystoneContractsOutput.Env,
-	// 		input.Provider,
-	// 		updatedNodeSets,
-	// 		startBlockchainsOutput.BlockChainOutputs,
-	// 		input.CapabilityConfigs,
-	// 	); err != nil {
-	// 		return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), err)
-	// 	}
-	// }
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
@@ -357,10 +344,11 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after DON startup")))
 	postDONStartupOutput, postErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PostDONStartupOp, PostDONStartupOpDeps{
-		TestLogger:       testLogger,
-		CreEnv:           creEnvironment,
-		NodeSetOutput:    nodeSetOutput,
-		ContractVersions: input.ContractVersions,
+		TestLogger:        testLogger,
+		CreEnv:            creEnvironment,
+		NodeSetOutput:     nodeSetOutput,
+		ContractVersions:  input.ContractVersions,
+		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
 	}, PostDONStartupOpInput{
 		Features: input.Features,
 	})
@@ -511,28 +499,28 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 	return &configureKeystoneInput, nil
 }
 
-func waitForLogPollerToBeHealthy(nodeSetInput []*cre.CapabilitiesAwareNodeSet, nodeSetOutput []*cre.WrappedNodeOutput) error {
-	for idx, nodeSetOut := range nodeSetOutput {
-		if !flags.HasFlag(nodeSetInput[idx].ComputedCapabilities, cre.ConsensusCapability) || !flags.HasFlag(nodeSetInput[idx].ComputedCapabilities, cre.VaultCapability) {
-			continue
-		}
-		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
-		if cErr != nil {
-			return pkgerrors.Wrap(cErr, "failed to create node set clients")
-		}
-		eg := &errgroup.Group{}
-		for _, c := range nsClients {
-			eg.Go(func() error {
-				return c.WaitHealthy(".*ConfigWatcher", "passing", 100)
-			})
-		}
-		if waitErr := eg.Wait(); waitErr != nil {
-			return pkgerrors.Wrap(waitErr, "failed to wait for ConfigWatcher health check")
-		}
-	}
+// func waitForLogPollerToBeHealthy(nodeSetInput []*cre.CapabilitiesAwareNodeSet, nodeSetOutput []*cre.WrappedNodeOutput) error {
+// 	for idx, nodeSetOut := range nodeSetOutput {
+// 		if !flags.HasFlag(nodeSetInput[idx].ComputedCapabilities, cre.ConsensusCapability) || !flags.HasFlag(nodeSetInput[idx].ComputedCapabilities, cre.VaultCapability) {
+// 			continue
+// 		}
+// 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
+// 		if cErr != nil {
+// 			return pkgerrors.Wrap(cErr, "failed to create node set clients")
+// 		}
+// 		eg := &errgroup.Group{}
+// 		for _, c := range nsClients {
+// 			eg.Go(func() error {
+// 				return c.WaitHealthy(".*ConfigWatcher", "passing", 100)
+// 			})
+// 		}
+// 		if waitErr := eg.Wait(); waitErr != nil {
+// 			return pkgerrors.Wrap(waitErr, "failed to wait for ConfigWatcher health check")
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, startBlockchainsOutput StartBlockchainsOutput, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup

@@ -1323,23 +1323,43 @@ type PersistentConfig interface {
 	Store(absPath string) error
 }
 
+type Features struct {
+	fs []Feature
+}
+
+func NewFeatures(feature ...Feature) Features {
+	return Features{
+		fs: feature,
+	}
+}
+
+func (s *Features) Add(f Feature) {
+	s.fs = append(s.fs, f)
+}
+
+func (s *Features) List() []Feature {
+	return s.fs
+}
+
 type Feature interface {
 	Flag() CapabilityFlag
 	PreDONStartup(
+		testLogger zerolog.Logger,
 		registryChainSelector uint64,
 		cldfEnv *cldf.Environment,
 		provider infra.Provider,
-		nodeSets []*CapabilitiesAwareNodeSet,
+		topology *Topology,
 		blockchainOutputs []*WrappedBlockchainOutput,
 		capabilityConfigs CapabilityConfigs,
+		contractVersions map[string]string,
 	) error
 	PostDONStartup(
 		ctx context.Context,
 		testLogger zerolog.Logger,
 		creEnv *Environment,
 		nodeSetOutput []*WrappedNodeOutput,
+		blockchainOutputs []*WrappedBlockchainOutput,
 		contractVersions map[string]string,
-		// postDONStartupOutput *PostDONStartupOutput
 	) (*PostDONStartupOutput, error)
 }
 

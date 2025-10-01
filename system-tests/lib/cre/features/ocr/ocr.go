@@ -42,12 +42,14 @@ func (o *OCR) Flag() cre.CapabilityFlag {
 }
 
 func (o *OCR) PreDONStartup(
+	testLogger zerolog.Logger,
 	registryChainSelector uint64,
 	cldfEnv *cldf.Environment,
 	provider infra.Provider,
-	nodeSets []*cre.CapabilitiesAwareNodeSet,
+	topology *cre.Topology,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
+	contractVersions map[string]string,
 ) error {
 	// nothing to do
 	return nil
@@ -63,6 +65,7 @@ func (o *OCR) PostDONStartup(
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
 	nodeSetOutput []*cre.WrappedNodeOutput,
+	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	contractVersions map[string]string,
 ) (*cre.PostDONStartupOutput, error) {
 	memoryDatastore := datastore.NewMemoryDataStore()
@@ -93,7 +96,7 @@ func (o *OCR) PostDONStartup(
 	// update the CRE environment datastore to include the newly deployed contracts
 	creEnv.CldfEnvironment.DataStore = memoryDatastore.Seal()
 
-	// create OCR3 jobs
+	// create OCR3 and don time jobs
 	jobErr := createJobs(ctx, creEnv)
 	if jobErr != nil {
 		return nil, fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
@@ -101,17 +104,17 @@ func (o *OCR) PostDONStartup(
 
 	testLogger.Info().Msg("OCR3 jobs created")
 
-	// wait for LP to be started
+	// wait for LP to be started (otherwise it won't pick up contract's configuration events)
 	if err := waitForLogPollerToBeHealthy(creEnv.DonTopology.Dons.List(), nodeSetOutput); err != nil {
 		return nil, errors.Wrap(err, "failed while waiting for Log Poller to become healthy")
 	}
 
+	// configure OCR3 contract
 	dons, donsErr := toDons(creEnv)
 	if donsErr != nil {
 		return nil, fmt.Errorf("failed to convert to dons: %w", donsErr)
 	}
 
-	// configure OCR3 contract
 	consensusV1DON, donErr := dons.shouldBeOneDon(cre.ConsensusCapability)
 	if donErr != nil {
 		return nil, fmt.Errorf("failed to get consensus v1 DON: %w", donErr)
@@ -160,8 +163,8 @@ func (o *OCR) PostDONStartup(
 		return nil, errors.Wrap(donTimeErr, "failed to configure DON Time contract")
 	}
 
+	// return capabilities registry configuration data
 	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-
 	for donIdx, don := range creEnv.DonTopology.Dons.List() {
 		if capabilities[donIdx] == nil {
 			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
@@ -179,7 +182,6 @@ func (o *OCR) PostDONStartup(
 		}
 	}
 
-	// return capabilities registry configuration
 	return &cre.PostDONStartupOutput{
 		DONCapabilityWithConfigs: capabilities,
 	}, nil
@@ -284,6 +286,13 @@ func waitForLogPollerToBeHealthy(dons []*cre.DON, nodeSetOutput []*cre.WrappedNo
 
 	return nil
 }
+
+/*
+	CODE BELOW WAS COPIED FROM VAROIUS PLACES IN THE SYSTEM TESTS AND (SOMETIMES) MODIFIED
+	TO SHOWCASE THE CONCEPT OF FEATURES.
+
+	IN THE FUTURE, WE SHOULD REFACTOR THE CODE TO AVOID DUPLICATIONS.
+*/
 
 // for now copy from system-tests/lib/cre/contracts/keystone.go
 func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, error) {

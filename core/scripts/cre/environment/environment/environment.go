@@ -37,6 +37,7 @@ import (
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	evmv1feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v1"
 	ocrfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -636,7 +637,7 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
-		Features:                  []cre.Feature{&ocrfeature.OCR{}},
+		Features:                  cre.NewFeatures(&ocrfeature.OCR{}, &evmv1feature.EVM{}),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

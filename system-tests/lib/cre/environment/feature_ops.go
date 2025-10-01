@@ -12,15 +12,59 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
+type PreDONStartupOpDeps struct {
+	TestLogger        zerolog.Logger
+	CldfEnv           *cldf.Environment
+	Provider          infra.Provider
+	Topology          *cre.Topology
+	BlockchainOutputs []*cre.WrappedBlockchainOutput
+	ContractVersions  map[string]string
+	CapabilityConfigs cre.CapabilityConfigs
+}
+
+type PreDONStartupOpInput struct {
+	RegistryChainSelector uint64
+	Features              cre.Features
+}
+
+type PreDONStartupOpOutput struct{}
+
+var PreDONStartupOp = operations.NewOperation(
+	"pre-don-startup-op",
+	semver.MustParse("1.0.0"),
+	"Apply features' logic that needs to be executed before DONs are started",
+	func(b operations.Bundle, deps PreDONStartupOpDeps, input PreDONStartupOpInput) (*PreDONStartupOpOutput, error) {
+		for _, feature := range input.Features.List() {
+			deps.TestLogger.Info().Msgf("Executing PreDONStartup for feature %s", feature.Flag())
+			if err := feature.PreDONStartup(
+				deps.TestLogger,
+				input.RegistryChainSelector,
+				deps.CldfEnv,
+				deps.Provider,
+				deps.Topology,
+				deps.BlockchainOutputs,
+				deps.CapabilityConfigs,
+				deps.ContractVersions,
+			); err != nil {
+				return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), err)
+			}
+			deps.TestLogger.Info().Msgf("PreDONStartup for feature %s executed successfully", feature.Flag())
+		}
+
+		return &PreDONStartupOpOutput{}, nil
+	},
+)
+
 type PostDONStartupOpDeps struct {
-	TestLogger       zerolog.Logger
-	CreEnv           *cre.Environment
-	NodeSetOutput    []*cre.WrappedNodeOutput
-	ContractVersions map[string]string
+	TestLogger        zerolog.Logger
+	CreEnv            *cre.Environment
+	NodeSetOutput     []*cre.WrappedNodeOutput
+	BlockchainOutputs []*cre.WrappedBlockchainOutput
+	ContractVersions  map[string]string
 }
 
 type PostDONStartupOpInput struct {
-	Features []cre.Feature
+	Features cre.Features
 }
 
 type PostDONStartupOpOutput struct {
@@ -44,65 +88,32 @@ func (c *PostDONStartupOpOutput) MergeWithConfigureInput(configureKeystoneInput 
 var PostDONStartupOp = operations.NewOperation(
 	"post-don-startup-op",
 	semver.MustParse("1.0.0"),
-	"Apply features that require DONs to be started",
+	"Apply features' logic that can be executed after DONs are started",
 	func(b operations.Bundle, deps PostDONStartupOpDeps, input PostDONStartupOpInput) (*PostDONStartupOpOutput, error) {
 		var postOut *cre.PostDONStartupOutput
-		for _, feature := range input.Features {
+		for _, feature := range input.Features.List() {
 			var pErr error
+
+			deps.TestLogger.Info().Msgf("Executing PostDONStartup for feature %s", feature.Flag())
+
 			postOut, pErr = feature.PostDONStartup(
 				b.GetContext(),
 				deps.TestLogger,
 				deps.CreEnv,
 				deps.NodeSetOutput,
+				deps.BlockchainOutputs,
 				deps.ContractVersions,
 			)
 
 			if pErr != nil {
 				return nil, fmt.Errorf("failed to execute PostDONStartup for feature %s: %w", feature.Flag(), pErr)
 			}
+
+			deps.TestLogger.Info().Msgf("PostDONStartup for feature %s executed successfully", feature.Flag())
 		}
 
 		return &PostDONStartupOpOutput{
 			DONCapabilityWithConfigs: postOut.DONCapabilityWithConfigs,
 		}, nil
-	},
-)
-
-type PreDONStartupOpDeps struct {
-	CldfEnv           *cldf.Environment
-	Provider          infra.Provider
-	NodeSetOutput     []*cre.CapabilitiesAwareNodeSet
-	BlockchainOutputs []*cre.WrappedBlockchainOutput
-	ContractVersions  map[string]string
-	CapabilityConfigs cre.CapabilityConfigs
-}
-
-type PreDONStartupOpInput struct {
-	RegistryChainSelector uint64
-	Features              []cre.Feature
-}
-
-type PreDONStartupOpOutput struct{}
-
-var PreDONStartupOp = operations.NewOperation(
-	"pre-don-startup-op",
-	semver.MustParse("1.0.0"),
-	"Apply features that do not require DONs to be started",
-	func(b operations.Bundle, deps PreDONStartupOpDeps, input PreDONStartupOpInput) (*PreDONStartupOpOutput, error) {
-
-		for _, feature := range input.Features {
-			if err := feature.PreDONStartup(
-				input.RegistryChainSelector,
-				deps.CldfEnv,
-				deps.Provider,
-				deps.NodeSetOutput,
-				deps.BlockchainOutputs,
-				deps.CapabilityConfigs,
-			); err != nil {
-				return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), err)
-			}
-		}
-
-		return &PreDONStartupOpOutput{}, nil
 	},
 )

@@ -16,7 +16,6 @@ import (
 	vaultcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 	webapitargetcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapitarget"
 	webapitriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapitrigger"
-	writeevmcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writeevm"
 	writesolanacapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writesolana"
 )
 
@@ -89,11 +88,11 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 	}
 	capabilities = append(capabilities, mock)
 
-	writeevm, writeevmErr := writeevmcapability.New()
-	if writeevmErr != nil {
-		return nil, errors.Wrap(writeevmErr, "failed to create write evm capability")
-	}
-	capabilities = append(capabilities, writeevm)
+	// writeevm, writeevmErr := writeevmcapability.New()
+	// if writeevmErr != nil {
+	// 	return nil, errors.Wrap(writeevmErr, "failed to create write evm capability")
+	// }
+	// capabilities = append(capabilities, writeevm)
 
 	writesol, writeSolErr := writesolanacapability.New()
 	if writeSolErr != nil {

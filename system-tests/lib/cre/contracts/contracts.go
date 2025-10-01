@@ -527,17 +527,17 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	}
 
 	// configure TRON forwarders only if we have some
-	if len(tronChainsWithForwarders) > 0 {
-		err = configureTronForwarders(input.CldEnv, input.ChainSelector, input.Topology)
-		if err != nil {
-			return errors.Wrap(err, "failed to configure TRON forwarders")
-		}
-	}
+	// if len(tronChainsWithForwarders) > 0 {
+	// 	err = configureTronForwarders(input.CldEnv, input.ChainSelector, input.Topology)
+	// 	if err != nil {
+	// 		return errors.Wrap(err, "failed to configure TRON forwarders")
+	// 	}
+	// }
 
-	consensusV1DON, err := dons.shouldBeOneDon(cre.ConsensusCapability)
-	if err != nil {
-		return fmt.Errorf("failed to get consensus v1 DON: %w", err)
-	}
+	// consensusV1DON, err := dons.shouldBeOneDon(cre.ConsensusCapability)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get consensus v1 DON: %w", err)
+	// }
 	// _, err = operations.ExecuteOperation(
 	// 	input.CldEnv.OperationsBundle,
 	// 	ks_contracts_op.ConfigureOCR3Op,
@@ -557,28 +557,28 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	// }
 
 	// configure EVM forwarders only if we have some
-	if len(evmChainsWithForwarders) > 0 {
-		forwarderCfg, err2 := newDonConfiguration(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg)
-		if err2 != nil {
-			return errors.Wrap(err2, "failed to get DON configuration for forwarder configuration")
-		}
-		fout, err3 := operations.ExecuteSequence(
-			input.CldEnv.OperationsBundle,
-			forwarder.ConfigureSeq,
-			forwarder.ConfigureSeqDeps{
-				Env: input.CldEnv,
-			},
-			forwarder.ConfigureSeqInput{
-				DON:    forwarderCfg,
-				Chains: evmChainsWithForwarders,
-			},
-		)
-		if err3 != nil {
-			return errors.Wrap(err3, "failed to configure forwarders")
-		}
-		// TODO pass this up the call stack to save in the env artifacts
-		framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
-	}
+	// if len(evmChainsWithForwarders) > 0 {
+	// 	forwarderCfg, err2 := newDonConfiguration(consensusV1DON.Name, consensusV1DON.id, input.CldEnv, capReg)
+	// 	if err2 != nil {
+	// 		return errors.Wrap(err2, "failed to get DON configuration for forwarder configuration")
+	// 	}
+	// 	fout, err3 := operations.ExecuteSequence(
+	// 		input.CldEnv.OperationsBundle,
+	// 		forwarder.ConfigureSeq,
+	// 		forwarder.ConfigureSeqDeps{
+	// 			Env: input.CldEnv,
+	// 		},
+	// 		forwarder.ConfigureSeqInput{
+	// 			DON:    forwarderCfg,
+	// 			Chains: evmChainsWithForwarders,
+	// 		},
+	// 	)
+	// 	if err3 != nil {
+	// 		return errors.Wrap(err3, "failed to configure forwarders")
+	// 	}
+	// 	// TODO pass this up the call stack to save in the env artifacts
+	// 	framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
+	// }
 
 	// don time happens to be the same as consensus v1 DON, but it doesn't have to be
 	// _, err = operations.ExecuteOperation(
