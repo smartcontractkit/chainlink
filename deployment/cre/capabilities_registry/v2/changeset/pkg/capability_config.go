@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cosmos/gogoproto/proto"
@@ -16,7 +17,7 @@ type CapabilityConfig map[string]interface{}
 
 // MarshalProto marshals the CapabilityConfig to proto bytes
 // If the CapabilityConfig is nil, it returns nil, nil, to support empty configs
-func (c CapabilityConfig) MarshalProto() ([]byte, error) {
+func (c *CapabilityConfig) MarshalProto() ([]byte, error) {
 	if c == nil {
 		return nil, nil
 	}
@@ -57,13 +58,13 @@ func (c *CapabilityConfig) UnmarshalProto(data []byte) error {
 	return nil
 }
 
-func (c CapabilityConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}(c)) // avoid infinite recursion by casting to underlying type
+func (c *CapabilityConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}(*c)) // avoid infinite recursion by casting to underlying type
 }
 
 func (c *CapabilityConfig) UnmarshalJSON(data []byte) error {
 	if c == nil {
-		return fmt.Errorf("cannot unmarshal into nil CapabilityConfig")
+		return errors.New("cannot unmarshal into nil CapabilityConfig")
 	}
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
