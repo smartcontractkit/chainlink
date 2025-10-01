@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
@@ -90,7 +91,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	caps, err := capReg.GetCapabilities(nil)
+	caps, err := pkg.GetCapabilities(nil, capReg)
 	require.NoError(t, err)
 	var found bool
 	for _, c := range caps {
@@ -106,7 +107,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	require.True(t, found, "new capability should be registered")
 
 	// Nodes should now include new capability id
-	nodes, err := capReg.GetNodes(nil)
+	nodes, err := pkg.GetNodes(nil, capReg)
 	require.NoError(t, err)
 	for _, n := range nodes {
 		assert.Contains(t, n.CapabilityIds, newCapID, "node should have new capability id appended")
