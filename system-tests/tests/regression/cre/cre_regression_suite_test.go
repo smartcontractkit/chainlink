@@ -94,3 +94,7 @@ func Test_CRE_V2_EVM_FilterLogs_Invalid_ToBlock_Regression(t *testing.T) {
 func Test_CRE_V2_EVM_GetTransactionByHash_Invalid_Hash_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsGetTransactionByHashInvalidHash)
 }
+
+func Test_CRE_V2_EVM_GetTransactionReceipt_Invalid_Hash_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsGetTransactionReceiptInvalidHash)
+}

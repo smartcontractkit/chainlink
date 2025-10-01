@@ -63,6 +63,8 @@ func onEVMReadTrigger(wfCfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 		return runFilterLogsWithInvalidToBlock(client, runtime, wfCfg)
 	case "GetTransactionByHash - invalid hash":
 		return runGetTransactionByHashWithInvalidHash(client, runtime, wfCfg)
+	case "GetTransactionReceipt - invalid hash":
+		return runGetTransactionReceiptWithInvalidHash(client, runtime, wfCfg)
 	default:
 		runtime.Logger().Warn("The provided name for function to execute did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
 	}
@@ -135,13 +137,16 @@ func runCallContractForInvalidContractAddress(evmClient evm.Client, runtime sdk.
 			Data: readBalancesCall,
 		},
 	}).Await()
-	runtime.Logger().Info("CallContract for invalid balance reader contract address completed", "output_data", readBalancesOutput.Data)
-	if err != nil || len(readBalancesOutput.Data) == 0 {
-		runtime.Logger().Error("got expected error for invalid balance reader contract address", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "error", err, "output_data", readBalancesOutput.Data)
+	runtime.Logger().Info("CallContract for invalid balance reader contract address completed", "balance_reader_output", readBalancesOutput)
+	if err != nil || readBalancesOutput == nil {
+		runtime.Logger().Error("got expected error for invalid balance reader contract address", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "balance_reader_output", readBalancesOutput, "error", err)
+		return nil, fmt.Errorf("failed to get balances for address '%s': %w", invalidReadBalancesContractAddr.String(), err)
+	} else if len(readBalancesOutput.Data) == 0 {
+		runtime.Logger().Error("got expected empty response for invalid balance reader contract address", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "balance_reader_output", readBalancesOutput, "error", err)
 		return nil, fmt.Errorf("failed to get balances for address '%s': %w", invalidReadBalancesContractAddr.String(), err)
 	}
 
-	runtime.Logger().Info("this is not expected: reading from invalid balance reader contract address should return an error or empty response", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "output", readBalancesOutput.Data)
+	runtime.Logger().Info("this is not expected: reading from invalid balance reader contract address should return an error or empty response", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "balance_reader_output", readBalancesOutput)
 	return readBalancesOutput, nil
 }
 
@@ -287,4 +292,25 @@ func runGetTransactionByHashWithInvalidHash(client evm.Client, runtime sdk.Runti
 
 	runtime.Logger().Info("this is not expected: GetTransactionByHash with invalid hash should return an error or nil", "invalid_hash", invalidHash, "tx_by_hash_output", txByHashOutput)
 	return txByHashOutput, nil
+}
+
+// runGetTransactionReceiptWithInvalidHash tries to get transaction receipt using an invalid hash
+// it should return an error
+func runGetTransactionReceiptWithInvalidHash(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.GetTransactionReceiptReply, error) {
+	runtime.Logger().Info("Attempting to GetTransactionReceipt using invalid hash", "invalid_hash", wfCfg.InvalidInput)
+
+	// Convert the invalid input to bytes - this will handle various invalid formats
+	invalidHash := common.FromHex(wfCfg.InvalidInput)
+	runtime.Logger().Info("Starting GetTransactionReceipt request with parsed hash", "invalid_hash", invalidHash)
+	txReceiptOutput, err := client.GetTransactionReceipt(runtime, &evm.GetTransactionReceiptRequest{
+		Hash: invalidHash,
+	}).Await()
+	runtime.Logger().Info("GetTransactionReceipt completed", "tx_receipt_output", txReceiptOutput)
+	if err != nil || txReceiptOutput == nil {
+		runtime.Logger().Error("got expected error for GetTransactionReceipt with invalid hash", "invalid_hash", invalidHash, "tx_receipt_output", txReceiptOutput, "error", err)
+		return nil, fmt.Errorf("expected error for GetTransactionReceipt with invalid hash '%s': %w", invalidHash, err)
+	}
+
+	runtime.Logger().Info("this is not expected: GetTransactionReceipt with invalid hash should return an error or nil", "invalid_hash", invalidHash, "tx_receipt_output", txReceiptOutput)
+	return txReceiptOutput, nil
 }
