@@ -200,8 +200,7 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 		dispatcher := remoteMocks.NewDispatcher(t)
 		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
 		// Set initial config as nil
-		var initialConfig *commoncap.RemoteTriggerConfig = nil
-		err := subscriber.SetConfig(initialConfig, capInfo, workflowDon.ID, capDon, agg)
+		err := subscriber.SetConfig(nil, capInfo, workflowDon.ID, capDon, agg)
 		require.NoError(t, err)
 
 		// Verify config works
