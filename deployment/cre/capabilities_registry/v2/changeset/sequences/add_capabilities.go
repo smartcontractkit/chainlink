@@ -9,17 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -101,10 +97,9 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		nodeUpdates := make(map[string]contracts.NodeConfig, len(p2pIDs))
 		capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(input.CapabilityConfigs))
 		for i, cfg := range input.CapabilityConfigs {
-			x := pkg.CapabilityConfig(cfg.Config)
-			metadataBytes, err := x.MarshalProto()
+			metadataBytes, err := json.Marshal(cfg.Capability.Metadata)
 			if err != nil {
-				return AddCapabilitiesOutput{}, fmt.Errorf("failed to convert config to proto bytes for capability %s: %w", cfg.Capability.CapabilityID, err)
+				return AddCapabilitiesOutput{}, fmt.Errorf("failed to marshal capability metadata for capability %s: %w", cfg.Capability.CapabilityID, err)
 			}
 			capability := capabilities_registry_v2.CapabilitiesRegistryCapability{
 				CapabilityId:          cfg.Capability.CapabilityID,
@@ -203,24 +198,4 @@ func getDonNodes(donName string, capReg *capabilities_registry_v2.CapabilitiesRe
 	}
 
 	return &don, nodes, nil
-}
-
-func convertCapConfigToProtoBytes(capConfig map[string]interface{}) ([]byte, error) {
-	jsonEncodedCfg, err := json.Marshal(capConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to json marshal config: %w", err)
-	}
-
-	pbCfg := &pb.CapabilityConfig{}
-	ops := protojson.UnmarshalOptions{DiscardUnknown: true}
-	if err = ops.Unmarshal(jsonEncodedCfg, pbCfg); err != nil {
-		return nil, fmt.Errorf("failed to protojson unmarshal json encoded config %w", err)
-	}
-
-	protoEncodedCfg, err := proto.Marshal(pbCfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to proto marshal %T: %w", pbCfg, err)
-	}
-
-	return protoEncodedCfg, nil
 }

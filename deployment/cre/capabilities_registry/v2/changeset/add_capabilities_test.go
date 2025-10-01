@@ -1,6 +1,7 @@
 package changeset_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
 func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
@@ -129,20 +129,15 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	err = expectedConfig.UnmarshalProto(configProtoBytes)
 	require.NoError(t, err, "should be able to unmarshal new capability config from proto bytes")
 
-	capConfig, err := registrysyncer.CapabilityConfiguration{Config: configProtoBytes}.Unmarshal() // ensure the config can be decoded by the registry syncer code
-	require.NoError(t, err)
-
 	caps, err := capReg.GetCapabilities(nil)
 	require.NoError(t, err)
 	var found bool
 	for _, c := range caps {
-		// we could just compare proto bytes here, but this also mimicks/confirms registry syncer decoding behaviour
 		if c.CapabilityId == newCapID {
-			cfgr := registrysyncer.CapabilityConfiguration{Config: c.Metadata}
-			gotMeta, err := cfgr.Unmarshal()
-			require.NoError(t, err)
-
-			require.Equal(t, capConfig, gotMeta)
+			// metadata check
+			var gotMeta map[string]interface{}
+			require.NoError(t, json.Unmarshal(c.Metadata, &gotMeta))
+			assert.Equal(t, newCapMetadata, gotMeta)
 			found = true
 			break
 		}
