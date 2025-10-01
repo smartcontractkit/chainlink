@@ -313,7 +313,7 @@ func manuallyExecuteSingle(
 	lookbackDurationCommitReport,
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
-	extraDataCodec ccipocr3.ExtraDataCodec,
+	extraDataCodec ccipocr3.ExtraDataCodecBundle,
 	messageSentCache *MessageSentCache,
 	commitRootCache *RootCache,
 ) error {
@@ -555,7 +555,7 @@ func ManuallyExecuteAll(
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
-	extraDataCodec := ccipocr3.ExtraDataCodec(map[string]ccipocr3.SourceChainExtraDataCodec{
+	extraDataCodec := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
 	})
