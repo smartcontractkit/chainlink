@@ -146,6 +146,10 @@ func (o *EVM) PreDONStartup(
 
 	// update node configs to include write-evm config
 	for _, donMetadata := range topology.DonsMetadata.List() {
+		if !donMetadata.HasFlag(flag) {
+			continue
+		}
+
 		workerNodes, wErr := donMetadata.WorkerNodes()
 		if wErr != nil {
 			return errors.Wrap(wErr, "failed to find worker nodes")
