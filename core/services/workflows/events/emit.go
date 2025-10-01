@@ -52,7 +52,10 @@ func EmitWorkflowStatusChangedEventV2(
 	// Prepare v2 event data
 	creInfo := buildCREMetadataV2(labels)
 	workflow := buildWorkflowV2(labels, binaryURL, configURL)
-	txInfo := buildTxInfo(head)
+	txInfo := &eventsv2.TransactionInfo{
+		ChainSelector: labels[platform.WorkflowRegistryChainSelector],
+		TxHash:        hex.EncodeToString(head.Hash),
+	}
 
 	var v2Event proto.Message
 	var errorMessage string
@@ -511,12 +514,4 @@ func buildWorkflowV2(kvs map[string]string, binaryURL, configURL string) *events
 	w.ConfigURL = configURL
 
 	return w
-}
-
-func buildTxInfo(head *types.Head) *eventsv2.TransactionInfo {
-	return &eventsv2.TransactionInfo{
-		ChainSelector: "", // TODO CRE-887 add chain selector to tx info
-		TxHash:        hex.EncodeToString(head.Hash),
-		GasCost:       "", // TODO CRE-886 add gas cost to tx info
-	}
 }

@@ -28,12 +28,13 @@ const (
 	ValueWorkflowVersionV2 = "2.0.0"
 
 	// Registry and version keys
-	WorkflowRegistryAddress     = "workflowRegistryAddress"
-	WorkflowRegistryVersion     = "workflowRegistryVersion"
-	WorkflowRegistryChain       = "workflowRegistryChain"
-	EngineVersion               = "engineVersion"
-	CapabilitiesRegistryVersion = "capabilitiesRegistryVersion"
-	DonVersion                  = "donVersion"
+	WorkflowRegistryAddress       = "workflowRegistryAddress"
+	WorkflowRegistryVersion       = "workflowRegistryVersion"
+	WorkflowRegistryChain         = "workflowRegistryChain"
+	WorkflowRegistryChainSelector = "workflowRegistryChainSelector"
+	EngineVersion                 = "engineVersion"
+	CapabilitiesRegistryVersion   = "capabilitiesRegistryVersion"
+	DonVersion                    = "donVersion"
 )
 
 func LabelKeysSorted() iter.Seq[string] {
