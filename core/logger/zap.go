@@ -4,8 +4,11 @@ import (
 	"os"
 
 	pkgerrors "github.com/pkg/errors"
+	otellog "go.opentelemetry.io/otel/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 )
 
 var _ Logger = &zapLogger{}
@@ -15,6 +18,8 @@ type zapLogger struct {
 	level      zap.AtomicLevel
 	fields     []interface{}
 	callerSkip int
+	opts       []zap.Option
+	otelLogger otellog.Logger
 }
 
 func makeEncoderConfig(unixTS bool) zapcore.EncoderConfig {
@@ -91,4 +96,26 @@ func (l *zapLogger) Sync() error {
 
 func (l *zapLogger) Recover(panicErr interface{}) {
 	l.Criticalw("Recovered goroutine panic", "panic", panicErr)
+}
+
+func (l *zapLogger) WithOtel(otelLogger otellog.Logger) (Logger, error) {
+	if l.otelLogger != nil {
+		return l, nil
+	}
+	l.otelLogger = otelLogger
+
+	// Get the current core from the zap logger
+	primaryCore := l.SugaredLogger.Desugar().Core()
+
+	// Create OTel core with debug level to ensure all logs are captured
+	otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(zapcore.DebugLevel))
+
+	// Create a new zap logger with both cores using Tee
+	combinedCore := zapcore.NewTee(primaryCore, otelCore)
+	newLogger := zap.New(combinedCore, l.opts...)
+
+	// Update the zapLogger with the new core
+	l.SugaredLogger = newLogger.Sugar()
+
+	return l, nil
 }

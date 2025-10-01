@@ -84,7 +84,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250930202440-88c08e65d960
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20250929154511-1f5fbda7ae76
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251001104306-ef4be12f82e1
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250915101441-709f87f7d401
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
@@ -127,6 +127,7 @@ require (
 	go.dedis.ch/kyber/v3 v3.1.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.49.0
 	go.opentelemetry.io/otel v1.37.0
+	go.opentelemetry.io/otel/log v0.13.0
 	go.opentelemetry.io/otel/metric v1.37.0
 	go.opentelemetry.io/otel/sdk/metric v1.37.0
 	go.opentelemetry.io/otel/trace v1.37.0
@@ -391,7 +392,6 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.13.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.36.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.36.0 // indirect
-	go.opentelemetry.io/otel/log v0.13.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.37.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.13.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.6.0 // indirect

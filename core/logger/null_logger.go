@@ -1,6 +1,7 @@
 package logger
 
 import (
+	otellog "go.opentelemetry.io/otel/log"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -44,3 +45,8 @@ func (l *nullLogger) Helper(skip int) Logger { return l }
 func (l *nullLogger) Name() string           { return "nullLogger" }
 
 func (l *nullLogger) Recover(panicErr interface{}) {}
+
+func (l *nullLogger) WithOtel(otelLogger otellog.Logger) (Logger, error) {
+	// Null logger doesn't support OTel integration
+	return l, nil
+}

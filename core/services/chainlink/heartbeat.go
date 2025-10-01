@@ -132,6 +132,7 @@ func (h *Heartbeat) start(_ context.Context) error {
 		if err != nil {
 			h.eng.Errorw("heartbeat emit failed", "err", err)
 		}
+		h.eng.Debugw("heartbeat emitted", "labels", h.emitter.Labels())
 	}
 
 	h.eng.GoTick(timeutil.NewTicker(h.GetBeat), beatFn)

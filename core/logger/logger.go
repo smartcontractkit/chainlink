@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/fatih/color"
+	otellog "go.opentelemetry.io/otel/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -28,9 +29,11 @@ type stderrWriter struct{}
 func (sw stderrWriter) Write(p []byte) (n int, err error) {
 	return os.Stderr.Write(p)
 }
+
 func (sw stderrWriter) Close() error {
 	return nil // never close stderr
 }
+
 func (sw stderrWriter) Sync() error {
 	return os.Stderr.Sync()
 }
@@ -129,6 +132,9 @@ type Logger interface {
 	// Recover reports recovered panics; this is useful because it avoids
 	// double-reporting to sentry
 	Recover(panicErr interface{})
+
+	// WithOtel enables OpenTelemetry integration for this logger
+	WithOtel(otelLogger otellog.Logger) (Logger, error)
 }
 
 // newZapConfigProd returns a new production zap.Config.
@@ -265,10 +271,11 @@ func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (*zapLogger, func(), e
 	if err != nil {
 		return nil, nil, err
 	}
-
+	opts := []zap.Option{zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)}
 	return &zapLogger{
 		level:         zcfg.Level,
-		SugaredLogger: zap.New(core, zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)).Sugar(),
+		SugaredLogger: zap.New(core, opts...).Sugar(),
+		opts:          opts,
 	}, closeFn, nil
 }
 
