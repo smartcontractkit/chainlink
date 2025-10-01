@@ -348,11 +348,20 @@ func (a *EVMAdapter) GetOnRampAddress(env cldf.Environment, chainSelector uint64
 	return state.GetOnRampAddressBytes(chainSelector)
 }
 
+func (a *EVMAdapter) GetOffRampAddress(env cldf.Environment, chainSelector uint64) ([]byte, error) {
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	return state.GetOffRampAddressBytes(chainSelector)
+}
+
 func (a *EVMAdapter) GetTimelockAddress(e cldf.Environment, chainSelector uint64) (string, error) {
 	return "", nil
 }
 
-func (a *EVMAdapter) GetMcmsMetadata(e cldf.Environment, chainSelector uint64) (mcmstypes.ChainMetadata, error) {
+func (a *EVMAdapter) GetMCMSMetadata(e cldf.Environment, chainSelector uint64) (mcmstypes.ChainMetadata, error) {
 	return mcmstypes.ChainMetadata{}, nil
 }
 
