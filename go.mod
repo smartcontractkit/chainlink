@@ -86,10 +86,10 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250915134957-5014a52895ca
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5
-	github.com/smartcontractkit/chainlink-ccv/common v0.0.0-20250929114623-ce0060f29aa8
-	github.com/smartcontractkit/chainlink-ccv/executor v0.0.4-rc
-	github.com/smartcontractkit/chainlink-ccv/protocol v0.0.0-20250929114623-ce0060f29aa8
-	github.com/smartcontractkit/chainlink-ccv/verifier v0.0.4-rc
+	github.com/smartcontractkit/chainlink-ccv/common v0.0.0-20250930161748-074e3ea4fa11
+	github.com/smartcontractkit/chainlink-ccv/executor v0.0.4-rc.0.20250930161748-074e3ea4fa11
+	github.com/smartcontractkit/chainlink-ccv/protocol v0.0.0-20250930161748-074e3ea4fa11
+	github.com/smartcontractkit/chainlink-ccv/verifier v0.0.4-rc.0.20250930161748-074e3ea4fa11
 	github.com/smartcontractkit/chainlink-common v0.9.5-0.20250912150129-4e42c90b532e
 	github.com/smartcontractkit/chainlink-data-streams v0.1.2
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250915101441-709f87f7d401
@@ -281,6 +281,7 @@ require (
 	github.com/hashicorp/go-metrics v0.5.4 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/hasura/go-graphql-client v0.13.1 // indirect
 	github.com/holiman/billy v0.0.0-20240216141850-2abb0c79d3c4 // indirect

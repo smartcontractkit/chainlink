@@ -345,6 +345,7 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/memberlist v0.5.3 // indirect
 	github.com/hashicorp/serf v0.10.2 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
@@ -526,10 +527,10 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20250915134957-5014a52895ca // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5 // indirect
-	github.com/smartcontractkit/chainlink-ccv/common v0.0.0-20250929114623-ce0060f29aa8 // indirect
-	github.com/smartcontractkit/chainlink-ccv/executor v0.0.4-rc // indirect
-	github.com/smartcontractkit/chainlink-ccv/protocol v0.0.0-20250929114623-ce0060f29aa8 // indirect
-	github.com/smartcontractkit/chainlink-ccv/verifier v0.0.4-rc // indirect
+	github.com/smartcontractkit/chainlink-ccv/common v0.0.0-20250930161748-074e3ea4fa11 // indirect
+	github.com/smartcontractkit/chainlink-ccv/executor v0.0.4-rc.0.20250930161748-074e3ea4fa11 // indirect
+	github.com/smartcontractkit/chainlink-ccv/protocol v0.0.0-20250930161748-074e3ea4fa11 // indirect
+	github.com/smartcontractkit/chainlink-ccv/verifier v0.0.4-rc.0.20250930161748-074e3ea4fa11 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.1 // indirect
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250915101441-709f87f7d401 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect

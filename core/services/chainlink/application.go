@@ -115,6 +115,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink-ccv/executor"
+	"github.com/smartcontractkit/chainlink-ccv/executor/pkg/ccvstreamer"
+	"github.com/smartcontractkit/chainlink-ccv/executor/pkg/contracttransmitter"
+	"github.com/smartcontractkit/chainlink-ccv/executor/pkg/destinationreader"
+	x "github.com/smartcontractkit/chainlink-ccv/executor/pkg/executor"
+	"github.com/smartcontractkit/chainlink-ccv/executor/pkg/leaderelector"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-ccv/verifier"
 )
@@ -1246,6 +1251,60 @@ type CCVServices struct {
 	srvs []services.ServiceCtx
 }
 
+func getLegacyChains(lggr logger.Logger, relayerChainInterops *CoreRelayerChainInteroperators) map[protocol.ChainSelector]legacyevm.Chain {
+	chains := make(map[protocol.ChainSelector]legacyevm.Chain)
+	for _, c := range relayerChainInterops.LegacyEVMChains().Slice() {
+		chain, ok := c.(legacyevm.Chain)
+		if !ok {
+			lggr.Info("CCV: failed to cast legacyevm.Chain")
+			continue
+		}
+
+		id := chain.ID()
+		if id.Cmp(new(big.Int).SetUint64(math.MaxUint64)) > 0 {
+			lggr.Info("CCV: chain ID too large")
+			continue
+		}
+
+		chains[protocol.ChainSelector(id.Uint64())] = chain
+	}
+	return chains
+}
+
+type tempCCVConfig struct {
+	indexerAddress string
+	//indexer_key		string
+
+	aggregatorAddress string
+	//aggregator_key string
+
+	chainConfigs map[protocol.ChainSelector]ccvChainConfig
+}
+
+type ccvChainConfig struct {
+	ccvAggregatorAddress string
+	ccvProxyAddress      string
+	committeeAddress     string
+}
+
+var tempConfig = tempCCVConfig{
+	indexerAddress:    "0xTODO",
+	aggregatorAddress: "0xTODO",
+
+	chainConfigs: map[protocol.ChainSelector]ccvChainConfig{
+		3379446385462418246: {
+			ccvAggregatorAddress: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+			ccvProxyAddress:      "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+			committeeAddress:     "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+		},
+		12922642891491394802: {
+			ccvAggregatorAddress: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+			ccvProxyAddress:      "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+			committeeAddress:     "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+		},
+	},
+}
+
 func newCCVServices(
 	ctx context.Context,
 	globalLogger logger.Logger,
@@ -1282,76 +1341,95 @@ func newCCVServices(
 	}(globalLogger)
 
 	// start verifier
-	go func(logger logger.Logger) {
-		logger = logger.With("service", "CCV_VERIFIER")
+	go func(lggr logger.Logger) {
+		lggr = lggr.With("service", "CCV_VERIFIER")
 		sourceReader := map[protocol.ChainSelector]verifier.SourceReader{}
 
 		// add EVM source readers
-		legacyEVMChains := relayerChainInterops.LegacyEVMChains()
-		for _, chain := range legacyEVMChains.Slice() {
-			legacyChain, ok := chain.(legacyevm.Chain)
-			if !ok {
-				logger.Info("CCV: failed to cast legacyevm.Chain")
+		for sel, chain := range getLegacyChains(lggr, relayerChainInterops) {
+			if _, ok := tempConfig.chainConfigs[sel]; !ok {
+				lggr.Warnw("CCV: no config for chain, skipping", "chainID", sel)
 				continue
 			}
 
-			id := legacyChain.ID()
-			if id.Cmp(new(big.Int).SetUint64(math.MaxUint64)) > 0 {
-				logger.Info("CCV: chain ID too large")
-				continue
-			}
-
-			chainSel := protocol.ChainSelector(id.Uint64())
-			// TODO: Add the real contract address
-			sourceReader[chainSel] = reader.NewEVMSourceReader(legacyChain.Client(), "0xaddr", chainSel, logger)
+			// TODO: Add checkpoint manager -- optional?
+			sourceReader[sel] = reader.NewEVMSourceReader(chain.Client(), tempConfig.chainConfigs[sel].ccvProxyAddress, sel, nil, lggr)
 		}
 
-		cv := commit.NewCommitVerifier(verifier.CoordinatorConfig{}, nil, logger)
+		cv := commit.NewCommitVerifier(verifier.CoordinatorConfig{}, nil, lggr)
 
-		verifier, err := verifier.NewVerificationCoordinator(
-			verifier.WithLogger(logger),
+		verifierCoordinator, err := verifier.NewVerificationCoordinator(
+			verifier.WithLogger(lggr),
 			verifier.WithSourceReaders(sourceReader),
 			verifier.WithConfig(verifier.CoordinatorConfig{VerifierID: "rubber-ducky"}),
 			verifier.WithVerifier(cv),
-			verifier.WithStorage(storageaccess.NewInMemoryOffchainStorage(logger)),
+			verifier.WithStorage(storageaccess.NewInMemoryOffchainStorage(lggr)),
 		)
 		if err != nil {
-			logger.Errorw("CCV: Failed to create verification coordinator", "error", err)
+			lggr.Errorw("CCV: Failed to create verification coordinator", "error", err)
 			return
 		}
 
-		logger.Infow("CCV: starting verifier")
-		err = verifier.Start(ctx)
+		lggr.Infow("CCV: starting verifier")
+		err = verifierCoordinator.Start(ctx)
 		if err != nil {
-			logger.Errorw("CCV: Failed to start verification coordinator", "error", err)
+			lggr.Errorw("CCV: Failed to start verification coordinator", "error", err)
 			return
 		}
 
 		for {
-			logger.Info("CCV: hello world, verifier.")
-			logger.Info("CCV: verifier:", verifier.HealthCheck(ctx))
+			lggr.Info("CCV: hello world, verifier.")
+			lggr.Info("CCV: verifier:", verifierCoordinator.HealthCheck(ctx))
 			time.Sleep(100 * time.Millisecond)
 		}
 	}(globalLogger)
 
 	// start executor
-	go func(logger logger.Logger) {
-		logger = logger.With("service", "CCV_Executor")
+	go func(lggr logger.Logger) {
+		lggr = lggr.With("service", "CCV_Executor")
+
+		transmitters := make(map[protocol.ChainSelector]executor.ContractTransmitter)
+		destReaders := make(map[protocol.ChainSelector]executor.DestinationReader)
+
+		for sel, chain := range getLegacyChains(lggr, relayerChainInterops) {
+			if _, ok := tempConfig.chainConfigs[sel]; !ok {
+				lggr.Warnw("CCV: no config for chain, skipping", "chainID", sel)
+				continue
+			}
+
+			transmitters[sel] = contracttransmitter.NewEVMContractTransmitterFromTxm(
+				lggr, uint64(sel), chain.TxManager())
+
+			destReaders[sel] = destinationreader.NewEvmDestinationReader(
+				lggr, uint64(sel), chain.Client(), tempConfig.chainConfigs[sel].ccvAggregatorAddress)
+		}
+
+		ex := x.NewChainlinkExecutor(lggr, transmitters, destReaders)
+
+		// TODO: replace with indexer or aggregator reader.
+		strm := ccvstreamer.NewOffchainStorageStreamer(
+			nil, 1*time.Second, 1*time.Second)
+
 		exec, err := executor.NewCoordinator(
-			executor.WithLogger(logger),
-			executor.WithExecutor(nil),
-			executor.WithLeaderElector(nil),
-			executor.WithCCVResultStreamer(nil),
+			executor.WithLogger(lggr),
+			executor.WithExecutor(ex),
+			executor.WithLeaderElector(&leaderelector.RandomDelayLeader{}),
+			executor.WithCCVResultStreamer(strm),
 		)
 		if err != nil {
-			logger.Errorw("CCV: Failed to create execution coordinator", "error", err)
+			lggr.Errorw("CCV: Failed to create execution coordinator", "error", err)
 			return
 		}
-		exec.Start(ctx)
+
+		err = exec.Start(ctx)
+		if err != nil {
+			lggr.Errorw("CCV: Failed to start execution coordinator", "error", err)
+			return
+		}
 
 		for {
-			logger.Info("CCV: hello world, executor.")
-			logger.Info("CCV: executor is running:", exec.IsRunning())
+			lggr.Info("CCV: hello world, executor.")
+			lggr.Info("CCV: executor is running:", exec.IsRunning())
 			time.Sleep(100 * time.Millisecond)
 		}
 	}(globalLogger)
