@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -17,8 +18,9 @@ import (
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
-	ccipapi "github.com/smartcontractkit/chainlink-ccip/deployment/v1_6"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	ccipapi "github.com/smartcontractkit/chainlink-ccip/deployment/v1_6"
 )
 
 // UpdateBidirectionalLanesChangeset enables or disables multiple bidirectional lanes on CCIP.
