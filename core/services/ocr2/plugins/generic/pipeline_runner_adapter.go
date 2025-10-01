@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -28,7 +28,7 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 	s := pipeline.Spec{
 		DotDagSource:    spec,
 		CreatedAt:       time.Now(),
-		MaxTaskDuration: types.Interval(options.MaxTaskDuration),
+		MaxTaskDuration: sqlutil.Interval(options.MaxTaskDuration),
 		JobID:           p.job.ID,
 		JobName:         p.job.Name.ValueOrZero(),
 		JobType:         string(p.job.Type),

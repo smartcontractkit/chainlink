@@ -19,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -559,7 +558,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
 		defer cancel()
 	}
-	if spec.MaxTaskDuration != types.Interval(time.Duration(0)) {
+	if spec.MaxTaskDuration != sqlutil.Interval(time.Duration(0)) {
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}

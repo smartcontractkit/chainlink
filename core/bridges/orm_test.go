@@ -10,7 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -144,7 +144,7 @@ func TestORM_TestCachedResponse(t *testing.T) {
 	orm := bridges.NewORM(db)
 
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *types.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 
 	_, err = orm.GetCachedResponse(ctx, "dot", specID, 1*time.Second)

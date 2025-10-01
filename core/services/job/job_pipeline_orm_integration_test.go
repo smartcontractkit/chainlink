@@ -10,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -135,7 +135,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(ctx, *p, types.Interval(0))
+		specID, err = orm.CreateSpec(ctx, *p, sqlutil.Interval(0))
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec

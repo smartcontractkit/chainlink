@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -35,16 +34,16 @@ func TestLoadConfigVarsLocalOCR(t *testing.T) {
 
 	jobSpec = job.LoadConfigVarsLocalOCR(chainConfig.EVM().OCR(), *jobSpec, config.OCR())
 
-	require.Equal(t, types.Interval(config.OCR().ObservationTimeout()), jobSpec.ObservationTimeout)
-	require.Equal(t, types.Interval(config.OCR().BlockchainTimeout()), jobSpec.BlockchainTimeout)
-	require.Equal(t, types.Interval(config.OCR().ContractSubscribeInterval()), jobSpec.ContractConfigTrackerSubscribeInterval)
-	require.Equal(t, types.Interval(config.OCR().ContractPollInterval()), jobSpec.ContractConfigTrackerPollInterval)
+	require.Equal(t, sqlutil.Interval(config.OCR().ObservationTimeout()), jobSpec.ObservationTimeout)
+	require.Equal(t, sqlutil.Interval(config.OCR().BlockchainTimeout()), jobSpec.BlockchainTimeout)
+	require.Equal(t, sqlutil.Interval(config.OCR().ContractSubscribeInterval()), jobSpec.ContractConfigTrackerSubscribeInterval)
+	require.Equal(t, sqlutil.Interval(config.OCR().ContractPollInterval()), jobSpec.ContractConfigTrackerPollInterval)
 	require.Equal(t, config.OCR().CaptureEATelemetry(), jobSpec.CaptureEATelemetry)
 
 	require.Equal(t, chainConfig.EVM().OCR().ContractConfirmations(), jobSpec.ContractConfigConfirmations)
-	require.Equal(t, types.Interval(chainConfig.EVM().OCR().DatabaseTimeout()), *jobSpec.DatabaseTimeout)
-	require.Equal(t, types.Interval(chainConfig.EVM().OCR().ObservationGracePeriod()), *jobSpec.ObservationGracePeriod)
-	require.Equal(t, types.Interval(chainConfig.EVM().OCR().ContractTransmitterTransmitTimeout()), *jobSpec.ContractTransmitterTransmitTimeout)
+	require.Equal(t, sqlutil.Interval(chainConfig.EVM().OCR().DatabaseTimeout()), *jobSpec.DatabaseTimeout)
+	require.Equal(t, sqlutil.Interval(chainConfig.EVM().OCR().ObservationGracePeriod()), *jobSpec.ObservationGracePeriod)
+	require.Equal(t, sqlutil.Interval(chainConfig.EVM().OCR().ContractTransmitterTransmitTimeout()), *jobSpec.ContractTransmitterTransmitTimeout)
 }
 
 func TestSetDRMinIncomingConfirmations(t *testing.T) {

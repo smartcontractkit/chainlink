@@ -10,6 +10,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -143,7 +144,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 		OCRKeyBundleID:                    null.StringFrom("bar"),
 		TransmitterID:                     null.StringFrom("baz"),
 		ContractConfigConfirmations:       1,
-		ContractConfigTrackerPollInterval: *types.NewInterval(time.Second),
+		ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second),
 		RelayConfig: map[string]interface{}{
 			"chainID":   1337,
 			"fromBlock": 42,

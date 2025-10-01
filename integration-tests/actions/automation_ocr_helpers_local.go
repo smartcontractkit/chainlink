@@ -17,8 +17,7 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -268,7 +267,7 @@ func CreateOCRKeeperJobsLocal(
 			RelayConfig: map[string]interface{}{
 				"chainID": int(chainID),
 			},
-			ContractConfigTrackerPollInterval: *commontypes.NewInterval(time.Second * 15),
+			ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
 		},
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -310,7 +309,7 @@ func CreateOCRKeeperJobsLocal(
 					"mercuryCredentialName": "\"cred1\"",
 					"contractVersion":       "\"" + contractVersion + "\"",
 				},
-				ContractConfigTrackerPollInterval: *commontypes.NewInterval(time.Second * 15),
+				ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                                      // registryAddr
 				OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId[0]),                  // get node ocr2config.ID
 				TransmitterID:                     null.StringFrom(nodeTransmitterAddress[keyIndex]), // node addr

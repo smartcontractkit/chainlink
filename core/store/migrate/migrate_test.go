@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -30,20 +31,20 @@ import (
 )
 
 type OffchainReporting2OracleSpec100 struct {
-	ID                                int32          `toml:"-"`
-	ContractID                        string         `toml:"contractID"`
-	Relay                             string         `toml:"relay"` // RelayID.Network
-	RelayConfig                       job.JSONConfig `toml:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray `toml:"p2pBootstrapPeers"`
-	OCRKeyBundleID                    null.String    `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String    `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String    `toml:"transmitterID"`
-	BlockchainTimeout                 types.Interval `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval types.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16         `toml:"contractConfigConfirmations"`
-	JuelsPerFeeCoinPipeline           string         `toml:"juelsPerFeeCoinSource"`
-	CreatedAt                         time.Time      `toml:"-"`
-	UpdatedAt                         time.Time      `toml:"-"`
+	ID                                int32            `toml:"-"`
+	ContractID                        string           `toml:"contractID"`
+	Relay                             string           `toml:"relay"` // RelayID.Network
+	RelayConfig                       job.JSONConfig   `toml:"relayConfig"`
+	P2PBootstrapPeers                 pq.StringArray   `toml:"p2pBootstrapPeers"`
+	OCRKeyBundleID                    null.String      `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String      `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String      `toml:"transmitterID"`
+	BlockchainTimeout                 sqlutil.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval sqlutil.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16           `toml:"contractConfigConfirmations"`
+	JuelsPerFeeCoinPipeline           string           `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                         time.Time        `toml:"-"`
+	UpdatedAt                         time.Time        `toml:"-"`
 }
 
 func getOCR2Spec100() OffchainReporting2OracleSpec100 {

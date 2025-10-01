@@ -14,7 +14,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmassets "github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
@@ -88,7 +88,7 @@ func TestJob(t *testing.T) {
 				Type:            job.DirectRequest,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: commontypes.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
 			{
@@ -161,7 +161,7 @@ func TestJob(t *testing.T) {
 				Type:            job.FluxMonitor,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: commontypes.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
 			{
@@ -226,17 +226,17 @@ func TestJob(t *testing.T) {
 					IsBootstrapPeer:                        true,
 					EncryptedOCRKeyBundleID:                &ocrKeyID,
 					TransmitterAddress:                     &transmitterAddress,
-					ObservationTimeout:                     commontypes.Interval(1 * time.Minute),
-					BlockchainTimeout:                      commontypes.Interval(1 * time.Minute),
-					ContractConfigTrackerSubscribeInterval: commontypes.Interval(1 * time.Minute),
-					ContractConfigTrackerPollInterval:      commontypes.Interval(1 * time.Minute),
+					ObservationTimeout:                     sqlutil.Interval(1 * time.Minute),
+					BlockchainTimeout:                      sqlutil.Interval(1 * time.Minute),
+					ContractConfigTrackerSubscribeInterval: sqlutil.Interval(1 * time.Minute),
+					ContractConfigTrackerPollInterval:      sqlutil.Interval(1 * time.Minute),
 					ContractConfigConfirmations:            1,
 					CreatedAt:                              timestamp,
 					UpdatedAt:                              timestamp,
 					EVMChainID:                             evmChainID,
-					DatabaseTimeout:                        commontypes.NewInterval(2 * time.Second),
-					ObservationGracePeriod:                 commontypes.NewInterval(3 * time.Second),
-					ContractTransmitterTransmitTimeout:     commontypes.NewInterval(444 * time.Millisecond),
+					DatabaseTimeout:                        sqlutil.NewInterval(2 * time.Second),
+					ObservationGracePeriod:                 sqlutil.NewInterval(3 * time.Second),
+					ContractTransmitterTransmitTimeout:     sqlutil.NewInterval(444 * time.Millisecond),
 				},
 				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -248,7 +248,7 @@ func TestJob(t *testing.T) {
 				Name:              null.StringFrom("test"),
 				GasLimit:          clnull.Uint32From(123),
 				ForwardingAllowed: true,
-				MaxTaskDuration:   commontypes.Interval(1 * time.Minute),
+				MaxTaskDuration:   sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
 			{
@@ -324,7 +324,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Keeper,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: commontypes.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
 			{
@@ -389,7 +389,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Cron,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: commontypes.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
             {
@@ -450,7 +450,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Webhook,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: commontypes.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 			},
 			want: `
 			{
@@ -1088,7 +1088,7 @@ func TestJob(t *testing.T) {
 				Type:            job.Keeper,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
-				MaxTaskDuration: commontypes.Interval(1 * time.Minute),
+				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
 				JobSpecErrors: []job.SpecError{
 					{
 						ID:          200,

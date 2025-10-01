@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -33,7 +33,7 @@ func TestJobPresenter_RenderTable(t *testing.T) {
 		name            = "Job 1"
 		jobSpecType     = "fluxmonitor"
 		schemaVersion   = uint32(1)
-		maxTaskDuration = types.Interval(1 * time.Second)
+		maxTaskDuration = sqlutil.Interval(1 * time.Second)
 
 		createdAt = time.Now()
 		updatedAt = time.Now().Add(time.Second)

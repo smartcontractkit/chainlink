@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -235,7 +235,7 @@ func CreateOCRv2Jobs(
 					"chainID": chainId,
 				},
 				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, "ocr2")),
-				ContractConfigTrackerPollInterval: *commontypes.NewInterval(15 * time.Second),
+				ContractConfigTrackerPollInterval: *sqlutil.NewInterval(15 * time.Second),
 			},
 		}
 		_, err := bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -283,7 +283,7 @@ func CreateOCRv2Jobs(
 					PluginConfig: map[string]any{
 						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", nodeclient.ObservationSourceSpecBridge(juelsBridge)),
 					},
-					ContractConfigTrackerPollInterval: *commontypes.NewInterval(15 * time.Second),
+					ContractConfigTrackerPollInterval: *sqlutil.NewInterval(15 * time.Second),
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
 					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
