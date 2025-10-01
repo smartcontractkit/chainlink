@@ -1295,7 +1295,7 @@ type ccvChainConfig struct {
 	committeeAddress     string
 }
 
-var tempConfig = tempCCVConfig{
+var hardCodedTempConfig = tempCCVConfig{
 	indexerAddress:    "0xTODO",
 	aggregatorAddress: "0xTODO",
 
@@ -1316,6 +1316,7 @@ var tempConfig = tempCCVConfig{
 func startCCVVerifier(
 	ctx context.Context,
 	lggr logger.Logger,
+	cfg tempCCVConfig,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 ) {
 	wait := true
@@ -1328,7 +1329,7 @@ func startCCVVerifier(
 	// Initialize chain components.
 	sourceReader := map[protocol.ChainSelector]verifier.SourceReader{}
 	for sel, chain := range getLegacyChains(lggr, relayerChainInterops) {
-		if _, ok := tempConfig.chainConfigs[sel]; !ok {
+		if _, ok := cfg.chainConfigs[sel]; !ok {
 			lggr.Warnw("No config for chain, skipping.", "chainID", sel)
 			continue
 		}
@@ -1336,7 +1337,7 @@ func startCCVVerifier(
 		// TODO: Add checkpoint manager -- optional?
 		sourceReader[sel] = reader.NewEVMSourceReader(
 			chain.Client(),
-			tempConfig.chainConfigs[sel].ccvProxyAddress,
+			cfg.chainConfigs[sel].ccvProxyAddress,
 			sel,
 			nil,
 			lggr.With("component", "SourceReader").With("chainID", sel))
@@ -1379,13 +1380,14 @@ func startCCVVerifier(
 func startCCVExecutor(
 	ctx context.Context,
 	lggr logger.Logger,
+	cfg tempCCVConfig,
 	relayerChainInterops *CoreRelayerChainInteroperators,
 ) {
 	transmitters := make(map[protocol.ChainSelector]executor.ContractTransmitter)
 	destReaders := make(map[protocol.ChainSelector]executor.DestinationReader)
 
 	for sel, chain := range getLegacyChains(lggr, relayerChainInterops) {
-		if _, ok := tempConfig.chainConfigs[sel]; !ok {
+		if _, ok := cfg.chainConfigs[sel]; !ok {
 			lggr.Warnw("No config for chain, skipping.", "chainID", sel)
 			continue
 		}
@@ -1394,7 +1396,7 @@ func startCCVExecutor(
 			lggr.With("component", "ContractTransmitter"), uint64(sel), chain.TxManager())
 
 		destReaders[sel] = destinationreader.NewEvmDestinationReader(
-			lggr.With("component", "DestinationReader"), uint64(sel), chain.Client(), tempConfig.chainConfigs[sel].ccvAggregatorAddress)
+			lggr.With("component", "DestinationReader"), uint64(sel), chain.Client(), cfg.chainConfigs[sel].ccvAggregatorAddress)
 	}
 
 	ex := x.NewChainlinkExecutor(lggr.With("component", "Executor"), transmitters, destReaders)
@@ -1436,43 +1438,19 @@ func newCCVServices(
 ) (*CCVServices, error) {
 	globalLogger = globalLogger.Named("CCV")
 
-	/*
-		go func(logger logger.Logger) {
-			logger = logger.With("service", "CCV_HELLO")
-			for {
-				logger.Info("hello world, ccv.")
-				legacyEVMChains := relayerChainInterops.LegacyEVMChains()
-
-				for _, chain := range legacyEVMChains.Slice() {
-					legacyChain, ok := chain.(legacyevm.Chain)
-					if !ok {
-						logger.Info("CCV: failed to cast legacyevm.Chain")
-						continue
-					}
-					txm := legacyChain.TxManager()
-					report := legacyChain.HealthReport()
-					info, err := legacyChain.GetChainInfo(ctx)
-					logger.Infow("CCV: legacy chain:",
-						"Txm ready", txm.Ready(),
-						"Chain ID", legacyChain.ID(),
-						"Chain info", info,
-						"Chain info error", err,
-						"health report", report)
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-		}(globalLogger)
-	*/
+	// TODO: move config from hardCodedTempConfig into general config.
 
 	go startCCVVerifier(
 		ctx,
 		globalLogger.With("service", "Verifier"),
+		hardCodedTempConfig,
 		relayerChainInterops,
 	)
 
 	go startCCVExecutor(
 		ctx,
 		globalLogger.With("service", "Executor"),
+		hardCodedTempConfig,
 		relayerChainInterops,
 	)
 
