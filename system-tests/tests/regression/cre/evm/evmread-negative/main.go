@@ -65,6 +65,8 @@ func onEVMReadTrigger(wfCfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 		return runGetTransactionByHashWithInvalidHash(client, runtime, wfCfg)
 	case "GetTransactionReceipt - invalid hash":
 		return runGetTransactionReceiptWithInvalidHash(client, runtime, wfCfg)
+	case "HeaderByNumber - invalid block number":
+		return runHeaderByNumberWithInvalidBlock(client, runtime, wfCfg)
 	default:
 		runtime.Logger().Warn("The provided name for function to execute did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
 	}
@@ -203,7 +205,6 @@ func runFilterLogsWithInvalidAddresses(client evm.Client, runtime sdk.Runtime, w
 			ToBlock:   pb.NewBigIntFromInt(big.NewInt(200)),
 		},
 	}).Await()
-	//TODO: checkout this line runtime.Logger().Info("FilterLogs with invalid block completed", "filtered_logs_output_logs", filterLogsOutput.Logs)
 	runtime.Logger().Info("FilterLogs completed", "filtered_logs_output", filterLogsOutput)
 	if err != nil || len(filterLogsOutput.Logs) == 0 {
 		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput.Logs, "error", err)
@@ -269,16 +270,9 @@ func runFilterLogsWithInvalidBlock(client evm.Client, runtime sdk.Runtime, wfCfg
 }
 
 // runGetTransactionByHashWithInvalidHash tries to get a transaction using an invalid hash
-// it should return an error
 func runGetTransactionByHashWithInvalidHash(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.GetTransactionByHashReply, error) {
 	runtime.Logger().Info("Attempting to get transaction using invalid hash", "invalid_hash", wfCfg.InvalidInput)
 
-	// Convert the invalid input to bytes - this will handle various invalid formats
-	// invalidHash := common.HexToHash(wfCfg.InvalidInput)
-	// runtime.Logger().Info("Starting GetTransactionByHash request with parsed hash", "invalid_hash", invalidHash.String())
-	// txByHashOutput, err := client.GetTransactionByHash(runtime, &evm.GetTransactionByHashRequest{
-	// 	Hash: invalidHash.Bytes(),
-	// }).Await()
 	invalidHash := common.FromHex(wfCfg.InvalidInput)
 	runtime.Logger().Info("Starting GetTransactionByHash request with parsed hash", "invalid_hash", invalidHash)
 	txByHashOutput, err := client.GetTransactionByHash(runtime, &evm.GetTransactionByHashRequest{
@@ -313,4 +307,27 @@ func runGetTransactionReceiptWithInvalidHash(client evm.Client, runtime sdk.Runt
 
 	runtime.Logger().Info("this is not expected: GetTransactionReceipt with invalid hash should return an error or nil", "invalid_hash", invalidHash, "tx_receipt_output", txReceiptOutput)
 	return txReceiptOutput, nil
+}
+
+// runHeaderByNumberWithInvalidBlock tries to get header using an invalid block number
+func runHeaderByNumberWithInvalidBlock(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.HeaderByNumberReply, error) {
+	invalidBlockStr := wfCfg.InvalidInput
+	runtime.Logger().Info("Attempting to get header using invalid block number", "invalid_block", invalidBlockStr)
+
+	// convert to big.Int
+	newBlock := big.NewInt(0)
+	invalidBlock, _ := newBlock.SetString(invalidBlockStr, 10)
+
+	runtime.Logger().Info("Starting HeaderByNumber request with parsed block number", "invalid_block", invalidBlock.String())
+	headerOutput, err := client.HeaderByNumber(runtime, &evm.HeaderByNumberRequest{
+		BlockNumber: pb.NewBigIntFromInt(invalidBlock),
+	}).Await()
+	runtime.Logger().Info("HeaderByNumber with invalid block completed", "header_output", headerOutput)
+	if err != nil || headerOutput == nil {
+		runtime.Logger().Error("got expected error for HeaderByNumber with invalid block", "invalid_block", invalidBlockStr, "header_output", headerOutput, "error", err)
+		return nil, fmt.Errorf("expected error for HeaderByNumber with invalid block '%s': %w", invalidBlockStr, err)
+	}
+
+	runtime.Logger().Info("this is not expected: HeaderByNumber with invalid block should return an error or nil", "invalid_block", invalidBlockStr, "header_output", headerOutput)
+	return headerOutput, nil
 }
