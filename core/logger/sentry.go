@@ -1,10 +1,12 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	otellog "go.opentelemetry.io/otel/log"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -269,4 +271,9 @@ func (s *sentryLogger) Recover(panicErr interface{}) {
 	sentry.Flush(SentryFlushDeadline)
 
 	s.h.With("sentryEventID", eid).Recover(panicErr)
+}
+
+func (s *sentryLogger) WithOtel(otelLogger otellog.Logger) (Logger, error) {
+	// OTel integration is not implemented for sentry logger
+	return nil, errors.New("WithOtel not implemented for sentry logger")
 }

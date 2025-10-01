@@ -4,6 +4,7 @@ package logger
 
 import (
 	mock "github.com/stretchr/testify/mock"
+	otellog "go.opentelemetry.io/otel/log"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -1369,12 +1370,38 @@ func (_c *MockLogger_With_Call) RunAndReturn(run func(...interface{}) Logger) *M
 	return _c
 }
 
+// WithOtel provides a mock function with given fields: otelLogger
+func (_m *MockLogger) WithOtel(otelLogger otellog.Logger) (Logger, error) {
+	ret := _m.Called(otelLogger)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WithOtel")
+	}
+
+	var r0 Logger
+	var r1 error
+	if rf, ok := ret.Get(0).(func(otellog.Logger) Logger); ok {
+		r0 = rf(otelLogger)
+	} else {
+		r0 = ret.Get(0).(Logger)
+	}
+
+	if rf, ok := ret.Get(1).(func(otellog.Logger) error); ok {
+		r1 = rf(otelLogger)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewMockLogger creates a new instance of MockLogger. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockLogger(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *MockLogger {
+},
+) *MockLogger {
 	mock := &MockLogger{}
 	mock.Mock.Test(t)
 
