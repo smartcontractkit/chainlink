@@ -381,7 +381,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %s: %w", cid, hex.EncodeToString(c.Config), err)
+			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %x: %w", cid, hex.EncodeToString(c.Config), err)
 		}
 
 		methodConfig := capabilityConfig.CapabilityMethodConfig
@@ -581,7 +581,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
+			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %x: %w", cid, hex.EncodeToString(c.Config), err)
 		}
 
 		methodConfig := capabilityConfig.CapabilityMethodConfig
