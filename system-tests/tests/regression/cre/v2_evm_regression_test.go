@@ -19,13 +19,14 @@ import (
 
 // regression
 const (
-	// ...Function methods should literally match the name of the switch-case statements in the workflow
+	// ...Function variables should literally match the name of the switch-case statements in the workflow (evm/evmread-negative/main.go)
+	// in each case the corresponding evm capability function is called with the invalid input
 	balanceAtFunction                          = "BalanceAt"
 	expectedBalanceAtError                     = "balanceAt errored"
 	callContractInvalidAddressToReadFunction   = "CallContract - invalid address to read"
 	expectedCallContractInvalidAddressToRead   = "balances=&[+0]" // expecting empty array of balances
 	callContractInvalidBRContractAddress       = "CallContract - invalid balance reader contract address"
-	expectedCallContractInvalidContractAddress = "got expected error for invalid balance reader contract address"
+	expectedCallContractInvalidContractAddress = "got expected empty response for invalid balance reader contract address"
 	estimateGasInvalidToAddress                = "EstimateGas - invalid 'to' address"
 	filterLogsInvalidAddresses                 = "FilterLogs - invalid addresses"
 	expectedFilterLogsInvalidAddresses         = "got expected error or empty logs"
@@ -34,7 +35,9 @@ const (
 	filterLogsInvalidToBlock                   = "FilterLogs - invalid ToBlock"
 	expectedFilterLogsInvalidToBlock           = "got expected error for FilterLogs with invalid toBlock"
 	getTransactionByHashInvalidHash            = "GetTransactionByHash - invalid hash"
+	getTransactionReceiptInvalidHash           = "GetTransactionReceipt - invalid hash"
 	expectedGetTransactionByHashInvalidHash    = "not found"
+	headerByNumberInvalidBlock                 = "HeaderByNumber - invalid block number"
 )
 
 type evmNegativeTest struct {
@@ -70,14 +73,10 @@ var evmNegativeTestsCallContractInvalidAddressToRead = []evmNegativeTest{
 
 var evmNegativeTestsCallContractInvalidBalanceReaderContract = []evmNegativeTest{
 	// CallContract - invalid balance reader contract address
-	// TODO: Uncomment tests after https://smartcontract-it.atlassian.net/browse/CRE-943
-	// "empty" will default to the 0-address which is valid but has no contract deployed, so we expect an error.
-	// {"empty", "", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
-	// {"a letter", "a", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
-	// {"a symbol", "/", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
+	{"empty", "", callContractInvalidBRContractAddress, "EVM error OpcodeNotFound"}, // equivalent to "0x", "0x0", we do not care if anything but contract may be at this address
+	{"a letter", "a", callContractInvalidBRContractAddress, "EVM error PrecompileError"},
+	{"a symbol", "/", callContractInvalidBRContractAddress, "EVM error OpcodeNotFound"},
 	{"a number", "1", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
-	// {"empty hex", "0x", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress}, // we do not care if anything but contract may be at this address
-	// {"cut hex", "0x0", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},  // we do not care if anything but contract may be at this address
 	{"short address", "0x123456789012345678901234567890123456789", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
 	{"long address", "0x12345678901234567890123456789012345678901", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
 	{"invalid address", "0x1234567890abcdefg1234567890abcdef123456", callContractInvalidBRContractAddress, expectedCallContractInvalidContractAddress},
@@ -109,7 +108,6 @@ var evmNegativeTestsFilterLogsWithInvalidAddress = []evmNegativeTest{
 
 var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
 	// FilterLogs - invalid TromBlock/ToBlock values
-	// Border values and equivalent partitioning for positive integers only
 	// Distance between blocks should not be more than 100
 	{"negative number", "-1", filterLogsInvalidFromBlock, "block number -1 is not supported"},
 	{"zero", "0", filterLogsInvalidFromBlock, "block number 0 is not supported"},
@@ -122,7 +120,6 @@ var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
 
 var evmNegativeTestsFilterLogsWithInvalidToBlock = []evmNegativeTest{
 	// FilterLogs - invalid toBlock values
-	// Border values and equivalent partitioning for positive integers only
 	// Distance between blocks should not be more than 100
 	{"negative number", "-1", filterLogsInvalidToBlock, "block number -1 is not supported"},
 	{"zero", "0", filterLogsInvalidToBlock, "block number 0 is not supported"},
@@ -145,6 +142,29 @@ var evmNegativeTestsGetTransactionByHashInvalidHash = []evmNegativeTest{
 	{"malformed (non-hex) correct length", "0x123gggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", getTransactionByHashInvalidHash, "got 2 bytes, expected 32"}, // produces x01#
 	{"short hash", "0x647b7f17f9edba01d1f75ce071d0bc10173bc66b5d072f28b644275bf13bb99", getTransactionByHashInvalidHash, "RPC call failed: not found"},
 	{"non-existent hash", "0x1234567890123456789012345678901234567890123456789012345678901234", getTransactionByHashInvalidHash, "RPC call failed: not found"},
+}
+
+var evmNegativeTestsGetTransactionReceiptInvalidHash = []evmNegativeTest{
+	// GetTransactionReceipt - invalid hash (requires 32 bytes)
+	{"empty", "", getTransactionReceiptInvalidHash, "hash can't be nil"}, // equivalent to whitespace " "
+	{"a symbol", ";", getTransactionReceiptInvalidHash, "hash can't be nil"},
+	{"a char", "0xz", getTransactionReceiptInvalidHash, "hash can't be nil"},         // equivalent to any alfa-numeric string/character
+	{"null-0-like hex", "0x", getTransactionReceiptInvalidHash, "hash can't be nil"}, // equivalent to "0x0", empty
+	{"31 bytes (short) non-0x-prefixed", "12345678901234567890123456789012345678901234567890123456789012", getTransactionReceiptInvalidHash, "got 31 bytes, expected 32"},
+	{"33 bytes (long) non-0x-prefixed", "12345678901234567890123456789012345678901234567890123456789012345", getTransactionReceiptInvalidHash, "got 33 bytes, expected 32"},
+	{"malformed (non-hex) correct length", "0x123gggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", getTransactionReceiptInvalidHash, "got 2 bytes, expected 32"}, // produces x01#
+	{"short hash", "0x647b7f17f9edba01d1f75ce071d0bc10173bc66b5d072f28b644275bf13bb99", getTransactionReceiptInvalidHash, "RPC call failed: not found"},
+	{"non-existent hash", "0x1234567890123456789012345678901234567890123456789012345678901234", getTransactionReceiptInvalidHash, "RPC call failed: not found"},
+}
+
+var evmNegativeTestsHeaderByNumberInvalidBlock = []evmNegativeTest{
+	// HeaderByNumber - invalid block number
+	// empty, non-numeric string, decimal will return nil, when parsed to big.Int,
+	// nil is a valid param for searching the latest block, and won't error.
+	{"negative number", "-1", headerByNumberInvalidBlock, "block number -1 is not supported"},
+	{"zero", "0", headerByNumberInvalidBlock, "block number 0 is not supported"},
+	{"int overflownumber", "9223372036854775808", headerByNumberInvalidBlock, "is not an int64"},             // int64 max + 1
+	{"not existing block)", "9223372036854775807", headerByNumberInvalidBlock, "RPC call failed: not found"}, // int64 max
 }
 
 func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
