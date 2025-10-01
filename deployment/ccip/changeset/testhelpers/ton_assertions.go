@@ -230,3 +230,87 @@ func extractEventMessage[T any](txs []tonlptypes.TxWithBlock) ([]T, error) {
 
 	return events, nil
 }
+
+// ConfirmExecWithSeqNrsTON waits for execution state changes on TON for the given sequence numbers
+// Returns a map of sequence number to execution state
+func ConfirmExecWithSeqNrsTON(
+	t *testing.T,
+	srcSelector uint64,
+	tonChain cldf_ton.Chain,
+	offRampContract address.Address,
+	startBlock *uint64,
+	expectedSeqNrs []uint64,
+) (map[uint64]int, error) {
+	if len(expectedSeqNrs) == 0 {
+		return nil, fmt.Errorf("no expected sequence numbers provided")
+	}
+
+	executionStates := make(map[uint64]int)
+
+	// Create prefixed logger for TON event assertion
+	lggr := logger.Named(logger.Test(t), "TON_EXEC_ASSERTION")
+	lggr.Infof("waiting for execution state changes from srcSelector=%d, expectedSeqNrs=%v, timeout=%v",
+		srcSelector, expectedSeqNrs, tests.WaitTimeout(t))
+
+	tonBlockTicker := time.NewTicker(2500 * time.Millisecond)
+
+	// Determine start block
+	var scanStartBlock uint32 = 0
+	if startBlock != nil {
+		scanStartBlock = uint32(*startBlock)
+	} else if currentBlock, err := tonChain.Client.CurrentMasterchainInfo(t.Context()); err == nil && currentBlock.SeqNo > 50 {
+		scanStartBlock = currentBlock.SeqNo - 50
+		lggr.Infof("scan from block %d (50 blocks back from current %d)", scanStartBlock, currentBlock.SeqNo)
+	}
+
+	eventCh, errCh := GetEvents[offramp.ExecutionStateChanged](t, lggr, t.Context(), tonChain, &offRampContract, scanStartBlock, tonBlockTicker)
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	// Track which sequence numbers we're waiting for
+	expectedSeqNums := make(map[uint64]bool)
+	for _, seqNum := range expectedSeqNrs {
+		expectedSeqNums[seqNum] = true
+	}
+
+	for {
+		select {
+		case execEvent := <-eventCh:
+			lggr.Infof("received ExecutionStateChanged event: SourceChainSelector=%d, SequenceNumber=%d, MessageID=%x, State=%d",
+				execEvent.SourceChainSelector, execEvent.SequenceNumber, execEvent.MessageID, execEvent.State)
+
+			// Check if this is for our source chain
+			if execEvent.SourceChainSelector != srcSelector {
+				lggr.Debugf("skipping event from different source chain: %d (expected %d)", execEvent.SourceChainSelector, srcSelector)
+				continue
+			}
+
+			// Check if this is a sequence number we're waiting for
+			if _, expected := expectedSeqNums[execEvent.SequenceNumber]; expected {
+				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
+				delete(expectedSeqNums, execEvent.SequenceNumber)
+
+				lggr.Infof("found execution state for seq num %d: state=%d, remaining=%d",
+					execEvent.SequenceNumber, execEvent.State, len(expectedSeqNums))
+			}
+
+			// If we've found all expected sequence numbers, return
+			if len(expectedSeqNums) == 0 {
+				t.Logf("All sequence numbers executed: %v", expectedSeqNrs)
+				return executionStates, nil
+			}
+
+		case err := <-errCh:
+			return nil, fmt.Errorf("error while waiting for execution events: %w", err)
+
+		case <-timeout.C:
+			missing := make([]uint64, 0, len(expectedSeqNums))
+			for seqNum := range expectedSeqNums {
+				missing = append(missing, seqNum)
+			}
+			return executionStates, fmt.Errorf("timed out after waiting for execution on chain selector %d from source selector %d, missing seq nums: %v",
+				tonChain.Selector, srcSelector, missing)
+		}
+	}
+}

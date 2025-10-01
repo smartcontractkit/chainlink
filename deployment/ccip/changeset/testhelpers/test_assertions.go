@@ -841,6 +841,18 @@ func ConfirmExecWithSeqNrsForAll(
 				if err != nil {
 					return err
 				}
+			case chainsel.FamilyTon:
+				innerExecutionStates, err = ConfirmExecWithSeqNrsTON(
+					t,
+					srcChain,
+					e.BlockChains.TonChains()[dstChain],
+					state.TonChains[dstChain].OffRamp,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}

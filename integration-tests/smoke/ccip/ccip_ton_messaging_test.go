@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
+	test_utils "github.com/smartcontractkit/chainlink-ton/deployment/utils"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/offramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
@@ -170,6 +171,7 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		)
 	)
 
+	t.Logf("waiting for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp), usually takes less than 2 mins")
 	// wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
@@ -180,6 +182,12 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		require.NoError(t, err)
 		// Prepare 36-byte raw address
 		receiver.FlagsToByte()
+
+		t.Logf("Receiver address: %s", receiver.String())
+		t.Logf("Receiver base64 bytes: %s", receiverBase64Bytes)
+
+		// activate receiver
+		test_utils.FundWallets(t, e.Env.BlockChains.TonChains()[destChain].Client, []*address.Address{&receiver}, []tlb.Coins{tlb.MustFromTON("1")})
 
 		// Subscribe to OffRamp contract transactions in background
 		offRampAddr := state.TonChains[destChain].OffRamp
