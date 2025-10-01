@@ -80,7 +80,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestOCRv2Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_config_override_path: integration-tests/testconfig/ocr2/overrides/base_sepolia_quick_smoke_test.toml
     test_secrets_required: true
     test_env_vars:
@@ -91,7 +96,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv1Soak$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestForwarderOCRv1Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -101,7 +111,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run ^TestForwarderOCRv2Soak$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestForwarderOCRv2Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -111,7 +126,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -121,7 +141,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -131,7 +156,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run ^TestOCRSoak_GasSpike$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestOCRSoak_GasSpike$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -141,7 +171,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run ^TestOCRSoak_ChangeBlockGasLimit$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestOCRSoak_ChangeBlockGasLimit$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -151,7 +186,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForAllCLNodes$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestOCRSoak_RPCDownForAllCLNodes$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -161,7 +201,12 @@ runner-test-matrix:
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    test_cmd: go test soak/ocr_test.go -v -test.run ^TestOCRSoak_RPCDownForHalfCLNodes$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestOCRSoak_RPCDownForHalfCLNodes$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -177,7 +222,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "^(TestForwarderOCRBasic)$" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestForwarderOCRBasic)$" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     test_go_project_path: integration-tests
 
@@ -191,7 +241,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "^(TestForwarderOCR2Basic)$" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestForwarderOCR2Basic)$" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     test_go_project_path: integration-tests
 
@@ -205,7 +260,12 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
       - Push E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "^(TestOCRv2Basic|TestOCRv2Request|TestOCRv2JobReplacement)$" -timeout 30m -count=1 -test.parallel=6 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestOCRv2Basic|TestOCRv2Request|TestOCRv2JobReplacement)$" -timeout 30m -count=1 -parallel=6 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-ocr2-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -222,7 +282,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "^(TestOCRv2Basic|TestOCRv2Request|TestOCRv2JobReplacement)$" -timeout 30m -count=1 -test.parallel=6 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestOCRv2Basic|TestOCRv2Request|TestOCRv2JobReplacement)$" -timeout 30m -count=1 -parallel=6 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -236,7 +301,14 @@ runner-test-matrix:
     triggers:
       - Automation On Demand Tests
       - E2E Chaos Tests
-    test_cmd: cd chaos && DETACH_RUNNER=false go test -test.run "^TestOCRChaos$" -v -test.parallel=10 -timeout 60m -count=1 -json
+    test_cmd: |
+      cd chaos && \
+      DETACH_RUNNER=false \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestOCRChaos$" -parallel=10 -timeout 60m -count=1
     test_env_vars:
       TEST_SUITE: chaos
       CHAINLINK_USER_TEAM: Foundations
