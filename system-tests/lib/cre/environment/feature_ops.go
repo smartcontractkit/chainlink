@@ -24,7 +24,7 @@ type PreDONStartupOpDeps struct {
 
 type PreDONStartupOpInput struct {
 	RegistryChainSelector uint64
-	Features              cre.Features
+	Features              cre.Features `toml:"-" json:"-"` // do not serialize to avoid following error: data cannot be safely written to disk without data lost, avoid type that can't be serialized
 }
 
 type PreDONStartupOpOutput struct{}
@@ -64,11 +64,11 @@ type PostDONStartupOpDeps struct {
 }
 
 type PostDONStartupOpInput struct {
-	Features cre.Features
+	Features cre.Features `toml:"-" json:"-"` // do not serialize to avoid following error: data cannot be safely written to disk without data lost, avoid type that can't be serialized
 }
 
 type PostDONStartupOpOutput struct {
-	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig `toml:"-" json:"-"`
+	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig `toml:"-" json:"-"` // do not serialize to avoid following error: data cannot be safely written to disk without data lost, avoid type that can't be serialized
 }
 
 func (c *PostDONStartupOpOutput) MergeWithConfigureInput(configureKeystoneInput *cre.ConfigureKeystoneInput) {
