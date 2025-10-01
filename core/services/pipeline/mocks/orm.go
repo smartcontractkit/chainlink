@@ -12,8 +12,6 @@ import (
 
 	time "time"
 
-	types "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	uuid "github.com/google/uuid"
 )
 
