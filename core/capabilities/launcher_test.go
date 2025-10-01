@@ -32,8 +32,7 @@ import (
 
 var _ capabilities.TriggerCapability = (*mockTrigger)(nil)
 
-type mockDonNotifier struct {
-}
+type mockDonNotifier struct{}
 
 func (m *mockDonNotifier) NotifyDonSet(don capabilities.DON) {
 }
@@ -178,6 +177,7 @@ func TestLauncher(t *testing.T) {
 		defer launcher.Close()
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+		require.NoError(t, launcher.Close())
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a trigger capability - it won't be exposed remotely").Len())
 	})
 
@@ -221,6 +221,7 @@ func TestLauncher(t *testing.T) {
 		defer launcher.Close()
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+		require.NoError(t, launcher.Close())
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a target capability - it won't be exposed remotely").Len())
 	})
 
@@ -248,7 +249,8 @@ func newTriggerEventMsg(t *testing.T,
 	senderPeerID types.PeerID,
 	workflowID string,
 	triggerEvent map[string]any,
-	triggerEventID string) (*remotetypes.MessageBody, *values.Map) {
+	triggerEventID string,
+) (*remotetypes.MessageBody, *values.Map) {
 	triggerEventValue, err := values.NewMap(triggerEvent)
 	require.NoError(t, err)
 	capResponse := capabilities.TriggerResponse{
