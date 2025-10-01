@@ -741,7 +741,7 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 		assert.Equal(t, capability.ConfigurationContract, registeredCapability.ConfigurationContract, "capability configuration contract should match")
 
 		// Convert the struct metadata to bytes for comparison with blockchain data
-		expectedMetadataBytes, err := pkg.CapabilityConfig(capability.Metadata).MarshalProto()
+		expectedMetadataBytes, err := json.Marshal(capability.Metadata)
 		require.NoError(t, err, "failed to marshal expected metadata")
 		assert.Equal(t, expectedMetadataBytes, registeredCapability.Metadata, "capability metadata should match")
 	}
@@ -795,13 +795,13 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 
 		// Convert our config map to JSON bytes for comparison
 		got := new(pkg.CapabilityConfig)
-		err := got.UnmarshalProto(foundDON.Config)
-		require.NoError(t, err, "failed to unmarshal DON config from on chain value")
-		wantB, err := pkg.CapabilityConfig(don.Config).MarshalProto()
+		require.NoError(t, got.UnmarshalProto(foundDON.Config), "failed to unmarshal DON config from on chain value")
+
+		capCfg := pkg.CapabilityConfig(don.Config)
+		wantB, err := capCfg.MarshalProto()
 		require.NoError(t, err, "failed to marshal expected DON config")
 		want := new(pkg.CapabilityConfig)
-		err = want.UnmarshalProto(wantB)
-		require.NoError(t, err, "failed to unmarshal expected DON config")
+		require.NoError(t, want.UnmarshalProto(wantB), "failed to unmarshal expected DON config")
 		if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 			t.Errorf("DON config mismatch (-want +got):\n%s", diff)
 		}

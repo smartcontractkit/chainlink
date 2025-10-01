@@ -122,7 +122,8 @@ func TestAddCapabilities_Apply(t *testing.T) {
 
 	// Here we check that the uptyped input of the changeset was correctly applied on-chain as proto and can be decoded back to the same config
 	// encoding to proto bytes is same as in the changeset and decoding to cap cfg is same as in the v2 registry syncer
-	configProtoBytes, err := pkg.CapabilityConfig(newCapConfig).MarshalProto() // on chain it is stored as proto bytes
+	capCfg := pkg.CapabilityConfig(newCapConfig)
+	configProtoBytes, err := capCfg.MarshalProto() // on chain it is stored as proto bytes
 	require.NoError(t, err, "should be able to marshal new capability config to proto bytes")
 
 	expectedConfig := new(pkg.CapabilityConfig) // expected decoded config, to be compared with decoded on-chain config

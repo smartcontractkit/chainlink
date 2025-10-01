@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -31,7 +32,7 @@ type CapabilitiesRegistryCapability struct {
 }
 
 func (cap CapabilitiesRegistryCapability) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryCapability, error) {
-	metadataBytes, err := pkg.CapabilityConfig(cap.Metadata).MarshalProto()
+	metadataBytes, err := json.Marshal(cap.Metadata)
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryCapability{}, fmt.Errorf("failed to marshal metadata: %w", err)
 	}
@@ -102,7 +103,8 @@ type CapabilitiesRegistryNewDONParams struct {
 func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryNewDONParams, error) {
 	capabilityConfigurations := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(don.CapabilityConfigurations))
 	for j, capConfig := range don.CapabilityConfigurations {
-		configBytes, err := pkg.CapabilityConfig(capConfig.Config).MarshalProto()
+		x := pkg.CapabilityConfig(capConfig.Config)
+		configBytes, err := x.MarshalProto()
 		if err != nil {
 			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to marshal capability configuration config: %w", err)
 		}
@@ -122,7 +124,8 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v
 		nodes[i] = n
 	}
 
-	configBytes, err := pkg.CapabilityConfig(don.Config).MarshalProto()
+	capCfg := pkg.CapabilityConfig(don.Config)
+	configBytes, err := capCfg.MarshalProto()
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to marshal DON config: %w", err)
 	}
