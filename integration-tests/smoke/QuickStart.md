@@ -17,7 +17,7 @@ k3d cluster create --registry-use k3d-myregistry.localhost:5001
 run to create new build
 ```shell
 cd ~/go/src/github.com/chainlink
-env DOCKER_DEFAULT_PLATFORM=linux/amd64 docker buildx build --platform linux/amd64 -f ./core/chainlink.Dockerfile --build-arg ENVIRONMENT=release --build-arg COMMIT_SHA=$(git rev-parse HEAD) -t smartcontract/chainlink:develop-$(git rev-parse HEAD) .
+env DOCKER_DEFAULT_PLATFORM=linux/amd64 docker buildx build --platform linux/amd64 -f ./core/chainlink.Dockerfile --build-arg ENVIRONMENT=release --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg VERSION_TAG=$(git describe --always) -t smartcontract/chainlink:develop-$(git rev-parse HEAD) .
 export CHAINLINK_VERSION=develop-$(git rev-parse HEAD)
 docker tag docker.io/smartcontract/chainlink:$CHAINLINK_VERSION k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
 docker push k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
@@ -33,7 +33,7 @@ make test_smoke_simulated args="--focus-file=auto_ocr_test.go"
 build+run
 ```shell
 cd ~/go/src/github.com/chainlink
-env DOCKER_DEFAULT_PLATFORM=linux/amd64 docker buildx build --platform linux/amd64 -f ./core/chainlink.Dockerfile --build-arg ENVIRONMENT=release --build-arg COMMIT_SHA=$(git rev-parse HEAD) -t smartcontract/chainlink:develop-$(git rev-parse HEAD) .
+env DOCKER_DEFAULT_PLATFORM=linux/amd64 docker buildx build --platform linux/amd64 -f ./core/chainlink.Dockerfile --build-arg ENVIRONMENT=release --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg VERSION_TAG=$(git describe --always) -t smartcontract/chainlink:develop-$(git rev-parse HEAD) .
 export CHAINLINK_VERSION=develop-$(git rev-parse HEAD)
 export TEST_LOG_LEVEL="debug"
 docker tag docker.io/smartcontract/chainlink:$CHAINLINK_VERSION k3d-myregistry.localhost:5001/docker.io/smartcontract/chainlink:$CHAINLINK_VERSION
@@ -47,7 +47,7 @@ make test_smoke_simulated args="--focus-file=auto_ocr_test.go"
 1. Build a Docker image of the chainlink repo:
 
    ```shell
-   env DOCKER_DEFAULT_PLATFORM=linux/amd64 docker buildx build --platform linux/amd64 -f ./core/chainlink.Dockerfile --build-arg ENVIRONMENT=release --build-arg COMMIT_SHA=$(git rev-parse HEAD) -t smartcontract/chainlink:develop-$(git rev-parse HEAD) .
+   env DOCKER_DEFAULT_PLATFORM=linux/amd64 docker buildx build --platform linux/amd64 -f ./core/chainlink.Dockerfile --build-arg ENVIRONMENT=release --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg VERSION_TAG=$(git describe --always) -t smartcontract/chainlink:develop-$(git rev-parse HEAD) .
    ```
    last line of the output will have something like
    `=> => naming to docker.io/smartcontract/chainlink:develop-a4caf33ce0ed6b841294c5ef06563c1cd4de6dfc`

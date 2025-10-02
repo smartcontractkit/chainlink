@@ -27,14 +27,12 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 
 	jobSpecs := map[string][]string{}
 	for _, node := range nodes {
-		p2pID := offchain.GetP2pLabel(node.GetLabels())
-
 		e.Logger.Debugw("Proposing job", logLabels(req, node)...)
 		offchainReq := offchain.ProposeJobRequest{
 			Job:            req.Spec,
 			Domain:         offchain.ProductLabel,
 			Environment:    req.Env,
-			NodeLabels:     map[string]string{offchain.P2pIDLabel: p2pID},
+			PublicKeys:     []string{node.GetPublicKey()},
 			JobLabels:      req.JobLabels,
 			OffchainClient: e.Offchain,
 			Lggr:           e.Logger,
@@ -52,15 +50,13 @@ func ProposeJob(ctx context.Context, e cldf.Environment, req ProposeJobRequest) 
 }
 
 func logLabels(req ProposeJobRequest, node *nodeapiv1.Node) []any {
-	p2pID := offchain.GetP2pLabel(node.GetLabels())
-
 	labels := []any{
 		"nodeName",
 		node.Name,
 		"nodeID",
 		node.Id,
-		"p2pID",
-		p2pID,
+		"publicKey",
+		node.PublicKey,
 		"target DON",
 		req.DONName,
 	}

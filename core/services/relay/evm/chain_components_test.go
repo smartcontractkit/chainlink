@@ -414,10 +414,6 @@ func (h *helper) Accounts(t *testing.T) []*bind.TransactOpts {
 	return []*bind.TransactOpts{deployer, sender}
 }
 
-func (h *helper) MustGenerateRandomKey(t *testing.T) ethkey.KeyV2 {
-	return cltest.MustGenerateRandomKey(t)
-}
-
 func (h *helper) GasPriceBufferPercent() int64 {
 	return 0
 }

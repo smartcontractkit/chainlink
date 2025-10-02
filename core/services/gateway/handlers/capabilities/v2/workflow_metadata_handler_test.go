@@ -941,6 +941,67 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 		require.Contains(t, err.Error(), "JWT digest does not match request digest")
 		require.Nil(t, key)
 	})
+
+	t.Run("JWT replay protection", func(t *testing.T) {
+		params := json.RawMessage(`{"test": "data"}`)
+		req := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-replay",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &params,
+		}
+
+		token, err := utils.CreateRequestJWT(*req)
+		require.NoError(t, err)
+
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		key, err := handler.Authorize(workflowID, tokenString, req)
+		require.NoError(t, err)
+		require.NotNil(t, key)
+
+		// Second authorization with same JWT should fail (replay attack)
+		key, err = handler.Authorize(workflowID, tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "JWT token has already been used. Please generate a new one with new id (jti)")
+		require.Nil(t, key)
+	})
+
+	t.Run("different JWT IDs should work", func(t *testing.T) {
+		params := json.RawMessage(`{"test": "data"}`)
+		req1 := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-1",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &params,
+		}
+
+		req2 := &jsonrpc.Request[json.RawMessage]{
+			Version: "2.0",
+			ID:      "test-request-id-2",
+			Method:  gateway_common.MethodWorkflowExecute,
+			Params:  &params,
+		}
+
+		token1, err := utils.CreateRequestJWT(*req1)
+		require.NoError(t, err)
+		tokenString1, err := token1.SignedString(privateKey)
+		require.NoError(t, err)
+
+		key1, err := handler.Authorize(workflowID, tokenString1, req1)
+		require.NoError(t, err)
+		require.NotNil(t, key1)
+
+		token2, err := utils.CreateRequestJWT(*req2)
+		require.NoError(t, err)
+		tokenString2, err := token2.SignedString(privateKey)
+		require.NoError(t, err)
+
+		key2, err := handler.Authorize(workflowID, tokenString2, req2)
+		require.NoError(t, err)
+		require.NotNil(t, key2)
+	})
 }
 
 func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {

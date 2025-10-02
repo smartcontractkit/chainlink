@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
@@ -782,14 +783,38 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 		MaxDurationShouldAcceptMillis:     1000,
 		MaxDurationShouldTransmitMillis:   1000,
 		MaxFaultyOracles:                  1,
-		MaxQueryLengthBytes:               1000000,
-		MaxObservationLengthBytes:         1000000,
-		MaxReportLengthBytes:              1000000,
-		MaxBatchSize:                      1000,
-		UniqueReports:                     true,
+		ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+			MaxQueryLengthBytes:       1000000,
+			MaxObservationLengthBytes: 1000000,
+			MaxOutcomeLengthBytes:     1000000,
+			MaxReportLengthBytes:      1000000,
+			MaxBatchSize:              1000,
+		},
+		UniqueReports: true,
 	}
 
 	return oracleConfig, nil
+}
+
+func DefaultChainCapabilityOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
+	cfg, err := DefaultOCR3Config(topology)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate default OCR3 config: %w", err)
+	}
+
+	cfg.DeltaRoundMillis = 1000
+	const kib = 1024
+	const mib = 1024 * kib
+	cfg.ConsensusCapOffchainConfig = nil
+	cfg.ChainCapOffchainConfig = &ocr3.ChainCapOffchainConfig{
+		MaxQueryLengthBytes:       mib,
+		MaxObservationLengthBytes: 97 * kib,
+		MaxReportLengthBytes:      mib,
+		MaxOutcomeLengthBytes:     mib,
+		MaxReportCount:            1000,
+		MaxBatchSize:              200,
+	}
+	return cfg, nil
 }
 
 func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.CapabilitiesAwareNodeSet) (*dkgocrtypes.ReportingPluginConfig, error) {
@@ -812,7 +837,7 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 		if i == nodeSets[vaultIndex].BootstrapNodeIndex {
 			continue
 		}
-		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, crenode.NodeDKGRecipientKey)
+		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, cre.NodeDKGRecipientKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find DKG recipient key label")
 		}

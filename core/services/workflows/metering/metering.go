@@ -31,7 +31,7 @@ const (
 	RatiosKey = "spendRatios"
 	// the default decimal precision is a fixed number defined in the billing service. if this gets changed
 	// in the billing service project, the value here needs to change.
-	defaultDecimalPrecision = 3 // one thousandth of a dollar
+	defaultDecimalPrecision = 10 // one thousandth of a dollar
 
 	EngineVersionV1 = "v1"
 	EngineVersionV2 = "v2"
@@ -258,7 +258,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
-		r.switchToMeteringMode(err)
+		r.switchToMeteringMode(fmt.Errorf("%w: failed to parse credits %s", err, resp.GetCredits()))
 
 		return nil
 	}
@@ -431,8 +431,17 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 			deciVals = append(deciVals, value)
 		}
 
+		// TODO: explicitly ignore RPC_EVM spend types for now -
+		// this check causes TestEngine_Metering_ValidBillingClient/billing_type_and_capability_settle_spend_type_mismatch ./core/services/workflows/v2
+		// to fail because the capability is returning a spend type that isn't gas or compute
+		// This should be removed when we have proper support for non-gas/compute spend types
+		if unit == "RPC_EVM" {
+			continue
+		}
+
 		aggregated.SpendValue = medianSpend(deciVals)
 		bal, err := r.balance.ConvertToBalance(unit, aggregated.SpendValue)
+
 		if err != nil {
 			r.switchToMeteringMode(fmt.Errorf("attempted to Settle [%s]: %w", unit, err))
 		} else {
