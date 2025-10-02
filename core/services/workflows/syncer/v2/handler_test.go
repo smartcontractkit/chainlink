@@ -104,13 +104,6 @@ func (m *mockEngine) HealthReport() map[string]error { return nil }
 
 func (m *mockEngine) Name() string { return "mockEngine" }
 
-var rlConfig = ratelimiter.Config{
-	GlobalRPS:      1000.0,
-	GlobalBurst:    1000,
-	PerSenderRPS:   30.0,
-	PerSenderBurst: 30,
-}
-
 func Test_Handler(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	emitter := custmsg.NewLabeler()

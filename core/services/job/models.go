@@ -17,6 +17,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
@@ -190,7 +191,7 @@ type Job struct {
 	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
 	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
 	Name                          null.String   `toml:"name"`
-	MaxTaskDuration               models.Interval
+	MaxTaskDuration               sqlutil.Interval
 	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
 	CreatedAt                     time.Time
 }
@@ -279,15 +280,15 @@ type OCROracleSpec struct {
 	IsBootstrapPeer                        bool                   `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                *models.Sha256Hash     `toml:"keyBundleID"`
 	TransmitterAddress                     *evmtypes.EIP55Address `toml:"transmitterAddress"`
-	ObservationTimeout                     models.Interval        `toml:"observationTimeout"`
-	BlockchainTimeout                      models.Interval        `toml:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval        `toml:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval        `toml:"contractConfigTrackerPollInterval"`
+	ObservationTimeout                     sqlutil.Interval       `toml:"observationTimeout"`
+	BlockchainTimeout                      sqlutil.Interval       `toml:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval sqlutil.Interval       `toml:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      sqlutil.Interval       `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations            uint16                 `toml:"contractConfigConfirmations"`
 	EVMChainID                             *big.Big               `toml:"evmChainID" db:"evm_chain_id"`
-	DatabaseTimeout                        *models.Interval       `toml:"databaseTimeout"`
-	ObservationGracePeriod                 *models.Interval       `toml:"observationGracePeriod"`
-	ContractTransmitterTransmitTimeout     *models.Interval       `toml:"contractTransmitterTransmitTimeout"`
+	DatabaseTimeout                        *sqlutil.Interval      `toml:"databaseTimeout"`
+	ObservationGracePeriod                 *sqlutil.Interval      `toml:"observationGracePeriod"`
+	ContractTransmitterTransmitTimeout     *sqlutil.Interval      `toml:"contractTransmitterTransmitTimeout"`
 	CaptureEATelemetry                     bool                   `toml:"captureEATelemetry"`
 	CreatedAt                              time.Time              `toml:"-"`
 	UpdatedAt                              time.Time              `toml:"-"`
@@ -377,8 +378,8 @@ type OCR2OracleSpec struct {
 	OCRKeyBundleID                    null.String          `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String          `toml:"monitoringEndpoint"`
 	TransmitterID                     null.String          `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval      `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval      `toml:"contractConfigTrackerPollInterval"`
+	BlockchainTimeout                 sqlutil.Interval     `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval sqlutil.Interval     `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
 	OnchainSigningStrategy            JSONConfig           `toml:"onchainSigningStrategy"`
 	PluginConfig                      JSONConfig           `toml:"pluginConfig"`
@@ -781,12 +782,12 @@ type BootstrapSpec struct {
 	FeedID                            *common.Hash `toml:"feedID"`
 	Relay                             string       `toml:"relay"` // RelayID.Network
 	RelayConfig                       JSONConfig
-	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
-	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
-	CreatedAt                         time.Time       `toml:"-"`
-	UpdatedAt                         time.Time       `toml:"-"`
+	MonitoringEndpoint                null.String      `toml:"monitoringEndpoint"`
+	BlockchainTimeout                 sqlutil.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval sqlutil.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16           `toml:"contractConfigConfirmations"`
+	CreatedAt                         time.Time        `toml:"-"`
+	UpdatedAt                         time.Time        `toml:"-"`
 }
 
 // AsOCR2Spec transforms the bootstrap spec into a generic OCR2 format to enable code sharing between specs.

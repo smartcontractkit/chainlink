@@ -17,6 +17,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	chainlinkevmbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -27,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -199,10 +199,10 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
 	var ocrSpec = job.OCROracleSpec{
 		P2PV2Bootstrappers:                     pq.StringArray{},
-		ObservationTimeout:                     models.Interval(10 * time.Second),
-		BlockchainTimeout:                      models.Interval(20 * time.Second),
-		ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-		ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+		ObservationTimeout:                     sqlutil.Interval(10 * time.Second),
+		BlockchainTimeout:                      sqlutil.Interval(20 * time.Second),
+		ContractConfigTrackerSubscribeInterval: sqlutil.Interval(2 * time.Minute),
+		ContractConfigTrackerPollInterval:      sqlutil.Interval(1 * time.Minute),
 		ContractConfigConfirmations:            uint16(3),
 		EVMChainID:                             chainlinkevmbig.New(testutils.FixtureChainID),
 	}
