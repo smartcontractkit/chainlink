@@ -305,7 +305,7 @@ jobs:
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
-          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, job.check_run_id) }}
+          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}/attempts/{3}', github.repository, github.run_id, job.check_run_id, github.run_attempt) }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
 
@@ -361,7 +361,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TOPIC_DATA_RACES_CHANNEL_ID}}
-            text: "Race Tests Failed: <${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, job.check_run_id) }}|Run>"
+            text: "Race Tests Failed: <${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}', github.repository, github.run_id, job.check_run_id) }}|Run>"
 
   core-scripts-tests:
     name: test-scripts

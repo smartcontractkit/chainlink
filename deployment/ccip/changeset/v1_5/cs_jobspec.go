@@ -65,7 +65,7 @@ func JobSpecsForLanesChangeset(env cldf.Environment, c JobSpecsForLanesConfig) (
 	if err := c.Validate(); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid JobSpecsForLanesConfig: %w", err)
 	}
-	state, err := stateview.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

@@ -55,6 +55,9 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	// the capability is local, and we should use the localNode's DON ID.
 	var donID uint32
 	if !info.IsLocal {
+		if info.DON == nil {
+			return nil, fmt.Errorf("remote capability info is missing DON field, ID: %s", info.ID)
+		}
 		donID = info.DON.ID
 	} else {
 		donID = c.localNode.WorkflowDON.ID

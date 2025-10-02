@@ -30,13 +30,12 @@ type PluginConfig struct {
 type PluginServices struct {
 	PluginConfig          PluginConfig
 	AddrCodec             AddressCodec
-	ExtraDataCodec        cciptypes.ExtraDataCodec
 	ChainRW               MultiChainRW
 	CCIPProviderSupported map[string]bool
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
-type InitFunction func(logger.Logger, cciptypes.ExtraDataCodec) PluginConfig
+type InitFunction func(logger.Logger, cciptypes.ExtraDataCodecBundle) PluginConfig
 
 var registeredFactories = make(map[string]InitFunction)
 
@@ -52,22 +51,23 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 		return PluginServices{}, fmt.Errorf("unsupported chain family: %s (available: %v)", chainFamily, maps.Keys(registeredFactories))
 	}
 
-	pluginServices := PluginServices{
-		ExtraDataCodec: make(cciptypes.ExtraDataCodec), // lazy initialize it after factory init call
-	}
+	pluginServices := PluginServices{}
+	extraDataCodecRegistry := GetExtraDataCodecRegistry() // lazy initialize it after factory init call and CCIPProvider codecs
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
 	CCIPProviderSupported := make(map[string]bool)
 
 	for family, initFunc := range registeredFactories {
-		config := initFunc(lggr, pluginServices.ExtraDataCodec)
+		config := initFunc(lggr, GetExtraDataCodecRegistry())
 		CCIPProviderSupported[family] = config.CCIPProviderSupported
+
+		extraDataCodecRegistry.RegisterFamilyNoopCodec(family)
+		if config.ExtraDataCodec != nil {
+			extraDataCodecRegistry.RegisterCodec(family, config.ExtraDataCodec)
+		}
 		if config.AddressCodec != nil {
 			addressCodecMap[family] = config.AddressCodec
-		}
-		if config.ExtraDataCodec != nil {
-			pluginServices.ExtraDataCodec[family] = config.ExtraDataCodec // initialize and update it with the map
 		}
 		if config.ChainRW != nil {
 			chainRWProviderMap[family] = config.ChainRW

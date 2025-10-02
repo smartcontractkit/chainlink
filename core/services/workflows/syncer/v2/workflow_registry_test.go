@@ -21,18 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type mockService struct{}
-
-func (m *mockService) Start(context.Context) error { return nil }
-
-func (m *mockService) Close() error { return nil }
-
-func (m *mockService) HealthReport() map[string]error { return map[string]error{"svc": nil} }
-
-func (m *mockService) Ready() error { return nil }
-
-func (m *mockService) Name() string { return "svc" }
-
 func Test_generateReconciliationEventsV2(t *testing.T) {
 	// Validate that if no engines are on the node in the registry,
 	// and we see that the contract has workflow state,

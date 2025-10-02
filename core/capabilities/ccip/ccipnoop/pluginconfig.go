@@ -7,7 +7,7 @@ import (
 )
 
 // NewPluginConfig returns a pluginConfig .
-func NewPluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodec) ccipcommon.PluginConfig {
+func NewPluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:   NewCommitPluginCodecV1(),
 		ExecutePluginCodec:  NewExecutePluginCodecV1(extraDataCodec),

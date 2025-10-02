@@ -1,4 +1,4 @@
-package v2_test
+package v2
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
-	syncer "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
@@ -30,14 +29,14 @@ var wlConfig = syncerlimiter.Config{
 var ErrCouldNotDecode = errors.New("failed to decode revert data")
 
 type testEvtHandler struct {
-	events []syncer.Event
+	events []Event
 	mux    sync.Mutex
 	errFn  func() error
 }
 
 func (m *testEvtHandler) Close() error { return nil }
 
-func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
+func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.events = append(m.events, event)
@@ -50,14 +49,14 @@ func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
 func (m *testEvtHandler) ClearEvents() {
 	m.mux.Lock()
 	defer m.mux.Unlock()
-	m.events = make([]syncer.Event, 0)
+	m.events = make([]Event, 0)
 }
 
-func (m *testEvtHandler) GetEvents() []syncer.Event {
+func (m *testEvtHandler) GetEvents() []Event {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
-	eventsCopy := make([]syncer.Event, len(m.events))
+	eventsCopy := make([]Event, len(m.events))
 	copy(eventsCopy, m.events)
 
 	return eventsCopy
@@ -66,7 +65,7 @@ func (m *testEvtHandler) GetEvents() []syncer.Event {
 func newTestEvtHandler(errFn func() error) *testEvtHandler {
 	return &testEvtHandler{
 		errFn:  errFn,
-		events: make([]syncer.Event, 0),
+		events: make([]Event, 0),
 	}
 }
 
