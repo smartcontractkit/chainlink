@@ -112,6 +112,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
 // Application implements the common functions used in the core node.
@@ -217,6 +219,7 @@ type ApplicationOpts struct {
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
+	VersionTag               string
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
@@ -761,7 +764,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			cfg.OCR2(),
 			legacyEVMChains,
 			globalLogger,
-			opts.Version,
+			opts.VersionTag,
 			loopRegistrarConfig,
 		)
 	} else {
@@ -1183,9 +1186,14 @@ func newCREServices(
 					var orgResolver orgresolver.OrgResolver
 					if cfg.CRE().Linking().URL() != "" {
 						// Convert chain selector from string to uint64
-						chainSelector, err2 := strconv.ParseUint(capCfg.WorkflowRegistry().ChainID(), 10, 64)
+						chainID, err2 := strconv.ParseUint(capCfg.WorkflowRegistry().ChainID(), 10, 64)
 						if err2 != nil {
-							return nil, fmt.Errorf("invalid workflow registry chain selector: %w", err2)
+							return nil, fmt.Errorf("invalid workflow registry chain ID: %w", err2)
+						}
+
+						chainSelector, selErr := chainselectors.SelectorFromChainId(chainID)
+						if selErr != nil {
+							return nil, fmt.Errorf("invalid workflow registry chain selector: %w", selErr)
 						}
 
 						orgResolverConfig := orgresolver.Config{

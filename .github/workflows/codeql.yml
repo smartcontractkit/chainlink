@@ -31,16 +31,20 @@ jobs:
           - language: go
             build-mode: manual
             runs-on: ${{ needs.runner-config.outputs.go-runner }}
-            is-self-hosted: ${{ needs.runner-config.outputs.go-is-self-hosted }}
 
           - language: javascript-typescript
             build-mode: none
+            codeql-config: |
+              paths-ignore:
+                - 'core/web/assets'
+                - '**/node_modules/**'
 
           - language: python
             build-mode: none
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        if: matrix.is-self-hosted == 'true'
+        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
 
       - name: Checkout repository
@@ -63,6 +67,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          config: ${{ matrix.codeql-config || '' }}
           # If you wish to specify custom queries, you can do so here or in a config file.
           # By default, queries listed here will override any specified in a config file.
           # Prefix the list here with "+" to use these queries and those in the config file.
@@ -92,8 +97,6 @@ jobs:
       SH_GO_RUNNER: runs-on=${{ github.run_id }}/cpu=32/ram=64/family=c6i/spot=false/extras=s3-cache+tmpfs
       GH_GO_RUNNER: ubuntu24.04-8cores-32GB
     outputs:
-      # go codeql runner
-      go-is-self-hosted: ${{ steps.go-codeql.outputs.go-is-self-hosted }}
       go-runner: ${{ steps.go-codeql.outputs.go-runner }}
     steps:
       - name: Get PR Labels
@@ -110,7 +113,6 @@ jobs:
         run: |
           if [[ "$OPT_OUT" == "true" ]]; then
             echo "Opt-out is true for current run. Using gh-hosted runner for Go codeql."
-            echo "go-is-self-hosted=false" | tee -a $GITHUB_OUTPUT
             echo "go-runner=${GH_GO_RUNNER}" | tee -a $GITHUB_OUTPUT
             exit 0
           fi

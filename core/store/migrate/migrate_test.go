@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -26,25 +27,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 type OffchainReporting2OracleSpec100 struct {
-	ID                                int32           `toml:"-"`
-	ContractID                        string          `toml:"contractID"`
-	Relay                             string          `toml:"relay"` // RelayID.Network
-	RelayConfig                       job.JSONConfig  `toml:"relayConfig"`
-	P2PBootstrapPeers                 pq.StringArray  `toml:"p2pBootstrapPeers"`
-	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String     `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
-	JuelsPerFeeCoinPipeline           string          `toml:"juelsPerFeeCoinSource"`
-	CreatedAt                         time.Time       `toml:"-"`
-	UpdatedAt                         time.Time       `toml:"-"`
+	ID                                int32            `toml:"-"`
+	ContractID                        string           `toml:"contractID"`
+	Relay                             string           `toml:"relay"` // RelayID.Network
+	RelayConfig                       job.JSONConfig   `toml:"relayConfig"`
+	P2PBootstrapPeers                 pq.StringArray   `toml:"p2pBootstrapPeers"`
+	OCRKeyBundleID                    null.String      `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String      `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String      `toml:"transmitterID"`
+	BlockchainTimeout                 sqlutil.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval sqlutil.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16           `toml:"contractConfigConfirmations"`
+	JuelsPerFeeCoinPipeline           string           `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                         time.Time        `toml:"-"`
+	UpdatedAt                         time.Time        `toml:"-"`
 }
 
 func getOCR2Spec100() OffchainReporting2OracleSpec100 {

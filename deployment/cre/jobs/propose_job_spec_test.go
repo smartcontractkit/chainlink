@@ -1124,4 +1124,105 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		}
 	})
 
+	t.Run("successful consensus job distribution", func(t *testing.T) {
+		chainSelector := testEnv.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "ocr3-contract-qualifier",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "ocr3-consensus-job",
+			DONName:     test.DONName,
+			Template:    job_types.Consensus,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":            "consensus",
+				"contractQualifier":  "ocr3-contract-qualifier",
+				"chainSelectorEVM":   strconv.FormatUint(chainSelector, 10),
+				"chainSelectorAptos": strconv.FormatUint(testEnv.AptosSelector, 10),
+				"bootstrapPeers": []string{
+					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+				},
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		expectedChainID := chainsel.TEST_90000001.EvmChainID
+
+		for _, req := range reqs {
+			if !strings.Contains(req.Spec, `name = "ocr3-consensus-job"`) {
+				continue
+			}
+			// log each spec in readable yaml format
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `name = "ocr3-consensus-job"`)
+			assert.Contains(t, req.Spec, `bootstrap_peers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]`)
+			assert.Contains(t, req.Spec, fmt.Sprintf(`chain_id = "%d"`, expectedChainID))
+			assert.Contains(t, req.Spec, `command = "consensus"`)
+			assert.Contains(t, req.Spec, `config = """"""`)
+			assert.Contains(t, req.Spec, `[oracle_factory]`)
+			assert.Contains(t, req.Spec, `enabled = true`)
+			assert.Contains(t, req.Spec, `ocr_contract_address = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
+			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
+			assert.Contains(t, req.Spec, `ocr_key_bundle_id = "fake_orc_bundle_evm"`)
+		}
+	})
+
+	t.Run("failed consensus job distribution", func(t *testing.T) {
+		chainSelector := testEnv.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "ocr3-contract-qualifier",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "ocr3-consensus-job",
+			DONName:     test.DONName,
+			Template:    job_types.Consensus,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				// missing `command`
+			},
+		}
+
+		_, err = jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to convert inputs to standard capability job")
+		assert.Contains(t, err.Error(), "command is required and must be a string")
+	})
 }

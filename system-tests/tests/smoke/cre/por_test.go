@@ -50,7 +50,7 @@ type WorkflowTestConfig struct {
 
 func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
 	porWfCfg := WorkflowTestConfig{
-		FeedIDs:              []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"},
+		FeedIDs:              []string{"018e16c38e000320000000000000000000000000000000000000000000000000", "018e16c39e000320000000000000000000000000000000000000000000000000"},
 		WorkflowName:         workflowName,
 		WorkflowFileLocation: workflowLocation,
 	}
@@ -93,7 +93,6 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	var amountToFund *big.Int
 	numberOfAddressesToCreate := 2
 	var workflowOwner common.Address
-	fmt.Printf("Each address to read will be funded with %s wei\n", amountToFund.String())
 	for idx, bcOutput := range blockchainOutputs {
 		chainFamily := bcOutput.BlockchainOutput.Family
 		chainID := bcOutput.ChainID
@@ -166,7 +165,8 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	validatePoRPrices(t, testEnv, priceProvider, &cfg, *amountToFund)
 
 	if withBilling {
-		assertBillingStateChanged(t, billingState, 2*time.Minute, 49)
+		expectedMinChange := float64(49)
+		assertBillingStateChanged(t, billingState, 2*time.Minute, expectedMinChange)
 	}
 }
 

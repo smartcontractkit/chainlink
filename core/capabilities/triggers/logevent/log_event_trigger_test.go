@@ -1,4 +1,4 @@
-package logevent_test
+package logevent
 
 import (
 	"math/big"
@@ -14,7 +14,6 @@ import (
 	commonmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 )
 
@@ -23,7 +22,7 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	t.Parallel()
 	th := testutils.NewContractReaderTH(t)
 
-	logEventConfig := logevent.Config{
+	logEventConfig := Config{
 		ChainID:        th.BackendTH.ChainID.String(),
 		Network:        "evm",
 		LookbackBlocks: 1000,
@@ -49,7 +48,7 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	}, nil).Once()
 
 	// Create Log Event Trigger Service and register trigger
-	logEventTriggerService, err := logevent.NewTriggerService(ctx,
+	logEventTriggerService, err := NewTriggerService(ctx,
 		th.BackendTH.Lggr,
 		relayer,
 		logEventConfig)
@@ -70,7 +69,7 @@ func TestLogEventTriggerCursorNewLogs(t *testing.T) {
 	t.Parallel()
 	th := testutils.NewContractReaderTH(t)
 
-	logEventConfig := logevent.Config{
+	logEventConfig := Config{
 		ChainID:        th.BackendTH.ChainID.String(),
 		Network:        "evm",
 		LookbackBlocks: 1000,
@@ -96,7 +95,7 @@ func TestLogEventTriggerCursorNewLogs(t *testing.T) {
 	}, nil).Once()
 
 	// Create Log Event Trigger Service and register trigger
-	logEventTriggerService, err := logevent.NewTriggerService(ctx,
+	logEventTriggerService, err := NewTriggerService(ctx,
 		th.BackendTH.Lggr,
 		relayer,
 		logEventConfig)

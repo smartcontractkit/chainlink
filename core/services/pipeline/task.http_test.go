@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -176,7 +176,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 

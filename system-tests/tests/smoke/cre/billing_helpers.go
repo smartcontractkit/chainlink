@@ -206,6 +206,7 @@ func assertBillingStateChanged(t *testing.T, initial billingAssertionState, time
 	t.Helper()
 
 	// set up a connection to the billing database and run query until data exists
+	const pollInterval = 2 * time.Second
 	assert.Eventually(t, func() bool {
 		finalCredits := queryCredits(t, initial.DB)
 
@@ -237,7 +238,7 @@ func assertBillingStateChanged(t *testing.T, initial billingAssertionState, time
 		}
 
 		return true
-	}, timeout, 10*time.Second)
+	}, timeout, pollInterval)
 }
 
 type billingCredit struct {
