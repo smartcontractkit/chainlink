@@ -6,6 +6,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -27,7 +28,8 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-ccv/common/evm"
+	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -396,6 +398,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices.srvs...)
+
+	ccvServices, err := newCCVServices(ctx, globalLogger, keyStore, cfg, relayChainInterops)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize CCV: %w", err)
+	}
+	if ccvServices != nil {
+		srvcs = append(srvcs, ccvServices.srvs...)
+	}
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
@@ -1265,6 +1275,89 @@ func newCREServices(
 		srvs:                    srvcs,
 		workflowRegistrySyncer:  workflowRegistrySyncer,
 	}, nil
+}
+
+func getLegacyChains(lggr logger.Logger, relayerChainInterops *CoreRelayerChainInteroperators) map[protocol.ChainSelector]legacyevm.Chain {
+	chains := make(map[protocol.ChainSelector]legacyevm.Chain)
+	for _, c := range relayerChainInterops.LegacyEVMChains().Slice() {
+		chain, ok := c.(legacyevm.Chain)
+		if !ok {
+			lggr.Info("CCV: failed to cast legacyevm.Chain")
+			continue
+		}
+
+		id := chain.ID()
+		if id.Cmp(new(big.Int).SetUint64(math.MaxUint64)) > 0 {
+			lggr.Info("CCV: chain ID too large")
+			continue
+		}
+
+		// convert to selector
+		chain2, ok := chainselectors.ChainByEvmChainID(id.Uint64())
+		if !ok {
+			lggr.Infow("CCV: failed to get chain selector")
+			continue
+		}
+
+		chains[protocol.ChainSelector(chain2.Selector)] = chain
+	}
+	return chains
+}
+
+type CCVServices struct {
+	// Verifier
+	// Executor
+
+	// srvs are all the services that are created, including those that are explicitly exposed
+	srvs []services.ServiceCtx
+}
+
+var hardCodedCCVConfig = evm.CCVConfig{
+	IndexerAddress:             "0xTODO",
+	CommitteeAggregatorAddress: "0xTODO",
+
+	ChainConfigs: map[protocol.ChainSelector]evm.ChainConfig{
+		3379446385462418246: {
+			CCVAggregatorAddress: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+			CCVProxyAddress:      "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+			CCVCommitteeAddress:  "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+		},
+		12922642891491394802: {
+			CCVAggregatorAddress: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+			CCVProxyAddress:      "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+			CCVCommitteeAddress:  "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+		},
+	},
+}
+
+func newCCVServices(
+	ctx context.Context,
+	globalLogger logger.Logger,
+	keyStore creKeystore,
+	cfg GeneralConfig,
+	relayerChainInterops *CoreRelayerChainInteroperators,
+) (*CCVServices, error) {
+	globalLogger = globalLogger.Named("CCV")
+
+	// TODO: move config from hardCodedCCVConfig into general config.
+
+	legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
+
+	go evm.StartCCVComitteeVerifier(
+		ctx,
+		globalLogger.With("service", "Verifier"),
+		hardCodedCCVConfig,
+		legacyRelayers,
+	)
+
+	go evm.StartCCVExecutor(
+		ctx,
+		globalLogger.With("service", "Executor"),
+		hardCodedCCVConfig,
+		legacyRelayers,
+	)
+
+	return nil, nil
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
