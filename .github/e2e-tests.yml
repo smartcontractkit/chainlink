@@ -2155,7 +2155,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2171,7 +2177,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2188,7 +2200,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2205,7 +2223,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2222,7 +2246,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2237,7 +2267,13 @@ runner-test-matrix:
     triggers:
     # - PR E2E CCIP Tests
     # - Nightly E2E Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2254,7 +2290,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPTokenPoolRateLimits$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPTokenPoolRateLimits$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2314,7 +2356,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPOnRampLimits$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPOnRampLimits$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2328,7 +2376,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPOffRampCapacityLimit$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPOffRampCapacityLimit$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2342,7 +2396,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPOffRampAggRateLimit$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPOffRampAggRateLimit$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2358,7 +2418,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPReorgBelowFinality$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPReorgBelowFinality$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2375,7 +2441,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPReorgAboveFinalityAtDestination$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPReorgAboveFinalityAtDestination$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2392,7 +2464,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E CCIP Tests
       - Workflow Dispatch E2E CCIP Tests
-    test_cmd: cd ccip-tests/smoke && go test -test.run ^TestSmokeCCIPReorgAboveFinalityAtSource$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: |
+      cd ccip-tests/smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPReorgAboveFinalityAtSource$" -timeout 30m -count=1 -parallel=1
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -2405,7 +2483,14 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - E2E CCIP Chaos Tests
-    test_cmd: cd ccip-tests/chaos && DETACH_RUNNER=false go test ccip_test.go -v -test.parallel=11 -timeout 60m -count=1 -json
+    test_cmd: |
+      cd ccip-tests/chaos && \
+      DETACH_RUNNER=false \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v ccip_test.go -parallel=11 -timeout 60m -count=1
     test_env_vars:
       TEST_SUITE: chaos
       TEST_TRIGGERED_BY: ccip-cron-chaos-eth
