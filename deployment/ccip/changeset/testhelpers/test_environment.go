@@ -772,7 +772,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	require.NoError(t, err)
 
 	// load the state again to get the latest addresses
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	err = state.ValidatePostDeploymentState(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
 	require.NoError(t, err)
@@ -804,7 +804,7 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 			TimelockMinDelay: big.NewInt(1),
 		}
 	}
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return nil, err
 	}
@@ -876,7 +876,7 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 			TimelockMinDelay: big.NewInt(1),
 		}
 	}
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return nil, err
 	}
@@ -932,7 +932,7 @@ func (cs WrapSetOCR3Config) VerifyPreconditions(env cldf.Environment, config Wra
 
 // NOTE: this should become the new standard function that returns generic OCR3ConfigArgs
 func ocr3ConfigArgs(e cldf.Environment, homeChainSelector uint64, chainSelector uint64, configType globals.ConfigType) ([]tonOperation.OCR3ConfigArgs, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return nil, err
 	}
@@ -1101,7 +1101,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NoError(t, err, "failed to deploy TON ccip contracts")
 	}
 
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	// Assert link present
 	if tc.IsStaticLink {
@@ -1459,7 +1459,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry)
 	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).CCIPHome)

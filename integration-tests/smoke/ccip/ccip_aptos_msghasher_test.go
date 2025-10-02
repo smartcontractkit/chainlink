@@ -48,7 +48,7 @@ func Test_CCIP_AptosMessageHasher_OnChainVerification(t *testing.T) {
 	destChain := aptosChainSelectors[0] // Aptos destination
 
 	// Setup off-chain message hasher
-	extraDataCodec := ccipocr3common.ExtraDataCodec(map[string]ccipocr3common.SourceChainExtraDataCodec{
+	extraDataCodec := ccipocr3common.ExtraDataCodecMap(map[string]ccipocr3common.SourceChainExtraDataCodec{
 		chain_selectors.FamilyAptos: ccipaptos.ExtraDataDecoder{},
 		chain_selectors.FamilyEVM:   ccipevm.ExtraDataDecoder{},
 	})

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
@@ -249,7 +249,7 @@ func (params CCIPJobSpecParams) CommitJobSpec() (*OCR2TaskJobSpec, error) {
 		PluginType:                        types.CCIPCommit,
 		ContractID:                        params.CommitStore.Hex(),
 		ContractConfigConfirmations:       1,
-		ContractConfigTrackerPollInterval: models.Interval(20 * time.Second),
+		ContractConfigTrackerPollInterval: sqlutil.Interval(20 * time.Second),
 		P2PV2Bootstrappers:                params.P2PV2Bootstrappers,
 		PluginConfig:                      pluginConfig,
 		RelayConfig: map[string]interface{}{
@@ -281,7 +281,7 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		PluginType:                        types.CCIPExecution,
 		ContractID:                        params.OffRamp.Hex(),
 		ContractConfigConfirmations:       1,
-		ContractConfigTrackerPollInterval: models.Interval(20 * time.Second),
+		ContractConfigTrackerPollInterval: sqlutil.Interval(20 * time.Second),
 
 		P2PV2Bootstrappers: params.P2PV2Bootstrappers,
 		PluginConfig:       map[string]interface{}{},
@@ -324,7 +324,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec
 		ContractID:                        contractID,
 		Relay:                             relay.NetworkEVM,
 		ContractConfigConfirmations:       1,
-		ContractConfigTrackerPollInterval: models.Interval(20 * time.Second),
+		ContractConfigTrackerPollInterval: sqlutil.Interval(20 * time.Second),
 		RelayConfig: map[string]interface{}{
 			"chainID": params.DestEvmChainId,
 		},
