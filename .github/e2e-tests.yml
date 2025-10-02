@@ -1098,7 +1098,13 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd smoke && go test -v -test.run TestVRFv2Basic -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestVRFv2Basic" -parallel=1 -timeout 30m -count=1
     test_secrets_required: true
     triggers:
       - On Demand VRFV2 Smoke Test (Ethereum clients)
@@ -1108,7 +1114,13 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
+    test_cmd: |
+      cd load/vrfv2plus && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestVRFV2PlusPerformance$" -parallel=1 -timeout 24h -count=1
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -1121,7 +1133,13 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
+    test_cmd: |
+      cd load/vrfv2plus && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestVRFV2PlusBHSPerformance$" -parallel=1 -timeout 24h -count=1
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -1134,7 +1152,13 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2/vrfv2_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd load/vrfv2 && go test -v -test.run ^TestVRFV2Performance$ -test.parallel=1 -timeout 24h -count=1 -json
+    test_cmd: |
+      cd load/vrfv2 && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestVRFV2Performance$" -parallel=1 -timeout 24h -count=1
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -1147,7 +1171,13 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2/vrfv2_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd load/vrfv2 && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
+    test_cmd: |
+      cd load/vrfv2 && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestVRFV2PlusBHSPerformance$" -parallel=1 -timeout 24h -count=1
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -1166,7 +1196,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestVRFBasic|TestVRFJobReplacement" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestVRFBasic|TestVRFJobReplacement" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-vrf-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1180,7 +1215,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "^(TestVRFv2Basic|TestVRFV2WithBHS|TestVRFv2NodeReorg|TestVRFV2MultipleSendingKeys|TestVRFOwner|TestVRFV2BatchFulfillmentEnabledDisabled)$" -timeout 30m -count=1 -test.parallel=6 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestVRFv2Basic|TestVRFV2WithBHS|TestVRFv2NodeReorg|TestVRFV2MultipleSendingKeys|TestVRFOwner|TestVRFV2BatchFulfillmentEnabledDisabled)$" -timeout 30m -count=1 -parallel=6 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-vrf2-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1194,7 +1234,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "^(TestVRFv2Plus|TestVRFv2PlusMultipleSendingKeys|TestVRFv2PlusMigration|TestVRFv2PlusReplayAfterTimeout|TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays|TestVRFv2PlusNodeReorg|TestVRFv2PlusBatchFulfillmentEnabledDisabled|TestVRFv2PlusWithBHS|TestVRFv2PlusWithBHF)$" -timeout 30m -count=1 -test.parallel=9 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestVRFv2Plus|TestVRFv2PlusMultipleSendingKeys|TestVRFv2PlusMigration|TestVRFv2PlusReplayAfterTimeout|TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays|TestVRFv2PlusNodeReorg|TestVRFv2PlusBatchFulfillmentEnabledDisabled|TestVRFv2PlusWithBHS|TestVRFv2PlusWithBHF)$" -timeout 30m -count=1 -parallel=9 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-vrf2plus-evm-simulated
     test_go_project_path: integration-tests
   # VRFv2Plus tests on any live testnet (test_config_override_path required)
@@ -1204,7 +1249,13 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2plus_test.go
     runs_on: ubuntu-latest
     test_env_type: docker
-    test_cmd: cd smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -parallel=1 -timeout 2h -count=1
     test_go_project_path: integration-tests
   # VRFv2Plus release tests on Sepolia testnet
 
@@ -1212,7 +1263,13 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2plus_test.go
     runs_on: ubuntu-latest
     test_env_type: docker
-    test_cmd: cd smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -parallel=1 -timeout 2h -count=1
     test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/new_env/sepolia_new_env_test_config.toml
     triggers:
       - VRF E2E Release Tests
