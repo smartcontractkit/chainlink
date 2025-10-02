@@ -35,6 +35,8 @@ jobs:
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
+        with:
+          only-modules: true
 
       - name: Run Go Mod Local Updater
         run: |
