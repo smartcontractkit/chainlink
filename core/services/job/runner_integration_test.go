@@ -26,6 +26,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -462,7 +463,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
-		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+		jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
@@ -499,10 +500,10 @@ answer1      [type=median index=0];
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
 
-		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+		jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(testutils.Context(t), &jb)
 		require.NoError(t, err)
-		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
+		assert.Equal(t, jb.MaxTaskDuration, sqlutil.Interval(cltest.MustParseDuration(t, "1s")))
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
@@ -591,10 +592,10 @@ answer1      [type=median index=0];
 			err = toml.Unmarshal([]byte(s), &jb)
 			require.NoError(t, err)
 
-			jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+			jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
 			err = jobORM.CreateJob(testutils.Context(t), &jb)
 			require.NoError(t, err)
-			assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
+			assert.Equal(t, jb.MaxTaskDuration, sqlutil.Interval(cltest.MustParseDuration(t, "1s")))
 
 			lggr := logger.TestLogger(t)
 			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
@@ -735,7 +736,7 @@ answer1      [type=median index=0];
 
 		// Job specified task timeout should fail.
 		jb = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		jb.MaxTaskDuration = models.Interval(time.Duration(1))
+		jb.MaxTaskDuration = sqlutil.Interval(time.Duration(1))
 		jb.Name = null.NewString("a job 3", true)
 		err = jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)

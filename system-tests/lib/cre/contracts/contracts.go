@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
@@ -26,11 +28,13 @@ import (
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -478,10 +482,22 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 	}
 
 	evmChainsWithForwarders := make(map[uint64]struct{})
+	tronChainsWithForwarders := make(map[uint64]struct{})
 	for chainSelector, addresses := range allAddresses {
 		for _, typeAndVersion := range addresses {
 			if typeAndVersion.Type == keystone_changeset.KeystoneForwarder {
-				evmChainsWithForwarders[chainSelector] = struct{}{}
+				// Check if any of the blockchain outputs indicate this is a TRON chain
+				isTronChain := false
+				for _, bcOut := range input.BlockchainOutputs {
+					if bcOut.ChainSelector == chainSelector && strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
+						tronChainsWithForwarders[chainSelector] = struct{}{}
+						isTronChain = true
+						break
+					}
+				}
+				if !isTronChain {
+					evmChainsWithForwarders[chainSelector] = struct{}{}
+				}
 			}
 		}
 	}
@@ -510,6 +526,14 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 			if err != nil {
 				return errors.Wrap(err, "failed to configure Solana forwarders")
 			}
+		}
+	}
+
+	// configure TRON forwarders only if we have some
+	if len(tronChainsWithForwarders) > 0 {
+		err = configureTronForwarders(input.CldEnv, input.ChainSelector, input.Topology)
+		if err != nil {
+			return errors.Wrap(err, "failed to configure TRON forwarders")
 		}
 	}
 
@@ -759,14 +783,38 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 		MaxDurationShouldAcceptMillis:     1000,
 		MaxDurationShouldTransmitMillis:   1000,
 		MaxFaultyOracles:                  1,
-		MaxQueryLengthBytes:               1000000,
-		MaxObservationLengthBytes:         1000000,
-		MaxReportLengthBytes:              1000000,
-		MaxBatchSize:                      1000,
-		UniqueReports:                     true,
+		ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+			MaxQueryLengthBytes:       1000000,
+			MaxObservationLengthBytes: 1000000,
+			MaxOutcomeLengthBytes:     1000000,
+			MaxReportLengthBytes:      1000000,
+			MaxBatchSize:              1000,
+		},
+		UniqueReports: true,
 	}
 
 	return oracleConfig, nil
+}
+
+func DefaultChainCapabilityOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
+	cfg, err := DefaultOCR3Config(topology)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate default OCR3 config: %w", err)
+	}
+
+	cfg.DeltaRoundMillis = 1000
+	const kib = 1024
+	const mib = 1024 * kib
+	cfg.ConsensusCapOffchainConfig = nil
+	cfg.ChainCapOffchainConfig = &ocr3.ChainCapOffchainConfig{
+		MaxQueryLengthBytes:       mib,
+		MaxObservationLengthBytes: 97 * kib,
+		MaxReportLengthBytes:      mib,
+		MaxOutcomeLengthBytes:     mib,
+		MaxReportCount:            1000,
+		MaxBatchSize:              200,
+	}
+	return cfg, nil
 }
 
 func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.CapabilitiesAwareNodeSet) (*dkgocrtypes.ReportingPluginConfig, error) {
@@ -789,7 +837,7 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 		if i == nodeSets[vaultIndex].BootstrapNodeIndex {
 			continue
 		}
-		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, crenode.NodeDKGRecipientKey)
+		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, cre.NodeDKGRecipientKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to find DKG recipient key label")
 		}
@@ -1068,4 +1116,48 @@ func p2pStrings(b [][32]byte) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+func configureTronForwarders(env *cldf.Environment, registryChainSelector uint64, topology *cre.Topology) error {
+	triggerOptions := cldf_tron.DefaultTriggerOptions()
+	triggerOptions.FeeLimit = 1_000_000_000
+
+	var wfNodeIDs []string
+	for _, donMetadata := range topology.DonsMetadata {
+		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
+			continue
+		}
+
+		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
+			Key:   crenode.NodeTypeKey,
+			Value: cre.WorkerNode,
+		}, crenode.EqualLabels)
+		if workerNodesErr != nil {
+			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", workerNodesErr)
+		}
+
+		for _, node := range workerNodes {
+			p2pID, err := crenode.ToP2PID(node, crenode.NoOpTransformFn)
+			if err != nil {
+				return fmt.Errorf("failed to get p2p id for node: %w", err)
+			}
+			wfNodeIDs = append(wfNodeIDs, p2pID)
+		}
+		break
+	}
+
+	configChangeset := commonchangeset.Configure(tronchangeset.ConfigureForwarder{}, &tronchangeset.ConfigureForwarderRequest{
+		WFDonName:        "workflow-don",
+		WFNodeIDs:        wfNodeIDs,
+		RegistryChainSel: registryChainSelector,
+		Chains:           make(map[uint64]struct{}),
+		TriggerOptions:   triggerOptions,
+	})
+
+	_, err := commonchangeset.Apply(nil, *env, configChangeset)
+	if err != nil {
+		return fmt.Errorf("failed to configure Tron forwarders using changesets: %w", err)
+	}
+
+	return nil
 }

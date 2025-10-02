@@ -1,23 +1,15 @@
 package vault
 
 import (
-	"context"
-	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/tdh2/go/tdh2/lib/group/nist"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-	"golang.org/x/crypto/nacl/box"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
@@ -30,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault/sanmarinodkg/dummydkg"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault/sanmarinodkg/tdh2shim"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
@@ -152,21 +142,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			// create job specs for the bootstrap node
 			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
 
-			// Create Vault keys in a deterministic manner by setting n = 8
-			// and t = 1, so that we can use the same keys across all tests,
-			// irrespective of the number of nodes in the workflow DON.
-			// We just need to ensure that the number of workflow nodes is at most 8, because dkgKeys()
-			// will generate only 8 shares. If workflow nodes are increased more than 8,
-			// we need to update the n value in dkgKeys() and the value of MasterPublicKeyStr accordingly.
-			if len(workflowNodeSet) > 8 {
-				return nil, errors.New("workflow node set must not exceed 8 nodes for vault capability, please update dkgKeys() and MasterPublicKeyStr accordingly if you want to increase the number of workflow nodes")
-			}
-			pk, sks, err := dkgKeys(8, 1)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate DKG keys")
-			}
-
-			for idx, workerNode := range workflowNodeSet {
+			for _, workerNode := range workflowNodeSet {
 				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
 				if nodeIDErr != nil {
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
@@ -175,11 +151,6 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.AddressKeyFromSelector(input.DonTopology.HomeChainSelector))
 				if ethErr != nil {
 					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
-				}
-
-				encryptedShare, encErr := encryptPrivateShare(input.CldEnvironment.Offchain, nodeID, sks[idx])
-				if encErr != nil {
-					return nil, errors.Wrap(encErr, "failed to encrypt private share")
 				}
 
 				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
@@ -191,7 +162,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 					return nil, errors.New("key bundle ID for evm family is not found")
 				}
 
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, nodeEthAddr, offchainKeyBundleID, input.DonTopology.OCRPeeringData, chainID, pk, encryptedShare))
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, nodeEthAddr, offchainKeyBundleID, input.DonTopology.OCRPeeringData, chainID))
 			}
 		}
 
@@ -214,74 +185,6 @@ globalRPS = 50
 perSenderBurst = 10
 perSenderRPS = 10
 `}, nil
-}
-
-func encryptPrivateShare(offchain cldf_offchain.Client, nodeID string, sk *tdh2easy.PrivateShare) (string, error) {
-	nodeResp, err := offchain.GetNode(context.Background(), &nodev1.GetNodeRequest{
-		Id: nodeID,
-	})
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get node from jd")
-	}
-	wk := nodeResp.GetNode().GetWorkflowKey()
-	if wk == "" {
-		return "", errors.New("node must contain a workflow key")
-	}
-
-	wkb, err := hex.DecodeString(wk)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to decode workflow key from hex")
-	}
-
-	skb, err := sk.Marshal()
-	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal private share")
-	}
-
-	wkbSized := [32]byte(wkb)
-	sealed, err := box.SealAnonymous(nil, skb, &wkbSized, cryptorand.Reader)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to encrypt private share")
-	}
-
-	return hex.EncodeToString(sealed), nil
-}
-
-func dkgKeys(n, t int) (string, []*tdh2easy.PrivateShare, error) {
-	instanceID, recipCfg, recipSecKeys, err := dummydkg.NewDKGSetup(n, t, "REPLACE_ME_WITH_RANDOM_SEED")
-	if err != nil {
-		return "", nil, err
-	}
-
-	group := nist.NewP256()
-	result, err := dummydkg.NewDKGResult(instanceID, recipCfg, group)
-	if err != nil {
-		return "", nil, err
-	}
-
-	shares := []*tdh2easy.PrivateShare{}
-	for _, share := range recipSecKeys {
-		s, ierr := tdh2shim.TDH2PrivateShareFromDKGResult(result, share)
-		if ierr != nil {
-			return "", nil, errors.Wrap(ierr, "failed to convert DKG share to TDH2 share")
-		}
-
-		shares = append(shares, s)
-	}
-
-	pk, err := tdh2shim.TDH2PublicKeyFromDKGResult(result)
-	if err != nil {
-		return "", nil, errors.Wrap(err, "failed to convert DKG result to TDH2 public key")
-	}
-
-	pkb, err := pk.Marshal()
-	if err != nil {
-		return "", nil, errors.Wrap(err, "failed to marshal TDH2 public key")
-	}
-
-	pks := hex.EncodeToString(pkb)
-	framework.L.Info().Msg("Generated MasterPublicKey for n=" + strconv.Itoa(n) + ", t=" + strconv.Itoa(t) + ". Key = " + pks)
-	return pks, shares, nil
 }
 
 func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {

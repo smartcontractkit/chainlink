@@ -25,7 +25,7 @@ type CreateJobsWithJdOpDeps struct {
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	CapabilitiesConfigs       cre.CapabilityConfigs
 	Capabilities              []cre.InstallableCapability
-	InfraInput                infra.Input
+	InfraInput                infra.Provider
 }
 
 type CreateJobsWithJdOpInput struct {

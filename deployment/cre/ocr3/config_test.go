@@ -55,15 +55,17 @@ var wantOCR3Config = `{
 
 var ocr3Cfg = `
 {
-  "MaxQueryLengthBytes": 1000000,
-  "MaxObservationLengthBytes": 1000000,
-  "MaxReportLengthBytes": 1000000,
-  "MaxOutcomeLengthBytes": 1000000,
-  "MaxReportCount": 20,
-  "MaxBatchSize": 20,
-  "OutcomePruningThreshold": 3600,
+  "ConsensusCapOffchainConfig": {
+	  "MaxQueryLengthBytes": 1000000,
+	  "MaxObservationLengthBytes": 1000000,
+	  "MaxReportLengthBytes": 1000000,
+	  "MaxOutcomeLengthBytes": 1000000,
+	  "MaxReportCount": 20,
+	  "MaxBatchSize": 20,
+	  "OutcomePruningThreshold": 3600,
+	  "RequestTimeout": "30s"
+  },
   "UniqueReports": true,
-  "RequestTimeout": "30s",
   "DeltaProgressMillis": 5000,
   "DeltaResendMillis": 5000,
   "DeltaInitialMillis": 5000,

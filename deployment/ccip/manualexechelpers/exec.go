@@ -313,7 +313,7 @@ func manuallyExecuteSingle(
 	lookbackDurationCommitReport,
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
-	extraDataCodec ccipocr3.ExtraDataCodec,
+	extraDataCodec ccipocr3.ExtraDataCodecBundle,
 	messageSentCache *MessageSentCache,
 	commitRootCache *RootCache,
 ) error {
@@ -555,7 +555,7 @@ func ManuallyExecuteAll(
 	stepDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
-	extraDataCodec := ccipocr3.ExtraDataCodec(map[string]ccipocr3.SourceChainExtraDataCodec{
+	extraDataCodec := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
 	})
@@ -581,6 +581,35 @@ func ManuallyExecuteAll(
 		)
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+// CheckAlreadyExecuted will check the execution state of the provided messages and log if they were already executed.
+func CheckAlreadyExecuted(
+	ctx context.Context,
+	lggr logger.Logger,
+	state stateview.CCIPOnChainState,
+	srcChainSel uint64,
+	destChainSel uint64,
+	msgSeqNrs []int64,
+) error {
+	for _, seqNr := range msgSeqNrs {
+		execState, err := state.Chains[destChainSel].OffRamp.GetExecutionState(
+			&bind.CallOpts{Context: ctx},
+			srcChainSel,
+			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get execution state: %w", err)
+		}
+
+		if execState == testhelpers.EXECUTION_STATE_SUCCESS || execState == testhelpers.EXECUTION_STATE_FAILURE {
+			lggr.Infow("message already executed", "execState", execState, "msgSeqNr", seqNr)
+		} else {
+			lggr.Infow("message not executed", "execState", execState, "msgSeqNr", seqNr)
 		}
 	}
 

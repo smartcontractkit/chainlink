@@ -17,7 +17,6 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -37,7 +36,7 @@ import (
 
 type BlockchainsInput struct {
 	blockchainsInput []blockchain.Input
-	infra            infra.Input
+	infra            infra.Provider
 }
 
 type BlockchainOutput struct {
@@ -60,6 +59,7 @@ func CreateBlockchains(
 
 	for _, bi := range input.blockchainsInput {
 		isSolana := bi.Type == blockchain.FamilySolana
+		isTron := bi.Type == blockchain.FamilyTron
 
 		if isSolana {
 			err := initSolanaInput(&bi)
@@ -71,6 +71,15 @@ func CreateBlockchains(
 		bcOut, err := deployBlockchain(testLogger, input.infra, bi)
 		if err != nil {
 			return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s", bi.Type)
+		}
+
+		if isTron {
+			w, err := wrapTron(&bi, bcOut)
+			if err != nil {
+				return nil, pkgerrors.Wrap(err, "failed to wrap Tron")
+			}
+			blockchainOutput = append(blockchainOutput, w)
+			continue
 		}
 
 		if isSolana {
@@ -140,7 +149,7 @@ func hasSolanaArtifacts(dir string) bool {
 	return false
 }
 
-func deployBlockchain(testLogger zerolog.Logger, infraIn infra.Input, bi blockchain.Input) (*blockchain.Output, error) {
+func deployBlockchain(testLogger zerolog.Logger, infraIn infra.Provider, bi blockchain.Input) (*blockchain.Output, error) {
 	if infraIn.Type != infra.CRIB {
 		bcOut, err := blockchain.NewBlockchainNetwork(&bi)
 		if err != nil {
@@ -166,6 +175,45 @@ func deployBlockchain(testLogger zerolog.Logger, infraIn infra.Input, bi blockch
 	}
 
 	return bcOut, nil
+}
+
+func wrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
+	chainID, err := strconv.ParseUint(bi.ChainID, 10, 64)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bi.ChainID)
+	}
+	selector, err := chainselectors.SelectorFromChainId(chainID)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %s", bi.ChainID)
+	}
+
+	// if jsonrpc is not present, add it
+	if !strings.HasSuffix(bcOut.Nodes[0].ExternalHTTPUrl, "/jsonrpc") {
+		bcOut.Nodes[0].ExternalHTTPUrl += "/jsonrpc"
+	}
+	if !strings.HasSuffix(bcOut.Nodes[0].InternalHTTPUrl, "/jsonrpc") {
+		bcOut.Nodes[0].InternalHTTPUrl += "/jsonrpc"
+	}
+
+	externalHTTPURL := bcOut.Nodes[0].ExternalHTTPUrl
+	internalHTTPURL := bcOut.Nodes[0].InternalHTTPUrl
+
+	return &cre.WrappedBlockchainOutput{
+		ChainSelector: selector,
+		ChainID:       chainID,
+		BlockchainOutput: &blockchain.Output{
+			ChainID: bi.ChainID,
+			Family:  blockchain.FamilyTron,
+			Nodes: []*blockchain.Node{
+				{
+					InternalHTTPUrl: internalHTTPURL,
+					ExternalHTTPUrl: externalHTTPURL,
+				},
+			},
+		},
+		SethClient:         nil,
+		DeployerPrivateKey: blockchain.TRONAccounts.PrivateKeys[0],
+	}, nil
 }
 
 func wrapSolana(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
@@ -259,7 +307,7 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 	for _, bcOut := range blockchainsOutput {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(bcOut)
 		if cfgErr != nil {
-			return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to wrap blockchain output to chain config")
+			return StartBlockchainsOutput{}, pkgerrors.Wrap(cfgErr, "failed to wrap blockchain output to chain config")
 		}
 		chainsConfigs = append(chainsConfigs, cfg)
 	}

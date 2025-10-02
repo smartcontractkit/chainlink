@@ -71,6 +71,29 @@ func configureForwarderContracts(env cldf.Environment, req *ConfigureForwarderRe
 	return nil
 }
 
+// determineTronChainFamily checks what chain family the DON nodes are configured with
+// Returns FamilyTron for native Tron configs, FamilyEVM for EVM configs with ChainType='tron'
+func determineTronChainFamily(dn internal.RegisteredDon) string {
+	hasTronFamily := false
+
+	// Check all nodes to see what chain families they support
+	for _, node := range dn.Nodes {
+		for details := range node.SelToOCRConfig {
+			if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil {
+				if family == chainsel.FamilyTron {
+					hasTronFamily = true
+				}
+			}
+		}
+	}
+
+	// Prefer native Tron if available, fall back to EVM
+	if hasTronFamily {
+		return chainsel.FamilyTron
+	}
+	return chainsel.FamilyEVM
+}
+
 func configureForwarder(lggr logger.Logger, chain cldf_tron.Chain, fwdrAddress address.Address, dons []internal.RegisteredDon, triggerOpts *cldf_tron.TriggerOptions) error {
 	if fwdrAddress == nil {
 		return errors.New("nil forwarder contract")
@@ -81,7 +104,11 @@ func configureForwarder(lggr logger.Logger, chain cldf_tron.Chain, fwdrAddress a
 			continue
 		}
 		ver := dn.Info.ConfigCount // note config count on the don info is the version on the forwarder
-		signers := dn.Signers(chainsel.FamilyTron)
+
+		// Check which chain family is available for backward compatibility
+		// Nodes might be configured as native Tron or as EVM chains with ChainType='tron'
+		chainFamily := determineTronChainFamily(dn)
+		signers := dn.Signers(chainFamily)
 
 		txInfo, err := chain.TriggerContractAndConfirm(context.Background(), fwdrAddress, "setConfig(uint32,uint32,uint8,address[])", []interface{}{"uint32", dn.Info.Id, "uint32", ver, "uint8", dn.Info.F, "address[]", signers}, triggerOpts)
 		if err != nil {

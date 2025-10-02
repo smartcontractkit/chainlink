@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,7 +19,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solanago "github.com/gagliardetto/solana-go"
+
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	tonOperation "github.com/smartcontractkit/chainlink-ton/deployment/ccip/operation"
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -41,6 +44,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
@@ -768,7 +772,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	require.NoError(t, err)
 
 	// load the state again to get the latest addresses
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	err = state.ValidatePostDeploymentState(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
 	require.NoError(t, err)
@@ -800,7 +804,7 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 			TimelockMinDelay: big.NewInt(1),
 		}
 	}
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return nil, err
 	}
@@ -872,7 +876,7 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 			TimelockMinDelay: big.NewInt(1),
 		}
 	}
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return nil, err
 	}
@@ -917,6 +921,85 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 				MCMSWithTimelockConfig: mcmsCfg,
 			},
 		)}, nil
+}
+
+type WrapSetOCR3Config struct{}
+
+func (cs WrapSetOCR3Config) VerifyPreconditions(env cldf.Environment, config WrapSetOCR3ConfigArgs) error {
+	// NOTE: this is a workaround and it only validates RemoteChainSelectors
+	return ops.SetOCR3Config{}.VerifyPreconditions(env, ops.SetOCR3OffRampConfig{RemoteChainSels: config.RemoteChainSels})
+}
+
+// NOTE: this should become the new standard function that returns generic OCR3ConfigArgs
+func ocr3ConfigArgs(e cldf.Environment, homeChainSelector uint64, chainSelector uint64, configType globals.ConfigType) ([]tonOperation.OCR3ConfigArgs, error) {
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
+	if err != nil {
+		return nil, err
+	}
+
+	donID, err := internal.DonIDForChain(
+		state.Chains[homeChainSelector].CapabilityRegistry,
+		state.Chains[homeChainSelector].CCIPHome,
+		chainSelector,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DON ID: %w", err)
+	}
+
+	// Default to active config if not set
+	if configType == "" {
+		configType = globals.ConfigTypeActive
+	}
+
+	ocr3Args, err := internal.BuildSetOCR3ConfigArgsAptos(
+		donID,
+		state.Chains[homeChainSelector].CCIPHome,
+		chainSelector,
+		configType,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build OCR3 config args: %w", err)
+	}
+
+	// MAP TO ARGS, this will become unnecessary once BuildSetOCR3Config uses correct types
+	var args []tonOperation.OCR3ConfigArgs
+	for _, arg := range ocr3Args {
+		args = append(args, tonOperation.OCR3ConfigArgs{
+			ConfigDigest:                   arg.ConfigDigest,
+			PluginType:                     tonOperation.PluginType(arg.OcrPluginType),
+			F:                              arg.F,
+			IsSignatureVerificationEnabled: arg.IsSignatureVerificationEnabled,
+			Signers:                        arg.Signers,
+			Transmitters:                   arg.Transmitters,
+		})
+	}
+	return args, nil
+}
+
+type WrapSetOCR3ConfigArgs struct {
+	HomeChainSel    uint64
+	RemoteChainSels []uint64
+	ConfigType      globals.ConfigType
+}
+
+func (cs WrapSetOCR3Config) Apply(env cldf.Environment, config WrapSetOCR3ConfigArgs) (cldf.ChangesetOutput, error) {
+	// TODO: loop over tonChains
+	args, err := ocr3ConfigArgs(env, config.HomeChainSel, config.RemoteChainSels[0], config.ConfigType)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	configs := make(map[tonOperation.PluginType]tonOperation.OCR3ConfigArgs, 2)
+	for _, arg := range args {
+		configs[arg.PluginType] = arg
+	}
+
+	// TODO: don't only wrap TON
+	return ops.SetOCR3Config{}.Apply(env, ops.SetOCR3OffRampConfig{
+		// TODO: map[remoteChainSels => configs]
+		RemoteChainSels: config.RemoteChainSels,
+		Configs:         configs,
+	})
 }
 
 func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, mcmsEnabled bool) DeployedEnv {
@@ -1008,12 +1091,17 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := memory.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], "60d3ba6bf24b"))
+		contractVersion := "96c13ca2551d"
+		// Allow overriding with a custom version, it's set to "loal" on chainlink-ton CI
+		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
+			contractVersion = version
+		}
+		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], contractVersion, rand.Uint32()))
 		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{cs})
 		require.NoError(t, err, "failed to deploy TON ccip contracts")
 	}
 
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	// Assert link present
 	if tc.IsStaticLink {
@@ -1349,16 +1437,18 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				},
 			))
 		}
-		// TODO(ton): We need OCR3OffRamp Changeset for Ton, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-		// apps = append(apps, commonchangeset.Configure(
-		// 	// Enable the OCR config on the remote chains.
-		// 	cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
-		// 	v1_6.SetOCR3OffRampConfig{
-		// 		HomeChainSel:       e.HomeChainSel,
-		// 		RemoteChainSels:    tonChains,
-		// 		CCIPHomeConfigType: globals.ConfigTypeActive,
-		// 	},
-		// ))
+
+		if len(tonChains) > 0 {
+			apps = append(apps, commonchangeset.Configure(
+				// Enable the OCR config on the remote chains.
+				WrapSetOCR3Config{},
+				WrapSetOCR3ConfigArgs{
+					HomeChainSel:    e.HomeChainSel,
+					RemoteChainSels: tonChains,
+					ConfigType:      globals.ConfigTypeActive,
+				},
+			))
+		}
 	}
 	apps = append(apps, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
@@ -1369,7 +1459,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 
-	state, err = stateview.LoadOnchainState(e.Env)
+	state, err = stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).CapabilityRegistry)
 	require.NotNil(t, state.MustGetEVMChainState(e.HomeChainSel).CCIPHome)
