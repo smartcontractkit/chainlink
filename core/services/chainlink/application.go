@@ -114,8 +114,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
 // Application implements the common functions used in the core node.
@@ -1129,7 +1127,7 @@ func newCREServices(
 						artifactsStore,
 						key,
 						syncerV1.WithBillingClient(billingClient),
-						syncerV1.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), wrChainDetails.ChainSelector),
+						syncerV1.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
