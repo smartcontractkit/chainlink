@@ -694,7 +694,6 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
-
   - id: smoke/keeper_test.go:^TestKeeperRegisterUpkeep$
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
@@ -703,7 +702,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperRegisterUpkeep$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -715,7 +720,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperAddFunds$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -727,7 +738,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperRemove$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperRemove$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -739,7 +756,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperPauseRegistry$ -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperPauseRegistry$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -751,7 +774,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperMigrateRegistry$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperMigrateRegistry$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -763,7 +792,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperNodeDown$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperNodeDown$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -775,7 +810,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperPauseUnPauseUpkeep$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperPauseUnPauseUpkeep$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -787,7 +828,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperUpdateCheckData$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperUpdateCheckData$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -799,7 +846,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperJobReplacement$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperJobReplacement$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -807,7 +860,13 @@ runner-test-matrix:
     path: integration-tests/load/automationv2_1/automationv2_1_test.go
     runs_on: ubuntu-latest
     test_env_type: k8s-remote-runner
-    test_cmd: cd load/automationv2_1 && go test -test.run TestLogTrigger -test.parallel=1 -timeout 60m -count=1 -json
+    test_cmd: |
+      cd load/automationv2_1 && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestLogTrigger" -parallel=1 -timeout 60m -count=1
     remote_runner_memory: 4Gi
     test_secrets_required: true
     test_env_vars:
@@ -824,7 +883,13 @@ runner-test-matrix:
       - Automation Nightly Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationNodeUpgrade/registry_2_0" -parallel=1 -timeout 60m -count=1
     test_env_vars:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
@@ -841,7 +906,13 @@ runner-test-matrix:
       - Automation Nightly Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationNodeUpgrade/registry_2_1" -parallel=5 -timeout 60m -count=1
     test_env_vars:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
@@ -858,7 +929,13 @@ runner-test-matrix:
       - Automation Nightly Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationNodeUpgrade/registry_2_2" -parallel=5 -timeout 60m -count=1
     test_env_vars:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
@@ -877,7 +954,14 @@ runner-test-matrix:
       - Automation On Demand Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_0 -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd reorg && \
+      DETACH_RUNNER=false \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationReorg/registry_2_0" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
     test_go_project_path: integration-tests
 
@@ -891,7 +975,14 @@ runner-test-matrix:
       - Automation On Demand Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_1 -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd reorg && \
+      DETACH_RUNNER=false \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationReorg/registry_2_1" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
     test_go_project_path: integration-tests
 
@@ -905,7 +996,14 @@ runner-test-matrix:
       - Automation On Demand Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd reorg && \
+      DETACH_RUNNER=false \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationReorg/registry_2_2" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
     test_go_project_path: integration-tests
 
