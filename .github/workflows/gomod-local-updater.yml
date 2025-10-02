@@ -30,6 +30,13 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          fetch-depth: 0 # Fetch full git history
+          ref: develop # Ensure we're on develop branch
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          restore-module-cache-only: "false"
 
       - name: Run Go Mod Local Updater
         run: |
