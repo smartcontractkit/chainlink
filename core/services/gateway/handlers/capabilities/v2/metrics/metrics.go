@@ -56,6 +56,8 @@ type TriggerMetrics struct {
 	metadataRequestCount             metric.Int64Counter
 	metadataObservationsCleanUpCount metric.Int64Counter
 	metadataObservationsCount        metric.Int64Gauge
+	jwtCacheSize                     metric.Int64Gauge
+	jwtCacheCleanUpCount             metric.Int64Counter
 }
 
 // Metrics combines all gateway metrics for dependency injection
@@ -328,6 +330,22 @@ func newTriggerMetrics(meter metric.Meter) (*TriggerMetrics, error) {
 		return nil, fmt.Errorf("failed to create workflow metadata observations count metric: %w", err)
 	}
 
+	m.jwtCacheSize, err = meter.Int64Gauge(
+		"http_trigger_jwt_cache_size",
+		metric.WithDescription("Current number of entries in JWT replay protection cache"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger JWT cache size metric: %w", err)
+	}
+
+	m.jwtCacheCleanUpCount, err = meter.Int64Counter(
+		"http_trigger_jwt_cache_cleanup_count",
+		metric.WithDescription("Number of JWT replay protection cache entries cleaned up"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger JWT cache cleanup count metric: %w", err)
+	}
+
 	return m, nil
 }
 
@@ -455,4 +473,12 @@ func (m *TriggerMetrics) IncrementMetadataObservationsCleanUpCount(ctx context.C
 
 func (m *TriggerMetrics) RecordMetadataObservationsCount(ctx context.Context, count int64, lggr logger.Logger) {
 	m.metadataObservationsCount.Record(ctx, count)
+}
+
+func (m *TriggerMetrics) RecordJwtCacheSize(ctx context.Context, size int64, lggr logger.Logger) {
+	m.jwtCacheSize.Record(ctx, size)
+}
+
+func (m *TriggerMetrics) IncrementJwtCacheCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
+	m.jwtCacheCleanUpCount.Add(ctx, count)
 }
