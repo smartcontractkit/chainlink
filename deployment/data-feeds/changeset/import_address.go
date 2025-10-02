@@ -16,18 +16,10 @@ import (
 // and saves them to the data store. Returns a new datatore with the imported addresses.
 var ImportAddressToDataStoreChangeset = cldf.CreateChangeSet(importAddressToDatastoreLogic, importAddressToDatastorePrecondition)
 
-type AddressSchema struct {
-	Address   string                 `json:"address"`
-	Type      datastore.ContractType `json:"type"`
-	Version   string                 `json:"version"`
-	Qualifier string                 `json:"qualifier"`
-	Labels    []string               `json:"labels"`
-}
-
 func importAddressToDatastoreLogic(env cldf.Environment, c types.ImportAddressesConfig) (cldf.ChangesetOutput, error) {
 	ds := datastore.NewMemoryDataStore()
 
-	addresses, _ := LoadJSON[[]*AddressSchema](c.InputFileName, c.InputFS)
+	addresses := c.Addresses
 
 	for _, address := range addresses {
 		labels := datastore.NewLabelSet()
@@ -61,9 +53,8 @@ func importAddressToDatastorePrecondition(env cldf.Environment, c types.ImportAd
 		return errors.New("input file name is required")
 	}
 
-	_, err := LoadJSON[[]*AddressSchema](c.InputFileName, c.InputFS)
-	if err != nil {
-		return fmt.Errorf("failed to load addresses input file: %w", err)
+	if len(c.Addresses) == 0 {
+		return errors.New("no addresses to import")
 	}
 
 	return nil
