@@ -531,28 +531,15 @@ func NewDonMetadata(c *CapabilitiesAwareNodeSet, id uint64, provider infra.Provi
 }
 
 func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration, error) {
-	if m.ContainsGatewayNode() {
-		gatewayNode, gErr := m.GatewayNode()
-		if gErr != nil {
-			return nil, fmt.Errorf("failed to get gateway node: %w", gErr)
-		}
-
-		isBootstrapNode := gatewayNode.HasRole(BootstrapNode)
-		return &DonGatewayConfiguration{
-			Dons:                 make([]GatewayConnectorDons, 0),
-			GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, isBootstrapNode, m.Name),
-		}, nil
+	gatewayNode, isGateway := m.Gateway()
+	if !isGateway {
+		return nil, errors.New("don does not have a gateway node")
 	}
 
-	return nil, errors.New("don does not have the gateway flag or gateway node index not set")
-}
-
-func (m *DonMetadata) NeedsAnyGateway() bool {
-	return m.gh.NeedsAnyGateway(m.Flags)
-}
-
-func (m *DonMetadata) NeedsWebAPIGateway() bool {
-	return m.gh.NeedsWebAPIGateway(m.Flags)
+	return &DonGatewayConfiguration{
+		Dons:                 make([]GatewayConnectorDons, 0),
+		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), m.Name),
+	}, nil
 }
 
 func (m *DonMetadata) WorkerNodes() ([]*NodeMetadata, error) {
@@ -571,39 +558,28 @@ func (m *DonMetadata) WorkerNodes() ([]*NodeMetadata, error) {
 }
 
 // Currently only one bootstrap node is supported.
-func (m *DonMetadata) BootstrapNode() (*NodeMetadata, error) {
-	if !m.ContainsBootstrapNode() {
-		return nil, errors.New("don does not contain a bootstrap node")
-	}
-
+func (m *DonMetadata) BootstrapNode() (*NodeMetadata, bool) {
 	for _, node := range m.NodesMetadata {
 		if slices.Contains(node.Roles, BootstrapNode) {
-			return node, nil
+			return node, true
 		}
 	}
 
-	// fallback, should not happen
-	return m.NodesMetadata[m.ns.BootstrapNodeIndex], nil
+	return nil, false
 }
 
 // For now we support only one gateway node per DON
-func (m *DonMetadata) GatewayNode() (*NodeMetadata, error) {
-	if !m.ContainsGatewayNode() {
-		return nil, errors.New("don does not contain a gateway node")
-	}
-
+func (m *DonMetadata) Gateway() (*NodeMetadata, bool) {
 	for _, node := range m.NodesMetadata {
 		if slices.Contains(node.Roles, GatewayNode) {
-			return node, nil
+			return node, true
 		}
 	}
-
-	// fallback, should not happen
-	return m.NodesMetadata[m.ns.GatewayNodeIndex], nil
+	return nil, false
 }
 
 func (m *DonMetadata) HasFlag(flag CapabilityFlag) bool {
-	return HasFlagForAnyChain(m.Flags, flag)
+	return HasFlag(m.Flags, flag)
 }
 
 func (m *DonMetadata) CapabilitiesAwareNodeSet() *CapabilitiesAwareNodeSet {
@@ -619,39 +595,12 @@ func (m *DonMetadata) RequiresOCR() bool {
 		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability)
 }
 
-func (m *DonMetadata) ContainsGatewayNode() bool {
-	for _, node := range m.NodesMetadata {
-		if slices.Contains(node.Roles, GatewayNode) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (m *DonMetadata) ContainsBootstrapNode() bool {
-	for _, node := range m.NodesMetadata {
-		if slices.Contains(node.Roles, BootstrapNode) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (m *DonMetadata) RequiresGateway() bool {
-	return slices.Contains(m.Flags, CustomComputeCapability) ||
-		slices.Contains(m.Flags, WebAPITriggerCapability) ||
-		slices.Contains(m.Flags, WebAPITargetCapability) ||
-		slices.Contains(m.Flags, VaultCapability) ||
-		slices.Contains(m.Flags, HTTPActionCapability) ||
-		slices.Contains(m.Flags, HTTPTriggerCapability)
+	return m.gh.RequiresGateway(m.Flags)
 }
 
 func (m *DonMetadata) RequiresWebAPI() bool {
-	return slices.Contains(m.Flags, CustomComputeCapability) ||
-		slices.Contains(m.Flags, WebAPITriggerCapability) ||
-		slices.Contains(m.Flags, WebAPITargetCapability)
+	return m.gh.RequiresWebAPI(m.Flags)
 }
 
 func (m *DonMetadata) IsWorkflowDON() bool {
@@ -715,11 +664,11 @@ func (m DonsMetadata) validate() error {
 		return fmt.Errorf("failed to get workflow DON: %w", err)
 	}
 
-	if !wfDon.ContainsBootstrapNode() {
+	if _, isBootstrap := wfDon.BootstrapNode(); !isBootstrap {
 		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
 	}
 
-	if m.GatewayRequired() && !m.GatewayEnabled() {
+	if m.RequiresGateway() && !m.GatewayEnabled() {
 		return errors.New("at least one DON requires gateway due to its capabilities, but no DON is configured with gateway")
 	}
 
@@ -727,19 +676,19 @@ func (m DonsMetadata) validate() error {
 }
 
 // BootstrapNode returns the bootstrap node from the first DON that contains one. Currently only one bootstrap node is supported.
-func (m DonsMetadata) BootstrapNode() (*NodeMetadata, error) {
+func (m DonsMetadata) BootstrapNode() (*NodeMetadata, bool) {
 	for _, don := range m.dons {
-		if don.ContainsBootstrapNode() {
+		if _, isBootstrap := don.BootstrapNode(); isBootstrap {
 			return don.BootstrapNode()
 		}
 	}
-	return nil, errors.New("no don contains a bootstrap node")
+	return nil, false
 }
 
 func (m DonsMetadata) BootstrapNodeCount() int {
 	count := 0
 	for _, don := range m.dons {
-		if don.ContainsBootstrapNode() {
+		if _, isBootstrap := don.BootstrapNode(); isBootstrap {
 			count++
 		}
 	}
@@ -760,7 +709,7 @@ func (m DonsMetadata) WorkflowDON() (*DonMetadata, error) {
 
 func (m DonsMetadata) GatewayEnabled() bool {
 	for _, don := range m.dons {
-		if don.ContainsGatewayNode() {
+		if _, isGateway := don.Gateway(); isGateway {
 			return true
 		}
 	}
@@ -769,14 +718,14 @@ func (m DonsMetadata) GatewayEnabled() bool {
 
 func (m DonsMetadata) GetGatewayDON() (*DonMetadata, error) {
 	for _, don := range m.dons {
-		if don.ContainsGatewayNode() {
+		if _, isGateway := don.Gateway(); isGateway {
 			return don, nil
 		}
 	}
 	return nil, fmt.Errorf("no dons with flag %s found", GatewayDON)
 }
 
-func (m DonsMetadata) GatewayRequired() bool {
+func (m DonsMetadata) RequiresGateway() bool {
 	for _, don := range m.dons {
 		if don.RequiresGateway() {
 			return true
@@ -857,24 +806,24 @@ type DonTopology struct {
 
 // BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
 // Currently only one bootstrap is supported.
-func (t *DonTopology) BootstrapNode() (*Node, error) {
+func (t *DonTopology) BootstrapNode() (*Node, bool) {
 	for _, don := range t.Dons.List() {
-		if don.ContainsBootstrapNode() {
-			return don.BootstrapNode()
+		if node, isBootstrap := don.BootstrapNode(); isBootstrap {
+			return node, true
 		}
 	}
 
-	return nil, errors.New("no don contains a bootstrap node")
+	return nil, false
 }
 
-func (t *DonTopology) GatewayNode() (*Node, error) {
+func (t *DonTopology) GatewayNode() (*Node, bool) {
 	for _, don := range t.Dons.List() {
-		if don.ContainsBootstrapNode() {
-			return don.BootstrapNode()
+		if node, isGateway := don.Gateway(); isGateway {
+			return node, true
 		}
 	}
 
-	return nil, errors.New("no don contains a bootstrap node")
+	return nil, false
 }
 
 func (t *DonTopology) AnyDonHasCapability(capability CapabilityFlag) bool {

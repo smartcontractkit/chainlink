@@ -43,8 +43,8 @@ import (
 // most of the functions were copied from deployment/environment/devenv/chain.go to avoid dependency on deployment module
 
 type CribRPCs struct {
-	Internal string
-	External string
+	Internal string // URL to be used by services running in the same namespace
+	External string // URL to be used when connecting from outside the namespace
 }
 
 // ChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.

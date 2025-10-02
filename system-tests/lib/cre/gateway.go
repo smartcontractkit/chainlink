@@ -46,17 +46,17 @@ type Incoming struct {
 
 type GatewayHelper struct{}
 
-func (g *GatewayHelper) NeedsAnyGateway(flags []CapabilityFlag) bool {
-	return HasFlagForAnyChain(flags, CustomComputeCapability) ||
-		HasFlagForAnyChain(flags, WebAPITriggerCapability) ||
-		HasFlagForAnyChain(flags, WebAPITargetCapability) ||
-		HasFlagForAnyChain(flags, VaultCapability) ||
-		HasFlagForAnyChain(flags, HTTPActionCapability) ||
-		HasFlagForAnyChain(flags, HTTPTriggerCapability)
+func (g *GatewayHelper) RequiresGateway(flags []CapabilityFlag) bool {
+	return HasFlag(flags, CustomComputeCapability) ||
+		HasFlag(flags, WebAPITriggerCapability) ||
+		HasFlag(flags, WebAPITargetCapability) ||
+		HasFlag(flags, VaultCapability) ||
+		HasFlag(flags, HTTPActionCapability) ||
+		HasFlag(flags, HTTPTriggerCapability)
 }
 
-func (g *GatewayHelper) NeedsWebAPIGateway(flags []CapabilityFlag) bool {
-	return HasFlagForAnyChain(flags, CustomComputeCapability) ||
-		HasFlagForAnyChain(flags, WebAPITriggerCapability) ||
-		HasFlagForAnyChain(flags, WebAPITargetCapability)
+func (g *GatewayHelper) RequiresWebAPI(flags []CapabilityFlag) bool {
+	return HasFlag(flags, CustomComputeCapability) ||
+		HasFlag(flags, WebAPITriggerCapability) ||
+		HasFlag(flags, WebAPITargetCapability)
 }
