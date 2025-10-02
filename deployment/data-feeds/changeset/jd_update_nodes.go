@@ -51,7 +51,7 @@ func updatesNodesJDLogic(env cldf.Environment, c types.UpdateNodeConfig) (cldf.C
 }
 
 func updatesNodesJDLogicPrecondition(env cldf.Environment, c types.UpdateNodeConfig) error {
-	if c.Nodes == nil || len(c.Nodes) == 0 {
+	if len(c.Nodes) == 0 {
 		return errors.New("no nodes provided in the config")
 	}
 
