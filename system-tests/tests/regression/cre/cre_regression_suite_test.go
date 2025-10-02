@@ -2,10 +2,13 @@ package cre
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 // REGRESSION TESTS target edge cases, negative conditions, etc., all happy path and sanity checks should go to a `smoke` package.
@@ -34,7 +37,7 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 	}
 }
 
-func Test_CRE_Suite_V2_HTTP_Regression(t *testing.T) {
+func Test_CRE_V2_HTTP_Regression(t *testing.T) {
 	flags := []string{"--with-contracts-version", "v2"}
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
 
@@ -58,7 +61,14 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 			// TODO remove this when OCR works properly with multiple chains in Local CRE
 			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
 
-			EVMReadFailsTest(t, testEnv, tCase)
+			// Check if test name contains "write" to determine which test function to run
+			if strings.Contains(strings.ToLower(testName), "writereport") {
+				framework.L.Info().Msg("Running EVM Write Regression test")
+				EVMWriteFailsTest(t, testEnv, tCase)
+			} else {
+				framework.L.Info().Msg("Running EVM Read Regression test")
+				EVMReadFailsTest(t, testEnv, tCase)
+			}
 		})
 	}
 }
@@ -101,4 +111,16 @@ func Test_CRE_V2_EVM_GetTransactionReceipt_Invalid_Hash_Regression(t *testing.T)
 
 func Test_CRE_V2_EVM_HeaderByNumber_Invalid_Block_Regression(t *testing.T) {
 	runEVMNegativeTestSuite(t, evmNegativeTestsHeaderByNumberInvalidBlock)
+}
+
+func Test_CRE_V2_EVM_WriteReport_Invalid_Receiver_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidReceiver)
+}
+
+func Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportCorruptReceiverAddress)
+}
+
+func Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression(t *testing.T) {
+	runEVMNegativeTestSuite(t, evmNegativeTestsWriteReportInvalidGas)
 }
