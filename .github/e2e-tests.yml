@@ -1017,7 +1017,14 @@ runner-test-matrix:
       - Automation On Demand Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_3 -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd reorg && \
+      DETACH_RUNNER=false \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationReorg/registry_2_3" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
     test_go_project_path: integration-tests
 
@@ -1028,7 +1035,14 @@ runner-test-matrix:
     triggers:
       - Automation On Demand Tests
       - E2E Chaos Tests
-    test_cmd: cd chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=20 -timeout 60m -count=1 -json
+    test_cmd: |
+      cd chaos && \
+      DETACH_RUNNER=false \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationChaos$" -parallel=20 -timeout 60m -count=1
     pyroscope_env: ci-automation-on-demand-chaos
     test_env_vars:
       TEST_SUITE: chaos
@@ -1042,7 +1056,13 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     # triggers:
     # - Nightly E2E Tests
-    test_cmd: cd benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd benchmark && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationBenchmark$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-benchmark-automation-nightly
     test_env_vars:
       TEST_LOG_LEVEL: info
@@ -1057,7 +1077,13 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     # triggers:
     # - Nightly E2E Tests
-    test_cmd: cd benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd benchmark && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationBenchmark$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-benchmark-automation-nightly
     test_env_vars:
       TEST_LOG_LEVEL: info
