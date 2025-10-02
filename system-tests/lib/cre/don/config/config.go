@@ -55,9 +55,9 @@ func PrepareNodeTOMLs(
 		return nil, nil, errors.Wrap(tErr, "failed to create topology")
 	}
 
-	bt, err := topology.BootstrapNode()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to find bootstrap node")
+	bt, hasBootstrap := topology.BootstrapNode()
+	if !hasBootstrap {
+		return nil, nil, errors.New("no DON contains a bootstrap node, but exactly one is required")
 	}
 
 	capabilitiesPeeringData, ocrPeeringData, peeringErr := cre.PeeringCfgs(bt)
@@ -371,7 +371,7 @@ func addWorkerNodeConfig(
 		}
 	}
 
-	if donMetadata.HasFlag(cre.WorkflowDON) || donMetadata.NeedsAnyGateway() {
+	if donMetadata.HasFlag(cre.WorkflowDON) || donMetadata.RequiresGateway() {
 		evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
 		if !ok {
 			return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)

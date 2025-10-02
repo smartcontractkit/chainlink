@@ -40,6 +40,70 @@ const (
 	LabelNodeP2PIDKey = "p2p_id"
 )
 
+type Role string
+
+const (
+	RoleBootstrap Role = "bootstrap"
+	RoleWorker    Role = "plugin" // label value used by chainlink-deployments-framework to denote worker nodes
+	RoleGateway   Role = "gateway"
+)
+
+func NewRole(role string) (Role, error) {
+	switch strings.ToLower(role) {
+	case "bootstrap":
+		return RoleBootstrap, nil
+	case "worker", "plugin":
+		return RoleWorker, nil
+	case "gateway":
+		return RoleGateway, nil
+	default:
+		return "", fmt.Errorf("unknown role: %s", role)
+	}
+}
+
+type Roles []Role
+
+func (r Roles) Contains(role Role) bool {
+	for _, r := range r {
+		if r == role {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r Roles) Strings() []string {
+	result := make([]string, len(r))
+	for i, role := range r {
+		result[i] = string(role)
+	}
+
+	return result
+}
+
+func MustNewRoles(roles []string) Roles {
+	r, err := NewRoles(roles)
+	if err != nil {
+		panic(err)
+	}
+
+	return r
+}
+
+func NewRoles(roles []string) (Roles, error) {
+	result := make(Roles, len(roles))
+	for i, role := range roles {
+		r, err := NewRole(role)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = r
+	}
+
+	return result, nil
+}
+
 type DON struct {
 	Name string `toml:"name" json:"name"`
 	ID   uint64 `toml:"id" json:"id"`
@@ -62,7 +126,7 @@ func (m *DON) ToMetadata() *DonMetadata {
 	}
 
 	for i, node := range m.Nodes {
-		dm.NodesMetadata[i] = node.ToMetadata()
+		dm.NodesMetadata[i] = node.Metadata()
 	}
 
 	return dm
@@ -83,59 +147,31 @@ func (m *DON) HasFlag(flag CapabilityFlag) bool {
 	return false
 }
 
-func (m *DON) ContainsBootstrapNode() bool {
+func (m *DON) Gateway() (*Node, bool) {
 	for _, node := range m.Nodes {
-		if slices.Contains(node.Roles, BootstrapNode) {
-			return true
+		if node.Roles.Contains(RoleGateway) {
+			return node, true
 		}
 	}
 
-	return false
-}
-
-func (m *DON) ContainsGatewayNode() bool {
-	for _, node := range m.Nodes {
-		if slices.Contains(node.Roles, GatewayNode) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (m *DON) GatewayNode() (*Node, error) {
-	if !m.ContainsGatewayNode() {
-		return nil, errors.New("don does not contain a gateway node")
-	}
-
-	for _, node := range m.Nodes {
-		if slices.Contains(node.Roles, GatewayNode) {
-			return node, nil
-		}
-	}
-
-	return nil, errors.New("no gateway node found in don")
+	return nil, false
 }
 
 // Currently only one bootstrap node is supported.
-func (m *DON) BootstrapNode() (*Node, error) {
-	if !m.ContainsBootstrapNode() {
-		return nil, errors.New("don does not contain a bootstrap node")
-	}
-
+func (m *DON) BootstrapNode() (*Node, bool) {
 	for _, node := range m.Nodes {
-		if slices.Contains(node.Roles, BootstrapNode) {
-			return node, nil
+		if node.Roles.Contains(RoleBootstrap) {
+			return node, true
 		}
 	}
 
-	return nil, errors.New("no bootstrap node found in don")
+	return nil, false
 }
 
 func (m *DON) WorkerNodes() ([]*Node, error) {
 	workers := make([]*Node, 0)
 	for _, node := range m.Nodes {
-		if slices.Contains(node.Roles, WorkerNode) {
+		if node.Roles.Contains(RoleWorker) {
 			workers = append(workers, node)
 		}
 	}
@@ -155,12 +191,12 @@ func (m *DON) JDNodeIDs() []string {
 	return nodeIDs
 }
 
-func (m *DON) NeedsAnyGateway() bool {
-	return m.gh.NeedsAnyGateway(m.Flags)
+func (m *DON) RequiresGateway() bool {
+	return m.gh.RequiresGateway(m.Flags)
 }
 
-func (m *DON) NeedsWebAPIGateway() bool {
-	return m.gh.NeedsWebAPIGateway(m.Flags)
+func (m *DON) RequiresWebAPI() bool {
+	return m.gh.RequiresWebAPI(m.Flags)
 }
 
 func (m *DON) ChainCapabilities() map[string]*ChainCapabilityConfig {
@@ -193,11 +229,11 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 
 			for _, role := range node.Roles {
 				switch role {
-				case WorkerNode, BootstrapNode:
+				case RoleWorker, RoleBootstrap:
 					if err := node.CreateSupportedChains(ctx, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains: %w", err)
 					}
-				case GatewayNode:
+				case RoleGateway:
 					// no chains configuration needed for gateway nodes
 				default:
 					return fmt.Errorf("unknown node role: %s", role)
@@ -228,11 +264,7 @@ func (n *Node) CreateSupportedChains(ctx context.Context, chains []ChainConfig, 
 		})
 	}
 
-	if err := n.CreateJDChainConfigs(ctx, jdChains, jd); err != nil {
-		return fmt.Errorf("failed to create JD chain configs for node %s: %w", n.Name, err)
-	}
-
-	return nil
+	return n.CreateJDChainConfigs(ctx, jdChains, jd)
 }
 
 type Node struct {
@@ -242,17 +274,17 @@ type Node struct {
 	Keys                  *secrets.NodeKeys      `toml:"-" json:"-"`
 	Addresses             Addresses              `toml:"addresses" json:"addresses"`
 	JobDistributorDetails *JobDistributorDetails `toml:"job_distributor_details" json:"job_distributor_details"`
-	Roles                 []string               `toml:"roles" json:"roles"`
+	Roles                 Roles                  `toml:"roles" json:"roles"`
 
 	Clients NodeClients `toml:"-" json:"-"`
 	DON     DON         `toml:"-" json:"-"`
 }
 
-func (n *Node) ToMetadata() *NodeMetadata {
+func (n *Node) Metadata() *NodeMetadata {
 	node := &NodeMetadata{
 		Index: n.Index,
 		Keys:  n.Keys,
-		Roles: n.Roles,
+		Roles: n.Roles.Strings(),
 		Host:  n.Host,
 	}
 
@@ -272,9 +304,9 @@ func (n *Node) CleansedPeerID() string {
 	return n.Keys.CleansedPeerID()
 }
 
-func (n *Node) HasRole(role string) bool {
+func (n *Node) HasRole(role Role) bool {
 	for _, r := range n.Roles {
-		if strings.EqualFold(r, role) {
+		if r == role {
 			return true
 		}
 	}
@@ -310,19 +342,27 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		Name:  name,
 		Index: nodeMetadata.Index,
 		Keys:  nodeMetadata.Keys,
-		Roles: nodeMetadata.Roles,
+		Roles: MustNewRoles(nodeMetadata.Roles),
 		Host:  nodeMetadata.Host,
+	}
+
+	for i, role := range nodeMetadata.Roles {
+		r, err := NewRole(role)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse role %s: %w", role, err)
+		}
+		node.Roles[i] = r
 	}
 
 	for _, role := range node.Roles {
 		switch role {
-		case WorkerNode:
+		case RoleWorker:
 			// multi address is not applicable for non-bootstrap nodes; explicitly set it to empty string to denote that
 			node.Addresses.MultiAddress = ""
 
 			// set admin address for non-bootstrap nodes (capability registry requires non-null admin address; use arbitrary default value if node is not configured)
 			node.Addresses.AdminAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-		case BootstrapNode:
+		case RoleBootstrap:
 			// create multi address for OCR2; applicable only for bootstrap nodes
 			p2pURL, err := url.Parse(ctfNode.Node.InternalP2PUrl)
 			if err != nil {
@@ -332,7 +372,7 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 
 			// no need to set admin address for bootstrap nodes, as there will be no payment
 			node.Addresses.AdminAddress = ""
-		case GatewayNode:
+		case RoleGateway:
 			// no specific data to set for gateway nodes yet
 		default:
 			return nil, fmt.Errorf("unknown node role: %s", role)
@@ -466,7 +506,7 @@ func (n *Node) CreateJDChainConfigs(ctx context.Context, chains []JDChainConfigI
 				AccountAddr:      account,
 				AdminAddr:        n.Addresses.AdminAddress,
 				Ocr2Enabled:      true,
-				Ocr2IsBootstrap:  n.HasRole(BootstrapNode),
+				Ocr2IsBootstrap:  n.HasRole(RoleBootstrap),
 				Ocr2Multiaddr:    n.Addresses.MultiAddress,
 				Ocr2P2PPeerID:    n.Keys.P2PKey.PeerID.String(),
 				Ocr2KeyBundleID:  ocr2BundleID,
@@ -474,7 +514,7 @@ func (n *Node) CreateJDChainConfigs(ctx context.Context, chains []JDChainConfigI
 			})
 			// TODO: add a check if the chain config failed because of a duplicate in that case, should we update or return success?
 			if createErr != nil {
-				return fmt.Errorf("failed to create JD chain configuration for node %s: %w", n.Name, createErr)
+				return createErr
 			}
 
 			// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
@@ -483,7 +523,7 @@ func (n *Node) CreateJDChainConfigs(ctx context.Context, chains []JDChainConfigI
 		})
 
 		if retryErr != nil {
-			return fmt.Errorf("failed to create  create JD chain configuration for node %s: %w", n.Name, retryErr)
+			return fmt.Errorf("failed to create JD chain configuration for node %s: %w", n.Name, retryErr)
 		}
 	}
 	return nil
@@ -621,17 +661,17 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd *jd.JobDistrib
 
 	for _, role := range n.Roles {
 		switch role {
-		case WorkerNode:
+		case RoleWorker:
 			labels = append(labels, &ptypes.Label{
 				Key:   LabelNodeTypeKey,
 				Value: ptr.Ptr(LabelNodeTypeValuePlugin),
 			})
-		case BootstrapNode:
+		case RoleBootstrap:
 			labels = append(labels, &ptypes.Label{
 				Key:   LabelNodeTypeKey,
 				Value: ptr.Ptr(LabelNodeTypeValueBootstrap),
 			})
-		case GatewayNode:
+		case RoleGateway:
 			// no specific data to set for gateway nodes yet
 		default:
 			return fmt.Errorf("unknown node role: %s", role)
@@ -769,7 +809,7 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 }
 
 // copied from flags package to avoid circular dependency
-func HasFlagForAnyChain(values []string, capability string) bool {
+func HasFlag(values []string, capability string) bool {
 	if slices.Contains(values, capability) {
 		return true
 	}
@@ -789,7 +829,7 @@ func FindDONsSupportedChains(donMetadata *DonMetadata, blockchainOutputs []*Wrap
 
 	for chainSelector, bcOut := range blockchainOutputs {
 		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bcOut.ChainID)
-		hasSolanaWriteCapability := HasFlagForAnyChain(donMetadata.Flags, WriteSolanaCapability)
+		hasSolanaWriteCapability := donMetadata.HasFlag(WriteSolanaCapability)
 		chainIsSolana := strings.EqualFold(bcOut.BlockchainOutput.Family, chainselectors.FamilySolana)
 
 		if !hasEVMChainEnabled && (!hasSolanaWriteCapability || !chainIsSolana) {

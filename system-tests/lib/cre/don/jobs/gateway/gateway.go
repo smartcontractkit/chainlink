@@ -33,8 +33,8 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 		// we need to iterate over all DONs to see which need gateway connector and create a map of Don IDs and ETH addresses (which identify nodes that can use the connector)
 		// This map will be used to configure the gateway job on the node that runs it.
 		for _, don := range input.DonTopology.Dons.List() {
-			// if it's a workflow DON or it has custom compute capability or it has vault capability, it needs access to gateway connector
-			if !don.HasFlag(cre.WorkflowDON) && !don.NeedsAnyGateway() {
+			// if it's a workflow DON or has capabilities that require to connect to external resources, it needs access to gateway connector
+			if !don.HasFlag(cre.WorkflowDON) && !don.RequiresGateway() {
 				continue
 			}
 
@@ -57,7 +57,7 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 			}
 
 			handlers := map[string]string{}
-			if don.HasFlag(cre.WorkflowDON) || don.NeedsWebAPIGateway() {
+			if don.HasFlag(cre.WorkflowDON) || don.RequiresWebAPI() {
 				handlerConfig := `
 				[gatewayConfig.Dons.Handlers.Config]
 				maxAllowedMessageAgeSec = 1_000
@@ -92,15 +92,13 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 			}
 		}
 
+		// we know that at least one DON must be the gateway DON, because topology.validate() checks that
+		isGateway := false
 		for _, don := range input.DonTopology.Dons.List() {
-			// create job specs only for the gateway node
-			if !don.HasFlag(cre.GatewayDON) {
+			var gatewayNode *cre.Node
+			gatewayNode, isGateway = don.Gateway()
+			if !isGateway {
 				continue
-			}
-
-			gatewayNode, nodeErr := don.GatewayNode()
-			if nodeErr != nil {
-				return nil, errors.Wrap(nodeErr, "failed to find gateway node")
 			}
 
 			homeChainID, homeChainErr := chainselectors.ChainIdFromSelector(input.DonTopology.HomeChainSelector)
@@ -111,6 +109,10 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 			for _, gatewayConfiguration := range input.DonTopology.GatewayConnectorOutput.Configurations {
 				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.AnyGateway(gatewayNode.JobDistributorDetails.NodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConfiguration))
 			}
+		}
+
+		if !isGateway {
+			return nil, errors.New("no gateway node found in any DON, but at least one is required")
 		}
 
 		return donToJobSpecs, nil

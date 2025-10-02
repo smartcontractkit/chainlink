@@ -84,9 +84,9 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
 
-		bootstrapNode, err := donTopology.BootstrapNode()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get bootstrap node from DON metadata")
+		bootstrapNode, isBootstrap := donTopology.BootstrapNode()
+		if !isBootstrap {
+			return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 		}
 
 		chainIDs, err := enabledChainsProvider(donTopology, nodeSetInput[donIdx], flag)
