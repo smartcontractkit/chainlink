@@ -1166,9 +1166,9 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 				return nil, errors.Wrap(wErr, "failed to get worker nodes from DON metadata")
 			}
 
-			bootstrapNode, bootErr := don.BootstrapNode()
-			if bootErr != nil {
-				return nil, errors.Wrap(bootErr, "failed to get bootstrap node from DON metadata")
+			bootstrapNode, isBootstrap := don.BootstrapNode()
+			if !isBootstrap {
+				return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 			}
 
 			bootstrapNodeID := bootstrapNode.Keys.CleansedPeerID()
