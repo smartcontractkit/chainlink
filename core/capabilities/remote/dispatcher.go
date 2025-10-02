@@ -253,10 +253,14 @@ func (d *dispatcher) receive() {
 		case <-d.stopCh:
 			d.lggr.Info("stopped - exiting receive")
 			return
-		case msg := <-externalPeerRecvCh:
+		case msg := <-externalPeerRecvCh: // deprecated, will be removed in favor of SharedPeer (CRE-707)
 			d.metrics.externalPeerMsgsRcvdCounter.Add(ctx, 1)
 			d.handleMessage(&msg)
-		case msg := <-sharedPeerRecvCh:
+		case msg, ok := <-sharedPeerRecvCh:
+			if !ok {
+				d.lggr.Info("shared peer channel closed - exiting receive")
+				return
+			}
 			d.metrics.sharedPeerMsgsRcvdCounter.Add(ctx, 1)
 			d.handleMessage(&msg)
 		}
