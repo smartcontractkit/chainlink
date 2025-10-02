@@ -95,7 +95,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 	e := dEnv.Env
 	chainSels := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily("evm"))
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		t.Fatalf("Failed to load onchain state: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 	e := initMigrationEnvironment(t, 3, mcmsCfg)
 	require.Len(t, e.BlockChains.EVMChains(), 3, "Expected 3 EVM chains in the environment")
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err, "Failed to load onchain state")
 
 	homeChainSelector, err := state.HomeChainSelector()

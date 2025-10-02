@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -24,7 +25,6 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -74,7 +74,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					mustGetEventName(consts.EventNameCommitReportAccepted, offrampABI),
 				},
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -135,7 +135,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: nonce_manager.NonceManagerABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -153,7 +153,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: fee_quoter.FeeQuoterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -203,7 +203,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: rmn_remote.RMNRemoteABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -225,7 +225,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: rmn_proxy_contract.RMNProxyABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -239,7 +239,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: router.RouterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -262,7 +262,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					consts.EventNameCCIPMessageSent,
 				},
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -308,7 +308,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: router.RouterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -322,7 +322,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: fee_quoter.FeeQuoterABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -352,7 +352,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: rmn_remote.RMNRemoteABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -381,7 +381,7 @@ var FeedReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractABI: aggregator_v3_interface.AggregatorV3InterfaceABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -403,7 +403,7 @@ var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				GenericEventNames: []string{consts.EventNameCCTPMessageSent},
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -433,7 +433,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: kcr.CapabilitiesRegistryABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -446,7 +446,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: ccip_home.CCIPHomeABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
@@ -462,7 +462,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: rmn_home.RMNHomeABI,
 			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
 				PollingFilter: evmrelaytypes.PollingFilter{
-					Retention: models.Interval(DefaultCCIPLogsRetention),
+					Retention: sqlutil.Interval(DefaultCCIPLogsRetention),
 				},
 			},
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{

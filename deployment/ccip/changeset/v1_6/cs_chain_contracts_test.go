@@ -65,7 +65,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -141,7 +141,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -209,7 +209,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -285,7 +285,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -399,7 +399,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -475,7 +475,7 @@ func TestUpdateFQDests(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -531,7 +531,7 @@ func TestUpdateFeeQuoterDestsConfig_Validate_MultipleReportsEnabled(t *testing.T
 	allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 	source := allChains[0]
 	dest := allChains[1]
-	state, err := stateview.LoadOnchainState(tenv.Env)
+	state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	homeChainSelector, err := state.HomeChainSelector()
 	require.NoError(t, err)
@@ -654,7 +654,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -737,7 +737,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -797,7 +797,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
@@ -860,7 +860,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 		}),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
-	state, err := stateview.LoadOnchainState(e.Env)
+	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	allChains := e.Env.BlockChains.ListChainSelectors(
 		cldf_chain.WithFamily(chainselectors.FamilyEVM),
@@ -1098,7 +1098,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			source := allChains[0]
 			dest := allChains[1]
@@ -1160,7 +1160,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
@@ -1217,7 +1217,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 				require.NoError(t, err)
 			}
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
-			state, err = stateview.LoadOnchainState(tenv.Env)
+			state, err = stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			// now try to apply the changeset for TEST token
 			_, err = commonchangeset.Apply(t, tenv.Env,
@@ -1295,7 +1295,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 			)
 			require.NoError(t, err)
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			if tc.mcmsEnabled {
@@ -1389,7 +1389,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
 			source := allChains[0]
 			dest := allChains[1]
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
@@ -1489,7 +1489,7 @@ func TestUpdateWrappedNativeOnRouterChangeset(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
-			state, err := stateview.LoadOnchainState(tenv.Env)
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
