@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
@@ -33,8 +34,8 @@ type ClientWithContractHistory struct {
 func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.ChainReaderConfig) error {
 	cwh.valsWithCall = make(map[int64]valWithCall)
 	parsedTypes := codec.ParsedTypes{
-		EncoderDefs: make(map[string]types.CodecEntry),
-		DecoderDefs: make(map[string]types.CodecEntry),
+		EncoderDefs: make(map[string]evmtypes.CodecEntry),
+		DecoderDefs: make(map[string]evmtypes.CodecEntry),
 	}
 
 	// setup codec for method calls
@@ -62,7 +63,7 @@ func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.Chain
 			}
 
 			method := contractAbi.Methods[readDef.ChainSpecificName]
-			input, output := types.NewCodecEntry(method.Inputs, method.ID, inputMod), types.NewCodecEntry(method.Outputs, nil, outputMod)
+			input, output := evmtypes.NewCodecEntry(method.Inputs, method.ID, inputMod), evmtypes.NewCodecEntry(method.Outputs, nil, outputMod)
 
 			if err = input.Init(); err != nil {
 				return err
