@@ -12,11 +12,11 @@ import (
 )
 
 type UpdateLanesSequenceInput struct {
-	FeeQuoterApplyDestChainConfigUpdatesSequenceInput
-	FeeQuoterUpdatePricesSequenceInput
-	OffRampApplySourceChainConfigUpdatesSequenceInput
-	OnRampApplyDestChainConfigUpdatesSequenceInput
-	RouterApplyRampUpdatesSequenceInput
+	FeeQuoterApplyDestChainConfigUpdatesSequenceInput FeeQuoterApplyDestChainConfigUpdatesSequenceInput
+	FeeQuoterUpdatePricesSequenceInput                FeeQuoterUpdatePricesSequenceInput
+	OffRampApplySourceChainConfigUpdatesSequenceInput OffRampApplySourceChainConfigUpdatesSequenceInput
+	OnRampApplyDestChainConfigUpdatesSequenceInput    OnRampApplyDestChainConfigUpdatesSequenceInput
+	RouterApplyRampUpdatesSequenceInput               RouterApplyRampUpdatesSequenceInput
 }
 
 var UpdateLanesSequence = operations.NewSequence(
