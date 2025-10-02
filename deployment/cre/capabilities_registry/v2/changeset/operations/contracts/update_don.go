@@ -172,8 +172,14 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 					return nil, fmt.Errorf("failed to mine UpdateDON transaction %s: %w", tx.Hash().String(), err)
 				}
 
+				don, err := registry.GetDONByName(&bind.CallOpts{}, input.DonName)
+				if err != nil {
+					err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+					return nil, fmt.Errorf("failed to call GetDONByName: %w", err)
+				}
+
 				// Get the updated DON info
-				resultDon = don // For now, we return the original don info. In a real scenario, we might want to fetch the updated info.
+				resultDon = don
 			}
 
 			return tx, nil
