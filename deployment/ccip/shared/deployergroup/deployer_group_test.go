@@ -34,10 +34,9 @@ type mintConfig struct {
 }
 
 type dummyMultiChainDeployerGroupChangesetConfig struct {
-	address           common.Address
-	mints             []mintConfig
-	MCMS              *proposalutils.TimelockConfig
-	timelockQualifier map[uint64]string
+	address common.Address
+	mints   []mintConfig
+	MCMS    *proposalutils.TimelockConfig
 }
 
 type dummyDeployerGroupChangesetConfig struct {
@@ -114,12 +113,6 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e cldf.Environment, cfg dumm
 	}
 
 	group := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
-	if cfg.timelockQualifier != nil {
-		group, err = group.WithTimelockAddressQualifier(cfg.timelockQualifier)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
 	for _, mint := range cfg.mints {
 		selector := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[mint.selectorIndex]
 		token := state.MustGetEVMChainState(selector).LinkToken
@@ -155,12 +148,6 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e cldf.Environment, c
 			group = deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
 		} else {
 			group = group.WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
-		}
-		if cfg.timelockQualifier != nil {
-			group, err = group.WithTimelockAddressQualifier(cfg.timelockQualifier)
-			if err != nil {
-				return cldf.ChangesetOutput{}, err
-			}
 		}
 		deployer, err = group.GetDeployer(selector)
 		if err != nil {
@@ -323,12 +310,19 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 		},
 		MCMS: &proposalutils.TimelockConfig{
 			MinDelay: 0,
+			// we will set the qualifier below after we know the chain selector
 		},
 	}
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithPrerequisiteDeploymentOnly(nil))
 
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	chain := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[selectorIndex]
+
+	// update the test config to include the qualifier for the selected chain
+	testCfg.MCMS.TimelockQualifierPerChain = map[uint64]string{
+		chain: linktokenOwnerQualifier,
+	}
+	// Create a MCMS config for deployment with qualifier for the selected chain
 	cfg := proposalutils.SingleGroupTimelockConfigV2(t)
 	cfg.Qualifier = ptr.To(linktokenOwnerQualifier)
 	mcmsCfg[chain] = cfg
@@ -350,21 +344,15 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	t.Logf("deleted %v addresses from addressbook", addressBookToDelete)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+	token := state.MustGetEVMChainState(chain).LinkToken
 	contractsByChain := make(map[uint64][]common.Address)
-	contractsByChain[chain] = []common.Address{state.MustGetEVMChainState(chain).LinkToken.Address()}
-	qualifierInput := map[uint64]string{
-		chain: linktokenOwnerQualifier,
-	}
-	testCfg.timelockQualifier = qualifierInput
+	contractsByChain[chain] = []common.Address{token.Address()}
 
 	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MCMSConfig: proposalutils.TimelockConfig{
-					MinDelay: 0,
-				},
-				Qualifier: testCfg.timelockQualifier,
+				MCMSConfig:       *testCfg.MCMS,
 			},
 		),
 		commonchangeset.Configure(
@@ -377,11 +365,6 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-
-	currentState, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	token := currentState.MustGetEVMChainState(chain).LinkToken
 
 	amount, err := token.BalanceOf(nil, testCfg.address)
 	require.NoError(t, err)

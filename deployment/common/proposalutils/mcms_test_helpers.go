@@ -298,6 +298,11 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 				evmChains[uint64(op.ChainSelector)].Client,
 				evmChains[uint64(op.ChainSelector)].DeployerKey)
 			callProxies[i] = findCallProxyAddress(t, env, uint64(op.ChainSelector), timelockProposal.TimelockAddresses[op.ChainSelector])
+			t.Logf("[ExecuteMCMSTimelockProposalV2] Using EVM chain with chainID=%d, timelock address %s call proxy %s",
+				uint64(op.ChainSelector),
+				timelockProposal.TimelockAddresses[op.ChainSelector],
+				callProxies[i],
+			)
 
 		case chainsel.FamilySolana:
 			executorsMap[op.ChainSelector] = mcmssolanasdk.NewTimelockExecutor(
@@ -322,9 +327,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 		return err
 	}
 	require.EventuallyWithT(t, func(collect *assert.CollectT) {
-		t.Logf("[ExecuteMCMSTimelockProposalV2] Checking if proposal is ready...")
 		assert.NoErrorf(collect, isReady(), "Proposal is not ready")
-		t.Logf("[ExecuteMCMSTimelockProposalV2] Proposal is ready!")
 	}, 100*time.Second, 50*time.Millisecond, "timelock proposal not ready after 100s")
 
 	// execute each operation sequentially
@@ -392,7 +395,7 @@ func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint
 	require.NoError(t, err)
 	addr, err := timelock.GetRoleMember(&bind.CallOpts{
 		Context: env.GetContext(),
-	}, role, big.NewInt(0)) // just to ensure the role exists
+	}, role, big.NewInt(0)) // we expect only one member in the executor role
 	require.NoError(t, err)
 	require.NotEqual(t, common.Address{}, addr, "executor role has no members; is the timelock initialized?")
 	return addr.Hex()

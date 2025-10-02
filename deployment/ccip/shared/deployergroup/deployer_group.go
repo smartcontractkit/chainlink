@@ -34,8 +34,6 @@ type DeployerGroup struct {
 	deploymentContext *DeploymentContext
 	txDecoder         *proposalutils.TxCallDecoder
 	describeContext   *proposalutils.ArgumentContext
-	// if we need to override the timelock or mcm address with specific qualifiers from datastore
-	timelockAddressQualifier map[uint64]string //key is chain selector
 }
 
 type DescribedTransaction interface {
@@ -152,31 +150,26 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	deployerGroup.Enact("Curse RMNRemote")
 func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *proposalutils.TimelockConfig) DeployerGroupWithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
-	return &deployerGroupBuilder{
+	d := &deployerGroupBuilder{
 		e:               e,
 		mcmConfig:       mcmConfig,
 		state:           state,
 		txDecoder:       proposalutils.NewTxCallDecoder(nil),
 		describeContext: proposalutils.NewArgumentContext(addresses),
 	}
-}
-
-func (d *DeployerGroup) WithTimelockAddressQualifier(qualifier map[uint64]string) (*DeployerGroup, error) {
-	if qualifier == nil {
-		return d, nil
-	}
-	e := d.e
-	if e.DataStore == nil {
-		return nil, fmt.Errorf("datastore is nil, cannot load address ref with qualifier %v", qualifier)
-	}
-	for chain, q := range qualifier {
-		err := d.state.UpdateMCMSStateWithAddressFromDatastoreForChain(d.e, chain, q)
-		if err != nil {
-			return nil, err
+	// update state if timelock needs to be loaded from datastore with qualifier
+	if d.mcmConfig.TimelockQualifierPerChain != nil && len(d.mcmConfig.TimelockQualifierPerChain) > 0 {
+		if e.DataStore == nil {
+			panic("datastore is required when using timelock qualifiers")
+		}
+		for selector := range d.mcmConfig.TimelockQualifierPerChain {
+			err := d.state.UpdateMCMSStateWithAddressFromDatastoreForChain(d.e, selector, d.mcmConfig.TimelockQualifierPerChain[selector])
+			if err != nil {
+				panic(fmt.Errorf("failed to load timelock address for chain %d: %w", selector, err))
+			}
 		}
 	}
-	d.timelockAddressQualifier = qualifier
-	return d, nil
+	return d
 }
 
 func (d *DeployerGroup) WithDeploymentContext(description string) *DeployerGroup {
@@ -272,12 +265,21 @@ type DeployerForSVM func(solana.PublicKey) (solana.Instruction, string, cldf.Con
 
 func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (solana.Instruction, error), error) {
 	var authority solana.PublicKey = d.e.BlockChains.SolanaChains()[chain].DeployerKey.PublicKey()
-
+	var addresses map[string]cldf.TypeAndVersion
+	var err error
 	if d.mcmConfig != nil {
-		addresses, err := addressForChain(d.e, chain)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", chain, err)
+		if d.mcmConfig.TimelockQualifierPerChain != nil && d.mcmConfig.TimelockQualifierPerChain[chain] != "" {
+			addresses, err = addressForChainFromDatastore(d.e, chain, d.mcmConfig.TimelockQualifierPerChain[chain])
+			if err != nil {
+				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", chain, err)
+			}
+		} else {
+			addresses, err = addressForChain(d.e, chain)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", chain, err)
+			}
 		}
+
 		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(d.e.BlockChains.SolanaChains()[chain], addresses)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load mcm state: %w", err)
@@ -369,6 +371,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
 	proposals := make([]mcmslib.TimelockProposal, 0, len(contexts))
 	describedProposals := make([]string, 0, len(contexts))
+
 	for _, dc := range contexts {
 		batches := make([]mcmstypes.BatchOperation, 0, len(dc.transactions))
 		describedBatches := make([][]string, 0, len(dc.transactions))
@@ -400,11 +403,11 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 			continue
 		}
 
-		timelocks, err := BuildTimelockAddressPerChain(d.e, d.state, d.timelockAddressQualifier)
+		timelocks, err := BuildTimelockAddressPerChain(d.e, d.state, d.mcmConfig.TimelockQualifierPerChain)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get timelocks for chain: %w", err)
 		}
-		mcmContractByAction, err := BuildMcmAddressesPerChainByAction(d.e, d.state, d.mcmConfig, d.timelockAddressQualifier)
+		mcmContractByAction, err := BuildMcmAddressesPerChainByAction(d.e, d.state, d.mcmConfig, d.mcmConfig.TimelockQualifierPerChain)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get proposer mcms for chain: %w", err)
 		}

@@ -29,8 +29,6 @@ type TransferToMCMSWithTimelockConfig struct {
 	ContractsByChain map[uint64][]common.Address
 	// MCMSConfig is for the accept ownership proposal
 	MCMSConfig proposalutils.TimelockConfig
-	// optional qualifier to find the MCMS proposer/timelock in the data store
-	Qualifier map[uint64]string
 }
 
 type Ownable interface {
@@ -94,8 +92,8 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
 		qualifier := ""
-		if t.Qualifier != nil {
-			qualifier = t.Qualifier[chainSelector]
+		if t.MCMSConfig.TimelockQualifierPerChain != nil {
+			qualifier = t.MCMSConfig.TimelockQualifierPerChain[chainSelector]
 		}
 		if _, err := searchContractInBothSources(e, chainSelector, types.RBACTimelock, qualifier); err != nil {
 			return fmt.Errorf("timelock not present on the chain %w", err)
@@ -125,11 +123,11 @@ func TransferToMCMSWithTimelockV2(
 	evmChains := e.BlockChains.EVMChains()
 	execReports := make([]operations.Report[any, any], 0)
 	for chainSelector, contracts := range cfg.ContractsByChain {
-		// Already validated that the timelock/proposer exists.
 		qualifier := ""
-		if cfg.Qualifier != nil {
-			qualifier = cfg.Qualifier[chainSelector]
+		if cfg.MCMSConfig.TimelockQualifierPerChain != nil {
+			qualifier = cfg.MCMSConfig.TimelockQualifierPerChain[chainSelector]
 		}
+		// Already validated that the timelock/proposer exists.
 		timelockAddr, _ := searchContractInBothSources(e, chainSelector, types.RBACTimelock, qualifier)
 		proposerAddr, _ := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig, qualifier)
 		timelockAddressByChain[chainSelector] = timelockAddr
@@ -167,7 +165,7 @@ func TransferToMCMSWithTimelockV2(
 	if err != nil {
 		return cldf.ChangesetOutput{Reports: execReports}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
 	}
-
+	e.Logger.Infof("created proposal %s with timelocks %v", proposal.Description, proposal.TimelockAddresses)
 	return cldf.ChangesetOutput{Reports: execReports, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
