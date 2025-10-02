@@ -21,6 +21,7 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
@@ -285,15 +286,17 @@ func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Cap
 		return OCR3ConfigView{}, err
 	}
 	oracleConfig := OracleConfig{
-		MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
-		MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
-		MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
-		MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
-		MaxReportCount:            cfg.MaxReportCount,
-		MaxBatchSize:              cfg.MaxBatchSize,
-		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
-		RequestTimeout:            cfg.RequestTimeout.AsDuration(),
-		UniqueReports:             true, // This is hardcoded to true in the OCR3 contract
+		ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
+			MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
+			MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
+			MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
+			MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
+			MaxReportCount:            cfg.MaxReportCount,
+			MaxBatchSize:              cfg.MaxBatchSize,
+			OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
+			RequestTimeout:            cfg.RequestTimeout.AsDuration(),
+		},
+		UniqueReports: true, // This is hardcoded to true in the OCR3 contract
 
 		DeltaProgressMillis:               millisecondsToUint32(publicConfig.DeltaProgress),
 		DeltaResendMillis:                 millisecondsToUint32(publicConfig.DeltaResend),

@@ -119,6 +119,19 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 }
 
 func WithDefaults(cfg ServiceConfig) ServiceConfig {
+	// TODO: userRateLimiter defaults will be replaced by limits integration
+	if cfg.UserRateLimiter.GlobalBurst == 0 {
+		cfg.UserRateLimiter.GlobalBurst = 100
+	}
+	if cfg.UserRateLimiter.GlobalRPS == 0 {
+		cfg.UserRateLimiter.GlobalRPS = 100
+	}
+	if cfg.UserRateLimiter.PerSenderBurst == 0 {
+		cfg.UserRateLimiter.PerSenderBurst = 100
+	}
+	if cfg.UserRateLimiter.PerSenderRPS == 0 {
+		cfg.UserRateLimiter.PerSenderRPS = 100
+	}
 	if cfg.CleanUpPeriodMs == 0 {
 		cfg.CleanUpPeriodMs = defaultCleanUpPeriodMs
 	}
@@ -163,6 +176,15 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 		return fmt.Errorf("received response with empty request ID from node %s", nodeAddr)
 	}
 	h.lggr.Debugw("handling incoming node message", "requestID", resp.ID, "nodeAddr", nodeAddr)
+	nodeAllow, globalAllow := h.nodeRateLimiter.AllowVerbose(nodeAddr)
+	if !nodeAllow {
+		h.metrics.Common.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
+		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
+	}
+	if !globalAllow {
+		h.metrics.Common.IncrementGlobalThrottled(ctx, h.lggr)
+		return errors.New("global rate limit exceeded")
+	}
 	// Node messages follow the format "<methodName>/<workflowID>/<uuid>" or
 	// "<methodName>/<workflowID>/<workflowExecutionID>/<uuid>". Messages are routed
 	// based on the method in the ID.
@@ -212,18 +234,23 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 		l.Debug("Sending request to client")
 		start := time.Now()
 		resp, err := h.httpClient.Send(ctx, httpReq)
+		externalEndpointLatency := time.Since(start)
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
+			isExternalEndpointError := errors.Is(err, network.ErrHTTPSend) || errors.Is(err, network.ErrHTTPRead)
 			return gateway_common.OutboundHTTPResponse{
-				ErrorMessage: err.Error(),
+				ErrorMessage:            err.Error(),
+				IsExternalEndpointError: isExternalEndpointError,
+				ExternalEndpointLatency: externalEndpointLatency,
 			}
 		}
 		h.metrics.Action.IncrementCustomerEndpointResponseCount(ctx, strconv.Itoa(resp.StatusCode), h.lggr)
 		h.metrics.Action.RecordCustomerEndpointRequestLatency(ctx, time.Since(start).Milliseconds(), h.lggr)
 		return gateway_common.OutboundHTTPResponse{
-			StatusCode: resp.StatusCode,
-			Headers:    resp.Headers,
-			Body:       resp.Body,
+			StatusCode:              resp.StatusCode,
+			Headers:                 resp.Headers,
+			Body:                    resp.Body,
+			ExternalEndpointLatency: externalEndpointLatency,
 		}
 	}
 }
@@ -261,15 +288,6 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	err := json.Unmarshal(*resp.Result, &req)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal HTTP request from node %s: %w", nodeAddr, err)
-	}
-	workflowOwnerAllow, globalAllow := h.nodeRateLimiter.AllowVerbose(nodeAddr)
-	if !workflowOwnerAllow {
-		h.metrics.Action.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
-		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
-	}
-	if !globalAllow {
-		h.metrics.Action.IncrementGlobalThrottled(ctx, h.lggr)
-		return errors.New("global rate limit exceeded")
 	}
 	workflowID := extractWorkflowIDFromRequestPath(requestID)
 	timeout := time.Duration(req.TimeoutMs) * time.Millisecond

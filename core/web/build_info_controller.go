@@ -16,5 +16,5 @@ type BuildInfoController struct {
 
 // Show returns the build info.
 func (eic *BuildInfoController) Show(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"version": static.Version, "commitSHA": static.Sha})
+	c.JSON(http.StatusOK, gin.H{"version": static.Version, "versionTag": static.VersionTag, "commitSHA": static.Sha})
 }

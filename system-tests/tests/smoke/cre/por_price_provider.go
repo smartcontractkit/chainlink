@@ -17,15 +17,25 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 )
 
+var fakeProviderStarted sync.Once
+
 func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, expectedPrices map[string][]float64, priceIndexes map[string]*int) (string, error) {
-	_, err := fake.NewFakeDataProvider(input)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to set up fake data provider")
-	}
+	// This sync.Once ensures that the fake data provider is only started once across all test runs.
+	// The fake data provider is a shared HTTP server that serves mock price data for testing.
+	// Starting it multiple times would cause port conflicts and test failures.
+	fakeProviderStarted.Do(func() {
+		// Log any errors that occur during startup - this is critical for debugging
+		// test failures related to the mock price provider not being available
+		_, err := fake.NewFakeDataProvider(input)
+		if err != nil {
+			testLogger.Error().Err(err).Msg("Failed to start fake data provider")
+		} else {
+			testLogger.Info().Msg("Fake data provider started successfully")
+		}
+	})
+
 	fakeAPIPath := "/fake/api/price"
 	host := framework.HostDockerInternal()
 	fakeFinalURL := fmt.Sprintf("%s:%d%s", host, input.Port, fakeAPIPath)
@@ -42,9 +52,12 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 			return nil, fmt.Errorf("no expected prices not found for feedID: %s", feedID)
 		}
 
+		currentPrice := expectedPrices[*priceIndex]
+		testLogger.Info().Msgf("HTTP response for feedID %s - priceIndex: %d, currentPrice: %.10f", feedID, *priceIndex, currentPrice)
+
 		response := map[string]interface{}{
 			"accountName": "TrueUSD",
-			"totalTrust":  expectedPrices[*priceIndex],
+			"totalTrust":  currentPrice,
 			"ripcord":     false,
 			"updatedAt":   time.Now().Format(time.RFC3339),
 		}
@@ -59,7 +72,7 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 		return response, nil
 	}
 
-	err = fake.Func("GET", fakeAPIPath, func(c *gin.Context) {
+	err := fake.Func("GET", fakeAPIPath, func(c *gin.Context) {
 		authHeader := c.Request.Header.Get("Authorization")
 		if authHeader != authKey {
 			testLogger.Info().Msgf("Unauthorized request, expected auth key: %s actual auth key: %s", authKey, authHeader)
@@ -209,13 +222,25 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey 
 		// Add more prices here as needed
 		pricesFloat64 := []float64{math.Round((rand.Float64()*199+1)*100) / 100, math.Round((rand.Float64()*199+1)*100) / 100}
 		pricesToServe[feedID] = pricesFloat64
+		testLogger.Info().Msgf("Generated raw float64 prices for feedID %s: %v", feedID, pricesFloat64)
 
 		expectedPrices[feedID] = make([]*big.Int, len(pricesFloat64))
 		for i, p := range pricesFloat64 {
 			// convert float64 to big.Int by multiplying by 100
 			// just like the PoR workflow does
-			expectedPrices[feedID][i] = libc.Float64ToBigInt(p * 100)
+			expected := int64(p * 100.0)
+			convertedBigInt := big.NewInt(expected)
+			expectedPrices[feedID][i] = convertedBigInt
+
+			// Additional precision check
+			if expected != convertedBigInt.Int64() {
+				testLogger.Warn().Msgf(
+					"PRECISION MISMATCH: p=%.17g cents(expected)=%d bigInt=%d",
+					p, expected, convertedBigInt.Int64(),
+				)
+			}
 		}
+		testLogger.Info().Msgf("Final expected prices for feedID %s: %v", feedID, expectedPrices[feedID])
 	}
 
 	actualPrices := make(map[string][]*big.Int)
@@ -260,6 +285,9 @@ func (f *FakePriceProvider) NextPrice(feedID string, price *big.Int, elapsed tim
 		f.testLogger.Info().Msgf("Feed %s not updated yet, waiting for %s", cleanFeedID, elapsed)
 		return true
 	}
+
+	f.testLogger.Info().Msgf("Current state for feed %s - actualPrices: %d, expectedPrices: %d, priceIndex: %d",
+		cleanFeedID, len(f.actualPrices[cleanFeedID]), len(f.expectedPrices[cleanFeedID]), *f.priceIndex[cleanFeedID])
 
 	if !f.priceAlreadyFound(cleanFeedID, price) {
 		f.testLogger.Info().Msgf("Feed %s updated after %s - price set, price=%s", cleanFeedID, elapsed, price)

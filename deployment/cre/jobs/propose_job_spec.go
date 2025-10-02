@@ -9,6 +9,7 @@ import (
 
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/sequences"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 )
@@ -60,7 +61,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifyEVMJobSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
-	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction:
+	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.BootstrapVault, job_types.Consensus:
 	default:
 		return fmt.Errorf("unsupported template: %s", config.Template)
 	}
@@ -75,18 +76,21 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
 	var report operations.Report[any, any]
 	switch input.Template {
-	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction: // This will hold all standard capabilities jobs as we add support for them.
-		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
+	// This will hold all standard capabilities jobs as we add support for them.
+	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.Consensus:
+		// Only consensus generates an oracle factory, for now...
+		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName, input.Template == job_types.Consensus)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
 		}
 
-		r, rErr := operations.ExecuteOperation(
+		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
 			operations2.ProposeStandardCapabilityJob,
 			operations2.ProposeStandardCapabilityJobDeps{Env: e},
 			operations2.ProposeStandardCapabilityJobInput{
 				Job:         job,
+				Domain:      input.Domain,
 				DONName:     input.DONName,
 				DONFilters:  input.DONFilters,
 				ExtraLabels: input.ExtraLabels,
@@ -142,24 +146,34 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
 		}
 
+		dkgContractAddr := ""
+		if jobInput.DKGContractQualifier != "" {
+			dkgContractRefKey := pkg.GetOCR3CapabilityAddressRefKey(uint64(jobInput.ChainSelectorEVM), jobInput.DKGContractQualifier)
+			addr, err := e.DataStore.Addresses().Get(dkgContractRefKey)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
+			}
+
+			dkgContractAddr = addr.Address
+		}
+
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
 			operations2.ProposeOCR3Job,
 			operations2.ProposeOCR3JobDeps{Env: e},
 			operations2.ProposeOCR3JobInput{
-				Domain:                   input.Domain,
-				EnvName:                  input.Environment,
-				DONName:                  input.DONName,
-				JobName:                  input.JobName,
-				TemplateName:             jobInput.TemplateName,
-				ContractAddress:          contractAddrRef.Address,
-				ChainSelectorEVM:         uint64(jobInput.ChainSelectorEVM),
-				ChainSelectorAptos:       uint64(jobInput.ChainSelectorAptos),
-				BootstrapperOCR3Urls:     jobInput.BootstrapperOCR3Urls,
-				MasterPublicKey:          jobInput.MasterPublicKey,
-				EncryptedPrivateKeyShare: jobInput.EncryptedPrivateKeyShare,
-				DONFilters:               input.DONFilters,
-				ExtraLabels:              input.ExtraLabels,
+				Domain:               input.Domain,
+				EnvName:              input.Environment,
+				DONName:              input.DONName,
+				JobName:              input.JobName,
+				TemplateName:         jobInput.TemplateName,
+				ContractAddress:      contractAddrRef.Address,
+				ChainSelectorEVM:     uint64(jobInput.ChainSelectorEVM),
+				ChainSelectorAptos:   uint64(jobInput.ChainSelectorAptos),
+				BootstrapperOCR3Urls: jobInput.BootstrapperOCR3Urls,
+				DKGContractAddress:   dkgContractAddr,
+				DONFilters:           input.DONFilters,
+				ExtraLabels:          input.ExtraLabels,
 			},
 		)
 
@@ -187,6 +201,33 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 		)
 		if rErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose gateway job: %w", rErr)
+		}
+
+		report = r.ToGenericReport()
+	case job_types.BootstrapVault:
+		jobInput := pkg.VaultBootstrapJobsInput{}
+		err := input.Inputs.UnmarshalTo(&jobInput)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to OCR3 bootstrap job input: %w", err)
+		}
+
+		r, rErr := operations.ExecuteSequence(
+			e.OperationsBundle,
+			sequences.ProposeVaultBootstrapJobs,
+			sequences.ProposeVaultBootstrapJobsDeps{Env: e},
+			sequences.ProposeVaultBootstrapJobsInput{
+				Domain:                  input.Domain,
+				DONName:                 input.DONName,
+				ContractQualifierPrefix: jobInput.ContractQualifierPrefix,
+				EnvironmentLabel:        input.Environment,
+				ChainSelectorEVM:        uint64(jobInput.ChainSelector),
+				JobName:                 input.JobName,
+				DONFilters:              input.DONFilters,
+				ExtraLabels:             input.ExtraLabels,
+			},
+		)
+		if rErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose OCR3 bootstrap job: %w", rErr)
 		}
 
 		report = r.ToGenericReport()

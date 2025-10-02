@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func StartDONs(lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Input, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) ([]*cre.WrappedNodeOutput, error) {
+func StartDONs(lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Provider, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) ([]*cre.WrappedNodeOutput, error) {
 	startTime := time.Now()
 	lggr.Info().Msgf("Starting %d DONs", len(capabilitiesAwareNodeSets))
 

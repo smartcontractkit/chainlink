@@ -27,6 +27,7 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -43,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type NodeDetails struct {
@@ -418,7 +418,7 @@ func (a *AutomationTest) AddBootstrapJob() error {
 			RelayConfig: map[string]interface{}{
 				"chainID": int(a.ChainClient.ChainID),
 			},
-			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+			ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
 		},
 	}
 	_, err := a.ChainlinkNodes[0].MustCreateJob(bootstrapSpec)
@@ -459,7 +459,7 @@ func (a *AutomationTest) AddAutomationJobs() error {
 					"chainID": int(a.ChainClient.ChainID),
 				},
 				PluginConfig:                      pluginCfg,
-				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+				ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
 				TransmitterID:                     null.StringFrom(a.NodeDetails[i].TransmitterAddresses[a.TransmitterKeyIndex]),
 				P2PV2Bootstrappers:                pq.StringArray{a.DefaultP2Pv2Bootstrapper},
 				OCRKeyBundleID:                    null.StringFrom(a.NodeDetails[i].OCR2Id),

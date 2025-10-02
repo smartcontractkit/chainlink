@@ -67,6 +67,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 )
 
+const (
+	relativePathToRepoRoot = "../../../../"
+)
+
 type Chaos struct {
 	Mode                        string   `toml:"mode"`
 	Latency                     string   `toml:"latency"`
@@ -83,7 +87,7 @@ type TestConfigLoadTest struct {
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
-	Infra                         *infra.Input                    `toml:"infra" validate:"required"`
+	Infra                         *infra.Provider                 `toml:"infra" validate:"required"`
 	WorkflowDONLoad               *WorkflowLoad                   `toml:"workflow_load"`
 	MockCapabilities              []*MockCapabilities             `toml:"mock_capabilities"`
 	Chaos                         *Chaos                          `toml:"chaos"`
@@ -135,7 +139,7 @@ func setupLoadTestEnvironment(
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput, relativePathToRepoRoot)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// Set inputs in the test config, so that they can be saved
