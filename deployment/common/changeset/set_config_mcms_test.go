@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	solanasdk "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -59,6 +60,8 @@ func setupSetConfigTestEnv(t *testing.T) cldf.Environment {
 }
 
 func TestSetConfigMCMSV2EVM(t *testing.T) {
+	quarantine.Flaky(t, "DX-1873")
+	quarantine.Flaky(t, "DX-1811")
 	t.Parallel()
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {

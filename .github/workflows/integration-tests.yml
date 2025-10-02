@@ -143,6 +143,7 @@ jobs:
       solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
+      run-e2e-regression-label-found: ${{ steps.label-runs-e2e-regression.outputs.check-label-found || 'false' }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
         id: label-runs-on-opt-out
@@ -157,6 +158,13 @@ jobs:
         with:
           check-label: "run-e2e-tests"
 
+      - name: Get PR Labels (skip-e2e-regression)
+        if: github.event_name == 'pull_request'
+        id: label-runs-e2e-regression
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "skip-e2e-regression"
+
       - name: Set runner labels
         id: runner-labels
         env:
@@ -164,8 +172,8 @@ jobs:
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins/solana) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32/memory=64/family=c6i/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32/memory=64/family=c6i/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
           SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
@@ -286,6 +294,7 @@ jobs:
       contents: read
     outputs:
       should-run: ${{ steps.form-inputs.outputs.should-run }}
+      with-regression: ${{ steps.form-inputs.outputs.with-regression }}
       workflow-name: ${{ steps.form-inputs.outputs.workflow-name }}
     steps:
       - name: Form Inputs for Core CRE E2E Tests
@@ -294,12 +303,19 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
           CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
+          RUN_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-regression-label-found }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
             # Run Core CRE E2E tests on PRs if there are relevant changes
-            echo "workflow-name=Run Core CRE E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+              echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
+            fi
+            # Opt-out of CRE regression tests if the label 'skip-e2e-regression' is found
+            if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
+              echo "Skipping CRE regression tests: label 'skip-e2e-regression' is found"
+              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+              echo "with-regression=false" | tee -a "$GITHUB_OUTPUT"
             fi
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
@@ -326,7 +342,7 @@ jobs:
           fi
 
   run-core-cre-e2e-tests:
-    name: ${{ needs.run-core-cre-e2e-tests-setup.outputs.workflow-name }}
+    name: Run Core CRE E2E Tests For PR
     needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
@@ -336,6 +352,23 @@ jobs:
       contents: read
     if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
     uses: ./.github/workflows/cre-system-tests.yaml
+    with:
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+    secrets: inherit
+
+  run-core-cre-e2e-regression-tests:
+    name: Run Core CRE E2E Regression Tests For PR
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
+    uses: ./.github/workflows/cre-regression-system-tests.yaml
     with:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -549,6 +582,7 @@ jobs:
         run-core-e2e-tests,
         run-ccip-e2e-tests,
         run-core-cre-e2e-tests,
+        run-core-cre-e2e-regression-tests,
       ]
     steps:
       - name: Check Core test results
@@ -602,6 +636,21 @@ jobs:
             echo "::warning::Core CRE E2E tests were skipped."
           fi
 
+      - name: Fail the job if core CRE tests were not successful
+        if: always()
+        env:
+          RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
+        run: |
+          if [[ "${RESULT}" == "failure" ]]; then
+            echo "::error::Core CRE E2E regression tests failed."
+            exit 1
+          elif [[ "${RESULT}" == "cancelled" ]]; then
+            echo "::error::Core CRE E2E regression tests were cancelled."
+            exit 1
+          elif [[ "${RESULT}" == "skipped" ]]; then
+            echo "::warning::Core CRE E2E regression tests were skipped."
+          fi
+
       - name: Warn if CCIP tests were not successful
         if: always()
         env:
@@ -624,7 +673,13 @@ jobs:
     # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
     # By always running this, it delays the start of the next workflow run due to concurrency rules.
     if: always() && !cancelled()
-    needs: [run-core-e2e-tests, run-ccip-e2e-tests, run-core-cre-e2e-tests]
+    needs:
+      [
+        run-core-e2e-tests,
+        run-ccip-e2e-tests,
+        run-core-cre-e2e-tests,
+        run-core-cre-e2e-regression-tests,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo

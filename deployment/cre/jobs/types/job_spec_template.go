@@ -15,7 +15,12 @@ const (
 	Cron JobSpecTemplate = iota
 	BootstrapOCR3
 	OCR3
+	HTTPTrigger
+	HTTPAction
 	EVM
+	Gateway
+	BootstrapVault
+	Consensus
 )
 
 func (jt JobSpecTemplate) String() string {
@@ -26,8 +31,18 @@ func (jt JobSpecTemplate) String() string {
 		return "bootstrap-ocr3"
 	case OCR3:
 		return "ocr3"
+	case HTTPTrigger:
+		return "http-trigger"
+	case HTTPAction:
+		return "http-action"
 	case EVM:
 		return "evm"
+	case Gateway:
+		return "gateway"
+	case BootstrapVault:
+		return "bootstrap-vault"
+	case Consensus:
+		return "consensus"
 	default:
 		return "unknown"
 	}
@@ -42,8 +57,18 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return BootstrapOCR3, nil
 	case "ocr3":
 		return OCR3, nil
+	case "http-trigger":
+		return HTTPTrigger, nil
+	case "http-action":
+		return HTTPAction, nil
 	case "evm":
 		return EVM, nil
+	case "gateway":
+		return Gateway, nil
+	case "bootstrap-vault":
+		return BootstrapVault, nil
+	case "consensus":
+		return Consensus, nil
 	case "", "unknown":
 		return 0, errors.New("job spec template cannot be empty")
 	default:

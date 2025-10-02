@@ -84,90 +84,10 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
-      """
 
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      #image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      [CRE]
-      EnableDKGRecipient = true
-      UseLocalTimeProvider = false
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-      """
-
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      #image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      [CRE]
-      EnableDKGRecipient = true
-      UseLocalTimeProvider = false
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
-      """
-
-  [[nodesets.node_specs]]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      #image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Log]
-      Level = 'debug'
-      JSONConsole = true
-
-      [Telemetry]
-      Enabled = true
-      Endpoint = 'host.docker.internal:4317'
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      ChipIngressInsecureConnection = true
-      InsecureConnection = true
-      TraceSampleRatio = 1
-      HeartbeatInterval = '30s'
-
-      [CRE]
-      EnableDKGRecipient = true
-      UseLocalTimeProvider = false
-
-      # Remove this bit to allow downloading workflows from remote sources
-      [CRE.WorkflowFetcher]
-      URL = "file:///home/chainlink/workflows"
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
       """
 
   [[nodesets.node_specs]]
@@ -198,6 +118,102 @@
       URL = "file:///home/chainlink/workflows"
 
       [Billing]
-      URL = "host.docker.internal:2223"
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+      UseLocalTimeProvider = false
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+      UseLocalTimeProvider = false
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Telemetry]
+      Enabled = true
+      Endpoint = 'host.docker.internal:4317'
+      ChipIngressEndpoint = 'chip-ingress:50051'
+      ChipIngressInsecureConnection = true
+      InsecureConnection = true
+      TraceSampleRatio = 1
+      HeartbeatInterval = '30s'
+
+      [CRE]
+      EnableDKGRecipient = true
+      UseLocalTimeProvider = false
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
       TLSEnabled = false
       """

@@ -5,6 +5,7 @@
 - [Test Modification and Execution Guide](#test-modification-and-execution-guide)
   - [Table of Contents](#table-of-contents)
   - [Test Modification and Execution Guide](#test-modification-and-execution-guide-1)
+  - [0. Smoke vs Regression suites](#0-smoke-vs-regression-suites)
   - [1. Running the Test](#1-running-the-test)
     - [Chainlink Node Image](#chainlink-node-image)
     - [Environment Variables](#environment-variables)
@@ -98,6 +99,10 @@ This guide explains how to set up and run system tests for Chainlink workflows u
 For more information about the local CRE check its [README.md](../../../../core/scripts/cre/environment/README.md).
 
 ---
+
+## 0. Smoke vs Regression suites
+
+In practice, everything what is not a "happy path" functional system-tests (i.e. edge cases, negative conditions) should go to a `regression` package.
 
 ## 1. Running the Test
 

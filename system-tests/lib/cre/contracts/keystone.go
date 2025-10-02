@@ -11,12 +11,14 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -25,6 +27,7 @@ import (
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
 	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
+	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -59,6 +62,7 @@ func DeployKeystoneContracts(
 
 	evmForwardersSelectors := make([]uint64, 0)
 	solForwardersSelectors := make([]uint64, 0)
+	tronForwardersSelectors := make([]uint64, 0)
 	for _, bcOut := range input.CtfBlockchains {
 		for _, donMetadata := range input.CapabilitiesAwareNodeSets {
 			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
@@ -70,18 +74,19 @@ func DeployKeystoneContracts(
 				continue
 			}
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-				evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
+				if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
+					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
+					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
+				} else {
+					evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
+				}
 			}
 		}
 	}
 
 	var allNodeFlags []string
 	for i := range input.CapabilitiesAwareNodeSets {
-		nodeFlags, err := flags.NodeSetFlags(input.CapabilitiesAwareNodeSets[i])
-		if err != nil {
-			continue
-		}
-		allNodeFlags = append(allNodeFlags, nodeFlags...)
+		allNodeFlags = append(allNodeFlags, input.CapabilitiesAwareNodeSets[i].Flags()...)
 	}
 	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
 	evmOCR3AddrFlag := flags.HasFlagForAnyChain(allNodeFlags, cre.EVMCapability)
@@ -195,6 +200,19 @@ func DeployKeystoneContracts(
 		testLogger.Info().Msgf("Deployed Forwarder %s contract on Solana chain chain %d programID: %s state: %s", input.ContractVersions[ks_sol.ForwarderContract.String()], sel, out.Output.ProgramID.String(), out.Output.State.String())
 	}
 
+	// deploy tron forwarders
+	if len(tronForwardersSelectors) > 0 {
+		tronErr := deployTronForwarders(input.CldfEnvironment, tronForwardersSelectors)
+		if tronErr != nil {
+			return nil, errors.Wrap(tronErr, "failed to deploy Tron Keystone forwarder contracts using changesets")
+		}
+
+		err := memoryDatastore.Merge(input.CldfEnvironment.DataStore)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to merge Tron deployment results into main datastore")
+		}
+	}
+
 	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], homeChainSelector, wfRegAddr)
 
@@ -213,7 +231,7 @@ func DeployKeystoneContracts(
 	testLogger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, ocr3Addr)
 
 	// deploy DONTime contract
-	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
+	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore) // Switch to dedicated config type once available
 	if seqErr != nil {
 		return nil, fmt.Errorf("failed to deploy DONTime contract %w", seqErr)
 	}
@@ -224,7 +242,7 @@ func DeployKeystoneContracts(
 	if vaultOCR3AddrFlag {
 		report, err := deployVaultContracts(VaultOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 		if err != nil {
-			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", seqErr)
+			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
 		}
 
 		vaultOCR3Addr := report.PluginAddress
@@ -368,4 +386,37 @@ func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64,
 		panic(fmt.Sprintf("Failed to get %s %s (qualifier=%s) address for chain %d: %s", contractType, version, qualifier, chainSel, err.Error()))
 	}
 	return addrRef.Address
+}
+
+func deployTronForwarders(env *cldf.Environment, chainSelectors []uint64) error {
+	deployOptions := cldf_tron.DefaultDeployOptions()
+	deployOptions.FeeLimit = 1_000_000_000
+
+	deployChangeset := commonchangeset.Configure(tronchangeset.DeployForwarder{}, &tronchangeset.DeployForwarderRequest{
+		ChainSelectors: chainSelectors,
+		Qualifier:      "",
+		DeployOptions:  deployOptions,
+	})
+
+	updatedEnv, err := commonchangeset.Apply(nil, *env, deployChangeset)
+	if err != nil {
+		return fmt.Errorf("failed to deploy Tron forwarders using changesets: %w", err)
+	}
+
+	env.ExistingAddresses = updatedEnv.ExistingAddresses //nolint:staticcheck // won't migrate now
+
+	if updatedEnv.DataStore != nil {
+		memoryDS := datastore.NewMemoryDataStore()
+		err = memoryDS.Merge(env.DataStore)
+		if err != nil {
+			return fmt.Errorf("failed to merge existing datastore: %w", err)
+		}
+		err = memoryDS.Merge(updatedEnv.DataStore)
+		if err != nil {
+			return fmt.Errorf("failed to merge updated datastore: %w", err)
+		}
+		env.DataStore = memoryDS.Seal()
+	}
+
+	return nil
 }

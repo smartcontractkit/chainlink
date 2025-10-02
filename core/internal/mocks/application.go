@@ -9,6 +9,8 @@ import (
 
 	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
 
+	capabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	context "context"
@@ -444,6 +446,53 @@ func (_c *Application_GetAuditLogger_Call) Return(_a0 audit.AuditLogger) *Applic
 }
 
 func (_c *Application_GetAuditLogger_Call) RunAndReturn(run func() audit.AuditLogger) *Application_GetAuditLogger_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetCapabilitiesRegistry provides a mock function with no fields
+func (_m *Application) GetCapabilitiesRegistry() *capabilities.Registry {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetCapabilitiesRegistry")
+	}
+
+	var r0 *capabilities.Registry
+	if rf, ok := ret.Get(0).(func() *capabilities.Registry); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*capabilities.Registry)
+		}
+	}
+
+	return r0
+}
+
+// Application_GetCapabilitiesRegistry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCapabilitiesRegistry'
+type Application_GetCapabilitiesRegistry_Call struct {
+	*mock.Call
+}
+
+// GetCapabilitiesRegistry is a helper method to define mock.On call
+func (_e *Application_Expecter) GetCapabilitiesRegistry() *Application_GetCapabilitiesRegistry_Call {
+	return &Application_GetCapabilitiesRegistry_Call{Call: _e.mock.On("GetCapabilitiesRegistry")}
+}
+
+func (_c *Application_GetCapabilitiesRegistry_Call) Run(run func()) *Application_GetCapabilitiesRegistry_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetCapabilitiesRegistry_Call) Return(_a0 *capabilities.Registry) *Application_GetCapabilitiesRegistry_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetCapabilitiesRegistry_Call) RunAndReturn(run func() *capabilities.Registry) *Application_GetCapabilitiesRegistry_Call {
 	_c.Call.Return(run)
 	return _c
 }

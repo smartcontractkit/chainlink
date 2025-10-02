@@ -56,7 +56,7 @@ type NodeSecret struct {
 	DKGRecipientKey NodeDKGRecipientKey `toml:"DKGRecipientKey"`
 
 	// Add more fields as needed to reflect 'Secrets' struct from /core/config/toml/types.go
-	// We can't use the original struct, because it's using custom types that serlialize secrets to 'xxxxx'
+	// We can't use the original struct, because it's using custom types that serialize secrets to 'xxxxx'
 }
 
 func GenerateSecrets(input *cre.GenerateSecretsInput) (cre.NodeIndexToSecretsOverride, error) {
@@ -164,7 +164,7 @@ func AddKeysToTopology(topology *cre.Topology, keys *cre.GenerateKeysOutput) (*c
 		}
 		for idx, nodeMetadata := range donMetadata.NodesMetadata {
 			nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
-				Key:   node.NodeDKGRecipientKey,
+				Key:   cre.NodeDKGRecipientKey,
 				Value: common.Bytes2Hex(dkgRecipientKeys.PubKeys[idx]),
 			})
 		}

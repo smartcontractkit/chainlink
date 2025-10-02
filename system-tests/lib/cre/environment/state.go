@@ -6,8 +6,9 @@ import (
 	"os"
 
 	"github.com/cockroachdb/errors"
-	"github.com/gagliardetto/solana-go"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -65,6 +66,16 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
 			continue
 		}
+
+		if bc.Type == blockchain.FamilyTron {
+			w, err := wrapTron(&bc, bc.Out)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "failed to wrap tron")
+			}
+			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
+			continue
+		}
+
 		w, err := wrapEVM(bc.Out)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to wrap evm")
@@ -135,6 +146,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	if offChainErr != nil {
 		return nil, nil, errors.Wrapf(offChainErr, "failed to create offchain client")
 	}
+
 	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(wrappedBlockchainOutputs))
 	for _, output := range wrappedBlockchainOutputs {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(output)

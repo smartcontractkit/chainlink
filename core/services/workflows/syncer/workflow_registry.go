@@ -27,8 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -594,14 +594,37 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 				DonID:         donID,
 				WorkflowName:  engine.WorkflowName,
 			}
-			events = append(events, &reconciliationEvent{
-				Event: Event{
-					Data:      toDeletedEvent,
-					EventType: WorkflowDeletedEvent,
+			events = append(
+				[]*reconciliationEvent{
+					{
+						Event: Event{
+							Data:      toDeletedEvent,
+							EventType: WorkflowDeletedEvent,
+						},
+						signature: signature,
+						id:        id,
+					},
 				},
-				signature: signature,
-				id:        id,
-			})
+				events...,
+			)
+		}
+	}
+
+	// Clean up create events which no longer need to be attempted because
+	// the workflow no longer exists in the workflow registry contract
+
+	for id, event := range pendingEvents {
+		if event.EventType == WorkflowRegisteredEvent {
+			existsInMetadata := false
+			for _, wfMeta := range workflowMetadata {
+				if wfMeta.WorkflowID.Hex() == event.Data.(WorkflowRegisteredV1).WorkflowID.Hex() {
+					existsInMetadata = true
+					break
+				}
+			}
+			if !existsInMetadata {
+				delete(pendingEvents, id)
+			}
 		}
 	}
 

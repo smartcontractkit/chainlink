@@ -183,7 +183,7 @@ func (o OCR2Config) Validate(state stateview.CCIPOnChainState) error {
 // SetOCR2ConfigForTestChangeset sets the OCR2 config on the chain for commit and offramp
 // This is currently not suitable for prod environments it's only for testing
 func SetOCR2ConfigForTestChangeset(env cldf.Environment, c OCR2Config) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
 	}
