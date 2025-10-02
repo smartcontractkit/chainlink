@@ -61,9 +61,9 @@ type launcher struct {
 type cachedShims struct {
 	combinedClients    map[string]remote.CombinedClient
 	triggerSubscribers map[string]remote.TriggerSubscriber
+	triggerPublishers  map[string]remote.TriggerPublisher
 	executableClients  map[string]executable.Client
-
-	// TODO(CRE-942): add trigger publishers and executable servers
+	// TODO(CRE-942): add executable servers
 }
 
 func shimKey(capID string, donID uint32, method string) string {
@@ -109,6 +109,7 @@ func NewLauncher(
 		cachedShims: cachedShims{
 			combinedClients:    make(map[string]remote.CombinedClient),
 			triggerSubscribers: make(map[string]remote.TriggerSubscriber),
+			triggerPublishers:  make(map[string]remote.TriggerPublisher),
 			executableClients:  make(map[string]executable.Client),
 		},
 		registry:            registry,
@@ -630,17 +631,20 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 			if !ok {
 				return nil, errors.New("capability does not implement TriggerCapability")
 			}
-
-			publisher := remote.NewTriggerPublisher(
-				capabilityConfig.RemoteTriggerConfig,
-				triggerCapability,
-				info,
-				don.DON,
-				idsToDONs,
-				w.dispatcher,
-				"", // empty method name for v1
-				w.lggr,
-			)
+			shimKey := shimKey(capability.ID, don.ID, "") // empty method name for V1
+			publisher, alreadyExists := w.cachedShims.triggerPublishers[shimKey]
+			if !alreadyExists {
+				publisher = remote.NewTriggerPublisher(
+					capability.ID,
+					"", // empty method name for v1
+					w.dispatcher,
+					w.lggr,
+				)
+				w.cachedShims.triggerPublishers[shimKey] = publisher
+			}
+			if errCfg := publisher.SetConfig(capabilityConfig.RemoteTriggerConfig, triggerCapability, don.DON, idsToDONs); errCfg != nil {
+				return nil, fmt.Errorf("failed to set config for trigger publisher: %w", errCfg)
+			}
 			return publisher, nil
 		}
 
@@ -890,16 +894,21 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 			if !ok {
 				return fmt.Errorf("capability %s does not implement TriggerCapability", capID)
 			}
-			receiver = remote.NewTriggerPublisher(
-				config.RemoteTriggerConfig,
-				underlyingTriggerCapability,
-				info,
-				myDON.DON,
-				idsToDONs,
-				w.dispatcher,
-				method,
-				w.lggr,
-			)
+			shimKey := shimKey(capID, myDON.ID, method)
+			publisher, alreadyExists := w.cachedShims.triggerPublishers[shimKey]
+			if !alreadyExists {
+				publisher = remote.NewTriggerPublisher(
+					capID,
+					method,
+					w.dispatcher,
+					w.lggr,
+				)
+				w.cachedShims.triggerPublishers[shimKey] = publisher
+			}
+			if errCfg := publisher.SetConfig(config.RemoteTriggerConfig, underlyingTriggerCapability, myDON.DON, idsToDONs); errCfg != nil {
+				return fmt.Errorf("failed to set config for trigger publisher: %w", errCfg)
+			}
+			receiver = publisher
 		}
 		if receiver == nil && config.RemoteExecutableConfig != nil {
 			underlyingExecutableCapability, ok := (underlying).(capabilities.ExecutableCapability)

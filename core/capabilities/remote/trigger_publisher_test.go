@@ -138,7 +138,8 @@ func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, max
 		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 2),
 		eventCh:         make(chan commoncap.TriggerResponse, 2),
 	}
-	publisher := remote.NewTriggerPublisher(config, underlying, capInfo, capDonInfo, workflowDONs, dispatcher, "", lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	require.NoError(t, publisher.Start(ctx))
 	return underlying, publisher, dispatcher, peers
 }
