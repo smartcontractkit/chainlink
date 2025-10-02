@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"maps"
 
+	sel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 // PluginConfig holds the configuration for a plugin.
@@ -19,19 +22,18 @@ type PluginConfig struct {
 	RMNCrypto                  cciptypes.RMNCrypto
 	ContractTransmitterFactory cctypes.ContractTransmitterFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
-	PriceOnlyCommitFn     string
-	ChainRW               ChainRWProvider
-	AddressCodec          ChainSpecificAddressCodec
-	ExtraDataCodec        SourceChainExtraDataCodec
-	CCIPProviderSupported bool
+	PriceOnlyCommitFn string
+	ChainRW           ChainRWProvider
+	AddressCodec      ChainSpecificAddressCodec
+	ExtraDataCodec    SourceChainExtraDataCodec
 }
 
 // PluginServices aggregates services for a specific chain family.
 type PluginServices struct {
-	PluginConfig          PluginConfig
-	AddrCodec             AddressCodec
-	ChainRW               MultiChainRW
-	CCIPProviderSupported map[string]bool
+	PluginConfig               PluginConfig
+	AddrCodec                  AddressCodec
+	ChainRW                    MultiChainRW
+	LOOPPCCIPProviderSupported map[string]bool
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
@@ -56,11 +58,11 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
-	CCIPProviderSupported := make(map[string]bool)
+	looppSupported := make(map[string]bool)
 
 	for family, initFunc := range registeredFactories {
 		config := initFunc(lggr, GetExtraDataCodecRegistry())
-		CCIPProviderSupported[family] = config.CCIPProviderSupported
+		looppSupported[family] = isLOOPPEnabledForFamily(family)
 
 		extraDataCodecRegistry.RegisterFamilyNoopCodec(family)
 		if config.ExtraDataCodec != nil {
@@ -79,6 +81,17 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
-	pluginServices.CCIPProviderSupported = CCIPProviderSupported
+	pluginServices.LOOPPCCIPProviderSupported = looppSupported
 	return pluginServices, nil
+}
+
+func isLOOPPEnabledForFamily(chainFamily string) bool {
+	switch chainFamily {
+	case sel.FamilySolana:
+		return env.SolanaPlugin.Cmd.Get() != ""
+	case sel.FamilyTon:
+		return env.TONPlugin.Cmd.Get() != ""
+	default:
+		return false
+	}
 }

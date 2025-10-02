@@ -14,13 +14,12 @@ import (
 // InitializePluginConfig returns a pluginConfig for TON chains.
 func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		AddressCodec:          codec.NewAddressCodec(),
-		CommitPluginCodec:     codec.NewCommitPluginCodecV1(),
-		ExecutePluginCodec:    codec.NewExecutePluginCodecV1(extraDataCodec),
-		ExtraDataCodec:        codec.NewExtraDataDecoder(),
-		GasEstimateProvider:   ccipnoop.NewGasEstimateProvider(extraDataCodec), // TODO: implement
-		TokenDataEncoder:      ccipnoop.NewTokenDataEncoder(),                  // TODO: implement
-		CCIPProviderSupported: true,
+		AddressCodec:        codec.NewAddressCodec(),
+		CommitPluginCodec:   codec.NewCommitPluginCodecV1(),
+		ExecutePluginCodec:  codec.NewExecutePluginCodecV1(extraDataCodec),
+		ExtraDataCodec:      codec.NewExtraDataDecoder(),
+		GasEstimateProvider: ccipnoop.NewGasEstimateProvider(extraDataCodec), // TODO: implement
+		TokenDataEncoder:    ccipnoop.NewTokenDataEncoder(),                  // TODO: implement
 	}
 }
 

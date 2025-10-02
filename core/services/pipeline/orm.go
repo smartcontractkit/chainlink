@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // KeepersObservationSource is the same for all keeper jobs and it is not persisted in DB
@@ -77,7 +76,7 @@ type CreateDataSource interface {
 type ORM interface {
 	services.Service
 
-	CreateSpec(ctx context.Context, pipeline Pipeline, maxTaskTimeout models.Interval) (int32, error)
+	CreateSpec(ctx context.Context, pipeline Pipeline, maxTaskTimeout sqlutil.Interval) (int32, error)
 	CreateRun(ctx context.Context, run *Run) (err error)
 	InsertRun(ctx context.Context, run *Run) error
 	DeleteRun(ctx context.Context, id int64) error
@@ -184,7 +183,7 @@ func (o *orm) transact(ctx context.Context, fn func(*orm) error) error {
 	return sqlutil.Transact(ctx, o.withDataSource, o.ds, nil, fn)
 }
 
-func (o *orm) CreateSpec(ctx context.Context, pipeline Pipeline, maxTaskDuration models.Interval) (id int32, err error) {
+func (o *orm) CreateSpec(ctx context.Context, pipeline Pipeline, maxTaskDuration sqlutil.Interval) (id int32, err error) {
 	sql := `INSERT INTO pipeline_specs (dot_dag_source, max_task_duration, created_at)
 	VALUES ($1, $2, NOW())
 	RETURNING id;`

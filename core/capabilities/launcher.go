@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -381,7 +380,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
+			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %x: %w", cid, c.Config, err)
 		}
 
 		methodConfig := capabilityConfig.CapabilityMethodConfig
@@ -529,7 +528,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	w.lggr.Debugw("Adding remote capability to registry", "id", info.ID, "don", info.DON)
 	cp, err := newCapFn(info)
 	if err != nil {
-		return fmt.Errorf("failed to instantiate capability: %w", err)
+		return fmt.Errorf("failed to instantiate capability %q: %w", capabilityID, err)
 	}
 
 	err = w.registry.Add(ctx, cp)
@@ -581,7 +580,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
+			return fmt.Errorf("could not unmarshal capability config for id %s with bytes: %x: %w", cid, c.Config, err)
 		}
 
 		methodConfig := capabilityConfig.CapabilityMethodConfig

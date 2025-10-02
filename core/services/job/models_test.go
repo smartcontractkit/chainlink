@@ -10,6 +10,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -21,7 +22,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
@@ -144,7 +144,7 @@ func TestOCR2OracleSpec(t *testing.T) {
 		OCRKeyBundleID:                    null.StringFrom("bar"),
 		TransmitterID:                     null.StringFrom("baz"),
 		ContractConfigConfirmations:       1,
-		ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
+		ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second),
 		RelayConfig: map[string]interface{}{
 			"chainID":   1337,
 			"fromBlock": 42,
