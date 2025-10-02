@@ -90,7 +90,7 @@ func isLOOPPEnabledForFamily(chainFamily string) bool {
 	case sel.FamilySolana:
 		return env.SolanaPlugin.Cmd.Get() != ""
 	case sel.FamilyTon:
-		return env.TONPlugin.Cmd.Get() != ""
+		return true // TON LOOPP is always enabled when TON is enabled
 	default:
 		return false
 	}
