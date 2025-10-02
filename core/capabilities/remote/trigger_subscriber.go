@@ -326,8 +326,10 @@ func (s *triggerSubscriber) Name() string {
 // SetConfig sets the remote trigger configuration, capability info, and DON information dynamically
 func (s *triggerSubscriber) SetConfig(config *commoncap.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, localDONID uint32, remoteDON commoncap.DON, aggregator types.Aggregator) error {
 	if config == nil {
-		return errors.New("no config provided")
+		s.lggr.Info("SetConfig called with nil config, using defaults")
+		config = &commoncap.RemoteTriggerConfig{}
 	}
+	config.ApplyDefaults()
 	if capInfo.ID == "" || capInfo.ID != s.capabilityID {
 		return fmt.Errorf("capability info provided does not match the subscriber's capabilityID: %s != %s", capInfo.ID, s.capabilityID)
 	}
@@ -340,7 +342,6 @@ func (s *triggerSubscriber) SetConfig(config *commoncap.RemoteTriggerConfig, cap
 	if aggregator == nil {
 		return errors.New("aggregator not set - call SetAggregator() before SetConfig()")
 	}
-	config.ApplyDefaults()
 	// Rebuild the capDonMembers map
 	capDonMembers := make(map[p2ptypes.PeerID]struct{})
 	for _, member := range remoteDON.Members {
