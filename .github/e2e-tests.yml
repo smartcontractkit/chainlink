@@ -1288,7 +1288,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestLogPollerFewFiltersFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestLogPollerFewFiltersFixedDepth$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1302,7 +1308,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestLogPollerFewFiltersFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestLogPollerFewFiltersFinalityTag$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1316,7 +1328,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestLogPollerWithChaosFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestLogPollerWithChaosFixedDepth$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1330,7 +1348,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestLogPollerWithChaosFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestLogPollerWithChaosFinalityTag$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1344,7 +1368,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestLogPollerWithChaosPostgresFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestLogPollerWithChaosPostgresFinalityTag$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1358,7 +1388,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestLogPollerWithChaosPostgresFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestLogPollerWithChaosPostgresFixedDepth$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1372,7 +1408,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestLogPollerReplayFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestLogPollerReplayFixedDepth$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1386,7 +1428,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestLogPollerReplayFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestLogPollerReplayFinalityTag$" -parallel=1 -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
   # END: LogPoller tests
