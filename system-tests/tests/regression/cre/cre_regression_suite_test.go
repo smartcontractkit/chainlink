@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
-	"github.com/smartcontractkit/quarantine"
 )
 
 // REGRESSION TESTS target edge cases, negative conditions, etc., all happy path and sanity checks should go to a `smoke` package.
