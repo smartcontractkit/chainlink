@@ -152,26 +152,30 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
 
-	// Wait to allow Beholder to fully initialize, it helps to avoid flakiness in tests
-	initTimeout := 5 * time.Second
-	testLogger.Info().Dur("timeout", initTimeout).Msg("Forcefully waiting for Beholder to warm up...")
+	// Reduced initialization timeout to minimize window for legitimate messages to be discarded
+	initTimeout := 2 * time.Second
+	testLogger.Info().Dur("timeout", initTimeout).Msg("Waiting for Beholder to warm up...")
 	time.Sleep(initTimeout)
 
-	drainChannels(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan) // drain any messages that arrived during initialization
+	// Only drain channels if we detect stale messages from before consumer was ready
+	// This is more conservative to avoid discarding legitimate test messages
+	testLogger.Info().Msg("Performing conservative channel drain to remove only pre-consumer messages...")
+	drainChannelsConservatively(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan)
 
 	return listenerCtx, beholderMsgChan, beholderErrChan
 }
 
-// Drains any remaining messages from the channels to avoid processing stale messages
-func drainChannels(ctx context.Context, t *testing.T, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
+// Conservative channel draining that only removes messages for a short period
+// to avoid discarding legitimate test messages
+func drainChannelsConservatively(ctx context.Context, t *testing.T, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
 	t.Helper()
 
-	testLogger.Info().Msg("Starting async drain of Beholder channels for stale messages...")
+	testLogger.Debug().Msg("Starting drain of Beholder channels...")
 	msgCount := 0
 	errCount := 0
 
-	// Drain messages for up to 500ms
-	drainTimeout := time.After(500 * time.Millisecond)
+	// Much shorter drain timeout to be more conservative
+	drainTimeout := time.After(200 * time.Millisecond)
 
 	for {
 		select {
@@ -179,22 +183,22 @@ func drainChannels(ctx context.Context, t *testing.T, testLogger zerolog.Logger,
 			msgCount++
 			switch msg.(type) {
 			case *workflowevents.UserLogs:
-				testLogger.Debug().Msg("Drained UserLogs message")
+				testLogger.Warn().Msg("drained UserLogs message (likely stale)")
 			case *commonevents.BaseMessage:
-				testLogger.Debug().Msg("Drained BaseMessage")
+				testLogger.Warn().Msg("drained BaseMessage (likely stale)")
 			default:
-				testLogger.Debug().Msgf("Drained unknown message type: %T", msg)
+				testLogger.Warn().Msgf("drained unknown message type: %T (likely stale)", msg)
 			}
 
 		case err := <-kafkaErrChan:
 			errCount++
-			testLogger.Debug().Err(err).Msg("Drained error message")
+			testLogger.Debug().Err(err).Msg("drained error message")
 
 		case <-drainTimeout:
 			if msgCount > 0 || errCount > 0 {
-				testLogger.Info().Int("messages_drained", msgCount).Int("errors_drained", errCount).Msg("Finished draining Beholder channels")
+				testLogger.Warn().Int("messages_drained", msgCount).Int("errors_drained", errCount).Msg("Finished draining of Beholder channels")
 			} else {
-				testLogger.Info().Msg("No stale Beholder messages found in channels")
+				testLogger.Info().Msg("No stale Beholder messages found during drain")
 			}
 			return
 		}

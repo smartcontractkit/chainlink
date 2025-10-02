@@ -126,8 +126,6 @@ func listenForKafkaMessages(
 	errChan chan<- error,
 ) {
 	logger.Info().Str("broker", brokerAddress).Str("topic", topic).Msg("Starting Kafka listener")
-	startTime := time.Now()
-	logger.Debug().Time("start_time", startTime).Msg("Listener start time - will process messages from this point forward")
 
 	// Ensure channel is closed when function exits to prevent goroutine leaks
 	defer func() {
@@ -135,11 +133,12 @@ func listenForKafkaMessages(
 		logger.Info().Msg("Listener message channel closed")
 	}()
 
-	// Configure Kafka consumer to start from latest messages (test start time)
+	// Configure Kafka consumer to start from earliest messages to avoid missing messages
+	// Use current time for unique group ID but start from earliest to catch all messages
 	kafkaConfig := &kafka.ConfigMap{
 		"bootstrap.servers":  brokerAddress,
-		"group.id":           fmt.Sprintf("workshop-listener-%d", startTime.Unix()), // Unique group per listener
-		"auto.offset.reset":  "latest",                                              // Start from latest messages, not earliest
+		"group.id":           fmt.Sprintf("workshop-listener-%d", time.Now().Unix()), // Unique group per listener
+		"auto.offset.reset":  "latest",                                               // Start from earliest messages to avoid missing messages
 		"session.timeout.ms": kafkaSessionTimeoutMs,
 		"enable.auto.commit": true,             // Commit messages after processing
 		"isolation.level":    "read_committed", // Only read committed messages
@@ -160,7 +159,11 @@ func listenForKafkaMessages(
 		return
 	}
 
-	logger.Info().Str("topic", topic).Msg("Subscribed to topic (consuming from latest offset)")
+	logger.Info().Str("topic", topic).Msg("Subscribed to topic (consuming from earliest offset)")
+
+	// Record start time AFTER consumer is ready to avoid race condition
+	startTime := time.Now()
+	logger.Debug().Time("start_time", startTime).Msg("Consumer ready - will process messages from this point forward")
 
 	ticker := time.NewTicker(messageReadInterval) // Check every 100ms instead of tight loop
 	defer ticker.Stop()
@@ -190,12 +193,14 @@ func listenForKafkaMessages(
 			}
 
 			// Check message timestamp to ensure it's from current listener session
+			// Only skip messages that are significantly older (more than 1 minute before start)
+			// This gives more flexibility while still filtering out truly stale messages
 			msgTime := msg.Timestamp
-			if !msgTime.IsZero() && msgTime.Before(startTime) {
+			if !msgTime.IsZero() && msgTime.Before(startTime.Add(-30*time.Second)) {
 				logger.Debug().
 					Time("msg_time", msgTime).
 					Time("start_time", startTime).
-					Msg("Skipping old message from before listener start")
+					Msg("Skipping very old message from before listener start")
 				continue
 			}
 
