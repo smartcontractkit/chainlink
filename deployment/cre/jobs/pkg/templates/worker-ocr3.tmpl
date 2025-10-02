@@ -1,0 +1,27 @@
+type = "offchainreporting2"
+schemaVersion = 1
+externalJobID = "{{ .ExternalJobID }}"
+name = "{{ .JobName }}"
+contractID = "{{ .ContractID }}"
+ocrKeyBundleID = "{{ .OCR2EVMKeyBundleID }}"
+p2pv2Bootstrappers = [
+{{ range .P2Pv2Bootstrappers }}  "{{ . }}",
+{{ end }}]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "{{ .TransmitterID }}"
+[relayConfig]
+chainID = "{{ .ChainID }}"
+[pluginConfig]
+command = "/usr/local/bin/chainlink-ocr3-capability"
+ocrVersion = 3
+pluginName = "ocr-capability"
+providerType = "ocr3-capability"
+telemetryType = "plugin"
+[onchainSigningStrategy]
+strategyName = 'multi-chain'
+[onchainSigningStrategy.config]
+evm = "{{ .OCR2EVMKeyBundleID }}"
+{{- if .OCR2AptosKeyBundleID }}
+aptos = "{{ .OCR2AptosKeyBundleID }}"
+{{ end }}

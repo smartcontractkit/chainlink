@@ -20,6 +20,7 @@ COMMANDS:
    aptos     Remote commands for administering the node's Aptos keys
    tron      Remote commands for administering the node's Tron keys
    ton       Remote commands for administering the node's TON keys
+   sui       Remote commands for administering the node's Sui keys
    vrf       Remote commands for administering the node's vrf keys
 
 OPTIONS:

@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -69,13 +68,17 @@ type UpdateDONOutput struct {
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig struct {
 	Capability Capability
-	Config     map[string]interface{} // this is the marshalled proto config. if nil, a default config is used
+	// Config is the capability configuration. It will be marshalled to proto config.
+	// It is untyped here because is has to be deserialized from JSON/YAML for any possible capability
+	// If nil, a default config based on the capability type is used
+	Config map[string]interface{}
 }
 
 type Capability struct {
-	CapabilityID          string                 `json:"capability_id" yaml:"capability_id"`
-	ConfigurationContract common.Address         `json:"configuration_contract" yaml:"configuration_contract"`
-	Metadata              map[string]interface{} `json:"metadata" yaml:"metadata"`
+	CapabilityID          string         `json:"capability_id" yaml:"capability_id"`
+	ConfigurationContract common.Address `json:"configuration_contract" yaml:"configuration_contract"`
+	// Metadata is the capability metadata. It will be marshalled to json config.
+	Metadata map[string]interface{} `json:"metadata" yaml:"metadata"`
 }
 
 var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateDONDeps](
@@ -197,11 +200,12 @@ func computeConfigs(capCfgs []CapabilityConfig, existingCapConfigs []capabilitie
 	for _, capCfg := range capCfgs {
 		cfg := capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{}
 		cfg.CapabilityId = capCfg.Capability.CapabilityID
-		configBytes, err := json.Marshal(capCfg.Config)
+		var err error
+		x := pkg.CapabilityConfig(capCfg.Config)
+		cfg.Config, err = x.MarshalProto()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal capability configuration config: %w", err)
 		}
-		cfg.Config = configBytes
 		if cfg.Config == nil {
 			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.CapabilityID)
 		}

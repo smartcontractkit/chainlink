@@ -42,7 +42,12 @@ type client struct {
 	wg                       sync.WaitGroup
 }
 
-var _ commoncap.ExecutableCapability = &client{}
+type Client interface {
+	commoncap.ExecutableCapability
+	Receive(ctx context.Context, msg *types.MessageBody)
+}
+
+var _ Client = &client{}
 var _ types.Receiver = &client{}
 var _ services.Service = &client{}
 

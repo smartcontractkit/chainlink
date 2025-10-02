@@ -31,7 +31,7 @@ func TestCombinedClient_RegisterTrigger_Success(t *testing.T) {
 	mockTrigger := &mocks.TriggerCapability{}
 	method := "test-method"
 
-	client.AddTriggerSubscriber(method, mockTrigger)
+	client.SetTriggerSubscriber(method, mockTrigger)
 
 	request := commoncap.TriggerRegistrationRequest{
 		TriggerID: "test-trigger-id",
@@ -70,7 +70,7 @@ func TestCombinedClient_RegisterTrigger_ErrorFromSubscriber(t *testing.T) {
 	mockTrigger := &mocks.TriggerCapability{}
 	method := "test-method"
 
-	client.AddTriggerSubscriber(method, mockTrigger)
+	client.SetTriggerSubscriber(method, mockTrigger)
 
 	request := commoncap.TriggerRegistrationRequest{
 		TriggerID: "test-trigger-id",
@@ -94,7 +94,7 @@ func TestCombinedClient_UnregisterTrigger_Success(t *testing.T) {
 	mockTrigger := &mocks.TriggerCapability{}
 	method := "test-method"
 
-	client.AddTriggerSubscriber(method, mockTrigger)
+	client.SetTriggerSubscriber(method, mockTrigger)
 
 	request := commoncap.TriggerRegistrationRequest{
 		TriggerID: "test-trigger-id",
@@ -129,7 +129,7 @@ func TestCombinedClient_UnregisterTrigger_ErrorFromSubscriber(t *testing.T) {
 	mockTrigger := &mocks.TriggerCapability{}
 	method := "test-method"
 
-	client.AddTriggerSubscriber(method, mockTrigger)
+	client.SetTriggerSubscriber(method, mockTrigger)
 
 	request := commoncap.TriggerRegistrationRequest{
 		TriggerID: "test-trigger-id",
@@ -184,7 +184,7 @@ func TestCombinedClient_Execute_Success(t *testing.T) {
 	mockExecutable := &mocks.ExecutableCapability{}
 	method := "test-execute-method"
 
-	client.AddExecutableClient(method, mockExecutable)
+	client.SetExecutableClient(method, mockExecutable)
 
 	request := commoncap.CapabilityRequest{
 		Method: method,
@@ -237,7 +237,7 @@ func TestCombinedClient_Execute_ErrorFromExecutable(t *testing.T) {
 	mockExecutable := &mocks.ExecutableCapability{}
 	method := "test-execute-method"
 
-	client.AddExecutableClient(method, mockExecutable)
+	client.SetExecutableClient(method, mockExecutable)
 
 	request := commoncap.CapabilityRequest{
 		Method: method,
@@ -258,14 +258,14 @@ func TestCombinedClient_Execute_ErrorFromExecutable(t *testing.T) {
 	assert.Equal(t, expectedError, err)
 }
 
-func TestCombinedClient_AddTriggerSubscriber(t *testing.T) {
+func TestCombinedClient_SetTriggerSubscriber(t *testing.T) {
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
 
 	client := remote.NewCombinedClient(info)
 	mockTrigger := &mocks.TriggerCapability{}
 	method := "test-method"
 
-	client.AddTriggerSubscriber(method, mockTrigger)
+	client.SetTriggerSubscriber(method, mockTrigger)
 
 	ctx := testutils.Context(t)
 	request := commoncap.TriggerRegistrationRequest{
@@ -280,14 +280,14 @@ func TestCombinedClient_AddTriggerSubscriber(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCombinedClient_AddExecutableClient(t *testing.T) {
+func TestCombinedClient_SetExecutableClient(t *testing.T) {
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeAction)
 
 	client := remote.NewCombinedClient(info)
 	mockExecutable := &mocks.ExecutableCapability{}
 	method := "test-method"
 
-	client.AddExecutableClient(method, mockExecutable)
+	client.SetExecutableClient(method, mockExecutable)
 
 	ctx := testutils.Context(t)
 	request := commoncap.CapabilityRequest{
@@ -321,8 +321,11 @@ func TestCombinedClient_MultipleMethodsAndCapabilities(t *testing.T) {
 	triggerMethod1 := "trigger-method-1"
 	triggerMethod2 := "trigger-method-2"
 
-	client.AddTriggerSubscriber(triggerMethod1, mockTrigger1)
-	client.AddTriggerSubscriber(triggerMethod2, mockTrigger2)
+	client.SetTriggerSubscriber(triggerMethod1, mockTrigger1)
+	client.SetTriggerSubscriber(triggerMethod2, mockTrigger2)
+
+	client.SetTriggerSubscriber(triggerMethod1, mockTrigger1)
+	client.SetTriggerSubscriber(triggerMethod2, mockTrigger2)
 
 	// Add multiple executable clients
 	mockExecutable1 := &mocks.ExecutableCapability{}
@@ -330,8 +333,8 @@ func TestCombinedClient_MultipleMethodsAndCapabilities(t *testing.T) {
 	execMethod1 := "exec-method-1"
 	execMethod2 := "exec-method-2"
 
-	client.AddExecutableClient(execMethod1, mockExecutable1)
-	client.AddExecutableClient(execMethod2, mockExecutable2)
+	client.SetExecutableClient(execMethod1, mockExecutable1)
+	client.SetExecutableClient(execMethod2, mockExecutable2)
 
 	// Test trigger method 1
 	triggerRequest1 := commoncap.TriggerRegistrationRequest{

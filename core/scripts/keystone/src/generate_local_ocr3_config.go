@@ -100,7 +100,7 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		panic(err)
 	}
 
-	ocrConfig, err := changeset.GenerateOCR3Config(cfg, pubKeys, focr.XXXGenerateTestOCRSecrets())
+	ocrConfig, err := changeset.GenerateOCR3Config(cfg, pubKeys, focr.XXXGenerateTestOCRSecrets(), nil)
 	if err != nil {
 		panic(err)
 	}

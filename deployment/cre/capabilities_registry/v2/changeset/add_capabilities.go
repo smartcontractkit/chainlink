@@ -18,6 +18,9 @@ import (
 
 var _ cldf.ChangeSetV2[AddCapabilitiesInput] = AddCapabilities{}
 
+// emptyQualifier is used when no specific qualifier is needed
+const emptyQualifier = ""
+
 type AddCapabilitiesInput struct {
 	RegistryChainSel  uint64 `json:"registry_chain_sel" yaml:"registry_chain_sel"`
 	RegistryQualifier string `json:"registry_qualifier" yaml:"registry_qualifier"`
@@ -47,7 +50,7 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 	var mcmsContracts *commonchangeset.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.RegistryChainSel)
+		mcmsContracts, err = strategies.GetMCMSContracts(e, config.RegistryChainSel, emptyQualifier)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
 		}

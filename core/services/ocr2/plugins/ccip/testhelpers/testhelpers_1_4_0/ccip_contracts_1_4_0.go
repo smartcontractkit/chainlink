@@ -763,27 +763,6 @@ func (c *CCIPContracts) SendMessage(t *testing.T, gasLimit, tokenAmount *big.Int
 	c.SendRequest(t, msg)
 }
 
-func GetBalances(t *testing.T, brs []BalanceReq) (map[string]*big.Int, error) {
-	m := make(map[string]*big.Int)
-	for _, br := range brs {
-		m[br.Name] = br.Getter(t, br.Addr)
-		if m[br.Name] == nil {
-			return nil, fmt.Errorf("%v getter return nil", br.Name)
-		}
-	}
-	return m, nil
-}
-
-func MustAddBigInt(a *big.Int, b string) *big.Int {
-	bi, _ := big.NewInt(0).SetString(b, 10)
-	return big.NewInt(0).Add(a, bi)
-}
-
-func MustSubBigInt(a *big.Int, b string) *big.Int {
-	bi, _ := big.NewInt(0).SetString(b, 10)
-	return big.NewInt(0).Sub(a, bi)
-}
-
 func MustEncodeAddress(t *testing.T, address common.Address) []byte {
 	bts, err := utils.ABIEncode(`[{"type":"address"}]`, address)
 	require.NoError(t, err)

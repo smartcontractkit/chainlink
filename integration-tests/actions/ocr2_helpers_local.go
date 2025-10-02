@@ -20,17 +20,16 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 func CreateOCRv2JobsLocal(
@@ -78,7 +77,7 @@ func CreateOCRv2JobsLocal(
 					"chainID": chainId,
 				},
 				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valPath)),
-				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
+				ContractConfigTrackerPollInterval: *sqlutil.NewInterval(15 * time.Second),
 			},
 		}
 		_, err := bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -129,7 +128,7 @@ func CreateOCRv2JobsLocal(
 					PluginConfig: map[string]any{
 						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", nodeclient.ObservationSourceSpecBridge(juelsBridge)),
 					},
-					ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
+					ContractConfigTrackerPollInterval: *sqlutil.NewInterval(15 * time.Second),
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
 					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyID),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr

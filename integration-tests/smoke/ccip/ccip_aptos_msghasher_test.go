@@ -6,27 +6,22 @@ import (
 	"testing"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	aptos_call_opts "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Test_CCIP_AptosMessageHasher_OnChainVerification compares off-chain aptos msghasher.go implementation
@@ -53,7 +48,7 @@ func Test_CCIP_AptosMessageHasher_OnChainVerification(t *testing.T) {
 	destChain := aptosChainSelectors[0] // Aptos destination
 
 	// Setup off-chain message hasher
-	extraDataCodec := ccipcommon.ExtraDataCodec(map[string]ccipcommon.SourceChainExtraDataCodec{
+	extraDataCodec := ccipocr3common.ExtraDataCodecMap(map[string]ccipocr3common.SourceChainExtraDataCodec{
 		chain_selectors.FamilyAptos: ccipaptos.ExtraDataDecoder{},
 		chain_selectors.FamilyEVM:   ccipevm.ExtraDataDecoder{},
 	})

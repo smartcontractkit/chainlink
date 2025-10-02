@@ -30,6 +30,7 @@ ARG CL_INSTALL_TESTING_PLUGINS=false
 ARG GO_GCFLAGS
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
+ARG VERSION_TAG
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
@@ -37,7 +38,6 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/root/.cache/go-build \
     ./plugins/scripts/setup_git_auth.sh && \
     mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
-    GOBIN=/go/bin make install-loopinstall && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
         GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \

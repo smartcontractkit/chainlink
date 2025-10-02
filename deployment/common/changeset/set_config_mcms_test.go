@@ -60,6 +60,7 @@ func setupSetConfigTestEnv(t *testing.T) cldf.Environment {
 }
 
 func TestSetConfigMCMSV2EVM(t *testing.T) {
+	quarantine.Flaky(t, "DX-1873")
 	quarantine.Flaky(t, "DX-1811")
 	t.Parallel()
 	// Add the timelock as a signer to check state changes

@@ -738,7 +738,7 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
-			executionID, err := types.GenerateExecutionID(e.workflow.id, te.ID)
+			executionID, err := events.GenerateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
 				e.logger.With(platform.KeyTriggerID, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
@@ -1065,7 +1065,7 @@ func (e *Engine) executeStep(
 	}
 
 	defer func() {
-		if err := events.EmitCapabilityFinishedEvent(ctx, e.cma.Labels(), msg.state.ExecutionID, curStep.ID, msg.stepRef, status); err != nil {
+		if err := events.EmitCapabilityFinishedEvent(ctx, e.cma.Labels(), msg.state.ExecutionID, curStep.ID, msg.stepRef, status, capErr); err != nil {
 			e.logger.Errorf("failed to emit capability event: %v", err)
 		}
 	}()
@@ -1535,7 +1535,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainID),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainID, metering.EngineVersionV1),
 	}
 
 	return engine, nil

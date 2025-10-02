@@ -15,6 +15,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -69,6 +70,10 @@ func testDeployPrerequisitesWithEnv(t *testing.T, e cldf.Environment) {
 	require.NotNil(t, chainState.TokenAdminRegistry)
 	require.NotNil(t, chainState.TokenPoolFactory)
 	require.NotNil(t, chainState.FactoryBurnMintERC20Token)
+	require.NotNil(t, chainState.BurnMintTokenPools[shared.FactoryBurnMintERC20Symbol][shared.CurrentTokenPoolVersion])
+	require.NotNil(t, chainState.BurnFromMintTokenPools[shared.FactoryBurnMintERC20Symbol][shared.CurrentTokenPoolVersion])
+	require.NotNil(t, chainState.BurnWithFromMintTokenPools[shared.FactoryBurnMintERC20Symbol][shared.CurrentTokenPoolVersion])
+	require.NotNil(t, chainState.LockReleaseTokenPools[shared.FactoryBurnMintERC20Symbol][shared.CurrentTokenPoolVersion])
 	require.NotNil(t, chainState.RegistryModules1_6)
 	require.NotNil(t, chainState.Router)
 }

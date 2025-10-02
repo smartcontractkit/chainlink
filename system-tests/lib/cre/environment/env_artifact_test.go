@@ -22,6 +22,10 @@ func TestDONCapabilityConfigRoundTrip(t *testing.T) {
 		{dir: "002-remote-trigger"},
 		{dir: "003-remote-target"},
 		{dir: "004-remote-executable"},
+		{dir: "005-method-configs-trigger"},
+		{dir: "006-method-configs-executable-all-at-once"},   // transmission_schedule=0, no deltaStage
+		{dir: "007-method-configs-executable-one-at-a-time"}, // transmission_schedule=1, with deltaStage
+		{dir: "008-method-configs-all-options"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.dir, func(t *testing.T) {
@@ -56,22 +60,52 @@ func TestDONCapabilityConfigRoundTrip(t *testing.T) {
 	}
 }
 func TestDONCapabilityConfigUnknownRemoteConfigType(t *testing.T) {
-	input := []byte(`{
-		"config": {
-			"RemoteConfig": {
-				"UnknownConfigType": {
-					"foo": "bar"
+	tests := []struct {
+		name        string
+		input       []byte
+		errContains string
+	}{
+		{
+			name: "unknown remote config type",
+			input: []byte(`{
+			"config": {
+				"RemoteConfig": {
+					"UnknownConfigType": {
+						"foo": "bar"
+					}
 				}
 			}
-		}
-	}`)
-
-	var obj struct {
-		Config DONCapabilityConfig `json:"config"`
+		}`),
+			errContains: "unknown remote config type in capability config, keys: [UnknownConfigType]",
+		},
+		{
+			name: "unknown method_configs config type",
+			input: []byte(`{
+			"config": {
+				"method_configs": {
+					"SomeRandomMethod": {
+						"RemoteConfig": {
+							"UnknownConfigType2": {
+								"foo": "bar"
+							}
+						}
+					}
+				}
+			}
+		}`),
+			errContains: "unknown method config type for method SomeRandomMethod, unknown config value keys: UnknownConfigType2",
+		},
 	}
 
-	err := json.Unmarshal(input, &obj)
-	assert.ErrorContains(t, err, "unknown remote config type in capability config, keys: [UnknownConfigType]")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var obj struct {
+				Config DONCapabilityConfig `json:"config"`
+			}
+			err := json.Unmarshal(tc.input, &obj)
+			assert.ErrorContains(t, err, tc.errContains)
+		})
+	}
 }
 
 func readFile(t *testing.T, file string) []byte {

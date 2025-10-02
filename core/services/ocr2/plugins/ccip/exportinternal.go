@@ -97,10 +97,6 @@ func NewPipelineGetter(
 		sourceNativeTokenAddr, sourceChainSelector, destChainSelector)
 }
 
-func NewDynamicPriceGetterClient(batchCaller rpclib.EvmBatchCaller) DynamicPriceGetterClient {
-	return pricegetter.NewDynamicPriceGetterClient(batchCaller)
-}
-
 func NewDynamicPriceGetter(cfg config.DynamicPriceGetterConfig, contractReaders map[uint64]types.ContractReader) (*DynamicPriceGetter, error) {
 	return pricegetter.NewDynamicPriceGetter(cfg, contractReaders)
 }

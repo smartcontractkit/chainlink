@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
@@ -69,13 +71,12 @@ func newMetrics() (*metrics, error) {
 }
 
 type activeRequest struct {
-	req          jsonrpc.Request[json.RawMessage]
-	responses    map[string]*jsonrpc.Response[json.RawMessage]
-	responseSent bool
-	mu           sync.Mutex
+	req       jsonrpc.Request[json.RawMessage]
+	responses map[string]*jsonrpc.Response[json.RawMessage]
+	mu        sync.Mutex
 
-	createdAt  time.Time
-	callbackCh chan<- gwhandlers.UserCallbackPayload
+	createdAt time.Time
+	gwhandlers.Callback
 }
 
 func (ar *activeRequest) addResponseForNode(nodeAddr string, resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -96,22 +97,6 @@ func (ar *activeRequest) copiedResponses() map[string]*jsonrpc.Response[json.Raw
 	copied := make(map[string]*jsonrpc.Response[json.RawMessage], len(ar.responses))
 	maps.Copy(copied, ar.responses)
 	return copied
-}
-
-func (ar *activeRequest) sendResponse(ctx context.Context, resp gwhandlers.UserCallbackPayload) error {
-	ar.mu.Lock()
-	defer ar.mu.Unlock()
-	if ar.responseSent {
-		return errors.New("response already sent for this request")
-	}
-
-	select {
-	case ar.callbackCh <- resp:
-		ar.responseSent = true
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
 
 type capabilitiesRegistry interface {
@@ -142,6 +127,7 @@ type handler struct {
 	aggregator aggregator
 
 	cachedPublicKeyGetResponse []byte
+	cachedPublicKeyObject      *tdh2easy.PublicKey
 	cachedUntil                time.Time
 
 	clock clockwork.Clock
@@ -265,11 +251,11 @@ func (h *handler) Methods() []string {
 	return vaulttypes.GetSupportedMethods(h.lggr)
 }
 
-func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ chan<- gwhandlers.UserCallbackPayload) error {
+func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {
 	return errors.New("vault handler does not support legacy messages")
 }
 
-func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callbackCh chan<- gwhandlers.UserCallbackPayload) error {
+func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) error {
 	// Generate a unique ID for the request.
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	if req.ID == "" {
@@ -281,7 +267,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
 	if req.Method == vaulttypes.MethodPublicKeyGet {
 		h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID)
-		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callbackCh))
+		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callback))
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
@@ -294,7 +280,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	req.ID = owner + "::" + req.ID
 
 	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
-	ar := h.newActiveRequest(req, callbackCh)
+	ar := h.newActiveRequest(req, callback)
 
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
@@ -312,12 +298,12 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	}
 }
 
-func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callbackCh chan<- gwhandlers.UserCallbackPayload) *activeRequest {
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) *activeRequest {
 	ar := &activeRequest{
-		callbackCh: callbackCh,
-		req:        req,
-		createdAt:  h.clock.Now(),
-		responses:  map[string]*jsonrpc.Response[json.RawMessage]{},
+		Callback:  callback,
+		req:       req,
+		createdAt: h.clock.Now(),
+		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
 	}
 
 	h.mu.Lock()
@@ -397,9 +383,21 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 		l.Infow("no public key in unmarshaled response, not caching", "response", resp, "result", r)
 		return
 	}
+	masterPublicKey := tdh2easy.PublicKey{}
+	masterPublicKeyBytes, err := hex.DecodeString(r.PublicKey)
+	if err != nil {
+		l.Infow("failed to decode master public key string", "error", err)
+		return
+	}
+	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
+	if err != nil {
+		l.Infow("failed to unmarshal master public key", "error", err)
+		return
+	}
 
 	h.mu.Lock()
 	h.cachedPublicKeyGetResponse = *resp.Result
+	h.cachedPublicKeyObject = &masterPublicKey
 	h.cachedUntil = h.clock.Now().Add(time.Duration(h.methodConfig.PublicKeyGetCacheDurationSec) * time.Second)
 	h.mu.Unlock()
 	l.Infow("successfully cached public key response", "cachedUntil", h.cachedUntil)
@@ -446,7 +444,8 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	err := vaultcap.ValidateCreateSecretsRequest(createSecretsRequest)
+	_, cachedPublicKey, _, _ := h.getCachedPublicKey()
+	err := vaultcap.ValidateCreateSecretsRequest(cachedPublicKey, createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
@@ -477,10 +476,11 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	vaultcapErr := vaultcap.ValidateUpdateSecretsRequest(updateSecretsRequest)
-	if vaultcapErr != nil {
-		l.Warnw("failed to validate update secrets request", "error", vaultcapErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultcapErr), nil))
+	_, cachedPublicKey, _, _ := h.getCachedPublicKey()
+	vaultCapErr := vaultcap.ValidateUpdateSecretsRequest(cachedPublicKey, updateSecretsRequest)
+	if vaultCapErr != nil {
+		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
 	}
 
 	reqBytes, err := json.Marshal(updateSecretsRequest)
@@ -572,21 +572,22 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) getCachedPublicKey() ([]byte, time.Time, error) {
+func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey, time.Time, error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.cachedPublicKeyGetResponse == nil {
-		return nil, time.Time{}, errors.New("no cached public key response")
+		return nil, nil, time.Time{}, errors.New("no cached public key response")
 	}
 	copied := make([]byte, len(h.cachedPublicKeyGetResponse))
 	copy(copied, h.cachedPublicKeyGetResponse)
-	return copied, h.cachedUntil, nil
+	cachedPublicKeyCopy := *h.cachedPublicKeyObject
+	return copied, &cachedPublicKeyCopy, h.cachedUntil, nil
 }
 
 func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
-	publicKeyResponseBytes, cachedUntil, err := h.getCachedPublicKey()
+	publicKeyResponseBytes, _, cachedUntil, err := h.getCachedPublicKey()
 	if err == nil && h.clock.Now().Before(cachedUntil) {
 		l.Debugw("returning cached public key response")
 		return h.sendSuccessResponse(ctx, l, ar, &jsonrpc.Response[json.RawMessage]{
@@ -690,7 +691,7 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 		))
 	}
 
-	err := userRequest.sendResponse(ctx, resp)
+	err := userRequest.SendResponse(resp)
 	if err != nil {
 		h.lggr.Errorw("error sending response to user", "requestID", userRequest.req.ID, "error", err)
 		return err

@@ -172,6 +172,7 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			onRampReader := ccipdatamocks.NewOnRampReader(t)
 			onRampReader.On("IsSourceChainHealthy", ctx).Return(true, nil)
 			onRampReader.On("IsSourceCursed", ctx).Return(tc.sourceChainCursed, nil)
+			onRampReader.On("Address", ctx).Return(cciptypes.Address(utils.RandomAddress().String()), nil).Maybe()
 			if len(tc.sendReqs) > 0 {
 				onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.commitStoreSeqNum, tc.commitStoreSeqNum+OnRampMessagesScanLimit, true).
 					Return(tc.sendReqs, nil)
@@ -234,7 +235,9 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		p := &CommitReportingPlugin{}
 		p.lggr = logger.TestLogger(t)
 		p.F = 1
-
+		onRampReader := ccipdatamocks.NewOnRampReader(t)
+		onRampReader.On("Address", ctx).Return(cciptypes.Address(utils.RandomAddress().String()), nil).Maybe()
+		p.onRampReader = onRampReader
 		chainHealthcheck := ccipcachemocks.NewChainHealthcheck(t)
 		chainHealthcheck.On("IsHealthy", ctx).Return(true, nil).Maybe()
 		p.chainHealthcheck = chainHealthcheck
@@ -399,6 +402,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			destPriceRegistryReader.On("GetTokenPriceUpdatesCreatedAfter", ctx, mock.Anything, 0).Return(tc.tokenPriceUpdates, nil)
 
 			onRampReader := ccipdatamocks.NewOnRampReader(t)
+			onRampReader.On("Address", ctx).Return(cciptypes.Address(utils.RandomAddress().String()), nil).Maybe()
 			if len(tc.sendRequests) > 0 {
 				onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expSeqNumRange.Min, tc.expSeqNumRange.Max, true).Return(tc.sendRequests, nil)
 			}

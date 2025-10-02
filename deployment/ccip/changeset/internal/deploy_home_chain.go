@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -49,24 +50,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-// LatestCCIPDON returns the latest CCIP DON from the capabilities registry
-// Keeping this function for reference
-func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
-	dons, err := registry.GetDONs(nil)
-	if err != nil {
-		return nil, err
-	}
-	var ccipDON capabilities_registry.CapabilitiesRegistryDONInfo
-	for _, don := range dons {
-		if len(don.CapabilityConfigurations) == 1 &&
-			don.CapabilityConfigurations[0].CapabilityId == shared.CCIPCapabilityID &&
-			don.Id > ccipDON.Id {
-			ccipDON = don
-		}
-	}
-	return &ccipDON, nil
 }
 
 // DonIDForChain returns the DON ID for the chain with the given selector
@@ -578,7 +561,9 @@ func BuildOCR3ConfigForCCIPHome(
 				if pk == nil || pk.IsAddrNone() {
 					return nil, fmt.Errorf("failed to parse TON address '%s'", transmitter)
 				}
-				parsed = pk.Data()
+				// TODO: this reimplements addrCodec's ToRawAddr helper
+				parsed = binary.BigEndian.AppendUint32(nil, uint32(pk.Workchain())) //nolint:gosec // G115
+				parsed = append(parsed, pk.Data()...)
 			case chain_selectors.FamilyAptos:
 				parsed, err = hex.DecodeString(strings.TrimPrefix(string(transmitter), "0x"))
 				if err != nil {

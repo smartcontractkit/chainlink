@@ -75,7 +75,7 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 	h := Heartbeat{
 		beat:    cfg.Beat,
 		opts:    cfg,
-		emitter: cme,
+		emitter: cme.WithMapLabels(labels),
 		meter:   beholder.GetMeter(),
 	}
 

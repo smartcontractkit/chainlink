@@ -259,16 +259,6 @@ func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, method
 	return msg
 }
 
-func requireNoChanMsg[T any](t *testing.T, ch <-chan T) {
-	timedOut := false
-	select {
-	case <-ch:
-	case <-time.After(100 * time.Millisecond):
-		timedOut = true
-	}
-	require.True(t, timedOut)
-}
-
 func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, _, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)
@@ -276,8 +266,6 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	codec := api.JsonRPCCodec{}
 
 	t.Run("happy case", func(t *testing.T) {
-		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-
 		// sends to 2 dons
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			nodeReq := nodeRequest(msg)
@@ -288,28 +276,28 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 			require.Equal(t, nodeReq, args.Get(2))
 		}).Return(nil).Once()
 
-		err := handler.HandleLegacyUserMessage(ctx, msg, ch)
+		cb := hc.NewCallback()
+		err := handler.HandleLegacyUserMessage(ctx, msg, cb)
 		require.NoError(t, err)
-		requireNoChanMsg(t, ch)
 
 		resp, err := hc.ValidatedResponseFromMessage(msg)
 		require.NoError(t, err)
 		err = handler.HandleNodeMessage(ctx, resp, nodes[0].Address)
 		require.NoError(t, err)
 
-		userPayload := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}, userPayload)
-		_, open := <-ch
-		require.False(t, open)
+		r, err := cb.Wait(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError}, r)
 	})
 
 	t.Run("sad case invalid method", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "foo", "", "")
-		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
+		cb := hc.NewCallback()
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, cb)
 		require.NoError(t, err)
-		resp := <-ch
 
+		r, err := cb.Wait(t.Context())
+		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				invalidMsg.Body.MessageId,
@@ -318,17 +306,16 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 				nil,
 			),
 			ErrorCode: api.UnsupportedMethodError,
-		}, resp)
-		_, open := <-ch
-		require.False(t, open)
+		}, r)
 	})
 
 	t.Run("sad case stale message", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "")
-		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
+		cb := hc.NewCallback()
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, cb)
 		require.NoError(t, err)
-		resp := <-ch
+		r, err := cb.Wait(t.Context())
+		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				invalidMsg.Body.MessageId,
@@ -337,17 +324,16 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 				nil,
 			),
 			ErrorCode: api.HandlerError,
-		}, resp)
-		_, open := <-ch
-		require.False(t, open)
+		}, r)
 	})
 
 	t.Run("sad case empty payload", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "{}")
-		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
+		cb := hc.NewCallback()
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, cb)
 		require.NoError(t, err)
-		resp := <-ch
+		r, err := cb.Wait(t.Context())
+		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				invalidMsg.Body.MessageId,
@@ -356,17 +342,16 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 				nil,
 			),
 			ErrorCode: api.UserMessageParseError,
-		}, resp)
-		_, open := <-ch
-		require.False(t, open)
+		}, r)
 	})
 
 	t.Run("sad case invalid payload", func(t *testing.T) {
 		invalidMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", `{"foo":"bar"}`)
-		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, ch)
+		cb := hc.NewCallback()
+		err := handler.HandleLegacyUserMessage(ctx, invalidMsg, cb)
 		require.NoError(t, err)
-		resp := <-ch
+		r, err := cb.Wait(t.Context())
+		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				invalidMsg.Body.MessageId,
@@ -375,9 +360,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 				nil,
 			),
 			ErrorCode: api.UserMessageParseError,
-		}, resp)
-		_, open := <-ch
-		require.False(t, open)
+		}, r)
 	})
 	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
 }

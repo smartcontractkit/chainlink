@@ -31,10 +31,6 @@ import (
 
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	quarantine.Flaky(t, "DX-1773")
-	quarantine.Flaky(
-
-		// --- arrange ---
-		t, "DX-1773")
 	t.Parallel()
 
 	log := logger.TestLogger(t)

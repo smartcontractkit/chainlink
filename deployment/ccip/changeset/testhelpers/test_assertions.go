@@ -255,6 +255,11 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					expectedSeqNum,
 					true,
 				))
+			case chainsel.FamilyTon:
+				// TODO: proper implementation, for now just stall
+				t.Log("Reached waiting for commit confirm, TON implementation is missing. Stalling to see more node logs")
+				time.Sleep(time.Minute * 5)
+				return fmt.Errorf("unsupported chain family; %v", family)
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}
@@ -777,7 +782,6 @@ func ConfirmExecWithSeqNrsForAll(
 	)
 	executionStates = make(map[SourceDestPair]map[uint64]int)
 	for sourceDest, seqRange := range expectedSeqNums {
-		seqRange := seqRange
 		srcChain := sourceDest.SourceChainSelector
 		dstChain := sourceDest.DestChainSelector
 

@@ -56,10 +56,10 @@ var (
 )
 
 type ReportingPluginConfig struct {
-	// Sourced from the job spec
+	LazyPublicKey *vaultcap.LazyPublicKey
+	// Sourced from the DKG DB results package
 	PublicKey       *tdh2easy.PublicKey
 	PrivateKeyShare *tdh2easy.PrivateShare
-	LazyPublicKey   *vaultcap.LazyPublicKey
 
 	// Sourced from the offchain config
 	BatchSize                         int
@@ -75,25 +75,18 @@ func NewReportingPluginFactory(
 	store *requests.Store[*vaulttypes.Request],
 	db dkgocrtypes.ResultPackageDatabase,
 	recipientKey *dkgrecipientkey.Key,
-	publicKey *tdh2easy.PublicKey,
-	privateKeyShare *tdh2easy.PrivateShare,
 	lazyPublicKey *vaultcap.LazyPublicKey,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
-		if publicKey == nil {
-			return nil, errors.New("public key and result package db cannot be nil")
-		}
-		if privateKeyShare == nil {
-			return nil, errors.New("private key share and result package db cannot both be nil")
-		}
-	} else if recipientKey == nil {
+		return nil, errors.New("result package db cannot be nil")
+	}
+
+	if recipientKey == nil {
 		return nil, errors.New("DKG recipient key cannot be nil when using result package db")
 	}
 
 	cfg := &ReportingPluginConfig{
-		PublicKey:       publicKey,
-		PrivateKeyShare: privateKeyShare,
-		LazyPublicKey:   lazyPublicKey,
+		LazyPublicKey: lazyPublicKey,
 	}
 	return &ReportingPluginFactory{
 		lggr:         lggr.Named("VaultReportingPluginFactory"),
@@ -110,6 +103,41 @@ type ReportingPluginFactory struct {
 	cfg          *ReportingPluginConfig
 	db           dkgocrtypes.ResultPackageDatabase
 	recipientKey *dkgrecipientkey.Key
+}
+
+func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
+	pack, err := r.db.ReadResultPackage(ctx, dkgocrtypes.InstanceID(instanceID))
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not read result package from db: %w", err)
+	}
+	if pack == nil {
+		return nil, nil, fmt.Errorf("no result package found in db for instance ID %s", instanceID)
+	}
+	rP := dkgocr.NewResultPackage()
+	err = rP.UnmarshalBinary(pack.ReportWithResultPackage)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not unmarshal result package: %w", err)
+	}
+
+	tdh2PubKey, err := tdh2shim.TDH2PublicKeyFromDKGResult(rP)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get tdh2 public key from DKG result: %w", err)
+	}
+	publicKey, err = tdh2ToTDH2EasyPK(tdh2PubKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not convert to tdh2easy public key: %w", err)
+	}
+
+	tdh2PrivateKeyShare, err := tdh2shim.TDH2PrivateShareFromDKGResult(rP, r.recipientKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get tdh2 private key share from DKG result: %w", err)
+	}
+	privateKeyShare, err = tdh2ToTDH2EasyKS(tdh2PrivateKeyShare)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not convert to tdh2easy private key share: %w", err)
+	}
+
+	return publicKey, privateKeyShare, nil
 }
 
 func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
@@ -170,37 +198,13 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		configProto.LimitsMaxBlobPayloadLength = defaultLimitsMaxBlobPayloadLength
 	}
 
-	// TODO: deprecate config-based private keys entirely, and only use the database.
-	publicKey := r.cfg.PublicKey
-	privateKeyShare := r.cfg.PrivateKeyShare
-	if configProto.DKGInstanceID != nil {
-		pack, err := r.db.ReadResultPackage(ctx, dkgocrtypes.InstanceID(*configProto.DKGInstanceID))
-		if err != nil {
-			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not read result package from db: %w", err)
-		}
-		rP := dkgocr.NewResultPackage()
-		err = rP.UnmarshalBinary(pack.ReportWithResultPackage)
-		if err != nil {
-			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not unmarshal result package: %w", err)
-		}
+	if configProto.DKGInstanceID == nil {
+		return nil, ocr3_1types.ReportingPluginInfo{}, errors.New("DKG instance ID cannot be nil")
+	}
 
-		tdh2PubKey, err := tdh2shim.TDH2PublicKeyFromDKGResult(rP)
-		if err != nil {
-			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not get tdh2 public key from DKG result: %w", err)
-		}
-		publicKey, err = tdh2ToTDH2EasyPK(tdh2PubKey)
-		if err != nil {
-			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not convert to tdh2easy public key: %w", err)
-		}
-
-		tdh2PrivateKeyShare, err := tdh2shim.TDH2PrivateShareFromDKGResult(rP, r.recipientKey)
-		if err != nil {
-			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not get tdh2 private key share from DKG result: %w", err)
-		}
-		privateKeyShare, err = tdh2ToTDH2EasyKS(tdh2PrivateKeyShare)
-		if err != nil {
-			return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not convert to tdh2easy private key share: %w", err)
-		}
+	publicKey, privateKeyShare, err := r.getKeyMaterial(ctx, *configProto.DKGInstanceID)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo{}, fmt.Errorf("could not get key material from DB: %w", err)
 	}
 
 	r.cfg.LazyPublicKey.Set(publicKey)
@@ -216,9 +220,10 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		MaxIdentifierNamespaceLengthBytes: int(configProto.MaxIdentifierNamespaceLengthBytes),
 	}
 	return &ReportingPlugin{
-			lggr:  r.lggr.Named("VaultReportingPlugin"),
-			store: r.store,
-			cfg:   cfg,
+			lggr:       r.lggr.Named("VaultReportingPlugin"),
+			store:      r.store,
+			cfg:        cfg,
+			onchainCfg: config,
 		}, ocr3_1types.ReportingPluginInfo{
 			Name: "VaultReportingPlugin",
 			Limits: ocr3_1types.ReportingPluginLimits{

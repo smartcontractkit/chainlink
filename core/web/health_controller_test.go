@@ -137,12 +137,12 @@ func TestHealthController_Health_body(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(cfg *chainlink.Config, secrets *chainlink.Secrets) {
-				cfg.Solana = append(cfg.Solana, &solcfg.TOMLConfig{
+				cfg.Solana = []*solcfg.TOMLConfig{{
 					ChainID: ptr("Bar"),
 					Nodes: solcfg.Nodes{
 						{Name: ptr("primary"), URL: config.MustParseURL("http://solana.web")},
 					},
-				})
+				}}
 				cfg.Solana[0].SetDefaults()
 			})
 			app := cltest.NewApplicationWithConfigAndKey(t, cfg)

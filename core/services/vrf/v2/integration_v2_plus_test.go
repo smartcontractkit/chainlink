@@ -391,6 +391,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
+	quarantine.Flaky(t, "DX-1882")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)

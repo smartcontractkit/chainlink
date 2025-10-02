@@ -69,7 +69,7 @@ func runSolanaVerifyMCMS(e cldf.Environment,
 			"--uploader", timelockSignerPDA.String(),
 			"--program-id", programID,
 		}
-		output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
+		output, err := RunCommand("solana-verify", cmdArgs, chain.ProgramsPath)
 		e.Logger.Infow("remote submit-job output", "output", output)
 		if err != nil {
 			return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -90,7 +90,7 @@ func runSolanaVerifyMCMS(e cldf.Environment,
 		"--uploader", timelockSignerPDA.String(),
 	}
 	e.Logger.Infow("export-pda-tx cmdArgs", "cmdArgs", cmdArgs)
-	output, err := runCommand("solana-verify", cmdArgs, ".")
+	output, err := RunCommand("solana-verify", cmdArgs, ".")
 	e.Logger.Infow("export-pda-tx output", "output", output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -137,7 +137,7 @@ func runSolanaVerifyWithoutMCMS(e cldf.Environment,
 		"--skip-prompt",
 	}
 
-	output, err := runCommand("solana-verify", cmdArgs, ".")
+	output, err := RunCommand("solana-verify", cmdArgs, ".")
 	e.Logger.Infow("verify-from-repo output", "output", output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -150,7 +150,7 @@ func runSolanaVerifyWithoutMCMS(e cldf.Environment,
 			"--uploader", chain.DeployerKey.PublicKey().String(),
 			"--program-id", programID,
 		}
-		output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
+		output, err := RunCommand("solana-verify", cmdArgs, chain.ProgramsPath)
 		e.Logger.Infow("remote submit-job output", "output", output)
 		if err != nil {
 			return fmt.Errorf("solana program verification failed: %s %w", output, err)
@@ -294,7 +294,7 @@ func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
 		"set",
 		"--keypair", chain.KeypairPath,
 	}
-	output, err := runCommand("solana", cmdArgs, ".")
+	output, err := RunCommand("solana", cmdArgs, ".")
 	e.Logger.Infow("solana config set output", "output", output)
 	if err != nil {
 		return fmt.Errorf("failed to set keypair during program verification: %s %w", output, err)
@@ -304,7 +304,7 @@ func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
 		"set",
 		"--url", chain.URL,
 	}
-	output, err = runCommand("solana", cmdArgs, ".")
+	output, err = RunCommand("solana", cmdArgs, ".")
 	e.Logger.Infow("solana config set output", "output", output)
 	if err != nil {
 		return fmt.Errorf("failed to set url during program verification: %s %w", output, err)

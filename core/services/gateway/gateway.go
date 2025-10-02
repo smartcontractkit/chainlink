@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	handlerscommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -189,24 +190,22 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		return newError(jsonRequest.ID, api.UnsupportedDONIdError, "Unsupported DON ID or Handler: "+handlerKey)
 	}
 	// send to the right handler
-	responseCh := make(chan handlers.UserCallbackPayload, 1)
+	callback := handlerscommon.NewCallback()
 	if isLegacyRequest {
-		err = h.HandleLegacyUserMessage(ctx, msg, responseCh)
+		err = h.HandleLegacyUserMessage(ctx, msg, callback)
 	} else {
-		err = h.HandleJSONRPCUserMessage(ctx, jsonRequest, responseCh)
+		err = h.HandleJSONRPCUserMessage(ctx, jsonRequest, callback)
 	}
 	if err != nil {
 		return newError(jsonRequest.ID, api.HandlerError, err.Error())
 	}
 	// await response
-	var response handlers.UserCallbackPayload
-	select {
-	case <-ctx.Done():
-		return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout: "+ctx.Err().Error())
-	case response = <-responseCh:
-		g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestID", jsonRequest.ID)
-		break
+	response, err := callback.Wait(ctx)
+	if err != nil {
+		return newError(jsonRequest.ID, api.RequestTimeoutError, "handler timeout: "+err.Error())
 	}
+
+	g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestID", jsonRequest.ID)
 	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()
 	return response.RawResponse, api.ToHttpErrorCode(response.ErrorCode)
 }

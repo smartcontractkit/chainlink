@@ -1383,27 +1383,40 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
+func parseChainIDFromJSONConfig(config job.JSONConfig) int64 {
+	if chainID, ok := config["chainID"].(int64); ok {
+		return chainID
+	}
+	return 0
+}
+
 // findExistingJobForOCR2 looks for existing job for OCR2
 func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
 	var contractID string
 	var feedID *common.Hash
+	var relay string
+	var chainID int64
 
 	switch j.Type {
 	case job.OffchainReporting2:
 		contractID = j.OCR2OracleSpec.ContractID
 		feedID = j.OCR2OracleSpec.FeedID
+		relay = j.OCR2OracleSpec.Relay
+		chainID = parseChainIDFromJSONConfig(j.OCR2OracleSpec.RelayConfig)
 	case job.Bootstrap:
 		contractID = j.BootstrapSpec.ContractID
 		if j.BootstrapSpec.FeedID != nil {
 			feedID = j.BootstrapSpec.FeedID
 		}
+		relay = j.BootstrapSpec.Relay
+		chainID = parseChainIDFromJSONConfig(j.BootstrapSpec.RelayConfig)
 	case job.FluxMonitor, job.OffchainReporting:
 		return 0, errors.Errorf("contractID and feedID not applicable for job type: %s", j.Type)
 	default:
 		return 0, errors.Errorf("unsupported job type: %s", j.Type)
 	}
 
-	return tx.FindOCR2JobIDByAddress(ctx, contractID, feedID)
+	return tx.FindOCR2JobIDByAddress(ctx, relay, chainID, contractID, feedID)
 }
 
 // findExistingJobForOCRFlux looks for existing job for OCR or flux
