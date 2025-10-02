@@ -32,7 +32,7 @@ import (
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	quarantine.Flaky(t, "DX-1773")
 	t.Parallel()
-
+	// --- arrange ---
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)

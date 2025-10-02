@@ -127,7 +127,6 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	quarantine.Flaky(t, "DX-1779")
-	quarantine.Flaky(t, "DX-1779")
 	ctx := testutils.Context(t)
 
 	backend, stopMining, accounts := setupBackend(t)

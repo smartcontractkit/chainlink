@@ -256,11 +256,9 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 }
 
 func TestDeployMCMSWithTimelockV2(t *testing.T) {
-	quarantine.Flaky(
-
-		// --- arrange ---
-		t, "DX-1719")
+	quarantine.Flaky(t, "DX-1719")
 	t.Parallel()
+	// --- arrange ---
 
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 2, SolChains: 1}

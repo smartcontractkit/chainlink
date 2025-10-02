@@ -59,8 +59,6 @@ func TestAddTokenPoolWithoutMcms(t *testing.T) {
 
 func TestAddTokenPoolWithMcms(t *testing.T) {
 	quarantine.Flaky(t, "DX-1797")
-	quarantine.Flaky(t, "DX-1797")
-	quarantine.Flaky(t, "DX-1777")
 	quarantine.Flaky(t, "DX-1777")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
@@ -675,9 +673,6 @@ var zeroRateLimitConfig = ccipChangesetSolana.RateLimiterConfig{
 }
 
 func TestAddTokenPoolE2EWithMcms(t *testing.T) {
-	quarantine.Flaky(t, "DX-1774")
-	quarantine.Flaky(t, "DX-1774")
-	quarantine.Flaky(t, "DX-1774")
 	quarantine.Flaky(t, "DX-1774")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
