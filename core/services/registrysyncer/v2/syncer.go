@@ -231,14 +231,15 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 
 	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get latest value for getCapabilities: %w", err)
 	}
 
 	idsToCapabilities := map[string]registrysyncer.Capability{}
 	for _, c := range caps {
 		capabilityType, _, parseErr := parseCapabilityMetadata(c.Metadata)
 		if parseErr != nil {
-			return nil, fmt.Errorf("failed to parse capability metadata for %s: %w", c.CapabilityId, parseErr)
+			s.lggr.Warnw("failed to parse capability metadata, skipping", "capabilityID", c.CapabilityId, "error", parseErr)
+			continue
 		}
 		idsToCapabilities[c.CapabilityId] = registrysyncer.Capability{
 			ID:             c.CapabilityId,
@@ -250,7 +251,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 
 	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getDONs"), primitives.Unconfirmed, nil, &dons)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get latest value for getDONs: %w", err)
 	}
 
 	idsToDONs := map[registrysyncer.DonID]registrysyncer.DON{}
@@ -272,7 +273,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 
 	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get latest value for getNodes: %w", err)
 	}
 
 	idsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}

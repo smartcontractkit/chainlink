@@ -226,6 +226,7 @@ check_github_token:
 build_docker_image: check_github_token
 	docker build -f ../core/chainlink.Dockerfile \
 		--build-arg COMMIT_SHA=$(git rev-parse HEAD) \
+		--build-arg VERSION_TAG=$(git describe --always) \
 		--build-arg CHAINLINK_USER=chainlink \
 		--secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN \
 		-t $(image):$(tag) ../

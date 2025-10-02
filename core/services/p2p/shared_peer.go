@@ -127,7 +127,7 @@ func (sp *don2DonSharedPeer) close() error {
 		}
 	}
 	sp.remotePeers = make(map[ragetypes.PeerID]*remotePeer)
-	close(sp.recvCh)
+	close(sp.recvCh) // all writer goroutines are stopped by now so it's safe to close
 	sp.lggr.Info("Closed Don2DonSharedPeer")
 	return nil
 }
