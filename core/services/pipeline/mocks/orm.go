@@ -5,10 +5,8 @@ package mocks
 import (
 	context "context"
 
-	models "github.com/smartcontractkit/chainlink/v2/core/store/models"
-	mock "github.com/stretchr/testify/mock"
-
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	mock "github.com/stretchr/testify/mock"
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -123,7 +121,7 @@ func (_c *ORM_CreateRun_Call) RunAndReturn(run func(context.Context, *pipeline.R
 }
 
 // CreateSpec provides a mock function with given fields: ctx, _a1, maxTaskTimeout
-func (_m *ORM) CreateSpec(ctx context.Context, _a1 pipeline.Pipeline, maxTaskTimeout models.Interval) (int32, error) {
+func (_m *ORM) CreateSpec(ctx context.Context, _a1 pipeline.Pipeline, maxTaskTimeout sqlutil.Interval) (int32, error) {
 	ret := _m.Called(ctx, _a1, maxTaskTimeout)
 
 	if len(ret) == 0 {
@@ -132,16 +130,16 @@ func (_m *ORM) CreateSpec(ctx context.Context, _a1 pipeline.Pipeline, maxTaskTim
 
 	var r0 int32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Pipeline, models.Interval) (int32, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Pipeline, sqlutil.Interval) (int32, error)); ok {
 		return rf(ctx, _a1, maxTaskTimeout)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Pipeline, models.Interval) int32); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Pipeline, sqlutil.Interval) int32); ok {
 		r0 = rf(ctx, _a1, maxTaskTimeout)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Pipeline, models.Interval) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Pipeline, sqlutil.Interval) error); ok {
 		r1 = rf(ctx, _a1, maxTaskTimeout)
 	} else {
 		r1 = ret.Error(1)
@@ -158,14 +156,14 @@ type ORM_CreateSpec_Call struct {
 // CreateSpec is a helper method to define mock.On call
 //   - ctx context.Context
 //   - _a1 pipeline.Pipeline
-//   - maxTaskTimeout models.Interval
+//   - maxTaskTimeout sqlutil.Interval
 func (_e *ORM_Expecter) CreateSpec(ctx interface{}, _a1 interface{}, maxTaskTimeout interface{}) *ORM_CreateSpec_Call {
 	return &ORM_CreateSpec_Call{Call: _e.mock.On("CreateSpec", ctx, _a1, maxTaskTimeout)}
 }
 
-func (_c *ORM_CreateSpec_Call) Run(run func(ctx context.Context, _a1 pipeline.Pipeline, maxTaskTimeout models.Interval)) *ORM_CreateSpec_Call {
+func (_c *ORM_CreateSpec_Call) Run(run func(ctx context.Context, _a1 pipeline.Pipeline, maxTaskTimeout sqlutil.Interval)) *ORM_CreateSpec_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(pipeline.Pipeline), args[2].(models.Interval))
+		run(args[0].(context.Context), args[1].(pipeline.Pipeline), args[2].(sqlutil.Interval))
 	})
 	return _c
 }
@@ -175,7 +173,7 @@ func (_c *ORM_CreateSpec_Call) Return(_a0 int32, _a1 error) *ORM_CreateSpec_Call
 	return _c
 }
 
-func (_c *ORM_CreateSpec_Call) RunAndReturn(run func(context.Context, pipeline.Pipeline, models.Interval) (int32, error)) *ORM_CreateSpec_Call {
+func (_c *ORM_CreateSpec_Call) RunAndReturn(run func(context.Context, pipeline.Pipeline, sqlutil.Interval) (int32, error)) *ORM_CreateSpec_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -41,7 +41,7 @@ type Engine struct {
 	srvcEng *services.Engine
 
 	cfg          *EngineConfig
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 	loggerLabels map[string]string
 	localNode    capabilities.Node
 
@@ -109,7 +109,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
 	}
 
-	beholderLogger := custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...)
+	beholderLogger := logger.Sugared(custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter)).Named("WorkflowEngine").With(labels...)
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
@@ -387,7 +387,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	// Fetch organization ID for this execution
-	var organizationID string
+	organizationID := ""
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
 		if gerr != nil {
@@ -397,6 +397,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 	}
 	e.loggerLabels[platform.KeyOrganizationID] = organizationID
+	e.lggr.With(platform.KeyOrganizationID, organizationID)
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))

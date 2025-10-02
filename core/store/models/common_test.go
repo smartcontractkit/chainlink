@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -227,15 +226,6 @@ func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
 	}
 }
 
-func TestNewInterval(t *testing.T) {
-	t.Parallel()
-
-	duration := 33 * time.Second
-	interval := models.NewInterval(duration)
-
-	require.Equal(t, duration, interval.Duration())
-}
-
 func TestSha256Hash_MarshalJSON_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
 
@@ -318,50 +308,6 @@ func TestAddressCollection_ToStrings(t *testing.T) {
 	require.Len(t, acStrings, 2)
 	require.Equal(t, hex1, acStrings[0])
 	require.Equal(t, hex2, acStrings[1])
-}
-
-func TestInterval_IsZero(t *testing.T) {
-	t.Parallel()
-
-	i := models.NewInterval(0)
-	require.NotNil(t, i)
-	require.True(t, i.IsZero())
-
-	i = models.NewInterval(1)
-	require.NotNil(t, i)
-	require.False(t, i.IsZero())
-}
-
-func TestInterval_Scan_Value(t *testing.T) {
-	t.Parallel()
-
-	i := models.NewInterval(100)
-	require.NotNil(t, i)
-
-	val, err := i.Value()
-	require.NoError(t, err)
-
-	iNew := models.NewInterval(0)
-	err = iNew.Scan(val)
-	require.NoError(t, err)
-
-	require.Equal(t, i, iNew)
-}
-
-func TestInterval_MarshalText_UnmarshalText(t *testing.T) {
-	t.Parallel()
-
-	i := models.NewInterval(100)
-	require.NotNil(t, i)
-
-	txt, err := i.MarshalText()
-	require.NoError(t, err)
-
-	iNew := models.NewInterval(0)
-	err = iNew.UnmarshalText(txt)
-	require.NoError(t, err)
-
-	require.Equal(t, i, iNew)
 }
 
 func TestWebURL_Scan_Value(t *testing.T) {
