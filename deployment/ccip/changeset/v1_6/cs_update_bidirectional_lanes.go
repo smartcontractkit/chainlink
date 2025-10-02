@@ -2,6 +2,7 @@ package v1_6
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -18,7 +19,10 @@ import (
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 
 	ccipapi "github.com/smartcontractkit/chainlink-ccip/deployment/v1_6"
 )
@@ -288,13 +292,17 @@ func (a *EVMAdapter) ConfigureLaneLegAsSource(e cldf.Environment, cfg ccipapi.Up
 			},
 		},
 	}
+	routerMCMSConfig := mcms
+	if cfg.TestRouter {
+		routerMCMSConfig = nil // Test router is never owned by MCMS
+	}
 	updateRouterRamps := UpdateRouterRampsConfig{
 		TestRouter: cfg.TestRouter,
-		MCMS:       mcms,
+		MCMS:       routerMCMSConfig,
 		UpdatesByChain: map[uint64]RouterUpdates{
 			src.Selector: {
 				OnRampUpdates: map[uint64]bool{
-					dest.Selector: true,
+					dest.Selector: !cfg.IsDisabled,
 				},
 			},
 		},
@@ -329,13 +337,17 @@ func (a *EVMAdapter) ConfigureLaneLegAsDest(e cldf.Environment, cfg ccipapi.Upda
 			},
 		},
 	}
+	routerMCMSConfig := mcms
+	if cfg.TestRouter {
+		routerMCMSConfig = nil // Test router is never owned by MCMS
+	}
 	updateRouterRamps := UpdateRouterRampsConfig{
 		TestRouter: cfg.TestRouter,
-		MCMS:       mcms,
+		MCMS:       routerMCMSConfig,
 		UpdatesByChain: map[uint64]RouterUpdates{
 			src.Selector: {
 				OffRampUpdates: map[uint64]bool{
-					dest.Selector: true,
+					dest.Selector: !cfg.IsDisabled,
 				},
 			},
 		},
@@ -385,20 +397,6 @@ func (a *EVMAdapter) ConfigureLaneAsSourceAndDest(e cldf.Environment, cfg ccipap
 			},
 		},
 	}
-	updateRouterRamps := UpdateRouterRampsConfig{
-		TestRouter: cfg.TestRouter,
-		MCMS:       mcms,
-		UpdatesByChain: map[uint64]RouterUpdates{
-			src.Selector: {
-				OnRampUpdates: map[uint64]bool{
-					dest.Selector: true,
-				},
-				OffRampUpdates: map[uint64]bool{
-					dest.Selector: true,
-				},
-			},
-		},
-	}
 	updateOffRampSources := UpdateOffRampSourcesConfig{
 		MCMS: mcms,
 		UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
@@ -407,6 +405,24 @@ func (a *EVMAdapter) ConfigureLaneAsSourceAndDest(e cldf.Environment, cfg ccipap
 					IsEnabled:                 !cfg.IsDisabled,
 					TestRouter:                cfg.TestRouter,
 					IsRMNVerificationDisabled: !src.RMNVerificationEnabled,
+				},
+			},
+		},
+	}
+	routerMCMSConfig := mcms
+	if cfg.TestRouter {
+		routerMCMSConfig = nil // Test router is never owned by MCMS
+	}
+	updateRouterRamps := UpdateRouterRampsConfig{
+		TestRouter: cfg.TestRouter,
+		MCMS:       routerMCMSConfig,
+		UpdatesByChain: map[uint64]RouterUpdates{
+			src.Selector: {
+				OnRampUpdates: map[uint64]bool{
+					dest.Selector: !cfg.IsDisabled,
+				},
+				OffRampUpdates: map[uint64]bool{
+					dest.Selector: !cfg.IsDisabled,
 				},
 			},
 		},
@@ -439,11 +455,47 @@ func (a *EVMAdapter) GetOffRampAddress(e cldf.Environment, chainSelector uint64)
 }
 
 func (a *EVMAdapter) GetTimelockAddress(e cldf.Environment, chainSelector uint64) (string, error) {
-	return "", nil
+	mcmsState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+	if err != nil {
+		return "", fmt.Errorf("failed to load MCMS state: %w", err)
+	}
+	return mcmsState[chainSelector].Timelock.Address().Hex(), nil
 }
 
-func (a *EVMAdapter) GetMCMSMetadata(e cldf.Environment, chainSelector uint64) (mcmstypes.ChainMetadata, error) {
-	return mcmstypes.ChainMetadata{}, nil
+func (a *EVMAdapter) GetMCMSMetadata(e cldf.Environment, chainSelector uint64, action mcmstypes.TimelockAction) (mcmstypes.ChainMetadata, error) {
+	inspector := mcmsevmsdk.NewInspector(e.BlockChains.EVMChains()[chainSelector].Client)
+	mcmsState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+	if err != nil {
+		return mcmstypes.ChainMetadata{}, fmt.Errorf("failed to load MCMS state: %w", err)
+	}
+	var mcmContract string
+	switch action {
+	case mcmstypes.TimelockActionSchedule:
+		if mcmsState[chainSelector].ProposerMcm == nil {
+			return mcmstypes.ChainMetadata{}, errors.New("missing proposerMcm")
+		}
+		mcmContract = mcmsState[chainSelector].ProposerMcm.Address().Hex()
+	case mcmstypes.TimelockActionCancel:
+		if mcmsState[chainSelector].CancellerMcm == nil {
+			return mcmstypes.ChainMetadata{}, errors.New("missing cancellerMcm")
+		}
+		mcmContract = mcmsState[chainSelector].CancellerMcm.Address().Hex()
+	case mcmstypes.TimelockActionBypass:
+		if mcmsState[chainSelector].BypasserMcm == nil {
+			return mcmstypes.ChainMetadata{}, errors.New("missing bypasserMcm")
+		}
+		mcmContract = mcmsState[chainSelector].BypasserMcm.Address().Hex()
+	default:
+		return mcmstypes.ChainMetadata{}, errors.New("invalid MCMS action")
+	}
+	opCount, err := inspector.GetOpCount(e.GetContext(), mcmContract)
+	if err != nil {
+		return mcmstypes.ChainMetadata{}, fmt.Errorf("failed to get op count for chain %d: %w", chainSelector, err)
+	}
+	return mcmstypes.ChainMetadata{
+		StartingOpCount: opCount,
+		MCMAddress:      mcmContract,
+	}, nil
 }
 
 func (a *EVMAdapter) TranslateFQ(fqc ccipapi.FeeQuoterDestChainConfig) fee_quoter.FeeQuoterDestChainConfig {

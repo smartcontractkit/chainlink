@@ -476,14 +476,27 @@ func TestUpdateBidirectionalLanesCCIPAPI(t *testing.T) {
 		Bidirectional bool
 	}
 
-	// mcmsCommonConfig := &v1_6_commonutils.MCMSInput{
-	// 	TimelockDelay: types.Duration{
-	// 		Duration: 0 * time.Second,
-	// 	},
-	// 	TimelockAction: types.TimelockActionSchedule,
-	// }
+	mcmsCommonConfig := &v1_6_commonutils.MCMSInput{
+		TimelockDelay: types.Duration{
+			Duration: 1 * time.Second,
+		},
+		TimelockAction: types.TimelockActionSchedule,
+	}
 
 	tests := []test{
+		{
+			Msg:           "Use production router 2 unidirectional (with MCMS) & disable afterwards",
+			TestRouter:    false,
+			MCMS:          mcmsCommonConfig,
+			Disable:       true,
+			Bidirectional: false,
+		},
+		{
+			Msg:           "Use production router 2 unidirectional (with MCMS)",
+			TestRouter:    false,
+			MCMS:          mcmsCommonConfig,
+			Bidirectional: false,
+		},
 		{
 			Msg:           "Use test router 2 unidirectional (without MCMS)",
 			TestRouter:    true,
@@ -491,10 +504,23 @@ func TestUpdateBidirectionalLanesCCIPAPI(t *testing.T) {
 			Bidirectional: false,
 		},
 		{
-			Msg:           "Use production router 2 unidirectional (without MCMS)",
-			TestRouter:    false,
-			MCMS:          nil,
+			Msg:           "Use test router 2 unidirectional (with MCMS for other contracts)",
+			TestRouter:    true,
+			MCMS:          mcmsCommonConfig,
 			Bidirectional: false,
+		},
+		{
+			Msg:           "Use production router 1 bidirectional (with MCMS) & disable afterwards",
+			TestRouter:    false,
+			MCMS:          mcmsCommonConfig,
+			Disable:       true,
+			Bidirectional: true,
+		},
+		{
+			Msg:           "Use production router 1 bidirectional (with MCMS)",
+			TestRouter:    false,
+			MCMS:          mcmsCommonConfig,
+			Bidirectional: true,
 		},
 		{
 			Msg:           "Use test router 1 bidirectional (without MCMS)",
@@ -503,9 +529,9 @@ func TestUpdateBidirectionalLanesCCIPAPI(t *testing.T) {
 			Bidirectional: true,
 		},
 		{
-			Msg:           "Use production router 1 bidirectional(without MCMS)",
-			TestRouter:    false,
-			MCMS:          nil,
+			Msg:           "Use test router 1 bidirectional (with MCMS for other contracts)",
+			TestRouter:    true,
+			MCMS:          mcmsCommonConfig,
 			Bidirectional: true,
 		},
 	}
@@ -563,15 +589,18 @@ func TestUpdateBidirectionalLanesCCIPAPI(t *testing.T) {
 				}
 			}
 
+			cfg := v1_6_common.ConnectChainsConfig{
+				Lanes: getAllPossibleLanesCommon(chains, false, test.TestRouter, test.Bidirectional),
+				MCMS:  test.MCMS,
+			}
+
 			if test.Bidirectional {
-				_, err = v1_6_common.ConnectChainsBidirectional{}.Apply(e, v1_6_common.ConnectChainsConfig{
-					Lanes: getAllPossibleLanesCommon(chains, false, test.TestRouter, test.Bidirectional),
-					MCMS:  test.MCMS,
+				e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(v1_6_common.ConnectChainsBidirectional{}, cfg),
 				})
 			} else {
-				_, err = v1_6_common.ConnectChainsUnidirectional{}.Apply(e, v1_6_common.ConnectChainsConfig{
-					Lanes: getAllPossibleLanesCommon(chains, false, test.TestRouter, test.Bidirectional),
-					MCMS:  test.MCMS,
+				e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(v1_6_common.ConnectChainsUnidirectional{}, cfg),
 				})
 			}
 			require.NoError(t, err, "must apply AddBidirectionalLanesChangeset")
@@ -580,6 +609,30 @@ func TestUpdateBidirectionalLanesCCIPAPI(t *testing.T) {
 				remoteChains := getRemoteChains(chains, i)
 				for _, remoteChain := range remoteChains {
 					checkBidirectionalLaneConnectivity(t, e, state, chain, remoteChain, test.TestRouter, false)
+				}
+			}
+
+			if test.Disable {
+				cfg = v1_6_common.ConnectChainsConfig{
+					Lanes: getAllPossibleLanesCommon(chains, true, test.TestRouter, test.Bidirectional),
+					MCMS:  test.MCMS,
+				}
+				if test.Bidirectional {
+					e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+						commonchangeset.Configure(v1_6_common.ConnectChainsBidirectional{}, cfg),
+					})
+				} else {
+					e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+						commonchangeset.Configure(v1_6_common.ConnectChainsUnidirectional{}, cfg),
+					})
+				}
+				require.NoError(t, err, "must apply AddBidirectionalLanesChangeset")
+
+				for i, chain := range chains {
+					remoteChains := getRemoteChains(chains, i)
+					for _, remoteChain := range remoteChains {
+						checkBidirectionalLaneConnectivity(t, e, state, chain, remoteChain, test.TestRouter, true)
+					}
 				}
 			}
 		})
