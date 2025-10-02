@@ -151,12 +151,13 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	})
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
-	drainChannels(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan) // drain any old messages
 
 	// Wait to allow Beholder to fully initialize, it helps to avoid flakiness in tests
-	timeout = 5 * time.Second
-	testLogger.Info().Dur("timeout", timeout).Msg("Forcefully waiting for Beholder to initialize...")
-	time.Sleep(timeout)
+	initTimeout := 5 * time.Second
+	testLogger.Info().Dur("timeout", initTimeout).Msg("Forcefully waiting for Beholder to warm up...")
+	time.Sleep(initTimeout)
+
+	drainChannels(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan) // drain any messages that arrived during initialization
 
 	return listenerCtx, beholderMsgChan, beholderErrChan
 }
@@ -170,7 +171,7 @@ func drainChannels(ctx context.Context, t *testing.T, testLogger zerolog.Logger,
 	errCount := 0
 
 	// Drain messages for up to 500ms
-	timeout := time.After(500 * time.Millisecond)
+	drainTimeout := time.After(500 * time.Millisecond)
 
 	for {
 		select {
@@ -189,7 +190,7 @@ func drainChannels(ctx context.Context, t *testing.T, testLogger zerolog.Logger,
 			errCount++
 			testLogger.Debug().Err(err).Msg("Drained error message")
 
-		case <-timeout:
+		case <-drainTimeout:
 			if msgCount > 0 || errCount > 0 {
 				testLogger.Info().Int("messages_drained", msgCount).Int("errors_drained", errCount).Msg("Finished draining Beholder channels")
 			} else {
@@ -414,8 +415,8 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 		case *portypes.WorkflowConfig:
 			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
-			testLogger.Info().Msg("PoR v2 workflow config file created.")
+			require.NoError(t, configErr, "failed to create PoR workflow config file")
+			testLogger.Info().Msg("PoR workflow config file created.")
 
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)

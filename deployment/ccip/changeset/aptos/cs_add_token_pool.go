@@ -71,34 +71,34 @@ func (cs AddTokenPool) VerifyPreconditions(env cldf.Environment, cfg config.AddT
 	// Validate if token already exists with different pool address
 	for token, pool := range state.AptosChains[cfg.ChainSelector].AptosManagedTokenPools {
 		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
-			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token, pool))
+			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token.StringLong(), pool.StringLong()))
 		}
 		if (pool == cfg.TokenPoolAddress) && (token != cfg.TokenAddress) {
-			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool, token))
+			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool.StringLong(), token.StringLong()))
 		}
 	}
 	for token, pool := range state.AptosChains[cfg.ChainSelector].RegulatedTokenPools {
 		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
-			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token, pool))
+			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token.StringLong(), pool.StringLong()))
 		}
 		if (pool == cfg.TokenPoolAddress) && (token != cfg.TokenAddress) {
-			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool, token))
+			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool.StringLong(), token.StringLong()))
 		}
 	}
 	for token, pool := range state.AptosChains[cfg.ChainSelector].BurnMintTokenPools {
 		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
-			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token, pool))
+			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token.StringLong(), pool.StringLong()))
 		}
 		if (pool == cfg.TokenPoolAddress) && (token != cfg.TokenAddress) {
-			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool, token))
+			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool.StringLong(), token.StringLong()))
 		}
 	}
 	for token, pool := range state.AptosChains[cfg.ChainSelector].LockReleaseTokenPools {
 		if (token == cfg.TokenAddress) && (pool != cfg.TokenPoolAddress) {
-			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token, pool))
+			errs = append(errs, fmt.Errorf("token %s already exists with a different pool address %s", token.StringLong(), pool.StringLong()))
 		}
 		if (pool == cfg.TokenPoolAddress) && (token != cfg.TokenAddress) {
-			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool, token))
+			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool.StringLong(), token.StringLong()))
 		}
 	}
 	return errors.Join(errs...)
