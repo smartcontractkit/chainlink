@@ -271,6 +271,207 @@ func newTriggerSubs(n int) *sdkpb.ExecutionResult {
 	}
 }
 
+func TestEngine_OrganizationIdLogger(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	module.EXPECT().Start()
+	module.EXPECT().Close()
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	billingClient := setupMockBillingClient(t)
+
+	// Create mock org resolver
+	mockOrgResolver := &mockOrgResolver{
+		orgID: "test-org-123",
+		err:   nil,
+	}
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+	cfg.OrgResolver = mockOrgResolver
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, _ string) {
+			executionFinishedCh <- executionID
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	// Setup trigger registration
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	eventCh := make(chan capabilities.TriggerResponse)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+	// Mock execution that will retrieve organization ID
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(ctx context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+			// The execution should have called the org resolver and set the organizationID
+			// We can't directly access the engine's internal state, but we know this ran successfully
+			// if the execution completes without error
+		}).
+		Return(nil, nil).
+		Once()
+
+	// Trigger an execution
+	mockTriggerEvent := capabilities.TriggerEvent{
+		TriggerType: "basic-trigger@1.0.0",
+		ID:          "test_org_id_event",
+		Payload:     nil,
+	}
+
+	eventCh <- capabilities.TriggerResponse{
+		Event: mockTriggerEvent,
+	}
+
+	// Wait for execution to finish
+	executionID := <-executionFinishedCh
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	require.NoError(t, err)
+	require.Equal(t, wantExecID, executionID)
+
+	// Verify that the org resolver was called
+	require.True(t, mockOrgResolver.getCalled, "Expected org resolver Get method to be called")
+	require.Equal(t, cfg.WorkflowOwner, mockOrgResolver.calledWithOwner, "Expected org resolver to be called with workflow owner")
+
+	require.NoError(t, engine.Close())
+}
+
+func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	module.EXPECT().Start()
+	module.EXPECT().Close()
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	billingClient := setupMockBillingClient(t)
+
+	// Create mock org resolver that returns an error
+	mockOrgResolver := &mockOrgResolver{
+		orgID: "",
+		err:   errors.New("org resolver error"),
+	}
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+	cfg.OrgResolver = mockOrgResolver
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, _ string) {
+			executionFinishedCh <- executionID
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	// Setup trigger registration
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	eventCh := make(chan capabilities.TriggerResponse)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+	// Mock execution - should still work even if org resolver fails
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Return(nil, nil).
+		Once()
+
+	// Trigger an execution
+	mockTriggerEvent := capabilities.TriggerEvent{
+		TriggerType: "basic-trigger@1.0.0",
+		ID:          "test_org_id_failure_event",
+		Payload:     nil,
+	}
+
+	eventCh <- capabilities.TriggerResponse{
+		Event: mockTriggerEvent,
+	}
+
+	// Wait for execution to finish - should complete successfully even with org resolver failure
+	executionID := <-executionFinishedCh
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	require.NoError(t, err)
+	require.Equal(t, wantExecID, executionID)
+
+	// Verify that the org resolver was called even though it failed
+	require.True(t, mockOrgResolver.getCalled, "Expected org resolver Get method to be called")
+	require.Equal(t, cfg.WorkflowOwner, mockOrgResolver.calledWithOwner, "Expected org resolver to be called with workflow owner")
+
+	require.NoError(t, engine.Close())
+}
+
+// mockOrgResolver is a test implementation of orgresolver.OrgResolver
+type mockOrgResolver struct {
+	orgID           string
+	err             error
+	getCalled       bool
+	calledWithOwner string
+}
+
+func (m *mockOrgResolver) Get(ctx context.Context, owner string) (string, error) {
+	m.getCalled = true
+	m.calledWithOwner = owner
+	return m.orgID, m.err
+}
+
+func (m *mockOrgResolver) Start(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockOrgResolver) Close() error {
+	return nil
+}
+
+func (m *mockOrgResolver) HealthReport() map[string]error {
+	return map[string]error{m.Name(): nil}
+}
+
+func (m *mockOrgResolver) Name() string {
+	return "MockOrgResolver"
+}
+
+func (m *mockOrgResolver) Ready() error {
+	return nil
+}
+
 func TestEngine_Execution(t *testing.T) {
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
@@ -1291,8 +1492,9 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	capreg.EXPECT().GetExecutable(matches.AnyContext, vault.CapabilityID).Return(mc, nil)
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
-	valueMap, err := values.NewMap[string](map[string]string{
-		"VaultPublicKey": hex.EncodeToString(vaultPublicKeyBytes),
+	valueMap, err := values.WrapMap(v2.VaultCapabilityRegistryConfig{
+		VaultPublicKey: hex.EncodeToString(vaultPublicKeyBytes),
+		Threshold:      1,
 	})
 	require.NoError(t, err)
 	capConfig := capabilities.CapabilityConfiguration{

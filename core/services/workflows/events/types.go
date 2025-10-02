@@ -20,7 +20,9 @@ const (
 	CapabilityExecutionFinished string = "CapabilityExecutionFinished"
 	// TriggerExecutionStarted represents a trigger execution started event
 	TriggerExecutionStarted string = "TriggerExecutionStarted"
-	// UserLogs represents user log events
+	// WorkflowUserLog represents user log events
+	WorkflowUserLog string = "WorkflowUserLog"
+	// UserLogs represents user logs events (v1 event type)
 	UserLogs string = "UserLogs"
 
 	// SchemaWorkflowStatusChanged represents the schema for workflow status changed events

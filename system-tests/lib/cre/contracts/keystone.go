@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	creforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -87,11 +86,7 @@ func DeployKeystoneContracts(
 
 	var allNodeFlags []string
 	for i := range input.CapabilitiesAwareNodeSets {
-		nodeFlags, err := flags.NodeSetFlags(input.CapabilitiesAwareNodeSets[i])
-		if err != nil {
-			continue
-		}
-		allNodeFlags = append(allNodeFlags, nodeFlags...)
+		allNodeFlags = append(allNodeFlags, input.CapabilitiesAwareNodeSets[i].Flags()...)
 	}
 	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
 	evmOCR3AddrFlag := flags.HasFlagForAnyChain(allNodeFlags, cre.EVMCapability)
@@ -236,7 +231,7 @@ func DeployKeystoneContracts(
 	testLogger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, ocr3Addr)
 
 	// deploy DONTime contract
-	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
+	_, seqErr = deployOCR3Contract(DONTimeContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore) // Switch to dedicated config type once available
 	if seqErr != nil {
 		return nil, fmt.Errorf("failed to deploy DONTime contract %w", seqErr)
 	}
@@ -247,7 +242,7 @@ func DeployKeystoneContracts(
 	if vaultOCR3AddrFlag {
 		report, err := deployVaultContracts(VaultOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
 		if err != nil {
-			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", seqErr)
+			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
 		}
 
 		vaultOCR3Addr := report.PluginAddress

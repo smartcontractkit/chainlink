@@ -112,6 +112,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
 // Application implements the common functions used in the core node.
@@ -127,6 +129,8 @@ type Application interface {
 	GetKeyStore() keystore.Master
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
+
+	GetCapabilitiesRegistry() *capabilities.Registry
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
@@ -196,6 +200,7 @@ type ChainlinkApplication struct {
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
 	loopRegistrarConfig      plugins.RegistrarConfig
+	capabilitiesRegistry     *capabilities.Registry
 
 	started     bool
 	startStopMu sync.Mutex
@@ -214,6 +219,7 @@ type ApplicationOpts struct {
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
+	VersionTag               string
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
@@ -630,7 +636,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		relayChainInterops,
 		creServices.gatewayConnectorWrapper,
 		keyStore,
-		creServices.externalPeerWrapper,
+		creServices.getPeerID,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
@@ -758,7 +764,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			cfg.OCR2(),
 			legacyEVMChains,
 			globalLogger,
-			opts.Version,
+			opts.VersionTag,
 			loopRegistrarConfig,
 		)
 	} else {
@@ -798,6 +804,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
 		loopRegistrarConfig:      loopRegistrarConfig,
+		capabilitiesRegistry:     opts.CapabilitiesRegistry,
 
 		ds: opts.DS,
 
@@ -855,9 +862,10 @@ type CREServices struct {
 	// it is exposed because there are contingent services in the application
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 
-	// externalPeerWrapper is the wrapper for external peering
-	// it is exposed because there are contingent services in the application
-	externalPeerWrapper p2ptypes.PeerWrapper
+	// getter for PeerID from either externalPeerWrapper or don2donSharedPeer
+	// can be called only after the above services are started because
+	// they depend on Keystore, which itself has to be started first
+	getPeerID func() (p2ptypes.PeerID, error)
 
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
@@ -932,6 +940,9 @@ func newCREServices(
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	var don2donSharedPeer p2ptypes.SharedPeer
 	var streamConfig config.StreamConfig
+	getPeerID := func() (p2ptypes.PeerID, error) {
+		return p2ptypes.PeerID{}, errors.New("getPeerID not initialized")
+	}
 	if capCfg.Peering().Enabled() || capCfg.SharedPeering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
 		if opts.CapabilitiesDispatcher == nil {
@@ -946,6 +957,9 @@ func newCREServices(
 			if capCfg.SharedPeering().Enabled() {
 				if !cfg.P2P().Enabled() {
 					return nil, errors.New("top-level P2P must be enabled in order to use SharedPeering")
+				}
+				if singletonPeerWrapper == nil {
+					return nil, errors.New("singleton peer wrapper is required for shared peering (are OCR and P2P enabled?)")
 				}
 				bootstrappers := capCfg.SharedPeering().Bootstrappers()
 				if len(bootstrappers) == 0 {
@@ -983,6 +997,20 @@ func newCREServices(
 				return nil, err
 			}
 
+			getPeerID = func() (p2ptypes.PeerID, error) {
+				if don2donSharedPeer != nil {
+					return don2donSharedPeer.ID(), nil
+				}
+				if externalPeerWrapper != nil {
+					p := externalPeerWrapper.GetPeer()
+					if p == nil {
+						return p2ptypes.PeerID{}, errors.New("could not get peer from externalPeerWrapper")
+					}
+					return p.ID(), nil
+				}
+				return p2ptypes.PeerID{}, errors.New("could not get peer from any source")
+			}
+
 			workflowDonNotifier := capabilities.NewDonNotifier()
 			wfLauncher := capabilities.NewLauncher(
 				globalLogger,
@@ -998,14 +1026,7 @@ func newCREServices(
 			case 1:
 				registrySyncer, err := registrysyncerV1.New(
 					globalLogger,
-					func() (p2ptypes.PeerID, error) {
-						p := externalPeerWrapper.GetPeer()
-						if p == nil {
-							return p2ptypes.PeerID{}, errors.New("could not get peer")
-						}
-
-						return p.ID(), nil
-					},
+					getPeerID,
 					relayer,
 					registryAddress,
 					registrysyncerV1.NewORM(ds, globalLogger),
@@ -1019,14 +1040,7 @@ func newCREServices(
 			case 2:
 				registrySyncer, err := registrysyncerV2.New(
 					globalLogger,
-					func() (p2ptypes.PeerID, error) {
-						p := externalPeerWrapper.GetPeer()
-						if p == nil {
-							return p2ptypes.PeerID{}, errors.New("could not get peer")
-						}
-
-						return p.ID(), nil
-					},
+					getPeerID,
 					relayer,
 					registryAddress,
 					registrysyncerV1.NewORM(ds, globalLogger),
@@ -1172,9 +1186,14 @@ func newCREServices(
 					var orgResolver orgresolver.OrgResolver
 					if cfg.CRE().Linking().URL() != "" {
 						// Convert chain selector from string to uint64
-						chainSelector, err2 := strconv.ParseUint(capCfg.WorkflowRegistry().ChainID(), 10, 64)
+						chainID, err2 := strconv.ParseUint(capCfg.WorkflowRegistry().ChainID(), 10, 64)
 						if err2 != nil {
-							return nil, fmt.Errorf("invalid workflow registry chain selector: %w", err2)
+							return nil, fmt.Errorf("invalid workflow registry chain ID: %w", err2)
+						}
+
+						chainSelector, selErr := chainselectors.SelectorFromChainId(chainID)
+						if selErr != nil {
+							return nil, fmt.Errorf("invalid workflow registry chain selector: %w", selErr)
 						}
 
 						orgResolverConfig := orgresolver.Config{
@@ -1245,7 +1264,7 @@ func newCREServices(
 		workflowRateLimiter:     workflowRateLimiter,
 		workflowLimits:          workflowLimits,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
-		externalPeerWrapper:     externalPeerWrapper,
+		getPeerID:               getPeerID,
 		srvs:                    srvcs,
 		workflowRegistrySyncer:  workflowRegistrySyncer,
 	}, nil
@@ -1425,6 +1444,10 @@ func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
+}
+
+func (app *ChainlinkApplication) GetCapabilitiesRegistry() *capabilities.Registry {
+	return app.capabilitiesRegistry
 }
 
 func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {

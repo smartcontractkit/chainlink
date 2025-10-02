@@ -17,11 +17,6 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
-      with_regression:
-        required: false
-        type: boolean
-        description: "Bool that defines whether to run regression tests (default 'false')."
-        default: false
   workflow_call:
     inputs:
       ecr_name:
@@ -38,11 +33,6 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
-      with_regression:
-        required: false
-        type: boolean
-        description: "Bool that defines whether to run regression tests (default 'false')."
-        default: false
 
 jobs:
   define-test-matrix:
@@ -74,8 +64,6 @@ jobs:
         id: define-matrix
         shell: bash
         working-directory: system-tests/tests
-        env:
-          WITH_REGRESSION: ${{ inputs.with_regression }}
         run: |
           # Get the list of tests, for each test add each of supported DON topologies and create JSON array to form a job matrix.
           # - This only needs to be updated if we want to run all tests on a new DON topology.
@@ -89,28 +77,17 @@ jobs:
 
           # Add list of tests with certain topologies
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
-            "Test_SecureMint": [
+            "Test_CRE_V1_SecureMint": [
                {"topology":"workflow","configs":"configs/workflow-solana-don.toml"}
              ],
-            "Test_CRE_Suite_Tron": [
+            "Test_CRE_V1_Tron": [
                {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
-          
-          # If regression tests flag is true, include regression tests in the matrix
-          # Otherwise, only include smoke tests
-          if [[ "$WITH_REGRESSION" == 'true' ]]; then
-            echo "Including regression tests in the matrix"
-            test_names=$(go test \
-            github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre \
-            github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre \
-            -list . | grep -v 'ok' | grep -v '^$')
-          else
-            echo "Including only smoke tests in the matrix"
-            test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
-          fi
-            
+
+          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
+
           tests=$(echo "$test_names" | jq -R -s \
             --argjson tops "$TOPOLOGIES_JSON" \
             --argjson per  "$PER_TEST_TOPOLOGIES_JSON" \
@@ -132,9 +109,20 @@ jobs:
                 | $e.value[] | {test_name: $e.key} + .
               ] as $extra
 
-            # Combine and add test_id
+            # Combine and add test_id and CRE version
             | ($base + $extra)
-            | to_entries | map(.value + {test_id: .key})
+            | to_entries
+            | map(
+                .value + {
+                  test_id: .key,
+                  # Add CRE version based on test name pattern
+                  cre_version: (
+                    if (.value.test_name | test("V2")) then "v2"
+                    else "v1"
+                    end
+                  )
+                }
+              )
           ')
 
           tests=$(echo "$tests" | jq -c .)
@@ -155,10 +143,11 @@ jobs:
     environment: "integration"
     timeout-minutes: 60
     env:
+      ENABLE_AUTO_QUARANTINE: "true"
       # override chip ingress image to use remote image. We have added this env var here, instead of the "Start local CRE" step, because
-      # Beholder stack will be started only for the Beholder test
+      # Beholder stack will be started only for the Beholder tests
       CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf
-      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.36.2-amd64
+      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.45.0
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -196,7 +185,14 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Start local CRE
+      - name: Set up gotestsum
+        shell: bash
+        run: |
+          echo "::startgroup::Install gotestsum"
+          go install gotest.tools/gotestsum@v1.12.3
+          echo "::endgroup::"
+
+      - name: Start local CRE${{ matrix.tests.cre_version }}
         shell: bash
         id: start-local-cre
         env:
@@ -205,35 +201,62 @@ jobs:
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
           CTF_CONFIGS: ${{ matrix.tests.configs }}
+          CRE_VERSION: ${{ matrix.tests.cre_version }}
+          TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
           cd core/scripts/cre/environment
-          go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
-          exit_code=$?
 
+          # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
+          if [[ "${CRE_VERSION}" == "v1" ]]; then
+            echo "Starting CRE with v1 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}"
+          else
+            echo "Starting CRE with v2 contracts for test: '${TEST_NAME}'"
+            go run . env start --with-plugins-docker-image "${E2E_TEST_CHAINLINK_IMAGE}:${E2E_TEST_CHAINLINK_VERSION}" --with-contracts-version v2
+          fi
+
+          exit_code=$?
           if [ $exit_code -ne 0 ]; then
-            echo "Error: failed to start local CRE, exit code $exit_code"
+            echo "Error: failed to start local CRE ${CRE_VERSION}, exit code $exit_code"
             exit $exit_code
           fi
 
-      - name: Run CRE Smoke system tests
+      - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
+        id: run-tests
         shell: bash
         working-directory: system-tests/tests
+        continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 30m
+          RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
+          TOPOLOGY_NAME: ${{ matrix.tests.topology }}
         run: |
-          go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 2>&1 | tee /tmp/gotest.log
+          echo "Starting test: '${TEST_NAME}'"
+          gotestsum \
+            --jsonfile=/tmp/gotest.log \
+            --junitfile=/tmp/junit-report.xml \
+            --format=github-actions \
+            -- \
+            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
+            github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
 
-      - name: Run CRE Regression system tests
-        if: ${{ inputs.with_regression }}
-        shell: bash
-        working-directory: system-tests/tests
-        env:
-          TEST_NAME: ${{ matrix.tests.test_name }}
-          TEST_TIMEOUT: 200m
-        run: |
-          go test github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -test.parallel=1 2>&1 | tee /tmp/gotest.log
+          exit_code=$?
+          if [ $exit_code -eq 0 ]; then
+            echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
+          fi
 
+      - name: Process and upload flaky Regression tests results (${{ steps.run-tests.outputs.tests_result }})
+        if: ${{ !cancelled() }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/0.1.0
+        with:
+          junit-file-path: "/tmp/junit-report.xml"
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-job-url: ${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}/attempts/{3}', github.repository, github.run_id, job.check_run_id, github.run_attempt) }}
+          # when auto-quarantine is enabled, allow this to determine test failures
+          trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
 
       - name: Show Docker containers status
         if: failure()
@@ -249,14 +272,7 @@ jobs:
           for c in $(docker ps -a --format '{{.Names}}'); do
             docker logs "$c" > "logs/${c}.log" 2>&1
           done
-
-      - name: Save Regression tests Docker logs
-        if: failure()
-        shell: bash
-        working-directory: system-tests/tests/regression/cre
-        run: |
-          mkdir -p logs
-          for c in $(docker ps -a --format '{{.Names}}'); do
+          for c in $(docker ps -a --filter "label=com.docker.compose.service=billing-platform-service" --format '{{.Names}}'); do
             docker logs "$c" > "logs/${c}.log" 2>&1
           done
 
@@ -266,7 +282,7 @@ jobs:
         with:
           name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |
-            ./system-tests/tests/regression/cre/logs/
             ./system-tests/tests/smoke/cre/logs/
             ./system-tests/tests/load/cre/logs/
             /tmp/gotest.log
+            /tmp/junit-report.xml

@@ -87,6 +87,7 @@ type CCIPChainState struct {
 	OnRamp             onramp.OnRampInterface
 	OffRamp            offramp.OffRampInterface
 	FeeQuoter          *fee_quoter.FeeQuoter
+	FeeQuoterVersion   *semver.Version
 	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry

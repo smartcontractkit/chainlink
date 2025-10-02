@@ -41,6 +41,7 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
@@ -126,6 +127,7 @@ Recommendation: Use it in tests that need to listen for Beholder messages.
 */
 func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
+
 	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, err, "failed to create beholder instance")
 
@@ -149,30 +151,52 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	})
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
+
+	// Wait to allow Beholder to fully initialize, it helps to avoid flakiness in tests
+	initTimeout := 5 * time.Second
+	testLogger.Info().Dur("timeout", initTimeout).Msg("Forcefully waiting for Beholder to warm up...")
+	time.Sleep(initTimeout)
+
+	drainChannels(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan) // drain any messages that arrived during initialization
+
 	return listenerCtx, beholderMsgChan, beholderErrChan
 }
 
-// Logs all messages received from Beholder until the context is done
-func LogBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment, messageChan <-chan proto.Message, errChan <-chan error) {
+// Drains any remaining messages from the channels to avoid processing stale messages
+func drainChannels(ctx context.Context, t *testing.T, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
 	t.Helper()
+
+	testLogger.Info().Msg("Starting async drain of Beholder channels for stale messages...")
+	msgCount := 0
+	errCount := 0
+
+	// Drain messages for up to 500ms
+	drainTimeout := time.After(500 * time.Millisecond)
 
 	for {
 		select {
-		case <-ctx.Done():
-			return
-		case err := <-errChan:
-			require.FailNowf(t, "Kafka error received from Kafka %s", err.Error())
 		case msg := <-messageChan:
-			switch typedMsg := msg.(type) {
-			case *commonevents.BaseMessage:
-				testLogger.Info().Msgf("Received BaseMessage from Beholder: %s", typedMsg.Msg)
+			msgCount++
+			switch msg.(type) {
 			case *workflowevents.UserLogs:
-				for _, logLine := range typedMsg.LogLines {
-					testLogger.Info().Msgf("Received workflow msg: %s", logLine.Message)
-				}
+				testLogger.Debug().Msg("Drained UserLogs message")
+			case *commonevents.BaseMessage:
+				testLogger.Debug().Msg("Drained BaseMessage")
 			default:
-				testLogger.Info().Msgf("Received unknown message of type '%T'", msg)
+				testLogger.Debug().Msgf("Drained unknown message type: %T", msg)
 			}
+
+		case err := <-kafkaErrChan:
+			errCount++
+			testLogger.Debug().Err(err).Msg("Drained error message")
+
+		case <-drainTimeout:
+			if msgCount > 0 || errCount > 0 {
+				testLogger.Info().Int("messages_drained", msgCount).Int("errors_drained", errCount).Msg("Finished draining Beholder channels")
+			} else {
+				testLogger.Info().Msg("No stale Beholder messages found in channels")
+			}
+			return
 		}
 	}
 }
@@ -185,9 +209,6 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
-
-	// Drain any existing messages in the channels before validation
-	drainChannels(messageChan, kafkaErrChan)
 
 	// Start message processor goroutine
 	go func() {
@@ -259,21 +280,6 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	return nil
 }
 
-func drainChannels(messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
-	// Drain any existing messages
-	for {
-		select {
-		case <-messageChan:
-			// Discard old messages
-		case <-kafkaErrChan:
-			// Discard old errors
-		default:
-			// Channels are empty, exit
-			return
-		}
-	}
-}
-
 //////////////////////////////
 //      CRYPTO HELPERS      //
 //////////////////////////////
@@ -333,7 +339,8 @@ type WorkflowConfig interface {
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
 		evmread_config.Config |
-		evmread_negative_config.Config
+		evmread_negative_config.Config |
+		http_negative_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -408,8 +415,8 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 		case *portypes.WorkflowConfig:
 			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
-			testLogger.Info().Msg("PoR v2 workflow config file created.")
+			require.NoError(t, configErr, "failed to create PoR workflow config file")
+			testLogger.Info().Msg("PoR workflow config file created.")
 
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)
@@ -434,6 +441,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread-negative workflow config file")
 			testLogger.Info().Msg("EVM Read negative workflow config file created.")
+
+		case *http_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create http-negative workflow config file")
+			testLogger.Info().Msg("HTTP negative workflow config file created.")
 
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
@@ -604,14 +617,9 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	switch tv.Version.Major() {
-	case 2:
-		// TODO(CRE-876): delete with workflowID
-		return
-	default:
-	}
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
+	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
 
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,

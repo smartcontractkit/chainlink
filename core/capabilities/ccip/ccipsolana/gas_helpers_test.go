@@ -56,7 +56,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 			}
 			// Set the source chain selector to be EVM for now
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
-			edc := ccipocr3.ExtraDataCodec(map[string]ccipocr3.SourceChainExtraDataCodec{
+			edc := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 				chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 				chainsel.FamilySolana: ExtraDataDecoder{},
 			})
@@ -100,7 +100,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			}
 
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
-			edc := ccipocr3.ExtraDataCodec(map[string]ccipocr3.SourceChainExtraDataCodec{
+			edc := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 				chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 				chainsel.FamilySolana: ExtraDataDecoder{},
 			})

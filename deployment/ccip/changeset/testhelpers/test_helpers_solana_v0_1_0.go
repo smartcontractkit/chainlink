@@ -443,25 +443,6 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 	}
 }
 
-// CCIPSendCalldata packs the calldata for the Router's ccipSend method.
-// This is expected to be used in Multicall scenarios (i.e multiple ccipSend calls
-// in a single transaction).
-func CCIPSendCalldata(
-	destChainSelector uint64,
-	evm2AnyMessage router.ClientEVM2AnyMessage,
-) ([]byte, error) {
-	calldata, err := routerABI.Methods["ccipSend"].Inputs.Pack(
-		destChainSelector,
-		evm2AnyMessage,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("pack ccipSend calldata: %w", err)
-	}
-
-	calldata = append(routerABI.Methods["ccipSend"].ID, calldata...)
-	return calldata, nil
-}
-
 // testhelpers.SendRequest(t, e, state, src, dest, msg, opts...)
 // opts being testRouter, sender
 // always return error

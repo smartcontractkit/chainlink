@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	contracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 )
 
 type DeployOCR3ContractSequenceDeps struct {
@@ -37,7 +37,11 @@ var DeployOCR3ContractsSequence = operations.NewSequence[DeployOCR3ContractSeque
 		as := datastore.NewMemoryDataStore()
 
 		// OCR3 Contract
-		ocr3DeployReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps(deps), contracts.DeployOCR3Input{ChainSelector: input.ChainSelector, Qualifier: input.Qualifier})
+		deployInput := contracts.DeployOCR3Input{
+			ChainSelector: input.ChainSelector,
+			Qualifier:     input.Qualifier,
+		}
+		ocr3DeployReport, err := operations.ExecuteOperation(b, contracts.DeployOCR3, contracts.DeployOCR3Deps(deps), deployInput)
 		if err != nil {
 			return DeployOCR3ContractSequenceOutput{}, fmt.Errorf("failed to execution operation DeployOCR3: %w", err)
 		}

@@ -1,23 +1,15 @@
 package vault
 
 import (
-	"context"
-	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/tdh2/go/tdh2/lib/group/nist"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-	"golang.org/x/crypto/nacl/box"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
@@ -30,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault/sanmarinodkg/dummydkg"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault/sanmarinodkg/tdh2shim"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
@@ -195,74 +185,6 @@ globalRPS = 50
 perSenderBurst = 10
 perSenderRPS = 10
 `}, nil
-}
-
-func encryptPrivateShare(offchain cldf_offchain.Client, nodeID string, sk *tdh2easy.PrivateShare) (string, error) {
-	nodeResp, err := offchain.GetNode(context.Background(), &nodev1.GetNodeRequest{
-		Id: nodeID,
-	})
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get node from jd")
-	}
-	wk := nodeResp.GetNode().GetWorkflowKey()
-	if wk == "" {
-		return "", errors.New("node must contain a workflow key")
-	}
-
-	wkb, err := hex.DecodeString(wk)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to decode workflow key from hex")
-	}
-
-	skb, err := sk.Marshal()
-	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal private share")
-	}
-
-	wkbSized := [32]byte(wkb)
-	sealed, err := box.SealAnonymous(nil, skb, &wkbSized, cryptorand.Reader)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to encrypt private share")
-	}
-
-	return hex.EncodeToString(sealed), nil
-}
-
-func dkgKeys(n, t int) (string, []*tdh2easy.PrivateShare, error) {
-	instanceID, recipCfg, recipSecKeys, err := dummydkg.NewDKGSetup(n, t, "REPLACE_ME_WITH_RANDOM_SEED")
-	if err != nil {
-		return "", nil, err
-	}
-
-	group := nist.NewP256()
-	result, err := dummydkg.NewDKGResult(instanceID, recipCfg, group)
-	if err != nil {
-		return "", nil, err
-	}
-
-	shares := []*tdh2easy.PrivateShare{}
-	for _, share := range recipSecKeys {
-		s, ierr := tdh2shim.TDH2PrivateShareFromDKGResult(result, share)
-		if ierr != nil {
-			return "", nil, errors.Wrap(ierr, "failed to convert DKG share to TDH2 share")
-		}
-
-		shares = append(shares, s)
-	}
-
-	pk, err := tdh2shim.TDH2PublicKeyFromDKGResult(result)
-	if err != nil {
-		return "", nil, errors.Wrap(err, "failed to convert DKG result to TDH2 public key")
-	}
-
-	pkb, err := pk.Marshal()
-	if err != nil {
-		return "", nil, errors.Wrap(err, "failed to marshal TDH2 public key")
-	}
-
-	pks := hex.EncodeToString(pkb)
-	framework.L.Info().Msg("Generated MasterPublicKey for n=" + strconv.Itoa(n) + ", t=" + strconv.Itoa(t) + ". Key = " + pks)
-	return pks, shares, nil
 }
 
 func registerWithV1(donFlags []string, _ *cre.CapabilitiesAwareNodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {

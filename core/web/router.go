@@ -299,6 +299,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		lcaC := LCAController{app}
 		authv2.GET("/find_lca", auth.RequiresRunRole(lcaC.FindLCA))
 
+		if build.IsDev() {
+			capContr := CapabilityController{app}
+			authv2.POST("/execute_capability", auth.RequiresRunRole(capContr.ExecuteCapability))
+		}
+
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)
 		authv2.POST("/keys/csa", auth.RequiresEditRole(csakc.Create))

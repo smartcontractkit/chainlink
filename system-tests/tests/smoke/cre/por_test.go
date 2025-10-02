@@ -50,7 +50,7 @@ type WorkflowTestConfig struct {
 
 func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
 	porWfCfg := WorkflowTestConfig{
-		FeedIDs:              []string{"018e16c39e000320000000000000000000000000000000000000000000000000", "018e16c38e000320000000000000000000000000000000000000000000000000"},
+		FeedIDs:              []string{"018e16c38e000320000000000000000000000000000000000000000000000000", "018e16c39e000320000000000000000000000000000000000000000000000000"},
 		WorkflowName:         workflowName,
 		WorkflowFileLocation: workflowLocation,
 	}
@@ -67,9 +67,14 @@ func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, 
 	return priceProvider, porWfCfg
 }
 
-func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider PriceProvider, cfg WorkflowTestConfig) {
+func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider PriceProvider, cfg WorkflowTestConfig, withBilling bool) {
 	testLogger := framework.L
 	blockchainOutputs := testEnv.WrappedBlockchainOutputs
+
+	var billingState billingAssertionState
+	if withBilling {
+		billingState = getBillingAssertionState(t, testEnv.TestConfig.RelativePathToRepoRoot) // establish a baseline
+	}
 
 	writeableChains := t_helpers.GetWritableChainsFromSavedEnvironmentState(t, testEnv)
 	require.Len(t, cfg.FeedIDs, len(writeableChains), "a number of writeable chains must match the number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
@@ -88,7 +93,6 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	var amountToFund *big.Int
 	numberOfAddressesToCreate := 2
 	var workflowOwner common.Address
-	fmt.Printf("Each address to read will be funded with %s wei\n", amountToFund.String())
 	for idx, bcOutput := range blockchainOutputs {
 		chainFamily := bcOutput.BlockchainOutput.Family
 		chainID := bcOutput.ChainID
@@ -159,6 +163,11 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	// final expected total = amount to fund * the number of addresses to create
 	amountToFund.Mul(amountToFund, big.NewInt(int64(numberOfAddressesToCreate)))
 	validatePoRPrices(t, testEnv, priceProvider, &cfg, *amountToFund)
+
+	if withBilling {
+		expectedMinChange := float64(49)
+		assertBillingStateChanged(t, billingState, 2*time.Minute, expectedMinChange)
+	}
 }
 
 func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
@@ -393,6 +402,9 @@ func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvi
 			ppExpectedPrices := priceProvider.ExpectedPrices(feedID)
 			expected := totalPoRExpectedPrices(ppExpectedPrices, &additionalPrice)
 			actual := priceProvider.ActualPrices(feedID)
+
+			testEnv.Logger.Info().Msgf("Feed %s - expected): %v", feedID, expected)
+			testEnv.Logger.Info().Msgf("Feed %s - actual: %v", feedID, actual)
 
 			if len(expected) != len(actual) {
 				return fmt.Errorf("expected %d prices, got %d", len(expected), len(actual))

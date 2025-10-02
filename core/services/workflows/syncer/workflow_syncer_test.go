@@ -1,4 +1,4 @@
-package workflow_registry_syncer_test
+package syncer
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	rand2 "math/rand/v2"
 	"strings"
@@ -43,18 +42,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
-
-var rlConfig = ratelimiter.Config{
-	GlobalRPS:      1000.0,
-	GlobalBurst:    1000,
-	PerSenderRPS:   30.0,
-	PerSenderBurst: 30,
-}
 
 var wlConfig = syncerlimiter.Config{
 	Global:   200,
@@ -62,14 +53,14 @@ var wlConfig = syncerlimiter.Config{
 }
 
 type testEvtHandler struct {
-	events []syncer.Event
+	events []Event
 	mux    sync.Mutex
 	errFn  func() error
 }
 
 func (m *testEvtHandler) Close() error { return nil }
 
-func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
+func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.events = append(m.events, event)
@@ -82,14 +73,14 @@ func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
 func (m *testEvtHandler) ClearEvents() {
 	m.mux.Lock()
 	defer m.mux.Unlock()
-	m.events = make([]syncer.Event, 0)
+	m.events = make([]Event, 0)
 }
 
-func (m *testEvtHandler) GetEvents() []syncer.Event {
+func (m *testEvtHandler) GetEvents() []Event {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
-	eventsCopy := make([]syncer.Event, len(m.events))
+	eventsCopy := make([]Event, len(m.events))
 	copy(eventsCopy, m.events)
 
 	return eventsCopy
@@ -98,7 +89,7 @@ func (m *testEvtHandler) GetEvents() []syncer.Event {
 func newTestEvtHandler(errFn func() error) *testEvtHandler {
 	return &testEvtHandler{
 		errFn:  errFn,
-		events: make([]syncer.Event, 0),
+		events: make([]Event, 0),
 	}
 }
 
@@ -159,15 +150,15 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	testEventHandler := newTestEvtHandler(nil)
 
 	// Create the registry
-	registry, err := syncer.NewWorkflowRegistry(
+	registry, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyEvent,
+			SyncStrategy: SyncStrategyEvent,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -176,8 +167,8 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			},
 			err: nil,
 		},
-		syncer.NewEngineRegistry(),
-		syncer.WithTicker(eventPollTicker.C),
+		NewEngineRegistry(),
+		WithTicker(eventPollTicker.C),
 	)
 	require.NoError(t, err)
 
@@ -189,7 +180,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
+		assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
 	}
 
 	testEventHandler.ClearEvents()
@@ -237,15 +228,15 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			for idx, event := range events {
 				switch idx % 5 {
 				case 0:
-					assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
+					assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
 				case 1:
-					assert.Equal(t, syncer.WorkflowActivatedEvent, event.EventType)
+					assert.Equal(t, WorkflowActivatedEvent, event.EventType)
 				case 2:
-					assert.Equal(t, syncer.WorkflowPausedEvent, event.EventType)
+					assert.Equal(t, WorkflowPausedEvent, event.EventType)
 				case 3:
-					assert.Equal(t, syncer.WorkflowUpdatedEvent, event.EventType)
+					assert.Equal(t, WorkflowUpdatedEvent, event.EventType)
 				case 4:
-					assert.Equal(t, syncer.WorkflowDeletedEvent, event.EventType)
+					assert.Equal(t, WorkflowDeletedEvent, event.EventType)
 				}
 			}
 			return true
@@ -286,15 +277,15 @@ func Test_InitialStateSync(t *testing.T) {
 	testEventHandler := newTestEvtHandler(nil)
 
 	// Create the worker
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyEvent,
+			SyncStrategy: SyncStrategyEvent,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -303,8 +294,8 @@ func Test_InitialStateSync(t *testing.T) {
 			},
 			err: nil,
 		},
-		syncer.NewEngineRegistry(),
-		syncer.WithTicker(make(chan time.Time)),
+		NewEngineRegistry(),
+		WithTicker(make(chan time.Time)),
 	)
 	require.NoError(t, err)
 
@@ -315,17 +306,17 @@ func Test_InitialStateSync(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
-		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
+		assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
 	}
 }
 
 func Test_SecretsWorker(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-732")
 	tc := []struct {
-		ss syncer.SyncStrategy
+		ss SyncStrategy
 	}{
-		{ss: syncer.SyncStrategyEvent},
-		{ss: syncer.SyncStrategyReconciliation},
+		{ss: SyncStrategyEvent},
+		{ss: SyncStrategyReconciliation},
 	}
 
 	for _, tt := range tc {
@@ -405,25 +396,25 @@ func Test_SecretsWorker(t *testing.T) {
 			wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 			capRegistry := corecaps.NewRegistry(lggr)
 			capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
-			engineRegistry := syncer.NewEngineRegistry()
+			engineRegistry := NewEngineRegistry()
 			donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-			evtHandler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, engineRegistry,
+			evtHandler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, engineRegistry,
 				emitter, limiters, rl, wl, store, workflowEncryptionKey)
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
-				registeredCh:   make(chan syncer.Event, 1),
+				registeredCh:   make(chan Event, 1),
 			}
 
-			worker, err := syncer.NewWorkflowRegistry(
+			worker, err := NewWorkflowRegistry(
 				lggr,
 				func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 					return backendTH.NewContractReader(ctx, t, bytes)
 				},
 				wfRegistryAddr.Hex(),
-				syncer.Config{
+				Config{
 					QueryCount:   20,
 					SyncStrategy: tt.ss,
 				},
@@ -435,7 +426,7 @@ func Test_SecretsWorker(t *testing.T) {
 					err: nil,
 				},
 				engineRegistry,
-				syncer.WithTicker(giveTicker.C),
+				WithTicker(giveTicker.C),
 			)
 			require.NoError(t, err)
 
@@ -506,15 +497,15 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 
 	handler := newTestEvtHandler(nil)
 
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyEvent,
+			SyncStrategy: SyncStrategyEvent,
 		},
 		handler,
 		&testDonNotifier{
@@ -523,8 +514,8 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 			},
 			err: nil,
 		},
-		syncer.NewEngineRegistry(),
-		syncer.WithTicker(giveTicker.C),
+		NewEngineRegistry(),
+		WithTicker(giveTicker.C),
 	)
 	require.NoError(t, err)
 
@@ -581,7 +572,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	er := syncer.NewEngineRegistry()
+	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
@@ -596,18 +587,18 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
+	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, rl, wl, store, workflowEncryptionKey)
 	require.NoError(t, err)
 
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyEvent,
+			SyncStrategy: SyncStrategyEvent,
 		},
 		handler,
 		&testDonNotifier{
@@ -617,7 +608,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			err: nil,
 		},
 		er,
-		syncer.WithTicker(giveTicker.C),
+		WithTicker(giveTicker.C),
 	)
 	require.NoError(t, err)
 
@@ -632,7 +623,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		_, ok := er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
+		_, ok := er.Get(EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
 		if ok {
 			return false
 		}
@@ -642,18 +633,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 		return err == nil
 	}, tests.WaitTimeout(t), time.Second)
 }
-
-type mockService struct{}
-
-func (m *mockService) Start(context.Context) error { return nil }
-
-func (m *mockService) Close() error { return nil }
-
-func (m *mockService) HealthReport() map[string]error { return map[string]error{"svc": nil} }
-
-func (m *mockService) Ready() error { return nil }
-
-func (m *mockService) Name() string { return "svc" }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	var (
@@ -691,7 +670,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	er := syncer.NewEngineRegistry()
+	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig, limits.Factory{})
@@ -705,19 +684,19 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := syncer.NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er,
-		emitter, limiters, rl, wl, store, workflowEncryptionKey, syncer.WithStaticEngine(&mockService{}))
+	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er,
+		emitter, limiters, rl, wl, store, workflowEncryptionKey, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyEvent,
+			SyncStrategy: SyncStrategyEvent,
 		},
 		handler,
 		&testDonNotifier{
@@ -727,7 +706,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			err: nil,
 		},
 		er,
-		syncer.WithTicker(giveTicker.C),
+		WithTicker(giveTicker.C),
 	)
 	require.NoError(t, err)
 
@@ -742,7 +721,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	// Require the secrets contents to eventually be updated
 	require.Eventually(t, func() bool {
-		_, ok := er.Get(syncer.EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
+		_, ok := er.Get(EngineRegistryKey{Owner: backendTH.ContractsOwner.From.Bytes(), Name: "test-wf"})
 		if !ok {
 			return false
 		}
@@ -789,15 +768,15 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 		testEventHandler := newTestEvtHandler(nil)
 
 		// Create the worker
-		worker, err := syncer.NewWorkflowRegistry(
+		worker, err := NewWorkflowRegistry(
 			lggr,
 			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 				return backendTH.NewContractReader(ctx, t, bytes)
 			},
 			wfRegistryAddr.Hex(),
-			syncer.Config{
+			Config{
 				QueryCount:   20,
-				SyncStrategy: syncer.SyncStrategyReconciliation,
+				SyncStrategy: SyncStrategyReconciliation,
 			},
 			testEventHandler,
 			&testDonNotifier{
@@ -806,8 +785,8 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 				},
 				err: nil,
 			},
-			syncer.NewEngineRegistry(),
-			syncer.WithRetryInterval(1*time.Second),
+			NewEngineRegistry(),
+			WithRetryInterval(1*time.Second),
 		)
 		require.NoError(t, err)
 
@@ -818,7 +797,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 		}, 30*time.Second, 1*time.Second)
 
 		for _, event := range testEventHandler.GetEvents() {
-			assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
+			assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
 		}
 	})
 }
@@ -861,15 +840,15 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	})
 
 	// Create the worker
-	worker, err := syncer.NewWorkflowRegistry(
+	worker, err := NewWorkflowRegistry(
 		lggr,
 		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return backendTH.NewContractReader(ctx, t, bytes)
 		},
 		wfRegistryAddr.Hex(),
-		syncer.Config{
+		Config{
 			QueryCount:   20,
-			SyncStrategy: syncer.SyncStrategyReconciliation,
+			SyncStrategy: SyncStrategyReconciliation,
 		},
 		testEventHandler,
 		&testDonNotifier{
@@ -878,8 +857,8 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 			},
 			err: nil,
 		},
-		syncer.NewEngineRegistry(),
-		syncer.WithRetryInterval(1*time.Second),
+		NewEngineRegistry(),
+		WithRetryInterval(1*time.Second),
 	)
 	require.NoError(t, err)
 
@@ -890,7 +869,7 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	}, 30*time.Second, 1*time.Second)
 
 	event := testEventHandler.GetEvents()[0]
-	assert.Equal(t, syncer.WorkflowRegisteredEvent, event.EventType)
+	assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
 
 	assert.Equal(t, 1, retryCount)
 }
@@ -1029,23 +1008,18 @@ func updateWorkflow(
 	th.Backend.Commit()
 }
 
-type evtHandler interface {
-	io.Closer
-	Handle(ctx context.Context, event syncer.Event) error
-}
-
 type testSecretsWorkEventHandler struct {
 	wrappedHandler evtHandler
-	registeredCh   chan syncer.Event
+	registeredCh   chan Event
 }
 
 func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Close() }
 
-func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
+func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event Event) error {
 	switch {
-	case event.EventType == syncer.ForceUpdateSecretsEvent:
+	case event.EventType == ForceUpdateSecretsEvent:
 		return m.wrappedHandler.Handle(ctx, event)
-	case event.EventType == syncer.WorkflowRegisteredEvent:
+	case event.EventType == WorkflowRegisteredEvent:
 		m.registeredCh <- event
 		return nil
 	default:

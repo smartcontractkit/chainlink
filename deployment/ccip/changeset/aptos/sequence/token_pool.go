@@ -29,6 +29,7 @@ type DeployTokenPoolSeqInput struct {
 	TokenAddress        aptos.AccountAddress
 	TokenOwnerAddress   aptos.AccountAddress
 	PoolType            cldf.ContractType
+	IsTokenOwnedByMCMS  bool
 }
 type DeployTokenPoolSeqOutput struct {
 	TokenPoolAddress aptos.AccountAddress
@@ -117,8 +118,8 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 	txs = append(txs, spReport.Output)
 
 	// 7 - Grant BnM permission to the token pool
-	switch in.PoolType {
-	case shared.AptosManagedTokenPoolType:
+	switch {
+	case in.PoolType == shared.AptosManagedTokenPoolType && in.IsTokenOwnedByMCMS:
 		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipManagedTokenPool"))
 		gmReport, err := operations.ExecuteOperation(b, operation.ApplyAllowedMintersOp, deps, operation.ApplyAllowedMintersInput{
 			TokenCodeObjectAddress: in.TokenCodeObjAddress,
@@ -137,7 +138,7 @@ func deployAptosTokenPoolSequence(b operations.Bundle, deps operation.AptosDeps,
 			return DeployTokenPoolSeqOutput{}, fmt.Errorf("failed to execute ApplyAllowedBurnersOp: %w", err)
 		}
 		txs = append(txs, gbReport.Output)
-	case shared.AptosRegulatedTokenPoolType:
+	case in.PoolType == shared.AptosRegulatedTokenPoolType && in.IsTokenOwnedByMCMS:
 		tokenPoolStateAddress := tokenPoolObjectAddress.ResourceAccount([]byte("CcipRegulatedTokenPool"))
 		gmReport, err := operations.ExecuteOperation(b, operation.GrantRoleOp, deps, operation.GrantRoleInput{
 			TokenCodeObjectAddress: in.TokenCodeObjAddress,
