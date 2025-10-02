@@ -150,14 +150,6 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
 	agg := aggregation.NewDefaultModeAggregator(1)
 
-	t.Run("returns error when config is nil", func(t *testing.T) {
-		dispatcher := remoteMocks.NewDispatcher(t)
-		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
-		err := subscriber.SetConfig(nil, capInfo, workflowDon.ID, capDon, agg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no config provided")
-	})
-
 	t.Run("returns error when capability info ID doesn't match subscriber's ID", func(t *testing.T) {
 		dispatcher := remoteMocks.NewDispatcher(t)
 		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
@@ -201,6 +193,17 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify updated config works
+		require.NoError(t, subscriber.Start(t.Context()))
+		require.NoError(t, subscriber.Close())
+	})
+	t.Run("handles nil initial config", func(t *testing.T) {
+		dispatcher := remoteMocks.NewDispatcher(t)
+		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
+		// Set initial config as nil
+		err := subscriber.SetConfig(nil, capInfo, workflowDon.ID, capDon, agg)
+		require.NoError(t, err)
+
+		// Verify config works
 		require.NoError(t, subscriber.Start(t.Context()))
 		require.NoError(t, subscriber.Close())
 	})

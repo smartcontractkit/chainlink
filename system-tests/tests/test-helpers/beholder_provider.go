@@ -16,6 +16,28 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
+// Constants for configuration
+const (
+	// Channel buffer sizes
+	messageChannelBufferSize = 10
+	errorChannelBufferSize   = 1
+
+	// Kafka configuration
+	kafkaSessionTimeoutMs = 10000
+	kafkaReadTimeoutMs    = 0 // Non-blocking read
+
+	// Timing configuration
+	messageReadInterval      = 100 * time.Millisecond
+	channelDrainTimeout      = 5 * time.Second
+	channelDrainTimeoutShort = 2 * time.Second
+
+	// CloudEvents protobuf offset
+	protobufOffset = 6
+
+	// Expected CloudEvents header
+	ceTypeHeader = "ce_type"
+)
+
 type Beholder struct {
 	cfg  *config.ChipIngressConfig
 	lggr zerolog.Logger
@@ -70,11 +92,22 @@ func (b *Beholder) SubscribeToBeholderMessages(
 	ctx context.Context,
 	messageTypes map[string]func() proto.Message,
 ) (<-chan proto.Message, <-chan error) {
-	kafkaErrChan := make(chan error, 1)
-	messageChan := make(chan proto.Message, 10)
+	kafkaErrChan := make(chan error, errorChannelBufferSize)
+	messageChan := make(chan proto.Message, messageChannelBufferSize)
 
 	// Start listening for messages in the background
 	go func() {
+		// Recover from panics
+		defer func() {
+			if r := recover(); r != nil {
+				b.lggr.Error().Interface("panic", r).Msg("Panic in Kafka listener goroutine")
+				select {
+				case kafkaErrChan <- errors.Errorf("panic in listener: %v", r):
+				default:
+				}
+			}
+		}()
+
 		kafkaURL := b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL
 		topic := b.cfg.Kafka.Topics[0]
 		listenForKafkaMessages(ctx, b.lggr, kafkaURL, topic, messageTypes, messageChan, kafkaErrChan)
@@ -89,24 +122,30 @@ func listenForKafkaMessages(
 	brokerAddress string,
 	topic string,
 	messageTypes map[string]func() proto.Message, // ce_type -> protobuf factory function
-	messageChan chan<- proto.Message, // channel to send deserialized messages
+	messageChan chan proto.Message, // channel to send deserialized messages
 	errChan chan<- error,
 ) {
 	logger.Info().Str("broker", brokerAddress).Str("topic", topic).Msg("Starting Kafka listener")
 	startTime := time.Now()
 	logger.Debug().Time("start_time", startTime).Msg("Listener start time - will process messages from this point forward")
 
+	// Ensure channel is closed when function exits to prevent goroutine leaks
+	defer func() {
+		close(messageChan)
+		logger.Info().Msg("Listener message channel closed")
+	}()
+
 	// Configure Kafka consumer to start from latest messages (test start time)
-	config := &kafka.ConfigMap{
+	kafkaConfig := &kafka.ConfigMap{
 		"bootstrap.servers":  brokerAddress,
 		"group.id":           fmt.Sprintf("workshop-listener-%d", startTime.Unix()), // Unique group per listener
 		"auto.offset.reset":  "latest",                                              // Start from latest messages, not earliest
-		"session.timeout.ms": 10000,
+		"session.timeout.ms": kafkaSessionTimeoutMs,
 		"enable.auto.commit": true,             // Commit messages after processing
 		"isolation.level":    "read_committed", // Only read committed messages
 	}
 
-	consumer, err := kafka.NewConsumer(config)
+	consumer, err := kafka.NewConsumer(kafkaConfig)
 	if err != nil {
 		errChan <- errors.Wrap(err, "failed to create consumer")
 		return
@@ -123,7 +162,7 @@ func listenForKafkaMessages(
 
 	logger.Info().Str("topic", topic).Msg("Subscribed to topic (consuming from latest offset)")
 
-	ticker := time.NewTicker(100 * time.Millisecond) // Check every 100ms instead of tight loop
+	ticker := time.NewTicker(messageReadInterval) // Check every 100ms instead of tight loop
 	defer ticker.Stop()
 
 	interestedTypes := getMapKeys(messageTypes)
@@ -133,10 +172,11 @@ func listenForKafkaMessages(
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info().Msg("Context cancelled, stopping Kafka listener")
+			logger.Info().Msg("Context cancelled, draining remaining messages before stopping Kafka listener")
+			drainMessagesWithTimeout(logger, messageChan, channelDrainTimeout)
 			return
 		case <-ticker.C:
-			msg, err := consumer.ReadMessage(0) // Non-blocking read
+			msg, err := consumer.ReadMessage(kafkaReadTimeoutMs) // Non-blocking read
 			if err != nil {
 				// Check if it's just a timeout (no messages available)
 				var kafkaErr kafka.Error
@@ -168,7 +208,7 @@ func listenForKafkaMessages(
 				Time("timestamp", msgTime).
 				Msg("Received new message")
 
-			ceType, err := getValueFromHeader("ce_type", msg)
+			ceType, err := getValueFromHeader(ceTypeHeader, msg)
 			if err != nil {
 				logger.Debug().Err(err).Msg("Failed to get ce_type, skipping")
 				continue
@@ -188,8 +228,6 @@ func listenForKafkaMessages(
 
 			// CloudEvents with ce_datacontenttype: application/protobuf
 			// The protobuf data starts at offset 6 (after 6-byte binary header)
-			const protobufOffset = 6
-
 			if len(msg.Value) <= protobufOffset {
 				logger.Debug().
 					Int("message_length", len(msg.Value)).
@@ -218,7 +256,8 @@ func listenForKafkaMessages(
 			case messageChan <- message:
 				logger.Debug().Msg("Message sent to channel successfully")
 			case <-ctx.Done():
-				logger.Info().Msg("Context cancelled while sending message")
+				logger.Info().Msg("Context cancelled while sending message, draining remaining messages")
+				drainMessagesWithTimeout(logger, messageChan, channelDrainTimeoutShort)
 				return
 			default:
 				logger.Warn().Msg("Message channel full, dropping message")
@@ -234,6 +273,26 @@ func getMapKeys(m map[string]func() proto.Message) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// drainMessagesWithTimeout drains remaining messages from the channel with a timeout
+func drainMessagesWithTimeout(logger zerolog.Logger, messageChan chan proto.Message, timeout time.Duration) {
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), timeout)
+	defer drainCancel()
+
+	drainedCount := 0
+	for {
+		select {
+		case <-messageChan:
+			drainedCount++
+		case <-drainCtx.Done():
+			logger.Info().Int("drained_messages", drainedCount).Msg("Finished draining messages (timeout reached)")
+			return
+		default:
+			logger.Info().Int("drained_messages", drainedCount).Msg("Finished draining messages (channel empty)")
+			return
+		}
+	}
 }
 
 func getValueFromHeader(expectedHeader string, msg *kafka.Message) (string, error) {

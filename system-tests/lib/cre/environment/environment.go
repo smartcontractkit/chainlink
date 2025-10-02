@@ -284,41 +284,40 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Log Poller started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	wfPool := pond.NewResultPool[*cre.WorkflowRegistryOutput](1)
-	wfTask := wfPool.SubmitErr(func() (*cre.WorkflowRegistryOutput, error) {
-		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Starting Workflow Registry Contract Configuration\n\n"))
-		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Workflow Registry Contract Configuration\n\n"))
-		wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Workflow Registry Contract configuration")))
 
-		// if this operation overlaps with other on-chain operations, then it might randomly fail due to nonce issues,
-		// because we use the same master private key for all on-chain operations. We do not have any client-side nonce management
-		// and always use the next pending nonce from the node.
-		// in case of failures, it should be moved out of the background tasks and executed in the main thread
-		wfOutput, wfErr := workflow.ConfigureWorkflowRegistry(
-			ctx,
-			testLogger,
-			singleFileLogger,
-			&cre.WorkflowRegistryInput{
-				ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, startBlockchainsOutput.RegistryChain().ChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
-				ContractVersion: cldf.TypeAndVersion{Version: wfRegVersion},
-				ChainSelector:   startBlockchainsOutput.RegistryChain().ChainSelector,
-				CldEnv:          deployKeystoneContractsOutput.Env,
-				AllowedDonIDs:   []uint64{topology.WorkflowDONID},
-				WorkflowOwners:  []common.Address{startBlockchainsOutput.RegistryChain().SethClient.MustGetRootKeyAddress()},
-			},
-		)
+	wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+	workflowRegistryConfigurationOutput, wfErr := workflow.ConfigureWorkflowRegistry(
+		ctx,
+		testLogger,
+		singleFileLogger,
+		&cre.WorkflowRegistryInput{
+			ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, startBlockchainsOutput.RegistryChain().ChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
+			ContractVersion: cldf.TypeAndVersion{Version: wfRegVersion},
+			ChainSelector:   startBlockchainsOutput.RegistryChain().ChainSelector,
+			CldEnv:          deployKeystoneContractsOutput.Env,
+			AllowedDonIDs:   []uint64{topology.WorkflowDONID},
+			WorkflowOwners:  []common.Address{startBlockchainsOutput.RegistryChain().SethClient.MustGetRootKeyAddress()},
+		},
+	)
 
-		if wfErr != nil {
-			return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
-		}
+	if wfErr != nil {
+		return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
+	}
+
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow Registry Contract configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
+	wfFilterErr := bkgErrPool.SubmitErr(func() error {
+		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Waiting for Workflow Registry filters registration\n\n"))
+		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished waiting for Workflow Registry filters registration\n\n"))
 
 		// this operation can always safely run in the background, since it doesn't change on-chain state, it only reads data from databases
 		switch wfRegVersion.Major() {
 		case 2:
 			// There are no filters registered with the V2 WF Registry Syncer
-			return wfOutput, nil
+			return nil
 		default:
-			return wfOutput, workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.InfraInput.Type, startBlockchainsOutput.RegistryChain().ChainID, creEnvironment.DonTopology, updatedNodeSets)
+			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.InfraInput.Type, startBlockchainsOutput.RegistryChain().ChainID, creEnvironment.DonTopology, updatedNodeSets)
 		}
 	})
 
@@ -336,15 +335,13 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	wfPool.StopAndWait()
-	workflowRegistryConfigurationOutput, wfRegistrationErr := wfTask.Wait()
-	if wfRegistrationErr != nil {
-		return nil, pkgerrors.Wrap(wfRegistrationErr, "failed to configure workflow registry")
-	}
-
 	bkgErrPool.StopAndWait()
 	if err := fundNodesTaskErr.Wait(); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to fund chainlink nodes")
+	}
+
+	if err := wfFilterErr.Wait(); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
 
 	appendOutputsToInput(input, nodeSetOutput, startBlockchainsOutput, jdOutput)

@@ -61,6 +61,12 @@ func onEVMReadTrigger(wfCfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 		return runFilterLogsWithInvalidFromBlock(client, runtime, wfCfg)
 	case "FilterLogs - invalid ToBlock":
 		return runFilterLogsWithInvalidToBlock(client, runtime, wfCfg)
+	case "GetTransactionByHash - invalid hash":
+		return runGetTransactionByHashWithInvalidHash(client, runtime, wfCfg)
+	case "GetTransactionReceipt - invalid hash":
+		return runGetTransactionReceiptWithInvalidHash(client, runtime, wfCfg)
+	case "HeaderByNumber - invalid block number":
+		return runHeaderByNumberWithInvalidBlock(client, runtime, wfCfg)
 	default:
 		runtime.Logger().Warn("The provided name for function to execute did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
 	}
@@ -133,13 +139,16 @@ func runCallContractForInvalidContractAddress(evmClient evm.Client, runtime sdk.
 			Data: readBalancesCall,
 		},
 	}).Await()
-	runtime.Logger().Info("CallContract for invalid balance reader contract address completed", "output_data", readBalancesOutput.Data)
-	if err != nil || len(readBalancesOutput.Data) == 0 {
-		runtime.Logger().Error("got expected error for invalid balance reader contract address", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "error", err, "output_data", readBalancesOutput.Data)
+	runtime.Logger().Info("CallContract for invalid balance reader contract address completed", "balance_reader_output", readBalancesOutput)
+	if err != nil || readBalancesOutput == nil {
+		runtime.Logger().Error("got expected error for invalid balance reader contract address", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "balance_reader_output", readBalancesOutput, "error", err)
+		return nil, fmt.Errorf("failed to get balances for address '%s': %w", invalidReadBalancesContractAddr.String(), err)
+	} else if len(readBalancesOutput.Data) == 0 {
+		runtime.Logger().Error("got expected empty response for invalid balance reader contract address", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "balance_reader_output", readBalancesOutput, "error", err)
 		return nil, fmt.Errorf("failed to get balances for address '%s': %w", invalidReadBalancesContractAddr.String(), err)
 	}
 
-	runtime.Logger().Info("this is not expected: reading from invalid balance reader contract address should return an error or empty response", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "output", readBalancesOutput.Data)
+	runtime.Logger().Info("this is not expected: reading from invalid balance reader contract address should return an error or empty response", "invalid_rb_address", invalidReadBalancesContractAddr.String(), "balance_reader_output", readBalancesOutput)
 	return readBalancesOutput, nil
 }
 
@@ -192,17 +201,17 @@ func runFilterLogsWithInvalidAddresses(client evm.Client, runtime sdk.Runtime, w
 	filterLogsOutput, err := client.FilterLogs(runtime, &evm.FilterLogsRequest{
 		FilterQuery: &evm.FilterQuery{
 			Addresses: [][]byte{invalidAddress.Bytes()},
-			FromBlock: pb.NewBigIntFromInt(big.NewInt(100)),
+			FromBlock: pb.NewBigIntFromInt(big.NewInt(100)), // 100 blocks is a max valid range between blocks
 			ToBlock:   pb.NewBigIntFromInt(big.NewInt(200)),
 		},
 	}).Await()
 	runtime.Logger().Info("FilterLogs completed", "filtered_logs_output", filterLogsOutput)
-	if err != nil || filterLogsOutput == nil {
-		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput, "error", err)
+	if err != nil || len(filterLogsOutput.Logs) == 0 {
+		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput.Logs, "error", err)
 		return filterLogsOutput, fmt.Errorf("expected error or empty logs for FilterLogs with invalid address '%s': %w", invalidAddress, err)
 	}
 
-	runtime.Logger().Info("this is not expected: FilterLogs with invalid addresses in the request should return an error or empty logs", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput)
+	runtime.Logger().Info("this is not expected: FilterLogs with invalid addresses in the request should return an error or empty logs", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput.Logs)
 	return filterLogsOutput, nil
 }
 
@@ -258,4 +267,67 @@ func runFilterLogsWithInvalidBlock(client evm.Client, runtime sdk.Runtime, wfCfg
 
 	runtime.Logger().Info("this is not expected: FilterLogs with invalid block should return an error or nil", "block_type", blockType, "invalid_block", invalidBlockStr, "filter_logs_output", filterLogsOutput)
 	return filterLogsOutput, nil
+}
+
+// runGetTransactionByHashWithInvalidHash tries to get a transaction using an invalid hash
+func runGetTransactionByHashWithInvalidHash(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.GetTransactionByHashReply, error) {
+	runtime.Logger().Info("Attempting to get transaction using invalid hash", "invalid_hash", wfCfg.InvalidInput)
+
+	invalidHash := common.FromHex(wfCfg.InvalidInput)
+	runtime.Logger().Info("Starting GetTransactionByHash request with parsed hash", "invalid_hash", invalidHash)
+	txByHashOutput, err := client.GetTransactionByHash(runtime, &evm.GetTransactionByHashRequest{
+		Hash: invalidHash,
+	}).Await()
+	runtime.Logger().Info("GetTransactionByHash completed", "tx_by_hash_output", txByHashOutput)
+	if err != nil || txByHashOutput == nil {
+		runtime.Logger().Error("got expected error for GetTransactionByHash with invalid hash", "invalid_hash", invalidHash, "tx_by_hash_output", txByHashOutput, "error", err)
+		return nil, fmt.Errorf("expected error for GetTransactionByHash with invalid hash '%s': %w", invalidHash, err)
+	}
+
+	runtime.Logger().Info("this is not expected: GetTransactionByHash with invalid hash should return an error or nil", "invalid_hash", invalidHash, "tx_by_hash_output", txByHashOutput)
+	return txByHashOutput, nil
+}
+
+// runGetTransactionReceiptWithInvalidHash tries to get transaction receipt using an invalid hash
+// it should return an error
+func runGetTransactionReceiptWithInvalidHash(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.GetTransactionReceiptReply, error) {
+	runtime.Logger().Info("Attempting to GetTransactionReceipt using invalid hash", "invalid_hash", wfCfg.InvalidInput)
+
+	// Convert the invalid input to bytes - this will handle various invalid formats
+	invalidHash := common.FromHex(wfCfg.InvalidInput)
+	runtime.Logger().Info("Starting GetTransactionReceipt request with parsed hash", "invalid_hash", invalidHash)
+	txReceiptOutput, err := client.GetTransactionReceipt(runtime, &evm.GetTransactionReceiptRequest{
+		Hash: invalidHash,
+	}).Await()
+	runtime.Logger().Info("GetTransactionReceipt completed", "tx_receipt_output", txReceiptOutput)
+	if err != nil || txReceiptOutput == nil {
+		runtime.Logger().Error("got expected error for GetTransactionReceipt with invalid hash", "invalid_hash", invalidHash, "tx_receipt_output", txReceiptOutput, "error", err)
+		return nil, fmt.Errorf("expected error for GetTransactionReceipt with invalid hash '%s': %w", invalidHash, err)
+	}
+
+	runtime.Logger().Info("this is not expected: GetTransactionReceipt with invalid hash should return an error or nil", "invalid_hash", invalidHash, "tx_receipt_output", txReceiptOutput)
+	return txReceiptOutput, nil
+}
+
+// runHeaderByNumberWithInvalidBlock tries to get header using an invalid block number
+func runHeaderByNumberWithInvalidBlock(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (*evm.HeaderByNumberReply, error) {
+	invalidBlockStr := wfCfg.InvalidInput
+	runtime.Logger().Info("Attempting to get header using invalid block number", "invalid_block", invalidBlockStr)
+
+	// convert to big.Int
+	newBlock := big.NewInt(0)
+	invalidBlock, _ := newBlock.SetString(invalidBlockStr, 10)
+
+	runtime.Logger().Info("Starting HeaderByNumber request with parsed block number", "invalid_block", invalidBlock.String())
+	headerOutput, err := client.HeaderByNumber(runtime, &evm.HeaderByNumberRequest{
+		BlockNumber: pb.NewBigIntFromInt(invalidBlock),
+	}).Await()
+	runtime.Logger().Info("HeaderByNumber with invalid block completed", "header_output", headerOutput)
+	if err != nil || headerOutput == nil {
+		runtime.Logger().Error("got expected error for HeaderByNumber with invalid block", "invalid_block", invalidBlockStr, "header_output", headerOutput, "error", err)
+		return nil, fmt.Errorf("expected error for HeaderByNumber with invalid block '%s': %w", invalidBlockStr, err)
+	}
+
+	runtime.Logger().Info("this is not expected: HeaderByNumber with invalid block should return an error or nil", "invalid_block", invalidBlockStr, "header_output", headerOutput)
+	return headerOutput, nil
 }

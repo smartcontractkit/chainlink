@@ -27,6 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/quarantine"
+
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -911,6 +913,7 @@ func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
 }
 
 func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
+	quarantine.Flaky(t, "DX-1875")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
