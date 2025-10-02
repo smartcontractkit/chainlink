@@ -151,7 +151,7 @@ type RemoveFeedConfigCSConfig struct {
 }
 
 type UpdateDataIDProxyConfig struct {
-	ChainSelector  uint64           `json:"chainSelector" json:"chainSelector"`
+	ChainSelector  uint64           `json:"chainSelector" yaml:"chainSelector"`
 	CacheAddress   common.Address   `json:"cacheAddress" yaml:"cacheAddress"`
 	ProxyAddresses []common.Address `json:"proxyAddresses" yaml:"proxyAddresses"`
 	DataIDs        []string         `json:"dataIDs" yaml:"dataIDs"`
