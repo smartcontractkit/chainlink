@@ -19,7 +19,7 @@ import (
 // Constants for configuration
 const (
 	// Channel buffer sizes
-	messageChannelBufferSize = 10
+	messageChannelBufferSize = 20
 	errorChannelBufferSize   = 1
 
 	// Kafka configuration
@@ -27,9 +27,8 @@ const (
 	kafkaReadTimeoutMs    = 0 // Non-blocking read
 
 	// Timing configuration
-	messageReadInterval      = 100 * time.Millisecond
-	channelDrainTimeout      = 5 * time.Second
-	channelDrainTimeoutShort = 2 * time.Second
+	messageReadInterval = 50 * time.Millisecond
+	channelDrainTimeout = 2 * time.Second
 
 	// CloudEvents protobuf offset
 	protobufOffset = 6
@@ -133,12 +132,10 @@ func listenForKafkaMessages(
 		logger.Info().Msg("Listener message channel closed")
 	}()
 
-	// Configure Kafka consumer to start from earliest messages to avoid missing messages
-	// Use current time for unique group ID but start from earliest to catch all messages
 	kafkaConfig := &kafka.ConfigMap{
 		"bootstrap.servers":  brokerAddress,
 		"group.id":           fmt.Sprintf("workshop-listener-%d", time.Now().Unix()), // Unique group per listener
-		"auto.offset.reset":  "latest",                                               // Start from earliest messages to avoid missing messages
+		"auto.offset.reset":  "latest",
 		"session.timeout.ms": kafkaSessionTimeoutMs,
 		"enable.auto.commit": true,             // Commit messages after processing
 		"isolation.level":    "read_committed", // Only read committed messages
@@ -150,8 +147,7 @@ func listenForKafkaMessages(
 		return
 	}
 	defer consumer.Close()
-
-	logger.Debug().Msg("Kafka consumer created successfully")
+	logger.Info().Msg("Kafka consumer created successfully")
 
 	err = consumer.Subscribe(topic, nil)
 	if err != nil {
@@ -159,23 +155,23 @@ func listenForKafkaMessages(
 		return
 	}
 
-	logger.Info().Str("topic", topic).Msg("Subscribed to topic (consuming from earliest offset)")
+	logger.Info().Str("topic", topic).Msg("Subscribed to topic (consuming from latest offset)")
 
 	// Record start time AFTER consumer is ready to avoid race condition
 	startTime := time.Now()
-	logger.Debug().Time("start_time", startTime).Msg("Consumer ready - will process messages from this point forward")
+	logger.Info().Time("start_time", startTime).Msg("Consumer ready - will process messages from this point forward")
 
 	ticker := time.NewTicker(messageReadInterval) // Check every 100ms instead of tight loop
 	defer ticker.Stop()
 
 	interestedTypes := getMapKeys(messageTypes)
-	logger.Info().Strs("interested_types", interestedTypes).Msg("Starting message listening loop")
+	logger.Debug().Strs("interested_types", interestedTypes).Msg("Starting message listening loop")
 
 	// Start consuming messages
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info().Msg("Context cancelled, draining remaining messages before stopping Kafka listener")
+			logger.Warn().Msg("Context cancelled, draining remaining messages before stopping Kafka listener")
 			drainMessagesWithTimeout(logger, messageChan, channelDrainTimeout)
 			return
 		case <-ticker.C:
@@ -262,7 +258,7 @@ func listenForKafkaMessages(
 				logger.Debug().Msg("Message sent to channel successfully")
 			case <-ctx.Done():
 				logger.Info().Msg("Context cancelled while sending message, draining remaining messages")
-				drainMessagesWithTimeout(logger, messageChan, channelDrainTimeoutShort)
+				drainMessagesWithTimeout(logger, messageChan, channelDrainTimeout)
 				return
 			default:
 				logger.Warn().Msg("Message channel full, dropping message")
