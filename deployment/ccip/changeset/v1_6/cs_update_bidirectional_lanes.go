@@ -219,13 +219,16 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	report, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateLanesSequence, e.BlockChains.EVMChains(), ccipseqs.UpdateLanesSequenceInput{
+	input := ccipseqs.UpdateLanesSequenceInput{
 		FeeQuoterApplyDestChainConfigUpdatesSequenceInput: configs.UpdateFeeQuoterDestsConfig.ToSequenceInput(state),
 		FeeQuoterUpdatePricesSequenceInput:                configs.UpdateFeeQuoterPricesConfig.ToSequenceInput(state),
 		OffRampApplySourceChainConfigUpdatesSequenceInput: configs.UpdateOffRampSourcesConfig.ToSequenceInput(state),
 		OnRampApplyDestChainConfigUpdatesSequenceInput:    configs.UpdateOnRampDestsConfig.ToSequenceInput(state),
 		RouterApplyRampUpdatesSequenceInput:               configs.UpdateRouterRampsConfig.ToSequenceInput(state),
-	})
+	}
+	e.Logger.Info("UpdateLanesLogic ", "input", input, "mcms", mcmsConfig)
+
+	report, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateLanesSequence, e.BlockChains.EVMChains(), input)
 	return opsutil.AddEVMCallSequenceToCSOutput(
 		e,
 		cldf.ChangesetOutput{},
@@ -246,53 +249,57 @@ func init() {
 type EVMAdapter struct{}
 
 // high level API
-func (a *EVMAdapter) ConfigureLaneLegAsSource(env cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
-	mcms := proposalutils.TimelockConfig{
-		MinDelay:     cfg.MCMS.TimelockDelay.Duration,
-		MCMSAction:   cfg.MCMS.TimelockAction,
-		OverrideRoot: cfg.MCMS.OverridePreviousRoot,
+func (a *EVMAdapter) ConfigureLaneLegAsSource(e cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
+	var mcms *proposalutils.TimelockConfig
+	if cfg.MCMS != nil {
+		mcms = &proposalutils.TimelockConfig{
+			MinDelay:     cfg.MCMS.TimelockDelay.Duration,
+			MCMSAction:   cfg.MCMS.TimelockAction,
+			OverrideRoot: cfg.MCMS.OverridePreviousRoot,
+		}
 	}
+	src, dest := cfg.Source, cfg.Dest
 	updateFeeQuoterDests := UpdateFeeQuoterDestsConfig{
-		MCMS: &mcms,
+		MCMS: mcms,
 		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-			cfg.Selector: {
-				cfg.RemoteSelector: a.TranslateFQ(cfg.UpdateFeeQuoterDestsConfig),
+			src.Selector: {
+				dest.Selector: a.TranslateFQ(dest.FeeQuoterDestChainConfig),
 			},
 		},
 	}
 	updateFeeQuoterPrices := UpdateFeeQuoterPricesConfig{
-		MCMS: &mcms,
+		MCMS: mcms,
 		PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
-			cfg.Selector: {
-				TokenPrices: a.TranslateTokenPrices(cfg.UpdateFeeQuoterPrices.TokenPrices),
-				GasPrices:   cfg.UpdateFeeQuoterPrices.GasPrices,
+			src.Selector: {
+				TokenPrices: a.TranslateTokenPrices(src.TokenPrices),
+				GasPrices:   map[uint64]*big.Int{dest.Selector: dest.GasPrice},
 			},
 		},
 	}
 	updateOnRampDests := UpdateOnRampDestsConfig{
-		MCMS: &mcms,
+		MCMS: mcms,
 		UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
-			cfg.Selector: {
-				cfg.RemoteSelector: {
-					IsEnabled:        cfg.UpdateOnRampDestsConfig.IsEnabled,
-					TestRouter:       cfg.UpdateOnRampDestsConfig.TestRouter,
-					AllowListEnabled: cfg.UpdateOnRampDestsConfig.AllowListEnabled,
+			src.Selector: {
+				dest.Selector: {
+					IsEnabled:        !cfg.IsDisabled,
+					TestRouter:       cfg.TestRouter,
+					AllowListEnabled: src.AllowListEnabled,
 				},
 			},
 		},
 	}
 	updateRouterRamps := UpdateRouterRampsConfig{
-		TestRouter: cfg.UpdateOnRampDestsConfig.TestRouter,
-		MCMS:       &mcms,
+		TestRouter: cfg.TestRouter,
+		MCMS:       mcms,
 		UpdatesByChain: map[uint64]RouterUpdates{
-			cfg.Selector: {
+			src.Selector: {
 				OnRampUpdates: map[uint64]bool{
-					cfg.RemoteSelector: true,
+					dest.Selector: true,
 				},
 			},
 		},
 	}
-	return UpdateLanesLogic(env, &mcms, UpdateBidirectionalLanesChangesetConfigs{
+	return UpdateLanesLogic(e, mcms, UpdateBidirectionalLanesChangesetConfigs{
 		UpdateFeeQuoterDestsConfig:  updateFeeQuoterDests,
 		UpdateFeeQuoterPricesConfig: updateFeeQuoterPrices,
 		UpdateOnRampDestsConfig:     updateOnRampDests,
@@ -300,47 +307,121 @@ func (a *EVMAdapter) ConfigureLaneLegAsSource(env cldf.Environment, cfg ccipapi.
 	})
 }
 
-func (a *EVMAdapter) ConfigureLaneLegAsDest(env cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
-	mcms := proposalutils.TimelockConfig{
-		MinDelay:     cfg.MCMS.TimelockDelay.Duration,
-		MCMSAction:   cfg.MCMS.TimelockAction,
-		OverrideRoot: cfg.MCMS.OverridePreviousRoot,
+func (a *EVMAdapter) ConfigureLaneLegAsDest(e cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
+	var mcms *proposalutils.TimelockConfig
+	if cfg.MCMS != nil {
+		mcms = &proposalutils.TimelockConfig{
+			MinDelay:     cfg.MCMS.TimelockDelay.Duration,
+			MCMSAction:   cfg.MCMS.TimelockAction,
+			OverrideRoot: cfg.MCMS.OverridePreviousRoot,
+		}
 	}
+	src, dest := cfg.Source, cfg.Dest
 	updateOffRampSources := UpdateOffRampSourcesConfig{
-		MCMS: &mcms,
+		MCMS: mcms,
 		UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
-			cfg.RemoteSelector: {
-				cfg.Selector: {
-					IsEnabled:                 cfg.UpdateOffRampSourcesConfig.IsEnabled,
-					TestRouter:                cfg.UpdateOffRampSourcesConfig.TestRouter,
-					IsRMNVerificationDisabled: cfg.UpdateOffRampSourcesConfig.IsRMNVerificationDisabled,
+			src.Selector: {
+				dest.Selector: {
+					IsEnabled:                 !cfg.IsDisabled,
+					TestRouter:                cfg.TestRouter,
+					IsRMNVerificationDisabled: !dest.RMNVerificationEnabled,
 				},
 			},
 		},
 	}
 	updateRouterRamps := UpdateRouterRampsConfig{
-		TestRouter: cfg.UpdateOffRampSourcesConfig.IsEnabled,
-		MCMS:       &mcms,
+		TestRouter: cfg.TestRouter,
+		MCMS:       mcms,
 		UpdatesByChain: map[uint64]RouterUpdates{
-			cfg.Selector: {
+			src.Selector: {
 				OffRampUpdates: map[uint64]bool{
-					cfg.RemoteSelector: true,
+					dest.Selector: true,
 				},
 			},
 		},
 	}
-	return UpdateLanesLogic(env, &mcms, UpdateBidirectionalLanesChangesetConfigs{
+	return UpdateLanesLogic(e, mcms, UpdateBidirectionalLanesChangesetConfigs{
 		UpdateOffRampSourcesConfig: updateOffRampSources,
 		UpdateRouterRampsConfig:    updateRouterRamps,
 	})
 }
 
-func (a *EVMAdapter) ConfigureLaneBidirectionally(env cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
-	return cldf.ChangesetOutput{}, fmt.Errorf("not implemented yet")
+func (a *EVMAdapter) ConfigureLaneAsSourceAndDest(e cldf.Environment, cfg ccipapi.UpdateLanesInput) (cldf.ChangesetOutput, error) {
+	var mcms *proposalutils.TimelockConfig
+	if cfg.MCMS != nil {
+		mcms = &proposalutils.TimelockConfig{
+			MinDelay:     cfg.MCMS.TimelockDelay.Duration,
+			MCMSAction:   cfg.MCMS.TimelockAction,
+			OverrideRoot: cfg.MCMS.OverridePreviousRoot,
+		}
+	}
+	src, dest := cfg.Source, cfg.Dest
+	updateFeeQuoterDests := UpdateFeeQuoterDestsConfig{
+		MCMS: mcms,
+		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			src.Selector: {
+				dest.Selector: a.TranslateFQ(dest.FeeQuoterDestChainConfig),
+			},
+		},
+	}
+	updateFeeQuoterPrices := UpdateFeeQuoterPricesConfig{
+		MCMS: mcms,
+		PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
+			src.Selector: {
+				TokenPrices: a.TranslateTokenPrices(src.TokenPrices),
+				GasPrices:   map[uint64]*big.Int{dest.Selector: dest.GasPrice},
+			},
+		},
+	}
+	updateOnRampDests := UpdateOnRampDestsConfig{
+		MCMS: mcms,
+		UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+			src.Selector: {
+				dest.Selector: {
+					IsEnabled:        !cfg.IsDisabled,
+					TestRouter:       cfg.TestRouter,
+					AllowListEnabled: src.AllowListEnabled,
+				},
+			},
+		},
+	}
+	updateRouterRamps := UpdateRouterRampsConfig{
+		TestRouter: cfg.TestRouter,
+		MCMS:       mcms,
+		UpdatesByChain: map[uint64]RouterUpdates{
+			src.Selector: {
+				OnRampUpdates: map[uint64]bool{
+					dest.Selector: true,
+				},
+				OffRampUpdates: map[uint64]bool{
+					dest.Selector: true,
+				},
+			},
+		},
+	}
+	updateOffRampSources := UpdateOffRampSourcesConfig{
+		MCMS: mcms,
+		UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
+			src.Selector: {
+				dest.Selector: {
+					IsEnabled:                 !cfg.IsDisabled,
+					TestRouter:                cfg.TestRouter,
+					IsRMNVerificationDisabled: !src.RMNVerificationEnabled,
+				},
+			},
+		},
+	}
+	return UpdateLanesLogic(e, mcms, UpdateBidirectionalLanesChangesetConfigs{
+		UpdateFeeQuoterDestsConfig:  updateFeeQuoterDests,
+		UpdateFeeQuoterPricesConfig: updateFeeQuoterPrices,
+		UpdateOnRampDestsConfig:     updateOnRampDests,
+		UpdateOffRampSourcesConfig:  updateOffRampSources,
+		UpdateRouterRampsConfig:     updateRouterRamps,
+	})
 }
 
-func (a *EVMAdapter) GetOnRampAddress(env cldf.Environment, chainSelector uint64) ([]byte, error) {
-	state, err := stateview.LoadOnchainState(env)
+func (a *EVMAdapter) GetOnRampAddress(e cldf.Environment, chainSelector uint64) ([]byte, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -348,8 +429,8 @@ func (a *EVMAdapter) GetOnRampAddress(env cldf.Environment, chainSelector uint64
 	return state.GetOnRampAddressBytes(chainSelector)
 }
 
-func (a *EVMAdapter) GetOffRampAddress(env cldf.Environment, chainSelector uint64) ([]byte, error) {
-	state, err := stateview.LoadOnchainState(env)
+func (a *EVMAdapter) GetOffRampAddress(e cldf.Environment, chainSelector uint64) ([]byte, error) {
+	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}

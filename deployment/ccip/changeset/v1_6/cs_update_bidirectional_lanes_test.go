@@ -16,6 +16,8 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	v1_6_commonutils "github.com/smartcontractkit/chainlink-ccip/deployment/utils"
+	v1_6_common "github.com/smartcontractkit/chainlink-ccip/deployment/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -49,6 +51,67 @@ func getAllPossibleLanes(chains []v1_6.ChainDefinition, disable bool) []v1_6.Bid
 				Chains:     [2]v1_6.ChainDefinition{chainA, chainB},
 				IsDisabled: disable,
 			})
+			if paired[chainA.Selector] == nil {
+				paired[chainA.Selector] = make(map[uint64]bool)
+			}
+			paired[chainA.Selector][chainB.Selector] = true
+			if paired[chainB.Selector] == nil {
+				paired[chainB.Selector] = make(map[uint64]bool)
+			}
+			paired[chainB.Selector][chainA.Selector] = true
+		}
+	}
+
+	return lanes
+}
+
+func getAllPossibleLanesCommon(chains []v1_6.ChainDefinition, disable bool, testRouter bool, bidirectional bool) []v1_6_common.LaneConfig {
+	lanes := make([]v1_6_common.LaneConfig, 0)
+	paired := make(map[uint64]map[uint64]bool)
+
+	for i, chainA := range chains {
+		for j, chainB := range chains {
+			if i == j {
+				continue
+			}
+			if paired[chainA.Selector] != nil && paired[chainA.Selector][chainB.Selector] {
+				continue
+			}
+			if paired[chainB.Selector] != nil && paired[chainB.Selector][chainA.Selector] {
+				continue
+			}
+
+			chain1Def := v1_6_common.ChainDefinition{
+				Selector:                 chainA.Selector,
+				GasPrice:                 chainA.GasPrice,
+				TokenPrices:              v1_6.TranslateChainTokenPricesToCommon(chainA.TokenPrices),
+				RMNVerificationEnabled:   !chainA.RMNVerificationDisabled,
+				AllowListEnabled:         chainA.AllowListEnabled,
+				FeeQuoterDestChainConfig: v1_6.TranslateChainFQToCommon(chainA.FeeQuoterDestChainConfig),
+			}
+			chain2Def := v1_6_common.ChainDefinition{
+				Selector:                 chainB.Selector,
+				GasPrice:                 chainB.GasPrice,
+				TokenPrices:              v1_6.TranslateChainTokenPricesToCommon(chainB.TokenPrices),
+				RMNVerificationEnabled:   !chainB.RMNVerificationDisabled,
+				AllowListEnabled:         chainB.AllowListEnabled,
+				FeeQuoterDestChainConfig: v1_6.TranslateChainFQToCommon(chainB.FeeQuoterDestChainConfig),
+			}
+
+			lanes = append(lanes, v1_6_common.LaneConfig{
+				Source:     chain1Def,
+				Dest:       chain2Def,
+				IsDisabled: disable,
+				TestRouter: testRouter,
+			})
+			if !bidirectional {
+				lanes = append(lanes, v1_6_common.LaneConfig{
+					Source:     chain2Def,
+					Dest:       chain1Def,
+					IsDisabled: disable,
+					TestRouter: testRouter,
+				})
+			}
 			if paired[chainA.Selector] == nil {
 				paired[chainA.Selector] = make(map[uint64]bool)
 			}
@@ -396,6 +459,127 @@ func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 					for _, remoteChain := range remoteChains {
 						checkBidirectionalLaneConnectivity(t, e, state, chain, remoteChain, test.TestRouter, true)
 					}
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateBidirectionalLanesCCIPAPI(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		Msg           string
+		TestRouter    bool
+		MCMS          *v1_6_commonutils.MCMSInput
+		Disable       bool
+		Bidirectional bool
+	}
+
+	// mcmsCommonConfig := &v1_6_commonutils.MCMSInput{
+	// 	TimelockDelay: types.Duration{
+	// 		Duration: 0 * time.Second,
+	// 	},
+	// 	TimelockAction: types.TimelockActionSchedule,
+	// }
+
+	tests := []test{
+		{
+			Msg:           "Use test router 2 unidirectional (without MCMS)",
+			TestRouter:    true,
+			MCMS:          nil,
+			Bidirectional: false,
+		},
+		{
+			Msg:           "Use production router 2 unidirectional (without MCMS)",
+			TestRouter:    false,
+			MCMS:          nil,
+			Bidirectional: false,
+		},
+		{
+			Msg:           "Use test router 1 bidirectional (without MCMS)",
+			TestRouter:    true,
+			MCMS:          nil,
+			Bidirectional: true,
+		},
+		{
+			Msg:           "Use production router 1 bidirectional(without MCMS)",
+			TestRouter:    false,
+			MCMS:          nil,
+			Bidirectional: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Msg, func(t *testing.T) {
+			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
+				testCfg.Chains = 3
+			})
+			e := deployedEnvironment.Env
+
+			state, err := stateview.LoadOnchainState(e)
+			require.NoError(t, err, "must load onchain state")
+
+			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+
+			if test.MCMS != nil {
+				contractsToTransfer := make(map[uint64][]common.Address, len(selectors))
+				for _, selector := range selectors {
+					contractsToTransfer[selector] = []common.Address{
+						state.Chains[selector].OnRamp.Address(),
+						state.Chains[selector].OffRamp.Address(),
+						state.Chains[selector].Router.Address(),
+						state.Chains[selector].FeeQuoter.Address(),
+						state.Chains[selector].TokenAdminRegistry.Address(),
+						state.Chains[selector].RMNRemote.Address(),
+						state.Chains[selector].RMNProxy.Address(),
+						state.Chains[selector].NonceManager.Address(),
+					}
+				}
+				e, err = commonchangeset.Apply(t, e,
+					commonchangeset.Configure(
+						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+						commoncs.TransferToMCMSWithTimelockConfig{
+							ContractsByChain: contractsToTransfer,
+							MCMSConfig: proposalutils.TimelockConfig{
+								MinDelay:   0 * time.Second,
+								MCMSAction: types.TimelockActionSchedule,
+							},
+						},
+					),
+				)
+				require.NoError(t, err, "must apply TransferToMCMSWithTimelock")
+			}
+
+			chains := make([]v1_6.ChainDefinition, len(selectors))
+			for i, selector := range selectors {
+				chains[i] = v1_6.ChainDefinition{
+					ConnectionConfig: v1_6.ConnectionConfig{
+						RMNVerificationDisabled: true,
+					},
+					Selector:                 selector,
+					GasPrice:                 big.NewInt(1e17),
+					FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+				}
+			}
+
+			if test.Bidirectional {
+				_, err = v1_6_common.ConnectChainsBidirectional{}.Apply(e, v1_6_common.ConnectChainsConfig{
+					Lanes: getAllPossibleLanesCommon(chains, false, test.TestRouter, test.Bidirectional),
+					MCMS:  test.MCMS,
+				})
+			} else {
+				_, err = v1_6_common.ConnectChainsUnidirectional{}.Apply(e, v1_6_common.ConnectChainsConfig{
+					Lanes: getAllPossibleLanesCommon(chains, false, test.TestRouter, test.Bidirectional),
+					MCMS:  test.MCMS,
+				})
+			}
+			require.NoError(t, err, "must apply AddBidirectionalLanesChangeset")
+
+			for i, chain := range chains {
+				remoteChains := getRemoteChains(chains, i)
+				for _, remoteChain := range remoteChains {
+					checkBidirectionalLaneConnectivity(t, e, state, chain, remoteChain, test.TestRouter, false)
 				}
 			}
 		})

@@ -3,6 +3,7 @@ package v1_6
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -42,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
+	v1_6_common "github.com/smartcontractkit/chainlink-ccip/deployment/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -1752,6 +1754,36 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		NetworkFeeUSDCents:                10,
 		ChainFamilySelector:               [4]byte(familySelector),
 	}
+}
+
+func TranslateChainFQToCommon(fq fee_quoter.FeeQuoterDestChainConfig) v1_6_common.FeeQuoterDestChainConfig {
+	return v1_6_common.FeeQuoterDestChainConfig{
+		IsEnabled:                         fq.IsEnabled,
+		MaxNumberOfTokensPerMsg:           fq.MaxNumberOfTokensPerMsg,
+		MaxDataBytes:                      fq.MaxDataBytes,
+		MaxPerMsgGasLimit:                 fq.MaxPerMsgGasLimit,
+		DestGasOverhead:                   fq.DestGasOverhead,
+		DefaultTokenFeeUSDCents:           fq.DefaultTokenFeeUSDCents,
+		DestGasPerPayloadByteBase:         fq.DestGasPerPayloadByteBase,
+		DestGasPerPayloadByteHigh:         fq.DestGasPerPayloadByteHigh,
+		DestGasPerPayloadByteThreshold:    fq.DestGasPerPayloadByteThreshold,
+		DestDataAvailabilityOverheadGas:   fq.DestDataAvailabilityOverheadGas,
+		DestGasPerDataAvailabilityByte:    fq.DestGasPerDataAvailabilityByte,
+		DestDataAvailabilityMultiplierBps: fq.DestDataAvailabilityMultiplierBps,
+		DefaultTokenDestGasOverhead:       fq.DefaultTokenDestGasOverhead,
+		DefaultTxGasLimit:                 fq.DefaultTxGasLimit,
+		GasMultiplierWeiPerEth:            fq.GasMultiplierWeiPerEth,
+		NetworkFeeUSDCents:                fq.NetworkFeeUSDCents,
+		ChainFamilySelector:               binary.BigEndian.Uint32(fq.ChainFamilySelector[:]),
+	}
+}
+
+func TranslateChainTokenPricesToCommon(prices map[common.Address]*big.Int) map[string]*big.Int {
+	result := make(map[string]*big.Int)
+	for k, v := range prices {
+		result[k.Hex()] = v
+	}
+	return result
 }
 
 type ApplyFeeTokensUpdatesConfig struct {
