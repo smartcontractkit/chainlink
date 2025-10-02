@@ -1487,7 +1487,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		)),
 		platform.KeyP2PID, nodeState.PeerID.String(),
 		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
-		platform.WorkflowRegistryChain, strconv.FormatUint(chainSelector, 10),
+		platform.WorkflowRegistryChainSelector, strconv.FormatUint(chainSelector, 10),
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.Itoa(int(nodeState.WorkflowDON.ConfigVersion)),
 		// TODO platform.KeyOrganizationID, wire through org ID from linking service

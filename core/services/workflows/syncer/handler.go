@@ -133,7 +133,7 @@ type eventHandler struct {
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
-	workflowRegistryChainSelector string
+	workflowRegistryChainSelector uint64
 }
 
 type Event struct {
@@ -167,7 +167,7 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	}
 }
 
-func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
+func WithWorkflowRegistry(address string, chainSelector uint64) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.workflowRegistryAddress = address
 		e.workflowRegistryChainSelector = chainSelector

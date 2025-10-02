@@ -30,7 +30,6 @@ const (
 	// Registry and version keys
 	WorkflowRegistryAddress       = "workflowRegistryAddress"
 	WorkflowRegistryVersion       = "workflowRegistryVersion"
-	WorkflowRegistryChain         = "workflowRegistryChain"
 	WorkflowRegistryChainSelector = "workflowRegistryChainSelector"
 	EngineVersion                 = "engineVersion"
 	CapabilitiesRegistryVersion   = "capabilitiesRegistryVersion"

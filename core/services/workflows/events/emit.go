@@ -485,7 +485,7 @@ func buildCREMetadataV2(kvs map[string]string) *eventsv2.CreInfo {
 
 	m.WorkflowRegistryAddress = kvs[platform.WorkflowRegistryAddress]
 	m.WorkflowRegistryVersion = kvs[platform.WorkflowRegistryVersion]
-	m.WorkflowRegistryChain = kvs[platform.WorkflowRegistryChain]
+	m.WorkflowRegistryChain = kvs[platform.WorkflowRegistryChainSelector]
 	m.EngineVersion = kvs[platform.EngineVersion]
 	m.CapabilitiesRegistryVersion = kvs[platform.CapabilitiesRegistryVersion]
 	m.DonVersion = kvs[platform.DonVersion]
