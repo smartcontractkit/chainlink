@@ -634,7 +634,8 @@ func updateAllowedDONsV2(
 	t.Helper()
 	for _, donFamily := range donFamilies {
 		workflowLimit := uint32(1000)
-		_, err := wfRegC.SetDONLimit(th.ContractsOwner, donFamily, workflowLimit, allowed)
+		userLimit := uint32(10)
+		_, err := wfRegC.SetDONLimit(th.ContractsOwner, donFamily, workflowLimit, userLimit)
 		require.NoError(t, err, "failed to update DONs")
 
 		th.Backend.Commit()
