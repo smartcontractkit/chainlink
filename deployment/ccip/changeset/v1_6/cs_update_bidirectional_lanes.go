@@ -223,16 +223,13 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	input := ccipseqs.UpdateLanesSequenceInput{
+	report, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateLanesSequence, e.BlockChains.EVMChains(), ccipseqs.UpdateLanesSequenceInput{
 		FeeQuoterApplyDestChainConfigUpdatesSequenceInput: configs.UpdateFeeQuoterDestsConfig.ToSequenceInput(state),
 		FeeQuoterUpdatePricesSequenceInput:                configs.UpdateFeeQuoterPricesConfig.ToSequenceInput(state),
 		OffRampApplySourceChainConfigUpdatesSequenceInput: configs.UpdateOffRampSourcesConfig.ToSequenceInput(state),
 		OnRampApplyDestChainConfigUpdatesSequenceInput:    configs.UpdateOnRampDestsConfig.ToSequenceInput(state),
 		RouterApplyRampUpdatesSequenceInput:               configs.UpdateRouterRampsConfig.ToSequenceInput(state),
-	}
-	e.Logger.Info("UpdateLanesLogic ", "input", input, "mcms", mcmsConfig)
-
-	report, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateLanesSequence, e.BlockChains.EVMChains(), input)
+	})
 	return opsutil.AddEVMCallSequenceToCSOutput(
 		e,
 		cldf.ChangesetOutput{},
