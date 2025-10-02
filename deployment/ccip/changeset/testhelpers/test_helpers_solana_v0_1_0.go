@@ -206,7 +206,7 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 		// Aptos is not using LogPoller
 		return nil
 	case chainsel.FamilyTon:
-		// TON is not using LogPoller
+		// TODO: TON is not using LogPoller
 		return nil
 	default:
 		return fmt.Errorf("unsupported chain family; %v", family)

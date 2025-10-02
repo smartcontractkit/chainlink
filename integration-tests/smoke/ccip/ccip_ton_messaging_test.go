@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/big"
@@ -9,22 +8,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
+
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/tlb"
 	tonlib "github.com/xssnick/tonutils-go/ton"
+	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
-	test_utils "github.com/smartcontractkit/chainlink-ton/deployment/utils"
+	"github.com/smartcontractkit/chainlink-ton/pkg/bindings"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/offramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ton/event"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ton/tracetracking"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ton/wrappers"
 
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -175,42 +177,76 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 	// wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
-	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		ccipChainState := state.TonChains[destChain]
-		receiver := ccipChainState.ReceiverAddress
-		receiverBase64Bytes, err := base64.RawURLEncoding.DecodeString(receiver.String())
+	t.Run("message to contract receiver", func(t *testing.T) {
+		tonChain := e.Env.BlockChains.TonChains()[destChain]
+		offRampAddr := state.TonChains[destChain].OffRamp
+
+		receiver, err := deployReceiverContract(tonChain, &offRampAddr)
 		require.NoError(t, err)
-		// Prepare 36-byte raw address
-		receiver.FlagsToByte()
+		t.Logf("Deployed receiver contract: %s", receiver.String())
 
-		t.Logf("Receiver address: %s", receiver.String())
-		t.Logf("Receiver base64 bytes: %s", receiverBase64Bytes)
+		// TODO: should receiver address be saved in state?
+		ccipChainState := state.TonChains[destChain]
+		ccipChainState.ReceiverAddress = *receiver
+		state.TonChains[destChain] = ccipChainState
 
-		// activate receiver
-		test_utils.FundWallets(t, e.Env.BlockChains.TonChains()[destChain].Client, []*address.Address{&receiver}, []tlb.Coins{tlb.MustFromTON("1")})
+		ac := codec.NewAddressCodec()
+		receiverBytes, err := ac.AddressStringToBytes(receiver.String())
+		require.NoError(t, err)
+		require.Equal(t, 36, len(receiverBytes), "receiver bytes should be 36 bytes")
 
 		// Subscribe to OffRamp contract transactions in background
-		offRampAddr := state.TonChains[destChain].OffRamp
-		tonChain := e.Env.BlockChains.TonChains()[destChain]
-
-		// Get current account state to start monitoring from
 		SubscribeOfframpTransactions(t, tonChain, offRampAddr)
 
+		// TODO: receiver.tolk's onInternalMessage asserts that msg.message.data.beginParse().isEmpty()
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidationType:         mt.ValidationTypeExec,
-				TestSetup:              setup,
-				Nonce:                  nil, // TON nonce check is skipped
-				Receiver:               receiverBase64Bytes,
-				MsgData:                []byte("hello CCIPReceiver"),
+				ValidationType: mt.ValidationTypeExec,
+				TestSetup:      setup,
+				Nonce:          nil, // TON nonce check is skipped
+				Receiver:       receiverBytes,
+				MsgData:        []byte{}, // TODO: empty data fails?
+				// MsgData:                []byte("hello CCIPReceiver"), // TODO: empty data fails?
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // state would be failed
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
+		// TODO: need a test case with wallet receiver(no reply nor received events)
 	})
 
 	_ = out
+}
+
+// TODO: do we want to have a changeset for receiver? probably for staging validation
+func deployReceiverContract(tonChain ton.Chain, offRampAddr *address.Address) (*address.Address, error) {
+	// parse compiled contract
+	codeCell, err := wrappers.ParseCompiledContract(bindings.GetBuildDir("Receiver.compiled.json"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Receiver compiled contract: %w", err)
+	}
+
+	// Create initial storage - must match TypeScript: beginCell().storeAddress(offRampAddress).endCell()
+	// Note: Unlike other contracts that use tlb.ToCell(storage) which creates empty root + ref structure,
+	// receiver.tolk expects a simple cell with address stored directly in root cell.
+	receiverStorage := cell.BeginCell().
+		MustStoreAddr(offRampAddr).
+		EndCell()
+
+	conn := tracetracking.NewSignedAPIClient(tonChain.Client, *tonChain.Wallet)
+	contract, _, err := wrappers.Deploy(
+		&conn,
+		codeCell,
+		receiverStorage,
+		tlb.MustFromTON("5"), // TODO: Configurable
+		cell.BeginCell().EndCell(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy Receiver contract: %w", err)
+	}
+	receiver := contract.Address
+
+	return receiver, nil
 }
 
 func SubscribeOfframpTransactions(t *testing.T, tonChain ton.Chain, offRampAddr address.Address) {
@@ -323,17 +359,17 @@ func SubscribeOfframpTransactions(t *testing.T, tonChain ton.Chain, offRampAddr 
 							} else if msg.MsgType == tlb.MsgTypeExternalOut { // ExternalOut
 								if extOut := msg.AsExternalOut(); extOut != nil {
 									t.Logf("OUTPUT[%d] ExternalOut - From: %s", i, extOut.SrcAddr.String())
-									if extOut.Body != nil {
-										bodyHex := fmt.Sprintf("%x", extOut.Body.ToBOC())
-										t.Logf("OUTPUT[%d] Body (hex): %s", i, bodyHex)
 
-										// Try to parse opcode
-										parser := extOut.Body.BeginParse()
-										if parser.BitsLeft() >= 32 {
-											if opcode, err := parser.LoadUInt(32); err == nil {
-												t.Logf("OUTPUT[%d] Opcode: 0x%x (%d)", i, opcode, opcode)
-											}
-										}
+									bucket := event.NewExtOutLogBucket(extOut.DestAddr())
+									if topic, err := bucket.DecodeEventTopic(); err == nil {
+										t.Logf("OUTPUT[%d] Event Topic: 0x%x (%d)", i, topic, topic)
+									} else {
+										t.Logf("OUTPUT[%d] Failed to decode event topic: %v", i, err)
+									}
+
+									if payload := extOut.Payload(); payload != nil {
+										bodyHex := fmt.Sprintf("%x", payload.ToBOC())
+										t.Logf("OUTPUT[%d] Body (hex): %s", i, bodyHex)
 									}
 								}
 							}
