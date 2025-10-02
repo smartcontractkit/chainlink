@@ -647,7 +647,7 @@ func updateAllowedDONsV2(
 			From: th.ContractsOwner.From,
 		}, donFamily)
 		require.NoError(t, err)
-		require.Equal(t, workflowLimit, maxWorkflows)
+		require.Equal(t, workflowLimit, maxWorkflows.MaxWorkflows, "max workflows mismatch")
 	}
 }
 
