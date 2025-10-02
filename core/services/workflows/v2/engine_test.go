@@ -500,13 +500,7 @@ func TestEngine_Execution(t *testing.T) {
 		},
 	}
 	beholderObserver := beholdertest.NewObserver(t)
-	// Create a labeler with the workflow labels that the engine expects
-	labeler := custmsg.NewLabeler().With(
-		"workflowID", cfg.WorkflowID,
-		"workflowOwner", cfg.WorkflowOwner,
-		"workflowName", cfg.WorkflowName.String(),
-	)
-	cfg.BeholderEmitter = labeler
+	cfg.BeholderEmitter = custmsg.NewLabeler()
 
 	t.Run("successful execution with no capability calls", func(t *testing.T) {
 		engine, err := v2.NewEngine(cfg)
