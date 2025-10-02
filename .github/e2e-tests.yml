@@ -1449,7 +1449,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestRunLogBasic" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestRunLogBasic" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-runlog-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1461,7 +1466,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestCronBasic|TestCronJobReplacement" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestCronBasic|TestCronJobReplacement" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-cron-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1473,7 +1483,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestFluxBasic" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestFluxBasic" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-flux-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1487,7 +1502,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1501,7 +1521,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/migration -v -run "TestVersionUpgrade" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestVersionUpgrade" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/migration
     test_env_vars:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: "{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}"
@@ -1519,7 +1544,12 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-jd-evm-simulated
     test_go_project_path: integration-tests
   # END: Other tests
