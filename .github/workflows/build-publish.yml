@@ -77,6 +77,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ github.ref_name }}
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
@@ -108,6 +109,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ github.ref_name }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
