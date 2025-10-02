@@ -243,6 +243,8 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 	},
 )
 
+const UserDefaultLimit = 1000
+
 // SetDONLimit Operation
 type SetDONLimitOpInput struct {
 	ChainSelector uint64           `json:"chainSelector"`
@@ -288,7 +290,7 @@ var SetDONLimitOp = operations.NewOperation(
 
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.SetDONLimit(opts, input.DONFamily, input.Limit, input.Enabled)
+			tx, err := registry.SetDONLimit(opts, input.DONFamily, input.Limit, UserDefaultLimit)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call SetDONLimit: %w", err)
 			}

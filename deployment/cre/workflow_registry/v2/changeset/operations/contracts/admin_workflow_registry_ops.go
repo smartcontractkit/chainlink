@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -201,7 +202,7 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.AdminPauseAllByOwner(opts, input.Owner)
+			tx, err := registry.AdminPauseAllByOwner(opts, input.Owner, big.NewInt(500))
 			if err != nil {
 				return nil, fmt.Errorf("failed to call AdminPauseAllByOwner: %w", err)
 			}
@@ -267,7 +268,7 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.AdminPauseAllByDON(opts, input.DONFamily)
+			tx, err := registry.AdminPauseAllByDON(opts, input.DONFamily, big.NewInt(500))
 			if err != nil {
 				return nil, fmt.Errorf("failed to call AdminPauseAllByDON: %w", err)
 			}
