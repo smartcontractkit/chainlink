@@ -189,7 +189,6 @@ type AddressSchema struct {
 }
 
 type ImportAddressesConfig struct {
-	InputFileName string           `json:"inputFileName" yaml:"inputFileName"`
 	ChainSelector uint64           `json:"chainSelector" yaml:"chainSelector"`
 	Addresses     []*AddressSchema `json:"addresses" yaml:"addresses"`
 }

@@ -49,10 +49,6 @@ func importAddressToDatastorePrecondition(env cldf.Environment, c types.ImportAd
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 
-	if c.InputFileName == "" {
-		return errors.New("input file name is required")
-	}
-
 	if len(c.Addresses) == 0 {
 		return errors.New("no addresses to import")
 	}
