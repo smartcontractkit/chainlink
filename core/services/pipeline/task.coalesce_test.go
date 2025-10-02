@@ -98,11 +98,11 @@ func TestCoalesceTask(t *testing.T) {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
 			} else {
-				switch test.want.Value.(type) {
+				switch val := test.want.Value.(type) {
 				case *decimal.Decimal:
-					require.Equal(t, test.want.Value.(*decimal.Decimal).String(), output.Value.(*decimal.Decimal).String())
+					require.Equal(t, val.String(), output.Value.(*decimal.Decimal).String())
 				default:
-					require.Equal(t, test.want.Value, output.Value)
+					require.Equal(t, val, output.Value)
 				}
 				require.NoError(t, output.Error)
 			}
