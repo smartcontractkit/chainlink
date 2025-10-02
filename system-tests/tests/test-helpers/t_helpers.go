@@ -152,57 +152,11 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
 
-	// Reduced initialization timeout to minimize window for legitimate messages to be discarded
-	initTimeout := 2 * time.Second
-	testLogger.Info().Dur("timeout", initTimeout).Msg("Waiting for Beholder to warm up...")
-	time.Sleep(initTimeout)
-
-	// Only drain channels if we detect stale messages from before consumer was ready
-	// This is more conservative to avoid discarding legitimate test messages
-	testLogger.Info().Msg("Performing conservative channel drain to remove only pre-consumer messages...")
-	drainChannelsConservatively(listenerCtx, t, testLogger, beholderMsgChan, beholderErrChan)
+	// No more draining - let all messages through for processing
+	// The consumer is ready and any messages received are legitimate
+	testLogger.Info().Msg("Beholder listener ready - all messages will be processed")
 
 	return listenerCtx, beholderMsgChan, beholderErrChan
-}
-
-// Conservative channel draining that only removes messages for a short period
-// to avoid discarding legitimate test messages
-func drainChannelsConservatively(ctx context.Context, t *testing.T, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
-	t.Helper()
-
-	testLogger.Debug().Msg("Starting drain of Beholder channels...")
-	msgCount := 0
-	errCount := 0
-
-	// Much shorter drain timeout to be more conservative
-	drainTimeout := time.After(200 * time.Millisecond)
-
-	for {
-		select {
-		case msg := <-messageChan:
-			msgCount++
-			switch msg.(type) {
-			case *workflowevents.UserLogs:
-				testLogger.Warn().Msg("drained UserLogs message (likely stale)")
-			case *commonevents.BaseMessage:
-				testLogger.Warn().Msg("drained BaseMessage (likely stale)")
-			default:
-				testLogger.Warn().Msgf("drained unknown message type: %T (likely stale)", msg)
-			}
-
-		case err := <-kafkaErrChan:
-			errCount++
-			testLogger.Debug().Err(err).Msg("drained error message")
-
-		case <-drainTimeout:
-			if msgCount > 0 || errCount > 0 {
-				testLogger.Warn().Int("messages_drained", msgCount).Int("errors_drained", errCount).Msg("Finished draining of Beholder channels")
-			} else {
-				testLogger.Info().Msg("No stale Beholder messages found during drain")
-			}
-			return
-		}
-	}
 }
 
 /*
