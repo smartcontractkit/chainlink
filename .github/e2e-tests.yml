@@ -325,7 +325,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run "^TestAutomationBasic/registry_2_0|TestAutomationBasic/registry_2_1_conditional|TestAutomationBasic/registry_2_1_logtrigger$" -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestAutomationBasic/registry_2_0|TestAutomationBasic/registry_2_1_conditional|TestAutomationBasic/registry_2_1_logtrigger)$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -337,7 +343,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run "^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$" -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02)$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -349,7 +361,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run "^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$" -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02)$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -361,7 +379,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run "^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$" -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02)$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -372,7 +396,13 @@ runner-test-matrix:
     triggers:
       - Nightly E2E Tests
       - Push E2E Core Tests
-    test_cmd: cd smoke && go test -test.run "^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$" -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link)$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -384,7 +414,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run "^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$" -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link)$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -396,7 +432,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run "^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$" -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^(TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link)$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -408,7 +450,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestSetUpkeepTriggerConfig$ -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestSetUpkeepTriggerConfig$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -420,7 +468,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationAddFunds$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -432,7 +486,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationPauseUnPause$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationPauseUnPause$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -444,7 +504,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationRegisterUpkeep$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -456,7 +522,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationPauseRegistry$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationPauseRegistry$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -468,7 +540,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationKeeperNodesDown$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationKeeperNodesDown$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -480,7 +558,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationPerformSimulation$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationPerformSimulation$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -492,7 +576,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestAutomationCheckPerformGasLimit$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestAutomationCheckPerformGasLimit$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -504,7 +594,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestUpdateCheckData$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestUpdateCheckData$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -516,7 +612,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestSetOffchainConfigWithMaxGasPrice$ -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestSetOffchainConfigWithMaxGasPrice$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -528,7 +630,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperBasicSmoke$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperBasicSmoke$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -540,7 +648,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperBlockCountPerTurn$ -test.parallel=3 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperBlockCountPerTurn$" -parallel=3 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -552,7 +666,13 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperSimulation$ -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperSimulation$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -564,9 +684,16 @@ runner-test-matrix:
       - Nightly E2E Tests
       - Push E2E Core Tests
       - Workflow Dispatch E2E Core Tests
-    test_cmd: cd smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: |
+      cd smoke && \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestKeeperCheckPerformGasLimit$" -parallel=2 -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
+
 
   - id: smoke/keeper_test.go:^TestKeeperRegisterUpkeep$
     path: integration-tests/smoke/keeper_test.go
