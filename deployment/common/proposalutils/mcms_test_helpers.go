@@ -9,10 +9,12 @@ import (
 	"time"
 
 	aptosapi "github.com/aptos-labs/aptos-go-sdk/api"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -25,8 +27,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -297,7 +297,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 			executorsMap[op.ChainSelector] = mcmsevmsdk.NewTimelockExecutor(
 				evmChains[uint64(op.ChainSelector)].Client,
 				evmChains[uint64(op.ChainSelector)].DeployerKey)
-			callProxies[i] = findCallProxyAddress(t, env, uint64(op.ChainSelector))
+			callProxies[i] = findCallProxyAddress(t, env, uint64(op.ChainSelector), timelockProposal.TimelockAddresses[op.ChainSelector])
 
 		case chainsel.FamilySolana:
 			executorsMap[op.ChainSelector] = mcmssolanasdk.NewTimelockExecutor(
@@ -322,8 +322,10 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env cldf.Environment, timelockP
 		return err
 	}
 	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		t.Logf("[ExecuteMCMSTimelockProposalV2] Checking if proposal is ready...")
 		assert.NoErrorf(collect, isReady(), "Proposal is not ready")
-	}, 100*time.Second, 50*time.Millisecond)
+		t.Logf("[ExecuteMCMSTimelockProposalV2] Proposal is ready!")
+	}, 100*time.Second, 50*time.Millisecond, "timelock proposal not ready after 100s")
 
 	// execute each operation sequentially
 	var tx = mcmstypes.TransactionResult{}
@@ -381,17 +383,17 @@ func SingleGroupTimelockConfigV2(t *testing.T) commontypes.MCMSWithTimelockConfi
 	}
 }
 
-func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint64) string {
-	// Use merged addresses from both AddressBook and DataStore for backward compatibility
-	addressesForChain, err := state.AddressesForChain(env, chainSelector, "")
+func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint64, timelockAddr string) string {
+	timelock, err := bindings.NewRBACTimelock(common.HexToAddress(timelockAddr), env.BlockChains.EVMChains()[chainSelector].Client)
 	require.NoError(t, err)
-
-	for address, tvStr := range addressesForChain {
-		if tvStr.Type == commontypes.CallProxy && tvStr.Version == deployment.Version1_0_0 {
-			return address
-		}
-	}
-
-	require.FailNow(t, "unable to find call proxy address")
-	return ""
+	role, err := timelock.EXECUTORROLE(&bind.CallOpts{
+		Context: env.GetContext(),
+	})
+	require.NoError(t, err)
+	addr, err := timelock.GetRoleMember(&bind.CallOpts{
+		Context: env.GetContext(),
+	}, role, big.NewInt(0)) // just to ensure the role exists
+	require.NoError(t, err)
+	require.NotEqual(t, common.Address{}, addr, "executor role has no members; is the timelock initialized?")
+	return addr.Hex()
 }

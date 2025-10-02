@@ -76,7 +76,8 @@ func Apply(t *testing.T, e cldf.Environment, first ConfiguredChangeSet, rest ...
 }
 
 type applyChangesetOptions struct {
-	realBackend bool
+	realBackend                 bool
+	callProxyQualifiersPerChain map[uint64]string
 }
 
 type ApplyChangesetsOptions func(*applyChangesetOptions) *applyChangesetOptions

@@ -175,6 +175,7 @@ func (d *DeployerGroup) WithTimelockAddressQualifier(qualifier map[uint64]string
 			return nil, err
 		}
 	}
+	d.timelockAddressQualifier = qualifier
 	return d, nil
 }
 

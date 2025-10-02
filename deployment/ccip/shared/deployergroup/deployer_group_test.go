@@ -347,6 +347,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 		require.NoError(t, addressBookToDelete.Save(chain, addr, tv))
 	}
 	require.NoError(t, e.Env.ExistingAddresses.Remove(addressBookToDelete))
+	t.Logf("deleted %v addresses from addressbook", addressBookToDelete)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	contractsByChain := make(map[uint64][]common.Address)
@@ -380,7 +381,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	currentState, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	token := currentState.MustGetEVMChainState(e.HomeChainSel).LinkToken
+	token := currentState.MustGetEVMChainState(chain).LinkToken
 
 	amount, err := token.BalanceOf(nil, testCfg.address)
 	require.NoError(t, err)

@@ -134,6 +134,7 @@ func TransferToMCMSWithTimelockV2(
 		proposerAddr, _ := searchContractInBothSources(e, chainSelector, types.ProposerManyChainMultisig, qualifier)
 		timelockAddressByChain[chainSelector] = timelockAddr
 		proposerAddressByChain[chainSelector] = proposerAddr
+		e.Logger.Infof("timelock on chain %d is %s, proposer is %s", chainSelector, timelockAddr, proposerAddr)
 		inspectorPerChain[chainSelector] = evm.NewInspector(evmChains[chainSelector].Client)
 
 		seqReport, err := operations.ExecuteSequence(e.OperationsBundle, seqs.SeqTransferToMCMSWithTimelockV2,
