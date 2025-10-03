@@ -580,6 +580,10 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 				return err
 			}
 			tokenPoolFactoryAddr = tpfReport.Output.Address
+			err = ab.Save(chain.ChainSelector(), tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion))
+			if err != nil {
+				return fmt.Errorf("failed to save address %s for chain %d: %w", tpfReport.Output.Address.Hex(), chain.ChainSelector(), err)
+			}
 		} else {
 			lggr.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
 		}
