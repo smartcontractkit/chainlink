@@ -8,11 +8,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type RoundRobinKeyLocker interface {
@@ -90,7 +90,7 @@ func NewOCR2FeedsTransmitter(
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	ks RoundRobinKeyLocker,
-	dualTransmissionConfig *evmtypes.DualTransmissionConfig,
+	dualTransmissionConfig *config.DualTransmissionConfig,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
 	if ks == nil {

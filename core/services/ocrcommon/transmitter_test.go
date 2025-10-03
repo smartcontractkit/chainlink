@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -16,7 +17,6 @@ import (
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
@@ -171,7 +171,7 @@ func Test_DualTransmitter(t *testing.T) {
 	payload := []byte{1, 2, 3}
 	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
-	dualTransmissionConfig := &types.DualTransmissionConfig{
+	dualTransmissionConfig := &config.DualTransmissionConfig{
 		ContractAddress:    secondaryContractAddress,
 		TransmitterAddress: secondaryFromAddress,
 		Meta: map[string][]string{

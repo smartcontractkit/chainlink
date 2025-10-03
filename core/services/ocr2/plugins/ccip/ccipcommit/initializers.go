@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -40,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
@@ -306,11 +306,11 @@ func initCommitPriceGetter(
 				return nil, fmt.Errorf("get relay by id=%v: %w", relayID, err)
 			}
 
-			contractsConfig := make(map[string]evmrelaytypes.ChainContractReader, len(aggregatorContracts))
+			contractsConfig := make(map[string]config.ChainContractReader, len(aggregatorContracts))
 			for i := range aggregatorContracts {
-				contractsConfig[fmt.Sprintf("%v_%v", ccip.OffchainAggregator, i)] = evmrelaytypes.ChainContractReader{
+				contractsConfig[fmt.Sprintf("%v_%v", ccip.OffchainAggregator, i)] = config.ChainContractReader{
 					ContractABI: ccip.OffChainAggregatorABI,
-					Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+					Configs: map[string]*config.ChainReaderDefinition{
 						"decimals": { // CR consumers choose an alias
 							ChainSpecificName: "decimals",
 						},
@@ -320,7 +320,7 @@ func initCommitPriceGetter(
 					},
 				}
 			}
-			contractReaderConfig := evmrelaytypes.ChainReaderConfig{
+			contractReaderConfig := config.ChainReaderConfig{
 				Contracts: contractsConfig,
 			}
 
