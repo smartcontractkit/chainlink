@@ -153,7 +153,7 @@ func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { 
 func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
-	ds := newDataSource(lggr, reg, telem.NullTelemeter, false)
+	ds := newDataSource(lggr, reg, telem.NullTelemeter, nil)
 	ctx := testutils.Context(t)
 	opts := &mockOpts{}
 
@@ -282,13 +282,18 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("uses cached values when available", func(t *testing.T) {
-			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter,
+				NewCache(time.Millisecond*500, time.Minute))
 
 			// First observation to populate cache
-			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
-			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
+			reg.pipelines[10001] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
+			reg.pipelines[20001] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
 
-			vals := makeStreamValues()
+			vals := llo.StreamValues{
+				10001: nil,
+				20001: nil,
+				30001: nil,
+			}
 			key := make([]byte, 32)
 			_, err := rand.Read(key)
 			require.NoError(t, err)
@@ -299,40 +304,45 @@ func Test_DataSource(t *testing.T) {
 
 			// Verify initial values
 			assert.Equal(t, llo.StreamValues{
-				1: llo.ToDecimal(decimal.NewFromInt(2181)),
-				2: llo.ToDecimal(decimal.NewFromInt(40602)),
-				3: nil,
+				10001: llo.ToDecimal(decimal.NewFromInt(2181)),
+				20001: llo.ToDecimal(decimal.NewFromInt(40602)),
+				30001: nil,
 			}, vals)
 
 			// Change pipeline results
-			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(9999), nil)
-			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(8888), nil)
+			reg.pipelines[10001] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(9999), nil)
+			reg.pipelines[20001] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(8888), nil)
 
 			// Second observation should use cached values
-			vals = makeStreamValues()
+			vals = llo.StreamValues{
+				10001: nil,
+				20001: nil,
+				30001: nil,
+			}
 			err = ds.Observe(ctx, vals, opts2)
 			require.NoError(t, err)
 
 			// Should still have original values from cache
 			assert.Equal(t, llo.StreamValues{
-				1: llo.ToDecimal(decimal.NewFromInt(2181)),
-				2: llo.ToDecimal(decimal.NewFromInt(40602)),
-				3: nil,
+				10001: llo.ToDecimal(decimal.NewFromInt(2181)),
+				20001: llo.ToDecimal(decimal.NewFromInt(40602)),
+				30001: nil,
 			}, vals)
 
 			// Verify cache metrics
 			assert.InEpsilon(t, float64(1), testutil.ToFloat64(
-				promCacheHitCount.WithLabelValues(opts2.ConfigDigest().Hex(), "1")), 0.0001)
+				promCacheHitCount.WithLabelValues("10001")), 0.0001)
 			assert.InEpsilon(t, float64(1), testutil.ToFloat64(
-				promCacheHitCount.WithLabelValues(opts2.ConfigDigest().Hex(), "2")), 0.0001)
+				promCacheHitCount.WithLabelValues("20001")), 0.0001)
 			assert.InEpsilon(t, float64(1), testutil.ToFloat64(
-				promCacheMissCount.WithLabelValues(opts2.ConfigDigest().Hex(), "1", "notFound")), 0.0001)
+				promCacheMissCount.WithLabelValues("10001", "notFound")), 0.0001)
 			assert.InEpsilon(t, float64(1), testutil.ToFloat64(
-				promCacheMissCount.WithLabelValues(opts2.ConfigDigest().Hex(), "2", "notFound")), 0.0001)
+				promCacheMissCount.WithLabelValues("20001", "notFound")), 0.0001)
 		})
 
 		t.Run("refreshes cache after expiration", func(t *testing.T) {
-			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter,
+				NewCache(time.Millisecond*500, time.Minute))
 
 			// First observation
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
@@ -358,7 +368,8 @@ func Test_DataSource(t *testing.T) {
 
 		t.Run("handles concurrent cache access", func(t *testing.T) {
 			// Create a new data source
-			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter,
+				NewCache(time.Millisecond*500, time.Minute))
 
 			// Set up pipeline to return different values
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
@@ -389,7 +400,8 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("handles cache errors gracefully", func(t *testing.T) {
-			ds := newDataSource(lggr, reg, telem.NullTelemeter, true)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter,
+				NewCache(time.Millisecond*500, time.Minute))
 
 			// First observation with error
 			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, nil, errors.New("pipeline error"))
@@ -475,7 +487,7 @@ result3 -> result3_parse -> multiply3;
 		require.NoError(b, err)
 	}
 
-	ds := newDataSource(lggr, r, telem.NullTelemeter, false)
+	ds := newDataSource(lggr, r, telem.NullTelemeter, nil)
 	vals := make(map[llotypes.StreamID]llo.StreamValue)
 	for i := uint32(0); i < 4*n; i++ {
 		vals[i] = nil

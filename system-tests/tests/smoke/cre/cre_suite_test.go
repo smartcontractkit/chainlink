@@ -26,8 +26,7 @@ Inside `core/scripts/cre/environment` directory
  3. Stop and clear any existing environment: `go run . env stop -a`
  4. Run: `CTF_CONFIGS=<path-to-your-topology-config> go run . env start && ./bin/ctf obs up` to start env + observability
  5. Optionally run blockscout `./bin/ctf bs up`
- 6. Execute the tests in `system-tests/tests/smoke/cre` with CTF_CONFIG set to the corresponding topology file:
-    `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
+ 6. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
@@ -89,8 +88,7 @@ func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
 /*
 To execute tests with v2 contracts start the local CRE first:
  1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-beholder --with-contracts-version v2`
- 2. Execute the tests in `system-tests/tests/smoke/cre` with CTF_CONFIG set to the corresponding topology file:
-    `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
+ 2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
 func Test_CRE_V2_Suite(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
