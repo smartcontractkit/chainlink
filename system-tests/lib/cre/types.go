@@ -368,7 +368,7 @@ func (c *CreateJobsInput) Validate() error {
 type DebugInput struct {
 	DebugDons        []*DebugDon
 	BlockchainOutput *blockchain.Output
-	InfraInput       *infra.Input
+	InfraInput       *infra.Provider
 }
 
 type DebugDon struct {
@@ -466,28 +466,18 @@ type GatewayConnectorDons struct {
 	Handlers            map[string]string
 }
 type GatewayConnectorOutput struct {
-	Configurations []*GatewayConfiguration `toml:"configurations" json:"configurations"`
+	Configurations []*DonGatewayConfiguration `toml:"configurations" json:"configurations"`
 }
 
-type GatewayConfiguration struct {
-	Dons          []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
-	Outgoing      Outgoing               `toml:"outgoing" json:"outgoing"`
-	Incoming      Incoming               `toml:"incoming" json:"incoming"`
-	AuthGatewayID string                 `toml:"auth_gateway_id" json:"auth_gateway_id"`
+func NewGatewayConnectorOutput() *GatewayConnectorOutput {
+	return &GatewayConnectorOutput{
+		Configurations: make([]*DonGatewayConfiguration, 0),
+	}
 }
 
-type Outgoing struct {
-	Host string `toml:"host" json:"host"` // do not set, it will be set dynamically
-	Path string `toml:"path" json:"path"`
-	Port int    `toml:"port" json:"port"`
-}
-
-type Incoming struct {
-	Protocol     string `toml:"protocol" json:"protocol"` // do not set, it will be set dynamically
-	Host         string `toml:"host" json:"host"`         // do not set, it will be set dynamically
-	Path         string `toml:"path" json:"path"`
-	InternalPort int    `toml:"internal_port" json:"internal_port"`
-	ExternalPort int    `toml:"external_port" json:"external_port"`
+type DonGatewayConfiguration struct {
+	Dons []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
+	*GatewayConfiguration
 }
 
 type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs NodeIndexToConfigOverride) (NodeIndexToConfigOverride, error)
@@ -562,11 +552,257 @@ type DonMetadata struct {
 	ID              uint64          `toml:"id" json:"id"`
 	Name            string          `toml:"name" json:"name"`
 	SupportedChains []uint64        `toml:"supported_chains" json:"supported_chains"` // chain IDs that the DON supports, empty means all chains
+
+	ns CapabilitiesAwareNodeSet // computed field, not serialized
+}
+
+func NewDonMetadata(c *CapabilitiesAwareNodeSet, id uint64) *DonMetadata {
+	out := &DonMetadata{
+		ID:              id,
+		Flags:           c.Flags(),
+		NodesMetadata:   make([]*NodeMetadata, len(c.NodeSpecs)),
+		Name:            c.Name,
+		SupportedChains: c.SupportedChains,
+		ns:              *c,
+	}
+	return out
+}
+
+func (m *DonMetadata) labelNodes(infraInput infra.Provider) {
+	for i := range m.NodesMetadata {
+		nodeWithLabels := NodeMetadata{}
+		nodeType := WorkerNode
+		if m.ns.BootstrapNodeIndex != -1 && i == m.ns.BootstrapNodeIndex {
+			nodeType = BootstrapNode
+		}
+		nodeWithLabels.Labels = append(nodeWithLabels.Labels, &Label{
+			Key:   NodeTypeKey,
+			Value: nodeType,
+		})
+
+		nodeWithLabels.Labels = append(nodeWithLabels.Labels, &Label{
+			Key:   IndexKey,
+			Value: strconv.Itoa(i),
+		})
+
+		internalHost := infraInput.InternalHost(i, nodeType == BootstrapNode, m.Name)
+
+		nodeWithLabels.Labels = append(nodeWithLabels.Labels, &Label{
+			Key:   HostLabelKey,
+			Value: internalHost,
+		})
+		m.NodesMetadata[i] = &nodeWithLabels
+	}
+
+	if m.ContainsGatewayNode() {
+		i := m.ns.GatewayNodeIndex
+		m.NodesMetadata[i].Labels = append(m.NodesMetadata[i].Labels, &Label{
+			Key:   ExtraRolesKey,
+			Value: GatewayNode,
+		})
+	}
+}
+
+func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration, error) {
+	if m.ContainsGatewayNode() {
+		i := m.ns.GatewayNodeIndex
+		m.NodesMetadata[i].Labels = append(m.NodesMetadata[i].Labels, &Label{
+			Key:   ExtraRolesKey,
+			Value: GatewayNode,
+		})
+		isBootstrapNode := (m.ns.BootstrapNodeIndex != -1 && i == m.ns.BootstrapNodeIndex)
+		return &DonGatewayConfiguration{
+			Dons:                 make([]GatewayConnectorDons, 0),
+			GatewayConfiguration: NewGatewayConfig(p, i, isBootstrapNode, m.Name),
+		}, nil
+	}
+
+	return nil, errors.New("don does not have the gateway flag or gateway node index not set")
+}
+
+// Currently only one bootstrap node is supported.
+func (m *DonMetadata) GetBootstrapNode() (*NodeMetadata, error) {
+	if !m.ContainsBootstrapNode() {
+		return nil, errors.New("don does not contain a bootstrap node")
+	}
+	return m.NodesMetadata[m.ns.BootstrapNodeIndex], nil
+}
+
+func (m *DonMetadata) CapabilitiesAwareNodeSet() CapabilitiesAwareNodeSet {
+	return m.ns
 }
 
 func (m *DonMetadata) RequiresOCR() bool {
 	return slices.Contains(m.Flags, ConsensusCapability) || slices.Contains(m.Flags, ConsensusCapabilityV2) ||
 		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability)
+}
+
+func (m *DonMetadata) ContainsGatewayNode() bool {
+	return m.ns.GatewayNodeIndex != -1 // don't use flag here b/c may not be set
+}
+
+func (m *DonMetadata) ContainsBootstrapNode() bool {
+	return m.ns.BootstrapNodeIndex != -1 // don't use flag here b/c may not be set
+}
+
+func (m *DonMetadata) RequiresGateway() bool {
+	return slices.Contains(m.Flags, CustomComputeCapability) ||
+		slices.Contains(m.Flags, WebAPITriggerCapability) ||
+		slices.Contains(m.Flags, WebAPITargetCapability) ||
+		slices.Contains(m.Flags, VaultCapability) ||
+		slices.Contains(m.Flags, HTTPActionCapability) ||
+		slices.Contains(m.Flags, HTTPTriggerCapability)
+}
+
+func (m *DonMetadata) RequiresWebAPI() bool {
+	return slices.Contains(m.Flags, CustomComputeCapability) ||
+		slices.Contains(m.Flags, WebAPITriggerCapability) ||
+		slices.Contains(m.Flags, WebAPITargetCapability)
+}
+
+func (m *DonMetadata) IsWorkflowDON() bool {
+	// TODO enum type for DON types
+	return slices.Contains(m.ns.DONTypes, WorkflowDON)
+}
+
+type DonsMetadata struct {
+	dons  []*DonMetadata
+	infra infra.Provider
+}
+
+func NewDonsMetadata(dons []*DonMetadata, infra infra.Provider) (*DonsMetadata, error) {
+	if dons == nil {
+		dons = make([]*DonMetadata, 0)
+	}
+	out := &DonsMetadata{
+		dons:  dons,
+		infra: infra,
+	}
+	return out, out.validate()
+}
+
+func (m DonsMetadata) DonCount() int {
+	return len(m.dons)
+}
+
+func (m DonsMetadata) List() []*DonMetadata {
+	return m.dons
+}
+
+func (m DonsMetadata) validate() error {
+	if len(m.dons) == 0 {
+		return errors.New("at least one don is required")
+	}
+
+	if m.BootstrapNodeCount() == 0 {
+		return errors.New("at least one nodeSet must have a bootstrap node")
+	}
+
+	wfDon, err := m.GetWorkflowDON()
+	if err != nil {
+		return fmt.Errorf("failed to get workflow DON: %w", err)
+	}
+
+	if !wfDon.ContainsBootstrapNode() {
+		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
+	}
+
+	if m.GatewayRequired() && !m.GatewayEnabled() {
+		return errors.New("at least one DON requires gateway due to its capabilities, but no DON is configured with gateway")
+	}
+
+	return nil
+}
+
+func (m DonsMetadata) BootstrapNodeCount() int {
+	count := 0
+	for _, don := range m.dons {
+		if don.ContainsBootstrapNode() {
+			count++
+		}
+	}
+	return count
+}
+
+func (m DonsMetadata) FindByID(id uint64) (*DonMetadata, error) {
+	for _, don := range m.dons {
+		if don.ID == id {
+			return don, nil
+		}
+	}
+	return nil, fmt.Errorf("don with id %d not found", id)
+}
+
+func (m DonsMetadata) FindByName(name string) (*DonMetadata, error) {
+	for _, don := range m.dons {
+		if strings.EqualFold(don.Name, name) {
+			return don, nil
+		}
+	}
+	return nil, fmt.Errorf("don with name %s not found", name)
+}
+
+func (m DonsMetadata) FindByFlag(flag string) (*DonsMetadata, error) {
+	dons := make([]*DonMetadata, 0)
+	for _, don := range m.dons {
+		if slices.Contains(don.Flags, flag) {
+			dons = append(dons, don)
+		}
+	}
+	if len(dons) == 0 {
+		return nil, fmt.Errorf("no dons with flag %s found", flag)
+	}
+	return NewDonsMetadata(dons, m.infra)
+}
+
+func (m DonsMetadata) GetOneByFlag(flag string) (*DonMetadata, error) {
+	m2, err := m.FindByFlag(flag)
+	if err != nil {
+		return nil, err
+	}
+	if len(m2.dons) > 1 {
+		return nil, fmt.Errorf("multiple dons with flag %s found", flag)
+	}
+	return m2.dons[0], nil
+}
+
+// GetWorkflowDON returns the DON with the WorkflowDON flag. Returns an error if
+// there is not exactly one such DON. Currently, the WorkflowDON flag is required on exactly one DON.
+func (m DonsMetadata) GetWorkflowDON() (*DonMetadata, error) {
+	// don't use flag b/c may not be set
+	for _, don := range m.dons {
+		if don.IsWorkflowDON() {
+			return don, nil
+		}
+	}
+	return nil, fmt.Errorf("no dons with flag %s found", WorkflowDON)
+}
+
+func (m DonsMetadata) GatewayEnabled() bool {
+	for _, don := range m.dons {
+		if don.ContainsGatewayNode() {
+			return true
+		}
+	}
+	return false
+}
+
+func (m DonsMetadata) GetGatewayDON() (*DonMetadata, error) {
+	for _, don := range m.dons {
+		if don.ContainsGatewayNode() {
+			return don, nil
+		}
+	}
+	return nil, fmt.Errorf("no dons with flag %s found", GatewayDON)
+}
+
+func (m DonsMetadata) GatewayRequired() bool {
+	for _, don := range m.dons {
+		if don.RequiresGateway() {
+			return true
+		}
+	}
+	return false
 }
 
 type Label struct {
@@ -576,17 +812,13 @@ type Label struct {
 
 type NodeMetadata struct {
 	Labels []*Label `toml:"labels" json:"labels"`
+	// TODO use real types
+	Keys []string `toml:"keys" json:"keys"` //
+	P2P  string   `toml:"p2p" json:"p2p"`
+	Host string   `toml:"host" json:"host"`
 }
 
-type Topology struct {
-	WorkflowDONID           uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
-	HomeChainSelector       uint64                  `toml:"home_chain_selector" json:"home_chain_selector"`
-	DonsMetadata            []*DonMetadata          `toml:"dons_metadata" json:"dons_metadata"`
-	CapabilitiesPeeringData CapabilitiesPeeringData `toml:"capabilities_peering_data" json:"capabilities_peering_data"`
-	OCRPeeringData          OCRPeeringData          `toml:"ocr_peering_data" json:"ocr_peering_data"`
-	GatewayConnectorOutput  *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
-}
-
+// TODO make a constructor from Topology and find better names
 type DonTopology struct {
 	WorkflowDonID           uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
 	HomeChainSelector       uint64                  `toml:"home_chain_selector" json:"home_chain_selector"`
@@ -604,11 +836,13 @@ func (t *DonTopology) ToDonMetadata() []*DonMetadata {
 	return metadata
 }
 
+// CapabilitiesAwareNodeSet is the serialized form that declares nodesets in a topology.
 type CapabilitiesAwareNodeSet struct {
 	*ns.Input
-	Capabilities         []string          `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
-	DONTypes             []string          `toml:"don_types"`
-	SupportedChains      []uint64          `toml:"supported_chains"`     // chain IDs that the DON supports, empty means all chains
+	Capabilities    []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
+	DONTypes        []string `toml:"don_types"`
+	SupportedChains []uint64 `toml:"supported_chains"` // chain IDs that the DON supports, empty means all chains
+	// TODO separate out bootstrap as a concept rather than index
 	BootstrapNodeIndex   int               `toml:"bootstrap_node_index"` // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
 	GatewayNodeIndex     int               `toml:"gateway_node_index"`   // -1 -> no gateway, only used if the DON has the GatewayDON flag
 	EnvVars              map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
@@ -626,6 +860,12 @@ type CapabilitiesAwareNodeSet struct {
 	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
 	// Merged list of global and chain-specific capabilities. The latter ones are transformed to the format "capability-chainID", e.g. "evm-1337" for the evm capability on chain 1337.
 	ComputedCapabilities []string `toml:"computed_capabilities"`
+}
+
+func (c *CapabilitiesAwareNodeSet) Flags() []string {
+	var stringCaps []string
+
+	return append(stringCaps, append(c.ComputedCapabilities, c.DONTypes...)...)
 }
 
 type CapabilitiesPeeringData struct {
@@ -1005,7 +1245,7 @@ func (d *DeployCribBlockchainInput) Validate() error {
 }
 
 type StartNixShellInput struct {
-	InfraInput     *infra.Input
+	InfraInput     *infra.Provider
 	CribConfigsDir string
 	ExtraEnvVars   map[string]string
 	PurgeNamespace bool
@@ -1030,7 +1270,7 @@ type JobSpecInput struct {
 	CldEnvironment            *cldf.Environment
 	BlockchainOutput          *blockchain.Output
 	DonTopology               *DonTopology
-	InfraInput                infra.Input
+	InfraInput                infra.Provider
 	CapabilityConfigs         map[string]CapabilityConfig
 	Capabilities              []InstallableCapability
 	CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet

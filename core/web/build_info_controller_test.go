@@ -28,6 +28,7 @@ func TestBuildInfoController_Show_APICredentials(t *testing.T) {
 
 	require.Contains(t, strings.TrimSpace(body), "commitSHA")
 	require.Contains(t, strings.TrimSpace(body), "version")
+	require.Contains(t, strings.TrimSpace(body), "versionTag")
 }
 
 func TestBuildInfoController_Show_NoCredentials(t *testing.T) {

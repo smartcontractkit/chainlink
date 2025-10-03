@@ -111,7 +111,7 @@ type PreviousRampCfg struct {
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func UpdateNonceManagersChangeset(e cldf.Environment, cfg UpdateNonceManagerConf
 	if err := cfg.Validate(e); err != nil {
 		return output, err
 	}
-	s, err := stateview.LoadOnchainState(e)
+	s, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return output, fmt.Errorf("failed to load onchain state: %w", err)
 	}

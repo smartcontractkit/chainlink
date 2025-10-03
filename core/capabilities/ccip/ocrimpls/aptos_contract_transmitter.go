@@ -26,10 +26,10 @@ type AptosExecCallArgs struct {
 
 // AptosContractTransmitterFactory implements the transmitter factory for Aptos chains.
 type AptosContractTransmitterFactory struct {
-	extraDataCodec ccipocr3.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
-func NewAptosContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodec) *AptosContractTransmitterFactory {
+func NewAptosContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodecBundle) *AptosContractTransmitterFactory {
 	return &AptosContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -41,7 +41,7 @@ func NewAptosCommitCalldataFunc(commitMethod string) ToEd25519CalldataFunc {
 		rawReportCtx [2][32]byte,
 		report ocr3types.ReportWithInfo[[]byte],
 		signatures [][96]byte,
-		_ ccipocr3.ExtraDataCodec,
+		_ ccipocr3.ExtraDataCodecBundle,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,
@@ -77,7 +77,7 @@ var AptosExecCallDataFunc = func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
 	signatures [][96]byte,
-	_ ccipocr3.ExtraDataCodec,
+	_ ccipocr3.ExtraDataCodecBundle,
 ) (contract string, method string, args any, err error) {
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,

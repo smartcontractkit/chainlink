@@ -98,11 +98,6 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 			return ProposeGatewayJobOutput{}, err
 		}
 
-		spec, err := gj.Resolve()
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
-		}
-
 		nodes, err := pkg.FetchNodesFromJD(b.GetContext(), deps.Env, pkg.FetchNodesRequest{
 			Domain:  input.Domain,
 			Filters: input.DONFilters,
@@ -127,8 +122,13 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 		output := ProposeGatewayJobOutput{
 			Specs: make(map[string][]string),
 		}
-		for _, n := range nodes {
-			_, err := deps.Env.Offchain.ProposeJob(b.GetContext(), &jobv1.ProposeJobRequest{
+		for nodeIdx, n := range nodes {
+			spec, err := gj.Resolve(nodeIdx)
+			if err != nil {
+				return ProposeGatewayJobOutput{}, err
+			}
+
+			_, err = deps.Env.Offchain.ProposeJob(b.GetContext(), &jobv1.ProposeJobRequest{
 				NodeId: n.GetId(),
 				Spec:   spec,
 				Labels: labels,

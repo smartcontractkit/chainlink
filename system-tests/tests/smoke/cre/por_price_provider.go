@@ -22,9 +22,18 @@ import (
 var fakeProviderStarted sync.Once
 
 func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey string, expectedPrices map[string][]float64, priceIndexes map[string]*int) (string, error) {
+	// This sync.Once ensures that the fake data provider is only started once across all test runs.
+	// The fake data provider is a shared HTTP server that serves mock price data for testing.
+	// Starting it multiple times would cause port conflicts and test failures.
 	fakeProviderStarted.Do(func() {
+		// Log any errors that occur during startup - this is critical for debugging
+		// test failures related to the mock price provider not being available
 		_, err := fake.NewFakeDataProvider(input)
-		testLogger.Error().Err(err).Msg("Failed to start fake data provider")
+		if err != nil {
+			testLogger.Error().Err(err).Msg("Failed to start fake data provider")
+		} else {
+			testLogger.Info().Msg("Fake data provider started successfully")
+		}
 	})
 
 	fakeAPIPath := "/fake/api/price"

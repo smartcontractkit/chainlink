@@ -167,18 +167,17 @@ func addBootstrapNodeConfig(
 		},
 	}
 
-	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{"localhost:" + strconv.Itoa(capabilitiesPeeringData.Port)})
-	if capabilitiesBErr != nil {
-		return existingConfig, errors.Wrap(capabilitiesBErr, "failed to create capabilities peering bootstrapper locator")
-	}
-
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled:              ptr.Ptr(true),
-				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(capabilitiesPeeringData.Port)}),
-				DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*capabilitiesBootstrapperLocator}),
+				Enabled: ptr.Ptr(false),
 			},
+		},
+		SharedPeering: coretoml.SharedPeering{
+			Enabled: ptr.Ptr(true),
+		},
+		Dispatcher: coretoml.Dispatcher{
+			SendToSharedPeer: ptr.Ptr(true),
 		},
 	}
 
@@ -232,18 +231,17 @@ func addWorkerNodeConfig(
 		},
 	}
 
-	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{capabilitiesPeeringData.GlobalBootstraperHost + ":" + strconv.Itoa(capabilitiesPeeringData.Port)})
-	if capabilitiesBErr != nil {
-		return existingConfig, errors.Wrap(capabilitiesBErr, "failed to create capabilities peering bootstrapper locator")
-	}
-
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled:              ptr.Ptr(true),
-				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(capabilitiesPeeringData.Port)}),
-				DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*capabilitiesBootstrapperLocator}),
+				Enabled: ptr.Ptr(false),
 			},
+		},
+		SharedPeering: coretoml.SharedPeering{
+			Enabled: ptr.Ptr(true),
+		},
+		Dispatcher: coretoml.Dispatcher{
+			SendToSharedPeer: ptr.Ptr(true),
 		},
 	}
 

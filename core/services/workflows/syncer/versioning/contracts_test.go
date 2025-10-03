@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
 
 func TestContracts_TypeAndVersion(t *testing.T) {

@@ -5,9 +5,10 @@ go 1.24.5
 require (
 	github.com/ethereum/go-ethereum v1.16.2
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250917110014-65bff6568f77
-	github.com/smartcontractkit/cre-sdk-go v0.6.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.6.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.6.0
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250911124514-5874cc6d62b2
+	github.com/smartcontractkit/cre-sdk-go v0.8.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.8.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -33,7 +34,6 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250829155125-f4655b0b4605 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect

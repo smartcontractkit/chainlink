@@ -89,11 +89,6 @@
       [Billing]
       URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Capabilities.SharedPeering]
-      Enabled = true
-      [Capabilities.Dispatcher]
-      SendToSharedPeer = true
       """
 
 [[nodesets]]
@@ -150,11 +145,6 @@
       [Billing]
       URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Capabilities.SharedPeering]
-      Enabled = true
-      [Capabilities.Dispatcher]
-      SendToSharedPeer = true
       """
 
 [[nodesets]]
@@ -203,9 +193,4 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
-
-      [Capabilities.SharedPeering]
-      Enabled = true
-      [Capabilities.Dispatcher]
-      SendToSharedPeer = true
       """
