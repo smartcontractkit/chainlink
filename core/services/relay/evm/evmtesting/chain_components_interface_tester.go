@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive,staticcheck // dot-imports
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
