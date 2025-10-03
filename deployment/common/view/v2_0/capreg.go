@@ -90,7 +90,8 @@ func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type unpagniatedCapabilityRegistry interface { //nolint:staticcheck // U1000
+//nolint:staticcheck
+type unpagniatedCapabilityRegistry interface {
 	GetCapabilitiesSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryCapabilityInfo, error)
 	GetNodesSimple(opts *bind.CallOpts) ([]capabilities_registry.INodeInfoProviderNodeInfo, error)
 	GetNodeOperatorsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryNodeOperatorInfo, error)
@@ -502,14 +503,15 @@ func nodeNop(n NodeView, nops []NopView) (NopView, error) {
 	return NopView{}, fmt.Errorf("could not find nop for node %d", n.NodeOperatorID)
 }
 
-func p2pIDs(rawIds [][32]byte) []p2pkey.PeerID {
+func p2pIDs(rawIDs [][32]byte) []p2pkey.PeerID {
 	var out []p2pkey.PeerID
-	for _, id := range rawIds {
+	for _, id := range rawIDs {
 		out = append(out, p2pkey.PeerID(id))
 	}
 	return out
 }
 
+//nolint:staticcheck
 func hexIDs(ids [][32]byte) []string {
 	var out []string
 	for _, id := range ids {

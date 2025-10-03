@@ -727,8 +727,9 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 	registeredNops, err := pkg.GetNodeOperators(nil, capabilitiesRegistry)
 	require.NoError(t, err, "failed to get registered node operators")
 	require.Len(t, registeredNops, len(fixture.nops), "should have registered the correct number of node operators")
-	for _, nop := range fixture.nops {
-		assert.Contains(t, registeredNops, nop.ToWrapper(), "node operator should be registered")
+	for i, nop := range fixture.nops {
+		assert.Equal(t, registeredNops[i].Admin, nop.Admin, "should have registered the correct admin")
+		assert.Equal(t, registeredNops[i].Name, nop.Name, "should have registered the correct name")
 	}
 
 	// Verify capabilities

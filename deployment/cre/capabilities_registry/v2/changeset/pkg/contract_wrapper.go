@@ -9,6 +9,7 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
 
+// TODO: we have to support pagination eventually
 var (
 	MaxCapabilities = big.NewInt(128)
 	MaxDONs         = big.NewInt(32)
