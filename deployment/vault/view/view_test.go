@@ -1,30 +1,30 @@
 package view
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestVault_NoChains(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 0})
+	t.Parallel()
 
-	viewMarshaler, err := Vault(env, nil)
+	env, err := environment.New(t.Context())
+	require.NoError(t, err)
+
+	viewMarshaler, err := Vault(*env, nil)
 	require.NoError(t, err)
 	require.NotNil(t, viewMarshaler)
 
@@ -35,22 +35,22 @@ func TestVault_NoChains(t *testing.T) {
 }
 
 func TestGenerateVaultView_WithoutTimelock(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 1})
+	t.Parallel()
 
-	chainSelectors := getChainSelectors(env)
-	require.Len(t, chainSelectors, 1)
+	selectors := []uint64{chainselectors.TEST_90000001.Selector}
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, selectors),
+	)
+	require.NoError(t, err)
 
-	env.DataStore = datastore.NewMemoryDataStore().Seal()
-
-	view, err := GenerateVaultView(env, chainSelectors)
+	view, err := GenerateVaultView(*env, selectors)
 	require.NoError(t, err)
 	require.NotNil(t, view)
 
 	require.Empty(t, view.TimelockBalances)
 
-	require.Len(t, view.WhitelistedAddresses, len(chainSelectors))
-	for _, sel := range chainSelectors {
+	require.Len(t, view.WhitelistedAddresses, len(selectors))
+	for _, sel := range selectors {
 		require.Empty(t, view.WhitelistedAddresses[sel])
 	}
 
@@ -58,16 +58,18 @@ func TestGenerateVaultView_WithoutTimelock(t *testing.T) {
 }
 
 func TestGenerateVaultView_WithMCMSAndWhitelist(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 2})
+	t.Parallel()
 
-	chainSelectors := getChainSelectors(env)
-	require.Len(t, chainSelectors, 2)
+	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, selectors),
+	))
+	require.NoError(t, err)
 
-	env = setupMCMS(t, env, chainSelectors)
+	setupMCMS(t, rt, selectors)
 
 	whitelistByChain := map[uint64][]types.WhitelistAddress{}
-	for i, sel := range chainSelectors {
+	for i, sel := range selectors {
 		addr := common.HexToAddress("0x1111111111111111111111111111111111111111")
 		if i == 1 {
 			addr = common.HexToAddress("0x2222222222222222222222222222222222222222")
@@ -78,49 +80,42 @@ func TestGenerateVaultView_WithMCMSAndWhitelist(t *testing.T) {
 			Labels:      []string{"test"},
 		}}
 	}
-	output, err := changeset.SetWhitelistChangeset.Apply(env, types.SetWhitelistConfig{WhitelistByChain: whitelistByChain})
-	require.NoError(t, err)
-	require.NotNil(t, output.DataStore)
-	env.DataStore = output.DataStore.Seal()
 
-	view, err := GenerateVaultView(env, chainSelectors)
+	err = rt.Exec(
+		runtime.ChangesetTask(
+			changeset.SetWhitelistChangeset,
+			types.SetWhitelistConfig{WhitelistByChain: whitelistByChain},
+		),
+	)
+	require.NoError(t, err)
+
+	view, err := GenerateVaultView(rt.Environment(), selectors)
 	require.NoError(t, err)
 	require.NotNil(t, view)
 
-	require.Len(t, view.TimelockBalances, len(chainSelectors))
-	require.Len(t, view.WhitelistedAddresses, len(chainSelectors))
-	for _, sel := range chainSelectors {
+	require.Len(t, view.TimelockBalances, len(selectors))
+	require.Len(t, view.WhitelistedAddresses, len(selectors))
+	for _, sel := range selectors {
 		entries := view.WhitelistedAddresses[sel]
 		require.Len(t, entries, 1)
 		require.Equal(t, whitelistByChain[sel][0].Address, entries[0].Address)
 	}
-	require.Len(t, view.MCMSWithTimelock, len(chainSelectors))
+	require.Len(t, view.MCMSWithTimelock, len(selectors))
 }
 
-func setupMCMS(t *testing.T, env cldf.Environment, chainSelectors []uint64) cldf.Environment {
+func setupMCMS(t *testing.T, rt *runtime.Runtime, chainSelectors []uint64) {
 	t.Helper()
+
 	timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, sel := range chainSelectors {
 		timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
 	}
 
-	updatedEnv, err := commonchangeset.Apply(t, env,
-		commonchangeset.Configure(
+	err := rt.Exec(
+		runtime.ChangesetTask(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			timelockCfgs,
 		),
 	)
 	require.NoError(t, err)
-	return updatedEnv
-}
-
-func getChainSelectors(env cldf.Environment) []uint64 {
-	selectors := make([]uint64, 0)
-	for sel := range env.BlockChains.EVMChains() {
-		selectors = append(selectors, sel)
-	}
-	sort.Slice(selectors, func(i, j int) bool {
-		return selectors[i] < selectors[j]
-	})
-	return selectors
 }
