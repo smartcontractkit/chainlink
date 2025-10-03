@@ -73,7 +73,7 @@ type SetupInput struct {
 	CapabilityConfigs         cre.CapabilityConfigs
 	CopyCapabilityBinaries    bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
 	Capabilities              []cre.InstallableCapability
-	BlockchainDeployers       map[blockchains.ChainFamily]blockchains.Deployer
+	BlockchainDeployers       map[blockchain.ChainFamily]blockchains.Deployer
 
 	// Deprecated: use Capabilities []cre.InstallableCapability instead
 	ConfigFactoryFunctions []cre.NodeConfigTransformerFn
@@ -138,7 +138,7 @@ func SetupTestEnvironment(
 		func() context.Context { return ctx },
 		singleFileLogger, operations.NewMemoryReporter()),
 		StartBlockchainsOp,
-		StartBlockchainsOpDeps{Deployers: input.BlockchainDeployers},
+		StartBlockchainsOpDeps{Deployers: input.BlockchainDeployers, CommonLogger: singleFileLogger},
 		StartBlockchainsOpInput{Inputs: input.BlockchainsInput})
 
 	if startErr != nil {
@@ -521,7 +521,7 @@ func newCreEnvironment(registryChainSelector uint64, cldfEnv *cldf.Environment, 
 	}
 }
 
-func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains map[uint64]cldf_chain.BlockChain, opBundle operations.Bundle) *cldf.Environment {
+func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains, opBundle operations.Bundle) *cldf.Environment {
 	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
 		Name:              "local CRE",
@@ -531,7 +531,7 @@ func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cld
 		GetContext: func() context.Context {
 			return ctx
 		},
-		BlockChains:      cldf_chain.NewBlockChains(cldfBlockchains),
+		BlockChains:      cldfBlockchains,
 		OCRSecrets:       focr.XXXGenerateTestOCRSecrets(),
 		OperationsBundle: opBundle,
 	}

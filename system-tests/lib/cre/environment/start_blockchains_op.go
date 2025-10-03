@@ -3,13 +3,15 @@ package environment
 import (
 	"github.com/Masterminds/semver/v3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )
 
 type StartBlockchainsOpDeps struct {
-	Deployers map[blockchains.ChainFamily]blockchains.Deployer
+	CommonLogger logger.Logger
+	Deployers    map[blockchain.ChainFamily]blockchains.Deployer
 }
 
 type StartBlockchainsOpInput struct {
@@ -27,6 +29,7 @@ var StartBlockchainsOp = operations.NewOperation(
 	"Starts blockchains using provided deployers and returns their outputs",
 	func(b operations.Bundle, deps StartBlockchainsOpDeps, input StartBlockchainsOpInput) (StartBlockchainsOpOutput, error) {
 		output, err := blockchains.Start(
+			deps.CommonLogger,
 			input.Inputs,
 			deps.Deployers,
 		)

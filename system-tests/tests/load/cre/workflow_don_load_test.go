@@ -129,7 +129,6 @@ func setupLoadTestEnvironment(
 	jobSpecFactoryFns []cretypes.JobSpecFn,
 	workflowJobsFn cretypes.JobSpecFn,
 ) *loadTestSetupOutput {
-	singleFileLogger := cldlogger.NewSingleFileLogger(t)
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
@@ -138,9 +137,10 @@ func setupLoadTestEnvironment(
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
-		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(singleFileLogger, testLogger, in.Infra),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
+	singleFileLogger := cldlogger.NewSingleFileLogger(t)
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput, relativePathToRepoRoot)
 	require.NoError(t, setupErr, "failed to setup test environment")
 

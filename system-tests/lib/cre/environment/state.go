@@ -12,6 +12,7 @@ import (
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -42,18 +43,18 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.New("environment artifact cannot be nil")
 	}
 
-	var blockchainDeployers map[blockchains.ChainFamily]blockchains.Deployer
+	var blockchainDeployers map[blockchain.ChainFamily]blockchains.Deployer
 	if cachedInput.Infra.IsDocker() {
-		blockchainDeployers = docker_blockchains.NewDeployerSet(cldLogger)
+		blockchainDeployers = docker_blockchains.NewDeployerSet()
 	} else {
-		blockchainDeployers = k8s_blockchains.NewDeployerSet(cldLogger, framework.L, cachedInput.Infra.CRIB.Namespace, CribConfigsDir)
+		blockchainDeployers = k8s_blockchains.NewDeployerSet(framework.L, cachedInput.Infra.CRIB.Namespace, CribConfigsDir)
 	}
 
 	startBcOut, startErr := operations.ExecuteOperation(operations.NewBundle(
 		func() context.Context { return ctx },
 		cldLogger, operations.NewMemoryReporter()),
 		StartBlockchainsOp,
-		StartBlockchainsOpDeps{Deployers: blockchainDeployers},
+		StartBlockchainsOpDeps{Deployers: blockchainDeployers, CommonLogger: cldLogger},
 		StartBlockchainsOpInput{Inputs: cachedInput.Blockchains})
 
 	if startErr != nil {

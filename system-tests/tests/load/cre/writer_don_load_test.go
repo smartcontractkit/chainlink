@@ -84,7 +84,6 @@ func setupLoadTestWriterEnvironment(
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
-	singleFileLogger := cldlogger.NewSingleFileLogger(t)
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
@@ -92,10 +91,10 @@ func setupLoadTestWriterEnvironment(
 		JdInput:                              in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
-		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(singleFileLogger, testLogger, in.Infra),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput, relativePathToRepoRoot)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), &universalSetupInput, relativePathToRepoRoot)
 	require.NoError(t, setupErr, "failed to setup test environment")
 	// Set inputs in the test config, so that they can be saved
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}

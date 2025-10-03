@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -15,24 +14,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )
 
-type SolanaDeployer struct {
-	commonLogger logger.Logger
-}
+type SolanaDeployer struct{}
 
-func NewSolanaDeployer(commonLogger logger.Logger) *SolanaDeployer {
-	return &SolanaDeployer{
-		commonLogger: commonLogger,
-	}
-}
-
-func (s *SolanaDeployer) Deploy(input *blockchain.Input) (*creblockchains.DeployedBLockchain, error) {
+func (s *SolanaDeployer) Deploy(input *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
 	err := initSolanaInput(input)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to init Solana input")
@@ -43,27 +33,7 @@ func (s *SolanaDeployer) Deploy(input *blockchain.Input) (*creblockchains.Deploy
 		return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)
 	}
 
-	w, wrapErr := creblockchains.WrapSolana(input, bcOut)
-	if wrapErr != nil {
-		return nil, pkgerrors.Wrap(wrapErr, "failed to wrap Solana")
-	}
-
-	chainsConfigs := make([]devenv.ChainConfig, 0)
-	cfg, cfgErr := cre.ChainConfigFromWrapped(w)
-	if cfgErr != nil {
-		return nil, pkgerrors.Wrap(cfgErr, "failed to wrap blockchain output to chain config")
-	}
-	chainsConfigs = append(chainsConfigs, cfg)
-
-	cldfBlockchain, err := devenv.NewChains(s.commonLogger, chainsConfigs)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create chains")
-	}
-
-	return &creblockchains.DeployedBLockchain{
-		CldfBlockchain: maps.Collect(cldfBlockchain.All())[w.ChainSelector],
-		Blockchain:     w,
-	}, nil
+	return creblockchains.WrapSolana(input, bcOut)
 }
 
 var once = &sync.Once{}

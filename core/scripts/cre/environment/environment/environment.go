@@ -634,7 +634,7 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
-		BlockchainDeployers:       blockchains_sets.NewDeployerSet(singleFileLogger, testLogger, in.Infra),
+		BlockchainDeployers:       blockchains_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

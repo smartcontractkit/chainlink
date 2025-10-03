@@ -15,6 +15,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 
@@ -22,43 +23,17 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
 type Deployer interface {
-	Deploy(input *blockchain.Input) (*DeployedBLockchain, error)
-}
-
-type DeployedBLockchain struct {
-	CldfBlockchain chain.BlockChain
-	Blockchain     *cre.WrappedBlockchainOutput
-}
-
-type ChainFamily string
-
-// TODO move to the CTF
-func typeToFamily(t string) (ChainFamily, error) {
-	switch t {
-	case blockchain.TypeAnvil, blockchain.TypeGeth, blockchain.TypeBesu, blockchain.TypeAnvilZKSync:
-		return ChainFamily(blockchain.FamilyEVM), nil
-	case blockchain.TypeSolana:
-		return ChainFamily(blockchain.FamilySolana), nil
-	case blockchain.TypeAptos:
-		return ChainFamily(blockchain.FamilyAptos), nil
-	case blockchain.TypeSui:
-		return ChainFamily(blockchain.FamilySui), nil
-	case blockchain.TypeTron:
-		return ChainFamily(blockchain.FamilyTron), nil
-	case blockchain.TypeTon:
-		return ChainFamily(blockchain.FamilyTon), nil
-	default:
-		return "", fmt.Errorf("blockchain type is not supported or empty: %s", t)
-	}
+	Deploy(input *blockchain.Input) (*cre.WrappedBlockchainOutput, error)
 }
 
 type DeployedBlockchains struct {
 	Outputs         []*cre.WrappedBlockchainOutput
-	CldfBlockChains map[uint64]chain.BlockChain
+	CldfBlockChains chain.BlockChains
 }
 
 func (s *DeployedBlockchains) RegistryChain() *cre.WrappedBlockchainOutput {
@@ -66,13 +41,14 @@ func (s *DeployedBlockchains) RegistryChain() *cre.WrappedBlockchainOutput {
 }
 
 func Start(
+	commonLogger logger.Logger,
 	inputs []*blockchain.Input,
-	deployers map[ChainFamily]Deployer,
+	deployers map[blockchain.ChainFamily]Deployer,
 ) (*DeployedBlockchains, error) {
-	deployedBlockchains := make([]*DeployedBLockchain, 0, len(inputs))
+	outputs := make([]*cre.WrappedBlockchainOutput, 0, len(inputs))
 
 	for _, input := range inputs {
-		chainFamily, chErr := typeToFamily(input.Type)
+		chainFamily, chErr := blockchain.TypeToFamily(input.Type)
 		if chErr != nil {
 			return nil, chErr
 		}
@@ -87,16 +63,21 @@ func Start(
 			return nil, pkgerrors.Wrapf(deployErr, "failed to deploy blockchain of type %s", input.Type)
 		}
 
-		deployedBlockchains = append(deployedBlockchains, deployedBlockchain)
+		outputs = append(outputs, deployedBlockchain)
 	}
 
-	outputs := make([]*cre.WrappedBlockchainOutput, 0, len(deployedBlockchains))
-	for _, db := range deployedBlockchains {
-		outputs = append(outputs, db.Blockchain)
+	chainsConfigs := make([]devenv.ChainConfig, 0, len(outputs))
+	for _, db := range outputs {
+		cfg, cfgErr := cre.ChainConfigFromWrapped(db)
+		if cfgErr != nil {
+			return nil, pkgerrors.Wrap(cfgErr, "failed to wrap blockchain output to chain config")
+		}
+		chainsConfigs = append(chainsConfigs, cfg)
 	}
-	cldfBlockchains := make(map[uint64]chain.BlockChain)
-	for _, db := range deployedBlockchains {
-		cldfBlockchains[db.Blockchain.ChainSelector] = db.CldfBlockchain
+
+	cldfBlockchains, err := devenv.NewChains(commonLogger, chainsConfigs)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to create chains")
 	}
 
 	return &DeployedBlockchains{
