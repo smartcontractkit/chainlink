@@ -1277,6 +1277,7 @@ func newCREServices(
 	}, nil
 }
 
+/*
 func getLegacyChains(lggr logger.Logger, relayerChainInterops *CoreRelayerChainInteroperators) map[protocol.ChainSelector]legacyevm.Chain {
 	chains := make(map[protocol.ChainSelector]legacyevm.Chain)
 	for _, c := range relayerChainInterops.LegacyEVMChains().Slice() {
@@ -1303,6 +1304,7 @@ func getLegacyChains(lggr logger.Logger, relayerChainInterops *CoreRelayerChainI
 	}
 	return chains
 }
+*/
 
 type CCVServices struct {
 	// Verifier
@@ -1312,6 +1314,7 @@ type CCVServices struct {
 	srvs []services.ServiceCtx
 }
 
+/*
 var hardCodedCCVConfig = evm.CCVConfig{
 	IndexerAddress:             "0xTODO",
 	CommitteeAggregatorAddress: "0xTODO",
@@ -1329,6 +1332,7 @@ var hardCodedCCVConfig = evm.CCVConfig{
 		},
 	},
 }
+*/
 
 func newCCVServices(
 	ctx context.Context,
@@ -1341,9 +1345,9 @@ func newCCVServices(
 
 	// TODO: move config from hardCodedCCVConfig into general config.
 
-	legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
-
 	/*
+		legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
+
 		go evm.StartCCVComitteeVerifier(
 			ctx,
 			globalLogger.With("service", "Verifier"),
@@ -1602,7 +1606,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),
