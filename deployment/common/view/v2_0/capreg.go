@@ -90,7 +90,7 @@ func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type unpagniatedCapabilityRegistry interface { //nolint:unused
+type unpagniatedCapabilityRegistry interface { //nolint:unused will be used later on
 	GetCapabilitiesSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryCapabilityInfo, error)
 	GetNodesSimple(opts *bind.CallOpts) ([]capabilities_registry.INodeInfoProviderNodeInfo, error)
 	GetNodeOperatorsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryNodeOperatorInfo, error)
@@ -510,7 +510,7 @@ func p2pIDs(rawIDs [][32]byte) []p2pkey.PeerID {
 	return out
 }
 
-func hexIDs(ids [][32]byte) []string { //nolint:unused
+func hexIDs(ids [][32]byte) []string { //nolint:unused will be used later on
 	var out []string
 	for _, id := range ids {
 		out = append(out, hex.EncodeToString(id[:]))
