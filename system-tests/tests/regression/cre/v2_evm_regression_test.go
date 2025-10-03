@@ -50,7 +50,7 @@ const (
 	writeReportCorruptReceiverAddress          = "WriteReport - corrupt receiver address"
 	expectedWriteReportCorruptReceiverAddress  = "failed to execute capability: received address is not 20 bytes long"
 	writeReportInvalidGas                      = "WriteReport - invalid gas"
-	expectedWriteReportInvalidGas              = "failed to submit transaction"
+	expectedWriteReportInvalidGas              = "failed to execute capability"
 	writeReportRandomTimestamps                = "WriteReport - random timestamps"
 )
 
