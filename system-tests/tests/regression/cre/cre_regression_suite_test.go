@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/quarantine"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 
@@ -25,11 +23,22 @@ Inside `core/scripts/cre/environment` directory
  3. Stop and clear any existing environment: `go run . env stop -a`
  4. Run: `CTF_CONFIGS=<path-to-your-topology-config> go run . env start && ./bin/ctf obs up` to start env + observability
  5. Optionally run blockscout `./bin/ctf bs up`
- 6. Execute the tests in `system-tests/tests/smoke/cre` with CTF_CONFIG set to the corresponding topology file:
-    `export  CTF_CONFIGS=../../../../core/scripts/cre/environment/configs/<topology>.toml; go test -timeout 15m -run ^Test_CRE_Suite$`.
+ 6. Execute the tests in `system-tests/tests/regression/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
 */
+func Test_CRE_V2_Consensus_Regression(t *testing.T) {
+	// a template for Consensus negative tests names to avoid duplication
+	const consensusTestNameTemplate = "[v2] Consensus.%s fails with %s" // e.g. "[v2] Consensus.<Function> fails with <invalid input>"
+
+	for _, tCase := range consensusNegativeTestsGenerateReport {
+		testName := fmt.Sprintf(consensusTestNameTemplate, tCase.caseToTrigger, tCase.name)
+		t.Run(testName, func(t *testing.T) {
+			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
+			ConsensusFailsTest(t, testEnv, tCase)
+		})
+	}
+}
+
 func Test_CRE_V2_Cron_Regression(t *testing.T) {
-	quarantine.Flaky(t, "DX-1929")
 	for _, tCase := range cronInvalidSchedulesTests {
 		testName := "[v2] Cron (Beholder) fails when schedule is " + tCase.name
 		t.Run(testName, func(t *testing.T) {
@@ -41,8 +50,7 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_HTTP_Regression(t *testing.T) {
-	flags := []string{"--with-contracts-version", "v2"}
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), flags...)
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 	for _, tCase := range httpNegativeTests {
 		testName := "[v2] HTTP Trigger fails with " + tCase.name
@@ -77,7 +85,6 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 }
 
 func Test_CRE_V2_EVM_BalanceAt_Invalid_Address_Regression(t *testing.T) {
-	quarantine.Flaky(t, "DX-1938")
 	runEVMNegativeTestSuite(t, evmNegativeTestsBalanceAtInvalidAddress)
 }
 
@@ -86,12 +93,10 @@ func Test_CRE_V2_EVM_CallContract_Invalid_Addr_To_Read_Regression(t *testing.T) 
 }
 
 func Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression(t *testing.T) {
-	quarantine.Flaky(t, "DX-1926")
 	runEVMNegativeTestSuite(t, evmNegativeTestsCallContractInvalidBalanceReaderContract)
 }
 
 func Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression(t *testing.T) {
-	quarantine.Flaky(t, "DX-1927")
 	runEVMNegativeTestSuite(t, evmNegativeTestsEstimateGasInvalidToAddress)
 }
 
@@ -100,12 +105,10 @@ func Test_CRE_V2_EVM_FilterLogs_Invalid_Addresses_Regression(t *testing.T) {
 }
 
 func Test_CRE_V2_EVM_FilterLogs_Invalid_FromBlock_Regression(t *testing.T) {
-	quarantine.Flaky(t, "DX-1928")
 	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidFromBlock)
 }
 
 func Test_CRE_V2_EVM_FilterLogs_Invalid_ToBlock_Regression(t *testing.T) {
-	quarantine.Flaky(t, "DX-1921")
 	runEVMNegativeTestSuite(t, evmNegativeTestsFilterLogsWithInvalidToBlock)
 }
 

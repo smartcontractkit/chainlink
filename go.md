@@ -379,11 +379,14 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/consensus --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/regression/cre/consensus href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/evm/evmread-negative --> chainlink-evm/gethwrappers
 	chainlink/system-tests/tests/regression/cre/evm/evmread-negative --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/regression/cre/evm/evmread-negative --> cre-sdk-go/capabilities/scheduler/cron
@@ -458,6 +461,7 @@ flowchart LR
 		 chainlink/load-tests
 		 chainlink/system-tests/lib
 		 chainlink/system-tests/tests
+		 chainlink/system-tests/tests/regression/cre/consensus
 		 chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 		 chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
 		 chainlink/system-tests/tests/regression/cre/http
