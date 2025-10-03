@@ -607,6 +607,12 @@ func updateAuthorizedAddressV2(
 	signature[64] += 27
 
 	_, err = wfRegC.LinkOwner(th.ContractsOwner, validityTimestamp, proof, signature)
+	if err != nil {
+		// If the error is due to a revert, decode it to get the actual error message
+		v, err2 := HandleRevertData(err)
+		err3 := DecodeErr(workflow_registry_wrapper_v2.WorkflowRegistryABI, err)
+		assert.Failf(t, "failed to link owner", "decoded3: %v, decoded error: %v, data: %v, %x %s, original error: %v", err3, err2, v, v, v, err)
+	}
 	require.NoError(t, err)
 
 	th.Backend.Commit()
