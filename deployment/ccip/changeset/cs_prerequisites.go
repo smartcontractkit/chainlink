@@ -607,7 +607,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			lggr.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
 		}
 
-		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err :=
+		var err error
+		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err =
 			deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
 				factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
 		if err != nil {
