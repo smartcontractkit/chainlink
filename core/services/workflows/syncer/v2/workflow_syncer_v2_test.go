@@ -568,7 +568,7 @@ func updateAuthorizedAddressV2(
 	require.True(t, isAllowed)
 
 	requestTypeLink := uint8(0)
-	typeAndVersion := "WorkflowRegistry 2.0.0-dev"
+	typeAndVersion := "WorkflowRegistry 2.0.0"
 	chainID, err := th.Backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
 	linkContract := wfRegC.Address()
