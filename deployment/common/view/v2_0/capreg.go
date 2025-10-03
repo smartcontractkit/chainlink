@@ -1,4 +1,4 @@
-package v1_0
+package v2_0
 
 import (
 	"encoding/hex"
@@ -8,9 +8,10 @@ import (
 	"math/big"
 	"slices"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -89,13 +90,53 @@ func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type unpagniatedCapabilityRegistry interface {
+	GetCapabilitiesSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryCapabilityInfo, error)
+	GetNodesSimple(opts *bind.CallOpts) ([]capabilities_registry.INodeInfoProviderNodeInfo, error)
+	GetNodeOperatorsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryNodeOperatorInfo, error)
+	GetDONsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryDONInfo, error)
+}
+
+var (
+	MaxCapabilities = big.NewInt(128)
+	MaxDONs         = big.NewInt(32)
+	MaxNodes        = big.NewInt(256)
+	MaxNOPs         = big.NewInt(128)
+)
+
+type extendedCapabilityRegistry struct {
+	*capabilities_registry.CapabilitiesRegistry
+}
+
+var _ unpagniatedCapabilityRegistry = (*extendedCapabilityRegistry)(nil)
+
+// implements unpagniatedCapabilityRegistry
+func (e *extendedCapabilityRegistry) GetCapabilitiesSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryCapabilityInfo, error) {
+	return e.GetCapabilities(opts, big.NewInt(0), MaxCapabilities)
+}
+
+// implements unpagniatedCapabilityRegistry
+func (e *extendedCapabilityRegistry) GetNodesSimple(opts *bind.CallOpts) ([]capabilities_registry.INodeInfoProviderNodeInfo, error) {
+	return e.GetNodes(opts, big.NewInt(0), MaxNodes)
+}
+
+// implements unpagniatedCapabilityRegistry
+func (e *extendedCapabilityRegistry) GetNodeOperatorsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryNodeOperatorInfo, error) {
+	return e.GetNodeOperators(opts, big.NewInt(0), MaxNOPs)
+}
+
+// implements unpagniatedCapabilityRegistry
+func (e *extendedCapabilityRegistry) GetDONsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryDONInfo, error) {
+	return e.GetDONs(opts, big.NewInt(0), MaxDONs)
+}
+
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
-func GenerateCapabilityRegistryView(capReg *capabilities_registry.CapabilitiesRegistry) (CapabilityRegistryView, error) {
+func GenerateCapabilityRegistryView(capReg *extendedCapabilityRegistry) (CapabilityRegistryView, error) {
 	tv, err := types.NewContractMetaData(capReg, capReg.Address())
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
-	caps, err := capReg.GetCapabilities(nil)
+	caps, err := capReg.GetCapabilitiesSimple(nil)
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
@@ -103,7 +144,7 @@ func GenerateCapabilityRegistryView(capReg *capabilities_registry.CapabilitiesRe
 	for _, capability := range caps {
 		capViews = append(capViews, NewCapabilityView(capability))
 	}
-	donInfos, err := capReg.GetDONs(nil)
+	donInfos, err := capReg.GetDONsSimple(nil)
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
@@ -112,7 +153,7 @@ func GenerateCapabilityRegistryView(capReg *capabilities_registry.CapabilitiesRe
 		donViews = append(donViews, NewDonView(donInfo))
 	}
 
-	nodeInfos, err := capReg.GetNodes(nil)
+	nodeInfos, err := capReg.GetNodesSimple(nil)
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
@@ -121,7 +162,7 @@ func GenerateCapabilityRegistryView(capReg *capabilities_registry.CapabilitiesRe
 		nodeViews = append(nodeViews, NewNodeView(nodeInfo))
 	}
 
-	nopInfos, err := capReg.GetNodeOperators(nil)
+	nopInfos, err := capReg.GetNodeOperatorsSimple(nil)
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
@@ -183,26 +224,24 @@ func (v *CapabilityRegistryView) NodesToNodesParams() ([]capabilities_registry.C
 	for _, node := range v.Nodes {
 		signer, err := hexTo32Bytes(node.Signer)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode signer: %w", err)
 		}
 		encryptionPubKey, err := hexTo32Bytes(node.EncryptionPublicKey)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode encryption public key: %w", err)
 		}
-		capIDs := make([][32]byte, len(node.CapabilityIDs))
-		for i, id := range node.CapabilityIDs {
-			cid, err := hexTo32Bytes(id)
-			if err != nil {
-				return nil, err
-			}
-			capIDs[i] = cid
+		csaKey, err := hexTo32Bytes(node.CSAKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode csa key: %w", err)
 		}
+
 		nodesParams = append(nodesParams, capabilities_registry.CapabilitiesRegistryNodeParams{
 			Signer:              signer,
-			P2pId:               node.P2pId,
+			P2pId:               node.P2pID,
 			EncryptionPublicKey: encryptionPubKey,
+			CsaKey:              csaKey,
 			NodeOperatorId:      node.NodeOperatorID,
-			HashedCapabilityIds: capIDs,
+			CapabilityIds:       node.CapabilityIDs,
 		})
 	}
 
@@ -212,21 +251,19 @@ func (v *CapabilityRegistryView) NodesToNodesParams() ([]capabilities_registry.C
 func (v *CapabilityRegistryView) CapabilitiesToCapabilitiesParams() []capabilities_registry.CapabilitiesRegistryCapability {
 	var capabilitiesParams []capabilities_registry.CapabilitiesRegistryCapability
 	for _, capability := range v.Capabilities {
+		// TODO decode the metadata from proto to json
 		capabilitiesParams = append(capabilitiesParams, capabilities_registry.CapabilitiesRegistryCapability{
-			LabelledName:          capability.LabelledName,
-			Version:               capability.Version,
-			CapabilityType:        capability.CapabilityType,
-			ResponseType:          capability.ResponseType,
+			CapabilityId:          capability.ID,
 			ConfigurationContract: capability.ConfigurationContract,
 		})
 	}
 	return capabilitiesParams
 }
 
-func (v *CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.CapabilitiesRegistryNodeOperator {
-	var nopsParams []capabilities_registry.CapabilitiesRegistryNodeOperator
+func (v *CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.CapabilitiesRegistryNodeOperatorInfo {
+	var nopsParams []capabilities_registry.CapabilitiesRegistryNodeOperatorInfo
 	for _, nop := range v.Nops {
-		nopsParams = append(nopsParams, capabilities_registry.CapabilitiesRegistryNodeOperator{
+		nopsParams = append(nopsParams, capabilities_registry.CapabilitiesRegistryNodeOperatorInfo{
 			Admin: nop.Admin,
 			Name:  nop.Name,
 		})
@@ -237,16 +274,12 @@ func (v *CapabilityRegistryView) NopsToNopsParams() []capabilities_registry.Capa
 func (v *CapabilityRegistryView) CapabilityConfigToCapabilityConfigParams(don DonView) ([]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration, error) {
 	var cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration
 	for _, cfg := range don.CapabilityConfigurations {
-		cid, err := hexTo32Bytes(cfg.ID)
-		if err != nil {
-			return nil, err
-		}
 		config, err := hex.DecodeString(cfg.Config)
 		if err != nil {
 			return nil, err
 		}
 		cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			CapabilityId: cid,
+			CapabilityId: cfg.ID,
 			Config:       config,
 		})
 	}
@@ -266,22 +299,17 @@ func hexTo32Bytes(val string) ([32]byte, error) {
 // CapabilityView is a serialization-friendly view of a capability in the capabilities registry.
 type CapabilityView struct {
 	ID                    string         `json:"id"` // hex 32 bytes
-	LabelledName          string         `json:"labelled_name"`
-	Version               string         `json:"version"`
-	CapabilityType        uint8          `json:"capability_type"`
-	ResponseType          uint8          `json:"response_type"`
 	ConfigurationContract common.Address `json:"configuration_contract,omitempty"`
+	Metadata              string         `json:"metadata,omitempty"` // JSON string of the proto-decoded metadata
 	IsDeprecated          bool           `json:"is_deprecated,omitempty"`
 }
 
 // NewCapabilityView creates a CapabilityView from a CapabilitiesRegistryCapabilityInfo.
 func NewCapabilityView(capInfo capabilities_registry.CapabilitiesRegistryCapabilityInfo) CapabilityView {
+	// TODO metadata decoding from proto to json
 	return CapabilityView{
-		ID:                    hex.EncodeToString(capInfo.HashedId[:]),
-		LabelledName:          capInfo.LabelledName,
-		Version:               capInfo.Version,
-		CapabilityType:        capInfo.CapabilityType,
-		ResponseType:          capInfo.ResponseType,
+		ID: capInfo.CapabilityId,
+		//Metadata:              capInfo.Metadata,
 		ConfigurationContract: capInfo.ConfigurationContract,
 		IsDeprecated:          capInfo.IsDeprecated,
 	}
@@ -324,7 +352,7 @@ func NewDonView(d capabilities_registry.CapabilitiesRegistryDONInfo) DonView {
 			IsPublic:         d.IsPublic,
 			AcceptsWorkflows: d.AcceptsWorkflows,
 		},
-		NodeP2PIds:               p2pIds(d.NodeP2PIds),
+		NodeP2PIds:               p2pIDs(d.NodeP2PIds),
 		CapabilityConfigurations: NewCapabilityConfigurations(d.CapabilityConfigurations),
 	}
 }
@@ -349,7 +377,7 @@ func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegist
 	var out []CapabilitiesConfiguration
 	for _, cfg := range cfgs {
 		out = append(out, CapabilitiesConfiguration{
-			ID:     hex.EncodeToString(cfg.CapabilityId[:]),
+			ID:     cfg.CapabilityId,
 			Config: hex.EncodeToString(cfg.Config),
 		})
 	}
@@ -384,8 +412,10 @@ type NodeUniversalMetadata struct {
 	ConfigCount         uint32        `json:"config_count"`
 	WorkflowDONID       uint32        `json:"workflow_don_id"`
 	Signer              string        `json:"signer"` // hex 32 bytes
-	P2pId               p2pkey.PeerID `json:"p2p_id"`
+	P2pID               p2pkey.PeerID `json:"p2p_id"`
+	CSAKey              string        `json:"csa_key"`               // hex 32 bytes
 	EncryptionPublicKey string        `json:"encryption_public_key"` // hex 32 bytes
+
 }
 
 // NewNodeView creates a NodeView from a CapabilitiesRegistryNodeInfoProviderNodeInfo.
@@ -395,11 +425,12 @@ func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 			ConfigCount:         n.ConfigCount,
 			WorkflowDONID:       n.WorkflowDONId,
 			Signer:              hex.EncodeToString(n.Signer[:]),
-			P2pId:               n.P2pId,
+			P2pID:               n.P2pId,
 			EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
+			CSAKey:              hex.EncodeToString(n.CsaKey[:]),
 		},
 		NodeOperatorID:   n.NodeOperatorId,
-		CapabilityIDs:    hexIds(n.HashedCapabilityIds),
+		CapabilityIDs:    n.CapabilityIds,
 		CapabilityDONIDs: n.CapabilitiesDONIds,
 	}
 }
@@ -444,7 +475,7 @@ type NopView struct {
 	Name  string         `json:"name"`
 }
 
-func NewNopView(nop capabilities_registry.CapabilitiesRegistryNodeOperator) NopView {
+func NewNopView(nop capabilities_registry.CapabilitiesRegistryNodeOperatorInfo) NopView {
 	return NopView{
 		Admin: nop.Admin,
 		Name:  nop.Name,
@@ -466,34 +497,26 @@ func nodeNop(n NodeView, nops []NopView) (NopView, error) {
 	for i, nop := range nops {
 		// nops are 1-indexed. there is no natural key to match on, so we use the index.
 		idx := i + 1
-		if n.NodeOperatorID == uint32(idx) {
+		if n.NodeOperatorID == uint32(idx) { //nolint:gosec // G115
 			return nop, nil
 		}
 	}
 	return NopView{}, fmt.Errorf("could not find nop for node %d", n.NodeOperatorID)
 }
 
-func p2pIds(rawIds [][32]byte) []p2pkey.PeerID {
+func p2pIDs(rawIDs [][32]byte) []p2pkey.PeerID {
 	var out []p2pkey.PeerID
-	for _, id := range rawIds {
+	for _, id := range rawIDs {
 		out = append(out, p2pkey.PeerID(id))
 	}
 	return out
 }
 
-func hexIds(ids [][32]byte) []string {
-	var out []string
-	for _, id := range ids {
-		out = append(out, hex.EncodeToString(id[:]))
-	}
-	return out
+func (dv DonView) hasNode(node NodeView) bool {
+	donID := big.NewInt(int64(dv.ID))
+	return slices.ContainsFunc(node.CapabilityDONIDs, func(elem *big.Int) bool { return elem.Cmp(donID) == 0 }) || node.WorkflowDONID == dv.ID
 }
 
-func (v DonView) hasNode(node NodeView) bool {
-	donId := big.NewInt(int64(v.ID))
-	return slices.ContainsFunc(node.CapabilityDONIDs, func(elem *big.Int) bool { return elem.Cmp(donId) == 0 }) || node.WorkflowDONID == v.ID
-}
-
-func (v DonView) hasCapability(candidate CapabilityView) bool {
-	return slices.ContainsFunc(v.CapabilityConfigurations, func(elem CapabilitiesConfiguration) bool { return elem.ID == candidate.ID })
+func (dv DonView) hasCapability(candidate CapabilityView) bool {
+	return slices.ContainsFunc(dv.CapabilityConfigurations, func(elem CapabilitiesConfiguration) bool { return elem.ID == candidate.ID })
 }

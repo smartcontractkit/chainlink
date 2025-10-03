@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
+
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -91,6 +92,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
@@ -799,6 +801,26 @@ func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector u
 	return chain, chainState, nil
 }
 
+func (c CCIPOnChainState) UpdateMCMSStateWithAddressFromDatastoreForChain(e cldf.Environment, selector uint64, qualifier string) error {
+	mcmsStateWithQualifier, err := commonstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
+	if err != nil {
+		return fmt.Errorf("failed to load mcms state from datastore with qualifier %s: %w", qualifier, err)
+	}
+	for chainSelector, mcmsState := range mcmsStateWithQualifier {
+		if chainState, ok := c.EVMChainState(chainSelector); ok {
+			chainState.MCMSWithTimelockState = *mcmsState
+			chainState.ABIByAddress[mcmsState.ProposerMcm.Address().Hex()] = gethwrappers.ManyChainMultiSigABI
+			chainState.ABIByAddress[mcmsState.CancellerMcm.Address().Hex()] = gethwrappers.ManyChainMultiSigABI
+			chainState.ABIByAddress[mcmsState.BypasserMcm.Address().Hex()] = gethwrappers.ManyChainMultiSigABI
+			chainState.ABIByAddress[mcmsState.Timelock.Address().Hex()] = gethwrappers.RBACTimelockABI
+			chainState.ABIByAddress[mcmsState.CallProxy.Address().Hex()] = gethwrappers.CallProxyABI
+			// write back to state
+			c.WriteEVMChainState(chainSelector, chainState)
+		}
+	}
+	return nil
+}
+
 type LoadOption func(*loadStateOpts)
 
 type loadStateOpts struct {
@@ -833,8 +855,12 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 		evmMu:       &sync.RWMutex{},
 	}
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
-		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
-		if err != nil {
+		// get all addresses for chain from addressbook
+		// here we do not load addresses from datastore as there can be multiple
+		// contracts of the same type and version in datastore which can lead to
+		// ambiguity while loading the state
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
 		}
 		chainState, err := LoadChainState(e.GetContext(), chain, addresses, opts...)

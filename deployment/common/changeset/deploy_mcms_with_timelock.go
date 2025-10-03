@@ -81,6 +81,7 @@ func isMCMSContract(contractType string) bool {
 		string(types.ProposerManyChainMultisig),
 		string(types.BypasserManyChainMultisig),
 		string(types.CancellerManyChainMultisig),
+		string(types.CallProxy),
 	}
 
 	for _, mcmsType := range mcmsTypes {

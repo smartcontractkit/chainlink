@@ -161,14 +161,14 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 }
 
 func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
-	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperator, 0)
+	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
 	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0)
 	capabilities := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0)
 	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
 
 	// Collect unique capabilities and NOPs
 	capabilityMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapability)
-	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperator)
+	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams)
 	for _, don := range d.donsOrderedByID() {
 		// Extract capabilities
 		capIDs := make([]string, 0, len(don.Capabilities))
@@ -196,7 +196,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		for i, nop := range don.Nops {
 			nopName := nop.Name
 			if _, exists := nopMap[nopName]; !exists {
-				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 					Admin: adminAddrs[i],
 					Name:  nopName,
 				}
