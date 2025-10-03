@@ -52,24 +52,6 @@ func init() {
 	}
 }
 
-// LatestCCIPDON returns the latest CCIP DON from the capabilities registry
-// Keeping this function for reference
-func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
-	dons, err := registry.GetDONs(nil)
-	if err != nil {
-		return nil, err
-	}
-	var ccipDON capabilities_registry.CapabilitiesRegistryDONInfo
-	for _, don := range dons {
-		if len(don.CapabilityConfigurations) == 1 &&
-			don.CapabilityConfigurations[0].CapabilityId == shared.CCIPCapabilityID &&
-			don.Id > ccipDON.Id {
-			ccipDON = don
-		}
-	}
-	return &ccipDON, nil
-}
-
 // DonIDForChain returns the DON ID for the chain with the given selector
 // It looks up with the CCIPHome contract to find the OCR3 configs for the DONs, and returns the DON ID for the chain matching with the given selector from the OCR3 configs
 func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHome *ccip_home.CCIPHome, chainSelector uint64) (uint32, error) {

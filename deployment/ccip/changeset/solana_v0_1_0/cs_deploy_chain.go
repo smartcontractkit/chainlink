@@ -1079,6 +1079,15 @@ type CloseBuffersConfig struct {
 	Buffers       []string
 }
 
+func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {
+	for _, buffer := range cfg.Buffers {
+		if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].CloseBuffers(e.Logger, buffer); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to close buffer: %w", err)
+		}
+	}
+	return cldf.ChangesetOutput{}, nil
+}
+
 // In case of emergency, this changeset can be used to extend the global lookup table
 // by default the LUT is extended by the changesets that perform other operations
 type ExtendGlobalLookupTableConfig struct {

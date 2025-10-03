@@ -15,6 +15,8 @@ const (
 	UnsupportedMethodError
 	InvalidParamsError
 	StaleNodeResponseError
+	ConflictError
+	LimitExceededError
 )
 
 func (e ErrorCode) String() string {
@@ -39,6 +41,10 @@ func (e ErrorCode) String() string {
 		return "InvalidParamsError"
 	case StaleNodeResponseError:
 		return "StaleNodeResponseError"
+	case ConflictError:
+		return "ConflictError"
+	case LimitExceededError:
+		return "LimitExceededError"
 	default:
 		return "UnknownError"
 	}
@@ -57,6 +63,8 @@ func ToJSONRPCErrorCode(errorCode ErrorCode) int64 {
 		FatalError:               jsonrpc2.ErrInternal,         // Internal Error
 		UnsupportedMethodError:   jsonrpc2.ErrMethodNotFound,   // Method Not Found
 		StaleNodeResponseError:   jsonrpc2.ErrInternal,         // Internal Error
+		ConflictError:            jsonrpc2.ErrConflict,         // Conflict
+		LimitExceededError:       jsonrpc2.ErrLimitExceeded,    // Limit Exceeded
 	}
 
 	code, ok := gatewayErrorToJSONRPCError[errorCode]
@@ -75,6 +83,8 @@ func FromJSONRPCErrorCode(errorCode int64) ErrorCode {
 		jsonrpc2.ErrServerOverloaded: RequestTimeoutError,
 		jsonrpc2.ErrInternal:         FatalError,
 		jsonrpc2.ErrMethodNotFound:   UnsupportedMethodError,
+		jsonrpc2.ErrLimitExceeded:    LimitExceededError,
+		jsonrpc2.ErrConflict:         ConflictError,
 	}
 
 	code, ok := jsonrpcErrorToGatewayError[errorCode]
@@ -97,6 +107,8 @@ func ToHttpErrorCode(errorCode ErrorCode) int {
 		NodeReponseEncodingError: 500, // Internal Server Error
 		FatalError:               500, // Internal Server Error
 		StaleNodeResponseError:   500, // Internal Server Error
+		ConflictError:            409, // Conflict
+		LimitExceededError:       429, // Too Many Requests
 	}
 
 	code, ok := gatewayErrorToHTTPError[errorCode]

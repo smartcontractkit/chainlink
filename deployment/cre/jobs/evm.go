@@ -13,25 +13,22 @@ import (
 )
 
 func verifyEVMJobSpecInputs(inputs job_types.JobSpecInput) error {
-	if v, ok := inputs["command"]; !ok {
-		return errors.New("command is required and must be a string")
-	} else if s, ok := v.(string); !ok || strings.TrimSpace(s) == "" {
+	scj := &pkg.StandardCapabilityJob{}
+	if err := inputs.UnmarshalTo(scj); err != nil {
+		return errors.New("failed to unmarshal job spec input to StandardCapabilityJob: " + err.Error())
+	}
+
+	if strings.TrimSpace(scj.Command) == "" {
 		return errors.New("command is required and must be a string")
 	}
 
-	if v, ok := inputs["config"]; !ok {
-		return errors.New("config is required and must be a string")
-	} else if s, ok := v.(string); !ok || strings.TrimSpace(s) == "" {
+	if strings.TrimSpace(scj.Config) == "" {
 		return errors.New("config is required and must be a string")
 	}
 
-	raw, ok := inputs["oracleFactory"]
-	if !ok {
+	of := scj.OracleFactory
+	if of == nil {
 		return errors.New("oracleFactory is required")
-	}
-	of, ok := raw.(pkg.OracleFactory)
-	if !ok {
-		return errors.New("oracleFactory must be of type pkg.OracleFactory")
 	}
 	if !of.Enabled {
 		return errors.New("oracleFactory.enabled must be true for EVM jobs")
@@ -72,7 +69,7 @@ func verifyEVMJobSpecInputs(inputs job_types.JobSpecInput) error {
 		return errors.New("oracleFactory.onchainSigningStrategy.strategyName is required")
 	}
 
-	if of.OnchainSigningStrategy.Config == nil {
+	if len(of.OnchainSigningStrategy.Config) == 0 {
 		return errors.New("oracleFactory.onchainSigningStrategy.config is required")
 	}
 	if v, ok := of.OnchainSigningStrategy.Config["evm"]; !ok || strings.TrimSpace(v) == "" {

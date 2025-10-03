@@ -19,12 +19,16 @@ const (
 	AttrMethodName  = "method_name"
 )
 
+// CommonMetrics contains shared metrics between action and trigger handlers
+type CommonMetrics struct {
+	capabilityNodeThrottled metric.Int64Counter
+	globalThrottled         metric.Int64Counter
+}
+
 // ActionMetrics contains metrics for HTTP actions
 type ActionMetrics struct {
 	requestCount                   metric.Int64Counter
 	requestFailures                metric.Int64Counter
-	capabilityNodeThrottled        metric.Int64Counter
-	globalThrottled                metric.Int64Counter
 	requestLatency                 metric.Int64Histogram
 	customerEndpointRequestLatency metric.Int64Histogram
 	customerEndpointResponseCount  metric.Int64Counter
@@ -40,6 +44,7 @@ type ActionMetrics struct {
 type TriggerMetrics struct {
 	requestCount                     metric.Int64Counter
 	requestErrors                    metric.Int64Counter
+	requestSuccess                   metric.Int64Counter
 	workflowOwnerThrottled           metric.Int64Counter
 	globalThrottled                  metric.Int64Counter
 	pendingRequestsCleanUpCount      metric.Int64Counter
@@ -51,10 +56,13 @@ type TriggerMetrics struct {
 	metadataRequestCount             metric.Int64Counter
 	metadataObservationsCleanUpCount metric.Int64Counter
 	metadataObservationsCount        metric.Int64Gauge
+	jwtCacheSize                     metric.Int64Gauge
+	jwtCacheCleanUpCount             metric.Int64Counter
 }
 
 // Metrics combines all gateway metrics for dependency injection
 type Metrics struct {
+	Common  *CommonMetrics
 	Action  *ActionMetrics
 	Trigger *TriggerMetrics
 }
@@ -62,6 +70,11 @@ type Metrics struct {
 // NewMetrics creates a new instance of Metrics with all metrics initialized
 func NewMetrics() (*Metrics, error) {
 	meter := beholder.GetMeter()
+
+	common, err := newCommonMetrics(meter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create common metrics: %w", err)
+	}
 
 	action, err := newActionMetrics(meter)
 	if err != nil {
@@ -74,9 +87,34 @@ func NewMetrics() (*Metrics, error) {
 	}
 
 	return &Metrics{
+		Common:  common,
 		Action:  action,
 		Trigger: trigger,
 	}, nil
+}
+
+// newCommonMetrics initializes common metrics
+func newCommonMetrics(meter metric.Meter) (*CommonMetrics, error) {
+	m := &CommonMetrics{}
+
+	var err error
+	m.capabilityNodeThrottled, err = meter.Int64Counter(
+		"http_handler_capability_node_throttled",
+		metric.WithDescription("Number of calls from the capability node to the gateway throttled due to per-capability-node rate limit"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP handler capability node throttled metric: %w", err)
+	}
+
+	m.globalThrottled, err = meter.Int64Counter(
+		"http_handler_global_throttled",
+		metric.WithDescription("Number of calls from the capability node to the gateway throttled due to global rate limit"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP handler global throttled metric: %w", err)
+	}
+
+	return m, nil
 }
 
 // newActionMetrics initializes action metrics
@@ -98,22 +136,6 @@ func newActionMetrics(meter metric.Meter) (*ActionMetrics, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP action gateway request failures metric: %w", err)
-	}
-
-	m.capabilityNodeThrottled, err = meter.Int64Counter(
-		"http_action_gateway_capability_node_throttled",
-		metric.WithDescription("Number of HTTP action gateway requests throttled due to per-capability-node rate limit"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP action gateway capability node throttled metric: %w", err)
-	}
-
-	m.globalThrottled, err = meter.Int64Counter(
-		"http_action_gateway_global_throttled",
-		metric.WithDescription("Number of HTTP action gateway requests throttled due to global rate limit"),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP action gateway global throttled metric: %w", err)
 	}
 
 	m.requestLatency, err = meter.Int64Histogram(
@@ -212,6 +234,14 @@ func newTriggerMetrics(meter metric.Meter) (*TriggerMetrics, error) {
 		return nil, fmt.Errorf("failed to create HTTP trigger gateway request errors metric: %w", err)
 	}
 
+	m.requestSuccess, err = meter.Int64Counter(
+		"http_trigger_gateway_successful_requests",
+		metric.WithDescription("Number of successful HTTP trigger gateway requests"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger gateway successful requests metric: %w", err)
+	}
+
 	m.workflowOwnerThrottled, err = meter.Int64Counter(
 		"http_trigger_gateway_workflow_owner_throttled",
 		metric.WithDescription("Number of HTTP trigger gateway requests throttled per workflow owner"),
@@ -300,7 +330,33 @@ func newTriggerMetrics(meter metric.Meter) (*TriggerMetrics, error) {
 		return nil, fmt.Errorf("failed to create workflow metadata observations count metric: %w", err)
 	}
 
+	m.jwtCacheSize, err = meter.Int64Gauge(
+		"http_trigger_jwt_cache_size",
+		metric.WithDescription("Current number of entries in JWT replay protection cache"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger JWT cache size metric: %w", err)
+	}
+
+	m.jwtCacheCleanUpCount, err = meter.Int64Counter(
+		"http_trigger_jwt_cache_cleanup_count",
+		metric.WithDescription("Number of JWT replay protection cache entries cleaned up"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP trigger JWT cache cleanup count metric: %w", err)
+	}
+
 	return m, nil
+}
+
+// Common Metrics Methods
+
+func (m *CommonMetrics) IncrementCapabilityNodeThrottled(ctx context.Context, nodeAddress string, lggr logger.Logger) {
+	m.capabilityNodeThrottled.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrNodeAddress, nodeAddress)))
+}
+
+func (m *CommonMetrics) IncrementGlobalThrottled(ctx context.Context, lggr logger.Logger) {
+	m.globalThrottled.Add(ctx, 1)
 }
 
 // Action Metrics Methods
@@ -311,14 +367,6 @@ func (m *ActionMetrics) IncrementRequestCount(ctx context.Context, nodeAddress s
 
 func (m *ActionMetrics) IncrementRequestFailures(ctx context.Context, nodeAddress string, lggr logger.Logger) {
 	m.requestFailures.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrNodeAddress, nodeAddress)))
-}
-
-func (m *ActionMetrics) IncrementCapabilityNodeThrottled(ctx context.Context, nodeAddress string, lggr logger.Logger) {
-	m.capabilityNodeThrottled.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrNodeAddress, nodeAddress)))
-}
-
-func (m *ActionMetrics) IncrementGlobalThrottled(ctx context.Context, lggr logger.Logger) {
-	m.globalThrottled.Add(ctx, 1)
 }
 
 func (m *ActionMetrics) RecordRequestLatency(ctx context.Context, latencyMs int64, lggr logger.Logger) {
@@ -363,8 +411,12 @@ func (m *TriggerMetrics) IncrementRequestCount(ctx context.Context, lggr logger.
 	m.requestCount.Add(ctx, 1)
 }
 
-func (m *TriggerMetrics) IncrementRequestErrors(ctx context.Context, errorCode string, lggr logger.Logger) {
-	m.requestErrors.Add(ctx, 1, metric.WithAttributes(attribute.String(AttrErrorCode, errorCode)))
+func (m *TriggerMetrics) IncrementRequestErrors(ctx context.Context, errorCode int64, lggr logger.Logger) {
+	m.requestErrors.Add(ctx, 1, metric.WithAttributes(attribute.Int64(AttrErrorCode, errorCode)))
+}
+
+func (m *TriggerMetrics) IncrementRequestSuccess(ctx context.Context, lggr logger.Logger) {
+	m.requestSuccess.Add(ctx, 1)
 }
 
 func (m *TriggerMetrics) IncrementWorkflowOwnerThrottled(ctx context.Context, lggr logger.Logger) {
@@ -421,4 +473,12 @@ func (m *TriggerMetrics) IncrementMetadataObservationsCleanUpCount(ctx context.C
 
 func (m *TriggerMetrics) RecordMetadataObservationsCount(ctx context.Context, count int64, lggr logger.Logger) {
 	m.metadataObservationsCount.Record(ctx, count)
+}
+
+func (m *TriggerMetrics) RecordJwtCacheSize(ctx context.Context, size int64, lggr logger.Logger) {
+	m.jwtCacheSize.Record(ctx, size)
+}
+
+func (m *TriggerMetrics) IncrementJwtCacheCleanUpCount(ctx context.Context, count int64, lggr logger.Logger) {
+	m.jwtCacheCleanUpCount.Add(ctx, count)
 }

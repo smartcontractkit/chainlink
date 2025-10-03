@@ -12,9 +12,9 @@ import (
 	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]byte) *nodeclient.OCR2TaskJobSpec {
@@ -29,7 +29,7 @@ func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]b
 			RelayConfig: map[string]interface{}{
 				"chainID": int(chainID),
 			},
-			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+			ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
 		},
 	}
 }
@@ -105,7 +105,7 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 				"chainID":   int(chainID),
 				"fromBlock": fromBlock,
 			},
-			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
+			ContractConfigTrackerPollInterval: *sqlutil.NewInterval(time.Second * 15),
 			ContractID:                        verifierAddr.String(),
 			FeedID:                            &hash,
 			OCRKeyBundleID:                    null.StringFrom(nodeOCRKey),

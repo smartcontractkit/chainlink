@@ -53,7 +53,7 @@ type GatewayHandler struct {
 	Config string
 }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConfiguration *cre.GatewayConfiguration) *jobv1.ProposeJobRequest {
+func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConfiguration *cre.DonGatewayConfiguration) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
 	for _, don := range gatewayConfiguration.Dons {
@@ -297,7 +297,7 @@ func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress, offchainBu
 	}
 }
 
-func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64, masterPublicKey string, encryptedPrivateKeyShare string) *jobv1.ProposeJobRequest {
+func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
@@ -320,8 +320,6 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthA
 	[pluginConfig]
 	requestExpiryDuration = "60s"
 	[pluginConfig.dkg]
-	masterPublicKey = "%s"
-	encryptedPrivateKeyShare = "%s"
 	dkgContractID = "%s"
 `,
 			uuid,
@@ -333,8 +331,6 @@ func WorkerVaultOCR3(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthA
 			types.VaultPlugin,
 			nodeEthAddress,
 			chainID,
-			masterPublicKey,
-			encryptedPrivateKeyShare,
 			dkgAddress,
 		),
 	}

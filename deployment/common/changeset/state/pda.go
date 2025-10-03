@@ -3,7 +3,6 @@ package state
 import (
 	"encoding/binary"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 )
 
@@ -32,32 +31,8 @@ func GetMCMExpiringRootAndOpCountPDA(programID solana.PublicKey, pdaSeed PDASeed
 	return getPDA(programID, seeds)
 }
 
-func GetMCMRootSignaturesPDA(
-	programID solana.PublicKey, msigID PDASeed, root common.Hash, validUntil uint32,
-) solana.PublicKey {
-	seeds := [][]byte{[]byte("root_signatures"), msigID[:], root[:], validUntilBytes(validUntil)}
-	return getPDA(programID, seeds)
-}
-
-func GetMCMSeenSignedHashesPDA(
-	programID solana.PublicKey, msigID PDASeed, root common.Hash, validUntil uint32,
-) solana.PublicKey {
-	seeds := [][]byte{[]byte("seen_signed_hashes"), msigID[:], root[:], validUntilBytes(validUntil)}
-	return getPDA(programID, seeds)
-}
-
 func GetTimelockConfigPDA(programID solana.PublicKey, timelockID PDASeed) solana.PublicKey {
 	seeds := [][]byte{[]byte("timelock_config"), timelockID[:]}
-	return getPDA(programID, seeds)
-}
-
-func GetTimelockOperationPDA(programID solana.PublicKey, timelockID PDASeed, opID [32]byte) solana.PublicKey {
-	seeds := [][]byte{[]byte("timelock_operation"), timelockID[:], opID[:]}
-	return getPDA(programID, seeds)
-}
-
-func GetTimelockBypasserOperationPDA(programID solana.PublicKey, timelockID PDASeed, opID [32]byte) solana.PublicKey {
-	seeds := [][]byte{[]byte("timelock_bypasser_operation"), timelockID[:], opID[:]}
 	return getPDA(programID, seeds)
 }
 

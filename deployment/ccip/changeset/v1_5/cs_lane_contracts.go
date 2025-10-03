@@ -105,7 +105,7 @@ func (c *DeployLaneConfig) populateAddresses(state stateview.CCIPOnChainState) e
 }
 
 func DeployLanesChangeset(env cldf.Environment, c DeployLanesConfig) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
 	}

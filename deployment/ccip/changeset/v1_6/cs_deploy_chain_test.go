@@ -3,6 +3,8 @@ package v1_6_test
 import (
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -13,16 +15,18 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -139,15 +143,16 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 		require.NotNil(t, state.Chains[sel].OffRamp)
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
-	// remove feequoter from address book
-	// and deploy again, it should deploy a new feequoter
-	ab := cldf.NewMemoryAddressBook()
-	for _, sel := range evmSelectors {
-		require.NoError(t, ab.Save(sel, state.Chains[sel].FeeQuoter.Address().Hex(),
-			cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_6_0)))
+
+	// deploy feequoter with higher version
+	newFqVersion := semver.MustParse("1.6.2")
+	for sel, params := range contractParams {
+		params.FeeQuoterOpts = &opsutils.ContractOpts{
+			Version:     newFqVersion,
+			EVMBytecode: common.FromHex(fee_quoter.FeeQuoterBin), // TODO: Can we replace this with actual 1.6.2 bytecode?
+		}
+		contractParams[sel] = params
 	}
-	//nolint:staticcheck //SA1019 ignoring deprecated
-	require.NoError(t, e.ExistingAddresses.Remove(ab))
 
 	// try to deploy chain contracts again and it should not deploy any new contracts except feequoter
 	// but should not error
@@ -169,6 +174,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 		require.Equal(t, state.Chains[sel].NonceManager, postState.Chains[sel].NonceManager)
 		require.NotEqual(t, state.Chains[sel].FeeQuoter, postState.Chains[sel].FeeQuoter)
 		require.NotEmpty(t, postState.Chains[sel].FeeQuoter)
+		require.Equal(t, newFqVersion.String(), postState.Chains[sel].FeeQuoterVersion.String())
 		require.Equal(t, state.Chains[sel].OffRamp, postState.Chains[sel].OffRamp)
 		require.Equal(t, state.Chains[sel].OnRamp, postState.Chains[sel].OnRamp)
 	}

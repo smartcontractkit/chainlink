@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -31,7 +30,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	donTopology *cre.DonTopology,
 	ds datastore.DataStore,
 	nodeSetInput []*cre.CapabilitiesAwareNodeSet,
-	infraInput infra.Input,
+	infraInput infra.Provider,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
 	dataStoreOCR3ContractKeyProvider DataStoreOCR3ContractKeyProvider,
@@ -261,7 +260,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	return donToJobSpecs, nil
 }
 
-func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput infra.Input) ([]string, error) {
+func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput infra.Provider) ([]string, error) {
 	nodeIndexStr, nErr := node.FindLabelValue(bootstrapNode, node.IndexKey)
 	if nErr != nil {
 		return nil, errors.Wrap(nErr, "failed to find index label")
@@ -272,7 +271,7 @@ func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, i
 		return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
 	}
 
-	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donName, infraInput)
+	internalHostBS := infraInput.InternalHost(nodeIndex, true, donName)
 	return []string{internalHostBS}, nil
 }
 

@@ -10,6 +10,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -170,4 +171,223 @@ type E2ETokenPoolConfigv2 struct {
 	// so you cannot really have a case where router is owned by timelock but you want to
 	// set deployer key as token admin
 	MCMS *proposalutils.TimelockConfig
+}
+
+func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.ChangesetOutput, error) {
+	// use a clone of env to avoid modifying the original env
+	// if you modify the original env, the in memory tests will fail
+	// because after the changeset is complete and the ApplyChangesets function is called,
+	// it will try to add addresses from the cs output which already exist in the env
+	e := env.Clone()
+	finalCSOut := &cldf.ChangesetOutput{
+		AddressBook: cldf.NewMemoryAddressBook(),
+	}
+
+	// token pool and lookup table
+	tokenPoolAndLookupTableCfg := AddTokenPoolAndLookupTableConfig{
+		ChainSelector:    cfg.ChainSelector,
+		TokenPoolConfigs: make([]TokenPoolConfig, 0),
+	}
+
+	// register token admin registry
+	registerTokenAdminRegistryCfg := RegisterTokenAdminRegistryConfig{
+		ChainSelector:        cfg.ChainSelector,
+		MCMS:                 cfg.MCMS,
+		RegisterTokenConfigs: make([]RegisterTokenConfig, 0),
+	}
+	var tokenAdminRegistryAdmin solana.PublicKey
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	if cfg.MCMS != nil {
+		tokenAdminRegistryAdmin = timelockSignerPDA
+	} else {
+		tokenAdminRegistryAdmin = e.BlockChains.SolanaChains()[cfg.ChainSelector].DeployerKey.PublicKey()
+	}
+
+	// accept admin role token admin registry
+	acceptAdminRoleTokenAdminRegistryCfg := AcceptAdminRoleTokenAdminRegistryConfig{
+		ChainSelector:               cfg.ChainSelector,
+		MCMS:                        cfg.MCMS,
+		AcceptAdminRoleTokenConfigs: make([]AcceptAdminRoleTokenConfig, 0),
+	}
+
+	// set pool
+	setPoolCfg := SetPoolConfig{
+		ChainSelector:       cfg.ChainSelector,
+		SetPoolTokenConfigs: make([]SetPoolTokenConfig, 0),
+		WritableIndexes:     []uint8{3, 4, 7},
+		MCMS:                cfg.MCMS,
+	}
+
+	// solana to evm remote pool setup
+	remotePoolConfig := SetupTokenPoolForRemoteChainConfig{
+		SolChainSelector:       cfg.ChainSelector,
+		RemoteTokenPoolConfigs: make([]RemoteChainTokenPoolConfig, 0),
+		MCMS:                   cfg.MCMS,
+	}
+
+	// evm to solana remote pool setup
+	evmToSolanaRemotePoolCfg := v1_5_1.ConfigureMultipleTokenPoolsConfig{
+		MCMS: cfg.MCMS,
+	}
+
+	// transfer away the pool to timelock
+	var transferPoolToTimelockConfig TransferCCIPToMCMSWithTimelockSolanaConfig
+	if cfg.MCMS != nil {
+		transferPoolToTimelockConfig = TransferCCIPToMCMSWithTimelockSolanaConfig{
+			MCMSCfg: *cfg.MCMS,
+			ContractsByChain: map[uint64]CCIPContractsToTransfer{
+				cfg.ChainSelector: {
+					BurnMintTokenPools:    map[string][]solana.PublicKey{},
+					LockReleaseTokenPools: map[string][]solana.PublicKey{},
+				},
+			},
+		}
+	}
+	poolsByType := transferPoolToTimelockConfig.ContractsByChain[cfg.ChainSelector]
+
+	var uniquePoolTypeConfigs []E2ETokenConfig
+	for _, tokenCfg := range cfg.E2ETokens {
+		if err := tokenCfg.Validate(); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to validate token config: %w, token cfg: %+v", err, tokenCfg)
+		}
+		// add token pool and lookup table
+		tokenPoolAndLookupTableCfg.TokenPoolConfigs = append(tokenPoolAndLookupTableCfg.TokenPoolConfigs, TokenPoolConfig{
+			PoolType:    tokenCfg.PoolType,
+			Metadata:    tokenCfg.Metadata,
+			TokenPubKey: tokenCfg.TokenPubKey,
+		})
+		// register token admin registry
+		registerTokenAdminRegistryCfg.RegisterTokenConfigs = append(registerTokenAdminRegistryCfg.RegisterTokenConfigs, RegisterTokenConfig{
+			TokenPubKey:             tokenCfg.TokenPubKey,
+			RegisterType:            ViaGetCcipAdminInstruction,
+			TokenAdminRegistryAdmin: tokenAdminRegistryAdmin,
+		})
+		// accept admin role token admin registry
+		acceptAdminRoleTokenAdminRegistryCfg.AcceptAdminRoleTokenConfigs = append(acceptAdminRoleTokenAdminRegistryCfg.AcceptAdminRoleTokenConfigs, AcceptAdminRoleTokenConfig{
+			TokenPubKey: tokenCfg.TokenPubKey,
+			// registering in the same changeset so skip registry check
+			SkipRegistryCheck: true,
+		})
+		// set pool
+		setPoolCfg.SetPoolTokenConfigs = append(setPoolCfg.SetPoolTokenConfigs, SetPoolTokenConfig{
+			TokenPubKey: tokenCfg.TokenPubKey,
+			PoolType:    tokenCfg.PoolType,
+			Metadata:    tokenCfg.Metadata,
+			// registering in the same changeset so skip registry check
+			SkipRegistryCheck: true,
+		})
+		// setup evm remote pool on solana
+		if len(tokenCfg.SolanaToEVMRemoteConfigs) > 0 {
+			remotePoolConfig.RemoteTokenPoolConfigs = append(remotePoolConfig.RemoteTokenPoolConfigs, RemoteChainTokenPoolConfig{
+				SolTokenPubKey:   tokenCfg.TokenPubKey,
+				SolPoolType:      tokenCfg.PoolType,
+				Metadata:         tokenCfg.Metadata,
+				EVMRemoteConfigs: tokenCfg.SolanaToEVMRemoteConfigs,
+			})
+		}
+		// setup solana remote pool on evm
+		if len(tokenCfg.EVMToSolanaRemoteConfigs.PoolUpdates) > 0 {
+			evmToSolanaRemotePoolCfg.Tokens = append(evmToSolanaRemotePoolCfg.Tokens, &tokenCfg.EVMToSolanaRemoteConfigs)
+		}
+		// transfer pool to timelock
+		if cfg.MCMS != nil {
+			if tokenCfg.PoolType == shared.BurnMintTokenPool {
+				poolsByType.BurnMintTokenPools[tokenCfg.Metadata] = append(
+					poolsByType.BurnMintTokenPools[tokenCfg.Metadata],
+					tokenCfg.TokenPubKey,
+				)
+			} else { // lock and release pool
+				poolsByType.LockReleaseTokenPools[tokenCfg.Metadata] = append(
+					poolsByType.LockReleaseTokenPools[tokenCfg.Metadata],
+					tokenCfg.TokenPubKey,
+				)
+			}
+		}
+		isUniquePoolType := true
+		for _, uniqueCfg := range uniquePoolTypeConfigs {
+			if uniqueCfg.PoolType == tokenCfg.PoolType {
+				isUniquePoolType = false
+			}
+		}
+		if isUniquePoolType {
+			uniquePoolTypeConfigs = append(uniquePoolTypeConfigs, tokenCfg)
+		}
+	}
+	output, err := AddTokenPoolAndLookupTable(e, tokenPoolAndLookupTableCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to add token pool and lookup table: %w", err)
+	}
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running AddTokenPoolAndLookupTable: %w", err)
+	}
+	output, err = SetupTokenPoolForRemoteChain(e, remotePoolConfig)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to setup token pool for remote chain: %w", err)
+	}
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running SetupTokenPoolForRemoteChain: %w", err)
+	}
+	output, err = RegisterTokenAdminRegistry(e, registerTokenAdminRegistryCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to register token admin registry: %w", err)
+	}
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running RegisterTokenAdminRegistry: %w", err)
+	}
+	output, err = AcceptAdminRoleTokenAdminRegistry(e, acceptAdminRoleTokenAdminRegistryCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role: %w", err)
+	}
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running AcceptAdminRoleTokenAdminRegistry: %w", err)
+	}
+	output, err = SetPool(e, setPoolCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool: %w", err)
+	}
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running SetPool: %w", err)
+	}
+	output, err = v1_5_1.ConfigureMultiplePoolLogic(e, evmToSolanaRemotePoolCfg)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool contracts: %w", err)
+	}
+	if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running ConfigureTokenPoolContractsChangeset: %w", err)
+	}
+	// and finally lets transfer away the pool to timelock
+	if cfg.MCMS != nil {
+		output, err = TransferCCIPToMCMSWithTimelockSolana(e, transferPoolToTimelockConfig)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to transfer ccip to mcms with timelock: %w", err)
+		}
+		if err = cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after running TransferCCIPToMCMSWithTimelockSolana: %w", err)
+		}
+	}
+
+	if len(finalCSOut.MCMSTimelockProposals) > 1 {
+		state, err := stateview.LoadOnchainState(e)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		}
+		proposal, err := proposalutils.AggregateProposalsV2(
+			e, proposalutils.MCMSStates{
+				MCMSEVMState:    state.EVMMCMSStateByChain(),
+				MCMSSolanaState: state.SolanaMCMSStateByChain(e),
+			},
+			finalCSOut.MCMSTimelockProposals, "E2ETokenPoolv2 changeset", cfg.MCMS,
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+		}
+		if proposal != nil {
+			finalCSOut.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+		}
+	}
+
+	return *finalCSOut, nil
 }

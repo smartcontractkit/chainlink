@@ -202,6 +202,7 @@ func (d *dispatcher) removeReceiver(k key) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if receiver, ok := d.receivers[k]; ok {
+		// NOTE: receiver.ch is not drained or closed - handle it if receivers are ever dynamically removed/re-added.
 		receiver.cancel()
 		delete(d.receivers, k)
 		d.lggr.Debugw("receiver removed", "capabilityId", k.capID, "donId", k.donID, "methodName", k.methodName)
@@ -252,10 +253,14 @@ func (d *dispatcher) receive() {
 		case <-d.stopCh:
 			d.lggr.Info("stopped - exiting receive")
 			return
-		case msg := <-externalPeerRecvCh:
+		case msg := <-externalPeerRecvCh: // deprecated, will be removed in favor of SharedPeer (CRE-707)
 			d.metrics.externalPeerMsgsRcvdCounter.Add(ctx, 1)
 			d.handleMessage(&msg)
-		case msg := <-sharedPeerRecvCh:
+		case msg, ok := <-sharedPeerRecvCh:
+			if !ok {
+				d.lggr.Info("shared peer channel closed - exiting receive")
+				return
+			}
 			d.metrics.sharedPeerMsgsRcvdCounter.Add(ctx, 1)
 			d.handleMessage(&msg)
 		}
@@ -279,12 +284,15 @@ func (d *dispatcher) handleMessage(msg *p2ptypes.Message) {
 	receiver, ok := d.receivers[k]
 	d.mu.RUnlock()
 	if !ok {
-		d.lggr.Debugw("received message for unregistered capability", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID)
+		d.lggr.Debugw("received message for unregistered capability or method", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName)
 		d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 		return
 	}
 
-	receiverQueueUsage := float64(len(receiver.ch)) / float64(d.cfg.ReceiverBufferSize())
+	receiverQueueUsage := float64(0)
+	if d.cfg.ReceiverBufferSize() > 0 {
+		receiverQueueUsage = float64(len(receiver.ch)) / float64(d.cfg.ReceiverBufferSize())
+	}
 	capReceiveChannelUsage.WithLabelValues(k.capID, strconv.FormatUint(uint64(k.donID), 10)).Set(receiverQueueUsage)
 	select {
 	case receiver.ch <- body:

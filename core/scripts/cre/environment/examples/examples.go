@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/fake"
 )
 
 var rpcURL string
@@ -43,6 +44,25 @@ var DeployBalanceReaderCmd = &cobra.Command{
 	},
 }
 
+var DeployFakePriceProviderCmd = &cobra.Command{
+	Use:   "deploy-fake-price-provider",
+	Short: "Deploy a fake price provider locally",
+	Long:  `Deploy a fake price provider service locally that can be used for testing workflows. Returns the URL where the service is accessible.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		authKey, _ := cmd.Flags().GetString("auth-key")
+		port, _ := cmd.Flags().GetInt("port")
+		feedIDs, _ := cmd.Flags().GetStringSlice("feed-ids")
+
+		_, err := fake.DeployPriceProvider(authKey, port, feedIDs, "")
+		if err != nil {
+			return errors.Wrap(err, "failed to deploy fake price provider")
+		}
+
+		// Keep the service running
+		select {}
+	},
+}
+
 var contractsCmd = &cobra.Command{
 	Use:   "contracts",
 	Short: "Deploy example contracts",
@@ -56,7 +76,13 @@ var ExamplesCmd = &cobra.Command{
 func init() {
 	DeployPermissionlessFeedsConsumerCmd.Flags().StringVarP(&rpcURL, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 
+	DeployFakePriceProviderCmd.Flags().String("auth-key", "Bearer test-auth-key", "Authentication key for the price provider")
+	DeployFakePriceProviderCmd.Flags().Int("port", 80, "Port to run the fake price provider on")
+	DeployFakePriceProviderCmd.Flags().StringSlice("feed-ids", []string{"0x1234567890123456789012345678901234567890123456789012345678901234"}, "Feed IDs to provide prices for")
+
 	contractsCmd.AddCommand(DeployPermissionlessFeedsConsumerCmd)
 	contractsCmd.AddCommand(DeployBalanceReaderCmd)
+
 	ExamplesCmd.AddCommand(contractsCmd)
+	ExamplesCmd.AddCommand(DeployFakePriceProviderCmd)
 }

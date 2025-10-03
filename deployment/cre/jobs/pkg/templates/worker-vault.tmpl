@@ -1,0 +1,18 @@
+type = "offchainreporting2"
+schemaVersion = 1
+externalJobID = "{{ .ExternalJobID }}"
+name = "{{ .JobName }}"
+contractID = "{{ .ContractID }}"
+ocrKeyBundleID = "{{ .OCR2EVMKeyBundleID }}"
+p2pv2Bootstrappers = [
+{{ range .P2Pv2Bootstrappers }}  "{{ . }}",
+{{ end }}]
+relay = "evm"
+pluginType = "vault-plugin"
+transmitterID = "{{ .TransmitterID }}"
+[relayConfig]
+chainID = "{{ .ChainID }}"
+[pluginConfig]
+requestExpiryDuration = "60s"
+[pluginConfig.dkg]
+dkgContractID = "{{ .DKGContractAddress }}"

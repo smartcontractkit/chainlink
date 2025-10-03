@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_solana_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 )
@@ -297,6 +298,18 @@ func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_cha
 	return chains
 }
 
+func fundNodesSol(t *testing.T, solChain cldf_solana.Chain, nodes []*Node) {
+	for _, node := range nodes {
+		solkeys, err := node.App.GetKeyStore().Solana().GetAll()
+		require.NoError(t, err)
+		require.Len(t, solkeys, 1)
+		transmitter := solkeys[0]
+		_, err = solChain.Client.RequestAirdrop(t.Context(), transmitter.PublicKey(), 1000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
+		require.NoError(t, err)
+		// we don't wait for confirmation so we don't block the tests, it'll take a while before nodes start transmitting
+	}
+}
+
 // chainlink-ccip has dynamic resolution which does not work across repos
 var SolanaProgramIDs = map[string]string{
 	"ccip_router":               "Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C",
@@ -314,6 +327,12 @@ var SolanaProgramIDs = map[string]string{
 	"cctp_token_pool":           "CCiTPESGEevd7TBU8EGBKrcxuRq7jx3YtW6tPidnscaZ",
 	"keystone_forwarder":        "whV7Q5pi17hPPyaPksToDw1nMx6Lh8qmNWKFaLRQ4wz",
 	"data_feeds_cache":          "3kX63udXtYcsdj2737Wi2KGd2PhqiKPgAFAxstrjtRUa",
+}
+
+// Not deployed as part of the other solana programs, as it has its unique
+// repository.
+var SolanaNonCcipProgramIDs = map[string]string{
+	"ccip_signer_registry": "S1GN4jus9XzKVVnoHqfkjo1GN8bX46gjXZQwsdGBPHE",
 }
 
 // Populates datastore with the predeployed program addresses

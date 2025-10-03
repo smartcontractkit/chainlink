@@ -303,27 +303,6 @@ func (s LinkTokenState) GenerateLinkView() (view.LinkTokenView, error) {
 	return view.GenerateLinkTokenView(s.LinkToken)
 }
 
-// MaybeLoadLinkTokenState loads the LinkTokenState state for each chain in the given environment.
-func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
-	result := map[uint64]*LinkTokenState{}
-	for _, chainSelector := range chainSelectors {
-		chain, ok := env.BlockChains.EVMChains()[chainSelector]
-		if !ok {
-			return nil, fmt.Errorf("chain %d not found", chainSelector)
-		}
-		addressesChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			return nil, err
-		}
-		state, err := MaybeLoadLinkTokenChainState(chain, addressesChain)
-		if err != nil {
-			return nil, err
-		}
-		result[chainSelector] = state
-	}
-	return result, nil
-}
-
 func MaybeLoadLinkTokenChainState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)

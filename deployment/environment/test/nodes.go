@@ -41,7 +41,7 @@ func NewNode(t *testing.T, c NodeConfig) *deployment.Node {
 	// make sure to add the p2p_id label b/c downstream systems expect it
 	c.Labels["p2p_id"] = p2p.PeerID().String()
 	return &deployment.Node{
-		NodeID:         c.Name,
+		NodeID:         "node_" + c.Name,
 		Name:           c.Name,
 		PeerID:         p2p.PeerID(),
 		CSAKey:         csakey.MustNewV2XXXTestingOnly(k).ID(),
@@ -108,6 +108,15 @@ func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) 
 			return false
 		}
 	}
+	if len(filter.PublicKeys) > 0 {
+		idx := slices.IndexFunc(filter.PublicKeys, func(id string) bool {
+			return node.PublicKey == id
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+
 	for _, selector := range filter.Selectors {
 		idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
 			return label.Key == selector.Key

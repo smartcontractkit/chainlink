@@ -299,11 +299,3 @@ func nodeStatus(n *configtoml.Node, chainID string) (types.NodeStatus, error) {
 func NewEthClientMock(t *testing.T) *clienttest.Client {
 	return clienttest.NewClient(t)
 }
-
-// Deprecated: use clienttest.NewClientWithDefaultChainID
-func NewEthClientMockWithDefaultChain(t *testing.T) *clienttest.Client {
-	c := NewEthClientMock(t)
-	c.On("ConfiguredChainID").Return(testutils.FixtureChainID).Maybe()
-	c.On("IsL2").Return(false).Maybe()
-	return c
-}
