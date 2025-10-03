@@ -766,9 +766,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 	return nil
 }
 
-// deployTokenPoolFactory deploys the TokenPoolFactory contract and other associated contracts
-// These are contracts are deployed by the TokenPoolFactory. These contracts are FactoryBurnMintERC20,
-// BurnMintTokenPool, BurnFronMintTokenPool, BurnWithFromMintTokenPool & LockReleaseTokenPool
+// deployTokenPools deploys contracts are deployed by the TokenPoolFactory. These contracts are
+// FactoryBurnMintERC20, BurnMintTokenPool, BurnFronMintTokenPool, BurnWithFromMintTokenPool & LockReleaseTokenPool
 // We deploy them here so that we can verify them. All subsequent user deployments would then be verified.
 func deployTokenPools(
 	lggr logger.Logger,
