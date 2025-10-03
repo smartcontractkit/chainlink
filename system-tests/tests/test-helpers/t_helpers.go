@@ -40,6 +40,7 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
+	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
 	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
@@ -288,6 +289,7 @@ type WorkflowConfig interface {
 		portypes.WorkflowConfig |
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
+		consensus_negative_config.Config |
 		evmread_config.Config |
 		evmread_negative_config.Config |
 		evmwrite_negative_config.Config |
@@ -380,6 +382,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
 			testLogger.Info().Msg("Cron workflow config file created.")
+
+		case *consensus_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create consensus workflow config file")
+			testLogger.Info().Msg("Consensus workflow config file created.")
 
 		case *evmread_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
