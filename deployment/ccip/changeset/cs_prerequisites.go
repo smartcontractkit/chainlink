@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_lbtc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -29,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
@@ -38,13 +38,10 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipopsv1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 var (
@@ -562,33 +559,55 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		e.Logger.Infow("router already deployed", "chain", chain.String(), "addr", chainState.Router.Address)
 	}
 	if deployOpts.TokenPoolFactoryEnabled {
-		var err error
-		var tokenPoolFactoryAddr common.Address
 		if tokenPoolFactory == nil {
-			tpfReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipopsv1_5_1.DeployTokenPoolFactoryOp, chain, opsutil.EVMDeployInput[ccipopsv1_5_1.DeployTokenPoolFactoryInput]{
-				ChainSelector: chain.ChainSelector(),
-				DeployInput: ccipopsv1_5_1.DeployTokenPoolFactoryInput{
-					ChainSelector:              chain.ChainSelector(),
-					TokenAdminRegistry:         tokenAdminReg.Address(),
-					RegistryModule1_6Addresses: regAddresses[0],
-					RMNProxy:                   rmnProxy.Address(),
-					Router:                     r.Address(),
+			tokenPoolFactoryContract, err := cldf.DeployContract(lggr, chain, ab,
+				func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
+					var (
+						tpfAddr  common.Address
+						tx2      *types.Transaction
+						contract *token_pool_factory.TokenPoolFactory
+						err2     error
+					)
+					if chain.IsZkSyncVM {
+						tpfAddr, _, contract, err2 = token_pool_factory.DeployTokenPoolFactoryZk(
+							nil,
+							chain.ClientZkSyncVM,
+							chain.DeployerKeyZkSyncVM,
+							chain.Client,
+							tokenAdminReg.Address(),
+							regAddresses[0],
+							rmnProxy.Address(),
+							r.Address(),
+						)
+					} else {
+						tpfAddr, tx2, contract, err2 = token_pool_factory.DeployTokenPoolFactory(
+							chain.DeployerKey,
+							chain.Client,
+							tokenAdminReg.Address(),
+							// There will always be at least one registry module deployed at this point.
+							// We just use the first one here. If a different RegistryModule is desired,
+							// users can run DeployTokenPoolFactoryChangeset with the desired address.
+							regAddresses[0],
+							rmnProxy.Address(),
+							r.Address(),
+						)
+					}
+					return cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
+						Address: tpfAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TokenPoolFactory, deployment.Version1_5_1), Err: err2,
+					}
 				},
-			})
+			)
 			if err != nil {
 				lggr.Errorw("Failed to deploy token pool factory", "chain", chain.String(), "err", err)
 				return err
 			}
-			tokenPoolFactoryAddr = tpfReport.Output.Address
-			err = ab.Save(chain.ChainSelector(), tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion))
-			if err != nil {
-				return fmt.Errorf("failed to save address %s for chain %d: %w", tpfReport.Output.Address.Hex(), chain.ChainSelector(), err)
-			}
+
+			tokenPoolFactory = tokenPoolFactoryContract.Contract
 		} else {
 			lggr.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
 		}
 
-		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err =
+		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err :=
 			deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
 				factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
 		if err != nil {
@@ -596,7 +615,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		}
 		e.Logger.Infow("Deployed TokenPoolFactory Contracts",
 			"chain", chain.String(),
-			"tokenPoolFactory", tokenPoolFactoryAddr,
+			"tokenPoolFactory", tokenPoolFactory.Address(),
 			"factoryBurnMintERC20", factoryBurnMintERC20.Address(),
 			"burnMintTokenPool", burnMintTokenPool.Address(),
 			"burnFromMintTokenPool", burnFromMintTokenPool.Address(),
