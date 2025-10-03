@@ -126,6 +126,8 @@ jobs:
               - *core_changes
               - 'core/scripts/cre/environment/**/*'
               - 'system-tests/**'
+              - 'plugins/plugins.private.yaml'
+              - 'plugins/plugins.public.yaml'
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
