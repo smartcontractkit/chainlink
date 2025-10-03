@@ -63,7 +63,7 @@ type cachedShims struct {
 	triggerSubscribers map[string]remote.TriggerSubscriber
 	triggerPublishers  map[string]remote.TriggerPublisher
 	executableClients  map[string]executable.Client
-	// TODO(CRE-942): add executable servers
+	executableServers  map[string]executable.Server
 }
 
 func shimKey(capID string, donID uint32, method string) string {
@@ -111,6 +111,7 @@ func NewLauncher(
 			triggerSubscribers: make(map[string]remote.TriggerSubscriber),
 			triggerPublishers:  make(map[string]remote.TriggerPublisher),
 			executableClients:  make(map[string]executable.Client),
+			executableServers:  make(map[string]executable.Server),
 		},
 		registry:            registry,
 		subServices:         []services.Service{},
@@ -669,26 +670,38 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 			if !ok {
 				return nil, errors.New("capability does not implement ActionCapability")
 			}
+			shimKey := shimKey(capability.ID, don.ID, "") // empty method name for V1
+			server, alreadyExists := w.cachedShims.executableServers[shimKey]
+			if !alreadyExists {
+				server = executable.NewServer(
+					info.ID,
+					"", // empty method name for v1
+					myPeerID,
+					w.dispatcher,
+					w.lggr,
+				)
+				w.cachedShims.executableServers[shimKey] = server
+			}
 
 			remoteConfig := &capabilities.RemoteExecutableConfig{}
 			if capabilityConfig.RemoteTargetConfig != nil {
 				remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
 			}
-
-			return executable.NewServer(
+			errCfg := server.SetConfig(
 				remoteConfig,
-				myPeerID,
 				actionCapability,
 				info,
 				don.DON,
 				idsToDONs,
-				w.dispatcher,
 				defaultTargetRequestTimeout,
 				defaultMaxParallelCapabilityExecuteRequests,
-				nil, // TODO: create a capability-specific hasher
-				"",  // empty method name for v1
-				w.lggr,
-			), nil
+				nil,
+			)
+			if errCfg != nil {
+				return nil, fmt.Errorf("failed to set server config: %w", err)
+			}
+
+			return server, nil
 		}
 
 		if err = w.addReceiver(ctx, capability, don, newActionServer); err != nil {
@@ -703,25 +716,38 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 				return nil, errors.New("capability does not implement TargetCapability")
 			}
 
+			shimKey := shimKey(capability.ID, don.ID, "") // empty method name for V1
+			server, alreadyExists := w.cachedShims.executableServers[shimKey]
+			if !alreadyExists {
+				server = executable.NewServer(
+					info.ID,
+					"", // empty method name for v1
+					myPeerID,
+					w.dispatcher,
+					w.lggr,
+				)
+				w.cachedShims.executableServers[shimKey] = server
+			}
+
 			remoteConfig := &capabilities.RemoteExecutableConfig{}
 			if capabilityConfig.RemoteTargetConfig != nil {
 				remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
 			}
-
-			return executable.NewServer(
+			errCfg := server.SetConfig(
 				remoteConfig,
-				myPeerID,
 				targetCapability,
 				info,
 				don.DON,
 				idsToDONs,
-				w.dispatcher,
 				defaultTargetRequestTimeout,
 				defaultMaxParallelCapabilityExecuteRequests,
-				nil, // TODO: create a capability-specific hasher
-				"",  // empty method name for v1
-				w.lggr,
-			), nil
+				nil,
+			)
+			if errCfg != nil {
+				return nil, fmt.Errorf("failed to set server config: %w", err)
+			}
+
+			return server, nil
 		}
 
 		if err = w.addReceiver(ctx, capability, don, newTargetServer); err != nil {
@@ -870,11 +896,12 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 	return nil
 }
 
-func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.ReceiverService, capID string, remoteDonID uint32, method string) error {
+func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.ReceiverService, capID string, donID uint32, method string) error {
+	w.lggr.Debugw("Enabling external access for capability method", "id", capID, "method", method, "donID", donID)
 	if err := receiver.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start receiver for capability %s, method %s: %w", capID, method, err)
 	}
-	if err := w.dispatcher.SetReceiverForMethod(capID, remoteDonID, method, receiver); err != nil {
+	if err := w.dispatcher.SetReceiverForMethod(capID, donID, method, receiver); err != nil {
 		_ = receiver.Close()
 		return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
 	}
@@ -897,8 +924,7 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 		return fmt.Errorf("failed to get capability %s from registry: %w", capID, err)
 	}
 	for method, config := range methodConfig {
-		var receiver remotetypes.ReceiverService
-		if config.RemoteTriggerConfig != nil {
+		if config.RemoteTriggerConfig != nil { // trigger
 			underlyingTriggerCapability, ok := (underlying).(capabilities.TriggerCapability)
 			if !ok {
 				return fmt.Errorf("capability %s does not implement TriggerCapability", capID)
@@ -917,13 +943,35 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 			if errCfg := publisher.SetConfig(config.RemoteTriggerConfig, underlyingTriggerCapability, myDON.DON, idsToDONs); errCfg != nil {
 				return fmt.Errorf("failed to set config for trigger publisher: %w", errCfg)
 			}
-			receiver = publisher
-		}
-		if receiver == nil && config.RemoteExecutableConfig != nil {
+
+			if !alreadyExists {
+				if err2 := w.startNewShim(ctx, publisher.(remotetypes.ReceiverService), capID, myDON.ID, method); err2 != nil {
+					// TODO CRE-1021 metrics
+					w.lggr.Errorw("failed to start receiver", "capID", capID, "method", method, "error", err2)
+					continue
+				}
+				w.cachedShims.triggerPublishers[shimKey] = publisher
+				w.lggr.Infow("added new remote trigger publisher", "capID", capID, "method", method)
+			}
+		} else { // executable
 			underlyingExecutableCapability, ok := (underlying).(capabilities.ExecutableCapability)
 			if !ok {
 				return fmt.Errorf("capability %s does not implement ExecutableCapability", capID)
 			}
+
+			shimKey := shimKey(capID, myDON.ID, method)
+			server, alreadyExists := w.cachedShims.executableServers[shimKey]
+			if !alreadyExists {
+				server = executable.NewServer(
+					info.ID,
+					method,
+					myPeerID,
+					w.dispatcher,
+					w.lggr,
+				)
+				w.cachedShims.executableServers[shimKey] = server
+			}
+
 			var requestHasher remotetypes.MessageHasher
 			switch config.RemoteExecutableConfig.RequestHasherType {
 			case capabilities.RequestHasherType_Simple:
@@ -933,43 +981,31 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 			default:
 				requestHasher = executable.NewSimpleHasher()
 			}
-			receiver = executable.NewServer(
+
+			err := server.SetConfig(
 				config.RemoteExecutableConfig,
-				myPeerID,
 				underlyingExecutableCapability,
 				info,
 				myDON.DON,
 				idsToDONs,
-				w.dispatcher,
 				config.RemoteExecutableConfig.RequestTimeout,
 				int(config.RemoteExecutableConfig.ServerMaxParallelRequests),
 				requestHasher,
-				method,
-				w.lggr,
 			)
-		}
-		if receiver == nil {
-			return fmt.Errorf("no remote config found for method %s of capability %s", method, capID)
-		}
+			if err != nil {
+				return fmt.Errorf("failed to set server config: %w", err)
+			}
 
-		w.lggr.Debugw("Enabling external access for capability method", "id", capID, "method", method, "donID", myDON.ID)
-		err := w.dispatcher.SetReceiverForMethod(capID, myDON.ID, method, receiver)
-		if errors.Is(err, remote.ErrReceiverExists) {
-			// If a receiver already exists, let's log the error for debug purposes, but
-			// otherwise short-circuit here. We've handled this capability in a previous iteration.
-			// TODO(CRE-788) support dynamic changes to config and underlying capability
-			w.lggr.Debugw("receiver already exists", "capabilityID", capID, "donID", myDON.ID, "method", method, "error", err)
-			return nil
-		} else if err != nil {
-			return fmt.Errorf("failed to set receiver for capability %s, method %s: %w", capID, method, err)
+			if !alreadyExists {
+				if err2 := w.startNewShim(ctx, server.(remotetypes.ReceiverService), capID, myDON.ID, method); err2 != nil {
+					// TODO CRE-1021 metrics
+					w.lggr.Errorw("failed to start receiver", "capID", capID, "method", method, "error", err2)
+					continue
+				}
+				w.cachedShims.executableServers[shimKey] = server
+				w.lggr.Infow("added new remote execcutable server", "capID", capID, "method", method)
+			}
 		}
-
-		err = receiver.Start(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to start receiver for capability %s, method %s: %w", capID, method, err)
-		}
-
-		w.subServices = append(w.subServices, receiver)
 	}
 	return nil
 }

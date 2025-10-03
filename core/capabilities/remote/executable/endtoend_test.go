@@ -293,8 +293,9 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := executable.NewServer(&commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{}}, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout, 10, nil, "", lggr)
+		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, lggr)
+		require.NoError(t, capabilityNode.SetConfig(&commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{}}, underlying, capInfo, capDonInfo, workflowDONs,
+			capabilityNodeResponseTimeout, 10, nil))
 		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
