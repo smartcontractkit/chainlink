@@ -158,7 +158,7 @@ func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmC
 		describeContext: proposalutils.NewArgumentContext(addresses),
 	}
 	// update state if timelock needs to be loaded from datastore with qualifier
-	if d.mcmConfig.TimelockQualifierPerChain != nil && len(d.mcmConfig.TimelockQualifierPerChain) > 0 {
+	if d.mcmConfig != nil && d.mcmConfig.TimelockQualifierPerChain != nil {
 		if e.DataStore == nil {
 			panic("datastore is required when using timelock qualifiers")
 		}
