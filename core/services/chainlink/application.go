@@ -6,6 +6,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -27,8 +28,8 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	//"github.com/smartcontractkit/chainlink-ccv/common/evm"
-	//"github.com/smartcontractkit/chainlink-ccv/protocol"
+	"github.com/smartcontractkit/chainlink-ccv/common/evm"
+	"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -1276,7 +1277,6 @@ func newCREServices(
 	}, nil
 }
 
-/*
 func getLegacyChains(lggr logger.Logger, relayerChainInterops *CoreRelayerChainInteroperators) map[protocol.ChainSelector]legacyevm.Chain {
 	chains := make(map[protocol.ChainSelector]legacyevm.Chain)
 	for _, c := range relayerChainInterops.LegacyEVMChains().Slice() {
@@ -1303,7 +1303,6 @@ func getLegacyChains(lggr logger.Logger, relayerChainInterops *CoreRelayerChainI
 	}
 	return chains
 }
-*/
 
 type CCVServices struct {
 	// Verifier
@@ -1313,7 +1312,6 @@ type CCVServices struct {
 	srvs []services.ServiceCtx
 }
 
-/*
 var hardCodedCCVConfig = evm.CCVConfig{
 	IndexerAddress:             "0xTODO",
 	CommitteeAggregatorAddress: "0xTODO",
@@ -1331,7 +1329,6 @@ var hardCodedCCVConfig = evm.CCVConfig{
 		},
 	},
 }
-*/
 
 func newCCVServices(
 	ctx context.Context,
@@ -1344,23 +1341,21 @@ func newCCVServices(
 
 	// TODO: move config from hardCodedCCVConfig into general config.
 
-	/*
-		legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
+	legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
 
-		go evm.StartCCVComitteeVerifier(
-			ctx,
-			globalLogger.With("service", "Verifier"),
-			hardCodedCCVConfig,
-			legacyRelayers,
-		)
+	go evm.StartCCVComitteeVerifier(
+		ctx,
+		globalLogger.With("service", "Verifier"),
+		hardCodedCCVConfig,
+		legacyRelayers,
+	)
 
-		go evm.StartCCVExecutor(
-			ctx,
-			globalLogger.With("service", "Executor"),
-			hardCodedCCVConfig,
-			legacyRelayers,
-		)
-	*/
+	go evm.StartCCVExecutor(
+		ctx,
+		globalLogger.With("service", "Executor"),
+		hardCodedCCVConfig,
+		legacyRelayers,
+	)
 
 	return nil, nil
 }
