@@ -15,8 +15,6 @@ import (
 	"github.com/shopspring/decimal"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -132,7 +130,7 @@ func NewReport(
 	lggr logger.Logger,
 	client BillingClient,
 	metrics *monitoring.WorkflowsMetricLabeler,
-	workflowRegistryAddress, workflowRegistryChainID, engineVersion string,
+	workflowRegistryAddress, workflowRegistryChainSelector, engineVersion string,
 ) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
@@ -165,15 +163,12 @@ func NewReport(
 		report.switchToMeteringMode(ErrNoBillingClient)
 	}
 
-	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
+	chainSelector, err := strconv.ParseUint(workflowRegistryChainSelector, 10, 64)
 	if err != nil {
-		report.switchToMeteringMode(fmt.Errorf("failed to parse registry chain id: %w", err))
+		report.switchToMeteringMode(fmt.Errorf("failed to parse registry chain selector: %w", err))
 	}
 
-	report.workflowRegistryChainSelector, err = chainselectors.SelectorFromChainId(chainID)
-	if err != nil {
-		report.switchToMeteringMode(fmt.Errorf("failed to get selector for chain id: %w", err))
-	}
+	report.workflowRegistryChainSelector = chainSelector
 
 	if client != nil {
 		report.client = client
@@ -753,9 +748,9 @@ type Reports struct {
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
-	// WorkflowRegistryChainSelector is the chain ID for the workflow registry
-	workflowRegistryChainID string
-	engineVersion           string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
+	engineVersion                 string
 }
 
 // NewReports initializes and returns a new Reports.
@@ -766,7 +761,7 @@ func NewReports(
 	labels map[string]string,
 	metrics *monitoring.WorkflowsMetricLabeler,
 	workflowRegistryAddress,
-	workflowRegistryChainID, engineVersion string,
+	workflowRegistryChainSelector, engineVersion string,
 ) *Reports {
 	valOf := reflect.ValueOf(client)
 	if valOf.IsValid() && valOf.IsNil() {
@@ -783,9 +778,9 @@ func NewReports(
 		workflowID: workflowID,
 		labelMap:   labels,
 
-		workflowRegistryAddress: workflowRegistryAddress,
-		workflowRegistryChainID: workflowRegistryChainID,
-		engineVersion:           engineVersion,
+		workflowRegistryAddress:       workflowRegistryAddress,
+		workflowRegistryChainSelector: workflowRegistryChainSelector,
+		engineVersion:                 engineVersion,
 	}
 }
 
@@ -812,7 +807,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID, s.engineVersion)
+	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainSelector, s.engineVersion)
 	if err != nil {
 		return nil, err
 	}
