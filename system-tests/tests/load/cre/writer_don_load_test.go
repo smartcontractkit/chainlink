@@ -99,7 +99,7 @@ func setupLoadTestWriterEnvironment(
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
-	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String()) //nolint:staticcheck // won't migrate now
+	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, keystone_changeset.KeystoneForwarder.String())
 	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
 
 	// DF cache start
@@ -112,10 +112,10 @@ func setupLoadTestWriterEnvironment(
 	dfOutput, dfErr := changeset2.RunChangeset(changeset.DeployCacheChangeset, *universalSetupOutput.CldEnvironment, deployConfig)
 	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
 
-	mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook) //nolint:staticcheck // won't migrate now
+	mergeErr := universalSetupOutput.CldEnvironment.ExistingAddresses.Merge(dfOutput.AddressBook)
 	require.NoError(t, mergeErr, "failed to merge address book")
 
-	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String()) //nolint:staticcheck // won't migrate now
+	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(universalSetupOutput.CldEnvironment.ExistingAddresses, universalSetupOutput.BlockchainOutput[0].ChainSelector, changeset.DataFeedsCache.String())
 	require.NoError(t, dfCacheErr, "failed to find df cache address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
 	// Config
 	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, &cretypes.ConfigureDataFeedsCacheInput{
@@ -173,7 +173,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 		for _, don := range input.DonTopology.Dons.List() {
 			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := don.WorkerNodes()
+			workflowNodeSet, err2 := don.Workers()
 			if err2 != nil {
 				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 				return nil, errors.Wrap(err2, "failed to find worker nodes")
@@ -269,7 +269,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	// Nr of signatures needs to be equal with f+1, compute f based on the nr of ocr3 worker nodes
 	for _, don := range setupOutput.donTopology.Dons.List() {
 		if don.HasFlag(cretypes.ConsensusCapability) {
-			workerNodes, workerNodesErr := don.WorkerNodes()
+			workerNodes, workerNodesErr := don.Workers()
 			require.NoError(t, workerNodesErr, "could not find any worker nodes for ocr3")
 
 			f = (len(workerNodes) - 1) / 3

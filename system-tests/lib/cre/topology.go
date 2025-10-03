@@ -64,7 +64,7 @@ func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provid
 
 	bootstrapNodesFound := 0
 	for _, don := range topology.DonsMetadata.List() {
-		if _, isBootstrap := don.BootstrapNode(); isBootstrap {
+		if _, isBootstrap := don.Bootstrap(); isBootstrap {
 			bootstrapNodesFound++
 		}
 	}

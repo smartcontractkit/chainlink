@@ -238,7 +238,7 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logge
 			continue
 		}
 
-		workerNodes, wErr := don.WorkerNodes()
+		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return errors.Wrap(wErr, "failed to find worker nodes")
 		}

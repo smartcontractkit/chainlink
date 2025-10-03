@@ -116,7 +116,7 @@ type DON struct {
 	gh GatewayHelper
 }
 
-func (m *DON) ToMetadata() *DonMetadata {
+func (m *DON) Metadata() *DonMetadata {
 	dm := &DonMetadata{
 		Name:          m.Name,
 		ID:            m.ID,
@@ -158,7 +158,7 @@ func (m *DON) Gateway() (*Node, bool) {
 }
 
 // Currently only one bootstrap node is supported.
-func (m *DON) BootstrapNode() (*Node, bool) {
+func (m *DON) Bootstrap() (*Node, bool) {
 	for _, node := range m.Nodes {
 		if node.Roles.Contains(RoleBootstrap) {
 			return node, true
@@ -168,7 +168,7 @@ func (m *DON) BootstrapNode() (*Node, bool) {
 	return nil, false
 }
 
-func (m *DON) WorkerNodes() ([]*Node, error) {
+func (m *DON) Workers() ([]*Node, error) {
 	workers := make([]*Node, 0)
 	for _, node := range m.Nodes {
 		if node.Roles.Contains(RoleWorker) {

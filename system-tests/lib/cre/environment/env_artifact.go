@@ -257,7 +257,7 @@ func GenerateArtifact(
 			Capabilities:   make([]DONCapabilityArtifact, 0),
 		}
 
-		workerNodes, wErr := don.WorkerNodes()
+		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return nil, pkgerrors.Wrap(wErr, "failed to find worker nodes")
 		}

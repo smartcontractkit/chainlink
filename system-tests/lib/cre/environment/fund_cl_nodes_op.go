@@ -217,6 +217,7 @@ var FundCLNodesOp = operations.NewOperation(
 					case chainselectors.FamilyTron:
 						nodeAddress := getTronNodeAddress(node, bcOut)
 						if nodeAddress == nil {
+							deps.TestLogger.Info().Msgf("No EVM key for chainID %d (Tron) found for node %s. Skipping funding", bcOut.ChainID, node.Name)
 							continue // Skip nodes without EVM keys for this chain
 						}
 						if err := FundTronAddress(ctx, deps.TestLogger, *nodeAddress, fundingAmount, bcOut, deps.Env); err != nil {
@@ -238,6 +239,7 @@ var FundCLNodesOp = operations.NewOperation(
 func fundEthAddress(ctx context.Context, testLogger zerolog.Logger, node *cre.Node, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, privateKeyPerChainFamily map[string]map[uint64][]byte) error {
 	evmKey, ok := node.Keys.EVM[bcOut.ChainID]
 	if !ok {
+		testLogger.Info().Msgf("No EVM key for chainID %d found for node %s. Skipping funding", bcOut.ChainID, node.Name)
 		return nil // Skip nodes without EVM keys for this chain
 	}
 

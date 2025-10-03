@@ -538,7 +538,7 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration,
 	}, nil
 }
 
-func (m *DonMetadata) WorkerNodes() ([]*NodeMetadata, error) {
+func (m *DonMetadata) Workers() ([]*NodeMetadata, error) {
 	workers := make([]*NodeMetadata, 0)
 	for _, node := range m.NodesMetadata {
 		if slices.Contains(node.Roles, WorkerNode) {
@@ -554,7 +554,7 @@ func (m *DonMetadata) WorkerNodes() ([]*NodeMetadata, error) {
 }
 
 // Currently only one bootstrap node is supported.
-func (m *DonMetadata) BootstrapNode() (*NodeMetadata, bool) {
+func (m *DonMetadata) Bootstrap() (*NodeMetadata, bool) {
 	for _, node := range m.NodesMetadata {
 		if slices.Contains(node.Roles, BootstrapNode) {
 			return node, true
@@ -660,7 +660,7 @@ func (m DonsMetadata) validate() error {
 		return fmt.Errorf("failed to get workflow DON: %w", err)
 	}
 
-	if _, isBootstrap := wfDon.BootstrapNode(); !isBootstrap {
+	if _, isBootstrap := wfDon.Bootstrap(); !isBootstrap {
 		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
 	}
 
@@ -674,8 +674,8 @@ func (m DonsMetadata) validate() error {
 // BootstrapNode returns the bootstrap node from the first DON that contains one. Currently only one bootstrap node is supported.
 func (m DonsMetadata) BootstrapNode() (*NodeMetadata, bool) {
 	for _, don := range m.dons {
-		if _, isBootstrap := don.BootstrapNode(); isBootstrap {
-			return don.BootstrapNode()
+		if _, isBootstrap := don.Bootstrap(); isBootstrap {
+			return don.Bootstrap()
 		}
 	}
 	return nil, false
@@ -684,7 +684,7 @@ func (m DonsMetadata) BootstrapNode() (*NodeMetadata, bool) {
 func (m DonsMetadata) BootstrapNodeCount() int {
 	count := 0
 	for _, don := range m.dons {
-		if _, isBootstrap := don.BootstrapNode(); isBootstrap {
+		if _, isBootstrap := don.Bootstrap(); isBootstrap {
 			count++
 		}
 	}
@@ -804,7 +804,7 @@ type DonTopology struct {
 // Currently only one bootstrap is supported.
 func (t *DonTopology) BootstrapNode() (*Node, bool) {
 	for _, don := range t.Dons.List() {
-		if node, isBootstrap := don.BootstrapNode(); isBootstrap {
+		if node, isBootstrap := don.Bootstrap(); isBootstrap {
 			return node, true
 		}
 	}

@@ -130,7 +130,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 				return nil, errors.Wrap(cmdErr, "failed to get capability command")
 			}
 
-			workerNodes, wErr := don.WorkerNodes()
+			workerNodes, wErr := don.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
