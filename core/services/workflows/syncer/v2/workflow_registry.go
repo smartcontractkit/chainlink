@@ -19,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -57,9 +57,6 @@ type workflowRegistry struct {
 	// close stopCh to stop the workflowRegistry.
 	stopCh services.StopChan
 
-	// events sent to the event channel to be handled.
-	eventCh chan Event
-
 	// all goroutines are waited on with wg.
 	wg sync.WaitGroup
 
@@ -89,6 +86,12 @@ type workflowRegistry struct {
 	retryInterval    time.Duration
 	maxRetryInterval time.Duration
 	clock            clockwork.Clock
+
+	hooks Hooks
+}
+
+type Hooks struct {
+	OnStartFailure func(error)
 }
 
 type evtHandler interface {
@@ -139,7 +142,6 @@ func NewWorkflowRegistry(
 		contractReaderFn:        contractReaderFn,
 		workflowRegistryAddress: addr,
 		config:                  config,
-		eventCh:                 make(chan Event),
 		stopCh:                  make(services.StopChan),
 		handler:                 handler,
 		workflowDonNotifier:     workflowDonNotifier,
@@ -148,6 +150,9 @@ func NewWorkflowRegistry(
 		retryInterval:           defaultRetryInterval,
 		maxRetryInterval:        defaultMaxRetryInterval,
 		clock:                   clockwork.NewRealClock(),
+		hooks: Hooks{
+			OnStartFailure: func(_ error) {},
+		},
 	}
 
 	for _, opt := range opts {
@@ -172,13 +177,12 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 
 		w.wg.Add(1)
 		go func() {
-			defer w.lggr.Debugw("Received DON and set ContractReader")
 			defer w.wg.Done()
-			defer close(initDoneCh)
 
 			w.lggr.Debugw("Waiting for DON...")
 			if _, err := w.workflowDonNotifier.WaitForDon(ctx); err != nil {
 				w.lggr.Errorw("failed to wait for don", "err", err)
+				w.hooks.OnStartFailure(err)
 				return
 			}
 
@@ -189,10 +193,14 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			reader, err := w.newWorkflowRegistryContractReader(ctx)
 			if err != nil {
 				w.lggr.Criticalf("contract reader unavailable : %s", err)
+				w.hooks.OnStartFailure(err)
+				cancel()
 				return
 			}
 
 			w.contractReader = reader
+			close(initDoneCh)
+			w.lggr.Debugw("Received DON and set ContractReader")
 		}()
 
 		w.wg.Add(1)
@@ -200,9 +208,17 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 			// Start goroutines to gather changes from Workflow Registry contract
-			<-initDoneCh
+			select {
+			case <-initDoneCh:
+			case <-ctx.Done():
+				return
+			}
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-			don, _ := w.workflowDonNotifier.WaitForDon(ctx)
+			don, err := w.workflowDonNotifier.WaitForDon(ctx)
+			if err != nil {
+				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
+				return
+			}
 			w.syncUsingReconciliationStrategy(ctx, don)
 		}()
 
@@ -211,7 +227,11 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.wg.Done()
 			defer cancel()
 			// Start goroutines to gather allowlisted requests from Workflow Registry contract
-			<-initDoneCh
+			select {
+			case <-initDoneCh:
+			case <-ctx.Done():
+				return
+			}
 			w.syncAllowlistedRequests(ctx)
 		}()
 
@@ -232,7 +252,7 @@ func (w *workflowRegistry) Ready() error {
 }
 
 func (w *workflowRegistry) HealthReport() map[string]error {
-	return nil
+	return map[string]error{w.Name(): w.Healthy()}
 }
 
 func (w *workflowRegistry) Name() string {
@@ -564,6 +584,9 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 
 // getWorkflowMetadata uses contract reader to query the contract for all workflow metadata using the method getWorkflowListByDON
 func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabilities.DON, contractReader types.ContractReader) ([]WorkflowMetadataView, *types.Head, error) {
+	if contractReader == nil {
+		return nil, nil, errors.New("cannot fetch workflow metadata: nil contract reader")
+	}
 	contractBinding := types.BoundContract{
 		Address: w.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,
@@ -632,6 +655,9 @@ func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_
 
 // GetAllowlistedRequests uses contract reader to query the contract for all allowlisted requests
 func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractReader types.ContractReader) ([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, *types.Head, error) {
+	if contractReader == nil {
+		return nil, nil, errors.New("cannot fetch allow listed requests: nil contract reader")
+	}
 	contractBinding := types.BoundContract{
 		Address: w.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,

@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -1028,6 +1030,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 }
 
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
+	quarantine.Flaky(t, "DX-1857")
 	t.Parallel()
 
 	g := gomega.NewWithT(t)
@@ -1179,6 +1182,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
+	quarantine.Flaky(t, "DX-1845")
 	t.Parallel()
 	g := gomega.NewWithT(t)
 

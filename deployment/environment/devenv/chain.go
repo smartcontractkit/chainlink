@@ -31,6 +31,8 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_client "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
+	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -39,6 +41,7 @@ const (
 	EVMChainType   = "EVM"
 	SolChainType   = "SOLANA"
 	AptosChainType = "APTOS"
+	TronChainType  = "TRON"
 )
 
 type CribRPCs struct {
@@ -150,12 +153,17 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 	var evmSyncMap sync.Map
 	var solSyncMap sync.Map
 	var aptosSyncMap sync.Map
+	var tronSyncMap sync.Map
 
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
 		chainCfg := chainCfg // capture loop variable
 		g.Go(func() error {
-			chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, strings.ToLower(chainCfg.ChainType))
+			family := chainCfg.ChainType
+			if chainCfg.ChainType == TronChainType {
+				family = EVMChainType
+			}
+			chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, strings.ToLower(family))
 			if err != nil {
 				return fmt.Errorf("failed to get selector from chain id %s: %w", chainCfg.ChainID, err)
 			}
@@ -282,6 +290,34 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 					},
 				})
 				return nil
+			case TronChainType:
+				signerGen, err := tronprovider.SignerGenCTFDefault()
+				if err != nil {
+					return fmt.Errorf("failed to create signer generator: %w", err)
+				}
+
+				fullNodeURL := strings.Replace(chainCfg.HTTPRPCs[0].External, "/jsonrpc", "/wallet", 1)
+				solidityNodeURL := strings.Replace(chainCfg.HTTPRPCs[0].External, "/jsonrpc", "/walletsolidity", 1)
+
+				tronRPCProvider := tronprovider.NewRPCChainProvider(chainDetails.ChainSelector, tronprovider.RPCChainProviderConfig{
+					FullNodeURL:       fullNodeURL,
+					SolidityNodeURL:   solidityNodeURL,
+					DeployerSignerGen: signerGen,
+				})
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				tronChain, err := tronRPCProvider.Initialize(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to initialize tron chain: %w", err)
+				}
+
+				tronChain, ok := tronChain.(cldf_tron.Chain)
+				if !ok {
+					return fmt.Errorf("expected cldf_tron.Chain, got %T", tronChain)
+				}
+
+				tronSyncMap.Store(chainDetails.ChainSelector, tronChain)
+				return nil
 			default:
 				return fmt.Errorf("chain type %s is not supported", chainCfg.ChainType)
 			}
@@ -306,6 +342,11 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 
 	aptosSyncMap.Range(func(sel, value interface{}) bool {
 		blockChains = append(blockChains, value.(cldf_aptos.Chain))
+		return true
+	})
+
+	tronSyncMap.Range(func(sel, value interface{}) bool {
+		blockChains = append(blockChains, value.(cldf_tron.Chain))
 		return true
 	})
 

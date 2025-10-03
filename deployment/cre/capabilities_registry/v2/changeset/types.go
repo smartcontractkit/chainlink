@@ -103,7 +103,8 @@ type CapabilitiesRegistryNewDONParams struct {
 func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v2.CapabilitiesRegistryNewDONParams, error) {
 	capabilityConfigurations := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(don.CapabilityConfigurations))
 	for j, capConfig := range don.CapabilityConfigurations {
-		configBytes, err := json.Marshal(capConfig.Config)
+		x := pkg.CapabilityConfig(capConfig.Config)
+		configBytes, err := x.MarshalProto()
 		if err != nil {
 			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to marshal capability configuration config: %w", err)
 		}
@@ -123,7 +124,8 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper() (capabilities_registry_v
 		nodes[i] = n
 	}
 
-	configBytes, err := json.Marshal(don.Config)
+	capCfg := pkg.CapabilityConfig(don.Config)
+	configBytes, err := capCfg.MarshalProto()
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to marshal DON config: %w", err)
 	}

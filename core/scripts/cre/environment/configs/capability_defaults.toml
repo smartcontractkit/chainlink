@@ -37,6 +37,8 @@
 [capability_configs.evm.config]
   LogTriggerPollInterval = 1500000000  # 1.5s in nanoseconds
   ReceiverGasMinimum = 500
+  # LogTriggerSendChannelBufferSize = 1000 # default 1000, ommited here to use default
+  # LogTriggerLimitQueryLogSize = 1000 # default 1000, ommited here to use default
   # Runtime values below are typically filled at runtime, but may be overridden
   # CreForwarderAddress = "0x0000000000000000000000000000000000000000"
   # NodeAddress = "0x0000000000000000000000000000000000000000"

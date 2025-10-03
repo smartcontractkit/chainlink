@@ -17,13 +17,11 @@ import (
 	"github.com/scylladb/go-reflectx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	wf_reg_v2_op "github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
@@ -163,51 +161,6 @@ func ConfigureWorkflowRegistry(
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	// we need to filter out all chains from the environment struct
-	// that do not have at least one contract deployed to avoid validation errors
-	// when configuring workflow registry contract :shrug: :shrug: :shrug:
-	allAddresses, addrErr := input.CldEnv.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
-	if addrErr != nil {
-		return nil, errors.Wrap(addrErr, "failed to get addresses from address book")
-	}
-
-	chainsWithContracts := make(map[uint64]bool)
-	for chainSelector, addresses := range allAddresses {
-		chainsWithContracts[chainSelector] = len(addresses) > 0
-	}
-
-	addresses, addrErr1 := input.CldEnv.DataStore.Addresses().Fetch()
-	if addrErr1 != nil {
-		return nil, errors.Wrap(addrErr1, "failed to get addresses from datastore")
-	}
-
-	for _, addr := range addresses {
-		chainsWithContracts[addr.ChainSelector] = true
-	}
-
-	nonEmptyBlockchains := make(map[uint64]cldf_chain.BlockChain, 0)
-	for chainSelector, chain := range input.CldEnv.BlockChains.EVMChains() {
-		if chainsWithContracts[chain.Selector] {
-			nonEmptyBlockchains[chainSelector] = chain
-		}
-	}
-	for chainSelector, chain := range input.CldEnv.BlockChains.SolanaChains() {
-		if chainsWithContracts[chain.Selector] {
-			nonEmptyBlockchains[chainSelector] = chain
-		}
-	}
-
-	nonEmptyChainsCLDEnvironment := &cldf.Environment{
-		Logger:            singleFileLogger,
-		ExistingAddresses: input.CldEnv.ExistingAddresses, //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
-		GetContext: func() context.Context {
-			return ctx
-		},
-		DataStore:   input.CldEnv.DataStore,
-		BlockChains: cldf_chain.NewBlockChains(nonEmptyBlockchains),
-	}
-	nonEmptyChainsCLDEnvironment.OperationsBundle = operations.NewBundle(nonEmptyChainsCLDEnvironment.GetContext, singleFileLogger, operations.NewMemoryReporter())
-
 	allowedDonIDs := make([]uint32, len(input.AllowedDonIDs))
 	for i, donID := range input.AllowedDonIDs {
 		allowedDonIDs[i] = libc.MustSafeUint32FromUint64(donID)
@@ -219,7 +172,7 @@ func ConfigureWorkflowRegistry(
 			input.CldEnv.OperationsBundle,
 			wf_reg_v2_op.UpdateAllowedSignersOp,
 			wf_reg_v2_op.WorkflowRegistryOpDeps{
-				Env: nonEmptyChainsCLDEnvironment,
+				Env: input.CldEnv,
 			},
 			wf_reg_v2_op.UpdateAllowedSignersOpInput{
 				ChainSelector: input.ChainSelector,
@@ -235,7 +188,7 @@ func ConfigureWorkflowRegistry(
 			input.CldEnv.OperationsBundle,
 			wf_reg_v2_op.SetDONLimitOp,
 			wf_reg_v2_op.WorkflowRegistryOpDeps{
-				Env: nonEmptyChainsCLDEnvironment,
+				Env: input.CldEnv,
 			},
 			wf_reg_v2_op.SetDONLimitOpInput{
 				ChainSelector: input.ChainSelector,
@@ -258,7 +211,7 @@ func ConfigureWorkflowRegistry(
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigWorkflowRegistrySeq,
 			ks_contracts_op.ConfigWorkflowRegistrySeqDeps{
-				Env: nonEmptyChainsCLDEnvironment,
+				Env: input.CldEnv,
 			},
 			ks_contracts_op.ConfigWorkflowRegistrySeqInput{
 				ContractAddress:       input.ContractAddress,

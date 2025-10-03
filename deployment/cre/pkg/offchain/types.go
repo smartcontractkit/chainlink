@@ -1,26 +1,41 @@
 package offchain
 
-import "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+import (
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+)
 
-const FilterKeyDONName = "don_name"
+const (
+	FilterKeyDONName      = "don_name"
+	FilterKeyCSAPublicKey = "csa_public_key"
+)
 
 type TargetDONFilter struct {
 	Key   string
 	Value string
 }
 
-func (f TargetDONFilter) ToJDSelector() *ptypes.Selector {
-	// DON name is a key, so we just check for its existence instead of equality
-	if f.Key == FilterKeyDONName {
-		return &ptypes.Selector{
+func (f TargetDONFilter) AddToFilter(filter *nodev1.ListNodesRequest_Filter) *nodev1.ListNodesRequest_Filter {
+	switch f.Key {
+	case FilterKeyDONName:
+		filter.Selectors = append(filter.Selectors, &ptypes.Selector{
 			Op:  ptypes.SelectorOp_EXIST,
-			Key: f.Value,
-		}
+			Key: "don-" + f.Value,
+		})
+	case FilterKeyCSAPublicKey:
+		filter.PublicKeys = append(filter.PublicKeys, f.Value)
+	default:
+		filter.Selectors = append(filter.Selectors, &ptypes.Selector{
+			Op:    ptypes.SelectorOp_EQ,
+			Key:   f.Key,
+			Value: &f.Value,
+		})
 	}
 
-	return &ptypes.Selector{
-		Op:    ptypes.SelectorOp_EQ,
-		Key:   f.Key,
-		Value: &f.Value,
-	}
+	return filter
+}
+
+func (f TargetDONFilter) ToListFilter() *nodev1.ListNodesRequest_Filter {
+	filter := &nodev1.ListNodesRequest_Filter{}
+	return f.AddToFilter(filter)
 }

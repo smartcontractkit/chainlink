@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
@@ -260,7 +261,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		}
 
 		switch chain.ChainType {
-		case "EVM":
+		case "EVM", "TRON":
 			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
@@ -292,15 +293,19 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			return fmt.Errorf("no peer id found for node %s", n.Name)
 		}
 
-		ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
+		chainType := chain.ChainType
+		if strings.EqualFold(chain.ChainType, blockchain.FamilyTron) {
+			chainType = strings.ToUpper(blockchain.FamilyEVM)
+		}
+		ocr2BundleID, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chainType)
 		if err != nil {
 			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, err)
 		}
-		if ocr2BundleId == "" {
+		if ocr2BundleID == "" {
 			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
 
-		n.ChainsOcr2KeyBundlesID[strings.ToLower(chain.ChainType)] = ocr2BundleId
+		n.ChainsOcr2KeyBundlesID[strings.ToLower(chainType)] = ocr2BundleID
 
 		// fetch node labels to know if the node is bootstrap or plugin
 		// if multi address is set, then it's a bootstrap node
@@ -335,14 +340,14 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JDId,
 				ChainID:          chain.ChainID,
-				ChainType:        chain.ChainType,
+				ChainType:        chainType,
 				AccountAddr:      account,
 				AdminAddr:        n.adminAddr,
 				Ocr2Enabled:      true,
 				Ocr2IsBootstrap:  isBootstrap,
 				Ocr2Multiaddr:    n.multiAddr,
 				Ocr2P2PPeerID:    value(peerID),
-				Ocr2KeyBundleID:  ocr2BundleId,
+				Ocr2KeyBundleID:  ocr2BundleID,
 				Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
 			})
 			// todo: add a check if the chain config failed because of a duplicate in that case, should we update or return success?

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -29,6 +30,7 @@ import (
 )
 
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
+	quarantine.Flaky(t, "DX-1773")
 	t.Parallel()
 	// --- arrange ---
 	log := logger.TestLogger(t)

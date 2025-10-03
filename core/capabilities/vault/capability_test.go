@@ -819,7 +819,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 	require.NoError(t, capability.Close())
 
 	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
-	require.ErrorContains(t, err, "capability not found with id vault@1.0.0")
+	require.ErrorContains(t, err, "no compatible capability found for id vault@1.0.0")
 }
 
 func TestCapability_PublicKeyGet(t *testing.T) {

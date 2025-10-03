@@ -21,6 +21,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -37,6 +38,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
+
+const TronEVMChainID = 3360022319
 
 func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeConfigTransformerFn) (cre.NodeIndexToConfigOverride, error) {
 	configOverrides := make(cre.NodeIndexToConfigOverride)
@@ -164,35 +167,22 @@ func addBootstrapNodeConfig(
 		},
 	}
 
-	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{"localhost:" + strconv.Itoa(capabilitiesPeeringData.Port)})
-	if capabilitiesBErr != nil {
-		return existingConfig, errors.Wrap(capabilitiesBErr, "failed to create capabilities peering bootstrapper locator")
-	}
-
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled:              ptr.Ptr(true),
-				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(capabilitiesPeeringData.Port)}),
-				DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*capabilitiesBootstrapperLocator}),
+				Enabled: ptr.Ptr(false),
 			},
+		},
+		SharedPeering: coretoml.SharedPeering{
+			Enabled: ptr.Ptr(true),
+		},
+		Dispatcher: coretoml.Dispatcher{
+			SendToSharedPeer: ptr.Ptr(true),
 		},
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
-				},
-			},
-		})
+		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
 	if commonInputs.solanaChain != nil {
@@ -241,35 +231,22 @@ func addWorkerNodeConfig(
 		},
 	}
 
-	capabilitiesBootstrapperLocator, capabilitiesBErr := commontypes.NewBootstrapperLocator(capabilitiesPeeringData.GlobalBootstraperPeerID, []string{capabilitiesPeeringData.GlobalBootstraperHost + ":" + strconv.Itoa(capabilitiesPeeringData.Port)})
-	if capabilitiesBErr != nil {
-		return existingConfig, errors.Wrap(capabilitiesBErr, "failed to create capabilities peering bootstrapper locator")
-	}
-
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
 			V2: coretoml.P2PV2{
-				Enabled:              ptr.Ptr(true),
-				ListenAddresses:      ptr.Ptr([]string{"0.0.0.0:" + strconv.Itoa(capabilitiesPeeringData.Port)}),
-				DefaultBootstrappers: ptr.Ptr([]commontypes.BootstrapperLocator{*capabilitiesBootstrapperLocator}),
+				Enabled: ptr.Ptr(false),
 			},
+		},
+		SharedPeering: coretoml.SharedPeering{
+			Enabled: ptr.Ptr(true),
+		},
+		Dispatcher: coretoml.Dispatcher{
+			SendToSharedPeer: ptr.Ptr(true),
 		},
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
-				},
-			},
-		})
+		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
 	if commonInputs.solanaChain != nil {
@@ -353,20 +330,7 @@ OUTER:
 				continue OUTER
 			}
 		}
-
-		existingConfig.EVM = append(existingConfig.EVM, &evmconfigtoml.EVMConfig{
-			ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
-			Chain: evmconfigtoml.Chain{
-				AutoCreateKey: ptr.Ptr(false),
-			},
-			Nodes: []*evmconfigtoml.Node{
-				{
-					Name:    ptr.Ptr(evmChain.Name),
-					WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
-					HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
-				},
-			},
-		})
+		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
 
 	existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
@@ -509,4 +473,52 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	}
 
 	return solChain, nil
+}
+
+func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
+	tronRPC := strings.Replace(evmChain.HTTPRPC, "jsonrpc", "wallet", 1)
+	return evmconfigtoml.EVMConfig{
+		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		Chain: evmconfigtoml.Chain{
+			AutoCreateKey:         ptr.Ptr(false),
+			ChainType:             chaintype.NewConfig("tron"),
+			LogBroadcasterEnabled: ptr.Ptr(false),
+			NodePool: evmconfigtoml.NodePool{
+				NewHeadsPollInterval: commonconfig.MustNewDuration(10 * time.Second),
+			},
+		},
+		Nodes: []*evmconfigtoml.Node{
+			{
+				Name:              ptr.Ptr(evmChain.Name),
+				HTTPURL:           commonconfig.MustParseURL(evmChain.HTTPRPC),
+				HTTPURLExtraWrite: commonconfig.MustParseURL(tronRPC),
+			},
+		},
+	}
+}
+
+func buildEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {
+	return evmconfigtoml.EVMConfig{
+		ChainID: chainlinkbig.New(big.NewInt(libc.MustSafeInt64(evmChain.ChainID))),
+		Chain: evmconfigtoml.Chain{
+			AutoCreateKey: ptr.Ptr(false),
+		},
+		Nodes: []*evmconfigtoml.Node{
+			{
+				Name:    ptr.Ptr(evmChain.Name),
+				WSURL:   commonconfig.MustParseURL(evmChain.WSRPC),
+				HTTPURL: commonconfig.MustParseURL(evmChain.HTTPRPC),
+			},
+		},
+	}
+}
+
+func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain) {
+	var cfg evmconfigtoml.EVMConfig
+	if evmChain.ChainID == TronEVMChainID {
+		cfg = buildTronEVMConfig(evmChain)
+	} else {
+		cfg = buildEVMConfig(evmChain)
+	}
+	*existingConfig = append(*existingConfig, &cfg)
 }

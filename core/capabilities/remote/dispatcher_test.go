@@ -259,6 +259,7 @@ func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
 
 	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
 	sharedPeerRecvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload2))
+	close(sharedPeerRecvCh) // make sure Dispatcher handles SharedPeer shutdown gracefully
 
 	m := <-rcv.ch
 	require.Equal(t, payload1, string(m.Payload))

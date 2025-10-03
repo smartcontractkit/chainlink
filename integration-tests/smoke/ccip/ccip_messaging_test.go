@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -346,6 +347,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithMultiCall3(),
 		testhelpers.WithSolChains(1),
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			params.ExecuteOffChainConfig.InflightCacheExpiry = *config.MustNewDuration(1 * time.Hour)
@@ -558,6 +560,38 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 						require.Equal(t, uint8(3), receiverCounterAccount.Value)
 					},
 				},
+			},
+		)
+	})
+
+	t.Run("message requiring merkle proof", func(t *testing.T) {
+		accounts := [][32]byte{
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                 accounts,
+			ComputeUnits:             1_000_000,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		out = mt.Run(
+			t,
+			mt.TestCase{
+				ValidationType: mt.ValidationTypeExec,
+				TestSetup:      setup,
+				Nonce:          nil, // Solana nonce check is skipped
+				Receiver:       receiver,
+				// set a large payload that requires a merkle proof so that we initiate tx buffering.
+				MsgData:                bytes.Repeat([]byte("a"), 1233),
+				ExtraArgs:              extraArgs,
+				NumberOfMessages:       3,
+				UseMulticall3:          true,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
 	})

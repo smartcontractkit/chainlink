@@ -1,6 +1,7 @@
 package stateview_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -28,6 +29,20 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
+	fq1 := utils.RandomAddress().Hex()
+	fq2 := utils.RandomAddress().Hex()
+	state, err := stateview.LoadChainState(context.Background(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], map[string]cldf.TypeAndVersion{
+		fq1: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0),
+		fq2: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_2_0),
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, fq2, state.FeeQuoter.Address().Hex(), "expected latest fee quoter to be selected")
+	require.Equal(t, deployment.Version1_2_0, *state.FeeQuoterVersion, "expected latest fee quoter version to be selected")
+}
 
 func TestSmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))

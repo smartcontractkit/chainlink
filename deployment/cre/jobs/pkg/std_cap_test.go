@@ -55,6 +55,22 @@ globalBurst = 30
 perSenderRPS = 1.0
 perSenderBurst = 5"""
 `
+	expectedHTTPTriggerSpec = `type = "standardcapabilities"
+schemaVersion = 1
+name = "http-trigger-capabilities"
+externalJobID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+forwardingAllowed = false
+command = "http_trigger"
+config = """{}"""
+`
+	expectedHTTPActionSpec = `type = "standardcapabilities"
+schemaVersion = 1
+name = "http-action-capabilities"
+externalJobID = "b2c3d4e5-f6g7-8901-bcde-f23456789012"
+forwardingAllowed = false
+command = "http_action"
+config = """{"proxyMode": "direct"}"""
+`
 )
 
 func TestStdCap_Resolve(t *testing.T) {
@@ -85,6 +101,20 @@ globalBurst = 30
 perSenderRPS = 1.0
 perSenderBurst = 5`,
 			externalJobID: "fe41c282-0393-5559-9e6c-4ce592b7f9ac",
+		},
+		{
+			name:          "http-trigger-capabilities",
+			expectedTOML:  expectedHTTPTriggerSpec,
+			command:       "http_trigger",
+			config:        "{}",
+			externalJobID: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		},
+		{
+			name:          "http-action-capabilities",
+			expectedTOML:  expectedHTTPActionSpec,
+			command:       "http_action",
+			config:        `{"proxyMode": "direct"}`,
+			externalJobID: "b2c3d4e5-f6g7-8901-bcde-f23456789012",
 		},
 	}
 

@@ -314,7 +314,7 @@ func (e *ServerRequest) sendResponse(ctx context.Context, requester p2ptypes.Pee
 		responseMsg.Payload = e.response.response
 	}
 
-	e.lggr.Debugw("Sending response", "receiver", requester)
+	e.lggr.Debugw("Sending response", "receiver", requester, "capabilityId", e.capabilityID, "donId", e.capabilityDonID, "method", e.capMethodName)
 	err := e.dispatcher.Send(requester, &responseMsg)
 	e.metrics.countExecutionResponse(ctx, e.response.error.String(), err != nil)
 	if err != nil {

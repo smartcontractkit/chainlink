@@ -33,13 +33,13 @@ type AcceptOwnershipFn func(
 	authority solana.PublicKey,
 ) (solana.Instruction, error)
 
-// transferAndWrapAcceptOwnership abstracts logic of:
+// TransferAndWrapAcceptOwnership abstracts logic of:
 //   - building a “transfer ownership” instruction
 //   - confirming on-chain
 //   - building an “accept ownership” instruction
 //   - wrapping it in an MCMS transaction
 //   - returning the mcms transaction for the accept ownership
-func transferAndWrapAcceptOwnership(
+func TransferAndWrapAcceptOwnership(
 	buildTransfer TransferOwnershipFn,
 	buildAccept AcceptOwnershipFn,
 	programID solana.PublicKey, // e.g. token_pool program or router program
@@ -151,7 +151,7 @@ func transferOwnershipRouter(
 		return acceptOwnershipIx, nil
 	}
 
-	tx, err := transferAndWrapAcceptOwnership(
+	tx, err := TransferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		routerProgramID,
@@ -229,7 +229,7 @@ func transferOwnershipFeeQuoter(
 		return acceptOwnershipIx, nil
 	}
 
-	tx, err := transferAndWrapAcceptOwnership(
+	tx, err := TransferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		feeQuoterProgramID,
@@ -307,7 +307,7 @@ func transferOwnershipOffRamp(
 		return acceptOwnershipIx, nil
 	}
 
-	tx, err := transferAndWrapAcceptOwnership(
+	tx, err := TransferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		offRampProgramID,
@@ -376,7 +376,7 @@ func transferOwnershipBurnMintTokenPools(
 		return ix, nil
 	}
 
-	tx, err := transferAndWrapAcceptOwnership(
+	tx, err := TransferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		state.BurnMintTokenPools[tokenPoolMetadata],
@@ -445,7 +445,7 @@ func transferOwnershipLockReleaseTokenPools(
 		return ix, nil
 	}
 
-	tx, err := transferAndWrapAcceptOwnership(
+	tx, err := TransferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		state.LockReleaseTokenPools[tokenPoolMetadata],
@@ -513,7 +513,7 @@ func transferOwnershipCCTPTokenPools(
 		return ix, nil
 	}
 
-	tx, err := transferAndWrapAcceptOwnership(
+	tx, err := TransferAndWrapAcceptOwnership(
 		buildTransfer,
 		buildAccept,
 		state.CCTPTokenPool,
