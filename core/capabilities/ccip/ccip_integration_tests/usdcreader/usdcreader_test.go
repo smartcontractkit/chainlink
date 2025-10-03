@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	sel "github.com/smartcontractkit/chain-selectors"
@@ -405,7 +406,7 @@ func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, 
 	testEnv.sb.Commit()
 }
 
-func testSetup(ctx context.Context, t testing.TB, readerChain cciptypes.ChainSelector, cfg config.ChainReaderConfig, depth int, useHeavyDB bool) *testSetupData {
+func testSetup(ctx context.Context, t testing.TB, readerChain ccipocr3common.ChainSelector, cfg config.ChainReaderConfig, depth int, useHeavyDB bool) *testSetupData {
 	// Generate a new key pair for the simulated account
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)

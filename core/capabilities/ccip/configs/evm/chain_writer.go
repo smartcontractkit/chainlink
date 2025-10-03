@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -25,13 +26,13 @@ func ChainWriterConfigRaw(
 	execBatchGasLimit uint64,
 ) (config.ChainWriterConfig, error) {
 	if fromAddress == common.HexToAddress("0x0") {
-		return config.ChainWriterConfig{}, fmt.Errorf("fromAddress cannot be zero")
+		return config.ChainWriterConfig{}, errors.New("fromAddress cannot be zero")
 	}
 	if commitGasLimit == 0 {
-		return config.ChainWriterConfig{}, fmt.Errorf("commitGasLimit must be greater than zero")
+		return config.ChainWriterConfig{}, errors.New("commitGasLimit must be greater than zero")
 	}
 	if execBatchGasLimit == 0 {
-		return config.ChainWriterConfig{}, fmt.Errorf("execBatchGasLimit must be greater than zero")
+		return config.ChainWriterConfig{}, errors.New("execBatchGasLimit must be greater than zero")
 	}
 
 	return config.ChainWriterConfig{
