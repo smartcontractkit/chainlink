@@ -28,8 +28,8 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-ccv/common/evm"
-	"github.com/smartcontractkit/chainlink-ccv/protocol"
+	//"github.com/smartcontractkit/chainlink-ccv/common/evm"
+	//"github.com/smartcontractkit/chainlink-ccv/protocol"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -1343,19 +1343,21 @@ func newCCVServices(
 
 	legacyRelayers := getLegacyChains(globalLogger, relayerChainInterops)
 
-	go evm.StartCCVComitteeVerifier(
-		ctx,
-		globalLogger.With("service", "Verifier"),
-		hardCodedCCVConfig,
-		legacyRelayers,
-	)
+	/*
+		go evm.StartCCVComitteeVerifier(
+			ctx,
+			globalLogger.With("service", "Verifier"),
+			hardCodedCCVConfig,
+			legacyRelayers,
+		)
 
-	go evm.StartCCVExecutor(
-		ctx,
-		globalLogger.With("service", "Executor"),
-		hardCodedCCVConfig,
-		legacyRelayers,
-	)
+		go evm.StartCCVExecutor(
+			ctx,
+			globalLogger.With("service", "Executor"),
+			hardCodedCCVConfig,
+			legacyRelayers,
+		)
+	*/
 
 	return nil, nil
 }
