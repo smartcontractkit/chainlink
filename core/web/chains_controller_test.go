@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/rand"
 
+	"github.com/smartcontractkit/quarantine"
+
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -108,6 +110,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 }
 
 func Test_EVMChainsController_Index(t *testing.T) {
+	quarantine.Flaky(t, "DX-1795")
 	t.Parallel()
 
 	// sort test chain ids to make expected comparison easy
