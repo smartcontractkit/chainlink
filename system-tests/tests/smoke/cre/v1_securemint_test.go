@@ -50,7 +50,7 @@ import (
 
 func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	creEnvironment := tenv.CreEnvironment
-	wrappedBlockchainOutputs := tenv.Blockchains
+	blockchains := tenv.Blockchains
 	ds := creEnvironment.CldfEnvironment.DataStore
 
 	// prevalidate environment
@@ -65,7 +65,7 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 
 	var s setup
 	var solChain *cre.Blockchain
-	for _, w := range wrappedBlockchainOutputs {
+	for _, w := range blockchains {
 		if w.CtfOutput.Type != blockchain.FamilySolana {
 			continue
 		}
