@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/offramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
-	"github.com/smartcontractkit/chainlink-ton/pkg/ton/event"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ton/tracetracking"
 	"github.com/smartcontractkit/chainlink-ton/pkg/ton/wrappers"
 
@@ -118,46 +117,21 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		testhelpers.WithTonChains(1),
 	)
 
-	t.Logf("Environment: %+v", e.Env)
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
-	t.Logf("Loaded state: %v", state)
-	_ = state
 
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	slices.Sort(evmChainSelectors)
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := evmChainSelectors[0]
 	destChain := allTonChainSelectors[0]
-	t.Log("EVM chain selectors:", evmChainSelectors,
-		", TON chain selectors:", allTonChainSelectors,
-		", home chain selector:", e.HomeChainSel,
-		", feed chain selector:", e.FeedChainSel,
-		", source chain selector:", sourceChain,
-		", dest chain selector:", destChain,
-	)
+
+	t.Logf("=== Test Configuration ===")
+	t.Logf("  Source (EVM): %d", sourceChain)
+	t.Logf("  Dest (TON):   %d", destChain)
+	t.Logf("  OnRamp:       %s", state.Chains[sourceChain].OnRamp.Address())
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	require.NoError(t, err)
-
-	// -- log TON configurations
-	// offRampAddr := state.TonChains[destChain].OffRamp
-	// tonChain := e.Env.BlockChains.TonChains()[destChain]
-
-	// 	master, err := tonChain.Client.CurrentMasterchainInfo(t.Context())
-	// require.NoError(t, err)
-
-	// result, err := tonChain.Client.RunGetMethod(t.Context(), master, &offRampAddr, "sourceChainConfig", uint64(sourceChain))
-	// require.NoError(t, err)
-	// var cfg offramp.SourceChainConfig
-	// err = cfg.Fr(&cfg, result.)
-	// require.NoError(t, err)
-	// t.Logf("OffRamp source chain config for sourceChain %d: %+v", sourceChain, cfg)
-
-	// -- log evm onramp
-	evmOnramp := state.Chains[sourceChain].OnRamp
-	t.Logf("EVM onramp: %+v", evmOnramp.Address())
 
 	var (
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -173,8 +147,7 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		)
 	)
 
-	t.Logf("waiting for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp), usually takes less than 2 mins")
-	// wait for filter registration for CCIPMessageSent (onramp), CommitReportAccepted (offramp), and ExecutionStateChanged (offramp)
+	t.Logf("Waiting for event filter registration (~2 mins)...")
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	t.Run("message to contract receiver", func(t *testing.T) {
@@ -183,7 +156,9 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 
 		receiver, err := deployReceiverContract(tonChain, &offRampAddr)
 		require.NoError(t, err)
-		t.Logf("Deployed receiver contract: %s", receiver.String())
+
+		t.Logf("  OffRamp:  %s", offRampAddr.String())
+		t.Logf("  Receiver: %s", receiver.String())
 
 		// TODO: should receiver address be saved in state?
 		ccipChainState := state.TonChains[destChain]
@@ -250,7 +225,7 @@ func deployReceiverContract(tonChain ton.Chain, offRampAddr *address.Address) (*
 }
 
 func SubscribeOfframpTransactions(t *testing.T, tonChain ton.Chain, offRampAddr address.Address) {
-	t.Logf("=== STARTING OFFRAMP SUBSCRIPTION for %s ===", offRampAddr.String())
+	t.Logf("Subscribing to OffRamp transactions...")
 	ctx := t.Context() // Use test context to keep subscription alive until test ends
 
 	master, err := tonChain.Client.CurrentMasterchainInfo(ctx)
@@ -259,7 +234,6 @@ func SubscribeOfframpTransactions(t *testing.T, tonChain ton.Chain, offRampAddr 
 	acc, err := tonChain.Client.GetAccount(ctx, master, &offRampAddr)
 	require.NoError(t, err)
 	lastProcessedLT := acc.LastTxLT
-	t.Logf("Starting from LT: %d", lastProcessedLT)
 
 	// Create channel for transactions
 	transactions := make(chan *tlb.Transaction)
@@ -277,153 +251,74 @@ func SubscribeOfframpTransactions(t *testing.T, tonChain ton.Chain, offRampAddr 
 			select {
 			case tx := <-transactions:
 				transactionCount++
-				t.Logf("=== TRANSACTION #%d RECEIVED from %s ===", transactionCount, offRampAddr.String())
-				t.Logf("LT: %d, Hash: %x", tx.LT, tx.Hash)
+				t.Logf("=== TX #%d (LT: %d) ===", transactionCount, tx.LT)
 
-				// Log input message
-				if tx.IO.In != nil {
-					if tx.IO.In.MsgType == tlb.MsgTypeInternal { // Internal
-						if internal := tx.IO.In.AsInternal(); internal != nil {
-							t.Logf("INPUT Internal - From: %s, To: %s, Value: %s TON",
-								internal.SrcAddr.String(),
-								internal.DstAddr.String(),
-								internal.Amount.TON())
-							if internal.Body != nil {
-								bodyHex := fmt.Sprintf("%x", internal.Body.ToBOC())
-								t.Logf("INPUT Body (hex): %s", bodyHex)
-
-								// Try to parse as Commit message
-								parser := internal.Body.BeginParse()
-								var ev offramp.Commit
-								err := tlb.LoadFromCell(&ev, parser)
-								if err == nil {
-									t.Logf("✅ Parsed Commit msg: %+v", ev)
-								} else {
-									t.Logf("❌ Failed to parse Commit msg from cell: %v", err)
-
-									// Try to parse as Execute message
-									parser2 := internal.Body.BeginParse()
-									var ev2 offramp.Execute
-									err2 := tlb.LoadFromCell(&ev2, parser2)
-									if err2 == nil {
-										t.Logf("✅ Parsed Execute msg: %+v", ev2)
-									} else {
-										t.Logf("❌ Failed to parse Execute msg from cell: %v", err2)
-
-										// Try to parse as generic message
-										parser3 := internal.Body.BeginParse()
-										if parser3.BitsLeft() >= 32 {
-											if opcode, err := parser3.LoadUInt(32); err == nil {
-												t.Logf("📋 Message opcode: 0x%x (%d)", opcode, opcode)
-											}
-										}
-									}
-								}
-							}
-						}
-					} else if tx.IO.In.MsgType == tlb.MsgTypeExternalIn {
-						if extIn := tx.IO.In.AsExternalIn(); extIn != nil {
-							t.Logf("INPUT ExternalIn - To: %s", extIn.DstAddr.String())
-							if extIn.Body != nil {
-								bodyHex := fmt.Sprintf("%x", extIn.Body.ToBOC())
-								t.Logf("INPUT Body (hex): %s", bodyHex)
+				// Parse and log input message type
+				if tx.IO.In != nil && tx.IO.In.MsgType == tlb.MsgTypeInternal {
+					if internal := tx.IO.In.AsInternal(); internal != nil && internal.Body != nil {
+						parser := internal.Body.BeginParse()
+						var commitMsg offramp.Commit
+						if err := tlb.LoadFromCell(&commitMsg, parser); err == nil {
+							t.Logf("  INPUT: Commit message")
+						} else {
+							parser2 := internal.Body.BeginParse()
+							var execMsg offramp.Execute
+							if err2 := tlb.LoadFromCell(&execMsg, parser2); err2 == nil {
+								t.Logf("  INPUT: Execute message")
 							}
 						}
 					}
 				}
 
-				// Log output messages
+				// Count and summarize output messages
 				if tx.IO.Out != nil {
 					if msgs, err := tx.IO.Out.ToSlice(); err == nil {
-						t.Logf("OUTPUT messages: %d", len(msgs))
-						for i, msg := range msgs {
-							if msg.MsgType == tlb.MsgTypeInternal {
-								if internal := msg.AsInternal(); internal != nil {
-									t.Logf("OUTPUT[%d] Internal - From: %s, To: %s, Value: %s TON",
-										i, internal.SrcAddr.String(),
-										internal.DstAddr.String(),
-										internal.Amount.TON())
-									if internal.Body != nil {
-										bodyHex := fmt.Sprintf("%x", internal.Body.ToBOC())
-										t.Logf("OUTPUT[%d] Body (hex): %s", i, bodyHex)
-
-										// Try to parse the output message
-										parser := internal.Body.BeginParse()
-										if parser.BitsLeft() >= 32 {
-											if opcode, err := parser.LoadUInt(32); err == nil {
-												t.Logf("OUTPUT[%d] Opcode: 0x%x (%d)", i, opcode, opcode)
-											}
-										}
-									}
-								}
-							} else if msg.MsgType == tlb.MsgTypeExternalOut { // ExternalOut
-								if extOut := msg.AsExternalOut(); extOut != nil {
-									t.Logf("OUTPUT[%d] ExternalOut - From: %s", i, extOut.SrcAddr.String())
-
-									bucket := event.NewExtOutLogBucket(extOut.DestAddr())
-									if topic, err := bucket.DecodeEventTopic(); err == nil {
-										t.Logf("OUTPUT[%d] Event Topic: 0x%x (%d)", i, topic, topic)
-									} else {
-										t.Logf("OUTPUT[%d] Failed to decode event topic: %v", i, err)
-									}
-
-									if payload := extOut.Payload(); payload != nil {
-										bodyHex := fmt.Sprintf("%x", payload.ToBOC())
-										t.Logf("OUTPUT[%d] Body (hex): %s", i, bodyHex)
-									}
-								}
+						externalCount := 0
+						for _, msg := range msgs {
+							if msg.MsgType == tlb.MsgTypeExternalOut {
+								externalCount++
 							}
+						}
+						if externalCount > 0 {
+							t.Logf("  OUTPUT: %d messages (%d external events)", len(msgs), externalCount)
 						}
 					}
 				}
 
 				receivedMessage, err := tracetracking.MapToReceivedMessage(tx)
 				if err != nil {
-					t.Logf("Failed to map to ReceivedMessage: %v", err)
+					t.Logf("  ERROR: Failed to map to ReceivedMessage: %v", err)
 					continue
 				}
 
 				err = receivedMessage.WaitForTrace(tonChain.Client)
 				if err != nil {
-					t.Logf("failed to wait for trace: %v", err)
+					t.Logf("  ERROR: Failed to wait for trace: %v", err)
 					continue
 				}
 
 				if receivedMessage.ExitCode != 0 {
-					t.Logf("transaction failed: with exitcode %d: %s", receivedMessage.ExitCode, receivedMessage.ExitCode.Describe())
+					t.Logf("  ERROR: Exit code %d - %s", receivedMessage.ExitCode, receivedMessage.ExitCode.Describe())
 					continue
 				}
 
 				lm, lmerr := waitForReceivedMsgFlatten(t, tonChain.Client, &receivedMessage)
 				if lmerr != nil {
-					t.Logf("failed to flatten messages: %v", lmerr)
+					t.Logf("  ERROR: Failed to flatten messages: %v", lmerr)
 					continue
 				}
 
-				// Log the flattened message details
-				t.Logf("Flattened message details:")
-				t.Logf("  - OutgoingInternalReceivedMessages: %d", len(lm.OutgoingInternalReceivedMessages))
-				t.Logf("  - OutgoingExternalMessages: %d", len(lm.OutgoingExternalMessages))
-
+				// Only log summary of flattened messages
 				if len(lm.OutgoingExternalMessages) > 0 {
-					ext := lm.OutgoingExternalMessages[0]
-					t.Logf("External message: LT %d, Hash %x", ext.LT, ext.Body.ToBOC())
-				} else {
-					t.Logf("No external messages found")
+					t.Logf("  RESULT: Success (%d internal, %d external)",
+						len(lm.OutgoingInternalReceivedMessages), len(lm.OutgoingExternalMessages))
 				}
-
-				// Also log internal messages for debugging
-				for i, internal := range lm.OutgoingInternalReceivedMessages {
-					t.Logf("Internal message %d: exit code %v, success: %v", i, internal.ExitCode, internal.Success)
-				}
-
-				t.Logf("=== END TRANSACTION ===")
 
 			case <-heartbeat.C:
-				t.Logf("💓 Heartbeat: Still monitoring %s, received %d transactions so far", offRampAddr.String(), transactionCount)
+				t.Logf("Monitoring OffRamp (%d transactions)", transactionCount)
 
 			case <-ctx.Done():
-				t.Logf("🛑 Subscription context cancelled: %v", ctx.Err())
+				t.Logf("Subscription ended (%d transactions)", transactionCount)
 				return
 			}
 		}
@@ -451,25 +346,18 @@ func waitForReceivedMsgFlatten(t *testing.T, clientConn tonlib.APIClientWrapped,
 			continue
 		}
 
-		t.Logf("Flattening %d outgoing internal messages", len(currentMsg.OutgoingInternalReceivedMessages))
-
 		for i, outMsg := range currentMsg.OutgoingInternalReceivedMessages {
-			t.Logf("Outgoing message %d: exit code %v, success: %v, bounced: %v, status: %v",
-				i, outMsg.ExitCode, outMsg.Success, outMsg.EmittedBouncedMessage, outMsg.Status())
-
+			// Only log errors and bounces
 			if outMsg.ExitCode != 0 {
-				t.Logf("Outgoing message %d failed with exit code %v", i, outMsg.ExitCode)
-			}
-			if !outMsg.Success {
-				t.Logf("Outgoing message %d was not successful", i)
+				t.Logf("    Message %d FAILED: exit code %v - %v", i, outMsg.ExitCode, outMsg.ExitCode.Describe())
 			}
 			if outMsg.EmittedBouncedMessage {
-				t.Logf("Outgoing message %d was bounced", i)
+				t.Logf("    Message %d BOUNCED", i)
 			}
 
 			err := outMsg.WaitForTrace(clientConn)
 			if err != nil {
-				t.Logf("failed to wait for trace: %v", err)
+				t.Logf("    Message %d: failed to wait for trace: %v", i, err)
 				continue
 			}
 
@@ -482,11 +370,6 @@ func waitForReceivedMsgFlatten(t *testing.T, clientConn tonlib.APIClientWrapped,
 	if lastMsg == nil {
 		return nil, errors.New("no received messages were processed")
 	}
-
-	// It's okay if there are no external messages - we'll just log what we have
-	t.Logf("Final message processing complete:")
-	t.Logf("  - OutgoingInternalReceivedMessages: %d", len(lastMsg.OutgoingInternalReceivedMessages))
-	t.Logf("  - OutgoingExternalMessages: %d", len(lastMsg.OutgoingExternalMessages))
 
 	// var event any
 	// err := tlb.LoadFromCell(&event, lastMsg.OutgoingExternalMessages[0].Body.BeginParse())

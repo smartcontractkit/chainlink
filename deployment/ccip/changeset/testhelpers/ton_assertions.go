@@ -18,6 +18,7 @@ import (
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 
 	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/offramp"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/event"
 	tonlploader "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/backend/loader/account"
 	tonlptypes "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/types"
 )
@@ -251,8 +252,8 @@ func extractEventMessage[T any](txs []tonlptypes.TxWithBlock) ([]T, error) {
 						totalBits := bodySlice.BitsLeft()
 
 						// Log ALL external out messages for debugging
-						fmt.Printf("\n[DEBUG] External Out Message detected: topic=0x%08x (%d), bits=%d, refs=%d\n",
-							topic, topic, totalBits, bodyCell.RefsNum())
+						fmt.Printf("\n[DEBUG] Event: %s (topic=0x%08x), bits=%d, refs=%d\n",
+							event.GetEventName(topic), topic, totalBits, bodyCell.RefsNum())
 
 						// Check if we're looking for ExecutionStateChanged events
 						var eventType T
@@ -262,7 +263,7 @@ func extractEventMessage[T any](txs []tonlptypes.TxWithBlock) ([]T, error) {
 						const executionStateChangedTopic = 0x4C94C360
 
 						if topic != executionStateChangedTopic {
-							fmt.Printf("[DEBUG] Skipping event with topic 0x%08x (not ExecutionStateChanged)\n", topic)
+							fmt.Printf("[DEBUG] Skipping %s (not ExecutionStateChanged)\n", event.GetEventName(topic))
 							if !isExecStateChanged {
 								// Still try to parse for other event types
 								var event T
