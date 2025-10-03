@@ -21,6 +21,8 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread => ./smoke/cre/evm/evmread
 
+replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus => ./regression/cre/consensus
+
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative => ./regression/cre/evm/evmread-negative
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative => ./regression/cre/evm/evmwrite-negative
@@ -58,12 +60,12 @@ require (
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron v0.0.0-20250923184312-03c1c70ed66b
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250926230623-96c13ca2551d
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20250826151008-ae5ec0ee6f2c
+	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus v0.0.0-20251003131804-c1403fe95660
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative v0.0.0-20250923184312-03c1c70ed66b
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative v0.0.0-20251002142509-751c3caeb073
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http v0.0.0-20250929083906-1fde9e41af0e
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread v0.0.0-20250923184312-03c1c70ed66b
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
-	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.16.0
