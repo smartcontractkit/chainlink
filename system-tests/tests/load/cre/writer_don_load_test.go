@@ -49,6 +49,7 @@ import (
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
@@ -64,7 +65,7 @@ type WriterTest struct {
 	WorkflowID    string `toml:"workflow_id"`
 }
 type TestConfigLoadTestWriter struct {
-	Blockchains                   []blockchain.Input              `toml:"blockchains" validate:"required"`
+	Blockchains                   []*blockchain.Input             `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
@@ -83,6 +84,7 @@ func setupLoadTestWriterEnvironment(
 	feedIDs []string,
 	workflowNames []string,
 ) *loadTestSetupOutput {
+	singleFileLogger := cldlogger.NewSingleFileLogger(t)
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
@@ -90,9 +92,10 @@ func setupLoadTestWriterEnvironment(
 		JdInput:                              in.JD,
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(singleFileLogger, testLogger, in.Infra),
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), &universalSetupInput, relativePathToRepoRoot)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput, relativePathToRepoRoot)
 	require.NoError(t, setupErr, "failed to setup test environment")
 	// Set inputs in the test config, so that they can be saved
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}

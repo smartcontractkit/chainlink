@@ -28,7 +28,7 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 	if infraInput.Type == infra.CRIB {
 		deployCribJdInput := &cre.DeployCribJdInput{
 			JDInput:        jdInput,
-			CribConfigsDir: cribConfigsDir,
+			CribConfigsDir: CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 

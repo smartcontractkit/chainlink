@@ -2,24 +2,23 @@ package environment
 
 import (
 	"context"
-	"fmt"
-	"os"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc/credentials/insecure"
-
-	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	docker_blockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/docker"
+	k8s_blockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/kubernetes"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -43,44 +42,22 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.New("environment artifact cannot be nil")
 	}
 
-	if pkErr := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
-		return nil, nil, pkErr
+	var blockchainDeployers map[blockchains.ChainFamily]blockchains.Deployer
+	if cachedInput.Infra.IsDocker() {
+		blockchainDeployers = docker_blockchains.NewDeployerSet(cldLogger)
+	} else {
+		blockchainDeployers = k8s_blockchains.NewDeployerSet(cldLogger, framework.L, cachedInput.Infra.CRIB.Namespace, CribConfigsDir)
 	}
-	// just in case
-	if pkErr := SetDefaultSolanaPrivateKeyIfEmpty(defaultSolanaPrivateKey); pkErr != nil {
-		return nil, nil, pkErr
-	}
 
-	wrappedBlockchainOutputs := make([]*cre.WrappedBlockchainOutput, 0)
+	startBcOut, startErr := operations.ExecuteOperation(operations.NewBundle(
+		func() context.Context { return ctx },
+		cldLogger, operations.NewMemoryReporter()),
+		StartBlockchainsOp,
+		StartBlockchainsOpDeps{Deployers: blockchainDeployers},
+		StartBlockchainsOpInput{Inputs: cachedInput.Blockchains})
 
-	for _, bc := range cachedInput.Blockchains {
-		if bc.Type == blockchain.FamilySolana {
-			initErr := initSolanaInput(&bc)
-			if initErr != nil {
-				return nil, nil, errors.Wrap(initErr, "failed to init solana")
-			}
-			w, err := wrapSolana(&bc, bc.Out)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to wrap solana")
-			}
-			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
-			continue
-		}
-
-		if bc.Type == blockchain.FamilyTron {
-			w, err := wrapTron(&bc, bc.Out)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "failed to wrap tron")
-			}
-			wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
-			continue
-		}
-
-		w, err := wrapEVM(bc.Out)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to wrap evm")
-		}
-		wrappedBlockchainOutputs = append(wrappedBlockchainOutputs, w)
+	if startErr != nil {
+		return nil, nil, errors.Wrap(startErr, "failed to start blockchains")
 	}
 
 	addressBook := cldf.NewMemoryAddressBookFromMap(envArtifact.AddressBook)
@@ -147,8 +124,8 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.Wrapf(offChainErr, "failed to create offchain client")
 	}
 
-	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(wrappedBlockchainOutputs))
-	for _, output := range wrappedBlockchainOutputs {
+	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(startBcOut.Output.DeployedBlockchains.Outputs))
+	for _, output := range startBcOut.Output.DeployedBlockchains.Outputs {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(output)
 		if cfgErr != nil {
 			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.BlockchainOutput.Family)
@@ -178,29 +155,5 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	return &cre.Environment{
 		CldfEnvironment: cldEnv,
 		DonTopology:     &envArtifact.Topology,
-	}, wrappedBlockchainOutputs, nil
-}
-
-func SetDefaultPrivateKeyIfEmpty(defaultPrivateKey string) error {
-	if os.Getenv("PRIVATE_KEY") == "" {
-		setErr := os.Setenv("PRIVATE_KEY", defaultPrivateKey)
-		if setErr != nil {
-			return fmt.Errorf("failed to set PRIVATE_KEY environment variable: %w", setErr)
-		}
-		framework.L.Info().Msgf("Set PRIVATE_KEY environment variable to default value: %s", os.Getenv("PRIVATE_KEY"))
-	}
-
-	return nil
-}
-
-func SetDefaultSolanaPrivateKeyIfEmpty(key solana.PrivateKey) error {
-	if os.Getenv("SOLANA_PRIVATE_KEY") == "" {
-		setErr := os.Setenv("SOLANA_PRIVATE_KEY", key.String())
-		if setErr != nil {
-			return fmt.Errorf("failed to set SOLANA_PRIVATE_KEY environment variable: %w", setErr)
-		}
-		framework.L.Info().Msgf("Set SOLANA_PRIVATE_KEY environment variable to default value: %s", os.Getenv("PRIVATE_KEY"))
-	}
-
-	return nil
+	}, startBcOut.Output.DeployedBlockchains.Outputs, nil
 }

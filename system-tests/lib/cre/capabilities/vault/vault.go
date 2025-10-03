@@ -8,8 +8,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 

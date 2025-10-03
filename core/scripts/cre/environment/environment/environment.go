@@ -26,6 +26,7 @@ import (
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/sets"
+	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -41,7 +42,6 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -260,10 +260,6 @@ func startCmd() *cobra.Command {
 
 			if err := defaultCtfConfigs(topology); err != nil {
 				return errors.Wrap(err, "failed to set default CTF configs")
-			}
-
-			if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
-				return errors.Wrap(pkErr, "failed to set default private key")
 			}
 
 			cleanUpErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
@@ -622,6 +618,9 @@ func StartCLIEnvironment(
 		in.JD.CSAEncryptionKey = hex.EncodeToString(crypto.FromECDSA(key)[:32])
 		fmt.Printf("Generated new CSA encryption key for JD: %s\n", in.JD.CSAEncryptionKey)
 	}
+
+	singleFileLogger := cldlogger.NewSingleFileLogger(nil)
+
 	universalSetupInput := &creenv.SetupInput{
 		CapabilitiesAwareNodeSets: in.NodeSets,
 		BlockchainsInput:          in.Blockchains,
@@ -635,11 +634,12 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
+		BlockchainDeployers:       blockchains_sets.NewDeployerSet(singleFileLogger, testLogger, in.Infra),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
 	defer cancel()
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput, relativePathToRepoRoot)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}

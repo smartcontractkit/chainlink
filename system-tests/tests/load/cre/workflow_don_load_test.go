@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -83,7 +84,7 @@ type Chaos struct {
 
 type TestConfigLoadTest struct {
 	Duration                      string                          `toml:"duration"`
-	Blockchains                   []blockchain.Input              `toml:"blockchains" validate:"required"`
+	Blockchains                   []*blockchain.Input             `toml:"blockchains" validate:"required"`
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
@@ -128,6 +129,7 @@ func setupLoadTestEnvironment(
 	jobSpecFactoryFns []cretypes.JobSpecFn,
 	workflowJobsFn cretypes.JobSpecFn,
 ) *loadTestSetupOutput {
+	singleFileLogger := cldlogger.NewSingleFileLogger(t)
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:            mustSetCapabilitiesFn(in.NodeSets),
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
@@ -136,9 +138,9 @@ func setupLoadTestEnvironment(
 		InfraInput:                           *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(singleFileLogger, testLogger, in.Infra),
 	}
 
-	singleFileLogger := cldlogger.NewSingleFileLogger(t)
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput, relativePathToRepoRoot)
 	require.NoError(t, setupErr, "failed to setup test environment")
 

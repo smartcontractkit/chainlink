@@ -23,7 +23,7 @@ func StartDONs(lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Pro
 		deployCribDonsInput := &cre.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  capabilitiesAwareNodeSets,
-			CribConfigsDir: cribConfigsDir,
+			CribConfigsDir: CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 

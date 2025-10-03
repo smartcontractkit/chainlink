@@ -1002,7 +1002,7 @@ func (c *CapabilitiesAwareNodeSet) ParseChainCapabilities() error {
 	return nil
 }
 
-func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []blockchain.Input) error {
+func (c *CapabilitiesAwareNodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 	knownChains := []uint64{}
 	for _, bc := range bcInput {
 		if bc.Type == blockchain.FamilySolana {
