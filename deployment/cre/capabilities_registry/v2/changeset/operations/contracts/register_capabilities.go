@@ -54,11 +54,22 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 		}
 
+		b.Logger.Debugw("registering capabilities", "address", input.Address, "newCapabilities", input.Capabilities, "chainSelector", input.ChainSelector)
+
 		// We have to make sure the capabilities are not already in the contract, to avoid reverting the transaction.
 		// This is also important when we use MCMS, so the whole batch doesn't get reverted.
 		capabilities, err := dedupCapabilities(capabilitiesRegistry, input.Capabilities)
 		if err != nil {
 			return RegisterCapabilitiesOutput{}, fmt.Errorf("failed to deduplicate capabilities: %w", err)
+		}
+
+		if len(capabilities) == 0 {
+			b.Logger.Info("no new capabilities to register after deduplication, skipping operation")
+
+			return RegisterCapabilitiesOutput{
+				Capabilities: []*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured{},
+				Proposals:    []mcmslib.TimelockProposal{},
+			}, nil
 		}
 
 		// Create the appropriate strategy
@@ -84,33 +95,35 @@ var RegisterCapabilities = operations.NewOperation[RegisterCapabilitiesInput, Re
 				return nil, fmt.Errorf("failed to call AddCapabilities: %w", err)
 			}
 
+			if input.MCMSConfig != nil {
+				return tx, nil
+			}
+
 			// For direct execution, we can get the receipt and parse logs
-			if input.MCMSConfig == nil {
-				// Confirm transaction and get receipt
-				_, err = chain.Confirm(tx)
+			// Confirm transaction and get receipt
+			_, err = chain.Confirm(tx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to confirm AddCapabilities transaction %s: %w", tx.Hash().String(), err)
+			}
+
+			ctx := b.GetContext()
+			receipt, err := bind.WaitMined(ctx, chain.Client, tx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to mine AddCapabilities transaction %s: %w", tx.Hash().String(), err)
+			}
+
+			// Parse the logs to get the added capabilities
+			resultCapabilities = make([]*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured, 0, len(receipt.Logs))
+			for i, log := range receipt.Logs {
+				if log == nil {
+					continue
+				}
+
+				o, err := capabilitiesRegistry.ParseCapabilityConfigured(*log)
 				if err != nil {
-					return nil, fmt.Errorf("failed to confirm AddCapabilities transaction %s: %w", tx.Hash().String(), err)
+					return nil, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
 				}
-
-				ctx := b.GetContext()
-				receipt, err := bind.WaitMined(ctx, chain.Client, tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to mine AddCapabilities transaction %s: %w", tx.Hash().String(), err)
-				}
-
-				// Parse the logs to get the added capabilities
-				resultCapabilities = make([]*capabilities_registry_v2.CapabilitiesRegistryCapabilityConfigured, 0, len(receipt.Logs))
-				for i, log := range receipt.Logs {
-					if log == nil {
-						continue
-					}
-
-					o, err := capabilitiesRegistry.ParseCapabilityConfigured(*log)
-					if err != nil {
-						return nil, fmt.Errorf("failed to parse log %d for capability added: %w", i, err)
-					}
-					resultCapabilities = append(resultCapabilities, o)
-				}
+				resultCapabilities = append(resultCapabilities, o)
 			}
 
 			return tx, nil

@@ -49,29 +49,34 @@ type OrderResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
-// orderPizza posts a pizza order to the orders endpoint
-func orderPizza(sendReqester *http.SendRequester, inputs map[string]interface{}, customer string) (string, error) {
-	if customer == "Bob" {
-		inputs["toppings"] = []string{"pineapples"}
-	}
+type OrderRequest struct {
+	Customer string   `json:"customer"`
+	Toppings []string `json:"toppings"`
+	Dedup    bool     `json:"dedupe"`
+}
 
-	// Send the entire inputs as JSON body
-	requestBody, err := json.Marshal(inputs)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal order request: %w", err)
+// orderPizza posts a pizza order to the orders endpoint
+func orderPizza(sendReqester *http.SendRequester, inputs []byte, customer string) (string, error) {
+	var orderRequest OrderRequest
+	if err := json.Unmarshal(inputs, &orderRequest); err != nil {
+		return "", fmt.Errorf("failed to unmarshal order request: %w", err)
+	}
+	// this demonstrates that workflows can have custom logic based on the identity that invoked HTTP trigger
+	// see `onTrigger()` function for how customer can be set based on the authorized key
+	if customer == "Bob" {
+		orderRequest.Toppings = []string{"pineapples"}
 	}
 
 	req := &http.Request{
 		Url:    "http://host.docker.internal:2999/orders",
 		Method: "POST",
-		Body:   requestBody,
+		Body:   inputs,
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
 	}
 
-	dedupe := extractBoolFromInput(inputs, "dedupe")
-	if dedupe {
+	if orderRequest.Dedup {
 		req.CacheSettings = &http.CacheSettings{
 			ReadFromCache: true,
 			MaxAgeMs:      10000,
@@ -96,30 +101,21 @@ func orderPizza(sendReqester *http.SendRequester, inputs map[string]interface{},
 	return "", nil
 }
 
-func extractBoolFromInput(input map[string]interface{}, key string) bool {
-	if val, ok := input[key]; ok {
-		if b, ok := val.(bool); ok {
-			return b
-		}
-	}
-	return false
-}
-
 func onTrigger(config None, runtime cre.Runtime, trigger *http.Payload) (string, error) {
 	logger := runtime.Logger()
 	logger.Info("Hello! Workflow triggered.")
 
-	inputMap := trigger.Input.AsMap()
-	logger.Info("Processing pizza order with inputs", "inputs", inputMap)
+	logger.Info("Processing pizza order with inputs", "inputs", string(trigger.Input))
 
 	customer := "default"
+    // this demonstrates that workflows can have custom logic based on the identity that invoked HTTP trigger
 	if trigger.Key != nil && trigger.Key.PublicKey == "0x4b8d44a7a1302011fbc119407f8ce3baee6ea2ff" {
 		customer = "Bob"
 	}
 
 	client := &http.Client{}
 	pizzaPromise := http.SendRequest(config, runtime, client, func(_ None, logger *slog.Logger, sendRequester *http.SendRequester) (string, error) {
-		return orderPizza(sendRequester, inputMap, customer)
+		return orderPizza(sendRequester, trigger.Input, customer)
 	}, cre.ConsensusIdenticalAggregation[string]())
 
 	// Await the final, aggregated result.

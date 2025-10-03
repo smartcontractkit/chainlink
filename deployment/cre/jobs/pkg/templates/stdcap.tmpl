@@ -1,0 +1,22 @@
+type = "standardcapabilities"
+schemaVersion = 1
+name = "{{ .JobName }}"
+externalJobID = "{{ .ExternalJobID }}"
+forwardingAllowed = false
+command = "{{ .Command }}"
+config = """{{ .Config }}"""
+{{ if and .OracleFactory .OracleFactory.Enabled }}
+[oracle_factory]
+enabled = {{ .OracleFactory.Enabled }}
+bootstrap_peers = [{{ range $index, $peer := .OracleFactory.BootstrapPeers }}{{ if $index }}, {{ end }}"{{ $peer }}"{{ end }}]
+ocr_contract_address = "{{ .OracleFactory.OCRContractAddress }}"
+ocr_key_bundle_id = "{{ .OracleFactory.OCRKeyBundleID }}"
+chain_id = "{{ .OracleFactory.ChainID }}"
+transmitter_id = "{{ .OracleFactory.TransmitterID }}"
+[oracle_factory.onchainSigningStrategy]
+strategyName = "{{ .OracleFactory.OnchainSigningStrategy.StrategyName }}"
+[oracle_factory.onchainSigningStrategy.config]
+{{- range $key, $value := .OracleFactory.OnchainSigningStrategy.Config }}
+{{ $key }} = "{{ $value }}"
+{{- end }}
+{{ end }}

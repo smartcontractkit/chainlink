@@ -23,6 +23,10 @@ func (g *GatewayConnector) AddHandler(ctx context.Context, methods []string, han
 	return g.BaseGatewayConnector.AddHandler(ctx, methods, handler)
 }
 
+func (g *GatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	return g.BaseGatewayConnector.RemoveHandler(ctx, methods)
+}
+
 func (g *GatewayConnector) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error {
 	return g.BaseGatewayConnector.SendToGateway(ctx, gatewayID, resp)
 }

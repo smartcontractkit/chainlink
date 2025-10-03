@@ -26,6 +26,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -381,7 +382,8 @@ func SingleGroupTimelockConfigV2(t *testing.T) commontypes.MCMSWithTimelockConfi
 }
 
 func findCallProxyAddress(t *testing.T, env cldf.Environment, chainSelector uint64) string {
-	addressesForChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	// Use merged addresses from both AddressBook and DataStore for backward compatibility
+	addressesForChain, err := state.AddressesForChain(env, chainSelector, "")
 	require.NoError(t, err)
 
 	for address, tvStr := range addressesForChain {

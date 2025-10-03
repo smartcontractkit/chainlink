@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
@@ -458,16 +457,6 @@ func (fc *FakeEVMChain) HeaderByNumber(ctx context.Context, metadata commonCap.R
 		ResponseMetadata: commonCap.ResponseMetadata{},
 	}
 	return &responseAndMetadata, nil
-}
-
-func (fc *FakeEVMChain) RegisterLogTracking(gsctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.RegisterLogTrackingRequest) (*commonCap.ResponseAndMetadata[*emptypb.Empty], error) {
-	fc.eng.Infow("EVM Chain registered log tracking", "input", input)
-	return nil, nil
-}
-
-func (fc *FakeEVMChain) UnregisterLogTracking(ctx context.Context, metadata commonCap.RequestMetadata, input *evmcappb.UnregisterLogTrackingRequest) (*commonCap.ResponseAndMetadata[*emptypb.Empty], error) {
-	fc.eng.Infow("EVM Chain unregistered log tracking", "input", input)
-	return nil, nil
 }
 
 func (fc *FakeEVMChain) Name() string {

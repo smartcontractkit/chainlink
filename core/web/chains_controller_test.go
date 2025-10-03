@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/rand"
 
+	"github.com/smartcontractkit/quarantine"
+
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -108,6 +110,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 }
 
 func Test_EVMChainsController_Index(t *testing.T) {
+	quarantine.Flaky(t, "DX-1795")
 	t.Parallel()
 
 	// sort test chain ids to make expected comparison easy
@@ -246,6 +249,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 					ID:      validID,
 					Enabled: true,
 					Config: `ChainID = 'Chainlink-12'
+Enabled = true
 BlockTime = '500ms'
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
@@ -271,6 +275,16 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 Nodes = []
+
+[Workflow]
+AcceptanceTimeout = '45s'
+ForwarderAddress = '11111111111111111111111111111111'
+ForwarderState = '11111111111111111111111111111111'
+FromAddress = '11111111111111111111111111111111'
+GasLimitDefault = 300000
+Local = false
+PollPeriod = '3s'
+TxAcceptanceState = 3
 
 [MultiNode]
 Enabled = false

@@ -15,7 +15,16 @@ import (
 )
 
 const flag = cre.MockCapability
-const configTemplate = `"""port={{.Port}}"""`
+const configTemplate = `"""
+port={{.Port}}
+{{- range .DefaultMocks }}
+[[DefaultMocks]]
+id = "{{ .Id }}"
+description = "{{ .Description }}"
+type = "{{ .Type }}"
+{{- end }}
+"""
+`
 
 func New() (*capabilities.Capability, error) {
 	perDonJobSpecFactory, fErr := factory.NewCapabilityJobSpecFactory(
@@ -24,7 +33,6 @@ func New() (*capabilities.Capability, error) {
 		donlevel.ConfigResolver,
 		donlevel.JobNamer,
 	)
-
 	if fErr != nil {
 		return nil, errors.Wrap(fErr, "failed to create capability job spec factory")
 	}

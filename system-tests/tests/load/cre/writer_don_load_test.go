@@ -68,7 +68,7 @@ type TestConfigLoadTestWriter struct {
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
-	Infra                         *infra.Input                    `toml:"infra" validate:"required"`
+	Infra                         *infra.Provider                 `toml:"infra" validate:"required"`
 	MockCapabilities              []*MockCapabilities             `toml:"mock_capabilities"`
 	WriterTest                    *WriterTest                     `toml:"writer_test"`
 }
@@ -92,7 +92,7 @@ func setupLoadTestWriterEnvironment(
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), &universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), &universalSetupInput, relativePathToRepoRoot)
 	require.NoError(t, setupErr, "failed to setup test environment")
 	// Set inputs in the test config, so that they can be saved
 	in.WorkflowRegistryConfiguration = &cretypes.WorkflowRegistryInput{}
@@ -255,7 +255,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 				if i == 0 {
 					continue // Skip bootstrap nodes
 				}
-				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
+				key, err2 := n.ExportOCR2Keys(n.ChainsOcr2KeyBundlesID["evm"])
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
 					require.NoError(t, err3, "could not marshal OCR2 key")

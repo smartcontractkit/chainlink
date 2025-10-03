@@ -98,7 +98,7 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 
 func solanaStartNewApplication(t *testing.T, cfgs ...*solcfg.TOMLConfig) *cltest.TestApplication {
 	for i := range cfgs {
-		cfgs[i].Chain.SetDefaults()
+		cfgs[i].SetDefaults()
 	}
 	return startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = cfgs

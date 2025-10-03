@@ -17,6 +17,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
@@ -32,6 +33,12 @@ type requestAuthorizer struct {
 }
 
 func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error) {
+	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-175): Remove this bypass once we have a Vault DON e2e tests setup in local CRE.
+	if build.IsDev() || build.IsProd() {
+		r.lggr.Warnw("bypassing RequestAuthorizer since it is not a production build", "build-mode", build.Mode())
+		// returning owner as Owner1, since that's used in vault e2e tests.
+		return true, "Owner1", nil
+	}
 	defer r.clearExpiredAuthorizedRequests()
 	digest, err := r.digestForRequest(req)
 	if err != nil {

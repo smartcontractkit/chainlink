@@ -18,9 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	data_feeds_cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -36,14 +34,13 @@ func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.Logger,
 	workflowDonInfo framework.DonConfiguration,
 	triggerDonInfo framework.DonConfiguration,
 	targetDonInfo framework.DonConfiguration,
-	trigger framework.TriggerFactory) (workflowDon *framework.DON, consumer *feeds_consumer.KeystoneFeedsConsumer, dataFeedsCache *data_feeds_cache.DataFeedsCache, forwarder *forwarder.KeystoneForwarder) {
+	trigger framework.TriggerFactory) (workflowDon *framework.DON, consumer *feeds_consumer.KeystoneFeedsConsumer) {
 	donContext := framework.CreateDonContext(ctx, t)
 
 	workflowDon = createKeystoneWorkflowDon(ctx, t, lggr, workflowDonInfo, triggerDonInfo, targetDonInfo, donContext)
 
-	forwarderAddr, forwarder := SetupForwarderContract(t, workflowDon, donContext.EthBlockchain)
+	forwarderAddr, _ := SetupForwarderContract(t, workflowDon, donContext.EthBlockchain)
 	_, consumer = SetupConsumerContract(t, donContext.EthBlockchain, forwarderAddr, workflowOwnerID, workflowName)
-	_, dataFeedsCache = SetupDataFeedsCacheContract(t, donContext.EthBlockchain, forwarderAddr, workflowOwnerID, workflowName)
 
 	writeTargetDon := createKeystoneWriteTargetDon(ctx, t, lggr, targetDonInfo, donContext, forwarderAddr)
 
@@ -55,7 +52,7 @@ func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.Logger,
 
 	donContext.WaitForCapabilitiesToBeExposed(t, workflowDon, triggerDon, writeTargetDon)
 
-	return workflowDon, consumer, dataFeedsCache, forwarder
+	return workflowDon, consumer
 }
 
 func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Logger, triggerDonInfo framework.DonConfiguration,

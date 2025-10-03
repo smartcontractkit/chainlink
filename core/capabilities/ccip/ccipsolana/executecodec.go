@@ -11,25 +11,26 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
-	extraDataCodec common.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
-func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePluginCodecV1 {
+func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodecBundle) *ExecutePluginCodecV1 {
 	return &ExecutePluginCodecV1{
 		extraDataCodec: extraDataCodec,
 	}
 }
 
-func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
+func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.ExecutePluginReport) ([]byte, error) {
 	if len(report.ChainReports) == 0 {
 		// OCR3 runs in a constant loop and will produce empty reports, so we need to handle this case
 		// return an empty report, CCIP will discard it on ShouldAcceptAttestedReport/ShouldTransmitAcceptedReport

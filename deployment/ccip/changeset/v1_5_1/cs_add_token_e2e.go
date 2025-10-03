@@ -1,7 +1,6 @@
 package v1_5_1
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -639,35 +638,6 @@ func deployTokens(e cldf.Environment, tokenDeployCfg map[uint64]DeployTokenConfi
 	}
 
 	return tokenAddresses, ab, nil
-}
-
-// grantAccessToPool grants the token pool contract access to mint and burn tokens.
-func grantAccessToPool(
-	ctx context.Context,
-	chain cldf_evm.Chain,
-	tpAddress common.Address,
-	tokenAddress common.Address,
-) error {
-	token, err := burn_mint_erc677.NewBurnMintERC677(tokenAddress, chain.Client)
-	if err != nil {
-		return fmt.Errorf("failed to connect address %s with erc677 bindings: %w", tokenAddress, err)
-	}
-	owner, err := token.Owner(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get owner of token %s: %w", tokenAddress, err)
-	}
-	// check if the owner is the deployer key and in that case grant access to the token pool
-	if owner == chain.DeployerKey.From {
-		tx, err := token.GrantMintAndBurnRoles(chain.DeployerKey, tpAddress)
-		if err != nil {
-			return fmt.Errorf("failed to grant mint and burn roles to token pool address: %s for token: %s %w", tpAddress, tokenAddress, err)
-		}
-		if _, err = chain.Confirm(tx); err != nil {
-			return fmt.Errorf("failed to wait for transaction %s on chain %d: %w", tx.Hash().Hex(), chain.Selector, err)
-		}
-	}
-
-	return nil
 }
 
 // addMinterAndMintTokenERC677 adds the minter role to the recipient and mints the specified amount of tokens to the recipient's address.

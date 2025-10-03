@@ -161,17 +161,6 @@ func GenAddressArray(t *testing.T) gopter.Gen {
 	)
 }
 
-func GenClientPubKey(t *testing.T) gopter.Gen {
-	return GenHash(t).Map(
-		func(hash interface{}) (pk [32]byte) {
-			iHash, ok := hash.(*gopter.GenResult).Retrieve()
-			require.True(t, ok, "failed to retrieve hash")
-			copy(pk[:], (iHash.(common.Hash).Bytes()))
-			return
-		},
-	)
-}
-
 func GenClientPubKeyArray(t *testing.T) gopter.Gen {
 	return GenHashArray(t).Map(
 		func(hashes interface{}) (rv [][32]byte) {

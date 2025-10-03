@@ -67,6 +67,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 )
 
+const (
+	relativePathToRepoRoot = "../../../../"
+)
+
 type Chaos struct {
 	Mode                        string   `toml:"mode"`
 	Latency                     string   `toml:"latency"`
@@ -83,7 +87,7 @@ type TestConfigLoadTest struct {
 	NodeSets                      []*ns.Input                     `toml:"nodesets" validate:"required"`
 	JD                            *jd.Input                       `toml:"jd" validate:"required"`
 	WorkflowRegistryConfiguration *cretypes.WorkflowRegistryInput `toml:"workflow_registry_configuration"`
-	Infra                         *infra.Input                    `toml:"infra" validate:"required"`
+	Infra                         *infra.Provider                 `toml:"infra" validate:"required"`
 	WorkflowDONLoad               *WorkflowLoad                   `toml:"workflow_load"`
 	MockCapabilities              []*MockCapabilities             `toml:"mock_capabilities"`
 	Chaos                         *Chaos                          `toml:"chaos"`
@@ -135,7 +139,7 @@ func setupLoadTestEnvironment(
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, singleFileLogger, &universalSetupInput, relativePathToRepoRoot)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// Set inputs in the test config, so that they can be saved
@@ -155,11 +159,10 @@ func setupLoadTestEnvironment(
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
 		HomeChainBlockchainOutput: universalSetupOutput.BlockchainOutput[0].BlockchainOutput,
-		AddressBook:               universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // will not migrate now
 		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
-		FullCLDEnvOutput: &cretypes.FullCLDEnvironmentOutput{
-			Environment: universalSetupOutput.CldEnvironment,
-			DonTopology: universalSetupOutput.DonTopology,
+		CreEnvironment: &cretypes.Environment{
+			CldfEnvironment: universalSetupOutput.CldEnvironment,
+			DonTopology:     universalSetupOutput.DonTopology,
 		},
 	}
 
@@ -349,7 +352,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
 		if flags.HasFlag(don.Flags, cretypes.MockCapability) {
 			for _, n := range don.DON.Nodes {
-				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
+				key, err2 := n.ExportOCR2Keys(n.ChainsOcr2KeyBundlesID["evm"])
 				if err2 == nil {
 					b, err3 := json.Marshal(key)
 					require.NoError(t, err3, "could not marshal OCR2 key")
@@ -1218,7 +1221,12 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 				if ocr2Err != nil {
 					return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
 				}
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
+				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
+				if ocr2kbErr != nil {
+					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
+				}
+
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerOCR3(nodeID, ocr3CapabilityAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocr2KeyBundlesPerFamily, ocrPeeringData, chainID))
 				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.DonTimeJob(nodeID, donTimeAddress.Address, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainID))
 			}
 		}

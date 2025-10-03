@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 )
 
@@ -20,6 +19,7 @@ type DeployOCR3Deps struct {
 type DeployOCR3Input struct {
 	ChainSelector uint64
 	Qualifier     string
+	Labels        []string
 }
 
 type DeployOCR3Output struct {
@@ -29,7 +29,7 @@ type DeployOCR3Output struct {
 	Type          string
 	Version       string
 	Labels        []string
-	Datastore     datastore.DataStore
+	Datastore     datastore.MutableDataStore
 	AddressBook   cldf.AddressBook // backward compatibility, to be removed in CRE-742
 }
 
@@ -80,6 +80,10 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			labels.Add(label)
 		}
 
+		for _, label := range input.Labels {
+			labels.Add(label)
+		}
+
 		addressRef := datastore.AddressRef{
 			ChainSelector: chain.Selector,
 			Address:       ocr3Addr.Hex(),
@@ -91,10 +95,6 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 
 		// Create a mutable datastore in order to be able to add the ocr3 address and access it from the configure step
 		ds := datastore.NewMemoryDataStore()
-		err = ds.Merge(deps.Env.DataStore)
-		if err != nil {
-			return DeployOCR3Output{}, fmt.Errorf("failed to merge datastore: %w", err)
-		}
 
 		if err := ds.AddressRefStore.Add(addressRef); err != nil {
 			return DeployOCR3Output{}, fmt.Errorf("failed to add OCR3 address %v to datastore: %w", addressRef, err)
@@ -114,7 +114,7 @@ var DeployOCR3 = operations.NewOperation[DeployOCR3Input, DeployOCR3Output, Depl
 			Type:          string(tv.Type),
 			Version:       tv.Version.String(),
 			Labels:        tv.Labels.List(),
-			Datastore:     ds.Seal(),
+			Datastore:     ds,
 			AddressBook:   ab, // TODO: CRE-742 remove AddressBook
 		}, nil
 	},

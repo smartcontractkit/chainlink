@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	solanashared "github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 )
 
@@ -47,13 +47,15 @@ type OffRampSourceChainConfig struct {
 
 func GenerateOffRampView(chain cldf_solana.Chain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey) (OffRampView, error) {
 	view := OffRampView{}
-	accountInfo, err := chain.Client.GetAccountInfoWithOpts(context.Background(), program, &rpc.GetAccountInfoOpts{
-		Commitment: cldf_solana.SolDefaultCommitment,
-	})
+	progDataAddr, err := solanashared.GetProgramDataAddress(chain.Client, program)
 	if err != nil {
-		return view, fmt.Errorf("failed to get account info for program %s: %w", program.String(), err)
+		return view, fmt.Errorf("failed to get program data address for program %s: %w", program.String(), err)
 	}
-	view.UpgradeAuthority = accountInfo.Value.Owner.String()
+	authority, _, err := solanashared.GetUpgradeAuthority(chain.Client, progDataAddr)
+	if err != nil {
+		return view, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
+	}
+	view.UpgradeAuthority = authority.String()
 	var config solOffRamp.Config
 	configPDA, _, _ := solState.FindOfframpConfigPDA(program)
 	err = chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)

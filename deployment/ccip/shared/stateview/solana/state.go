@@ -8,9 +8,12 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog/log"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 
 	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
@@ -251,6 +254,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64) (view
 	var allTokens []solana.PublicKey
 	allTokens = append(allTokens, s.LinkToken)
 	allTokens = append(allTokens, s.WSOL)
+	allTokens = append(allTokens, s.USDCToken)
 	allTokens = append(allTokens, s.SPL2022Tokens...)
 	allTokens = append(allTokens, s.SPLTokens...)
 	for _, token := range allTokens {
@@ -633,6 +637,22 @@ func ValidateOwnershipSolana(
 		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for cctp_token_pool: %w", err)
 		}
+	case shared.SVMSignerRegistry:
+		configPda, _, _ := solana.FindProgramAddress([][]byte{[]byte("config")}, signer_registry.ProgramID)
+		data, err := GetAccountData(*e, &chain, configPda)
+		if err != nil {
+			return fmt.Errorf("failed to get config: %w", err)
+		}
+
+		configAccount, err := signer_registry.ParseAccount_Config(data)
+		if err != nil {
+			return fmt.Errorf("failed to get config: %w", err)
+		}
+		fmt.Printf("%+v\n", configAccount)
+
+		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, configAccount.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for signer_registry at account %s: %w", configPda, err)
+		}
 	default:
 		return fmt.Errorf("unsupported contract type: %s", contractType)
 	}
@@ -741,4 +761,24 @@ func IsSolanaProgramOwnedByTimelock(
 func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
 	return receiverTargetAccount
+}
+
+func GetAccountData(
+	e cldf.Environment,
+	chain *cldf_solana.Chain,
+	account solana.PublicKey,
+
+) ([]byte, error) {
+	resp, err := chain.Client.GetAccountInfoWithOpts(
+		e.GetContext(),
+		account,
+		&rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentFinalized,
+			DataSlice:  nil,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Value.Data.GetBinary(), nil
 }

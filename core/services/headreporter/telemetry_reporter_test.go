@@ -185,7 +185,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
 
 	err := reporter.ReportPeriodic(testutils.Context(t))
-	assert.ErrorContains(t, err, "latest block height returned by relayer is empty for chainID")
+	assert.ErrorContains(t, err, "latest block height returned by relayer is empty for {Solana testchain}")
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {

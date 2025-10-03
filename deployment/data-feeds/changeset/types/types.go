@@ -217,6 +217,7 @@ type NodeConfig struct {
 type WorkflowSpecConfig struct {
 	TargetContractEncoderType        string `json:"targetContractEncoderType" yaml:"targetContractEncoderType"`   // Required. "data-feeds_decimal", "aptos" or "ccip"
 	ConsensusAggregationMethod       string `json:"consensusAggregationMethod" yaml:"consensusAggregationMethod"` // Required. "llo_streams" or "data_feeds"
+	TriggerCapability                string `json:"triggerCapability" yaml:"triggerCapability"`                   // Required
 	WorkflowName                     string `json:"workflowName" yaml:"workflowName"`                             // Required
 	ConsensusReportID                string `json:"consensusReportID" yaml:"consensusReportID"`                   // Required
 	WriteTargetTrigger               string `json:"writeTargetTrigger" yaml:"writeTargetTrigger"`                 // Required

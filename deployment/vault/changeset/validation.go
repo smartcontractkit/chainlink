@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chainSel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	evmstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -136,9 +136,9 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockCo
 			return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)
 		}
 	}
-
+	const emptyQualifier = ""
 	for chainSelector := range transfersByChain {
-		addresses, err := loadAddressesFromDatastore(e.DataStore, chainSelector)
+		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, emptyQualifier)
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}
@@ -161,22 +161,6 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockCo
 	}
 
 	return nil
-}
-
-func loadAddressesFromDatastore(ds datastore.DataStore, chainSelector uint64) (map[string]cldf.TypeAndVersion, error) {
-	addressesChain := make(map[string]cldf.TypeAndVersion)
-	addresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
-	if len(addresses) == 0 {
-		return nil, fmt.Errorf("no addresses found for chain %d", chainSelector)
-	}
-
-	for _, addressRef := range addresses {
-		addressesChain[addressRef.Address] = cldf.TypeAndVersion{
-			Type:    cldf.ContractType(addressRef.Type),
-			Version: *addressRef.Version,
-		}
-	}
-	return addressesChain, nil
 }
 
 func ValidateFundTimelockConfig(ctx context.Context, e cldf.Environment, cfg types.FundTimelockConfig) error {

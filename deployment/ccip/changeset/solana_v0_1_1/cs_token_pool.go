@@ -118,6 +118,7 @@ type TokenPoolConfig struct {
 type AddTokenPoolAndLookupTableConfig struct {
 	ChainSelector    uint64
 	TokenPoolConfigs []TokenPoolConfig
+	MCMS             *proposalutils.TimelockConfig
 }
 
 type TokenPoolConfigWithMCM struct {
@@ -210,10 +211,25 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	rmnRemoteAddress := chainState.RMNRemote
 
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+
+	var txns []mcmsTypes.Transaction
 	for _, tokenPoolCfg := range cfg.TokenPoolConfigs {
 		e.Logger.Infow("Adding token pool", "cfg", tokenPoolCfg)
 		tokenPubKey := tokenPoolCfg.TokenPubKey
 		tokenPool := chainState.GetActiveTokenPool(tokenPoolCfg.PoolType, tokenPoolCfg.Metadata)
+
+		progDataAddr, err := deployment.GetProgramDataAddress(chain.Client, tokenPool)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get program data address for program %s: %w", tokenPool.String(), err)
+		}
+		authority, _, err := deployment.GetUpgradeAuthority(chain.Client, progDataAddr)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get upgrade authority for program data %s: %w", progDataAddr.String(), err)
+		}
 
 		// verified
 		tokenprogramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
@@ -252,7 +268,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
 				poolConfigPDA,
 				tokenPubKey,
-				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
+				authority,
 				solana.SystemProgramID,
 				tokenPool,
 				programData.Address,
@@ -264,7 +280,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			poolInitI, err = solLockReleaseTokenPool.NewInitializeInstruction(
 				poolConfigPDA,
 				tokenPubKey,
-				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
+				authority,
 				solana.SystemProgramID,
 				tokenPool,
 				programData.Address,
@@ -278,7 +294,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				rmnRemoteAddress,
 				poolConfigPDA,
 				tokenPubKey,
-				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
+				authority,
 				solana.SystemProgramID,
 				tokenPool,
 				programData.Address,
@@ -291,7 +307,15 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 
-		instructions = append(instructions, poolInitI)
+		if authority.Equals(timelockSignerPDA) {
+			tx, err := BuildMCMSTxn(poolInitI, tokenPool.String(), tokenPoolCfg.PoolType)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			txns = append(txns, *tx)
+		} else {
+			instructions = append(instructions, poolInitI)
+		}
 
 		// fetch current token mint authority
 		var tokenMint solToken.Mint
@@ -336,7 +360,6 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 
 		// add token pool lookup table
-		// add token pool lookup table
 		csOutput, err := AddTokenPoolLookupTable(e, TokenPoolLookupTableConfig{
 			ChainSelector:            cfg.ChainSelector,
 			TokenPubKey:              tokenPoolCfg.TokenPubKey,
@@ -352,6 +375,18 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 		}
+	}
+
+	if len(txns) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to initialize token pools", cfg.MCMS.MinDelay, txns)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			AddressBook:           addressBook,
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
 	}
 
 	return cldf.ChangesetOutput{
@@ -1694,6 +1729,7 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to save tokenpool address lookup table: %w", err)
 	}
 	e.Logger.Infow("Added token pool lookup table", "token_pubkey", tokenPubKey.String())
+
 	return cldf.ChangesetOutput{
 		AddressBook: newAddressBook,
 	}, nil

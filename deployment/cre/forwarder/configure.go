@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -34,7 +35,7 @@ type DonConfiguration struct {
 	ID      uint32   // the DON id as registered in the capabilities registry. Is an id corresponding to a DON that run consensus capability
 	F       uint8    // the F value for the DON as registered in the capabilities registry
 	Version uint32   // the config version for the DON as registered in the capabilities registry
-	NodeIDs []string // node IDs (JD IDs or PeerIDs starting with `p2p_`) of the nodes in the DON
+	NodeIDs []string // node IDs (JD IDs or PeerIDs starting with `p2p_` or csa keys) of the nodes in the DON
 }
 
 func (d DonConfiguration) ForwarderConfig(chainFamily string, c offchain.Client) (Config, error) {
@@ -208,7 +209,7 @@ var ConfigureOp = operations.NewOperation[ConfigureOpInput, ConfigureOpOutput, C
 )
 
 // Signers returns the onchain public keys of the given node IDs by retrieving the node info from the offchain client
-// nodeIDs can be JD IDs or PeerIDs starting with `p2p_`.
+// nodeIDs can be JD IDs or PeerIDs starting with `p2p_ or csa keys`.
 func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.Address, error) {
 	// load the nodes from the offchain client
 	nodes, err := deployment.NodeInfo(nodeIDs, c)
@@ -244,4 +245,47 @@ func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.
 		out = append(out, signerAddress)
 	}
 	return out, nil
+}
+
+type ConfigureForwarders struct{}
+
+var _ cldf.ChangeSetV2[ConfigureSeqInput] = ConfigureForwarders{}
+
+func (c ConfigureForwarders) VerifyPreconditions(e cldf.Environment, config ConfigureSeqInput) error {
+	for chainSel := range config.Chains {
+		if _, ok := e.BlockChains.EVMChains()[chainSel]; !ok {
+			return fmt.Errorf("chain selector %d not found in environment", chainSel)
+		}
+	}
+
+	if config.DON.Name == "" {
+		return errors.New("DON name cannot be empty")
+	}
+	if len(config.DON.NodeIDs) == 0 {
+		return errors.New("DON must have at least one node ID")
+	}
+
+	return nil
+}
+
+func (c ConfigureForwarders) Apply(e cldf.Environment, config ConfigureSeqInput) (cldf.ChangesetOutput, error) {
+	// Use ConfigureSeq which handles all dependency resolution internally
+	deps := ConfigureSeqDeps{
+		Env: &e,
+	}
+
+	configureReport, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		ConfigureSeq,
+		deps,
+		config,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	return cldf.ChangesetOutput{
+		Reports:               configureReport.ExecutionReports,
+		MCMSTimelockProposals: configureReport.Output.MCMSTimelockProposals,
+	}, nil
 }

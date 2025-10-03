@@ -28,8 +28,16 @@ import (
 
 var _ HTTPTriggerHandler = (*httpTriggerHandler)(nil)
 
+const (
+	// Reference: https://github.com/smartcontractkit/chainlink-evm/blob/develop/contracts/src/v0.8/workflow/dev/v2/WorkflowRegistry.sol
+	workflowIDLength      = 66 // 0x + 64 hex characters = 32 bytes
+	workflowOwnerLength   = 42 // 0x + 40 hex characters = 20 bytes
+	maxWorkflowNameLength = 64 // Maximum workflow name length
+	maxWorkflowTagLength  = 32 // Maximum workflow tag length
+)
+
 type savedCallback struct {
-	callbackCh         chan<- handlers.UserCallbackPayload
+	handlers.Callback
 	requestStartTime   time.Time
 	createdAt          time.Time
 	responseAggregator *aggregation.IdenticalNodeResponseAggregator
@@ -51,7 +59,7 @@ type httpTriggerHandler struct {
 
 type HTTPTriggerHandler interface {
 	job.ServiceCtx
-	HandleUserTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload, requestStartTime time.Time) error
+	HandleUserTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback, requestStartTime time.Time) error
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
@@ -69,65 +77,65 @@ func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *con
 	}
 }
 
-func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload, requestStartTime time.Time) error {
-	triggerReq, err := h.validatedTriggerRequest(ctx, req, callbackCh)
+func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback, requestStartTime time.Time) error {
+	triggerReq, err := h.validatedTriggerRequest(ctx, req, callback)
 	if err != nil {
 		return err
 	}
 
-	workflowID, err := h.resolveWorkflowID(ctx, triggerReq, req.ID, callbackCh)
+	workflowID, err := h.resolveWorkflowID(ctx, triggerReq, req.ID, callback)
 	if err != nil {
 		return err
 	}
 
-	key, err := h.authorizeRequest(ctx, workflowID, req, callbackCh)
+	key, err := h.authorizeRequest(ctx, workflowID, req, callback)
 	if err != nil {
 		return err
 	}
 
-	if err = h.checkRateLimit(ctx, workflowID, req.ID, callbackCh); err != nil {
+	if err = h.checkRateLimit(ctx, workflowID, req.ID, callback); err != nil {
 		return err
 	}
 
 	executionID, err := workflows.EncodeExecutionID(workflowID, req.ID)
 	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callbackCh)
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
 		return errors.New("error generating execution ID: " + err.Error())
 	}
 
 	reqWithKey, err := reqWithAuthorizedKey(triggerReq, *key)
 	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callbackCh)
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callback)
 		return errors.Join(errors.New("auth failure"), err)
 	}
 
-	if err := h.setupCallback(ctx, req.ID, callbackCh, requestStartTime); err != nil {
+	if err := h.setupCallback(ctx, req.ID, callback, requestStartTime); err != nil {
 		return err
 	}
 
 	return h.sendWithRetries(ctx, executionID, reqWithKey)
 }
 
-func (h *httpTriggerHandler) validatedTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*jsonrpc.Request[gateway_common.HTTPTriggerRequest], error) {
+func (h *httpTriggerHandler) validatedTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*jsonrpc.Request[gateway_common.HTTPTriggerRequest], error) {
 	if req.Params == nil {
-		h.handleUserError(ctx, "", jsonrpc.ErrInvalidRequest, "request params is nil", callbackCh)
+		h.handleUserError(ctx, "", jsonrpc.ErrInvalidRequest, "request params is nil", callback)
 		return nil, errors.New("request params is nil")
 	}
 
-	triggerReq, err := h.parseTriggerRequest(ctx, req, callbackCh)
+	triggerReq, err := h.parseTriggerRequest(ctx, req, callback)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := h.validateRequestID(ctx, req.ID, callbackCh); err != nil {
+	if err := h.validateRequestID(ctx, req.ID, callback); err != nil {
 		return nil, err
 	}
 
-	if err := h.validateMethod(ctx, req.Method, req.ID, callbackCh); err != nil {
+	if err := h.validateMethod(ctx, req.Method, req.ID, callback); err != nil {
 		return nil, err
 	}
 
-	if err := h.validateTriggerParams(ctx, triggerReq, req.ID, callbackCh); err != nil {
+	if err := h.validateTriggerParams(ctx, triggerReq, req.ID, callback); err != nil {
 		return nil, err
 	}
 
@@ -139,73 +147,177 @@ func (h *httpTriggerHandler) validatedTriggerRequest(ctx context.Context, req *j
 	}, nil
 }
 
-func (h *httpTriggerHandler) parseTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*gateway_common.HTTPTriggerRequest, error) {
+func (h *httpTriggerHandler) parseTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*gateway_common.HTTPTriggerRequest, error) {
 	var triggerReq gateway_common.HTTPTriggerRequest
 	err := json.Unmarshal(*req.Params, &triggerReq)
 	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrParse, "error decoding payload: "+err.Error(), callbackCh)
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrParse, "error decoding payload: "+err.Error(), callback)
 		return nil, err
 	}
 	return &triggerReq, nil
 }
 
-func (h *httpTriggerHandler) validateRequestID(ctx context.Context, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *httpTriggerHandler) validateRequestID(ctx context.Context, requestID string, callback handlers.Callback) error {
 	if requestID == "" {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "empty request ID", callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "empty request ID", callback)
 		return errors.New("empty request ID")
 	}
 	// Request IDs from users must not contain "/", since this character is reserved
 	// for internal node-to-node message routing (e.g., "http_action/{workflowID}/{uuid}").
 	if strings.Contains(requestID, "/") {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "request ID must not contain '/'", callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "request ID must not contain '/'", callback)
 		return errors.New("request ID must not contain '/'")
 	}
 	return nil
 }
 
-func (h *httpTriggerHandler) validateMethod(ctx context.Context, method, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *httpTriggerHandler) validateMethod(ctx context.Context, method, requestID string, callback handlers.Callback) error {
 	if method != gateway_common.MethodWorkflowExecute {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrMethodNotFound, "invalid method: "+method, callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrMethodNotFound, "invalid method: "+method, callback)
 		return errors.New("invalid method: " + method)
 	}
 	return nil
 }
 
-func (h *httpTriggerHandler) validateTriggerParams(ctx context.Context, triggerReq *gateway_common.HTTPTriggerRequest, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *httpTriggerHandler) validateTriggerParams(ctx context.Context, triggerReq *gateway_common.HTTPTriggerRequest, requestID string, callback handlers.Callback) error {
 	if !isValidJSON(triggerReq.Input) {
 		h.lggr.Errorw("invalid params JSON", "params", triggerReq.Input)
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "invalid params JSON", callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "invalid params JSON", callback)
 		return errors.New("invalid params JSON")
 	}
 
-	return h.validateWorkflowFields(ctx, triggerReq.Workflow, requestID, callbackCh)
+	return h.validateWorkflowFields(ctx, triggerReq.Workflow, requestID, callback)
 }
 
-func (h *httpTriggerHandler) validateWorkflowFields(ctx context.Context, workflow gateway_common.WorkflowSelector, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
-	if workflow.WorkflowID != "" {
-		if !strings.HasPrefix(workflow.WorkflowID, "0x") {
-			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be prefixed with '0x'", callbackCh)
-			return errors.New("workflowID must be prefixed with '0x'")
+func (h *httpTriggerHandler) validateWorkflowFields(ctx context.Context, workflow gateway_common.WorkflowSelector, requestID string, callback handlers.Callback) error {
+	hasWorkflowID := workflow.WorkflowID != ""
+	hasWorkflowName := workflow.WorkflowName != ""
+	hasWorkflowOwner := workflow.WorkflowOwner != ""
+	hasWorkflowTag := workflow.WorkflowTag != ""
+
+	if !hasWorkflowID {
+		if !hasWorkflowName {
+			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowName is required when workflowID is not provided", callback)
+			return errors.New("workflowName is required when workflowID is not provided")
 		}
-		if workflow.WorkflowID != strings.ToLower(workflow.WorkflowID) {
-			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be lowercase", callbackCh)
-			return errors.New("workflowID must be lowercase")
+		if !hasWorkflowOwner {
+			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner is required when workflowID is not provided", callback)
+			return errors.New("workflowOwner is required when workflowID is not provided")
+		}
+		if !hasWorkflowTag {
+			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowTag is required when workflowID is not provided", callback)
+			return errors.New("workflowTag is required when workflowID is not provided")
 		}
 	}
-	if workflow.WorkflowOwner != "" {
-		if !strings.HasPrefix(workflow.WorkflowOwner, "0x") {
-			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be prefixed with '0x'", callbackCh)
-			return errors.New("workflowOwner must be prefixed with '0x'")
-		}
-		if workflow.WorkflowOwner != strings.ToLower(workflow.WorkflowOwner) {
-			h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be lowercase", callbackCh)
-			return errors.New("workflowOwner must be lowercase")
+
+	if hasWorkflowID {
+		if err := h.validateWorkflowID(ctx, workflow.WorkflowID, requestID, callback); err != nil {
+			return err
 		}
 	}
+
+	if hasWorkflowOwner {
+		if err := h.validateWorkflowOwner(ctx, workflow.WorkflowOwner, requestID, callback); err != nil {
+			return err
+		}
+	}
+
+	if hasWorkflowName {
+		if err := h.validateWorkflowName(ctx, workflow.WorkflowName, requestID, callback); err != nil {
+			return err
+		}
+	}
+
+	if workflow.WorkflowTag != "" {
+		if err := h.validateWorkflowTag(ctx, workflow.WorkflowTag, requestID, callback); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (h *httpTriggerHandler) resolveWorkflowID(ctx context.Context, triggerReq *jsonrpc.Request[gateway_common.HTTPTriggerRequest], requestID string, callbackCh chan<- handlers.UserCallbackPayload) (string, error) {
+// validateWorkflowID validates the workflowID format and length
+func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
+	if !strings.HasPrefix(workflowID, "0x") {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be prefixed with '0x'", callback)
+		return errors.New("workflowID must be prefixed with '0x'")
+	}
+	if workflowID != strings.ToLower(workflowID) {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be lowercase", callback)
+		return errors.New("workflowID must be lowercase")
+	}
+
+	if len(workflowID) != workflowIDLength {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("workflowID must be %d characters long (0x + 64 hex), got %d", workflowIDLength, len(workflowID)), callback)
+		return fmt.Errorf("workflowID must be %d characters long (0x + 64 hex characters), got %d", workflowIDLength, len(workflowID))
+	}
+
+	_, err := hex.DecodeString(workflowID[2:])
+	if err != nil {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID must be a valid hex string", callback)
+		return errors.New("workflowID must be a valid hex string")
+	}
+
+	return nil
+}
+
+// validateWorkflowOwner validates the workflowOwner format and length
+func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner string, requestID string, callback handlers.Callback) error {
+	if !strings.HasPrefix(workflowOwner, "0x") {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be prefixed with '0x'", callback)
+		return errors.New("workflowOwner must be prefixed with '0x'")
+	}
+	if workflowOwner != strings.ToLower(workflowOwner) {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be lowercase", callback)
+		return errors.New("workflowOwner must be lowercase")
+	}
+
+	if len(workflowOwner) != workflowOwnerLength {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("workflowOwner must be %d characters long (0x + 40 hex), got %d", workflowOwnerLength, len(workflowOwner)), callback)
+		return fmt.Errorf("workflowOwner must be %d characters long (0x + 40 hex characters), got %d", workflowOwnerLength, len(workflowOwner))
+	}
+
+	_, err := hex.DecodeString(workflowOwner[2:])
+	if err != nil {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner must be a valid hex string", callback)
+		return errors.New("workflowOwner must be a valid hex string")
+	}
+
+	return nil
+}
+
+// validateWorkflowName validates the workflowName length and format
+func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowName string, requestID string, callback handlers.Callback) error {
+	if len(workflowName) == 0 {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowName cannot be empty", callback)
+		return errors.New("workflowName cannot be empty")
+	}
+
+	if len(workflowName) > maxWorkflowNameLength {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("workflowName cannot exceed %d characters, got %d", maxWorkflowNameLength, len(workflowName)), callback)
+		return fmt.Errorf("workflowName cannot exceed %d characters, got %d", maxWorkflowNameLength, len(workflowName))
+	}
+
+	return nil
+}
+
+// validateWorkflowTag validates the workflowTag length and format
+func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTag string, requestID string, callback handlers.Callback) error {
+	if len(workflowTag) == 0 {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowTag cannot be empty", callback)
+		return errors.New("workflowTag cannot be empty")
+	}
+
+	if len(workflowTag) > maxWorkflowTagLength {
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, fmt.Sprintf("workflowTag cannot exceed %d characters, got %d", maxWorkflowTagLength, len(workflowTag)), callback)
+		return fmt.Errorf("workflowTag cannot exceed %d characters, got %d", maxWorkflowTagLength, len(workflowTag))
+	}
+
+	return nil
+}
+
+func (h *httpTriggerHandler) resolveWorkflowID(ctx context.Context, triggerReq *jsonrpc.Request[gateway_common.HTTPTriggerRequest], requestID string, callback handlers.Callback) (string, error) {
 	workflowID := triggerReq.Params.Workflow.WorkflowID
 	if workflowID != "" {
 		return workflowID, nil
@@ -218,58 +330,59 @@ func (h *httpTriggerHandler) resolveWorkflowID(ctx context.Context, triggerReq *
 		triggerReq.Params.Workflow.WorkflowTag,
 	)
 	if !found {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflow not found", callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflow not found", callback)
 		return "", errors.New("workflow not found")
 	}
 	return workflowID, nil
 }
 
-func (h *httpTriggerHandler) authorizeRequest(ctx context.Context, workflowID string, req *jsonrpc.Request[json.RawMessage], callbackCh chan<- handlers.UserCallbackPayload) (*gateway_common.AuthorizedKey, error) {
+func (h *httpTriggerHandler) authorizeRequest(ctx context.Context, workflowID string, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*gateway_common.AuthorizedKey, error) {
 	key, err := h.workflowMetadataHandler.Authorize(workflowID, req.Auth, req)
 	if err != nil {
-		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callbackCh)
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInvalidRequest, "Auth failure", callback)
 		return nil, errors.Join(errors.New("auth failure"), err)
 	}
 	return key, nil
 }
 
-func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, requestID string, callbackCh chan<- handlers.UserCallbackPayload) error {
+func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, requestID string, callback handlers.Callback) error {
 	workflowRef, found := h.workflowMetadataHandler.GetWorkflowReference(workflowID)
 	if !found {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflow reference not found", callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflow reference not found", callback)
 		return errors.New("workflow reference not found")
 	}
 	workflowOwnerAllow, globalAllow := h.userRateLimiter.AllowVerbose(workflowRef.workflowOwner)
 	if !workflowOwnerAllow {
 		h.metrics.Trigger.IncrementWorkflowOwnerThrottled(ctx, h.lggr)
-		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
 		return errors.New("workflow owner rate limit exceeded")
 	}
 	if !globalAllow {
 		h.metrics.Trigger.IncrementGlobalThrottled(ctx, h.lggr)
-		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
 		return errors.New("global rate limit exceeded")
 	}
 	return nil
 }
 
-func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callbackCh chan<- handlers.UserCallbackPayload, requestStartTime time.Time) error {
+func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callback handlers.Callback, requestStartTime time.Time) error {
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
 
 	if _, found := h.callbacks[requestID]; found {
-		h.handleUserError(ctx, requestID, jsonrpc.ErrConflict, "in-flight request", callbackCh)
+		h.handleUserError(ctx, requestID, jsonrpc.ErrConflict, "in-flight request", callback)
 		return errors.New("in-flight request ID: " + requestID)
 	}
 
-	// 2f + 1 is chosen to ensure that majority of honest nodes are executing the request
-	agg, err := aggregation.NewIdenticalNodeResponseAggregator(2*h.donConfig.F + 1)
+	// (N+F)//2 + 1 threshold where N = number of nodes, F = number of faulty nodes
+	threshold := (len(h.donConfig.Members)+h.donConfig.F)/2 + 1
+	agg, err := aggregation.NewIdenticalNodeResponseAggregator(threshold)
 	if err != nil {
 		return errors.New("failed to create response aggregator: " + err.Error())
 	}
 
 	h.callbacks[requestID] = savedCallback{
-		callbackCh:         callbackCh,
+		Callback:           callback,
 		requestStartTime:   requestStartTime,
 		createdAt:          time.Now(),
 		responseAggregator: agg,
@@ -297,17 +410,17 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	if err != nil {
 		return errors.New("failed to marshal response: " + err.Error())
 	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case saved.callbackCh <- handlers.UserCallbackPayload{
+
+	err = saved.SendResponse(handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   api.NoError,
-	}:
-		delete(h.callbacks, resp.ID)
-		latencyMs := time.Since(saved.requestStartTime).Milliseconds()
-		h.metrics.Trigger.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
+	})
+	if err != nil {
+		return err
 	}
+	delete(h.callbacks, resp.ID)
+	latencyMs := time.Since(saved.requestStartTime).Milliseconds()
+	h.metrics.Trigger.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
 	return nil
 }
 
@@ -346,6 +459,7 @@ func (h *httpTriggerHandler) reapExpiredCallbacks(ctx context.Context) {
 	var expiredCount int
 	for reqID, callback := range h.callbacks {
 		if now.Sub(callback.createdAt) > time.Duration(h.config.MaxTriggerRequestDurationMs)*time.Millisecond {
+			h.metrics.Trigger.IncrementRequestErrors(ctx, jsonrpc.ErrInternal, h.lggr)
 			delete(h.callbacks, reqID)
 			expiredCount++
 		}
@@ -371,7 +485,7 @@ func isValidJSON(data []byte) bool {
 	}
 }
 
-func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID string, code int64, message string, callbackCh chan<- handlers.UserCallbackPayload) {
+func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID string, code int64, message string, callback handlers.Callback) {
 	resp := &jsonrpc.Response[json.RawMessage]{
 		Version: "2.0",
 		ID:      requestID,
@@ -385,11 +499,15 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 		h.lggr.Errorw("failed to marshal error response", "err", err, "requestID", requestID)
 		return
 	}
-	errorCode := api.ErrorCode(code)
-	h.metrics.Trigger.IncrementRequestErrors(ctx, errorCode.String(), h.lggr)
-	callbackCh <- handlers.UserCallbackPayload{
+	errorCode := api.FromJSONRPCErrorCode(code)
+	h.metrics.Trigger.IncrementRequestErrors(ctx, code, h.lggr)
+	err = callback.SendResponse(handlers.UserCallbackPayload{
 		RawResponse: rawResp,
 		ErrorCode:   errorCode,
+	})
+	if err != nil {
+		h.lggr.Errorw("failed to send user callback", "err", err, "requestID", requestID)
+		return
 	}
 }
 

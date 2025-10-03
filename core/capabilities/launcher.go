@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -47,8 +46,10 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 type launcher struct {
 	services.StateMachine
 	lggr                logger.Logger
+	myPeerID            p2ptypes.PeerID
 	peerWrapper         p2ptypes.PeerWrapper
 	dispatcher          remotetypes.Dispatcher
+	cachedShims         cachedShims
 	registry            *Registry
 	subServices         []services.Service
 	workflowDonNotifier donNotifier
@@ -56,10 +57,28 @@ type launcher struct {
 	p2pStreamConfig     p2ptypes.StreamConfig
 }
 
+// For V2 capabilities, shims are created once and their config is updated dynamically.
+type cachedShims struct {
+	combinedClients    map[string]remote.CombinedClient
+	triggerSubscribers map[string]remote.TriggerSubscriber
+	executableClients  map[string]executable.Client
+
+	// TODO(CRE-942): add trigger publishers and executable servers
+}
+
+func shimKey(capID string, donID uint32, method string) string {
+	return fmt.Sprintf("%s:%d:%s", capID, donID, method)
+}
+
 type donNotifier interface {
 	NotifyDonSet(don capabilities.DON)
 }
 
+// TODO: add metric handler and instrument all the internal log.Error calls
+
+// NewLauncher creates a new capabilities launcher.
+// If peerWrapper is nil, no p2p connections will be managed by the launcher.
+// If don2donSharedPeer is nil, no DON-to-DON connections will be managed by the launcher.
 func NewLauncher(
 	lggr logger.Logger,
 	peerWrapper p2ptypes.PeerWrapper,
@@ -84,9 +103,14 @@ func NewLauncher(
 		}
 	}
 	return &launcher{
-		lggr:                logger.Named(lggr, "CapabilitiesLauncher"),
-		peerWrapper:         peerWrapper,
-		dispatcher:          dispatcher,
+		lggr:        logger.Named(lggr, "CapabilitiesLauncher"),
+		peerWrapper: peerWrapper,
+		dispatcher:  dispatcher,
+		cachedShims: cachedShims{
+			combinedClients:    make(map[string]remote.CombinedClient),
+			triggerSubscribers: make(map[string]remote.TriggerSubscriber),
+			executableClients:  make(map[string]executable.Client),
+		},
 		registry:            registry,
 		subServices:         []services.Service{},
 		workflowDonNotifier: workflowDonNotifier,
@@ -110,7 +134,7 @@ func filterDon2Don(
 ) bool {
 	// Below logic is based on identification who is who using a workflow acceptance flag
 	// and does it support any capabilities
-	candidatePeerBelongsToWorkflowDON := candidatePeerDON.DON.AcceptsWorkflows
+	candidatePeerBelongsToWorkflowDON := candidatePeerDON.AcceptsWorkflows
 	candidatePeerBelongsToCapabilityDON := len(candidatePeerDON.CapabilityConfigurations) > 0
 
 	// We identify few cases from the perspective of the node:
@@ -151,13 +175,14 @@ func (w *launcher) peers(
 	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
 	for _, id := range w.allDONs(localRegistry) {
 		candidatePeerDON := localRegistry.IDsToDONs[id]
-		if !candidatePeerDON.DON.IsPublic {
+		if !candidatePeerDON.IsPublic {
+			w.lggr.Debugw("skipping non-public DON for peer connections", "DON.ID", candidatePeerDON.ID)
 			continue
 		}
 		if !isBootstrap && filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON) {
 			continue
 		}
-		for _, nid := range candidatePeerDON.DON.Members {
+		for _, nid := range candidatePeerDON.Members {
 			allPeers[nid] = defaultStreamConfig
 		}
 	}
@@ -171,7 +196,7 @@ func (w *launcher) publicDONs(
 	publicDONs := make([]registrysyncer.DON, 0)
 	for _, id := range allDONIDs {
 		candidatePeerDON := localRegistry.IDsToDONs[id]
-		if !candidatePeerDON.DON.IsPublic {
+		if !candidatePeerDON.IsPublic {
 			continue
 		}
 		publicDONs = append(publicDONs, candidatePeerDON)
@@ -192,7 +217,15 @@ func (w *launcher) allDONs(localRegistry *registrysyncer.LocalRegistry) []regist
 }
 
 func (w *launcher) Start(ctx context.Context) error {
-	return nil
+	if w.peerWrapper != nil && w.peerWrapper.GetPeer() != nil {
+		w.myPeerID = w.peerWrapper.GetPeer().ID()
+		return nil
+	}
+	if w.don2donSharedPeer != nil {
+		w.myPeerID = w.don2donSharedPeer.ID()
+		return nil
+	}
+	return errors.New("could not get peer ID from any source")
 }
 
 func (w *launcher) Close() error {
@@ -201,8 +234,10 @@ func (w *launcher) Close() error {
 			w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
 		}
 	}
-
-	return w.peerWrapper.GetPeer().UpdateConnections(map[ragetypes.PeerID]p2ptypes.StreamConfig{})
+	if w.peerWrapper != nil {
+		return w.peerWrapper.GetPeer().UpdateConnections(map[ragetypes.PeerID]p2ptypes.StreamConfig{})
+	}
+	return nil
 }
 
 func (w *launcher) Ready() error {
@@ -249,6 +284,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	w.registry.SetLocalRegistry(localRegistry)
 
 	allDONIDs := w.allDONs(localRegistry)
+	w.lggr.Debugw("All DONs in the local registry", "allDONIDs", allDONIDs)
 
 	// Let's start by identifying public DONs
 	publicDONs := w.publicDONs(allDONIDs, localRegistry)
@@ -259,14 +295,13 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	//
 	// We'll also construct a set to record what DONs the current node is a part of,
 	// regardless of any modifiers (public/acceptsWorkflows etc).
-	myID := w.peerWrapper.GetPeer().ID()
 	myWorkflowDONs := []registrysyncer.DON{}
 	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
 	for _, id := range allDONIDs {
 		d := localRegistry.IDsToDONs[id]
 		for _, peerID := range d.Members {
-			if peerID == myID {
+			if peerID == w.myPeerID {
 				myDONs[d.ID] = true
 			}
 		}
@@ -279,6 +314,8 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 			}
 		}
 	}
+	w.lggr.Debugw("Found my workflow DONs", "count", len(myWorkflowDONs), "myWorkflowDONs", myWorkflowDONs)
+	w.lggr.Debugw("Found remote workflow DONs", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
 
 	// Capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims to expose my own capabilities externally.
@@ -293,6 +330,8 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 			}
 		}
 	}
+	w.lggr.Debugw("Found my capability DONs", "count", len(myCapabilityDONs), "myCapabilityDONs", myCapabilityDONs)
+	w.lggr.Debugw("Found remote capability DONs", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
 
 	belongsToAWorkflowDON := len(myWorkflowDONs) > 0
 	if belongsToAWorkflowDON {
@@ -307,24 +346,19 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 		w.workflowDonNotifier.NotifyDonSet(myDON.DON)
 
 		for _, rcd := range remoteCapabilityDONs {
-			err := w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
-			if err != nil {
-				return err
-			}
+			w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
 		}
 	}
 
 	belongsToACapabilityDON := len(myCapabilityDONs) > 0
 	if belongsToACapabilityDON {
 		for _, myDON := range myCapabilityDONs {
-			err := w.exposeCapabilities(ctx, myID, myDON, localRegistry, remoteWorkflowDONs)
-			if err != nil {
-				return err
-			}
+			w.serveCapabilities(ctx, w.myPeerID, myDON, localRegistry, remoteWorkflowDONs)
 		}
 	}
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
+	w.lggr.Debugw("Updating peer connections", "peerWrapperEnabled", w.peerWrapper != nil, "don2donSharedPeerEnabled", w.don2donSharedPeer != nil)
 	if w.peerWrapper != nil {
 		peer := w.peerWrapper.GetPeer()
 		myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, peer.IsBootstrap(), localRegistry)
@@ -334,7 +368,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 		}
 	}
 	if w.don2donSharedPeer != nil {
-		donPairs := w.donPairsToUpdate(myID, localRegistry)
+		donPairs := w.donPairsToUpdate(w.myPeerID, localRegistry)
 		err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, defaultStreamConfig)
 		if err != nil {
 			return fmt.Errorf("failed to update peer connections: %w", err)
@@ -343,141 +377,151 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	return nil
 }
 
-func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
+// addRemoteCapabilities adds remote capabilities from a remote DON to the local node,
+// allowing the local node to use these capabilities in its workflows.
+// it is best effort to ensure that valid capabilities are added even if some fail
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
-		capability, ok := localRegistry.IDsToCapabilities[cid]
-		if !ok {
-			return fmt.Errorf("could not find capability matching id %s", cid)
-		}
-
-		capabilityConfig, err := c.Unmarshal()
+		err := w.addRemoteCapability(ctx, cid, c, myDON, remoteDON, localRegistry)
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s", cid)
-		}
-
-		methodConfig := capabilityConfig.CapabilityMethodConfig
-		if methodConfig != nil { // v2 capability - handle via CombinedClient
-			errAdd := w.addRemoteCapabilityV2(ctx, capability.ID, methodConfig, myDON, remoteDON)
-			if errAdd != nil {
-				return fmt.Errorf("failed to add remote v2 capability %s: %w", capability.ID, errAdd)
-			}
-			continue
-		}
-
-		switch capability.CapabilityType {
-		case capabilities.CapabilityTypeTrigger:
-			newTriggerFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
-				var aggregator remotetypes.Aggregator
-				switch {
-				case strings.HasPrefix(info.ID, "streams-trigger"):
-					v := info.ID[strings.LastIndexAny(info.ID, "@")+1:] // +1 to skip the @; also gracefully handle the case where there is no @ (which should not happen)
-					version, err := semver.NewVersion(v)
-					if err != nil {
-						return nil, fmt.Errorf("could not extract version from %s (%s): %w", info.ID, v, err)
-					}
-					switch version.Major() {
-					case 1: // legacy streams trigger
-						codec := streams.NewCodec(w.lggr)
-
-						signers, err := signersFor(remoteDON, localRegistry)
-						if err != nil {
-							return nil, err
-						}
-
-						aggregator = triggers.NewMercuryRemoteAggregator(
-							codec,
-							signers,
-							int(remoteDON.F+1),
-							info.ID,
-							w.lggr,
-						)
-					case 2: // LLO
-						// TODO: add a flag in capability onchain config to indicate whether it's OCR based
-						// the "SignedReport" aggregator is generic
-						signers, err := signersFor(remoteDON, localRegistry)
-						if err != nil {
-							return nil, err
-						}
-
-						const maxAgeSec = 120 // TODO move to capability onchain config
-						aggregator = aggregation.NewSignedReportRemoteAggregator(
-							signers,
-							int(remoteDON.F+1),
-							info.ID,
-							maxAgeSec,
-							w.lggr,
-						)
-					default:
-						return nil, fmt.Errorf("unsupported stream trigger %s", info.ID)
-					}
-				default:
-					aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
-				}
-
-				// TODO: We need to implement a custom, Mercury-specific
-				// aggregator here, because there is no guarantee that
-				// all trigger events in the workflow will have the same
-				// payloads. As a workaround, we validate the signatures.
-				// When this is solved, we can move to a generic aggregator
-				// and remove this.
-				triggerCap := remote.NewTriggerSubscriber(
-					capabilityConfig.RemoteTriggerConfig,
-					info,
-					remoteDON.DON,
-					myDON.DON,
-					w.dispatcher,
-					aggregator,
-					"", // empty method name for v1
-					w.lggr,
-				)
-				return triggerCap, nil
-			}
-			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newTriggerFn)
-			if err != nil {
-				return fmt.Errorf("failed to add trigger shim: %w", err)
-			}
-		case capabilities.CapabilityTypeAction:
-			newActionFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
-				client := executable.NewClient(
-					info,
-					myDON.DON,
-					w.dispatcher,
-					defaultTargetRequestTimeout,
-					nil, // V1 capabilities read transmission schedule from every request
-					"",  // empty method name for v1
-					w.lggr,
-				)
-				return client, nil
-			}
-
-			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newActionFn)
-			if err != nil {
-				return fmt.Errorf("failed to add action shim: %w", err)
-			}
-		case capabilities.CapabilityTypeConsensus:
-			// nothing to do; we don't support remote consensus capabilities for now
-		case capabilities.CapabilityTypeTarget:
-			newTargetFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
-				client := executable.NewClient(
-					info,
-					myDON.DON,
-					w.dispatcher,
-					defaultTargetRequestTimeout,
-					nil, // V1 capabilities read transmission schedule from every request
-					"",  // empty method name for v1
-					w.lggr,
-				)
-				return client, nil
-			}
-
-			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newTargetFn)
-			if err != nil {
-				return fmt.Errorf("failed to add target shim: %w", err)
-			}
-		default:
-			w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+			// TODO CRE-1021 metrics for failures
+			w.lggr.Errorw("failed to add remote capability ", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid, "err", err)
 		}
 	}
+}
+
+func (w *launcher) addRemoteCapability(ctx context.Context, cid string, c registrysyncer.CapabilityConfiguration, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
+	capability, ok := localRegistry.IDsToCapabilities[cid]
+	if !ok {
+		return fmt.Errorf("could not find capability matching id %s", cid)
+	}
+
+	capabilityConfig, err := c.Unmarshal()
+	if err != nil {
+		return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
+	}
+
+	methodConfig := capabilityConfig.CapabilityMethodConfig
+	if methodConfig != nil { // v2 capability - handle via CombinedClient
+		errAdd := w.addRemoteCapabilityV2(ctx, capability.ID, methodConfig, myDON, remoteDON)
+		if errAdd != nil {
+			return fmt.Errorf("failed to add remote v2 capability %s: %w", capability.ID, errAdd)
+		}
+	}
+
+	switch capability.CapabilityType {
+	case capabilities.CapabilityTypeTrigger:
+		newTriggerFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
+			var aggregator remotetypes.Aggregator
+			switch {
+			case strings.HasPrefix(info.ID, "streams-trigger"):
+				v := info.ID[strings.LastIndexAny(info.ID, "@")+1:] // +1 to skip the @; also gracefully handle the case where there is no @ (which should not happen)
+				version, err := semver.NewVersion(v)
+				if err != nil {
+					return nil, fmt.Errorf("could not extract version from %s (%s): %w", info.ID, v, err)
+				}
+				switch version.Major() {
+				case 1: // legacy streams trigger
+					codec := streams.NewCodec(w.lggr)
+
+					signers, err := signersFor(remoteDON, localRegistry)
+					if err != nil {
+						return nil, fmt.Errorf("failed to get signers for streams-trigger: %w", err)
+					}
+
+					// deprecated pre-LLO Mercury aggregator
+					aggregator = triggers.NewMercuryRemoteAggregator(
+						codec,
+						signers,
+						int(remoteDON.F+1),
+						info.ID,
+						w.lggr,
+					)
+				case 2: // LLO
+					// TODO: add a flag in capability onchain config to indicate whether it's OCR based
+					// the "SignedReport" aggregator is generic
+					signers, err := signersFor(remoteDON, localRegistry)
+					if err != nil {
+						return nil, fmt.Errorf("failed to get signers for llo-trigger: %w", err)
+					}
+
+					const maxAgeSec = 120 // TODO move to capability onchain config
+					aggregator = aggregation.NewSignedReportRemoteAggregator(
+						signers,
+						int(remoteDON.F+1),
+						info.ID,
+						maxAgeSec,
+						w.lggr,
+					)
+				default:
+					return nil, fmt.Errorf("unsupported stream trigger %s", info.ID)
+				}
+			default:
+				aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
+			}
+
+			shimKey := shimKey(capability.ID, remoteDON.ID, "") // empty method name for V1
+			triggerCap, alreadyExists := w.cachedShims.triggerSubscribers[shimKey]
+			if !alreadyExists {
+				triggerCap = remote.NewTriggerSubscriber(
+					capability.ID,
+					"", // empty method name for v1
+					w.dispatcher,
+					w.lggr,
+				)
+				w.cachedShims.triggerSubscribers[shimKey] = triggerCap
+			}
+			if errCfg := triggerCap.SetConfig(capabilityConfig.RemoteTriggerConfig, info, myDON.ID, remoteDON.DON, aggregator); errCfg != nil {
+				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
+			}
+			return triggerCap.(capabilityService), nil
+		}
+		err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newTriggerFn)
+		if err != nil {
+			return fmt.Errorf("failed to add trigger shim: %w", err)
+		}
+	case capabilities.CapabilityTypeAction:
+		newActionFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
+			client := executable.NewClient(
+				info,
+				myDON.DON,
+				w.dispatcher,
+				defaultTargetRequestTimeout,
+				nil, // V1 capabilities read transmission schedule from every request
+				"",  // empty method name for v1
+				w.lggr,
+			)
+			return client, nil
+		}
+
+		err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newActionFn)
+		if err != nil {
+			return fmt.Errorf("failed to add action shim: %w", err)
+		}
+	case capabilities.CapabilityTypeConsensus:
+		// nothing to do; we don't support remote consensus capabilities for now
+	case capabilities.CapabilityTypeTarget:
+		newTargetFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
+			client := executable.NewClient(
+				info,
+				myDON.DON,
+				w.dispatcher,
+				defaultTargetRequestTimeout,
+				nil, // V1 capabilities read transmission schedule from every request
+				"",  // empty method name for v1
+				w.lggr,
+			)
+			return client, nil
+		}
+
+		err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newTargetFn)
+		if err != nil {
+			return fmt.Errorf("failed to add target shim: %w", err)
+		}
+	default:
+		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+	}
+
 	return nil
 }
 
@@ -501,7 +545,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	w.lggr.Debugw("Adding remote capability to registry", "id", info.ID, "don", info.DON)
 	cp, err := newCapFn(info)
 	if err != nil {
-		return fmt.Errorf("failed to instantiate capability: %w", err)
+		return fmt.Errorf("failed to instantiate capability %q: %w", capabilityID, err)
 	}
 
 	err = w.registry.Add(ctx, cp)
@@ -539,129 +583,136 @@ var (
 	defaultMaxParallelCapabilityExecuteRequests = 1000
 )
 
-func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {
+// serveCapabilities exposes capabilities that are available on this node, as part of the given DON.
+// It is best effort, ensuring that valid capabilities are exposed even if some fail
+func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) {
 	idsToDONs := map[uint32]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[d.ID] = d.DON
 	}
 
 	for cid, c := range don.CapabilityConfigurations {
-		capability, ok := localRegistry.IDsToCapabilities[cid]
-		if !ok {
-			return fmt.Errorf("could not find capability matching id %s", cid)
-		}
-
-		capabilityConfig, err := c.Unmarshal()
+		err := w.serveCapability(ctx, cid, c, myPeerID, don, localRegistry, idsToDONs)
 		if err != nil {
-			return fmt.Errorf("could not unmarshal capability config for id %s", cid)
+			// TODO CRE-1021 metrics for failures
+			w.lggr.Errorw("failed to serve capability", "myPeerID", myPeerID, "don", don, "capabilityID", cid, "err", err)
+		}
+	}
+}
+
+// serveCapability exposes a single capability.
+// trigger capabilities are exposed via a TriggerPublisher local execution
+// all other capabilities are exposed via an Executable for remote execution
+func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysyncer.CapabilityConfiguration, myPeerID p2ptypes.PeerID, don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry, idsToDONs map[uint32]capabilities.DON) error {
+	capability, ok := localRegistry.IDsToCapabilities[cid]
+	if !ok {
+		return fmt.Errorf("could not find capability matching id %s", cid)
+	}
+
+	capabilityConfig, err := c.Unmarshal()
+	if err != nil {
+		return fmt.Errorf("could not unmarshal capability config for id %s: %w", cid, err)
+	}
+
+	methodConfig := capabilityConfig.CapabilityMethodConfig
+	if methodConfig != nil { // v2 capability
+		errExpose := w.exposeCapabilityV2(ctx, cid, methodConfig, myPeerID, don, idsToDONs)
+		if errExpose != nil {
+			return fmt.Errorf("failed to expose v2 capability remotely %s: %w", cid, errExpose)
+		}
+		return nil
+	}
+
+	switch capability.CapabilityType {
+	case capabilities.CapabilityTypeTrigger:
+		newTriggerPublisher := func(bc capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+			triggerCapability, ok := (bc).(capabilities.TriggerCapability)
+			if !ok {
+				return nil, errors.New("capability does not implement TriggerCapability")
+			}
+
+			publisher := remote.NewTriggerPublisher(
+				capabilityConfig.RemoteTriggerConfig,
+				triggerCapability,
+				info,
+				don.DON,
+				idsToDONs,
+				w.dispatcher,
+				"", // empty method name for v1
+				w.lggr,
+			)
+			return publisher, nil
 		}
 
-		methodConfig := capabilityConfig.CapabilityMethodConfig
-		if methodConfig != nil { // v2 capability
-			errExpose := w.exposeCapabilityV2(ctx, cid, methodConfig, myPeerID, don, idsToDONs)
-			if errExpose != nil {
-				return fmt.Errorf("failed to expose v2 capability remotely %s: %w", cid, errExpose)
+		if err = w.addReceiver(ctx, capability, don, newTriggerPublisher); err != nil {
+			return fmt.Errorf("failed to add server-side receiver for a trigger capability '%s' - it won't be exposed remotely: %w", cid, err)
+		}
+	case capabilities.CapabilityTypeAction:
+		newActionServer := func(bc capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+			actionCapability, ok := (bc).(capabilities.ActionCapability) //nolint:staticcheck //SA1019
+			if !ok {
+				return nil, errors.New("capability does not implement ActionCapability")
 			}
-			continue
+
+			remoteConfig := &capabilities.RemoteExecutableConfig{}
+			if capabilityConfig.RemoteTargetConfig != nil {
+				remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
+			}
+
+			return executable.NewServer(
+				remoteConfig,
+				myPeerID,
+				actionCapability,
+				info,
+				don.DON,
+				idsToDONs,
+				w.dispatcher,
+				defaultTargetRequestTimeout,
+				defaultMaxParallelCapabilityExecuteRequests,
+				nil, // TODO: create a capability-specific hasher
+				"",  // empty method name for v1
+				w.lggr,
+			), nil
 		}
 
-		switch capability.CapabilityType {
-		case capabilities.CapabilityTypeTrigger:
-			newTriggerPublisher := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
-				triggerCapability, ok := (cap).(capabilities.TriggerCapability)
-				if !ok {
-					return nil, errors.New("capability does not implement TriggerCapability")
-				}
-
-				publisher := remote.NewTriggerPublisher(
-					capabilityConfig.RemoteTriggerConfig,
-					triggerCapability,
-					info,
-					don.DON,
-					idsToDONs,
-					w.dispatcher,
-					"", // empty method name for v1
-					w.lggr,
-				)
-				return publisher, nil
-			}
-
-			err := w.addReceiver(ctx, capability, don, newTriggerPublisher)
-			if err != nil {
-				w.lggr.Errorw("failed to add server-side receiver for a trigger capability - it won't be exposed remotely", "id", cid, "error", err)
-				// continue attempting other capabilities
-			}
-		case capabilities.CapabilityTypeAction:
-			newActionServer := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
-				actionCapability, ok := (cap).(capabilities.ActionCapability)
-				if !ok {
-					return nil, errors.New("capability does not implement ActionCapability")
-				}
-
-				remoteConfig := &capabilities.RemoteExecutableConfig{}
-				if capabilityConfig.RemoteTargetConfig != nil {
-					remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
-				}
-
-				return executable.NewServer(
-					remoteConfig,
-					myPeerID,
-					actionCapability,
-					info,
-					don.DON,
-					idsToDONs,
-					w.dispatcher,
-					defaultTargetRequestTimeout,
-					defaultMaxParallelCapabilityExecuteRequests,
-					nil, // TODO: create a capability-specific hasher
-					"",  // empty method name for v1
-					w.lggr,
-				), nil
-			}
-
-			err = w.addReceiver(ctx, capability, don, newActionServer)
-			if err != nil {
-				w.lggr.Errorw("failed to add action server-side receiver - it won't be exposed remotely", "id", cid, "error", err)
-				// continue attempting other capabilities
-			}
-		case capabilities.CapabilityTypeConsensus:
-			w.lggr.Debug("no remote client configured for capability type consensus, skipping configuration")
-		case capabilities.CapabilityTypeTarget: // TODO: unify Target and Action into Executable
-			newTargetServer := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
-				targetCapability, ok := (cap).(capabilities.TargetCapability)
-				if !ok {
-					return nil, errors.New("capability does not implement TargetCapability")
-				}
-
-				remoteConfig := &capabilities.RemoteExecutableConfig{}
-				if capabilityConfig.RemoteTargetConfig != nil {
-					remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
-				}
-
-				return executable.NewServer(
-					remoteConfig,
-					myPeerID,
-					targetCapability,
-					info,
-					don.DON,
-					idsToDONs,
-					w.dispatcher,
-					defaultTargetRequestTimeout,
-					defaultMaxParallelCapabilityExecuteRequests,
-					nil, // TODO: create a capability-specific hasher
-					"",  // empty method name for v1
-					w.lggr,
-				), nil
-			}
-
-			err := w.addReceiver(ctx, capability, don, newTargetServer)
-			if err != nil {
-				w.lggr.Errorw("failed to add server-side receiver for a target capability - it won't be exposed remotely", "id", cid, "error", err)
-				// continue attempting other capabilities
-			}
-		default:
-			w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+		if err = w.addReceiver(ctx, capability, don, newActionServer); err != nil {
+			return fmt.Errorf("failed to add action server-side receiver '%s' - it won't be exposed remotely: %w", cid, err)
 		}
+	case capabilities.CapabilityTypeConsensus:
+		w.lggr.Debug("no remote client configured for capability type consensus, skipping configuration")
+	case capabilities.CapabilityTypeTarget: // TODO: unify Target and Action into Executable
+		newTargetServer := func(bc capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
+			targetCapability, ok := (bc).(capabilities.TargetCapability) //nolint:staticcheck //SA1019
+			if !ok {
+				return nil, errors.New("capability does not implement TargetCapability")
+			}
+
+			remoteConfig := &capabilities.RemoteExecutableConfig{}
+			if capabilityConfig.RemoteTargetConfig != nil {
+				remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
+			}
+
+			return executable.NewServer(
+				remoteConfig,
+				myPeerID,
+				targetCapability,
+				info,
+				don.DON,
+				idsToDONs,
+				w.dispatcher,
+				defaultTargetRequestTimeout,
+				defaultMaxParallelCapabilityExecuteRequests,
+				nil, // TODO: create a capability-specific hasher
+				"",  // empty method name for v1
+				w.lggr,
+			), nil
+		}
+
+		if err = w.addReceiver(ctx, capability, don, newTargetServer); err != nil {
+			return fmt.Errorf("failed to add server-side receiver for a target capability '%s' - it won't be exposed remotely: %w", cid, err)
+		}
+	default:
+		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
 	}
 	return nil
 }
@@ -734,60 +785,87 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 	if err != nil {
 		return fmt.Errorf("failed to create remote capability info: %w", err)
 	}
-	cc := remote.NewCombinedClient(info)
 
+	cc, isNewCC := w.getCombinedClient(info)
 	for method, config := range methodConfig {
-		var receiver remotetypes.ReceiverService
-		if config.RemoteTriggerConfig != nil {
+		w.lggr.Infow("addRemoteCapabilityV2", "capID", capID, "method", method)
+		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
+			// TODO CRE-1021 metrics
+			w.lggr.Errorw("no remote config found", "method", method, "capID", capID)
+			continue
+		}
+
+		shimKey := shimKey(capID, remoteDON.ID, method)
+		if config.RemoteTriggerConfig != nil { // trigger
+			sub, alreadyExists := w.cachedShims.triggerSubscribers[shimKey]
+			if !alreadyExists {
+				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.lggr)
+				cc.SetTriggerSubscriber(method, sub)
+			}
 			// TODO(CRE-590): add support for SignedReportAggregator (needed by LLO Streams Trigger V2)
-			aggregator := aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)
-			sub := remote.NewTriggerSubscriber(
-				config.RemoteTriggerConfig,
-				info,
-				remoteDON.DON,
-				myDON.DON,
-				w.dispatcher,
-				aggregator,
-				method,
-				w.lggr,
-			)
-			receiver = sub
-			cc.AddTriggerSubscriber(method, sub)
+			agg := aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)
+			if errCfg := sub.SetConfig(config.RemoteTriggerConfig, info, myDON.ID, remoteDON.DON, agg); errCfg != nil {
+				return fmt.Errorf("failed to set trigger config: %w", errCfg)
+			}
+
+			if !alreadyExists {
+				if err2 := w.startNewShim(ctx, sub.(remotetypes.ReceiverService), capID, remoteDON.ID, method); err2 != nil {
+					// TODO CRE-1021 metrics
+					w.lggr.Errorw("failed to start receiver", "capID", capID, "method", method, "error", err2)
+					continue
+				}
+				w.cachedShims.triggerSubscribers[shimKey] = sub
+				w.lggr.Infow("added new remote trigger subscriber", "capID", capID, "method", method)
+			}
+		} else { // executable
+			client, alreadyExists := w.cachedShims.executableClients[shimKey]
+			if !alreadyExists {
+				client = executable.NewClient(
+					info,
+					myDON.DON,
+					w.dispatcher,
+					config.RemoteExecutableConfig.RequestTimeout,
+					&transmission.TransmissionConfig{
+						Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
+						DeltaStage: config.RemoteExecutableConfig.DeltaStage,
+					},
+					method,
+					w.lggr,
+				)
+				cc.SetExecutableClient(method, client)
+			}
+
+			// TODO(CRE-941): implement setters for executable client config
+
+			if !alreadyExists {
+				if err2 := w.startNewShim(ctx, client.(remotetypes.ReceiverService), capID, remoteDON.ID, method); err2 != nil {
+					// TODO CRE-1021 metrics
+					w.lggr.Errorw("failed to start receiver", "capID", capID, "method", method, "error", err2)
+					continue
+				}
+				w.cachedShims.executableClients[shimKey] = client
+				w.lggr.Infow("added new remote executable client", "capID", capID, "method", method)
+			}
 		}
-		if receiver == nil && config.RemoteExecutableConfig != nil {
-			client := executable.NewClient(
-				info,
-				myDON.DON,
-				w.dispatcher,
-				config.RemoteExecutableConfig.RequestTimeout,
-				&transmission.TransmissionConfig{
-					Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
-					DeltaStage: config.RemoteExecutableConfig.DeltaStage,
-				},
-				method,
-				w.lggr,
-			)
-			receiver = client
-			cc.AddExecutableClient(method, client)
-		}
-		if receiver == nil {
-			return fmt.Errorf("no remote config found for method %s of capability %s", method, capID)
-		}
-		if err = w.dispatcher.SetReceiverForMethod(capID, remoteDON.ID, method, receiver); err != nil {
-			return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
-		}
-		err = receiver.Start(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to start receiver for capability %s, method %s: %w", capID, method, err)
-		}
-		w.subServices = append(w.subServices, receiver)
 	}
 
-	err = w.registry.Add(ctx, cc)
-	if err != nil {
-		return fmt.Errorf("failed to add CombinedClient for capability %s to registry: %w", capID, err)
+	if isNewCC { // add new CombinedClient to registry, only after all methods are configured
+		if err2 := w.registry.Add(ctx, cc); err2 != nil {
+			return fmt.Errorf("failed to add CombinedClient for capability %s to registry: %w", capID, err2)
+		}
 	}
+	return nil
+}
 
+func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.ReceiverService, capID string, remoteDonID uint32, method string) error {
+	if err := receiver.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start receiver for capability %s, method %s: %w", capID, method, err)
+	}
+	if err := w.dispatcher.SetReceiverForMethod(capID, remoteDonID, method, receiver); err != nil {
+		_ = receiver.Close()
+		return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
+	}
+	w.subServices = append(w.subServices, receiver)
 	return nil
 }
 
@@ -876,4 +954,16 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 		w.subServices = append(w.subServices, receiver)
 	}
 	return nil
+}
+
+// retrieve or create a CombinedClient for the given capability
+func (w *launcher) getCombinedClient(info capabilities.CapabilityInfo) (remote.CombinedClient, bool) {
+	key := shimKey(info.ID, info.DON.ID, "") // empty method name - CombinedClient covers all methods
+	cc, exists := w.cachedShims.combinedClients[key]
+	if !exists { // create a new combined client and cache it
+		cc = remote.NewCombinedClient(info)
+		w.cachedShims.combinedClients[key] = cc
+		return cc, true
+	}
+	return cc, false
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
@@ -35,14 +35,14 @@ const (
 	DestGasOverhead = 300_000 // Commit and Exec costs
 )
 
-func NewGasEstimateProvider(codec ccipcommon.ExtraDataCodec) EstimateProvider {
+func NewGasEstimateProvider(codec ccipocr3.ExtraDataCodecBundle) EstimateProvider {
 	return EstimateProvider{
 		extraDataCodec: codec,
 	}
 }
 
 type EstimateProvider struct {
-	extraDataCodec ccipcommon.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
 // CalculateMerkleTreeGas estimates the merkle tree gas based on number of requests

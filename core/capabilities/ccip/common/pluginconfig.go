@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"maps"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -18,24 +18,24 @@ type PluginConfig struct {
 	GasEstimateProvider        cciptypes.EstimateProvider
 	RMNCrypto                  cciptypes.RMNCrypto
 	ContractTransmitterFactory cctypes.ContractTransmitterFactory
-	ChainAccessorFactory       ChainAccessorFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
-	PriceOnlyCommitFn string
-	ChainRW           ChainRWProvider
-	AddressCodec      ChainSpecificAddressCodec
-	ExtraDataCodec    SourceChainExtraDataCodec
+	PriceOnlyCommitFn     string
+	ChainRW               ChainRWProvider
+	AddressCodec          ChainSpecificAddressCodec
+	ExtraDataCodec        SourceChainExtraDataCodec
+	CCIPProviderSupported bool
 }
 
 // PluginServices aggregates services for a specific chain family.
 type PluginServices struct {
-	PluginConfig   PluginConfig
-	AddrCodec      AddressCodec
-	ExtraDataCodec ExtraDataCodec
-	ChainRW        MultiChainRW
+	PluginConfig          PluginConfig
+	AddrCodec             AddressCodec
+	ChainRW               MultiChainRW
+	CCIPProviderSupported map[string]bool
 }
 
 // InitFunction defines a function to initialize a PluginConfig.
-type InitFunction func(logger.Logger, ExtraDataCodec) PluginConfig
+type InitFunction func(logger.Logger, cciptypes.ExtraDataCodecBundle) PluginConfig
 
 var registeredFactories = make(map[string]InitFunction)
 
@@ -51,18 +51,27 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 		return PluginServices{}, fmt.Errorf("unsupported chain family: %s (available: %v)", chainFamily, maps.Keys(registeredFactories))
 	}
 
-	pluginServices := PluginServices{
-		ExtraDataCodec: make(ExtraDataCodec), // lazy initialize it after factory init call
-	}
+	pluginServices := PluginServices{}
+	extraDataCodecRegistry := GetExtraDataCodecRegistry() // lazy initialize it after factory init call and CCIPProvider codecs
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
+	CCIPProviderSupported := make(map[string]bool)
 
 	for family, initFunc := range registeredFactories {
-		config := initFunc(lggr, pluginServices.ExtraDataCodec)
-		addressCodecMap[family] = config.AddressCodec
-		chainRWProviderMap[family] = config.ChainRW
-		pluginServices.ExtraDataCodec[family] = config.ExtraDataCodec // initialize and update it with the map
+		config := initFunc(lggr, GetExtraDataCodecRegistry())
+		CCIPProviderSupported[family] = config.CCIPProviderSupported
+
+		extraDataCodecRegistry.RegisterFamilyNoopCodec(family)
+		if config.ExtraDataCodec != nil {
+			extraDataCodecRegistry.RegisterCodec(family, config.ExtraDataCodec)
+		}
+		if config.AddressCodec != nil {
+			addressCodecMap[family] = config.AddressCodec
+		}
+		if config.ChainRW != nil {
+			chainRWProviderMap[family] = config.ChainRW
+		}
 		if family == chainFamily {
 			pluginServices.PluginConfig = config
 		}
@@ -70,5 +79,6 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
+	pluginServices.CCIPProviderSupported = CCIPProviderSupported
 	return pluginServices, nil
 }

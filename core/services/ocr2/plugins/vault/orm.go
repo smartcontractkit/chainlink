@@ -13,13 +13,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
+type ORM interface {
+	dkgocrtypes.ResultPackageDatabase
+	GetResultPackageCount(ctx context.Context) (int64, error)
+}
+
 type orm struct {
 	ds sqlutil.DataSource
 }
 
-var _ dkgocrtypes.ResultPackageDatabase = (*orm)(nil)
+var _ ORM = (*orm)(nil)
 
-func NewVaultORM(ds sqlutil.DataSource) dkgocrtypes.ResultPackageDatabase {
+func NewVaultORM(ds sqlutil.DataSource) ORM {
 	return &orm{ds: ds}
 }
 
@@ -43,6 +48,19 @@ func (o *orm) validateResultPackage(value dkgocrtypes.ResultPackageDatabaseValue
 	}
 
 	return nil
+}
+
+func (o *orm) GetResultPackageCount(ctx context.Context) (int64, error) {
+	var count int64
+
+	query := `SELECT COUNT(*) FROM dkg_results;`
+	row := o.ds.QueryRowxContext(ctx, query)
+	err := row.Scan(&count)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get dkg result count")
+	}
+
+	return count, nil
 }
 
 func (o *orm) ReadResultPackage(ctx context.Context, iid dkgocrtypes.InstanceID) (*dkgocrtypes.ResultPackageDatabaseValue, error) {

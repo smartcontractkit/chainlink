@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -31,7 +30,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	donTopology *cre.DonTopology,
 	ds datastore.DataStore,
 	nodeSetInput []*cre.CapabilitiesAwareNodeSet,
-	infraInput infra.Input,
+	infraInput infra.Provider,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
 	dataStoreOCR3ContractKeyProvider DataStoreOCR3ContractKeyProvider,
@@ -176,9 +175,14 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 					return nil, errors.Wrap(tErr, "failed to get transmitter address from bootstrap node labels")
 				}
 
-				keyBundle, kErr := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
-				if kErr != nil {
-					return nil, errors.Wrap(kErr, "failed to get key bundle id from worker node labels")
+				bundlesPerFamily, kbErr := node.ExtractBundleKeysPerFamily(workerNode)
+				if kbErr != nil {
+					return nil, errors.Wrap(kbErr, "failed to get ocr families bundle id from worker node labels")
+				}
+
+				keyBundle, ok := bundlesPerFamily["evm"] // we can always expect evm bundle key id present since evm is homechain
+				if !ok {
+					return nil, errors.New("failed to get key bundle id for evm family")
 				}
 
 				keyNodeAddress := node.AddressKeyFromSelector(chain.Selector)
@@ -192,6 +196,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 				if pErr != nil {
 					return nil, errors.Wrap(pErr, "failed to get p2p key id from bootstrap node labels")
 				}
+
 				// remove the prefix if it exists, to match the expected format
 				bootstrapNodeP2pKeyID = strings.TrimPrefix(bootstrapNodeP2pKeyID, "p2p_")
 				bootstrapPeers := make([]string, len(internalHostsBS))
@@ -199,6 +204,10 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 					bootstrapPeers[i] = fmt.Sprintf("%s@%s:5001", bootstrapNodeP2pKeyID, workflowName)
 				}
 
+				strategyName := "single-chain"
+				if len(bundlesPerFamily) > 1 {
+					strategyName = "multi-chain"
+				}
 				oracleFactoryConfigInstance := job.OracleFactoryConfig{
 					Enabled:            true,
 					ChainID:            chainIDStr,
@@ -207,8 +216,8 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 					OCRKeyBundleID:     keyBundle,
 					TransmitterID:      transmitterAddress,
 					OnchainSigning: job.OnchainSigningStrategy{
-						StrategyName: "single-chain",
-						Config:       map[string]string{"evm": keyBundle},
+						StrategyName: strategyName,
+						Config:       bundlesPerFamily,
 					},
 				}
 
@@ -251,7 +260,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	return donToJobSpecs, nil
 }
 
-func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput infra.Input) ([]string, error) {
+func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput infra.Provider) ([]string, error) {
 	nodeIndexStr, nErr := node.FindLabelValue(bootstrapNode, node.IndexKey)
 	if nErr != nil {
 		return nil, errors.Wrap(nErr, "failed to find index label")
@@ -262,7 +271,7 @@ func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, i
 		return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
 	}
 
-	internalHostBS := don.InternalHost(nodeIndex, cre.BootstrapNode, donName, infraInput)
+	internalHostBS := infraInput.InternalHost(nodeIndex, true, donName)
 	return []string{internalHostBS}, nil
 }
 

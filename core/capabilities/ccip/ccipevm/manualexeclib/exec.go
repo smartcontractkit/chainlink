@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 func GetMessageHashes(
@@ -22,7 +22,7 @@ func GetMessageHashes(
 	lggr logger.Logger,
 	onrampAddress common.Address,
 	ccipMessageSentEvents []onramp.OnRampCCIPMessageSent,
-	extraDataCodec ccipcommon.ExtraDataCodec,
+	extraDataCodec ccipocr3.ExtraDataCodecBundle,
 ) ([][32]byte, error) {
 	msgHasher := ccipevm.NewMessageHasherV1(
 		lggr,
@@ -107,7 +107,7 @@ func CreateExecutionReport(
 	ccipMessageSentEvents []onramp.OnRampCCIPMessageSent,
 	hashes [][32]byte,
 	flags *big.Int,
-	extraDataCodec ccipcommon.ExtraDataCodec,
+	extraDataCodec ccipocr3.ExtraDataCodecBundle,
 ) (offramp.InternalExecutionReport, error) {
 	var any2EVMs []offramp.InternalAny2EVMRampMessage
 	for _, event := range ccipMessageSentEvents {

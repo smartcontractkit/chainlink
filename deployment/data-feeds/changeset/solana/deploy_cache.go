@@ -71,6 +71,9 @@ func (cs DeployCache) Apply(env cldf.Environment, req *DeployCacheRequest) (cldf
 		ProgramName:        "data_feeds_cache",
 		FeedAdmins:         req.FeedAdmins,
 		ForwarderProgramID: req.ForwarderProgramID,
+		ContractType:       CacheContract,
+		Version:            version,
+		Qualifier:          req.Qualifier,
 	}
 
 	deps := operation.Deps{

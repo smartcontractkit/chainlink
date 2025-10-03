@@ -59,7 +59,7 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 	currResp := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vaulttypes.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsCreate,
 		Result:  (*json.RawMessage)(&rawResp),
 	}
 	responses := map[string]*jsonrpc.Response[json.RawMessage]{

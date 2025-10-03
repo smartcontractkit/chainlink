@@ -15,12 +15,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type ChainWriterConfig struct {
@@ -75,7 +75,7 @@ type PollingFilter struct {
 	Topic2       evmtypes.HashArray `json:"topic2"`       // list of possible values for topic2
 	Topic3       evmtypes.HashArray `json:"topic3"`       // list of possible values for topic3
 	Topic4       evmtypes.HashArray `json:"topic4"`       // list of possible values for topic4
-	Retention    models.Interval    `json:"retention"`    // maximum amount of time to retain logs
+	Retention    sqlutil.Interval   `json:"retention"`    // maximum amount of time to retain logs
 	MaxLogsKept  uint64             `json:"maxLogsKept"`  // maximum number of logs to retain ( 0 = unlimited )
 	LogsPerBlock uint64             `json:"logsPerBlock"` // rate limit ( maximum # of logs per block, 0 = unlimited )
 }
@@ -301,20 +301,4 @@ type LogPollerWrapper interface {
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer
 	SubscribeToUpdates(ctx context.Context, name string, subscriber RouteUpdateSubscriber)
-}
-
-// ChainReaderConfigFromBytes function applies json decoding on provided bytes to return a
-// valid ChainReaderConfig. If other unmarshaling or parsing techniques are required, place it
-// here.
-func ChainReaderConfigFromBytes(bts []byte) (ChainReaderConfig, error) {
-	decoder := json.NewDecoder(bytes.NewBuffer(bts))
-
-	decoder.UseNumber()
-
-	var cfg ChainReaderConfig
-	if err := decoder.Decode(&cfg); err != nil {
-		return cfg, fmt.Errorf("failed to unmarshal chain reader config err: %s", err)
-	}
-
-	return cfg, nil
 }

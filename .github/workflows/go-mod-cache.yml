@@ -70,7 +70,6 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Install LOOP plugins"
-          make install-loopinstall
           make install-plugins-public
           echo "::endgroup::"
 

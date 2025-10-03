@@ -27,18 +27,51 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 )
 
+func writeDKGPackage(t *testing.T, orm dkgocrtypes.ResultPackageDatabase, key dkgocrtypes.P256Keyring, instanceID string) dkgocrtypes.ResultPackage {
+	pkg, err := dummydkg.NewResultPackage(dkgocrtypes.InstanceID(instanceID), dkgocrtypes.ReportingPluginConfig{
+		DealerPublicKeys:    []dkgocrtypes.P256ParticipantPublicKey{key.PublicKey()},
+		RecipientPublicKeys: []dkgocrtypes.P256ParticipantPublicKey{key.PublicKey()},
+		T:                   1,
+	}, []dkgocrtypes.P256Keyring{key})
+	require.NoError(t, err)
+
+	pkgBin, err := pkg.MarshalBinary()
+	require.NoError(t, err)
+	require.NoError(t, orm.WriteResultPackage(t.Context(), dkgocrtypes.InstanceID(instanceID), dkgocrtypes.ResultPackageDatabaseValue{
+		ConfigDigest:            [32]byte{0x1, 0x2, 0x3, 0x4},
+		SeqNr:                   1,
+		ReportWithResultPackage: pkgBin,
+		Signatures: []types.AttributedOnchainSignature{
+			{
+				Signature: []byte{0x5, 0x6, 0x7, 0x8},
+				Signer:    1,
+			},
+		},
+	}))
+
+	return pkg
+}
+
 func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 
-	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	_, orm := setupORM(t)
+	dkgrecipientKey, err := dkgrecipientkey.New()
 	require.NoError(t, err)
+	instanceID := "instanceID"
+	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
 
 	lpk := vaultcap.NewLazyPublicKey()
-	rpf, err := NewReportingPluginFactory(lggr, store, nil, nil, pk, shares[0], lpk)
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk)
 	require.NoError(t, err)
 
-	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{}, nil)
+	cfg := vaultcommon.ReportingPluginConfig{
+		DKGInstanceID: &instanceID,
+	}
+	cfgb, err := proto.Marshal(&cfg)
+	require.NoError(t, err)
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)
@@ -60,7 +93,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, 1024, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
 	assert.Equal(t, 1024*1024, info.Limits.MaxBlobPayloadLength)
 
-	cfg := vaultcommon.ReportingPluginConfig{
+	cfg = vaultcommon.ReportingPluginConfig{
 		BatchSize:                                     2,
 		MaxSecretsPerOwner:                            2,
 		MaxCiphertextLengthBytes:                      2,
@@ -74,8 +107,9 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 		LimitsMaxReportCount:                          2,
 		LimitsMaxKeyValueModifiedKeysPlusValuesLength: 2,
 		LimitsMaxBlobPayloadLength:                    2,
+		DKGInstanceID:                                 &instanceID,
 	}
-	cfgb, err := proto.Marshal(&cfg)
+	cfgb, err = proto.Marshal(&cfg)
 	require.NoError(t, err)
 
 	rp, info, err = rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
@@ -104,37 +138,20 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 
 	// Simulate DKG for a single recipient.
+	_, orm := setupORM(t)
 	dkgrecipientKey, err := dkgrecipientkey.New()
 	require.NoError(t, err)
-	instanceID := dkgocrtypes.InstanceID("instanceID")
-	pkg, err := dummydkg.NewResultPackage(instanceID, dkgocrtypes.ReportingPluginConfig{
-		DealerPublicKeys:    []dkgocrtypes.P256ParticipantPublicKey{dkgrecipientKey.PublicKey()},
-		RecipientPublicKeys: []dkgocrtypes.P256ParticipantPublicKey{dkgrecipientKey.PublicKey()},
-		T:                   1,
-	}, []dkgocrtypes.P256Keyring{dkgrecipientKey})
-	require.NoError(t, err)
+
+	instanceID := "instanceID"
+	pkg := writeDKGPackage(t, orm, dkgrecipientKey, "instanceID")
+
 	expectedTDH2MasterPublicKey, err := tdh2shim.TDH2PublicKeyFromDKGResult(pkg)
 	require.NoError(t, err)
 	expectedKeyShare, err := tdh2shim.TDH2PrivateShareFromDKGResult(pkg, dkgrecipientKey)
 	require.NoError(t, err)
 
-	_, orm := setupORM(t)
-	pkgBin, err := pkg.MarshalBinary()
-	require.NoError(t, err)
-	require.NoError(t, orm.WriteResultPackage(t.Context(), instanceID, dkgocrtypes.ResultPackageDatabaseValue{
-		ConfigDigest:            [32]byte{0x1, 0x2, 0x3, 0x4},
-		SeqNr:                   1,
-		ReportWithResultPackage: pkgBin,
-		Signatures: []types.AttributedOnchainSignature{
-			{
-				Signature: []byte{0x5, 0x6, 0x7, 0x8},
-				Signer:    1,
-			},
-		},
-	}))
-
 	lpk := vaultcap.NewLazyPublicKey()
-	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, nil, nil, lpk)
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk)
 	require.NoError(t, err)
 
 	instanceIDString := string(instanceID)
@@ -175,21 +192,15 @@ func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 
 	lpk := vaultcap.NewLazyPublicKey()
-	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
-	require.NoError(t, err)
 
 	_, orm := setupORM(t)
-	_, err = NewReportingPluginFactory(lggr, store, orm, nil, nil, nil, lpk)
+	_, err := NewReportingPluginFactory(lggr, store, orm, nil, lpk)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "DKG recipient key cannot be nil when using result package db")
 
-	_, err = NewReportingPluginFactory(lggr, store, nil, nil, nil, nil, lpk)
+	_, err = NewReportingPluginFactory(lggr, store, nil, nil, lpk)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "public key and result package db cannot be nil")
-
-	_, err = NewReportingPluginFactory(lggr, store, nil, nil, pk, nil, lpk)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "private key share and result package db cannot both be nil")
+	require.Contains(t, err.Error(), "result package db cannot be nil")
 }
 
 func TestPlugin_Observation_NothingInBatch(t *testing.T) {

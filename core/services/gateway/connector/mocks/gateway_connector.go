@@ -538,6 +538,53 @@ func (_c *BaseGatewayConnector_Ready_Call) RunAndReturn(run func() error) *BaseG
 	return _c
 }
 
+// RemoveHandler provides a mock function with given fields: ctx, methods
+func (_m *BaseGatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	ret := _m.Called(ctx, methods)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RemoveHandler")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string) error); ok {
+		r0 = rf(ctx, methods)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// BaseGatewayConnector_RemoveHandler_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveHandler'
+type BaseGatewayConnector_RemoveHandler_Call struct {
+	*mock.Call
+}
+
+// RemoveHandler is a helper method to define mock.On call
+//   - ctx context.Context
+//   - methods []string
+func (_e *BaseGatewayConnector_Expecter) RemoveHandler(ctx interface{}, methods interface{}) *BaseGatewayConnector_RemoveHandler_Call {
+	return &BaseGatewayConnector_RemoveHandler_Call{Call: _e.mock.On("RemoveHandler", ctx, methods)}
+}
+
+func (_c *BaseGatewayConnector_RemoveHandler_Call) Run(run func(ctx context.Context, methods []string)) *BaseGatewayConnector_RemoveHandler_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]string))
+	})
+	return _c
+}
+
+func (_c *BaseGatewayConnector_RemoveHandler_Call) Return(_a0 error) *BaseGatewayConnector_RemoveHandler_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BaseGatewayConnector_RemoveHandler_Call) RunAndReturn(run func(context.Context, []string) error) *BaseGatewayConnector_RemoveHandler_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendToGateway provides a mock function with given fields: ctx, gatewayID, resp
 func (_m *BaseGatewayConnector) SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc2.Response[json.RawMessage]) error {
 	ret := _m.Called(ctx, gatewayID, resp)

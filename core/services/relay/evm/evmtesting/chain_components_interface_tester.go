@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -133,7 +132,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 							GenericDataWordDetails: map[string]types.DataWordDetail{
 								"msgTransmitterEvent": {
 									Name:  "msgTransmitterEvent",
-									Index: testutils.Ptr(2),
+									Index: ptr(2),
 									Type:  "bytes32",
 								},
 							},
@@ -319,7 +318,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetContractWriter(t T) clcommontypes.ContractWriter {
-	cw, err := evm.NewChainWriterService(logger.Nop(), it.client, it.Helper.TXM(t, it.client), nil, it.chainWriterConfigSupplier(t))
+	cw, err := evm.NewChainWriterService(logger.Nop(), it.client, it.Helper.TXM(t, it.client), nil, it.chainWriterConfigSupplier(t), nil)
 	require.NoError(t, err)
 
 	cw = it.Helper.WrappedChainWriter(cw, it.client)
@@ -455,4 +454,8 @@ func MidStaticToInternalType(m MidLevelStaticTestStruct) chain_reader_tester.Mid
 			A:      common.BytesToAddress(m.Inner.A),
 		},
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

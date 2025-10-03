@@ -153,7 +153,7 @@ func TestCreateRequestJWT(t *testing.T) {
 	})
 
 	t.Run("with custom options", func(t *testing.T) {
-		customExpiry := 2 * time.Hour
+		customExpiry := 3 * time.Minute // Use valid duration within 5-minute limit
 		issuer := "test-issuer"
 		audience := []string{"aud1", "aud2"}
 		subject := "test-subject"
@@ -239,7 +239,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		claims := JWTClaims{
 			Digest: "0x123", // different digest
 			RegisteredClaims: jwt.RegisteredClaims{
-				ExpiresAt: jwt.NewNumericDate(now.Add(defaultJWTExpiryDuration)),
+				ExpiresAt: jwt.NewNumericDate(now.Add(maxJWTExpiryDuration)),
 				IssuedAt:  jwt.NewNumericDate(now),
 			},
 		}
@@ -284,6 +284,126 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		_, _, err = VerifyRequestJWT(tokenString, req)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signature: signature length must be 65 bytes")
+	})
+
+	t.Run("should validate that expiredAt is after time.Now()", func(t *testing.T) {
+		digest, err := req.Digest()
+		require.NoError(t, err)
+
+		// Create a token that expires in the past (1 minute ago)
+		now := time.Now()
+		pastTime := now.Add(-1 * time.Minute)
+
+		claims := JWTClaims{
+			Digest: "0x" + digest,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(pastTime),
+				IssuedAt:  jwt.NewNumericDate(now.Add(-2 * time.Minute)),
+			},
+		}
+
+		token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		_, _, err = VerifyRequestJWT(tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "token is expired")
+	})
+
+	t.Run("should validate that expiredAt exceeds max expiry", func(t *testing.T) {
+		digest, err := req.Digest()
+		require.NoError(t, err)
+
+		now := time.Now()
+		issuedAt := now
+		expiresAt := now.Add(maxJWTExpiryDuration * 2)
+
+		claims := JWTClaims{
+			Digest: "0x" + digest,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ID:        "test-jti",
+				ExpiresAt: jwt.NewNumericDate(expiresAt),
+				IssuedAt:  jwt.NewNumericDate(issuedAt),
+			},
+		}
+
+		token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		_, _, err = VerifyRequestJWT(tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expiry duration exceeds maximum allowed")
+	})
+
+	t.Run("should validate that required fields expiredAt and issuedAt are present", func(t *testing.T) {
+		digest, err := req.Digest()
+		require.NoError(t, err)
+
+		t.Run("missing expiredAt", func(t *testing.T) {
+			claims := JWTClaims{
+				Digest: "0x" + digest,
+				RegisteredClaims: jwt.RegisteredClaims{
+					ID: "test-jti",
+					// ExpiresAt is nil/missing
+					IssuedAt: jwt.NewNumericDate(time.Now()),
+				},
+			}
+
+			token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+			tokenString, err := token.SignedString(privateKey)
+			require.NoError(t, err)
+
+			_, _, err = VerifyRequestJWT(tokenString, req)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "expiredAt (exp) is required but missing")
+		})
+
+		t.Run("missing issuedAt", func(t *testing.T) {
+			claims := JWTClaims{
+				Digest: "0x" + digest,
+				RegisteredClaims: jwt.RegisteredClaims{
+					ID:        "test-jti", // Include required jti field
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+					// IssuedAt is nil/missing
+				},
+			}
+
+			token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+			tokenString, err := token.SignedString(privateKey)
+			require.NoError(t, err)
+
+			_, _, err = VerifyRequestJWT(tokenString, req)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "issuedAt (iat) is required but missing")
+		})
+	})
+
+	t.Run("should respect custom max expiry duration option", func(t *testing.T) {
+		digest, err := req.Digest()
+		require.NoError(t, err)
+
+		now := time.Now()
+		claims := JWTClaims{
+			Digest: "0x" + digest,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ID:        "test-jti",
+				ExpiresAt: jwt.NewNumericDate(now.Add(8 * time.Minute)),
+				IssuedAt:  jwt.NewNumericDate(now),
+			},
+		}
+
+		token := jwt.NewWithClaims(&SigningMethodEth{}, claims)
+		tokenString, err := token.SignedString(privateKey)
+		require.NoError(t, err)
+
+		_, _, err = VerifyRequestJWT(tokenString, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expiry duration exceeds maximum allowed 5 minutes")
+
+		_, _, err = VerifyRequestJWT(tokenString, req, WithMaxExpiryDuration(10*time.Minute))
+		require.NoError(t, err)
 	})
 }
 

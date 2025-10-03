@@ -2,7 +2,7 @@ name: "{{ .WorkflowName }}"
 owner: "{{ .WorkflowOwner }}"
 
 triggers:
-  - id: "{{ if eq .ConsensusAggregationMethod "llo_streams" }}streams-trigger:don_asset-1@2.0.0{{ else }}streams-trigger@1.1.0{{ end }}"
+  - id: "{{ .TriggerCapabilityName }}"
     config:
       maxFrequencyMs: {{ .TriggersMaxFrequencyMs }}
       feedIds:
