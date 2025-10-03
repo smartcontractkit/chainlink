@@ -1,15 +1,10 @@
 package v2
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -123,64 +118,4 @@ func HandleRevertData(err error) (interface{}, error) {
 		}
 	}
 	return nil, ErrCouldNotDecode
-}
-
-func parseErrorFromABI(errorString string, contractABI string) (string, error) {
-	errorString = strings.TrimPrefix(errorString, "Reverted ")
-	errorString = strings.TrimPrefix(errorString, "0x")
-
-	data, err := hex.DecodeString(errorString)
-	if err != nil {
-		return "", fmt.Errorf("error decoding error string: %w", err)
-	}
-
-	v, err := abi.UnpackRevert(data)
-	if err == nil {
-		return fmt.Sprintf("error - `%s`", v), nil
-	}
-
-	parsedAbi, err := abi.JSON(strings.NewReader(contractABI))
-	if err != nil {
-		return "", fmt.Errorf("error loading ABI: %w", err)
-	}
-
-	for errorName, abiError := range parsedAbi.Errors {
-		if len(data) >= 4 && bytes.Equal(data[:4], abiError.ID.Bytes()[:4]) {
-			// Found a matching error
-			v, err3 := abiError.Unpack(data)
-			if err3 != nil {
-				return "", fmt.Errorf("error unpacking data: %w", err3)
-			}
-
-			return fmt.Sprintf("error -`%v` args %v", errorName, v), nil
-		}
-	}
-
-	return "", errors.New("error not found in ABI")
-}
-
-// DecodeErr decodes an error from a contract call using the contract's ABI.
-// If the error is not decodable, it returns the original error.
-// Copied from chainlink-deployment-framework to avoid dependency on it.
-func DecodeErr(encodedABI string, err error) error {
-	if err == nil {
-		return nil
-	}
-	//revive:disable
-	var d rpc.DataError
-	ok := errors.As(err, &d)
-	if ok {
-		encErr, ok := d.ErrorData().(string)
-		if !ok {
-			return fmt.Errorf("error without error data: %s", d.Error())
-		}
-		errStr, parseErr := parseErrorFromABI(encErr, encodedABI)
-		if parseErr != nil {
-			return fmt.Errorf("failed to decode error '%s' with abi: %w", encErr, parseErr)
-		}
-
-		return fmt.Errorf("contract error: %s", errStr)
-	}
-
-	return fmt.Errorf("cannot decode error with abi: %w", err)
 }
