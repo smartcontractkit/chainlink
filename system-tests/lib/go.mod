@@ -34,13 +34,13 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/smartcontractkit/chain-selectors v1.0.72
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251001150007-98903c79c124
-	github.com/smartcontractkit/chainlink-deployments-framework v0.52.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20250915101441-709f87f7d401
+	github.com/smartcontractkit/chainlink-deployments-framework v0.54.0
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251002155240-31abd326e293
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20250911124514-5874cc6d62b2
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.13.1
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250910230900-fa42dad2d413
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.31-0.20251003102957-565ef407fb72
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250923205308-aaac72331fc8
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.31
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.14-0.20250918200130-426cdc905d74
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5

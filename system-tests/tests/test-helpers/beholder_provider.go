@@ -19,17 +19,16 @@ import (
 // Constants for configuration
 const (
 	// Channel buffer sizes
-	messageChannelBufferSize = 10
+	messageChannelBufferSize = 20
 	errorChannelBufferSize   = 1
+	channelFullRetryTimeout  = 100 * time.Millisecond
 
 	// Kafka configuration
 	kafkaSessionTimeoutMs = 10000
 	kafkaReadTimeoutMs    = 0 // Non-blocking read
 
 	// Timing configuration
-	messageReadInterval      = 100 * time.Millisecond
-	channelDrainTimeout      = 5 * time.Second
-	channelDrainTimeoutShort = 2 * time.Second
+	messageReadInterval = 50 * time.Millisecond
 
 	// CloudEvents protobuf offset
 	protobufOffset = 6
@@ -94,6 +93,7 @@ func (b *Beholder) SubscribeToBeholderMessages(
 ) (<-chan proto.Message, <-chan error) {
 	kafkaErrChan := make(chan error, errorChannelBufferSize)
 	messageChan := make(chan proto.Message, messageChannelBufferSize)
+	readyChan := make(chan bool, 1)
 
 	// Start listening for messages in the background
 	go func() {
@@ -110,10 +110,34 @@ func (b *Beholder) SubscribeToBeholderMessages(
 
 		kafkaURL := b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL
 		topic := b.cfg.Kafka.Topics[0]
-		listenForKafkaMessages(ctx, b.lggr, kafkaURL, topic, messageTypes, messageChan, kafkaErrChan)
+		listenForKafkaMessages(ctx, b.lggr, kafkaURL, topic, messageTypes, messageChan, kafkaErrChan, readyChan)
 	}()
 
+	// Wait for consumer to be ready before returning channels
+	// This ensures proper coordination between consumer readiness and workflow execution
+	select {
+	case <-readyChan:
+		b.lggr.Info().Msg("Kafka consumer is ready and subscribed - safe to start workflow execution")
+	case <-time.After(15 * time.Second): // Increased timeout for CI environments
+		select {
+		case kafkaErrChan <- errors.New("timeout waiting for consumer to be ready"):
+		default:
+		}
+		b.lggr.Error().Msg("Timeout waiting for Kafka consumer to be ready - check broker connectivity")
+	case <-ctx.Done():
+		b.lggr.Info().Msg("Context cancelled while waiting for consumer readiness")
+	}
+
 	return messageChan, kafkaErrChan
+}
+
+// Helper function to get map keys for logging
+func getMapKeys(m map[string]func() proto.Message) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 func listenForKafkaMessages(
@@ -124,10 +148,9 @@ func listenForKafkaMessages(
 	messageTypes map[string]func() proto.Message, // ce_type -> protobuf factory function
 	messageChan chan proto.Message, // channel to send deserialized messages
 	errChan chan<- error,
+	readyChan chan<- bool,
 ) {
-	logger.Info().Str("broker", brokerAddress).Str("topic", topic).Msg("Starting Kafka listener")
-	startTime := time.Now()
-	logger.Debug().Time("start_time", startTime).Msg("Listener start time - will process messages from this point forward")
+	logger.Info().Str("broker", brokerAddress).Str("topic", topic).Msg("Starting Kafka listener with readiness signaling")
 
 	// Ensure channel is closed when function exits to prevent goroutine leaks
 	defer func() {
@@ -135,11 +158,10 @@ func listenForKafkaMessages(
 		logger.Info().Msg("Listener message channel closed")
 	}()
 
-	// Configure Kafka consumer to start from latest messages (test start time)
 	kafkaConfig := &kafka.ConfigMap{
 		"bootstrap.servers":  brokerAddress,
-		"group.id":           fmt.Sprintf("workshop-listener-%d", startTime.Unix()), // Unique group per listener
-		"auto.offset.reset":  "latest",                                              // Start from latest messages, not earliest
+		"group.id":           fmt.Sprintf("workshop-listener-%d", time.Now().Unix()), // Unique group per listener
+		"auto.offset.reset":  "latest",
 		"session.timeout.ms": kafkaSessionTimeoutMs,
 		"enable.auto.commit": true,             // Commit messages after processing
 		"isolation.level":    "read_committed", // Only read committed messages
@@ -151,8 +173,7 @@ func listenForKafkaMessages(
 		return
 	}
 	defer consumer.Close()
-
-	logger.Debug().Msg("Kafka consumer created successfully")
+	logger.Info().Msg("Kafka consumer created successfully")
 
 	err = consumer.Subscribe(topic, nil)
 	if err != nil {
@@ -162,18 +183,29 @@ func listenForKafkaMessages(
 
 	logger.Info().Str("topic", topic).Msg("Subscribed to topic (consuming from latest offset)")
 
-	ticker := time.NewTicker(messageReadInterval) // Check every 100ms instead of tight loop
+	// Record start time AFTER consumer is ready to avoid race condition
+	startTime := time.Now()
+	logger.Info().Time("start_time", startTime).Msg("Consumer ready - will process messages from this point forward")
+
+	// Signal that consumer is ready - this is the key improvement for coordination
+	select {
+	case readyChan <- true:
+		logger.Info().Msg("Signaled consumer readiness - workflow execution can now begin safely")
+	default:
+		logger.Debug().Msg("Ready channel already signaled or closed")
+	}
+
+	ticker := time.NewTicker(messageReadInterval)
 	defer ticker.Stop()
 
 	interestedTypes := getMapKeys(messageTypes)
-	logger.Info().Strs("interested_types", interestedTypes).Msg("Starting message listening loop")
+	logger.Debug().Strs("interested_types", interestedTypes).Msg("Starting message listening loop")
 
-	// Start consuming messages
+	// Start consuming messages]
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info().Msg("Context cancelled, draining remaining messages before stopping Kafka listener")
-			drainMessagesWithTimeout(logger, messageChan, channelDrainTimeout)
+			logger.Warn().Msg("Context cancelled, stopping Kafka listener")
 			return
 		case <-ticker.C:
 			msg, err := consumer.ReadMessage(kafkaReadTimeoutMs) // Non-blocking read
@@ -189,13 +221,15 @@ func listenForKafkaMessages(
 				return
 			}
 
-			// Check message timestamp to ensure it's from current listener session
+			// More lenient timestamp filtering - only skip very old messages (30+ seconds)
 			msgTime := msg.Timestamp
-			if !msgTime.IsZero() && msgTime.Before(startTime) {
+			const oldMessageThreshold = 30 * time.Second
+			if !msgTime.IsZero() && msgTime.Before(startTime.Add(-oldMessageThreshold)) {
 				logger.Debug().
 					Time("msg_time", msgTime).
 					Time("start_time", startTime).
-					Msg("Skipping old message from before listener start")
+					Dur("old_message_threshold", oldMessageThreshold).
+					Msg("Skipping old messages")
 				continue
 			}
 
@@ -256,41 +290,19 @@ func listenForKafkaMessages(
 			case messageChan <- message:
 				logger.Debug().Msg("Message sent to channel successfully")
 			case <-ctx.Done():
-				logger.Info().Msg("Context cancelled while sending message, draining remaining messages")
-				drainMessagesWithTimeout(logger, messageChan, channelDrainTimeoutShort)
+				logger.Info().Msg("Context cancelled while sending message")
 				return
 			default:
-				logger.Warn().Msg("Message channel full, dropping message")
+				// Channel is full - try with a brief timeout instead of dropping immediately
+				select {
+				case messageChan <- message:
+					logger.Warn().Msg("Message sent to channel after brief delay (channel was full)")
+				case <-time.After(channelFullRetryTimeout):
+					logger.Error().Msg("Message channel full for too long, dropping message")
+				case <-ctx.Done():
+					return
+				}
 			}
-		}
-	}
-}
-
-// Helper function to get map keys for logging
-func getMapKeys(m map[string]func() proto.Message) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-// drainMessagesWithTimeout drains remaining messages from the channel with a timeout
-func drainMessagesWithTimeout(logger zerolog.Logger, messageChan chan proto.Message, timeout time.Duration) {
-	drainCtx, drainCancel := context.WithTimeout(context.Background(), timeout)
-	defer drainCancel()
-
-	drainedCount := 0
-	for {
-		select {
-		case <-messageChan:
-			drainedCount++
-		case <-drainCtx.Done():
-			logger.Info().Int("drained_messages", drainedCount).Msg("Finished draining messages (timeout reached)")
-			return
-		default:
-			logger.Info().Int("drained_messages", drainedCount).Msg("Finished draining messages (channel empty)")
-			return
 		}
 	}
 }

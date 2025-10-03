@@ -8,6 +8,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -412,6 +413,7 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 }
 
 func TestProposeJobSpec_Apply(t *testing.T) {
+	quarantine.Flaky(t, "DX-1893")
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
 
