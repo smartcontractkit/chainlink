@@ -80,7 +80,7 @@ func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.Te
 	testLogger := framework.L
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
-	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
+	for _, bcOutput := range testEnv.Blockchains {
 		for _, donMetadata := range testEnv.CreEnvironment.DonTopology.DonsWithMetadata {
 			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
 				if !slices.Contains(writeableChains, bcOutput.ChainID) {
@@ -285,7 +285,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 //////////////////////////////
 
 // Creates and funds a specified number of new Ethereum addresses on a given chain.
-func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.WrappedBlockchainOutput, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
+func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, sethClient *seth.Client, bcOutput *cre.Blockchain, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
 	t.Helper()
 
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
@@ -299,7 +299,7 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 
 		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
 
-		switch bcOutput.BlockchainOutput.Family {
+		switch bcOutput.CtfOutput.Family {
 		case blockchain.FamilyTron:
 			if err := environment.FundTronAddress(t.Context(), testLogger, addressToRead, amountToFund.Uint64(), bcOutput, fullCldEnvOutput.CldfEnvironment); err != nil {
 				return nil, err
@@ -364,7 +364,7 @@ type WorkflowRegistrationConfig struct {
 	ChainID                     uint64
 	DonID                       uint64
 	ContainerTargetDir          string
-	WrappedBlockchainOutputs    []*cre.WrappedBlockchainOutput
+	Blockchains                 []*cre.Blockchain
 }
 
 /*
@@ -565,7 +565,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 
 	t.Cleanup(func() {
 		deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
-			wfRegCfg.CompressedWasmPath, wfRegCfg.WrappedBlockchainOutputs,
+			wfRegCfg.CompressedWasmPath, wfRegCfg.Blockchains,
 			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryTypeVersion,
 		)
 	})
@@ -606,7 +606,7 @@ Use it at the end of your test to `t.Cleanup()` the env after test run
 */
 func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	workflowConfigFilePath string, compressedWorkflowWasmPath string,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
+	blockchains []*cre.Blockchain,
 	workflowRegistryAddress common.Address,
 	tv deployment.TypeAndVersion,
 ) {
@@ -617,7 +617,7 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
+	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
@@ -629,7 +629,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	t.Helper()
 
 	testLogger.Info().Msgf("compiling and registering workflow '%s'", workflowName)
-	homeChainSelector := testEnv.WrappedBlockchainOutputs[0].ChainSelector
+	homeChainSelector := testEnv.Blockchains[0].ChainSelector
 
 	workflowDON, donErr := flags.OneDonMetadataWithFlag(testEnv.CreEnvironment.DonTopology.ToDonMetadata(), cre.WorkflowDON)
 	require.NoError(t, donErr, "failed to get find workflow DON in the topology")
@@ -640,7 +640,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	workflowRegistryAddress, tv, workflowRegistryErr := crecontracts.FindAddressesForChain(
 		testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // SA1019 ignoring deprecation warning for this usage
 		homeChainSelector, keystone_changeset.WorkflowRegistry.String())
-	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.WrappedBlockchainOutputs[0].ChainID)
+	require.NoError(t, workflowRegistryErr, "failed to find workflow registry address for chain %d", testEnv.Blockchains[0].ChainID)
 
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:                workflowName,
@@ -652,7 +652,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		ChainID:                     homeChainSelector,
 		DonID:                       testEnv.CreEnvironment.DonTopology.DonsWithMetadata[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
-		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
+		Blockchains:                 testEnv.Blockchains,
 	}
-	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.WrappedBlockchainOutputs[0].SethClient, testLogger)
+	registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.Blockchains[0].SethClient, testLogger)
 }

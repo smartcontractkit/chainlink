@@ -17,11 +17,11 @@ import (
 )
 
 // ChainConfigFromWrapped converts a single wrapped chain into a devenv.ChainConfig.
-func ChainConfigFromWrapped(w *WrappedBlockchainOutput) (devenv.ChainConfig, error) {
-	if w == nil || w.BlockchainOutput == nil || len(w.BlockchainOutput.Nodes) == 0 {
+func ChainConfigFromWrapped(w *Blockchain) (devenv.ChainConfig, error) {
+	if w == nil || w.CtfOutput == nil || len(w.CtfOutput.Nodes) == 0 {
 		return devenv.ChainConfig{}, errors.New("invalid wrapped blockchain output")
 	}
-	n := w.BlockchainOutput.Nodes[0]
+	n := w.CtfOutput.Nodes[0]
 
 	cfg := devenv.ChainConfig{
 		WSRPCs: []devenv.CribRPCs{{
@@ -32,7 +32,7 @@ func ChainConfigFromWrapped(w *WrappedBlockchainOutput) (devenv.ChainConfig, err
 		}},
 	}
 
-	cfg.ChainType = strings.ToUpper(w.BlockchainOutput.Family)
+	cfg.ChainType = strings.ToUpper(w.CtfOutput.Family)
 
 	// Solana
 	if w.SolChain != nil {

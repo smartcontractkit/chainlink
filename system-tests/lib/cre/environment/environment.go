@@ -52,7 +52,7 @@ const (
 type SetupOutput struct {
 	WorkflowRegistryConfigurationOutput *cre.WorkflowRegistryOutput
 	CldEnvironment                      *cldf.Environment
-	BlockchainOutput                    []*cre.WrappedBlockchainOutput
+	Blockchains                         []*cre.Blockchain
 	DonTopology                         *cre.DonTopology
 	NodeOutput                          []*cre.WrappedNodeOutput
 	InfraInput                          infra.Provider
@@ -188,7 +188,7 @@ func SetupTestEnvironment(
 	jdOutput, nodeSetOutput, donJDErr := StartDONsAndJD(
 		testLogger,
 		input.JdInput,
-		startBcOut.Output.DeployedBlockchains.RegistryChain().BlockchainOutput,
+		startBcOut.Output.DeployedBlockchains.RegistryChain().CtfOutput,
 		topology,
 		input.InfraInput,
 		updatedNodeSets,
@@ -198,11 +198,11 @@ func SetupTestEnvironment(
 	}
 
 	linkDonsToJD := &cre.LinkDonsToJDInput{
-		JdOutput:          jdOutput,
-		BlockchainOutputs: startBcOut.Output.DeployedBlockchains.Outputs,
-		NodeSetOutput:     nodeSetOutput,
-		CldfEnvironment:   deployKeystoneContractsOutput.Env,
-		Topology:          topology,
+		JdOutput:        jdOutput,
+		Blockchains:     startBcOut.Output.DeployedBlockchains.Outputs,
+		NodeSetOutput:   nodeSetOutput,
+		CldfEnvironment: deployKeystoneContractsOutput.Env,
+		Topology:        topology,
 	}
 
 	cldfEnvironment, dons, cldErr := libdon.LinkToJobDistributor(ctx, linkDonsToJD)
@@ -225,7 +225,7 @@ func SetupTestEnvironment(
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: startBcOut.Output.DeployedBlockchains.RegistryChain().BlockchainOutput,
+		HomeChainBlockchainOutput: startBcOut.Output.DeployedBlockchains.RegistryChain().CtfOutput,
 		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		CreEnvironment:            creEnvironment,
 		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
@@ -244,10 +244,10 @@ func SetupTestEnvironment(
 	// This operation cannot execute in the background, because it uses master private key and we want to avoid nonce issues
 	// Once we have generated and funded new private keys for each chain, we can execute fanning out of funds to nodes in the background
 	preFundingOutput, prefundErr := operations.ExecuteOperation(creEnvironment.CldfEnvironment.OperationsBundle, PrepareCLNodesFundingOp, PrepareFundCLNodesOpDeps{
-		TestLogger:        testLogger,
-		Env:               creEnvironment.CldfEnvironment,
-		BlockchainOutputs: startBcOut.Output.DeployedBlockchains.Outputs,
-		DonTopology:       creEnvironment.DonTopology,
+		TestLogger:  testLogger,
+		Env:         creEnvironment.CldfEnvironment,
+		Blockchains: startBcOut.Output.DeployedBlockchains.Outputs,
+		DonTopology: creEnvironment.DonTopology,
 	}, PrepareFundCLNodesOpInput{FundingPerChainFamilyForEachNode: map[string]uint64{
 		"evm":    10000000000000000, // 0.01 ETH
 		"solana": 50_000_000_000,    // 50 SOL
@@ -354,7 +354,7 @@ func SetupTestEnvironment(
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
-		BlockchainOutput:                    startBcOut.Output.DeployedBlockchains.Outputs,
+		Blockchains:                         startBcOut.Output.DeployedBlockchains.Outputs,
 		DonTopology:                         creEnvironment.DonTopology,
 		NodeOutput:                          nodeSetOutput,
 		CldEnvironment:                      creEnvironment.CldfEnvironment,
@@ -362,7 +362,7 @@ func SetupTestEnvironment(
 	}, nil
 }
 
-func evmOCR3AddressesFromDataStore(blockchains []*cre.WrappedBlockchainOutput, nodeSets []*cre.CapabilitiesAwareNodeSet, ds *datastore.MemoryDataStore, homeChainSelector uint64) map[uint64]common.Address {
+func evmOCR3AddressesFromDataStore(blockchains []*cre.Blockchain, nodeSets []*cre.CapabilitiesAwareNodeSet, ds *datastore.MemoryDataStore, homeChainSelector uint64) map[uint64]common.Address {
 	chainsWithEVMCapability := crecontracts.ChainsWithEVMCapability(blockchains, nodeSets)
 	evmOCR3CommonAddresses := make(map[uint64]common.Address)
 	for chainID := range chainsWithEVMCapability {
@@ -385,18 +385,18 @@ func mergeJobSpecSlices(from, to cre.DonsToJobSpecs) {
 	}
 }
 
-func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint64, topology *cre.Topology, updatedNodeSets []*cre.CapabilitiesAwareNodeSet, cldEnvironment *cldf.Environment, deployKeystoneContractsOutput *crecontracts.DeployKeystoneContractsOutput, startBlockchainsOutput []*cre.WrappedBlockchainOutput) (*cre.ConfigureKeystoneInput, error) {
+func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint64, topology *cre.Topology, updatedNodeSets []*cre.CapabilitiesAwareNodeSet, cldEnvironment *cldf.Environment, deployKeystoneContractsOutput *crecontracts.DeployKeystoneContractsOutput, blockchains []*cre.Blockchain) (*cre.ConfigureKeystoneInput, error) {
 	configureKeystoneInput := cre.ConfigureKeystoneInput{
 		ChainSelector:               homeChainSelector,
 		CldEnv:                      cldEnvironment,
-		BlockchainOutputs:           startBlockchainsOutput,
+		Blockchains:                 blockchains,
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")),
 		OCR3Address:                 ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.OCR3ContractQualifier)),
 		DONTimeAddress:              ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.DONTimeContractQualifier)),
 		VaultOCR3Address:            crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_plugin"),
 		DKGOCR3Address:              crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_dkg"),
-		EVMOCR3Addresses:            evmOCR3AddressesFromDataStore(startBlockchainsOutput, updatedNodeSets, deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector),
+		EVMOCR3Addresses:            evmOCR3AddressesFromDataStore(blockchains, updatedNodeSets, deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector),
 		ConsensusV2OCR3Address:      crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
 		WithV2Registries:            input.WithV2Registries,
@@ -485,14 +485,14 @@ func waitForLogPollerToBeHealthy(nodeSetInput []*cre.CapabilitiesAwareNodeSet, n
 	return nil
 }
 
-func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, startBlockchainsOutput []*cre.WrappedBlockchainOutput, jdOutput *jd.Output) {
+func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, blockchains []*cre.Blockchain, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	for idx, nsOut := range nodeSetOutput {
 		input.CapabilitiesAwareNodeSets[idx].Out = nsOut.Output
 	}
 
-	for idx, bcOut := range startBlockchainsOutput {
-		input.BlockchainsInput[idx].Out = bcOut.BlockchainOutput
+	for idx, blockchain := range blockchains {
+		input.BlockchainsInput[idx].Out = blockchain.CtfOutput
 	}
 
 	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup

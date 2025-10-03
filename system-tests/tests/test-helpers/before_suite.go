@@ -35,12 +35,12 @@ type TestConfig struct {
 
 // TestEnvironment holds references to the main test components
 type TestEnvironment struct {
-	Config                   *envconfig.Config
-	TestConfig               *TestConfig
-	EnvArtifact              *environment.EnvArtifact
-	Logger                   zerolog.Logger
-	CreEnvironment           *cre.Environment
-	WrappedBlockchainOutputs []*cre.WrappedBlockchainOutput
+	Config         *envconfig.Config
+	TestConfig     *TestConfig
+	EnvArtifact    *environment.EnvArtifact
+	Logger         zerolog.Logger
+	CreEnvironment *cre.Environment
+	Blockchains    []*cre.Blockchain
 }
 
 func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {
@@ -53,12 +53,12 @@ func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flag
 	require.NoError(t, err, "failed to load environment")
 
 	return &ttypes.TestEnvironment{
-		Config:                   in,
-		TestConfig:               tconf,
-		EnvArtifact:              envArtifact,
-		Logger:                   framework.L,
-		CreEnvironment:           creEnvironment,
-		WrappedBlockchainOutputs: wrappedBlockchainOutputs,
+		Config:         in,
+		TestConfig:     tconf,
+		EnvArtifact:    envArtifact,
+		Logger:         framework.L,
+		CreEnvironment: creEnvironment,
+		Blockchains:    wrappedBlockchainOutputs,
 	}
 }
 

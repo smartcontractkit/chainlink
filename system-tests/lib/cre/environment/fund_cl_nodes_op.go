@@ -28,10 +28,10 @@ import (
 )
 
 type PrepareFundCLNodesOpDeps struct {
-	TestLogger        zerolog.Logger
-	Env               *cldf.Environment
-	BlockchainOutputs []*cre.WrappedBlockchainOutput
-	DonTopology       *cre.DonTopology
+	TestLogger  zerolog.Logger
+	Env         *cldf.Environment
+	Blockchains []*cre.Blockchain
+	DonTopology *cre.DonTopology
 }
 
 type PrepareFundCLNodesOpInput struct {
@@ -58,34 +58,34 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 		}
 		requiredFundingPerChain := make(map[uint64]uint64)
 		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
-			for _, bcOut := range deps.BlockchainOutputs {
-				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) && bcOut.SolChain == nil {
+			for _, bc := range deps.Blockchains {
+				if !flags.RequiresForwarderContract(metaDon.Flags, bc.ChainID) && bc.SolChain == nil {
 					continue
 				}
 
-				if bcOut.SolChain != nil {
-					requiredFundingPerChain[bcOut.SolChain.ChainSelector] += input.FundingPerChainFamilyForEachNode["solana"] * uint64(len(metaDon.DON.Nodes))
+				if bc.SolChain != nil {
+					requiredFundingPerChain[bc.SolChain.ChainSelector] += input.FundingPerChainFamilyForEachNode["solana"] * uint64(len(metaDon.DON.Nodes))
 					continue
 				}
 
-				if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
-					requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["tron"] * uint64(len(metaDon.DON.Nodes))
+				if bc.CtfOutput.Family == blockchain.FamilyTron {
+					requiredFundingPerChain[bc.ChainSelector] += input.FundingPerChainFamilyForEachNode["tron"] * uint64(len(metaDon.DON.Nodes))
 					continue
 				}
 
-				requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["evm"] * uint64(len(metaDon.DON.Nodes))
+				requiredFundingPerChain[bc.ChainSelector] += input.FundingPerChainFamilyForEachNode["evm"] * uint64(len(metaDon.DON.Nodes))
 			}
 		}
 
-		for _, bcOut := range deps.BlockchainOutputs {
-			if requiredFundingPerChain[bcOut.ChainSelector] == 0 {
+		for _, bc := range deps.Blockchains {
+			if requiredFundingPerChain[bc.ChainSelector] == 0 {
 				continue
 			}
 
 			chainFamily := "evm"
-			if bcOut.SolChain != nil {
+			if bc.SolChain != nil {
 				chainFamily = "solana"
-			} else if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
+			} else if bc.CtfOutput.Family == blockchain.FamilyTron {
 				chainFamily = "tron"
 			}
 
@@ -95,47 +95,47 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 					output.PrivateKeysPerChainFamily[chainFamily] = make(map[uint64][]byte)
 				}
 
-				if _, exists := output.PrivateKeysPerChainFamily[chainFamily][bcOut.ChainSelector]; !exists {
+				if _, exists := output.PrivateKeysPerChainFamily[chainFamily][bc.ChainSelector]; !exists {
 					publicAddress, privateKeyBytes, pkErr := generatePubPrivKeyPairForEth()
 					if pkErr != nil {
 						return nil, pkgerrors.Wrap(pkErr, "failed to generate pub/priv key pair for EVM funding account")
 					}
 
-					fundingAmount := libc.MustSafeInt64(requiredFundingPerChain[bcOut.ChainSelector])
+					fundingAmount := libc.MustSafeInt64(requiredFundingPerChain[bc.ChainSelector])
 					fundingAmount += (fundingAmount / 5) // add 20% to cover gas fees
 
-					_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
+					_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bc.SethClient, libfunding.FundsToSend{
 						ToAddress:  *publicAddress,
 						Amount:     big.NewInt(fundingAmount),
-						PrivateKey: bcOut.SethClient.MustGetRootPrivateKey(),
+						PrivateKey: bc.SethClient.MustGetRootPrivateKey(),
 					})
 
 					if fundingErr != nil {
-						return nil, pkgerrors.Wrapf(fundingErr, "failed to fund funding account %s on chain %d", publicAddress.String(), bcOut.ChainID)
+						return nil, pkgerrors.Wrapf(fundingErr, "failed to fund funding account %s on chain %d", publicAddress.String(), bc.ChainID)
 					}
 
-					output.PrivateKeysPerChainFamily[chainFamily][bcOut.ChainSelector] = privateKeyBytes
+					output.PrivateKeysPerChainFamily[chainFamily][bc.ChainSelector] = privateKeyBytes
 				}
 			case "solana":
 				if _, exists := output.PrivateKeysPerChainFamily[chainFamily]; !exists {
 					output.PrivateKeysPerChainFamily[chainFamily] = make(map[uint64][]byte)
 				}
-				if _, exists := output.PrivateKeysPerChainFamily[chainFamily][bcOut.SolChain.ChainSelector]; !exists {
+				if _, exists := output.PrivateKeysPerChainFamily[chainFamily][bc.SolChain.ChainSelector]; !exists {
 					private, pkErr := solana.NewRandomPrivateKey()
 					if pkErr != nil {
 						return nil, pkgerrors.Wrap(pkErr, "failed to generate private key for solana")
 					}
 					public := private.PublicKey()
-					fundingErr := libfunding.SendFundsSol(ctx, zerolog.Logger{}, bcOut.SolClient, libfunding.FundsToSendSol{
+					fundingErr := libfunding.SendFundsSol(ctx, zerolog.Logger{}, bc.SolClient, libfunding.FundsToSendSol{
 						Recipent:   public,
-						PrivateKey: bcOut.SolChain.PrivateKey,
-						Amount:     requiredFundingPerChain[bcOut.SolChain.ChainSelector],
+						PrivateKey: bc.SolChain.PrivateKey,
+						Amount:     requiredFundingPerChain[bc.SolChain.ChainSelector],
 					})
 					if fundingErr != nil {
-						return nil, pkgerrors.Wrapf(fundingErr, " failed to fund funding accounts on chain %v", bcOut.SolChain.ChainID)
+						return nil, pkgerrors.Wrapf(fundingErr, " failed to fund funding accounts on chain %v", bc.SolChain.ChainID)
 					}
 
-					output.PrivateKeysPerChainFamily[chainFamily][bcOut.SolChain.ChainSelector] = private
+					output.PrivateKeysPerChainFamily[chainFamily][bc.SolChain.ChainSelector] = private
 				}
 			case "tron":
 				// TRON uses its own built-in funding account, no preparation needed
@@ -168,7 +168,7 @@ func generatePubPrivKeyPairForEth() (*common.Address, []byte, error) {
 type FundCLNodesOpDeps struct {
 	TestLogger        zerolog.Logger
 	Env               *cldf.Environment
-	BlockchainOutputs []*cre.WrappedBlockchainOutput
+	BlockchainOutputs []*cre.Blockchain
 	DonTopology       *cre.DonTopology
 }
 
@@ -197,7 +197,7 @@ var FundCLNodesOp = operations.NewOperation(
 					chainFamily := "evm"
 					if bcOut.SolChain != nil {
 						chainFamily = "solana"
-					} else if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
+					} else if bcOut.CtfOutput.Family == blockchain.FamilyTron {
 						chainFamily = "tron"
 					}
 
@@ -233,7 +233,7 @@ var FundCLNodesOp = operations.NewOperation(
 	},
 )
 
-func fundEthAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, privateKeyPerChainFamily map[string]map[uint64][]byte) error {
+func fundEthAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.Blockchain, privateKeyPerChainFamily map[string]map[uint64][]byte) error {
 	nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
 	if nodeAddress == "" {
 		return nil // Skip nodes without addresses for this chain
@@ -265,7 +265,7 @@ func fundEthAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.
 	return nil
 }
 
-func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, _ map[string]map[uint64][]byte) error {
+func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.Blockchain, _ map[string]map[uint64][]byte) error {
 	funder := bcOut.SolChain.PrivateKey
 	recipient := solana.MustPublicKeyFromBase58(node.AccountAddr[bcOut.SolChain.ChainID])
 	testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
@@ -283,7 +283,7 @@ func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node deve
 	return nil
 }
 
-func getTronNodeAddress(node devenv.Node, bcOut *cre.WrappedBlockchainOutput) common.Address {
+func getTronNodeAddress(node devenv.Node, bcOut *cre.Blockchain) common.Address {
 	nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
 	if nodeAddress == "" {
 		return common.Address{} // Skip nodes without addresses for this chain
@@ -292,7 +292,7 @@ func getTronNodeAddress(node devenv.Node, bcOut *cre.WrappedBlockchainOutput) co
 	return common.HexToAddress(nodeAddress)
 }
 
-func FundTronAddress(ctx context.Context, testLogger zerolog.Logger, nodeAddress common.Address, fundingAmount uint64, bcOut *cre.WrappedBlockchainOutput, env *cldf.Environment) error {
+func FundTronAddress(ctx context.Context, testLogger zerolog.Logger, nodeAddress common.Address, fundingAmount uint64, bcOut *cre.Blockchain, env *cldf.Environment) error {
 	receiverAddress := address.EVMAddressToAddress(nodeAddress)
 
 	testLogger.Info().Msgf("Attempting to fund TRON account %s", nodeAddress)

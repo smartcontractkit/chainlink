@@ -165,7 +165,7 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 	require.NoError(t, err, "failed to parse gateway URL")
 
 	// Get workflow owner
-	workflowOwner, err := crypto.HexToECDSA(testEnv.WrappedBlockchainOutputs[0].DeployerPrivateKey)
+	workflowOwner, err := crypto.HexToECDSA(testEnv.Blockchains[0].DeployerPrivateKey)
 	require.NoError(t, err, "failed to convert private key to ECDSA")
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
 

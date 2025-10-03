@@ -10,7 +10,7 @@ import (
 
 type EVMDeployer struct{}
 
-func (e *EVMDeployer) Deploy(input *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
+func (e *EVMDeployer) Deploy(input *blockchain.Input) (*cre.Blockchain, error) {
 	bcOut, err := blockchain.NewBlockchainNetwork(input)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "failed to deploy blockchain %s chainID: %s", input.Type, input.ChainID)

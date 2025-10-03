@@ -36,8 +36,8 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	var workflowsWg sync.WaitGroup
 	var successfulWorkflowRuns atomic.Int32
-	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		chainID := bcOutput.BlockchainOutput.ChainID
+	for _, bcOutput := range testEnv.Blockchains {
+		chainID := bcOutput.CtfOutput.ChainID
 		if _, ok := enabledChains[chainID]; !ok {
 			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
 			continue
@@ -49,7 +49,7 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 		workflowsWg.Add(1)
-		go func(bcOutput *cre.WrappedBlockchainOutput) {
+		go func(bcOutput *cre.Blockchain) {
 			defer workflowsWg.Done()
 			validateWorkflowExecution(t, lggr, testEnv, bcOutput, workflowName, workflowConfig) //nolint:testifylint // TODO: consider refactoring
 			successfulWorkflowRuns.Add(1)
@@ -61,11 +61,11 @@ func ExecuteEVMReadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.Equal(t, len(enabledChains), int(successfulWorkflowRuns.Load()), "Not all workflows executed successfully")
 }
 
-func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttypes.TestEnvironment, bcOutput *cre.WrappedBlockchainOutput, workflowName string, workflowConfig evm_config.Config) {
-	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, bcOutput.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
-	require.NoError(t, err, "failed to find forwarder address for chain %s", bcOutput.ChainSelector)
+func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttypes.TestEnvironment, blockchain *cre.Blockchain, workflowName string, workflowConfig evm_config.Config) {
+	forwarderAddress, _, err := crecontracts.FindAddressesForChain(testEnv.CreEnvironment.CldfEnvironment.ExistingAddresses, blockchain.ChainSelector, keystonechangeset.KeystoneForwarder.String()) //nolint:staticcheck,nolintlint // SA1019: deprecated but we don't want to migrate now
+	require.NoError(t, err, "failed to find forwarder address for chain %s", blockchain.ChainSelector)
 
-	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, bcOutput.SethClient.Client)
+	forwarderContract, err := forwarder.NewKeystoneForwarder(forwarderAddress, blockchain.SethClient.Client)
 	require.NoError(t, err, "failed to instantiate forwarder contract")
 
 	msgEmitterAddr := common.BytesToAddress(workflowConfig.ContractAddress)
@@ -83,7 +83,7 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttype
 		}
 
 		if isSubmitted {
-			lggr.Info().Msgf("🎉 Workflow %s executed successfully on chain %s", workflowName, bcOutput.BlockchainOutput.ChainID)
+			lggr.Info().Msgf("🎉 Workflow %s executed successfully on chain %s", workflowName, blockchain.CtfOutput.ChainID)
 			return true
 		}
 
@@ -92,10 +92,10 @@ func validateWorkflowExecution(t *testing.T, lggr zerolog.Logger, testEnv *ttype
 	}, timeout, tick, "workflow %s did not execute within the timeout %s", workflowName, timeout.String())
 }
 
-func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.WrappedBlockchainOutput) evm_config.Config {
+func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *cre.Blockchain) evm_config.Config {
 	t.Helper()
 
-	chainID := chain.BlockchainOutput.ChainID
+	chainID := chain.CtfOutput.ChainID
 	chainSethClient := chain.SethClient
 
 	lggr.Info().Msgf("Deploying message emitter for chain %s", chainID)

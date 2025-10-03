@@ -10,7 +10,7 @@ import (
 
 type TronDeployer struct{}
 
-func (t *TronDeployer) Deploy(input *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
+func (t *TronDeployer) Deploy(input *blockchain.Input) (*cre.Blockchain, error) {
 	var bcOut *blockchain.Output
 	var err error
 

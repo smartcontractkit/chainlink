@@ -115,7 +115,7 @@ type FeedWithStreamID struct {
 type loadTestSetupOutput struct {
 	dataFeedsCacheAddress common.Address
 	forwarderAddress      common.Address
-	blockchainOutput      []*cretypes.WrappedBlockchainOutput
+	blockchains           []*cretypes.Blockchain
 	donTopology           *cretypes.DonTopology
 	nodeOutput            []*cretypes.WrappedNodeOutput
 }
@@ -150,17 +150,17 @@ func setupLoadTestEnvironment(
 
 	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
 		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // will not migrate now
-		universalSetupOutput.BlockchainOutput[0].ChainSelector,
+		universalSetupOutput.Blockchains[0].ChainSelector,
 		keystone_changeset.KeystoneForwarder.String(),
 	)
-	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.BlockchainOutput[0].ChainSelector)
+	require.NoError(t, forwarderErr, "failed to find forwarder address for chain %d", universalSetupOutput.Blockchains[0].ChainSelector)
 
 	// Create workflow jobs only after capability registry configuration is complete to avoid initialization failures
 	createJobsInput := creenv.CreateJobsWithJdOpInput{}
 	createJobsDeps := creenv.CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: universalSetupOutput.BlockchainOutput[0].BlockchainOutput,
+		HomeChainBlockchainOutput: universalSetupOutput.Blockchains[0].CtfOutput,
 		JobSpecFactoryFunctions:   []cretypes.JobSpecFn{workflowJobsFn},
 		CreEnvironment: &cretypes.Environment{
 			CldfEnvironment: universalSetupOutput.CldEnvironment,
@@ -173,7 +173,7 @@ func setupLoadTestEnvironment(
 
 	return &loadTestSetupOutput{
 		forwarderAddress: forwarderAddress,
-		blockchainOutput: universalSetupOutput.BlockchainOutput,
+		blockchains:      universalSetupOutput.Blockchains,
 		donTopology:      universalSetupOutput.DonTopology,
 		nodeOutput:       universalSetupOutput.NodeOutput,
 	}

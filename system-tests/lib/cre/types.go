@@ -324,10 +324,10 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
-type WrappedBlockchainOutput struct {
+type Blockchain struct {
 	ChainSelector      uint64
 	ChainID            uint64
-	BlockchainOutput   *blockchain.Output
+	CtfOutput          *blockchain.Output
 	SethClient         *seth.Client
 	SolClient          *solrpc.Client
 	DeployerPrivateKey string
@@ -411,7 +411,7 @@ type ConfigureKeystoneInput struct {
 	CldEnv                      *cldf.Environment
 	NodeSets                    []*CapabilitiesAwareNodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
-	BlockchainOutputs           []*WrappedBlockchainOutput
+	Blockchains                 []*Blockchain
 
 	OCR3Config  keystone_changeset.OracleConfig
 	OCR3Address *common.Address // v1 consensus contract address
@@ -490,7 +490,7 @@ type (
 type GenerateConfigsInput struct {
 	Datastore               datastore.DataStore
 	DonMetadata             *DonMetadata
-	BlockchainOutput        map[uint64]*WrappedBlockchainOutput
+	Blockchains             map[uint64]*Blockchain
 	HomeChainSelector       uint64
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
@@ -505,7 +505,7 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.DonMetadata.NodesMetadata) == 0 {
 		return errors.New("don nodes not set")
 	}
-	if len(g.BlockchainOutput) == 0 {
+	if len(g.Blockchains) == 0 {
 		return errors.New("blockchain output not set")
 	}
 	if g.HomeChainSelector == 0 {
@@ -1145,23 +1145,23 @@ func (g *GenerateSecretsInput) Validate() error {
 }
 
 type LinkDonsToJDInput struct {
-	JdOutput          *jd.Output
-	BlockchainOutputs []*WrappedBlockchainOutput
-	NodeSetOutput     []*WrappedNodeOutput
-	Topology          *Topology
-	CldfEnvironment   *cldf.Environment
+	JdOutput        *jd.Output
+	Blockchains     []*Blockchain
+	NodeSetOutput   []*WrappedNodeOutput
+	Topology        *Topology
+	CldfEnvironment *cldf.Environment
 }
 
 func (f *LinkDonsToJDInput) Validate() error {
 	if f.JdOutput == nil {
 		return errors.New("jd output not set")
 	}
-	if len(f.BlockchainOutputs) == 0 {
+	if len(f.Blockchains) == 0 {
 		return errors.New("blockchain output not set")
 	}
 
 	var expectedSeth, expectedSols int
-	for _, chain := range f.BlockchainOutputs {
+	for _, chain := range f.Blockchains {
 		if chain.SolChain != nil {
 			expectedSols++
 			continue

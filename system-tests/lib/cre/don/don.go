@@ -87,7 +87,7 @@ func LinkToJobDistributor(ctx context.Context, input *cre.LinkDonsToJDInput) (*c
 		}
 		allNodesInfo = append(allNodesInfo, nodeInfo...)
 
-		supportedChains, schErr := findSupportedChainsForDON(input.Topology.DonsMetadata[idx], input.BlockchainOutputs)
+		supportedChains, schErr := findSupportedChainsForDON(input.Topology.DonsMetadata[idx], input.Blockchains)
 		if schErr != nil {
 			return nil, nil, errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
@@ -154,7 +154,7 @@ func configureJDForDON(ctx context.Context, nodeInfo []devenv.NodeInfo, supporte
 	return don, nil
 }
 
-func findSupportedChainsForDON(donMetadata *cre.DonMetadata, blockchainOutputs []*cre.WrappedBlockchainOutput) ([]devenv.ChainConfig, error) {
+func findSupportedChainsForDON(donMetadata *cre.DonMetadata, blockchainOutputs []*cre.Blockchain) ([]devenv.ChainConfig, error) {
 	chains := make([]devenv.ChainConfig, 0)
 
 	for chainSelector, bcOut := range blockchainOutputs {

@@ -416,7 +416,7 @@ type evmChain struct {
 
 func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
-	for chainSelector, bcOut := range input.BlockchainOutput {
+	for chainSelector, bcOut := range input.Blockchains {
 		if bcOut.SolChain != nil {
 			continue
 		}
@@ -430,8 +430,8 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 		evmChains = append(evmChains, &evmChain{
 			Name:    fmt.Sprintf("node-%d", chainSelector),
 			ChainID: bcOut.ChainID,
-			HTTPRPC: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
-			WSRPC:   bcOut.BlockchainOutput.Nodes[0].InternalWSUrl,
+			HTTPRPC: bcOut.CtfOutput.Nodes[0].InternalHTTPUrl,
+			WSRPC:   bcOut.CtfOutput.Nodes[0].InternalWSUrl,
 		})
 	}
 	return evmChains
@@ -447,7 +447,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	var solChain *solanaChain
 	chainsFound := 0
 
-	for _, bcOut := range input.BlockchainOutput {
+	for _, bcOut := range input.Blockchains {
 		if bcOut.SolChain == nil {
 			continue
 		}
@@ -468,7 +468,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", bcOut.SolChain.ChainSelector),
 			ChainID: chainID.String(),
-			NodeURL: bcOut.BlockchainOutput.Nodes[0].InternalHTTPUrl,
+			NodeURL: bcOut.CtfOutput.Nodes[0].InternalHTTPUrl,
 		}
 	}
 

@@ -52,7 +52,7 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	gatewayURL, err := url.Parse(newGatewayURL)
 	require.NoError(t, err, "failed to parse gateway URL")
 
-	workflowOwner, err := crypto.HexToECDSA(testEnv.WrappedBlockchainOutputs[0].DeployerPrivateKey)
+	workflowOwner, err := crypto.HexToECDSA(testEnv.Blockchains[0].DeployerPrivateKey)
 	require.NoError(t, err, "failed to convert private key to ECDSA")
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
 

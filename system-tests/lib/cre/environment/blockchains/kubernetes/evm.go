@@ -27,7 +27,7 @@ func NewEVMDeployer(testLogger zerolog.Logger, namespace string, cribConfigsDir 
 	}
 }
 
-func (e *EVMDeployer) Deploy(input *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
+func (e *EVMDeployer) Deploy(input *blockchain.Input) (*cre.Blockchain, error) {
 	deployCribBlockchainInput := &cre.DeployCribBlockchainInput{
 		BlockchainInput: input,
 		CribConfigsDir:  e.cribConfigsDir,

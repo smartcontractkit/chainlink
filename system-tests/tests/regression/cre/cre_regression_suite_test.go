@@ -56,7 +56,7 @@ func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 		t.Run(testName, func(t *testing.T) {
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 			// TODO remove this when OCR works properly with multiple chains in Local CRE
-			testEnv.WrappedBlockchainOutputs = []*cre.WrappedBlockchainOutput{testEnv.WrappedBlockchainOutputs[0]}
+			testEnv.Blockchains = []*cre.Blockchain{testEnv.Blockchains[0]}
 
 			EVMReadFailsTest(t, testEnv, tCase)
 		})

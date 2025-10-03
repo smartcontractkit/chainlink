@@ -34,7 +34,7 @@ import (
 // Artifact paths are recorded in `artifact_paths.json` in the environment
 // directory (typically `core/scripts/cre/environment`).
 // Returns the reconstructed CLDF environment, wrapped blockchain outputs, and an error.
-func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, []*cre.WrappedBlockchainOutput, error) {
+func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInput *envconfig.Config, envArtifact *EnvArtifact) (*cre.Environment, []*cre.Blockchain, error) {
 	if cachedInput == nil {
 		return nil, nil, errors.New("cached input cannot be nil")
 	}
@@ -129,7 +129,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	for _, output := range startBcOut.Output.DeployedBlockchains.Outputs {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(output)
 		if cfgErr != nil {
-			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.BlockchainOutput.Family)
+			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.CtfOutput.Family)
 		}
 		chainConfigs = append(chainConfigs, cfg)
 	}

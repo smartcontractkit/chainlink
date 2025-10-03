@@ -70,7 +70,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 	}
 
 	data := solanaInput{}
-	for _, bcOut := range input.BlockchainOutput {
+	for _, bcOut := range input.Blockchains {
 		if bcOut.SolChain == nil {
 			continue
 		}

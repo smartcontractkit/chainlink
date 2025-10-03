@@ -28,15 +28,15 @@ import (
 )
 
 type Deployer interface {
-	Deploy(input *blockchain.Input) (*cre.WrappedBlockchainOutput, error)
+	Deploy(input *blockchain.Input) (*cre.Blockchain, error)
 }
 
 type DeployedBlockchains struct {
-	Outputs         []*cre.WrappedBlockchainOutput
+	Outputs         []*cre.Blockchain
 	CldfBlockChains chain.BlockChains
 }
 
-func (s *DeployedBlockchains) RegistryChain() *cre.WrappedBlockchainOutput {
+func (s *DeployedBlockchains) RegistryChain() *cre.Blockchain {
 	return s.Outputs[0]
 }
 
@@ -45,7 +45,7 @@ func Start(
 	inputs []*blockchain.Input,
 	deployers map[blockchain.ChainFamily]Deployer,
 ) (*DeployedBlockchains, error) {
-	outputs := make([]*cre.WrappedBlockchainOutput, 0, len(inputs))
+	outputs := make([]*cre.Blockchain, 0, len(inputs))
 
 	for _, input := range inputs {
 		chainFamily, chErr := blockchain.TypeToFamily(input.Type)
@@ -86,7 +86,7 @@ func Start(
 	}, nil
 }
 
-func WrapEVM(bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
+func WrapEVM(bcOut *blockchain.Output) (*cre.Blockchain, error) {
 	if err := SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); err != nil {
 		return nil, err
 	}
@@ -111,16 +111,16 @@ func WrapEVM(bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
 		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bcOut.ChainID)
 	}
 
-	return &cre.WrappedBlockchainOutput{
+	return &cre.Blockchain{
 		ChainSelector:      selector,
 		ChainID:            chainID,
-		BlockchainOutput:   bcOut,
+		CtfOutput:          bcOut,
 		SethClient:         sethClient,
 		DeployerPrivateKey: priv,
 	}, nil
 }
 
-func WrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
+func WrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.Blockchain, error) {
 	chainID, err := strconv.ParseUint(bi.ChainID, 10, 64)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", bi.ChainID)
@@ -141,10 +141,10 @@ func WrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlock
 	externalHTTPURL := bcOut.Nodes[0].ExternalHTTPUrl
 	internalHTTPURL := bcOut.Nodes[0].InternalHTTPUrl
 
-	return &cre.WrappedBlockchainOutput{
+	return &cre.Blockchain{
 		ChainSelector: selector,
 		ChainID:       chainID,
-		BlockchainOutput: &blockchain.Output{
+		CtfOutput: &blockchain.Output{
 			ChainID: bi.ChainID,
 			Family:  blockchain.FamilyTron,
 			Nodes: []*blockchain.Node{
@@ -162,7 +162,7 @@ func WrapTron(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlock
 // Will be set as --mint when spin up local solana validator, unless env variable with a different key provided
 var DefaultSolanaPrivateKey = solana.MustPrivateKeyFromBase58("4u2itaM9r5kxsmoti3GMSDZrQEFpX14o6qPWY9ZrrYTR6kduDBr4YAZJsjawKzGP3wDzyXqterFmfcLUmSBro5AT")
 
-func WrapSolana(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlockchainOutput, error) {
+func WrapSolana(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.Blockchain, error) {
 	sel, ok := chainselectors.SolanaChainIdToChainSelector()[bi.ChainID]
 	if !ok {
 		return nil, fmt.Errorf("selector not found for solana chainID '%s'", bi.ChainID)
@@ -183,9 +183,9 @@ func WrapSolana(bi *blockchain.Input, bcOut *blockchain.Output) (*cre.WrappedBlo
 		return nil, pkgerrors.Wrap(err, "failed to save private key for solana")
 	}
 
-	return &cre.WrappedBlockchainOutput{
-		BlockchainOutput: bcOut,
-		SolClient:        rpc.New(bcOut.Nodes[0].ExternalHTTPUrl),
+	return &cre.Blockchain{
+		CtfOutput: bcOut,
+		SolClient: rpc.New(bcOut.Nodes[0].ExternalHTTPUrl),
 		SolChain: &cre.SolChain{
 			ChainSelector: sel,
 			ChainID:       bi.ChainID,

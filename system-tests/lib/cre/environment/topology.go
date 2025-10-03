@@ -25,7 +25,7 @@ func PrepareConfiguration(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
 	infraInput infra.Provider,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
+	blockchains []*cre.Blockchain,
 	addressBook deployment.AddressBook,
 	datastore datastore.DataStore,
 	capabilities []cre.InstallableCapability,
@@ -50,8 +50,8 @@ func PrepareConfiguration(
 
 	evmChainIDs := make([]int, 0)
 	solChainIDs := make([]string, 0)
-	chainPerSelector := make(map[uint64]*cre.WrappedBlockchainOutput)
-	for _, bcOut := range blockchainOutputs {
+	chainPerSelector := make(map[uint64]*cre.Blockchain)
+	for _, bcOut := range blockchains {
 		if bcOut.SolChain != nil {
 			sel := bcOut.SolChain.ChainSelector
 			chainPerSelector[sel] = bcOut
@@ -131,7 +131,7 @@ func PrepareConfiguration(
 					AddressBook:             addressBook,
 					Datastore:               datastore,
 					DonMetadata:             donMetadata,
-					BlockchainOutput:        chainPerSelector,
+					Blockchains:             chainPerSelector,
 					Flags:                   donMetadata.Flags,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,

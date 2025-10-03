@@ -41,7 +41,7 @@ const (
 
 type DeployKeystoneContractsInput struct {
 	CldfEnvironment           *cldf.Environment
-	CtfBlockchains            []*cre.WrappedBlockchainOutput
+	CtfBlockchains            []*cre.Blockchain
 	ContractVersions          map[string]string
 	WithV2Registries          bool
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
@@ -74,7 +74,7 @@ func DeployKeystoneContracts(
 				continue
 			}
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-				if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
+				if bcOut.CtfOutput.Family == blockchain.FamilyTron {
 					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
 					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
 				} else {
@@ -328,7 +328,7 @@ func deployVaultContracts(qualifier string, selector uint64, env *cldf.Environme
 	return &report.Output, nil
 }
 
-func ChainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, nodeSets []*cre.CapabilitiesAwareNodeSet) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
+func ChainsWithEVMCapability(chains []*cre.Blockchain, nodeSets []*cre.CapabilitiesAwareNodeSet) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
 	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
 	for _, chain := range chains {
 		for _, donMetadata := range nodeSets {

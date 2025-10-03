@@ -22,7 +22,7 @@ import (
 
 type SolanaDeployer struct{}
 
-func (s *SolanaDeployer) Deploy(input *blockchain.Input) (*cre.WrappedBlockchainOutput, error) {
+func (s *SolanaDeployer) Deploy(input *blockchain.Input) (*cre.Blockchain, error) {
 	err := initSolanaInput(input)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to init Solana input")

@@ -50,7 +50,7 @@ import (
 
 func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	creEnvironment := tenv.CreEnvironment
-	wrappedBlockchainOutputs := tenv.WrappedBlockchainOutputs
+	wrappedBlockchainOutputs := tenv.Blockchains
 	ds := creEnvironment.CldfEnvironment.DataStore
 
 	// prevalidate environment
@@ -64,9 +64,9 @@ func ExecuteSecureMintTest(t *testing.T, tenv *ttypes.TestEnvironment) {
 	require.Len(t, forwarderStates, 1)
 
 	var s setup
-	var solChain *cre.WrappedBlockchainOutput
+	var solChain *cre.Blockchain
 	for _, w := range wrappedBlockchainOutputs {
-		if w.BlockchainOutput.Type != blockchain.FamilySolana {
+		if w.CtfOutput.Type != blockchain.FamilySolana {
 			continue
 		}
 		s.ForwarderProgramID = mustGetContract(t, ds, w.SolChain.ChainSelector, ks_sol.ForwarderContract)
@@ -217,7 +217,7 @@ var (
 	Mintable      = big.NewInt(15)
 )
 
-func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solChain *cre.WrappedBlockchainOutput) {
+func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solChain *cre.Blockchain) {
 	var d [32]byte
 	copy(d[:], []byte(wFDescription))
 	s.Descriptions = append(s.Descriptions, d)
@@ -366,7 +366,7 @@ targets:
       schedule: oneAtATime
 `
 
-func createSecureMintWorkflowJobSpec(t *testing.T, s *setup, solChain *cre.WrappedBlockchainOutput) string {
+func createSecureMintWorkflowJobSpec(t *testing.T, s *setup, solChain *cre.Blockchain) string {
 	tmpl, err := texttmpl.New("secureMintWorkflow").Parse(secureMintWorkflowTemplate)
 	require.NoError(t, err)
 
