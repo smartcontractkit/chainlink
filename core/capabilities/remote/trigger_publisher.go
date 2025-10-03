@@ -33,23 +33,23 @@ type triggerPublisher struct {
 	dispatcher    types.Dispatcher
 	cfg           atomic.Pointer[dynamicPublisherConfig]
 
-	messageCache    *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
-	registrations   map[registrationKey]*pubRegState
-	mu              sync.RWMutex // protects messageCache and registrations
-	batchingQueue   map[[32]byte]*batchedResponse
-	batchingEnabled bool
-	bqMu            sync.Mutex // protects batchingQueue
-	stopCh          services.StopChan
-	wg              sync.WaitGroup
-	lggr            logger.Logger
+	messageCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
+	registrations map[registrationKey]*pubRegState
+	mu            sync.RWMutex // protects messageCache and registrations
+	batchingQueue map[[32]byte]*batchedResponse
+	bqMu          sync.Mutex // protects batchingQueue
+	stopCh        services.StopChan
+	wg            sync.WaitGroup
+	lggr          logger.Logger
 }
 
 type dynamicPublisherConfig struct {
-	remoteConfig *commoncap.RemoteTriggerConfig
-	underlying   commoncap.TriggerCapability
-	capDonInfo   commoncap.DON
-	workflowDONs map[uint32]commoncap.DON
-	membersCache map[uint32]map[p2ptypes.PeerID]bool
+	remoteConfig    *commoncap.RemoteTriggerConfig
+	underlying      commoncap.TriggerCapability
+	capDonInfo      commoncap.DON
+	workflowDONs    map[uint32]commoncap.DON
+	membersCache    map[uint32]map[p2ptypes.PeerID]bool
+	batchingEnabled bool
 }
 
 type registrationKey struct {
@@ -122,17 +122,13 @@ func (p *triggerPublisher) SetConfig(config *commoncap.RemoteTriggerConfig, unde
 
 	// always replace the whole dynamicPublisherConfig object to avoid inconsistent state
 	p.cfg.Store(&dynamicPublisherConfig{
-		remoteConfig: config,
-		underlying:   underlying,
-		capDonInfo:   capDonInfo,
-		workflowDONs: workflowDONs,
-		membersCache: membersCache,
+		remoteConfig:    config,
+		underlying:      underlying,
+		capDonInfo:      capDonInfo,
+		workflowDONs:    workflowDONs,
+		membersCache:    membersCache,
+		batchingEnabled: config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod,
 	})
-
-	// Update batching configuration
-	p.bqMu.Lock()
-	p.batchingEnabled = config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod
-	p.bqMu.Unlock()
 
 	return nil
 }
@@ -159,10 +155,8 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 
 	p.wg.Add(1)
 	go p.registrationCleanupLoop()
-	if p.batchingEnabled {
-		p.wg.Add(1)
-		go p.batchingLoop()
-	}
+	p.wg.Add(1)
+	go p.batchingLoop()
 	p.lggr.Info("TriggerPublisher started")
 	return nil
 }
@@ -323,7 +317,8 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 				break
 			}
 
-			if p.batchingEnabled {
+			cfg := p.cfg.Load()
+			if cfg.batchingEnabled {
 				p.enqueueForBatching(marshaledResponse, key, triggerEvent.ID)
 			} else {
 				// a single-element "batch"
@@ -370,7 +365,7 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 
 	for len(resp.workflowIDs) > 0 {
 		idBatch := resp.workflowIDs
-		if p.batchingEnabled && int64(len(idBatch)) > int64(cfg.remoteConfig.MaxBatchSize) {
+		if cfg.batchingEnabled && int64(len(idBatch)) > int64(cfg.remoteConfig.MaxBatchSize) {
 			idBatch = idBatch[:cfg.remoteConfig.MaxBatchSize]
 			resp.workflowIDs = resp.workflowIDs[cfg.remoteConfig.MaxBatchSize:]
 		} else {

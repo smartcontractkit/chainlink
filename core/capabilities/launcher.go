@@ -843,6 +843,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 			if !alreadyExists {
 				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.lggr)
 				cc.SetTriggerSubscriber(method, sub)
+				// add to cachedShims later, only after startNewShim succeeds
 			}
 			// TODO(CRE-590): add support for SignedReportAggregator (needed by LLO Streams Trigger V2)
 			agg := aggregation.NewDefaultModeAggregator(config.RemoteTriggerConfig.MinResponsesToAggregate)
@@ -864,6 +865,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 			if !alreadyExists {
 				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr)
 				cc.SetExecutableClient(method, client)
+				// add to cachedShims later, only after startNewShim succeeds
 			}
 			// Update existing client config
 			transmissionConfig := &transmission.TransmissionConfig{
@@ -897,7 +899,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 }
 
 func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.ReceiverService, capID string, donID uint32, method string) error {
-	w.lggr.Debugw("Enabling external access for capability method", "id", capID, "method", method, "donID", donID)
+	w.lggr.Debugw("Starting new remote shim for capability method", "id", capID, "method", method, "donID", donID)
 	if err := receiver.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start receiver for capability %s, method %s: %w", capID, method, err)
 	}
@@ -906,6 +908,7 @@ func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.Receiv
 		return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
 	}
 	w.subServices = append(w.subServices, receiver)
+	w.lggr.Debugw("New remote shim started successfully for capability method", "id", capID, "method", method, "donID", donID)
 	return nil
 }
 
@@ -938,7 +941,7 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 					w.dispatcher,
 					w.lggr,
 				)
-				w.cachedShims.triggerPublishers[shimKey] = publisher
+				// add to cachedShims later, only after startNewShim succeeds
 			}
 			if errCfg := publisher.SetConfig(config.RemoteTriggerConfig, underlyingTriggerCapability, myDON.DON, idsToDONs); errCfg != nil {
 				return fmt.Errorf("failed to set config for trigger publisher: %w", errCfg)
@@ -969,7 +972,7 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 					w.dispatcher,
 					w.lggr,
 				)
-				w.cachedShims.executableServers[shimKey] = server
+				// add to cachedShims later, only after startNewShim succeeds
 			}
 
 			var requestHasher remotetypes.MessageHasher

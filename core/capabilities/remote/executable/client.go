@@ -58,7 +58,7 @@ var _ Client = &client{}
 var _ types.Receiver = &client{}
 var _ services.Service = &client{}
 
-const expiryCheckInterval = 30 * time.Second
+const defaultExpiryCheckInterval = 30 * time.Second
 
 var (
 	ErrRequestExpired                  = errors.New("request expired by executable client")
@@ -162,26 +162,24 @@ func (c *client) checkDispatcherReady() {
 }
 
 func (c *client) checkForExpiredRequests() {
-	cfg := c.cfg.Load()
-	if cfg == nil {
-		c.lggr.Errorw("config not set, cannot check for expired requests")
-		return
-	}
-
-	tickerInterval := expiryCheckInterval
-	if cfg.requestTimeout < tickerInterval {
-		tickerInterval = cfg.requestTimeout
-	}
-	ticker := time.NewTicker(tickerInterval)
+	ticker := time.NewTicker(getClientTickerInterval(c.cfg.Load()))
 	defer ticker.Stop()
 	for {
 		select {
 		case <-c.stopCh:
 			return
 		case <-ticker.C:
+			ticker.Reset(getClientTickerInterval(c.cfg.Load()))
 			c.expireRequests()
 		}
 	}
+}
+
+func getClientTickerInterval(cfg *dynamicConfig) time.Duration {
+	if cfg != nil && cfg.requestTimeout > 0 {
+		return cfg.requestTimeout
+	}
+	return defaultExpiryCheckInterval
 }
 
 func (c *client) expireRequests() {

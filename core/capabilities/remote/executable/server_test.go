@@ -436,3 +436,198 @@ func (r *serverTestClient) Execute(ctx context.Context, req commoncap.Capability
 
 	return nil, nil
 }
+
+// Test_Server_SetConfig tests the SetConfig method with various scenarios
+func Test_Server_SetConfig(t *testing.T) {
+	lggr := logger.Test(t)
+	peerID := NewP2PPeerID(t)
+
+	// Create broker and dispatcher
+	broker := newTestAsyncMessageBroker(t, 100)
+	dispatcher := broker.NewDispatcherForNode(peerID)
+
+	// Create server instance
+	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+
+	// Create test data
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "test-capability-id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Test capability",
+	}
+
+	localDonInfo := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{peerID},
+		F:       0,
+	}
+
+	workflowDONs := map[uint32]commoncap.DON{
+		2: {
+			ID:      2,
+			Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+			F:       0,
+		},
+	}
+
+	underlying := &TestCapability{}
+	requestTimeout := 10 * time.Second
+	maxParallelRequests := 5
+
+	t.Run("valid config should succeed", func(t *testing.T) {
+		config := &commoncap.RemoteExecutableConfig{
+			RequestHashExcludedAttributes: []string{"test"},
+		}
+
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs,
+			requestTimeout, maxParallelRequests, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("nil config should use default", func(t *testing.T) {
+		err := server.SetConfig(nil, underlying, capInfo, localDonInfo, workflowDONs,
+			requestTimeout, maxParallelRequests, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("nil hasher should create default V1 hasher", func(t *testing.T) {
+		config := &commoncap.RemoteExecutableConfig{}
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs,
+			requestTimeout, maxParallelRequests, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("mismatched capability ID should return error", func(t *testing.T) {
+		invalidCapInfo := commoncap.CapabilityInfo{
+			ID:             "different-capability-id",
+			CapabilityType: commoncap.CapabilityTypeTarget,
+		}
+
+		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, underlying, invalidCapInfo,
+			localDonInfo, workflowDONs, requestTimeout, maxParallelRequests, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "capability info provided does not match")
+	})
+
+	t.Run("nil underlying capability should return error", func(t *testing.T) {
+		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, nil, capInfo,
+			localDonInfo, workflowDONs, requestTimeout, maxParallelRequests, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "underlying capability cannot be nil")
+	})
+}
+
+// Test_Server_SetConfig_ConfigReplacement tests that SetConfig properly replaces existing configuration
+func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
+	lggr := logger.Test(t)
+	peerID := NewP2PPeerID(t)
+	broker := newTestAsyncMessageBroker(t, 100)
+	dispatcher := broker.NewDispatcherForNode(peerID)
+	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "test-capability-id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Test capability",
+	}
+
+	localDonInfo := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{peerID},
+		F:       0,
+	}
+
+	workflowDONs := map[uint32]commoncap.DON{
+		2: {
+			ID:      2,
+			Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+			F:       0,
+		},
+	}
+
+	underlying := &TestCapability{}
+
+	// Set initial config
+	config1 := &commoncap.RemoteExecutableConfig{
+		RequestHashExcludedAttributes: []string{"attr1"},
+	}
+	err := server.SetConfig(config1, underlying, capInfo, localDonInfo, workflowDONs,
+		5*time.Second, 3, nil)
+	require.NoError(t, err)
+
+	// Verify server can start with valid config
+	ctx := testutils.Context(t)
+	err = server.Start(ctx)
+	require.NoError(t, err)
+
+	// Replace with new config
+	config2 := &commoncap.RemoteExecutableConfig{
+		RequestHashExcludedAttributes: []string{"attr2", "attr3"},
+	}
+	err = server.SetConfig(config2, underlying, capInfo, localDonInfo, workflowDONs,
+		10*time.Second, 5, nil)
+	require.NoError(t, err)
+
+	// Clean up
+	err = server.Close()
+	require.NoError(t, err)
+}
+
+// Test_Server_SetConfig_StartValidation tests that Start() validates the configuration
+func Test_Server_SetConfig_StartValidation(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	t.Run("Start without SetConfig should fail", func(t *testing.T) {
+		lggr := logger.Test(t)
+		peerID := NewP2PPeerID(t)
+		broker := newTestAsyncMessageBroker(t, 100)
+		dispatcher := broker.NewDispatcherForNode(peerID)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+
+		err := server.Start(ctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "config not set - call SetConfig() before Start()")
+	})
+
+	t.Run("Start with valid config should succeed", func(t *testing.T) {
+		lggr := logger.Test(t)
+		peerID := NewP2PPeerID(t)
+		broker := newTestAsyncMessageBroker(t, 100)
+		dispatcher := broker.NewDispatcherForNode(peerID)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+
+		// Set valid config
+		capInfo := commoncap.CapabilityInfo{
+			ID:             "test-capability-id",
+			CapabilityType: commoncap.CapabilityTypeTarget,
+			Description:    "Test capability",
+		}
+
+		localDonInfo := commoncap.DON{
+			ID:      1,
+			Members: []p2ptypes.PeerID{peerID},
+			F:       0,
+		}
+
+		workflowDONs := map[uint32]commoncap.DON{
+			2: {
+				ID:      2,
+				Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+				F:       0,
+			},
+		}
+
+		underlying := &TestCapability{}
+
+		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, underlying, capInfo,
+			localDonInfo, workflowDONs, 10*time.Second, 5, nil)
+		require.NoError(t, err)
+
+		err = server.Start(ctx)
+		require.NoError(t, err)
+
+		// Clean up
+		err = server.Close()
+		require.NoError(t, err)
+	})
+}

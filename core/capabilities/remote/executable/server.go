@@ -164,8 +164,7 @@ func (r *server) Start(ctx context.Context) error {
 		r.wg.Add(1)
 		go func() {
 			defer r.wg.Done()
-			tickerInterval := min(cfg.requestTimeout, expiryCheckInterval)
-			ticker := time.NewTicker(tickerInterval)
+			ticker := time.NewTicker(getServerTickerInterval(cfg))
 			defer ticker.Stop()
 
 			r.lggr.Info("executable capability server started")
@@ -174,6 +173,7 @@ func (r *server) Start(ctx context.Context) error {
 				case <-r.stopCh:
 					return
 				case <-ticker.C:
+					ticker.Reset(getServerTickerInterval(cfg))
 					r.expireRequests()
 				}
 			}
@@ -185,6 +185,13 @@ func (r *server) Start(ctx context.Context) error {
 		}
 		return nil
 	})
+}
+
+func getServerTickerInterval(cfg *dynamicServerConfig) time.Duration {
+	if cfg != nil && cfg.requestTimeout > 0 {
+		return cfg.requestTimeout
+	}
+	return defaultExpiryCheckInterval
 }
 
 func (r *server) Close() error {
@@ -290,22 +297,14 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	}
 
 	reqAndMsgID := r.requestIDToRequest[requestID]
-	if r.parallelExecutor != nil {
-		if executeTaskErr := r.parallelExecutor.ExecuteTask(ctx,
-			func(ctx context.Context) {
-				err = reqAndMsgID.request.OnMessage(ctx, msg)
-				if err != nil {
-					r.lggr.Errorw("failed to execute on message", "messageID", reqAndMsgID.messageID, "err", err)
-				}
-			}); executeTaskErr != nil {
-			r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
-		}
-	} else {
-		// Fallback to direct execution if parallel executor is not initialized
-		err = reqAndMsgID.request.OnMessage(ctx, msg)
-		if err != nil {
-			r.lggr.Errorw("failed to execute on message", "messageID", reqAndMsgID.messageID, "err", err)
-		}
+	if executeTaskErr := r.parallelExecutor.ExecuteTask(ctx,
+		func(ctx context.Context) {
+			err = reqAndMsgID.request.OnMessage(ctx, msg)
+			if err != nil {
+				r.lggr.Errorw("failed to execute on message", "messageID", reqAndMsgID.messageID, "err", err)
+			}
+		}); executeTaskErr != nil {
+		r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
 	}
 }
 
