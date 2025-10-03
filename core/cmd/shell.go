@@ -135,15 +135,6 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 			beholder.SetClient(beholderClient)
 			beholder.SetGlobalOtelProviders()
 
-			if clientCfg.LogStreamingEnabled {
-				// WithOtel mutates the logger
-				lggr, err = lggr.WithOtel(beholderClient.Logger)
-				if err != nil {
-					return fmt.Errorf("Failed to enable log streaming: %w", err)
-				}
-				lggr.Info("Log streaming enabled")
-			}
-
 			return nil
 		}()
 	})
@@ -151,8 +142,8 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 }
 
 var (
-// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
-// and no API credentials have been provided
+	// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
+	// and no API credentials have been provided
 	ErrorNoAPICredentialsAvailable = errors.New("API credentials must be supplied")
 )
 
@@ -160,7 +151,6 @@ var (
 type Shell struct {
 	Renderer
 	Config                         chainlink.GeneralConfig // initialized in Before
-	LoggerConfig                   logger.Config           // initialized in Before
 	Logger                         logger.Logger           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After

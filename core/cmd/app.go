@@ -275,7 +275,6 @@ func NewApp(s *Shell) *cli.App {
 
 				l, closeFn := lggrCfg.New()
 
-				s.LoggerConfig = lggrCfg
 				s.Logger = l
 				s.CloseLogger = closeFn
 

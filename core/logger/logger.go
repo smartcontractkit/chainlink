@@ -14,7 +14,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
-	otelzap "github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -176,8 +175,6 @@ type Config struct {
 	diskPollConfig       zapDiskPollConfig
 	// This is for tests only
 	testDiskLogLvlChan chan zapcore.Level
-	// This is for streaming logs to OTel
-	OtelLogger otellog.Logger
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -197,16 +194,10 @@ func (c *Config) New() (Logger, func() error) {
 		closeLogger func() error
 		err         error
 	)
-
-	var cores []zapcore.Core
-	if c.OtelLogger != nil {
-		cores = append(cores, otelzap.NewCore(c.OtelLogger))
-	}
-
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, cores...)
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c, cores...)
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -256,23 +247,20 @@ func newZapConfigBase() zap.Config {
 	return cfg
 }
 
-func newDefaultLogger(zcfg zap.Config, unixTS bool, cores ...zapcore.Core) (Logger, func() error, error) {
-	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
+func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cores = append(cores, defaultCore)
-
-	core := zapcore.NewTee(cores...)
 	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)
 	if err != nil {
-		defaultCloseFn()
+		coreCloseFn()
 		return nil, nil, err
 	}
 
 	return l, func() error {
-		defaultCloseFn()
+		coreCloseFn()
 		loggerCloseFn()
 		return nil
 	}, nil

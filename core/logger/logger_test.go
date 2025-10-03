@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/log/noop"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 )
 
 func TestConfig(t *testing.T) {
@@ -34,73 +32,45 @@ func TestStderrWriter(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLogStreamingEnabled(t *testing.T) {
+func TestWithOtel(t *testing.T) {
 	testCases := []struct {
-		name                string
-		logStreamingEnabled bool
-		expectedCoresCount  int
-		shouldHaveOtelCore  bool
+		name       string
+		enableOtel bool
 	}{
 		{
-			logStreamingEnabled: true,
-			expectedCoresCount:  2, // default core + otel core
-			shouldHaveOtelCore:  true,
+			name:       "otel integration enabled",
+			enableOtel: true,
 		},
 		{
-			logStreamingEnabled: false,
-			expectedCoresCount:  1, // only default core
-			shouldHaveOtelCore:  false,
+			name:       "otel integration disabled",
+			enableOtel: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create a no-op OTel logger for testing
-			noopLogger := noop.NewLoggerProvider().Logger("test")
+			// Use TestLogger to create a pure zap logger that supports WithOtel
+			logger := TestLogger(t, zapcore.InfoLevel)
+			require.NotNil(t, logger)
 
-			config := Config{
-				LogLevel:    zapcore.InfoLevel,
-				OtelLogger:  noopLogger,
-				JsonConsole: true,
-				UnixTS:      true,
+			if tc.enableOtel {
+				// Create a no-op OTel logger for testing
+				noopLogger := noop.NewLoggerProvider().Logger("test")
+
+				// Enable OTel integration
+				otelLogger, err := logger.WithOtel(noopLogger)
+				require.NoError(t, err)
+				require.NotNil(t, otelLogger)
+
+				// Test that otel logger works
+				otelLogger.Info("test log message with otel")
+			} else {
+				// Test that regular logger works
+				logger.Info("test log message without otel")
 			}
 
-			logger, closeLogger := config.New()
-			require.NotNil(t, logger)
-			require.NotNil(t, closeLogger)
-			defer func() {
-				err := closeLogger()
-				require.NoError(t, err)
-			}()
-
-			// Test that logger works
-			logger.Info("test log message")
-
-			// Test that the logger was created successfully with the right config
+			// Test that the logger was created successfully
 			assert.NotNil(t, logger)
 		})
 	}
-}
-
-func TestNewOtelCore(t *testing.T) {
-	// Create a no-op OTel logger for testing
-	noopLogger := noop.NewLoggerProvider().Logger("test")
-
-	// Test that NewOtelCore returns a valid core
-	core := otelzap.NewCore(noopLogger)
-	require.NotNil(t, core)
-
-	// Test that the core can handle log entries
-	entry := zapcore.Entry{
-		Level:   zapcore.InfoLevel,
-		Time:    zapcore.DefaultClock.Now(),
-		Message: "test message",
-	}
-
-	// This should not panic even if beholder is not initialized
-	err := core.Write(entry, nil)
-	require.NoError(t, err)
-
-	// Test core properties
-	assert.True(t, core.Enabled(zapcore.InfoLevel))
 }

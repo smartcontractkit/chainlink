@@ -1122,26 +1122,17 @@ func (s *Shell) initStartComponents(c *cli.Context) error {
 		return errors.Wrap(err, "failed initializing globals")
 	}
 
-	// Swap out the logger, replacing the old one.
-	err = s.CloseLogger()
-	if err != nil {
-		return err
-	}
-
+	// If log streaming is enabled add Otel logger
 	var otelLogger otellog.Logger
 	if s.Config.Telemetry().LogStreamingEnabled() {
 		otelLogger = beholder.GetLogger()
+		// WithOtel mutates the logger
+		lggr, err = lggr.WithOtel(otelLogger)
+		if err != nil {
+			return errors.Wrap(err, "failed to enable log streaming")
+		}
+		lggr.Info("Log streaming enabled")
 	}
-
-	// Configure a new logger with otel
-	lggrCfg := s.LoggerConfig
-	lggrCfg.OtelLogger = otelLogger
-
-	l, closeFn := lggrCfg.New()
-
-	s.Logger = l
-	s.CloseLogger = closeFn
-	s.LoggerConfig = lggrCfg
 
 	return nil
 }
