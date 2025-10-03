@@ -90,7 +90,7 @@ func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type unpagniatedCapabilityRegistry interface {
+type unpagniatedCapabilityRegistry interface { //nolint:staticcheck // U1000
 	GetCapabilitiesSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryCapabilityInfo, error)
 	GetNodesSimple(opts *bind.CallOpts) ([]capabilities_registry.INodeInfoProviderNodeInfo, error)
 	GetNodeOperatorsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryNodeOperatorInfo, error)
@@ -235,7 +235,7 @@ func (v *CapabilityRegistryView) NodesToNodesParams() ([]capabilities_registry.C
 
 		nodesParams = append(nodesParams, capabilities_registry.CapabilitiesRegistryNodeParams{
 			Signer:              signer,
-			P2pId:               node.P2pId,
+			P2pId:               node.P2pID,
 			EncryptionPublicKey: encryptionPubKey,
 			CsaKey:              csaKey,
 			NodeOperatorId:      node.NodeOperatorID,
@@ -304,7 +304,7 @@ type CapabilityView struct {
 
 // NewCapabilityView creates a CapabilityView from a CapabilitiesRegistryCapabilityInfo.
 func NewCapabilityView(capInfo capabilities_registry.CapabilitiesRegistryCapabilityInfo) CapabilityView {
-	//TODO metadata decoding from proto to json
+	// TODO metadata decoding from proto to json
 	return CapabilityView{
 		ID: capInfo.CapabilityId,
 		//Metadata:              capInfo.Metadata,
@@ -350,7 +350,7 @@ func NewDonView(d capabilities_registry.CapabilitiesRegistryDONInfo) DonView {
 			IsPublic:         d.IsPublic,
 			AcceptsWorkflows: d.AcceptsWorkflows,
 		},
-		NodeP2PIds:               p2pIds(d.NodeP2PIds),
+		NodeP2PIds:               p2pIDs(d.NodeP2PIds),
 		CapabilityConfigurations: NewCapabilityConfigurations(d.CapabilityConfigurations),
 	}
 }
@@ -410,7 +410,7 @@ type NodeUniversalMetadata struct {
 	ConfigCount         uint32        `json:"config_count"`
 	WorkflowDONID       uint32        `json:"workflow_don_id"`
 	Signer              string        `json:"signer"` // hex 32 bytes
-	P2pId               p2pkey.PeerID `json:"p2p_id"`
+	P2pID               p2pkey.PeerID `json:"p2p_id"`
 	CSAKey              string        `json:"csa_key"`               // hex 32 bytes
 	EncryptionPublicKey string        `json:"encryption_public_key"` // hex 32 bytes
 
@@ -423,7 +423,7 @@ func NewNodeView(n capabilities_registry.INodeInfoProviderNodeInfo) NodeView {
 			ConfigCount:         n.ConfigCount,
 			WorkflowDONID:       n.WorkflowDONId,
 			Signer:              hex.EncodeToString(n.Signer[:]),
-			P2pId:               n.P2pId,
+			P2pID:               n.P2pId,
 			EncryptionPublicKey: hex.EncodeToString(n.EncryptionPublicKey[:]),
 			CSAKey:              hex.EncodeToString(n.CsaKey[:]),
 		},
@@ -495,14 +495,14 @@ func nodeNop(n NodeView, nops []NopView) (NopView, error) {
 	for i, nop := range nops {
 		// nops are 1-indexed. there is no natural key to match on, so we use the index.
 		idx := i + 1
-		if n.NodeOperatorID == uint32(idx) {
+		if n.NodeOperatorID == uint32(idx) { //nolint:gosec // G115
 			return nop, nil
 		}
 	}
 	return NopView{}, fmt.Errorf("could not find nop for node %d", n.NodeOperatorID)
 }
 
-func p2pIds(rawIds [][32]byte) []p2pkey.PeerID {
+func p2pIDs(rawIds [][32]byte) []p2pkey.PeerID {
 	var out []p2pkey.PeerID
 	for _, id := range rawIds {
 		out = append(out, p2pkey.PeerID(id))
@@ -510,7 +510,7 @@ func p2pIds(rawIds [][32]byte) []p2pkey.PeerID {
 	return out
 }
 
-func hexIds(ids [][32]byte) []string {
+func hexIDs(ids [][32]byte) []string {
 	var out []string
 	for _, id := range ids {
 		out = append(out, hex.EncodeToString(id[:]))
@@ -518,11 +518,11 @@ func hexIds(ids [][32]byte) []string {
 	return out
 }
 
-func (v DonView) hasNode(node NodeView) bool {
-	donId := big.NewInt(int64(v.ID))
-	return slices.ContainsFunc(node.CapabilityDONIDs, func(elem *big.Int) bool { return elem.Cmp(donId) == 0 }) || node.WorkflowDONID == v.ID
+func (dv DonView) hasNode(node NodeView) bool {
+	donID := big.NewInt(int64(dv.ID))
+	return slices.ContainsFunc(node.CapabilityDONIDs, func(elem *big.Int) bool { return elem.Cmp(donID) == 0 }) || node.WorkflowDONID == dv.ID
 }
 
-func (v DonView) hasCapability(candidate CapabilityView) bool {
-	return slices.ContainsFunc(v.CapabilityConfigurations, func(elem CapabilitiesConfiguration) bool { return elem.ID == candidate.ID })
+func (dv DonView) hasCapability(candidate CapabilityView) bool {
+	return slices.ContainsFunc(dv.CapabilityConfigurations, func(elem CapabilitiesConfiguration) bool { return elem.ID == candidate.ID })
 }
