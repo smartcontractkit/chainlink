@@ -114,15 +114,6 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 
 /*
 Starts Beholder
-1. Starts Beholder if it is not running already
-2. Loads Beholder stack cache to get Kafka connection details
-3. Starts a Kafka listener for Beholder messages
-
-Returns:
-1. Context for the listener (with timeout)
-2. Channel to receive messages
-3. Channel to receive errors from the listener
-
 Recommendation: Use it in tests that need to listen for Beholder messages.
 */
 func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
