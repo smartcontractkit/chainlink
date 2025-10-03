@@ -68,9 +68,9 @@ func onEVMReadTrigger(wfCfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 	case "HeaderByNumber - invalid block number":
 		return runHeaderByNumberWithInvalidBlock(client, runtime, wfCfg)
 	default:
-		runtime.Logger().Warn("The provided name for function to execute did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
+		runtime.Logger().Warn("The provided name for function to test in regression EVM Read Workflow did not match any known functions", "functionToTest", wfCfg.FunctionToTest)
+		return nil, fmt.Errorf("the provided name for function to test in regression EVM Read Workflow did not match any known functions: %s", wfCfg.FunctionToTest)
 	}
-	return
 }
 
 func runBalanceAt(client evm.Client, runtime sdk.Runtime, wfCfg config.Config) (_ any, _ error) {

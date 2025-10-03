@@ -30,6 +30,13 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          fetch-depth: 0
+          ref: develop
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: true
 
       - name: Run Go Mod Local Updater
         run: |

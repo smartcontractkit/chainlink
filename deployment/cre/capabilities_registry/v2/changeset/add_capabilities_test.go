@@ -130,7 +130,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	err = expectedConfig.UnmarshalProto(configProtoBytes)
 	require.NoError(t, err, "should be able to unmarshal new capability config from proto bytes")
 
-	caps, err := capReg.GetCapabilities(nil)
+	caps, err := pkg.GetCapabilities(nil, capReg)
 	require.NoError(t, err)
 	var found bool
 	for _, c := range caps {
@@ -146,7 +146,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	require.True(t, found, "new capability should be registered")
 
 	// Nodes should now include new capability id
-	nodes, err := capReg.GetNodes(nil)
+	nodes, err := pkg.GetNodes(nil, capReg)
 	require.NoError(t, err)
 	for _, n := range nodes {
 		assert.Contains(t, n.CapabilityIds, newCapID, "node should have new capability id appended")

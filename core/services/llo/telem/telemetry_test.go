@@ -166,6 +166,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 			adapterError := new(eautils.AdapterError)
 			adapterError.Name = adapterLWBAErrorName
 			tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, nil, adapterError)
+			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			var i int
 			for tLog := range m.chTypedLogs {
@@ -189,6 +190,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 		val := llo.ToDecimal(decimal.NewFromFloat32(102.12))
 		servicetest.Run(t, tm)
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
+		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 		var i int
 		for tLog := range m.chTypedLogs {
@@ -244,6 +246,8 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 		val := &llo.Quote{Bid: decimal.NewFromFloat32(102.12), Benchmark: decimal.NewFromFloat32(103.32), Ask: decimal.NewFromFloat32(104.25)}
 		servicetest.Run(t, tm)
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
+		time.Sleep(10 * time.Millisecond)
+		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 		var i int
 		for tLog := range m.chTypedLogs {
@@ -307,6 +311,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 			StreamID:               ptr(uint32(135)),
 			DotID:                  "ds1",
 		}
+		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 		tLog := <-m.chTypedLogs
 		assert.Equal(t, synchronization.PipelineBridge, tLog.telemType)
@@ -356,6 +361,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 			SeqNr:                 42,
 			ConfigDigest:          []byte{0x01, 0x02, 0x03},
 		}
+		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 		tLog := <-m.chTypedLogs
 		assert.Equal(t, synchronization.LLOObservation, tLog.telemType)
@@ -392,6 +398,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 		require.NotNil(t, ch)
 
 		ch <- struct{}{}
+		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 		testutils.WaitForLogMessage(t, observedLogs, "Unknown telemetry type")
 	})
@@ -424,8 +431,12 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		ch := tm.GetOutcomeTelemetryCh()
 		require.NotNil(t, ch)
 		t.Run("zero values", func(t *testing.T) {
-			orig := &datastreamsllo.LLOOutcomeTelemetry{}
+			opts := &mockOpts{}
+			cd := opts.ConfigDigest()
+			orig := &datastreamsllo.LLOOutcomeTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
 			ch <- orig
+			time.Sleep(5 * time.Millisecond)
+			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
@@ -436,11 +447,13 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 			assert.Zero(t, decoded.ChannelDefinitions)
 			assert.Zero(t, decoded.ValidAfterNanoseconds)
 			assert.Zero(t, decoded.StreamAggregates)
-			assert.Zero(t, decoded.SeqNr)
-			assert.Zero(t, decoded.ConfigDigest)
+			assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
+			assert.Equal(t, cd[:], decoded.ConfigDigest)
 			assert.Zero(t, decoded.DonId)
 		})
 		t.Run("with values", func(t *testing.T) {
+			opts := &mockOpts{}
+			cd := opts.ConfigDigest()
 			orig := &datastreamsllo.LLOOutcomeTelemetry{
 				LifeCycleStage:                  "foo",
 				ObservationTimestampNanoseconds: 2,
@@ -469,11 +482,13 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 						},
 					},
 				},
-				SeqNr:        8,
-				ConfigDigest: []byte{9},
+				SeqNr:        opts.SeqNr(),
+				ConfigDigest: cd[:],
 				DonId:        10,
 			}
 			ch <- orig
+			time.Sleep(5 * time.Millisecond)
+			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
@@ -493,8 +508,8 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 			assert.Len(t, decoded.StreamAggregates[10].AggregatorValues, 1)
 			assert.Equal(t, llo.LLOStreamValue_Type(12), decoded.StreamAggregates[10].AggregatorValues[11].Type)
 			assert.Equal(t, []byte{13}, decoded.StreamAggregates[10].AggregatorValues[11].Value)
-			assert.Equal(t, uint64(8), decoded.SeqNr)
-			assert.Equal(t, []byte{9}, decoded.ConfigDigest)
+			assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
+			assert.Equal(t, cd[:], decoded.ConfigDigest)
 			assert.Equal(t, uint32(10), decoded.DonId)
 		})
 	})
@@ -527,8 +542,12 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		ch := tm.GetReportTelemetryCh()
 		require.NotNil(t, ch)
 		t.Run("zero values", func(t *testing.T) {
-			orig := &datastreamsllo.LLOReportTelemetry{}
+			opts := &mockOpts{}
+			cd := opts.ConfigDigest()
+			orig := &datastreamsllo.LLOReportTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
 			ch <- orig
+			time.Sleep(5 * time.Millisecond)
+			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOReport, tLog.telemType)
@@ -542,10 +561,12 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 			assert.Empty(t, decoded.StreamDefinitions)
 			assert.Empty(t, decoded.StreamValues)
 			assert.Empty(t, decoded.ChannelOpts)
-			assert.Zero(t, decoded.SeqNr)
-			assert.Empty(t, decoded.ConfigDigest)
+			assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
+			assert.Equal(t, cd[:], decoded.ConfigDigest)
 		})
 		t.Run("with values", func(t *testing.T) {
+			opts := &mockOpts{}
+			cd := opts.ConfigDigest()
 			orig := &datastreamsllo.LLOReportTelemetry{
 				ChannelId:                       1,
 				ValidAfterNanoseconds:           2,
@@ -565,10 +586,12 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 					},
 				},
 				ChannelOpts:  []byte{9},
-				SeqNr:        10,
-				ConfigDigest: []byte{11},
+				SeqNr:        opts.SeqNr(),
+				ConfigDigest: cd[:],
 			}
 			ch <- orig
+			time.Sleep(5 * time.Millisecond)
+			tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOReport, tLog.telemType)
@@ -586,8 +609,8 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 			assert.Equal(t, llo.LLOStreamValue_Type(7), decoded.StreamValues[0].Type)
 			assert.Equal(t, []byte{8}, decoded.StreamValues[0].Value)
 			assert.Equal(t, []byte{9}, decoded.ChannelOpts)
-			assert.Equal(t, uint64(10), decoded.SeqNr)
-			assert.Equal(t, []byte{11}, decoded.ConfigDigest)
+			assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
+			assert.Equal(t, cd[:], decoded.ConfigDigest)
 		})
 	})
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
@@ -28,7 +29,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type EventBinding struct {
@@ -37,9 +37,9 @@ type EventBinding struct {
 	eventName    string
 	hash         common.Hash
 	// eventTypes has all the types for GetLatestValue unHashed indexed topics params and for QueryKey data words or unHashed indexed topics value comparators.
-	eventTypes map[string]types.CodecEntry
+	eventTypes map[string]evmtypes.CodecEntry
 	// indexedTopicsTypes has type info about hashed indexed topics.
-	indexedTopicsTypes types.CodecEntry
+	indexedTopicsTypes evmtypes.CodecEntry
 	// eventModifiers only has a modifier for indexed topic filtering, but data words can also be added if needed.
 	eventModifiers map[string]commoncodec.Modifier
 
@@ -65,7 +65,7 @@ func NewEventBinding(
 	contract, event string,
 	poller logpoller.LogPoller,
 	hash common.Hash,
-	indexedTopicsTypes types.CodecEntry,
+	indexedTopicsTypes evmtypes.CodecEntry,
 	confirmations map[primitives.ConfidenceLevel]evmtypes.Confirmations,
 ) *EventBinding {
 	return &EventBinding{
@@ -110,7 +110,7 @@ func (b *EventBinding) SetFilter(filter logpoller.Filter) {
 	b.registrar.SetFilter(filter)
 }
 
-func (b *EventBinding) SetCodecTypesAndModifiers(types map[string]types.CodecEntry, modifiers map[string]commoncodec.Modifier) {
+func (b *EventBinding) SetCodecTypesAndModifiers(types map[string]evmtypes.CodecEntry, modifiers map[string]commoncodec.Modifier) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

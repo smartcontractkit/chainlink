@@ -54,7 +54,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 	// setup the initial contract state
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
 	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
 	// that the syncer will query the contract multiple times to get the full list of workflows
@@ -180,7 +180,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 
 	// setup the initial contract state
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily1)
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily1, donFamily2}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily1, donFamily2})
 
 	servicetest.Run(t, worker)
 
@@ -278,7 +278,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 
 	// setup the initial contract state
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 	servicetest.Run(t, worker)
 
@@ -376,7 +376,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 
 	// setup the initial contract state
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 	servicetest.Run(t, worker)
 
@@ -409,7 +409,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 
 		// setup the initial contract state
 		updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
-		updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+		updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 		// Use a high number of workflows
 		// Tested up to 7_000
@@ -481,7 +481,7 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 
 	// setup the initial contract state
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 	var workflowID [32]byte
 	_, err = rand.Read((workflowID)[:])
@@ -568,7 +568,7 @@ func updateAuthorizedAddressV2(
 	require.True(t, isAllowed)
 
 	requestTypeLink := uint8(0)
-	typeAndVersion := "WorkflowRegistry 2.0.0-dev"
+	typeAndVersion := "WorkflowRegistry 2.0.0"
 	chainID, err := th.Backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
 	linkContract := wfRegC.Address()
@@ -629,12 +629,12 @@ func updateAllowedDONsV2(
 	th *testutils.EVMBackendTH,
 	wfRegC *workflow_registry_wrapper_v2.WorkflowRegistry,
 	donFamilies []string,
-	allowed bool,
 ) {
 	t.Helper()
 	for _, donFamily := range donFamilies {
-		workflowLimit := uint32(1000)
-		_, err := wfRegC.SetDONLimit(th.ContractsOwner, donFamily, workflowLimit, allowed)
+		workflowLimit := uint32(10000)
+		userLimit := uint32(1000)
+		_, err := wfRegC.SetDONLimit(th.ContractsOwner, donFamily, workflowLimit, userLimit)
 		require.NoError(t, err, "failed to update DONs")
 
 		th.Backend.Commit()
@@ -646,7 +646,7 @@ func updateAllowedDONsV2(
 			From: th.ContractsOwner.From,
 		}, donFamily)
 		require.NoError(t, err)
-		require.Equal(t, workflowLimit, maxWorkflows)
+		require.Equal(t, workflowLimit, maxWorkflows.MaxWorkflows, "max workflows mismatch")
 	}
 }
 

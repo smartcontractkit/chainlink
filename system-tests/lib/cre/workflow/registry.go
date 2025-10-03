@@ -191,10 +191,10 @@ func ConfigureWorkflowRegistry(
 				Env: input.CldEnv,
 			},
 			wf_reg_v2_op.SetDONLimitOpInput{
-				ChainSelector: input.ChainSelector,
-				DONFamily:     config.DefaultDONFamily,
-				Limit:         libc.MustSafeUint32(100),
-				Enabled:       true,
+				ChainSelector:    input.ChainSelector,
+				DONFamily:        config.DefaultDONFamily,
+				DONLimit:         libc.MustSafeUint32(1000),
+				UserDefaultLimit: libc.MustSafeUint32(100),
 			},
 		)
 		if err != nil || !donLimitReport.Output.Success {

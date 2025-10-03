@@ -6,19 +6,19 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/stretchr/testify/require"
+
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -291,6 +291,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			var linkAddress common.Address
 			remoteChainSelectors := make([]uint64, 0, len(chainIDs)-1)
 			addressesByChain := make(map[uint64]map[string]cldf.TypeAndVersion, len(chainIDs)-1)
+			ds := datastore.NewMemoryDataStore()
 			for _, selector := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
 				if selector != deployedEnvironment.HomeChainSel && newChainSelector == 0 {
 					newChainSelector = selector
@@ -300,9 +301,19 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					addrs, err := e.ExistingAddresses.AddressesForChain(selector)
 					require.NoError(t, err, "must get addresses for chain")
 					addressesByChain[selector] = addrs
+					for addr, tv := range addrs {
+						require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+							Address:       addr,
+							ChainSelector: selector,
+							Labels:        datastore.NewLabelSet(tv.Labels.String()),
+							Type:          datastore.ContractType(tv.Type),
+							Version:       &tv.Version,
+						}))
+					}
 				}
 			}
 			e.ExistingAddresses = cldf.NewMemoryAddressBookFromMap(addressesByChain)
+			e.DataStore = ds.Seal()
 			state, err = stateview.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 

@@ -26,7 +26,7 @@ type RegisterNopsDeps struct {
 type RegisterNopsInput struct {
 	Address       string
 	ChainSelector uint64
-	Nops          []capabilities_registry_v2.CapabilitiesRegistryNodeOperator
+	Nops          []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	MCMSConfig    *ocr3.MCMSConfig
 }
 

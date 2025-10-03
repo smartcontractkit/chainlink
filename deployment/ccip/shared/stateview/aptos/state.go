@@ -339,8 +339,8 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 			if err != nil {
 				return fmt.Errorf("failed to get fungible asset metadata for token %s: %w", tokenAddress, err)
 			}
-			contract := managed_token_pool.Bind(tokenPoolAddress, chain.Client)
-			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.ManagedTokenPool())
+			contract := regulated_token_pool.Bind(tokenPoolAddress, chain.Client)
+			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.RegulatedTokenPool())
 			if err != nil {
 				return fmt.Errorf("failed to generate token pool view for RegulatedTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
