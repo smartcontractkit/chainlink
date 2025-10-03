@@ -27,6 +27,9 @@ ARG CL_INSTALL_TESTING_PLUGINS=false
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 ARG VERSION_TAG
+# Flag to control whether this is a prod build (default: true)
+ARG CL_IS_PROD_BUILD=true
+
 # Build chainlink bin with cover flag https://go.dev/doc/build-cover#FAQ
 ARG GO_COVER_FLAG=false
 
@@ -56,6 +59,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     if [ "$GO_COVER_FLAG" = "true" ]; then \
           GOBIN=/gobins make install-chainlink-cover; \
+      elif [ "$CL_IS_PROD_BUILD" = "false" ]; then \
+          GOBIN=/gobins make install-chainlink-dev; \
       else \
           GOBIN=/gobins make install-chainlink; \
       fi

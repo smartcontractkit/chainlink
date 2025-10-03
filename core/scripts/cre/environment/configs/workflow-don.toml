@@ -60,6 +60,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       #image = "chainlink-tmp:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
@@ -94,6 +95,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
@@ -126,6 +128,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
@@ -158,6 +161,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
@@ -190,6 +194,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       #image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
