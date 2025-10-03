@@ -483,16 +483,22 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, c regist
 		}
 	case capabilities.CapabilityTypeAction:
 		newActionFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
-			client := executable.NewClient(
-				info,
-				myDON.DON,
-				w.dispatcher,
-				defaultTargetRequestTimeout,
-				nil, // V1 capabilities read transmission schedule from every request
-				"",  // empty method name for v1
-				w.lggr,
-			)
-			return client, nil
+			shimKey := shimKey(capability.ID, remoteDON.ID, "") // empty method name for V1
+			execCap, alreadyExists := w.cachedShims.executableClients[shimKey]
+			if !alreadyExists {
+				execCap = executable.NewClient(
+					info.ID,
+					"", // empty method name for v1
+					w.dispatcher,
+					w.lggr,
+				)
+				w.cachedShims.executableClients[shimKey] = execCap
+			}
+			// V1 capabilities read transmission schedule from every request
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil); errCfg != nil {
+				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
+			}
+			return execCap.(capabilityService), nil
 		}
 
 		err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newActionFn)
@@ -503,16 +509,22 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, c regist
 		// nothing to do; we don't support remote consensus capabilities for now
 	case capabilities.CapabilityTypeTarget:
 		newTargetFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
-			client := executable.NewClient(
-				info,
-				myDON.DON,
-				w.dispatcher,
-				defaultTargetRequestTimeout,
-				nil, // V1 capabilities read transmission schedule from every request
-				"",  // empty method name for v1
-				w.lggr,
-			)
-			return client, nil
+			shimKey := shimKey(capability.ID, remoteDON.ID, "") // empty method name for V1
+			execCap, alreadyExists := w.cachedShims.executableClients[shimKey]
+			if !alreadyExists {
+				execCap = executable.NewClient(
+					info.ID,
+					"", // empty method name for v1
+					w.dispatcher,
+					w.lggr,
+				)
+				w.cachedShims.executableClients[shimKey] = execCap
+			}
+			// V1 capabilities read transmission schedule from every request
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil); errCfg != nil {
+				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
+			}
+			return execCap.(capabilityService), nil
 		}
 
 		err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newTargetFn)
@@ -824,22 +836,19 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		} else { // executable
 			client, alreadyExists := w.cachedShims.executableClients[shimKey]
 			if !alreadyExists {
-				client = executable.NewClient(
-					info,
-					myDON.DON,
-					w.dispatcher,
-					config.RemoteExecutableConfig.RequestTimeout,
-					&transmission.TransmissionConfig{
-						Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
-						DeltaStage: config.RemoteExecutableConfig.DeltaStage,
-					},
-					method,
-					w.lggr,
-				)
+				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr)
 				cc.SetExecutableClient(method, client)
 			}
-
-			// TODO(CRE-941): implement setters for executable client config
+			// Update existing client config
+			transmissionConfig := &transmission.TransmissionConfig{
+				Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
+				DeltaStage: config.RemoteExecutableConfig.DeltaStage,
+			}
+			err := client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig)
+			if err != nil {
+				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
+				continue
+			}
 
 			if !alreadyExists {
 				if err2 := w.startNewShim(ctx, client.(remotetypes.ReceiverService), capID, remoteDON.ID, method); err2 != nil {
