@@ -22,6 +22,8 @@ import (
 	tonlptypes "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/types"
 )
 
+const tonTickerInterval = 2500 * time.Millisecond
+
 // TODO(@jadepark-dev): clean up after verifying EVM2TON
 func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, tonChain cldf_ton.Chain, offRampContract address.Address, expectedSeqNumRange ccipocr3common.SeqNumRange) (bool, error) {
 	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
@@ -31,7 +33,7 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 	lggr.Infof("waiting for commit report from srcSelector=%d, expectedSeqNumRange=[%d, %d], timeout=%v",
 		srcSelector, expectedSeqNumRange.Start(), expectedSeqNumRange.End(), tests.WaitTimeout(t))
 
-	tonBlockTicker := time.NewTicker(2500 * time.Millisecond)
+	tonBlockTicker := time.NewTicker(tonTickerInterval)
 	// Start from a bit earlier to catch any events we might have missed
 	// Use a lookback of about 50 blocks to ensure we don't miss commit events
 	var startBlock uint32 = 0
@@ -87,10 +89,6 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, t
 	}
 }
 
-type TxLoader interface {
-	FetchTxsForAddress(ctx context.Context, blockRange *tonlptypes.BlockRange, addr *address.Address) ([]tonlptypes.TxWithBlock, error)
-}
-
 func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, tonChain cldf_ton.Chain, contractAddress *address.Address, startBlock uint32, ticker *time.Ticker) (<-chan T, <-chan error) {
 	ch := make(chan T)
 	errorCh := make(chan error)
@@ -127,7 +125,7 @@ func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, ton
 				}
 
 				// 2. Fetch transactions
-				txs, err := loader.(TxLoader).FetchTxsForAddress(ctx, blockRange, contractAddress)
+				txs, err := loader.FetchTxsForAddress(ctx, blockRange, contractAddress)
 				if err != nil {
 					errorCh <- fmt.Errorf("failed to load transactions: %w", err)
 					return
@@ -508,7 +506,7 @@ func ConfirmExecWithSeqNrsTON(
 	lggr.Infof("waiting for execution state changes from srcSelector=%d, expectedSeqNrs=%v, timeout=%v",
 		srcSelector, expectedSeqNrs, tests.WaitTimeout(t))
 
-	tonBlockTicker := time.NewTicker(2500 * time.Millisecond)
+	tonBlockTicker := time.NewTicker(tonTickerInterval)
 
 	// Determine start block
 	var scanStartBlock uint32 = 0
