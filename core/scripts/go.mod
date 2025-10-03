@@ -26,6 +26,7 @@ require (
 require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/avast/retry-go/v4 v4.6.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.5.0
@@ -121,7 +122,6 @@ require (
 	github.com/aptos-labs/aptos-go-sdk v1.9.1-0.20250613185448-581cb03acb8f // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
-	github.com/avast/retry-go/v4 v4.6.1 // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.55.7 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.38.1 // indirect

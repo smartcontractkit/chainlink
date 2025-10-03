@@ -23,7 +23,7 @@ Inside `core/scripts/cre/environment` directory
  3. Stop and clear any existing environment: `go run . env stop -a`
  4. Run: `CTF_CONFIGS=<path-to-your-topology-config> go run . env start && ./bin/ctf obs up` to start env + observability
  5. Optionally run blockscout `./bin/ctf bs up`
- 6. Execute the tests in `system-tests/tests/regression/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
+ 6. Execute the tests in `system-tests/tests/regression/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`
 */
 func Test_CRE_V2_Consensus_Regression(t *testing.T) {
 	// a template for Consensus negative tests names to avoid duplication

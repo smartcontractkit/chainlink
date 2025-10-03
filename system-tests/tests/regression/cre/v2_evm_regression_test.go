@@ -121,7 +121,7 @@ var evmNegativeTestsFilterLogsWithInvalidAddress = []evmNegativeTest{
 }
 
 var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
-	// FilterLogs - invalid TromBlock/ToBlock values
+	// FilterLogs - invalid FromBlock/ToBlock values
 	// Distance between blocks should not be more than 100
 	{"negative number", "-1", filterLogsInvalidFromBlock, "block number -1 is not supported"},
 	{"zero", "0", filterLogsInvalidFromBlock, "block number 0 is not supported"},

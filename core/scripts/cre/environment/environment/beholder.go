@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/avast/retry-go/v4"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -251,20 +252,44 @@ func parseConfigsAndRegisterProtos(ctx context.Context, protoConfigsFlag []strin
 		return nil
 	}
 
+	return registerProtos(ctx, protoSchemaSets, schemaRegistryExternalURL)
+}
+
+// registerProtos handles proto registration with retry logic to avoid CI flakes.
+// It uses exponential backoff with a maximum of 3 attempts.
+func registerProtos(ctx context.Context, protoSchemaSets []chipingressset.ProtoSchemaSet, schemaRegistryExternalURL string) error {
 	for _, protoSchemaSet := range protoSchemaSets {
 		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.URI)
 		framework.L.Info().Msgf("Proto schema set config: %+v", protoSchemaSet)
 	}
 
-	reposErr := chipingressset.DefaultRegisterAndFetchProtos(
-		ctx,
-		nil, // GH client will be created dynamically, if needed
-		protoSchemaSets,
-		schemaRegistryExternalURL,
-	)
-	if reposErr != nil {
-		return errors.Wrap(reposErr, protoRegistrationErrMsg+"failed to fetch and register protos")
+	retryOpts := []retry.Option{
+		retry.Context(ctx),
+		retry.Attempts(3),
+		retry.Delay(2 * time.Second),
+		retry.MaxDelay(10 * time.Second),
+		retry.DelayType(retry.BackOffDelay),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			framework.L.Warn().Msgf("Proto registration attempt %d failed: %s, retrying...", n+1, err)
+		}),
 	}
+
+	err := retry.Do(
+		func() error {
+			return chipingressset.DefaultRegisterAndFetchProtos(
+				ctx,
+				nil, // GH client will be created dynamically, if needed
+				protoSchemaSets,
+				schemaRegistryExternalURL,
+			)
+		},
+		retryOpts...,
+	)
+	if err != nil {
+		return errors.Wrap(err, protoRegistrationErrMsg+" failed to fetch and register protos")
+	}
+
 	return nil
 }
 

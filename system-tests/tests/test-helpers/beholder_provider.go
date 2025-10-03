@@ -3,8 +3,10 @@ package helpers
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -12,28 +14,34 @@ import (
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/proto"
 
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 const (
 	// Channel buffer sizes
-	messageChannelBufferSize = 40
-	errorChannelBufferSize   = 1
-	channelFullRetryTimeout  = 100 * time.Millisecond
+	defaultMessageBufferSize = 200
+	defaultErrorBufferSize   = 100
 
-	// Kafka configuration
-	kafkaSessionTimeoutMs = 10000
-	kafkaReadTimeoutMs    = 0 // Non-blocking read
+	// Kafka timings
+	beholderStartTimeout           = 2 * time.Minute  // timeout for starting Beholder stack
+	maxConsumerConnectivityTimeout = 60 * time.Second // max timeout before Kafka consumer reconnection
+	kafkaSessionTimeoutMs          = 20000            // keep it high enough to let Beholder messages incoming
+	messageReadInterval            = 50 * time.Millisecond
 
-	// Timing configuration
-	messageReadInterval = 50 * time.Millisecond
-
-	// CloudEvents protobuf offset
+	// CloudEvents binary format
+	// protobufOffset represents the number of bytes to skip in CloudEvents binary format messages
+	// before the protobuf payload begins. This is a CloudEvents specification detail where the
+	// first 6 bytes contain CloudEvents metadata in binary content mode.
 	protobufOffset = 6
 
-	// Expected CloudEvents header
+	// CloudEvents header for message type routing
 	ceTypeHeader = "ce_type"
+
+	// Error messages
+	errBeholderOrConfigNil = "beholder or config is nil"
 )
 
 type Beholder struct {
@@ -41,97 +49,627 @@ type Beholder struct {
 	lggr zerolog.Logger
 }
 
+// All fields are optional; sensible defaults are applied when nil or empty.
+type ConsumerOptions struct {
+	GroupID                string // The consumer group to ensure independent message consumption. Defaults to "beholder-consumer".
+	Topic                  string // If empty, uses the first topic from config.
+	MessageBuffer          int
+	ErrorBuffer            int
+	CommitSync             bool // Enables synchronous commits after each message. Defaults to "false" (async commits).
+	IsolationReadCommitted bool // Ensures only committed messages are read. Defaults to "false".
+}
+
+// NewBeholder creates a Beholder instance, even if it's not already running.
 func NewBeholder(lggr zerolog.Logger, relativePathToRepoRoot, environmentDir string) (*Beholder, error) {
-	err := startBeholderStackIfIsNotRunning(relativePathToRepoRoot, environmentDir)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to ensure beholder stack is running")
+	if err := startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir); err != nil {
+		return nil, errors.Wrap(err, "Beholder failed to start")
 	}
 
 	chipConfig, err := loadBeholderStackCache(relativePathToRepoRoot)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load beholder stack cache")
 	}
+
 	return &Beholder{cfg: chipConfig, lggr: lggr}, nil
 }
 
+// startBeholderIfNotRunning starts the Beholder stack if it's not already running.
+func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir string) error {
+	if config.ChipIngressStateFileExists(relativePathToRepoRoot) {
+		framework.L.Info().Msg("No need to start Beholder - it is already running")
+		return nil
+	}
+
+	framework.L.Info().Dur("timeout", beholderStartTimeout).Msg("Beholder state file not found. Starting Beholder...")
+	ctx, cancel := context.WithTimeout(context.Background(), beholderStartTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "start")
+	cmd.Dir = environmentDir
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.Wrap(err, "timeout starting Beholder")
+		}
+		return errors.Wrap(err, "failed to start Beholder")
+	}
+
+	framework.L.Info().Msg("Beholder started successfully")
+	return nil
+}
+
+// loadBeholderStackCache loads and validates the Beholder configuration.
 func loadBeholderStackCache(relativePathToRepoRoot string) (*config.ChipIngressConfig, error) {
 	c := &config.ChipIngressConfig{}
-	if loadErr := c.Load(config.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)); loadErr != nil {
-		return nil, errors.Wrap(loadErr, "failed to load beholder stack cache")
+	if err := c.Load(config.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+		return nil, errors.Wrap(err, "load cache")
 	}
+
 	if c.ChipIngress.Output.RedPanda.KafkaExternalURL == "" {
-		return nil, errors.New("kafka external url is not set in the cache")
+		return nil, errors.New("kafka external url not set in cache")
 	}
 
 	if len(c.Kafka.Topics) == 0 {
-		return nil, errors.New("kafka topics are not set in the cache")
+		return nil, errors.New("kafka topics not set in cache")
 	}
 
 	return c, nil
 }
 
-func startBeholderStackIfIsNotRunning(relativePathToRepoRoot, environmentDir string) error {
-	if !config.ChipIngressStateFileExists(relativePathToRepoRoot) {
-		framework.L.Info().Str("state file", config.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)).Msg("Beholder state file was not found. Starting Beholder...")
-		cmd := exec.Command("go", "run", ".", "env", "beholder", "start")
-		cmd.Dir = environmentDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmdErr := cmd.Run()
-		if cmdErr != nil {
-			return errors.Wrap(cmdErr, "failed to start Beholder")
-		}
+// createValidationConsumer creates a temporary Kafka consumer for validation purposes.
+func (b *Beholder) createValidationConsumer(ctx context.Context, groupIDPrefix string) (*kafka.Consumer, error) {
+	if b == nil || b.cfg == nil {
+		return nil, errors.New(errBeholderOrConfigNil)
 	}
-	framework.L.Info().Msg("Beholder is running.")
+
+	clientID := fmt.Sprintf("%s-%d", groupIDPrefix, time.Now().UnixNano())
+	cfg := &kafka.ConfigMap{
+		"bootstrap.servers":  b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL,
+		"group.id":           clientID,
+		"client.id":          clientID,
+		"auto.offset.reset":  "latest",
+		"session.timeout.ms": kafkaSessionTimeoutMs,
+	}
+
+	consumer, err := b.createAndSubscribeConsumer(cfg, b.cfg.Kafka.Topics[0])
+	if err != nil {
+		return nil, err
+	}
+
+	return consumer, nil
+}
+
+// validateKafkaConnectivity explicitly validates Kafka broker connectivity.
+func (b *Beholder) validateConsumerConnectivity(ctx context.Context) error {
+	vctx, cancel := context.WithTimeout(ctx, maxConsumerConnectivityTimeout)
+	defer cancel()
+
+	consumer, err := b.createValidationConsumer(vctx, "validation")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := consumer.Close(); closeErr != nil {
+			b.lggr.Warn().Err(closeErr).Msg("Failed to close validation consumer")
+		}
+	}()
+
+	topic := b.cfg.Kafka.Topics[0]
+	if _, err := b.validateTopicMetadata(consumer, topic); err != nil {
+		return err
+	}
+
+	b.lggr.Info().
+		Str("broker", b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL).
+		Str("topic", topic).
+		Msg("Kafka connectivity validation successful")
 	return nil
 }
 
-func (b *Beholder) SubscribeToBeholderMessages(
-	ctx context.Context,
-	messageTypes map[string]func() proto.Message,
-) (<-chan proto.Message, <-chan error) {
-	kafkaErrChan := make(chan error, errorChannelBufferSize)
-	messageChan := make(chan proto.Message, messageChannelBufferSize)
-	readyChan := make(chan bool, 1)
+// validateBeholderHeartbeat validates that Beholder is alive and sending heartbeat messages.
+// Retries up to 3 times with a fixed 5-second delay between attempts.
+func (b *Beholder) validateBeholderHeartbeat(ctx context.Context) error {
+	const (
+		maxRetries = 3
+		retryDelay = 5 * time.Second
+	)
 
-	// Start listening for messages in the background
-	go func() {
-		// Recover from panics
-		defer func() {
-			if r := recover(); r != nil {
-				b.lggr.Error().Interface("panic", r).Msg("Panic in Kafka listener goroutine")
-				select {
-				case kafkaErrChan <- errors.Errorf("panic in listener: %v", r):
-				default:
-				}
-			}
-		}()
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		b.lggr.Info().
+			Int("attempt", attempt).
+			Int("max_retries", maxRetries).
+			Dur("max_timeout", maxConsumerConnectivityTimeout).
+			Int("session_timeout_ms", kafkaSessionTimeoutMs).
+			Msg("Validating Beholder heartbeat...")
 
-		kafkaURL := b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL
-		topic := b.cfg.Kafka.Topics[0]
-		listenForKafkaMessages(ctx, b.lggr, kafkaURL, topic, messageTypes, messageChan, kafkaErrChan, readyChan)
-	}()
-
-	// Wait for consumer to be ready before returning channels
-	// This ensures proper coordination between consumer readiness and workflow execution
-	select {
-	case <-readyChan:
-		b.lggr.Info().Msg("Kafka consumer is ready and subscribed - safe to start workflow execution")
-	case <-time.After(15 * time.Second): // Increased timeout for CI environments
-		select {
-		case kafkaErrChan <- errors.New("timeout waiting for consumer to be ready"):
-		default:
+		err := b.validateBeholderHeartbeatAttempt(ctx)
+		if err == nil {
+			// Success!
+			return nil
 		}
-		b.lggr.Error().Msg("Timeout waiting for Kafka consumer to be ready - check broker connectivity")
-	case <-ctx.Done():
-		b.lggr.Info().Msg("Context cancelled while waiting for consumer readiness")
+
+		lastErr = err
+		b.lggr.Warn().
+			Err(err).
+			Int("attempt", attempt).
+			Int("max_retries", maxRetries).
+			Msg("Beholder heartbeat validation attempt failed")
+
+		if attempt < maxRetries {
+			b.lggr.Warn().
+				Dur("retry_delay", retryDelay).
+				Int("next_attempt", attempt+1).
+				Msg("Retrying Beholder heartbeat validation...")
+
+			select {
+			case <-ctx.Done():
+				return errors.Wrap(ctx.Err(), "context cancelled during heartbeat validation retry")
+			case <-time.After(retryDelay):
+				// Continue to next attempt
+			}
+		}
 	}
 
-	return messageChan, kafkaErrChan
+	return errors.Wrapf(lastErr, "failed to detect Beholder heartbeat after %d attempts", maxRetries)
 }
 
-// Helper function to get map keys for logging
-func getMapKeys(m map[string]func() proto.Message) []string {
+// validateBeholderHeartbeatAttempt performs a single heartbeat validation attempt.
+func (b *Beholder) validateBeholderHeartbeatAttempt(ctx context.Context) error {
+	hctx, cancel := context.WithTimeout(ctx, maxConsumerConnectivityTimeout)
+	defer cancel()
+
+	consumer, err := b.createValidationConsumer(hctx, "heartbeat-validation")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := consumer.Close(); closeErr != nil {
+			b.lggr.Warn().Err(closeErr).Msg("Failed to close heartbeat validation consumer")
+		}
+	}()
+
+	b.lggr.Info().Msg("Created consumer for heartbeat validation")
+
+	// Use blocking ReadMessage with timeout instead of ticker pattern
+	for {
+		select {
+		case <-hctx.Done():
+			return errors.New("timeout waiting for Beholder heartbeat")
+		default:
+		}
+
+		msg, err := consumer.ReadMessage(messageReadInterval)
+		if err != nil {
+			// Benign timeout - no messages available yet
+			var kerr kafka.Error
+			if errors.As(err, &kerr) && kerr.Code() == kafka.ErrTimedOut {
+				continue
+			}
+			b.lggr.Error().Int("session_timeout_ms", kafkaSessionTimeoutMs).Err(err).Msg("Failed to read message during heartbeat validation (consider increasing the session timeout)")
+			return errors.Wrap(err, "failed to read message during heartbeat validation")
+		}
+
+		// Check if this is a BaseMessage
+		ceType, ok := getHeaderValue(ceTypeHeader, msg)
+		if !ok || ceType != "BaseMessage" {
+			continue
+		}
+
+		// Validate message length for CloudEvents binary format
+		if len(msg.Value) <= protobufOffset {
+			continue
+		}
+
+		// Unmarshal BaseMessage
+		baseMsg := &commonevents.BaseMessage{}
+		if err := proto.Unmarshal(msg.Value[protobufOffset:], baseMsg); err != nil {
+			b.lggr.Debug().Err(err).Msg("Failed to unmarshal BaseMessage during heartbeat validation")
+			continue
+		}
+
+		// Check if this is a heartbeat message
+		if !isHeartbeatMessage(baseMsg) {
+			b.lggr.Debug().
+				Str("msg", baseMsg.Msg).
+				Msg("Received BaseMessage but not a heartbeat; continuing to listen")
+			continue
+		}
+
+		// Found heartbeat!
+		b.lggr.Info().
+			Str("msg", baseMsg.Msg).
+			Interface("labels", baseMsg.Labels).
+			Msg("Beholder heartbeat detected successfully")
+		return nil
+	}
+}
+
+// isHeartbeatMessage checks if a BaseMessage is a Beholder heartbeat.
+// Heartbeat format: msg="heartbeat" and labels.system="Application"
+func isHeartbeatMessage(msg *commonevents.BaseMessage) bool {
+	if msg == nil {
+		return false
+	}
+
+	if msg.Msg != "heartbeat" {
+		return false
+	}
+
+	if msg.Labels == nil {
+		return false
+	}
+
+	systemLabel, exists := msg.Labels["system"]
+	if !exists {
+		return false
+	}
+
+	// Case-insensitive comparison for robustness
+	return strings.EqualFold(systemLabel, "Application")
+}
+
+/*
+SubscribeToBeholderMessages starts a Kafka consumer and returns message/error channels.
+
+1. Tests Kafka broker connectivity before starting the listener (FATAL - fails fast if not accessible)
+2. Validates Beholder heartbeat to ensure it's alive and healthy (FATAL - fails fast if not detected)
+3. Validates topic existence and accessibility during subscription
+4. Verifies topic metadata and partition availability
+5. Coordinates consumer readiness to prevent race conditions with producers
+
+Parameters:
+  - ctx: Context for lifecycle management
+  - messageTypes: Map of CloudEvents ce_type to protobuf factory functions
+
+Returns:
+  - Message channel (closed when consumer stops)
+  - Error channel (buffered, reports fatal errors)
+*/
+func (b *Beholder) SubscribeToBeholderMessages(ctx context.Context, messageTypes map[string]func() proto.Message,
+) (<-chan proto.Message, <-chan error) {
+	// If the Beholder is not initialized, return an error channel
+	if b == nil || b.cfg == nil {
+		errCh := make(chan error, 1)
+		errCh <- errors.New(errBeholderOrConfigNil)
+		close(errCh)
+		return nil, errCh
+	}
+
+	// Create options internally with unique group ID (to enable tests parallelization)
+	opts := &ConsumerOptions{
+		GroupID:                fmt.Sprintf("beholder-consumer-%d", time.Now().UnixNano()),
+		Topic:                  b.cfg.Kafka.Topics[0],
+		MessageBuffer:          defaultMessageBufferSize,
+		ErrorBuffer:            defaultErrorBufferSize,
+		CommitSync:             false,
+		IsolationReadCommitted: false,
+	}
+
+	msgCh := make(chan proto.Message, opts.MessageBuffer)
+	errCh := make(chan error, opts.ErrorBuffer)
+	readyCh := make(chan struct{}, 1)
+
+	// Pre-flight validation: Kafka connectivity (fatal - fail early if Kafka is not accessible)
+	b.lggr.Debug().Msg("Performing automatic Kafka connectivity validation...")
+	if err := b.validateConsumerConnectivity(ctx); err != nil {
+		b.lggr.Error().Err(err).Msg("Kafka connectivity validation failed")
+		errCh <- errors.Wrap(err, "kafka connectivity validation failed")
+		close(errCh)
+		close(msgCh)
+		return msgCh, errCh
+	}
+
+	// Pre-flight validation: Beholder heartbeat (fatal - fail early if Beholder is not healthy)
+	b.lggr.Debug().Msg("Performing Beholder heartbeat validation...")
+	if err := b.validateBeholderHeartbeat(ctx); err != nil {
+		b.lggr.Error().Err(err).Msg("Beholder heartbeat validation failed")
+		errCh <- errors.Wrap(err, "beholder heartbeat validation failed")
+		close(errCh)
+		close(msgCh)
+		return msgCh, errCh
+	}
+
+	// Start consumer in background  and wait for consumer readiness to coordinate with producers/workflows
+	go b.consume(ctx, messageTypes, opts, msgCh, errCh, readyCh)
+	select {
+	case <-readyCh:
+		b.lggr.Info().Msg("Kafka consumer ready and subscribed - safe to start workflow execution")
+	case <-time.After(maxConsumerConnectivityTimeout): // Increased timeout for CI environments
+		select {
+		case errCh <- errors.New("timeout waiting for Kafka consumer readiness"):
+		default:
+		}
+		b.lggr.Error().Msg("Timeout waiting for Kafka consumer readiness - check broker connectivity")
+	case <-ctx.Done():
+		b.lggr.Info().Msg("Context cancelled while waiting for Kafka consumer readiness")
+	}
+
+	return msgCh, errCh
+}
+
+// consume runs the Kafka consumer loop with offset management and automatic reconnection.
+func (b *Beholder) consume(
+	ctx context.Context,
+	messageTypes map[string]func() proto.Message,
+	opts *ConsumerOptions,
+	out chan proto.Message,
+	errCh chan<- error,
+	readyCh chan<- struct{},
+) {
+	defer close(out)
+
+	// Exponential backoff state
+	backoff := 2 * time.Second
+	maxBackoffTimeout := 30 * time.Second
+	backoffFactor := 2.0
+	attempt := 0
+
+	// Main reconnection loop
+	for {
+		select {
+		case <-ctx.Done():
+			b.lggr.Info().Msg("Context cancelled; exiting Kafka consumer loop")
+			return
+		default:
+			// Continue to connection attempt
+		}
+
+		err := b.consumeWithReconnect(ctx, messageTypes, opts, out, errCh, readyCh)
+		if err == nil {
+			// Clean exit (context cancelled)
+			return
+		}
+
+		// Calculate backoff with jitter
+		attempt++
+		jitter := time.Duration(rand.Float64() * float64(backoff) * 0.1) // 10% jitter
+		sleepDuration := backoff + jitter
+		if sleepDuration > maxBackoffTimeout {
+			sleepDuration = maxBackoffTimeout
+		}
+
+		b.lggr.Warn().
+			Dur("backoff", sleepDuration).
+			Int("attempt", attempt).
+			Err(err).
+			Msg("Reconnecting Kafka consumer with exponential backoff...")
+
+		select {
+		case <-ctx.Done():
+			b.lggr.Info().Msg("Context cancelled while attempting to reconnect Kafka consumer")
+			return
+		case <-time.After(sleepDuration):
+			b.lggr.Info().Int("attempt", attempt).Msg("Attempting to reconnect Kafka consumer...")
+			// Increase backoff for next iteration
+			backoff = time.Duration(float64(backoff) * backoffFactor)
+			if backoff > maxBackoffTimeout {
+				backoff = maxBackoffTimeout
+			}
+		}
+	}
+}
+
+// consumeWithReconnect runs a single consumer session with UserLogs timeout tracking.
+func (b *Beholder) consumeWithReconnect(
+	ctx context.Context,
+	messageTypes map[string]func() proto.Message,
+	opts *ConsumerOptions,
+	out chan proto.Message,
+	errCh chan<- error,
+	readyCh chan<- struct{},
+) error {
+	isolationLevel := "read_uncommitted"
+	if opts.IsolationReadCommitted {
+		isolationLevel = "read_committed"
+	}
+
+	clientID := opts.GroupID + "-consumer"
+	cfg := &kafka.ConfigMap{
+		"bootstrap.servers":        b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL,
+		"group.id":                 opts.GroupID,
+		"client.id":                clientID,
+		"auto.offset.reset":        "latest", // Only process new messages by default
+		"session.timeout.ms":       kafkaSessionTimeoutMs,
+		"enable.auto.commit":       false, // Manual commit for safety
+		"enable.auto.offset.store": false, // Explicit commit control
+		"isolation.level":          isolationLevel,
+	}
+
+	consumer, err := b.createAndSubscribeConsumer(cfg, opts.Topic)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := consumer.Close(); closeErr != nil {
+			b.lggr.Warn().Err(closeErr).Msg("Failed to close Kafka consumer")
+		}
+	}()
+	b.lggr.Info().Str("client_id", clientID).Msg("Kafka consumer created successfully")
+
+	// Verify and log subscription details
+	if err := b.logSubscriptionInfo(consumer, opts, errCh); err != nil {
+		return err
+	}
+
+	// Verify topic accessibility and log consumer ready
+	if err := b.validateConsumerReadiness(consumer, opts, errCh); err != nil {
+		return err
+	}
+
+	// This code signals (in a non-blocking way) that the Kafka consumer is ready to receive messages.
+	// It attempts to send an empty struct to the readyCh channel, but if the channel is full, it does nothing.
+	select {
+	case readyCh <- struct{}{}:
+	default:
+		b.lggr.Warn().Msg("Kafka consumer readiness already signaled")
+	}
+
+	interestedTypes := getMessageTypeKeys(messageTypes)
+	b.lggr.Debug().Strs("interested_types", interestedTypes).Msg("Starting message listening loop")
+
+	// Use a reusable timer to prevent timer leaks
+	timeoutTimer := time.NewTimer(maxConsumerConnectivityTimeout)
+	defer timeoutTimer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			b.lggr.Info().Msg("Context cancelled; exiting consumer loop")
+			return nil
+
+		case <-timeoutTimer.C:
+			// No UserLogs received within the timeout period
+			b.lggr.Warn().
+				Dur("timeout", maxConsumerConnectivityTimeout).
+				Msg("No UserLogs received within timeout period, triggering Kafka consumer reconnection")
+			return errors.New("no UserLogs received within timeout period")
+
+		default:
+			// Use blocking ReadMessage with short timeout
+			msg, err := consumer.ReadMessage(messageReadInterval)
+			if err != nil {
+				// Benign timeout - no messages available
+				var kerr kafka.Error
+				if errors.As(err, &kerr) && kerr.Code() == kafka.ErrTimedOut {
+					continue
+				}
+				logError(b.lggr, errCh, errors.Wrap(err, "failed to read message"))
+				return err
+			}
+
+			b.lggr.Debug().
+				Str("key", string(msg.Key)).
+				Int("value_length", len(msg.Value)).
+				Int32("partition", msg.TopicPartition.Partition).
+				Int64("offset", int64(msg.TopicPartition.Offset)).
+				Time("timestamp", msg.Timestamp).
+				Msg("Received Kafka message")
+
+			// Extract and validate ce_type header
+			ceType, ok := getHeaderValue(ceTypeHeader, msg)
+			if !ok {
+				b.lggr.Debug().
+					Int64("offset", int64(msg.TopicPartition.Offset)).
+					Msg("Skipping message without ce_type header")
+				continue
+			}
+			b.lggr.Debug().
+				Str("ce_type", ceType).
+				Int64("offset", int64(msg.TopicPartition.Offset)).
+				Int32("partition", msg.TopicPartition.Partition).
+				Msg("Message type determined")
+
+			// Check if we're interested in this message type
+			factory, interested := messageTypes[ceType]
+			if !interested {
+				b.lggr.Debug().
+					Str("ce_type", ceType).
+					Int64("offset", int64(msg.TopicPartition.Offset)).
+					Strs("interested_types", interestedTypes).
+					Msg("Skipping other (uninterested) message type")
+				continue
+			}
+
+			// Validate message length for CloudEvents binary format
+			if len(msg.Value) <= protobufOffset {
+				b.lggr.Debug().
+					Int("len", len(msg.Value)).
+					Int("offset", protobufOffset).
+					Msg("Message too short for protobuf payload; skipping")
+				continue
+			}
+
+			// Create and unmarshal protobuf message
+			pm := factory()
+			if pm == nil {
+				b.lggr.Warn().Str("ce_type", ceType).Msg("Factory returned nil; skipping")
+				continue
+			}
+
+			if err := proto.Unmarshal(msg.Value[protobufOffset:], pm); err != nil {
+				b.lggr.Error().Err(err).Str("ce_type", ceType).Msg("Failed to unmarshal protobuf; skipping")
+				continue
+			}
+
+			// Reset timeout if we received a UserLogs message
+			// Check the actual proto message type rather than the string
+			if _, isUserLogs := pm.(*workflowevents.UserLogs); isUserLogs {
+				// Drain timer channel before resetting to prevent leaks
+				if !timeoutTimer.Stop() {
+					select {
+					case <-timeoutTimer.C:
+					default:
+					}
+				}
+				timeoutTimer.Reset(maxConsumerConnectivityTimeout)
+				b.lggr.Info().
+					Int64("offset", int64(msg.TopicPartition.Offset)).
+					Int32("partition", msg.TopicPartition.Partition).
+					Dur("timeout", maxConsumerConnectivityTimeout).
+					Msg("UserLogs received - reconnection timeout reset")
+			}
+
+			// Send to output channel (blocking to prevent message loss)
+			select {
+			case out <- pm:
+				// Commit offset after successful delivery
+				if err := b.commitMessage(consumer, msg, opts.CommitSync); err != nil {
+					logError(b.lggr, errCh, err)
+					return err
+				}
+				b.lggr.Debug().
+					Str("ce_type", ceType).
+					Int64("offset", int64(msg.TopicPartition.Offset)).
+					Int32("partition", msg.TopicPartition.Partition).
+					Msg("Successfully processed and committed message")
+
+			case <-ctx.Done():
+				b.lggr.Info().Msg("Context cancelled while delivering message")
+				return nil
+			}
+		}
+	}
+}
+
+// commitMessage commits a Kafka message offset using either sync or async commit.
+func (b *Beholder) commitMessage(consumer *kafka.Consumer, msg *kafka.Message, syncCommit bool) error {
+	if syncCommit {
+		// Synchronous commit: Store offset first, then commit synchronously
+		if _, err := consumer.StoreMessage(msg); err != nil {
+			return errors.Wrap(err, "store offset")
+		}
+		if _, err := consumer.Commit(); err != nil {
+			return errors.Wrap(err, "commit sync")
+		}
+	} else {
+		// Asynchronous commit: Use CommitMessage directly (stores + commits in one call)
+		if _, err := consumer.CommitMessage(msg); err != nil {
+			return errors.Wrap(err, "commit message async")
+		}
+	}
+
+	return nil
+}
+
+/*
+	=========================
+	Utility Functions
+	=========================
+*/
+// getHeaderValue extracts a header value from a Kafka message.
+func getHeaderValue(key string, msg *kafka.Message) (string, bool) {
+	for _, h := range msg.Headers {
+		if h.Key == key {
+			return string(h.Value), true
+		}
+	}
+	return "", false
+}
+
+// getMessageTypeKeys returns the keys from the message types map for logging.
+func getMessageTypeKeys(m map[string]func() proto.Message) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -139,178 +677,135 @@ func getMapKeys(m map[string]func() proto.Message) []string {
 	return keys
 }
 
-func listenForKafkaMessages(
-	ctx context.Context,
-	logger zerolog.Logger,
-	brokerAddress string,
-	topic string,
-	messageTypes map[string]func() proto.Message, // ce_type -> protobuf factory function
-	messageChan chan proto.Message, // channel to send deserialized messages
-	errChan chan<- error,
-	readyChan chan<- bool,
-) {
-	logger.Info().Str("broker", brokerAddress).Str("topic", topic).Msg("Starting Kafka listener with readiness signaling")
-
-	// Ensure channel is closed when function exits to prevent goroutine leaks
-	defer func() {
-		close(messageChan)
-		logger.Info().Msg("Listener message channel closed")
-	}()
-
-	kafkaConfig := &kafka.ConfigMap{
-		"bootstrap.servers":  brokerAddress,
-		"group.id":           fmt.Sprintf("workshop-listener-%d", time.Now().Unix()), // Unique group per listener
-		"auto.offset.reset":  "latest",
-		"session.timeout.ms": kafkaSessionTimeoutMs,
-		"enable.auto.commit": true,             // Commit messages after processing
-		"isolation.level":    "read_committed", // Only read committed messages
-	}
-
-	consumer, err := kafka.NewConsumer(kafkaConfig)
+// createAndSubscribeConsumer creates a Kafka consumer and subscribes to a topic.
+func (b *Beholder) createAndSubscribeConsumer(cfg *kafka.ConfigMap, topic string) (*kafka.Consumer, error) {
+	consumer, err := kafka.NewConsumer(cfg)
 	if err != nil {
-		errChan <- errors.Wrap(err, "failed to create consumer")
-		return
-	}
-	defer consumer.Close()
-	logger.Info().Msg("Kafka consumer created successfully")
-
-	err = consumer.Subscribe(topic, nil)
-	if err != nil {
-		errChan <- errors.Wrap(err, "failed to subscribe to topic "+topic)
-		return
+		b.lggr.Error().Err(err).Msg("failed to create Kafka consumer")
+		return nil, errors.Wrap(err, "failed to create Kafka consumer")
 	}
 
-	logger.Info().Str("topic", topic).Msg("Subscribed to topic (consuming from latest offset)")
-
-	// Record start time AFTER consumer is ready to avoid race condition
-	startTime := time.Now()
-	logger.Info().Time("start_time", startTime).Msg("Consumer ready - will process messages from this point forward")
-
-	// Signal that consumer is ready - this is the key improvement for coordination
-	select {
-	case readyChan <- true:
-		logger.Info().Msg("Signaled consumer readiness - workflow execution can now begin safely")
-	default:
-		logger.Debug().Msg("Ready channel already signaled or closed")
-	}
-
-	ticker := time.NewTicker(messageReadInterval)
-	defer ticker.Stop()
-
-	interestedTypes := getMapKeys(messageTypes)
-	logger.Debug().Strs("interested_types", interestedTypes).Msg("Starting message listening loop")
-
-	// Start consuming messages]
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Warn().Msg("Context cancelled, stopping Kafka listener")
-			return
-		case <-ticker.C:
-			msg, err := consumer.ReadMessage(kafkaReadTimeoutMs) // Non-blocking read
-			if err != nil {
-				// Check if it's just a timeout (no messages available)
-				var kafkaErr kafka.Error
-				if errors.As(err, &kafkaErr) && kafkaErr.Code() == kafka.ErrTimedOut {
-					// Don't log timeouts as they're expected
-					continue
-				}
-				logger.Error().Err(err).Msg("Consumer error")
-				errChan <- errors.Wrap(err, "failed to consume message")
-				return
-			}
-
-			// More lenient timestamp filtering - only skip very old messages (30+ seconds)
-			msgTime := msg.Timestamp
-			const oldMessageThreshold = 30 * time.Second
-			if !msgTime.IsZero() && msgTime.Before(startTime.Add(-oldMessageThreshold)) {
-				logger.Debug().
-					Time("msg_time", msgTime).
-					Time("start_time", startTime).
-					Dur("old_message_threshold", oldMessageThreshold).
-					Msg("Skipping old messages")
-				continue
-			}
-
-			logger.Debug().
-				Str("key", string(msg.Key)).
-				Int("value_length", len(msg.Value)).
-				Str("topic", *msg.TopicPartition.Topic).
-				Int32("partition", msg.TopicPartition.Partition).
-				Int64("offset", int64(msg.TopicPartition.Offset)).
-				Time("timestamp", msgTime).
-				Msg("Received new message")
-
-			ceType, err := getValueFromHeader(ceTypeHeader, msg)
-			if err != nil {
-				logger.Debug().Err(err).Msg("Failed to get ce_type, skipping")
-				continue
-			}
-
-			logger.Debug().Str("ce_type", ceType).Msg("Message type determined")
-
-			// Check if we're interested in this message type
-			factory, interested := messageTypes[ceType]
-			if !interested {
-				logger.Debug().
-					Str("ce_type", ceType).
-					Strs("interested_types", interestedTypes).
-					Msg("Skipping message type (not in interested types)")
-				continue
-			}
-
-			// CloudEvents with ce_datacontenttype: application/protobuf
-			// The protobuf data starts at offset 6 (after 6-byte binary header)
-			if len(msg.Value) <= protobufOffset {
-				logger.Debug().
-					Int("message_length", len(msg.Value)).
-					Int("required_offset", protobufOffset).
-					Msg("Message too short for binary-wrapped protobuf")
-				continue
-			}
-
-			protobufData := msg.Value[protobufOffset:]
-			message := factory() // Create new instance using factory function passed in messageTypes map
-
-			err = proto.Unmarshal(protobufData, message)
-			if err != nil {
-				logger.Error().
-					Err(err).
-					Int("protobuf_offset", protobufOffset).
-					Str("ce_type", ceType).
-					Msg("Failed to deserialize protobuf")
-				continue
-			}
-
-			// Successfully processed the message! Send it back through channel
-			logger.Debug().Str("ce_type", ceType).Msg("Successfully deserialized message, sending to channel")
-
-			select {
-			case messageChan <- message:
-				logger.Debug().Msg("Message sent to channel successfully")
-			case <-ctx.Done():
-				logger.Info().Msg("Context cancelled while sending message")
-				return
-			default:
-				// Channel is full - try with a brief timeout instead of dropping immediately
-				select {
-				case messageChan <- message:
-					logger.Warn().Msg("Message sent to channel after brief delay (channel was full)")
-				case <-time.After(channelFullRetryTimeout):
-					logger.Error().Msg("Message channel full for too long, dropping message")
-				case <-ctx.Done():
-					return
-				}
-			}
+	// Use SubscribeTopics for future multi-topic support
+	if err := consumer.SubscribeTopics([]string{topic}, nil); err != nil {
+		if closeErr := consumer.Close(); closeErr != nil {
+			b.lggr.Warn().Err(closeErr).Msg("Failed to close consumer after subscription failure")
 		}
+		b.lggr.Error().Err(err).Str("topic", topic).Msg("failed to subscribe to topic")
+		return nil, errors.Wrapf(err, "failed to subscribe to topic %q", topic)
 	}
+
+	return consumer, nil
 }
 
-func getValueFromHeader(expectedHeader string, msg *kafka.Message) (string, error) {
-	for _, header := range msg.Headers {
-		if header.Key == expectedHeader {
-			return string(header.Value), nil
-		}
+// logSubscriptionInfo fetches and logs subscription and partition assignment details.
+func (b *Beholder) logSubscriptionInfo(consumer *kafka.Consumer, opts *ConsumerOptions, errCh chan<- error) error {
+	// Verify subscription by fetching from consumer
+	subscription, subErr := consumer.Subscription()
+	if subErr != nil {
+		logError(b.lggr, errCh, errors.Wrap(subErr, "failed to get subscription info"))
+		return subErr
 	}
-	return "", fmt.Errorf("%s not found in headers", expectedHeader)
+
+	// Get partition assignment (may be empty initially, will be assigned after first poll)
+	assignment, assignErr := consumer.Assignment()
+	if assignErr != nil {
+		b.lggr.Debug().Err(assignErr).Msg("Could not get partition assignment yet (will be assigned after first poll)")
+	}
+
+	logEvent := b.lggr.Info().
+		Strs("subscribed_topics", subscription).
+		Str("group_id", opts.GroupID)
+
+	if len(assignment) > 0 {
+		partitions := getPartitionFromAssignment(assignment)
+		logEvent.Ints("assigned_partitions", partitions)
+	}
+
+	logEvent.Msg("Kafka consumer subscribed successfully")
+	return nil
+}
+
+// validateConsumerReadiness verifies topic accessibility and logs consumer ready status.
+func (b *Beholder) validateConsumerReadiness(consumer *kafka.Consumer, opts *ConsumerOptions, errCh chan<- error) error {
+	// Get topic metadata to verify accessibility
+	md, err := b.validateTopicMetadata(consumer, opts.Topic)
+	if err != nil {
+		logError(b.lggr, errCh, err)
+		return err
+	}
+
+	// Log consumer ready with partition count
+	b.logConsumerReady(consumer, opts, len(md.Topics[opts.Topic].Partitions))
+	return nil
+}
+
+// validateTopicMetadata fetches topic metadata and validates accessibility.
+func (b *Beholder) validateTopicMetadata(consumer *kafka.Consumer, topic string) (*kafka.Metadata, error) {
+	md, err := consumer.GetMetadata(&topic, false, int(maxConsumerConnectivityTimeout/time.Millisecond))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get metadata")
+	}
+
+	if md == nil {
+		return nil, errors.New("metadata is nil")
+	}
+
+	// Safely check if topic exists in metadata
+	topicMd, exists := md.Topics[topic]
+	if !exists {
+		return nil, errors.Errorf("topic %q not found in metadata", topic)
+	}
+
+	// Validate topic error code and partitions
+	if topicMd.Error.Code() != kafka.ErrNoError {
+		return nil, errors.Errorf("topic %q has error: %v", topic, topicMd.Error)
+	}
+
+	if len(topicMd.Partitions) == 0 {
+		return nil, errors.Errorf("topic %q has no partitions", topic)
+	}
+
+	return md, nil
+}
+
+// logConsumerReady logs consumer ready status with subscription and partition details.
+func (b *Beholder) logConsumerReady(consumer *kafka.Consumer, opts *ConsumerOptions, totalPartitions int) {
+	// Get updated partition assignment after metadata verification
+	subscription, _ := consumer.Subscription()
+	assignment, _ := consumer.Assignment()
+
+	readyLog := b.lggr.Info().
+		Strs("subscribed_topics", subscription).
+		Str("group_id", opts.GroupID).
+		Int("total_partitions", totalPartitions)
+
+	if len(assignment) > 0 {
+		partitions := getPartitionFromAssignment(assignment)
+		readyLog.Ints("assigned_partitions", partitions)
+	}
+
+	readyLog.Msg("Consumer ready")
+}
+
+// getPartitionFromAssignment extracts partition numbers from TopicPartition slice.
+func getPartitionFromAssignment(assignment []kafka.TopicPartition) []int {
+	partitions := make([]int, len(assignment))
+	for i, tp := range assignment {
+		partitions[i] = int(tp.Partition)
+	}
+	return partitions
+}
+
+// logError logs an error and attempts to send it to the error channel.
+// If the error channel is full (i.e., the send would block), it silently skips sending
+// to avoid blocking the caller. This is useful in goroutines where you want to report
+// errors but not risk deadlock if the channel is not being drained.
+func logError(l zerolog.Logger, errCh chan<- error, err error) {
+	l.Error().Err(err).Msg("Kafka consumer error")
+	select {
+	case errCh <- err:
+		// Error sent to channel
+	default:
+		// Channel full, skip sending to avoid blocking
+	}
 }
