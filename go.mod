@@ -34,6 +34,7 @@ require (
 	github.com/go-ldap/ldap/v3 v3.4.6
 	github.com/go-viper/mapstructure/v2 v2.4.0
 	github.com/go-webauthn/webauthn v0.9.4
+	github.com/goccy/go-json v0.10.5
 	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/google/pprof v0.0.0-20250317173921-a4b03ec1a45e
 	github.com/google/uuid v1.6.0
@@ -85,7 +86,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250908144012-8184001834b5
 	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251001150007-98903c79c124
-	github.com/smartcontractkit/chainlink-data-streams v0.1.2
+	github.com/smartcontractkit/chainlink-data-streams v0.1.5
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251002155240-31abd326e293
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20250827130336-5922343458be
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
@@ -247,7 +248,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.26.0 // indirect
 	github.com/go-webauthn/x v0.1.5 // indirect
-	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.12.0 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
