@@ -9,9 +9,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
@@ -69,46 +67,4 @@ func CreateJobDistributor(input jd.Input) (*jd.Output, error) {
 	}
 
 	return jdOutput, nil
-}
-
-func StartDONsAndJD(lggr zerolog.Logger, jdInput *jd.Input, registryChainBlockchainOutput *blockchain.Output, topology *cre.Topology, infraInput infra.Provider, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*jd.Output, []*cre.WrappedNodeOutput, error) {
-	if jdInput == nil {
-		return nil, nil, errors.New("jd input is nil")
-	}
-	if registryChainBlockchainOutput == nil {
-		return nil, nil, errors.New("registry chain blockchain output is nil")
-	}
-	if topology == nil {
-		return nil, nil, errors.New("topology is nil")
-	}
-	var jdOutput *jd.Output
-	jdAndDonsErrGroup := &errgroup.Group{}
-
-	jdAndDonsErrGroup.Go(func() error {
-		var startJDErr error
-		jdOutput, startJDErr = StartJD(lggr, *jdInput, infraInput)
-		if startJDErr != nil {
-			return pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
-		}
-
-		return nil
-	})
-
-	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
-
-	jdAndDonsErrGroup.Go(func() error {
-		var startDonsErr error
-		nodeSetOutput, startDonsErr = StartDONs(lggr, topology, infraInput, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
-		if startDonsErr != nil {
-			return pkgerrors.Wrap(startDonsErr, "failed to start DONs")
-		}
-
-		return nil
-	})
-
-	if jdAndDonErr := jdAndDonsErrGroup.Wait(); jdAndDonErr != nil {
-		return nil, nil, pkgerrors.Wrap(jdAndDonErr, "failed to start Job Distributor or DONs")
-	}
-
-	return jdOutput, nodeSetOutput, nil
 }

@@ -1,10 +1,13 @@
 package environment
 
 import (
+	"context"
+	"slices"
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -14,10 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func StartDONs(lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Provider, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) ([]*cre.WrappedNodeOutput, error) {
-	startTime := time.Now()
-	lggr.Info().Msgf("Starting %d DONs", len(capabilitiesAwareNodeSets))
-
+func StartDONs(ctx context.Context, lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Provider, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) ([]*cre.WrappedNodeOutput, error) {
 	if infraInput.Type == infra.CRIB {
 		lggr.Info().Msg("Saving node configs and secret overrides")
 		deployCribDonsInput := &cre.DeployCribDonsInput{
@@ -34,23 +34,58 @@ func StartDONs(lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Pro
 		}
 	}
 
-	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
+	errGroup, _ := errgroup.WithContext(ctx)
 
-	// TODO we could parallelize this as well in the future, but for single DON env this doesn't matter
-	for _, nodeSetInput := range capabilitiesAwareNodeSets {
-		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, registryChainBlockchainOutput)
-		if nodesetErr != nil {
-			return nil, pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
-		}
+	// to preserve order of node sets, we will collect results in a channel and then sort them by index
+	// because later on we rely on the order of node sets matching the order of DONs in topology
+	type orderedNodeOutput struct {
+		Index  int
+		Output *cre.WrappedNodeOutput
+	}
 
-		nodeSetOutput = append(nodeSetOutput, &cre.WrappedNodeOutput{
-			Output:       nodeset,
-			NodeSetName:  nodeSetInput.Name,
-			Capabilities: nodeSetInput.ComputedCapabilities,
+	resultCh := make(chan *orderedNodeOutput, len(capabilitiesAwareNodeSets))
+	for idx, nodeSetInput := range capabilitiesAwareNodeSets {
+		startTime := time.Now()
+		lggr.Info().Msgf("Starting DON named %s", nodeSetInput.Name)
+		errGroup.Go(func() error {
+			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, registryChainBlockchainOutput)
+			if nodesetErr != nil {
+				return pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
+			}
+
+			resultCh <- &orderedNodeOutput{
+				Output: &cre.WrappedNodeOutput{
+					Output:       nodeset,
+					NodeSetName:  nodeSetInput.Name,
+					Capabilities: nodeSetInput.ComputedCapabilities,
+				},
+				Index: idx,
+			}
+
+			lggr.Info().Msgf("DON %s started in %.2f seconds", nodeSetInput.Name, time.Since(startTime).Seconds())
+
+			return nil
 		})
 	}
 
-	lggr.Info().Msgf("DONs started in %.2f seconds", time.Since(startTime).Seconds())
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
+	}
+	close(resultCh)
+
+	orderedOutput := make([]*orderedNodeOutput, len(capabilitiesAwareNodeSets))
+	for res := range resultCh {
+		orderedOutput[res.Index] = res
+	}
+
+	slices.SortFunc(orderedOutput, func(a, b *orderedNodeOutput) int {
+		return a.Index - b.Index
+	})
+
+	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
+	for _, res := range orderedOutput {
+		nodeSetOutput = append(nodeSetOutput, res.Output)
+	}
 
 	return nodeSetOutput, nil
 }
