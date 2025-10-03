@@ -169,12 +169,11 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		out = mt.Run(
 			t,
 			mt.TestCase{
-				ValidationType: mt.ValidationTypeExec,
-				TestSetup:      setup,
-				Nonce:          nil, // TON nonce check is skipped
-				Receiver:       receiverBytes,
-				MsgData:        []byte{}, // TODO: empty data fails?
-				// MsgData:                []byte("hello CCIPReceiver"), // TODO: empty data fails?
+				ValidationType:         mt.ValidationTypeExec,
+				TestSetup:              setup,
+				Nonce:                  nil, // TON nonce check is skipped
+				Receiver:               receiverBytes,
+				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
@@ -185,7 +184,6 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 	_ = out
 }
 
-// TODO: do we want to have a changeset for receiver? probably for staging validation
 func deployReceiverContract(tonChain ton.Chain, offRampAddr *address.Address) (*address.Address, error) {
 	// parse compiled contract
 	codeCell, err := wrappers.ParseCompiledContract(bindings.GetBuildDir("examples.receiver.compiled.json"))
