@@ -41,7 +41,10 @@ func (e *evmService) CallContract(ctx context.Context, request evmtypes.CallCont
 		ConfidenceLevel:   request.ConfidenceLevel,
 		IsExternalRequest: request.IsExternal,
 	}
-	result, err := e.chain.Client().CallContractWithOpts(ctx, toEthMsg(request.Msg), request.BlockNumber, opts)
+	if request.Msg == nil {
+		return nil, errors.New("request.Msg can not be nil")
+	}
+	result, err := e.chain.Client().CallContractWithOpts(ctx, toEthMsg(*request.Msg), request.BlockNumber, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +80,10 @@ func (e *evmService) BalanceAt(ctx context.Context, request evmtypes.BalanceAtRe
 }
 
 func (e *evmService) EstimateGas(ctx context.Context, call *evmtypes.CallMsg) (uint64, error) {
-	return e.chain.Client().EstimateGas(ctx, toEthMsg(call))
+	if call == nil {
+		return 0, errors.New("call can not be nil")
+	}
+	return e.chain.Client().EstimateGas(ctx, toEthMsg(*call))
 }
 
 func (e *evmService) GetTransactionByHash(ctx context.Context, request evmtypes.GetTransactionByHashRequest) (*evmtypes.Transaction, error) {
@@ -421,7 +427,7 @@ func hashesToArrays(input []common.Hash) [][32]byte {
 
 var empty common.Address
 
-func toEthMsg(msg *evmtypes.CallMsg) ethereum.CallMsg {
+func toEthMsg(msg evmtypes.CallMsg) ethereum.CallMsg {
 	var to *common.Address
 
 	if empty.Cmp(msg.To) != 0 {

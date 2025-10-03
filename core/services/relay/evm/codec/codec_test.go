@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -66,7 +67,7 @@ func TestCodec(t *testing.T) {
 		actual, err := c.GetMaxEncodingSize(testutils.Context(t), anyN, sizeItemType)
 		assert.NoError(t, err)
 
-		expected, err := types.GetMaxSize(anyN, parseDefs(t)[sizeItemType])
+		expected, err := evmtypes.GetMaxSize(anyN, parseDefs(t)[sizeItemType])
 		require.NoError(t, err)
 		assert.Equal(t, expected, actual)
 	})
@@ -75,7 +76,7 @@ func TestCodec(t *testing.T) {
 		actual, err := c.GetMaxDecodingSize(testutils.Context(t), anyN, sizeItemType)
 		assert.NoError(t, err)
 
-		expected, err := types.GetMaxSize(anyN, parseDefs(t)[sizeItemType])
+		expected, err := evmtypes.GetMaxSize(anyN, parseDefs(t)[sizeItemType])
 		require.NoError(t, err)
 		assert.Equal(t, expected, actual)
 	})

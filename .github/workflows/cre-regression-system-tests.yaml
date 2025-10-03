@@ -155,7 +155,7 @@ jobs:
           E2E_JD_VERSION: "0.12.7"
           E2E_TEST_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}"
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}
-          CTF_CONFIGS: configs/workflow-gateway-don.toml
+          CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
@@ -185,7 +185,7 @@ jobs:
           TEST_TIMEOUT: 30m
         run: |
           echo "Starting test: '${TEST_NAME}'"
-          echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary"
+          echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
 
           gotestsum \
             --jsonfile=/tmp/gotest-regression.log \
@@ -195,7 +195,7 @@ jobs:
             -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=1 \
             github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
 
-          echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary"
+          echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
           exit_code=$?
           if [ $exit_code -eq 0 ]; then
             echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
