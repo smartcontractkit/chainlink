@@ -145,3 +145,81 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 		},
 	}
 }
+
+func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+	orm := registrysyncer.NewORM(db, lggr)
+
+	t.Run("duplicate_handling", func(t *testing.T) {
+		// Generate original state
+		originalState := generateState(t)
+
+		// First insertion - should succeed
+		err := orm.AddLocalRegistry(ctx, originalState)
+		require.NoError(t, err)
+
+		// Get the initial ID and hash
+		var initialID int
+		var initialHash string
+		err = db.Get(&initialID, `SELECT id FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+		require.NoError(t, err)
+		err = db.Get(&initialHash, `SELECT data_hash FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+		require.NoError(t, err)
+
+		// Second insertion with same data - should not insert (no new row)
+		err = orm.AddLocalRegistry(ctx, originalState)
+		require.NoError(t, err)
+
+		// Check that latest ID hasn't changed (no new insertion)
+		var currentID int
+		var currentHash string
+		err = db.Get(&currentID, `SELECT id FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+		require.NoError(t, err)
+		err = db.Get(&currentHash, `SELECT data_hash FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+		require.NoError(t, err)
+
+		assert.Equal(t, initialID, currentID, "ID should not change when inserting duplicate data")
+		assert.Equal(t, initialHash, currentHash, "Hash should not change when inserting duplicate data")
+
+		// Generate new state with different data
+		newState := generateState(t)
+
+		// Third insertion with new data - should succeed and increment ID
+		err = orm.AddLocalRegistry(ctx, newState)
+		require.NoError(t, err)
+
+		// Check that latest ID is incremented and hash is new
+		var newID int
+		var newHash string
+		err = db.Get(&newID, `SELECT id FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+		require.NoError(t, err)
+		err = db.Get(&newHash, `SELECT data_hash FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+		require.NoError(t, err)
+
+		assert.Greater(t, newID, currentID, "ID should increment when inserting new data")
+		assert.NotEqual(t, newHash, currentHash, "Hash should change when inserting new data")
+
+		// Fourth insertion with original data again - should succeed and increment ID
+		err = orm.AddLocalRegistry(ctx, originalState)
+		require.NoError(t, err)
+
+		// Check that latest ID is incremented again and hash is back to original
+		var finalID int
+		var finalHash string
+		err = db.Get(&finalID, `SELECT id FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+		require.NoError(t, err)
+		err = db.Get(&finalHash, `SELECT data_hash FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+		require.NoError(t, err)
+
+		assert.Greater(t, finalID, newID, "ID should increment when re-inserting original data")
+		assert.Equal(t, finalHash, initialHash, "Hash should match original data hash when re-inserting original data")
+
+		// Verify total count - should have 3 records (original, new, original again)
+		var totalCount int
+		err = db.Get(&totalCount, `SELECT count(*) FROM registry_syncer_states`)
+		require.NoError(t, err)
+		assert.Equal(t, 3, totalCount, "Should have exactly 3 records")
+	})
+}
