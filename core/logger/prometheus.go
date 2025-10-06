@@ -1,11 +1,8 @@
 package logger
 
 import (
-	"errors"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	otellog "go.opentelemetry.io/otel/log"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -224,9 +221,4 @@ func (s *prometheusLogger) Helper(add int) Logger {
 func (s *prometheusLogger) Recover(panicErr interface{}) {
 	s.panicCnt.Inc()
 	s.h.Recover(panicErr)
-}
-
-func (s *prometheusLogger) WithOtel(otelLogger otellog.Logger) (Logger, error) {
-	// OTel integration is not implemented for prometheus logger
-	return nil, errors.New("WithOtel not implemented for prometheus logger")
 }

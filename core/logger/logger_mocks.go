@@ -4,8 +4,6 @@ package logger
 
 import (
 	mock "github.com/stretchr/testify/mock"
-	log "go.opentelemetry.io/otel/log"
-
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -1367,64 +1365,6 @@ func (_c *MockLogger_With_Call) Return(_a0 Logger) *MockLogger_With_Call {
 }
 
 func (_c *MockLogger_With_Call) RunAndReturn(run func(...interface{}) Logger) *MockLogger_With_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// WithOtel provides a mock function with given fields: otelLogger
-func (_m *MockLogger) WithOtel(otelLogger log.Logger) (Logger, error) {
-	ret := _m.Called(otelLogger)
-
-	if len(ret) == 0 {
-		panic("no return value specified for WithOtel")
-	}
-
-	var r0 Logger
-	var r1 error
-	if rf, ok := ret.Get(0).(func(log.Logger) (Logger, error)); ok {
-		return rf(otelLogger)
-	}
-	if rf, ok := ret.Get(0).(func(log.Logger) Logger); ok {
-		r0 = rf(otelLogger)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(Logger)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(log.Logger) error); ok {
-		r1 = rf(otelLogger)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockLogger_WithOtel_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithOtel'
-type MockLogger_WithOtel_Call struct {
-	*mock.Call
-}
-
-// WithOtel is a helper method to define mock.On call
-//   - otelLogger log.Logger
-func (_e *MockLogger_Expecter) WithOtel(otelLogger interface{}) *MockLogger_WithOtel_Call {
-	return &MockLogger_WithOtel_Call{Call: _e.mock.On("WithOtel", otelLogger)}
-}
-
-func (_c *MockLogger_WithOtel_Call) Run(run func(otelLogger log.Logger)) *MockLogger_WithOtel_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(log.Logger))
-	})
-	return _c
-}
-
-func (_c *MockLogger_WithOtel_Call) Return(_a0 Logger, _a1 error) *MockLogger_WithOtel_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockLogger_WithOtel_Call) RunAndReturn(run func(log.Logger) (Logger, error)) *MockLogger_WithOtel_Call {
 	_c.Call.Return(run)
 	return _c
 }

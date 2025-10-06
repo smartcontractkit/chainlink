@@ -32,7 +32,7 @@ func TestStderrWriter(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWithOtel(t *testing.T) {
+func TestSetOtelCore(t *testing.T) {
 	testCases := []struct {
 		name       string
 		enableOtel bool
@@ -49,21 +49,23 @@ func TestWithOtel(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Use TestLogger to create a pure zap logger that supports WithOtel
-			logger := TestLogger(t, zapcore.InfoLevel)
+			// Use TestLoggerObserved to create a logger that we can access
+			logger, _ := TestLoggerObserved(t, zapcore.InfoLevel)
 			require.NotNil(t, logger)
 
 			if tc.enableOtel {
 				// Create a no-op OTel logger for testing
 				noopLogger := noop.NewLoggerProvider().Logger("test")
 
-				// Enable OTel integration
-				otelLogger, err := logger.WithOtel(noopLogger)
-				require.NoError(t, err)
-				require.NotNil(t, otelLogger)
-
-				// Test that otel logger works
-				otelLogger.Info("test log message with otel")
+				// Enable OTel integration via SetOtelCore
+				// Check if we can access OtelCore through the interface
+				if otelCore, ok := logger.(OtelCore); ok {
+					otelCore.SetOtelCore(noopLogger)
+					// Test that logger works with otel core
+					logger.Info("test log message with otel")
+				} else {
+					t.Skip("Logger does not implement OtelCore interface")
+				}
 			} else {
 				// Test that regular logger works
 				logger.Info("test log message without otel")

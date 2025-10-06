@@ -75,6 +75,12 @@ var _ common.Logger = (Logger)(nil)
 //
 // Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
 // Deprecated: use [common.Logger] & [common.SugaredLogger]
+
+// OtelCore provides access to OTel logger core management functionality
+type OtelCore interface {
+	SetOtelCore(otelLogger otellog.Logger)
+}
+
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger
@@ -132,9 +138,6 @@ type Logger interface {
 	// Recover reports recovered panics; this is useful because it avoids
 	// double-reporting to sentry
 	Recover(panicErr interface{})
-
-	// WithOtel enables OpenTelemetry integration for this logger
-	WithOtel(otelLogger otellog.Logger) (Logger, error)
 }
 
 // newZapConfigProd returns a new production zap.Config.
@@ -272,10 +275,16 @@ func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (*zapLogger, func(), e
 		return nil, nil, err
 	}
 	opts := []zap.Option{zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)}
+
+	// Initialize AtomicCore with the current core
+	atomicCore := &AtomicCore{}
+	atomicCore.Store(&core)
+
 	return &zapLogger{
 		level:         zcfg.Level,
 		SugaredLogger: zap.New(core, opts...).Sugar(),
 		opts:          opts,
+		core:          atomicCore,
 	}, closeFn, nil
 }
 
