@@ -100,7 +100,7 @@ func setupLoadTestWriterEnvironment(
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	forwarderAddress, _, forwarderErr := libcontracts.FindAddressesForChain(
-		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		universalSetupOutput.CldEnvironment.ExistingAddresses,
 		universalSetupOutput.BlockchainOutput[0].ChainSelector,
 		keystone_changeset.KeystoneForwarder.String(),
 	)
@@ -120,7 +120,7 @@ func setupLoadTestWriterEnvironment(
 	require.NoError(t, mergeErr, "failed to merge address book")
 
 	dfCacheAddress, _, dfCacheErr := libcontracts.FindAddressesForChain(
-		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		universalSetupOutput.CldEnvironment.ExistingAddresses,
 		universalSetupOutput.BlockchainOutput[0].ChainSelector,
 		changeset.DataFeedsCache.String(),
 	)
