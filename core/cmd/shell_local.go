@@ -1145,12 +1145,12 @@ func (s *Shell) initStartComponents(c *cli.Context) error {
 	if s.Config.Telemetry().LogStreamingEnabled() {
 		otelLogger = beholder.GetLogger()
 		// SetOtelCore enables OTel integration by atomically swapping the core
-		if otelCore, ok := lggr.(logger.OtelCore); ok {
-			otelCore.SetOtelCore(otelLogger)
-			lggr.Info("Log streaming enabled")
-		} else {
+		otelCore, ok := lggr.(logger.OtelCore)
+		if !ok {
 			return errors.New("logger type not supported for OTel integration")
 		}
+		otelCore.SetOtelCore(otelLogger)
+		lggr.Info("Log streaming enabled")
 	}
 
 	return nil
