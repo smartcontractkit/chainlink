@@ -512,7 +512,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 	fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
 	for i := 0; i < 30; i++ {
 		time.Sleep(1 * time.Second)
-		_, err := http.Get("http://localhost:3000")
+		_, err = http.Get("http://localhost:3000")
 		if err != nil {
 			continue
 		}
@@ -526,7 +526,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 	}
 
 	// change to observability directory
-	if err := os.Chdir(cfg.Observability.TargetPath); err != nil {
+	if err = os.Chdir(cfg.Observability.TargetPath); err != nil {
 		return errors.Wrap(err, "failed to change directory to ./observability")
 	}
 
