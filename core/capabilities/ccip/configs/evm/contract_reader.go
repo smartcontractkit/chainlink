@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -122,7 +123,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 							"sourceChainSelector": consts.EventAttributeSourceChain,
 							"sequenceNumber":      consts.EventAttributeSequenceNumber,
 						},
-						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+						GenericDataWordDetails: map[string]evm.DataWordDetail{
 							consts.EventAttributeState: {
 								Name: "state",
 							},
@@ -411,7 +412,7 @@ var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: consts.EventNameCCTPMessageSent,
 					ReadType:          evmrelaytypes.Event,
 					EventDefinitions: &evmrelaytypes.EventDefinitions{
-						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+						GenericDataWordDetails: map[string]evm.DataWordDetail{
 							consts.CCTPMessageSentValue: {
 								Name: consts.CCTPMessageSentValue,
 								// Filtering by the 3rd word (indexing starts from 0) so it's ptr(2)

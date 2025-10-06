@@ -16,12 +16,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
@@ -458,7 +459,7 @@ func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventIn
 }
 
 // initDWQuerying registers codec types for evm data words to be used for typing value comparator QueryKey filters.
-func (cr *chainReader) initDWQuerying(contractName, eventName string, abiDWsDetails map[string]read.DataWordDetail, cfgDWsDetails map[string]types.DataWordDetail) (map[string]read.DataWordDetail, map[string]evmtypes.CodecEntry, error) {
+func (cr *chainReader) initDWQuerying(contractName, eventName string, abiDWsDetails map[string]read.DataWordDetail, cfgDWsDetails map[string]evm.DataWordDetail) (map[string]read.DataWordDetail, map[string]evmtypes.CodecEntry, error) {
 	dWsDetail, err := cr.constructDWDetails(cfgDWsDetails, abiDWsDetails)
 	if err != nil {
 		return nil, nil, err
@@ -484,7 +485,7 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, abiDWsDeta
 }
 
 // constructDWDetails combines data word details from config and abi.
-func (cr *chainReader) constructDWDetails(cfgDWsDetails map[string]types.DataWordDetail, abiDWsDetails map[string]read.DataWordDetail) (map[string]read.DataWordDetail, error) {
+func (cr *chainReader) constructDWDetails(cfgDWsDetails map[string]evm.DataWordDetail, abiDWsDetails map[string]read.DataWordDetail) (map[string]read.DataWordDetail, error) {
 	dWsDetail := make(map[string]read.DataWordDetail)
 	for genericName, cfgDWDetail := range cfgDWsDetails {
 		for eventID, dWDetail := range abiDWsDetails {
