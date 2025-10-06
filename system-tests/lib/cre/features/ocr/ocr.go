@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -225,14 +226,14 @@ func createJobs(
 			continue
 		}
 
-		workerNodes, wErr := don.WorkerNodes()
+		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return errors.Wrap(wErr, "failed to find worker nodes")
 		}
 
-		bootstrapNode, err := creEnv.DonTopology.BootstrapNode()
-		if err != nil {
-			return errors.Wrap(err, "failed to get bootstrap node from DON metadata")
+		bootstrapNode, isBootstrap := creEnv.DonTopology.BootstrapNode()
+		if !isBootstrap {
+			return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 		}
 
 		_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrapNode)
@@ -367,7 +368,7 @@ func toDons(
 		// 	capabilities = append(capabilities, enabledCapabilities...)
 		// }
 
-		workerNodes, wErr := don.WorkerNodes()
+		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
@@ -482,7 +483,7 @@ func defaultOCR3Config(donTopology *cre.DonTopology) (*keystone_changeset.Oracle
 
 	for _, don := range donTopology.Dons.List() {
 		if don.HasFlag(cre.ConsensusCapability) || don.HasFlag(cre.ConsensusCapabilityV2) {
-			workerNodes, wErr := don.WorkerNodes()
+			workerNodes, wErr := don.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}

@@ -28,13 +28,11 @@ import (
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
-	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -1105,38 +1103,38 @@ func p2pStrings(b [][32]byte) []string {
 	return out
 }
 
-func configureTronForwarders(env *cldf.Environment, registryChainSelector uint64, topology *cre.Topology) error {
-	triggerOptions := cldf_tron.DefaultTriggerOptions()
-	triggerOptions.FeeLimit = 1_000_000_000
+// func configureTronForwarders(env *cldf.Environment, registryChainSelector uint64, topology *cre.Topology) error {
+// 	triggerOptions := cldf_tron.DefaultTriggerOptions()
+// 	triggerOptions.FeeLimit = 1_000_000_000
 
-	var wfNodeIDs []string
-	for _, donMetadata := range topology.DonsMetadata.List() {
-		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
-			continue
-		}
+// 	var wfNodeIDs []string
+// 	for _, donMetadata := range topology.DonsMetadata.List() {
+// 		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
+// 			continue
+// 		}
 
-		workerNodes, wErr := donMetadata.Workers()
-		if wErr != nil {
-			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)
-		}
+// 		workerNodes, wErr := donMetadata.Workers()
+// 		if wErr != nil {
+// 			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)
+// 		}
 
-		for _, node := range workerNodes {
-			wfNodeIDs = append(wfNodeIDs, node.Keys.P2PKey.PeerID.String())
-		}
-	}
+// 		for _, node := range workerNodes {
+// 			wfNodeIDs = append(wfNodeIDs, node.Keys.P2PKey.PeerID.String())
+// 		}
+// 	}
 
-	configChangeset := commonchangeset.Configure(tronchangeset.ConfigureForwarder{}, &tronchangeset.ConfigureForwarderRequest{
-		WFDonName:        "workflow-don",
-		WFNodeIDs:        wfNodeIDs,
-		RegistryChainSel: registryChainSelector,
-		Chains:           make(map[uint64]struct{}),
-		TriggerOptions:   triggerOptions,
-	})
+// 	configChangeset := commonchangeset.Configure(tronchangeset.ConfigureForwarder{}, &tronchangeset.ConfigureForwarderRequest{
+// 		WFDonName:        "workflow-don",
+// 		WFNodeIDs:        wfNodeIDs,
+// 		RegistryChainSel: registryChainSelector,
+// 		Chains:           make(map[uint64]struct{}),
+// 		TriggerOptions:   triggerOptions,
+// 	})
 
-	_, err := commonchangeset.Apply(nil, *env, configChangeset)
-	if err != nil {
-		return fmt.Errorf("failed to configure Tron forwarders using changesets: %w", err)
-	}
+// 	_, err := commonchangeset.Apply(nil, *env, configChangeset)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to configure Tron forwarders using changesets: %w", err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

@@ -17,6 +17,7 @@ import (
 	"github.com/rs/zerolog"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -150,7 +151,7 @@ func (o *EVM) PreDONStartup(
 			continue
 		}
 
-		workerNodes, wErr := donMetadata.WorkerNodes()
+		workerNodes, wErr := donMetadata.Workers()
 		if wErr != nil {
 			return errors.Wrap(wErr, "failed to find worker nodes")
 		}
@@ -169,7 +170,7 @@ func (o *EVM) PreDONStartup(
 					ChainSelector: chain.Selector,
 				}
 
-				forwarderAddress, fErr := findForwarderAddress(chain, cldfEnv.ExistingAddresses)
+				forwarderAddress, fErr := findForwarderAddress(chain, cldfEnv.ExistingAddresses) //nolint:staticcheck // won't migrate now
 				if fErr != nil {
 					return errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
 				}
@@ -415,7 +416,7 @@ func configureTronForwarders(env *cldf.Environment, registryChainSelector uint64
 			continue
 		}
 
-		workerNodes, wErr := don.WorkerNodes()
+		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)
 		}
@@ -558,7 +559,7 @@ func toDons(
 		// 	capabilities = append(capabilities, enabledCapabilities...)
 		// }
 
-		workerNodes, wErr := don.WorkerNodes()
+		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
