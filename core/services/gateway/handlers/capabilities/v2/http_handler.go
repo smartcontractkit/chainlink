@@ -57,7 +57,7 @@ type gatewayHandler struct {
 
 type ResponseCache interface {
 	Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse)
-	CachedFetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse) gateway_common.OutboundHTTPResponse
+	CachedFetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse
 	DeleteExpired(ctx context.Context) int
 }
 
@@ -311,12 +311,14 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		var outboundResp gateway_common.OutboundHTTPResponse
 		callback := h.createHTTPRequestCallback(newCtx, requestID, httpReq, req)
-		if req.CacheSettings.ReadFromCache {
+		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.Action.IncrementCacheReadCount(ctx, h.lggr)
-			outboundResp = h.responseCache.CachedFetch(ctx, workflowID, req, callback)
+			outboundResp = h.responseCache.CachedFetch(ctx, workflowID, req, callback, req.CacheSettings.Store)
 		} else {
 			outboundResp = callback()
-			h.responseCache.Set(workflowID, req, outboundResp)
+			if req.CacheSettings.Store {
+				h.responseCache.Set(workflowID, req, outboundResp)
+			}
 		}
 		h.metrics.Action.IncrementCapabilityRequestCount(ctx, nodeAddr, h.lggr)
 		err := h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)
