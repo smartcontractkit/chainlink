@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,7 +26,6 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -191,10 +189,10 @@ func ConfigureWorkflowRegistry(
 				Env: input.CldEnv,
 			},
 			wf_reg_v2_op.SetDONLimitOpInput{
-				ChainSelector: input.ChainSelector,
-				DONFamily:     config.DefaultDONFamily,
-				Limit:         libc.MustSafeUint32(100),
-				Enabled:       true,
+				ChainSelector:    input.ChainSelector,
+				DONFamily:        config.DefaultDONFamily,
+				DONLimit:         libc.MustSafeUint32(1000),
+				UserDefaultLimit: libc.MustSafeUint32(100),
 			},
 		)
 		if err != nil || !donLimitReport.Output.Success {
@@ -235,14 +233,14 @@ func ConfigureWorkflowRegistry(
 
 // waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
 func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, donTopology *cre.DonTopology, nodeSetInput []*cre.CapabilitiesAwareNodeSet) error {
-	for donIdx, don := range donTopology.DonsWithMetadata {
+	for donIdx, don := range donTopology.ToDonMetadata() {
 		if !flags.HasFlag(don.Flags, cre.WorkflowDON) {
 			continue
 		}
 
-		workderNodes, workersErr := node.FindManyWithLabel(don.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
-		if workersErr != nil {
-			return errors.Wrap(workersErr, "failed to find worker nodes")
+		workerNodes, wErr := don.WorkerNodes()
+		if wErr != nil {
+			return errors.Wrap(wErr, "failed to find worker nodes")
 		}
 
 		results := make(map[int]bool)
@@ -255,28 +253,18 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logge
 			case <-time.After(timeout):
 				return fmt.Errorf("timed out, when waiting for %.2f seconds, waiting for all nodes to have expected filters registered", timeout.Seconds())
 			case <-time.Tick(ticker):
-				if len(results) == len(workderNodes) {
-					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workderNodes), don.ID)
+				if len(results) == len(workerNodes) {
+					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workerNodes), don.ID)
 					break INNER_LOOP
 				}
 
-				for _, workerNode := range workderNodes {
-					nodeIndex, nodeIndexErr := node.FindLabelValue(workerNode, node.IndexKey)
-					if nodeIndexErr != nil {
-						return errors.Wrap(nodeIndexErr, "failed to find node index")
-					}
-
-					nodeIndexInt, nodeIdxErr := strconv.Atoi(nodeIndex)
-					if nodeIdxErr != nil {
-						return errors.Wrap(nodeIdxErr, "failed to convert node index to int")
-					}
-
-					if _, ok := results[nodeIndexInt]; ok {
+				for _, workerNode := range workerNodes {
+					if _, ok := results[workerNode.Index]; ok {
 						continue
 					}
 
-					testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", nodeIndexInt)
-					allFilters, filtersErr := getAllFilters(context.Background(), singeFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), nodeIndexInt, nodeSetInput[donIdx].DbInput.Port)
+					testLogger.Info().Msgf("Checking if all WorkflowRegistry filters are registered for worker node %d", workerNode.Index)
+					allFilters, filtersErr := getAllFilters(context.Background(), singeFileLogger, big.NewInt(libc.MustSafeInt64(homeChainID)), workerNode.Index, nodeSetInput[donIdx].DbInput.Port)
 					if filtersErr != nil {
 						return errors.Wrap(filtersErr, "failed to get filters")
 					}
@@ -284,19 +272,19 @@ func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logge
 					for _, filter := range allFilters {
 						if strings.Contains(filter.Name, "WorkflowRegistry") {
 							if len(filter.EventSigs) == NumberOfTrackedWorkflowRegistryEvents {
-								testLogger.Debug().Msgf("Found all WorkflowRegistry filters for node %d", nodeIndexInt)
-								results[nodeIndexInt] = true
+								testLogger.Debug().Msgf("Found all WorkflowRegistry filters for node %d", workerNode.Index)
+								results[workerNode.Index] = true
 								continue
 							}
 
-							testLogger.Debug().Msgf("Found only %d WorkflowRegistry filters for node %d", len(filter.EventSigs), nodeIndexInt)
+							testLogger.Debug().Msgf("Found only %d WorkflowRegistry filters for node %d", len(filter.EventSigs), workerNode.Index)
 						}
 					}
 				}
 
 				// return if we have results for all nodes, don't wait for next tick
-				if len(results) == len(workderNodes) {
-					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workderNodes), don.ID)
+				if len(results) == len(workerNodes) {
+					testLogger.Info().Msgf("All %d nodes in DON %d have expected filters registered", len(workerNodes), don.ID)
 					break INNER_LOOP
 				}
 			}

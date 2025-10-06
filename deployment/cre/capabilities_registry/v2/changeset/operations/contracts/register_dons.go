@@ -14,6 +14,7 @@ import (
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
@@ -88,7 +89,7 @@ var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput
 				}
 
 				// Get the CapabilitiesRegistryCaller contract
-				capabilityRegistryCaller, err := capabilities_registry_v2.NewCapabilitiesRegistryCaller(
+				capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
 					common.HexToAddress(input.Address),
 					chain.Client,
 				)
@@ -96,12 +97,13 @@ var RegisterDons = operations.NewOperation[RegisterDonsInput, RegisterDonsOutput
 					return nil, fmt.Errorf("failed to create CapabilitiesRegistryCaller: %w", err)
 				}
 
-				donInfo, err := capabilityRegistryCaller.GetDONs(nil)
+				// Fetch all DONs via generic pagination helper
+				donsInfo, err := pkg.GetDONs(nil, capReg)
 				if err != nil {
-					return nil, fmt.Errorf("failed to get DONs: %w", err)
+					return nil, fmt.Errorf("failed to call GetDONs: %w", err)
 				}
 
-				resultDONs = donInfo
+				resultDONs = donsInfo
 			}
 
 			return tx, nil

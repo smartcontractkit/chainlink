@@ -28,7 +28,7 @@ type CommandBuilder func(input *cre.JobSpecInput, capabilityConfig cre.Capabilit
 type JobNamer func(chainID uint64, flag cre.CapabilityFlag) string
 
 // CapabilityEnabler determines if a capability is enabled for a given DON.
-type CapabilityEnabler func(donWithMetadata *cre.DonWithMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool
+type CapabilityEnabler func(donMetadata *cre.DonMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability.
 type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64
@@ -112,12 +112,12 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
-		for donIdx, donWithMetadata := range input.DonTopology.DonsWithMetadata {
+		for donIdx, donMetadata := range input.DonTopology.ToDonMetadata() {
 			if donIdx >= len(input.CapabilitiesAwareNodeSets) || input.CapabilitiesAwareNodeSets[donIdx] == nil {
 				continue
 			}
 
-			if f.capabilityEnabler != nil && !f.capabilityEnabler(donWithMetadata, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
+			if f.capabilityEnabler != nil && !f.capabilityEnabler(donMetadata, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
 				continue
 			}
 
@@ -131,14 +131,9 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 				return nil, errors.Wrap(cmdErr, "failed to get capability command")
 			}
 
-			workflowNodeSet, setErr := crenode.FindManyWithLabel(
-				donWithMetadata.NodesMetadata,
-				&cre.Label{Key: crenode.NodeTypeKey, Value: cre.WorkerNode},
-				crenode.EqualLabels,
-			)
-
-			if setErr != nil {
-				return nil, errors.Wrap(setErr, "failed to find worker nodes")
+			workerNodes, wErr := donMetadata.WorkerNodes()
+			if wErr != nil {
+				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
 			// Generate job specs for each enabled chain
@@ -152,7 +147,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 				}
 
 				// Create job specs for each worker node
-				for _, workerNode := range workflowNodeSet {
+				for _, workerNode := range workerNodes {
 					nodeID, nodeIDErr := crenode.FindLabelValue(workerNode, crenode.NodeIDKey)
 					if nodeIDErr != nil {
 						return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
@@ -182,7 +177,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 
 					jobSpec := jobs.WorkerStandardCapability(nodeID, f.jobNamer(chainIDUint64, capabilityFlag), command, configStr, "")
 					jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &capabilityFlag}}
-					donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
+					donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobSpec)
 				}
 			}
 		}

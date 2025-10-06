@@ -331,7 +331,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize relayer chain interoperators: %w", err)
 	}
 
 	var billingClient metering.BillingClient
@@ -385,7 +385,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			return nil, errors.New("P2P stack required for OCR or OCR2")
 		}
 		if err2 := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
-			return nil, err2
+			return nil, fmt.Errorf("invalid P2P config: %w", err2)
 		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
@@ -776,7 +776,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			panic("service unexpectedly nil")
 		}
 		if err := healthChecker.Register(s); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to register health check for service %T: %w", s, err)
 		}
 	}
 

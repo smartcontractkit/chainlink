@@ -83,7 +83,7 @@ func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.Te
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		for _, donMetadata := range testEnv.CreEnvironment.DonTopology.DonsWithMetadata {
+		for _, donMetadata := range testEnv.CreEnvironment.DonTopology.ToDonMetadata() {
 			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
 				if !slices.Contains(writeableChains, bcOutput.ChainID) {
 					writeableChains = append(writeableChains, bcOutput.ChainID)
@@ -615,7 +615,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
 		ChainID:                     homeChainSelector,
-		DonID:                       testEnv.CreEnvironment.DonTopology.DonsWithMetadata[0].ID,
+		DonID:                       testEnv.CreEnvironment.DonTopology.ToDonMetadata()[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
 		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
 	}

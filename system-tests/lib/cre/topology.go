@@ -3,6 +3,8 @@ package cre
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -15,14 +17,11 @@ const (
 
 var (
 	NodeTypeKey            = "type"
-	HostLabelKey           = "host"
 	IndexKey               = "node_index"
 	ExtraRolesKey          = "extra_roles"
 	NodeIDKey              = "node_id"
 	NodeOCRFamiliesKey     = "node_ocr_families"
 	NodeOCR2KeyBundleIDKey = "ocr2_key_bundle_id"
-	NodeP2PIDKey           = "p2p_id"
-	NodeDKGRecipientKey    = "dkg_recipient_key"
 	DONIDKey               = "don_id"
 	EnvironmentKey         = "environment"
 	ProductKey             = "product"
@@ -30,11 +29,9 @@ var (
 )
 
 type Topology struct {
-	WorkflowDONID           uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
-	DonsMetadata            []*DonMetadata          `toml:"dons_metadata" json:"dons_metadata"`
-	CapabilitiesPeeringData CapabilitiesPeeringData `toml:"capabilities_peering_data" json:"capabilities_peering_data"`
-	OCRPeeringData          OCRPeeringData          `toml:"ocr_peering_data" json:"ocr_peering_data"`
-	GatewayConnectorOutput  *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
+	WorkflowDONID          uint64                  `toml:"workflow_don_id" json:"workflow_don_id"`
+	DonsMetadata           *DonsMetadata           `toml:"dons_metadata" json:"dons_metadata"`
+	GatewayConnectorOutput *GatewayConnectorOutput `toml:"gateway_connector_output" json:"gateway_connector_output"`
 }
 
 func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provider) (*Topology, error) {
@@ -43,8 +40,10 @@ func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provid
 	for i := range nodeSetInput {
 		// TODO take more care about the ID assignment, it should match what the capabilities registry will assign
 		// currently we optimistically set the id to the that which the capabilities registry will assign it
-		d := NewDonMetadata(nodeSetInput[i], libc.MustSafeUint64FromInt(i+1))
-		d.labelNodes(provider)
+		d, err := NewDonMetadata(nodeSetInput[i], libc.MustSafeUint64FromInt(i+1), provider)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create DON metadata: %w", err)
+		}
 		dm[i] = d
 	}
 
@@ -53,25 +52,14 @@ func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provid
 		return nil, fmt.Errorf("failed to create DONs metadata: %w", err)
 	}
 
-	wfDon, err := donsMetadata.GetWorkflowDON()
+	wfDon, err := donsMetadata.WorkflowDON()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow DON: %w", err)
-	}
-	bt, err := wfDon.GetBootstrapNode()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow DON bootstrap node: %w", err)
-	}
-	capPeeringCfg, ocrPeeringCfg, err := peeringCfgs(bt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get peering data: %w", err)
 	}
 
 	topology := &Topology{
 		WorkflowDONID: wfDon.ID,
-		DonsMetadata:  dm,
-		// TODO move to DON level
-		CapabilitiesPeeringData: capPeeringCfg,
-		OCRPeeringData:          ocrPeeringCfg,
+		DonsMetadata:  donsMetadata,
 	}
 
 	if donsMetadata.GatewayRequired() {
@@ -87,18 +75,50 @@ func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provid
 		}
 	}
 
+	bootstrapNodesFound := 0
+	for _, don := range topology.DonsMetadata.List() {
+		if don.ContainsBootstrapNode() {
+			bootstrapNodesFound++
+		}
+	}
+
+	if bootstrapNodesFound == 0 {
+		return nil, errors.New("no bootstrap nodes found in topology. At least one bootstrap node is required")
+	}
+
+	if bootstrapNodesFound > 1 {
+		return nil, errors.New("multiple bootstrap nodes found in topology. Only one bootstrap node is supported due to the limitations of the local environment")
+	}
+
 	return topology, nil
 }
 
-// TODO i don't this think is actually used in so much as it seems to be overwritten in other places
-// The keys should be set by the secret generator and are independent of the topology abstraction
-func peeringCfgs(bt *NodeMetadata) (CapabilitiesPeeringData, OCRPeeringData, error) {
+func (t *Topology) CapabilitiesAwareNodeSets() []*CapabilitiesAwareNodeSet {
+	sets := make([]*CapabilitiesAwareNodeSet, len(t.DonsMetadata.List()))
+	for i, d := range t.DonsMetadata.List() {
+		ns := d.CapabilitiesAwareNodeSet()
+		sets[i] = ns
+	}
+	return sets
+}
+
+// BootstrapNode returns the metadata for the node that should be used as the bootstrap node for P2P peering
+// Currently only one bootstrap is supported.
+func (t *Topology) BootstrapNode() (*NodeMetadata, error) {
+	return t.DonsMetadata.BootstrapNode()
+}
+
+func PeeringCfgs(bt *NodeMetadata) (CapabilitiesPeeringData, OCRPeeringData, error) {
+	p := bt.Keys.CleansedPeerID()
+	if p == "" {
+		return CapabilitiesPeeringData{}, OCRPeeringData{}, errors.New("cannot create peering configs, node has no P2P key")
+	}
 	return CapabilitiesPeeringData{
-			GlobalBootstraperPeerID: bt.P2P,
+			GlobalBootstraperPeerID: p,
 			GlobalBootstraperHost:   bt.Host,
 			Port:                    CapabilitiesPeeringPort,
 		}, OCRPeeringData{
-			OCRBootstraperPeerID: bt.P2P,
+			OCRBootstraperPeerID: p,
 			OCRBootstraperHost:   bt.Host,
 			Port:                 OCRPeeringPort,
 		}, nil
