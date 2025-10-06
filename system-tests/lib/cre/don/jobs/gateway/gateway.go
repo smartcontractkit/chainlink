@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"fmt"
 	"maps"
 
 	"github.com/pkg/errors"
@@ -34,28 +35,32 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 
 		// we need to iterate over all DONs to see which need gateway connector and create a map of Don IDs and ETH addresses (which identify nodes that can use the connector)
 		// This map will be used to configure the gateway job on the node that runs it.
-		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
+		for _, donMetadata := range input.DonTopology.ToDonMetadata() {
 			// if it's a workflow DON or it has custom compute capability or it has vault capability, it needs access to gateway connector
-			if !flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsAnyGateway(donWithMetadata.Flags) {
+			if !flags.HasFlag(donMetadata.Flags, cre.WorkflowDON) && !don.NodeNeedsAnyGateway(donMetadata.Flags) {
 				continue
 			}
 
-			workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to find worker nodes")
+			workerNode, wErr := donMetadata.WorkerNodes()
+			if wErr != nil {
+				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
-			ethAddresses := make([]string, len(workflowNodeSet))
-			var ethAddressErr error
-			for i, n := range workflowNodeSet {
-				ethAddresses[i], ethAddressErr = node.FindLabelValue(n, node.AddressKeyFromSelector(input.DonTopology.HomeChainSelector))
-				if ethAddressErr != nil {
-					return nil, errors.Wrap(ethAddressErr, "failed to get eth address from labels")
+			ethAddresses := make([]string, len(workerNode))
+			chainID, err := chainselectors.ChainIdFromSelector(input.DonTopology.HomeChainSelector)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get home chain id from selector")
+			}
+			for i, workerNode := range workerNode {
+				evmKey, ok := workerNode.Keys.EVM[chainID]
+				if !ok {
+					return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
 				}
+				ethAddresses[i] = evmKey.PublicAddress.Hex()
 			}
 
 			handlers := map[string]string{}
-			if flags.HasFlag(donWithMetadata.Flags, cre.WorkflowDON) || don.NodeNeedsWebAPIGateway(donWithMetadata.Flags) {
+			if flags.HasFlag(donMetadata.Flags, cre.WorkflowDON) || don.NodeNeedsWebAPIGateway(donMetadata.Flags) {
 				handlerConfig := `
 				[gatewayConfig.Dons.Handlers.Config]
 				maxAllowedMessageAgeSec = 1_000
@@ -73,7 +78,7 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 					continue
 				}
 
-				handlerConfig, handlerConfigErr := capability.GatewayJobHandlerConfigFn()(donWithMetadata.DonMetadata)
+				handlerConfig, handlerConfigErr := capability.GatewayJobHandlerConfigFn()(donMetadata)
 				if handlerConfigErr != nil {
 					return nil, errors.Wrap(handlerConfigErr, "failed to get handler config")
 				}
@@ -84,19 +89,19 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 				// determine here what handlers we want to build.
 				input.DonTopology.GatewayConnectorOutput.Configurations[idx].Dons = append(input.DonTopology.GatewayConnectorOutput.Configurations[idx].Dons, cre.GatewayConnectorDons{
 					MembersEthAddresses: ethAddresses,
-					ID:                  donWithMetadata.Name,
+					ID:                  donMetadata.Name,
 					Handlers:            handlers,
 				})
 			}
 		}
 
-		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
+		for _, donMetadata := range input.DonTopology.ToDonMetadata() {
 			// create job specs only for the gateway node
-			if !flags.HasFlag(donWithMetadata.Flags, cre.GatewayDON) {
+			if !flags.HasFlag(donMetadata.Flags, cre.GatewayDON) {
 				continue
 			}
 
-			gatewayNode, nodeErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.ExtraRolesKey, Value: cre.GatewayNode}, node.LabelContains)
+			gatewayNode, nodeErr := donMetadata.GatewayNode()
 			if nodeErr != nil {
 				return nil, errors.Wrap(nodeErr, "failed to find gateway node")
 			}
@@ -112,7 +117,7 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 			}
 
 			for _, gatewayConfiguration := range input.DonTopology.GatewayConnectorOutput.Configurations {
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConfiguration))
+				donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.AnyGateway(gatewayNodeID, homeChainID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConfiguration))
 			}
 		}
 

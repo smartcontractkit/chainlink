@@ -15,6 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -57,23 +58,23 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 			FundingPerChainFamilyForEachNode: input.FundingPerChainFamilyForEachNode,
 		}
 		requiredFundingPerChain := make(map[uint64]uint64)
-		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
+		for _, metaDon := range deps.DonTopology.ToDonMetadata() {
 			for _, bc := range deps.Blockchains {
 				if !flags.RequiresForwarderContract(metaDon.Flags, bc.ChainID) && bc.SolChain == nil {
 					continue
 				}
 
 				if bc.SolChain != nil {
-					requiredFundingPerChain[bc.SolChain.ChainSelector] += input.FundingPerChainFamilyForEachNode["solana"] * uint64(len(metaDon.DON.Nodes))
+					requiredFundingPerChain[bc.SolChain.ChainSelector] += input.FundingPerChainFamilyForEachNode[chainselectors.FamilySolana] * uint64(len(metaDon.NodesMetadata))
 					continue
 				}
 
 				if bc.CtfOutput.Family == blockchain.FamilyTron {
-					requiredFundingPerChain[bc.ChainSelector] += input.FundingPerChainFamilyForEachNode["tron"] * uint64(len(metaDon.DON.Nodes))
+					requiredFundingPerChain[bc.ChainSelector] += input.FundingPerChainFamilyForEachNode[chainselectors.FamilyTron] * uint64(len(metaDon.NodesMetadata))
 					continue
 				}
 
-				requiredFundingPerChain[bc.ChainSelector] += input.FundingPerChainFamilyForEachNode["evm"] * uint64(len(metaDon.DON.Nodes))
+				requiredFundingPerChain[bc.ChainSelector] += input.FundingPerChainFamilyForEachNode[chainselectors.FamilyEVM] * uint64(len(metaDon.NodesMetadata))
 			}
 		}
 
@@ -82,15 +83,15 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 				continue
 			}
 
-			chainFamily := "evm"
+			chainFamily := chainselectors.FamilyEVM
 			if bc.SolChain != nil {
-				chainFamily = "solana"
+				chainFamily = chainselectors.FamilySolana
 			} else if bc.CtfOutput.Family == blockchain.FamilyTron {
-				chainFamily = "tron"
+				chainFamily = chainselectors.FamilyTron
 			}
 
 			switch chainFamily {
-			case "evm":
+			case chainselectors.FamilyEVM:
 				if _, exists := output.PrivateKeysPerChainFamily[chainFamily]; !exists {
 					output.PrivateKeysPerChainFamily[chainFamily] = make(map[uint64][]byte)
 				}
@@ -116,7 +117,7 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 
 					output.PrivateKeysPerChainFamily[chainFamily][bc.ChainSelector] = privateKeyBytes
 				}
-			case "solana":
+			case chainselectors.FamilySolana:
 				if _, exists := output.PrivateKeysPerChainFamily[chainFamily]; !exists {
 					output.PrivateKeysPerChainFamily[chainFamily] = make(map[uint64][]byte)
 				}
@@ -137,7 +138,7 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 
 					output.PrivateKeysPerChainFamily[chainFamily][bc.SolChain.ChainSelector] = private
 				}
-			case "tron":
+			case chainselectors.FamilyTron:
 				// TRON uses its own built-in funding account, no preparation needed
 				continue
 			default:
@@ -186,19 +187,19 @@ var FundCLNodesOp = operations.NewOperation(
 	"Fund Chainlink Nodes",
 	func(b operations.Bundle, deps FundCLNodesOpDeps, input FundCLNodesOpInput) (*FundCLNodesOpOutput, error) {
 		ctx := b.GetContext()
-		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
-			deps.TestLogger.Info().Msgf("Funding nodes for DON %s", metaDon.Name)
-			for _, bcOut := range deps.BlockchainOutputs {
-				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) &&
-					bcOut.SolChain == nil { // for now, we can only write to solana, so we consider forwarder is always present
+		for donIndex, donMetadata := range deps.DonTopology.ToDonMetadata() {
+			deps.TestLogger.Info().Msgf("Funding nodes for DON %s", donMetadata.Name)
+			for _, bc := range deps.BlockchainOutputs {
+				if !flags.RequiresForwarderContract(donMetadata.Flags, bc.ChainID) &&
+					bc.SolChain == nil { // for now, we can only write to solana, so we consider forwarder is always present
 					continue
 				}
-				for _, node := range metaDon.DON.Nodes {
-					chainFamily := "evm"
-					if bcOut.SolChain != nil {
-						chainFamily = "solana"
-					} else if bcOut.CtfOutput.Family == blockchain.FamilyTron {
-						chainFamily = "tron"
+				for _, node := range deps.DonTopology.Dons.List()[donIndex].Nodes {
+					chainFamily := chainselectors.FamilyEVM
+					if bc.SolChain != nil {
+						chainFamily = chainselectors.FamilySolana
+					} else if bc.CtfOutput.Family == blockchain.FamilyTron {
+						chainFamily = chainselectors.FamilyTron
 					}
 
 					fundingAmount, ok := input.FundingAmountPerChainFamily[chainFamily]
@@ -207,17 +208,17 @@ var FundCLNodesOp = operations.NewOperation(
 					}
 
 					switch chainFamily {
-					case "evm":
-						if err := fundEthAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily); err != nil {
+					case chainselectors.FamilyEVM:
+						if err := fundEthAddress(ctx, deps.TestLogger, node, fundingAmount, bc, input.PrivateKeyPerChainFamily); err != nil {
 							return nil, err
 						}
-					case "solana":
-						if err := fundSolanaAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily); err != nil {
+					case chainselectors.FamilySolana:
+						if err := fundSolanaAddress(ctx, deps.TestLogger, node, fundingAmount, bc, input.PrivateKeyPerChainFamily); err != nil {
 							return nil, err
 						}
-					case "tron":
-						nodeAddress := getTronNodeAddress(node, bcOut)
-						if err := FundTronAddress(ctx, deps.TestLogger, nodeAddress, fundingAmount, bcOut, deps.Env); err != nil {
+					case chainselectors.FamilyTron:
+						nodeAddress := getTronNodeAddress(node, bc)
+						if err := FundTronAddress(ctx, deps.TestLogger, nodeAddress, fundingAmount, bc, deps.Env); err != nil {
 							return nil, err
 						}
 					default:
@@ -226,24 +227,24 @@ var FundCLNodesOp = operations.NewOperation(
 				}
 			}
 
-			deps.TestLogger.Info().Msgf("Funded nodes for DON %s", metaDon.Name)
+			deps.TestLogger.Info().Msgf("Funded nodes for DON %s", donMetadata.Name)
 		}
 
 		return &FundCLNodesOpOutput{}, nil
 	},
 )
 
-func fundEthAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bcOut *cre.Blockchain, privateKeyPerChainFamily map[string]map[uint64][]byte) error {
-	nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
+func fundEthAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.Node, fundingAmount uint64, bc *cre.Blockchain, privateKeyPerChainFamily map[string]map[uint64][]byte) error {
+	nodeAddress := node.AccountAddr[strconv.FormatUint(bc.ChainID, 10)]
 	if nodeAddress == "" {
 		return nil // Skip nodes without addresses for this chain
 	}
 
 	testLogger.Info().Msgf("Attempting to fund EVM account %s", nodeAddress)
 
-	fundingPrivateKey, ok := privateKeyPerChainFamily["evm"][bcOut.ChainSelector]
+	fundingPrivateKey, ok := privateKeyPerChainFamily["evm"][bc.ChainSelector]
 	if !ok {
-		return fmt.Errorf("missing funding private key for chain familyevm, chain %d", bcOut.ChainID)
+		return fmt.Errorf("missing funding private key for chain familyevm, chain %d", bc.ChainID)
 	}
 
 	fundingKey, fkErr := crypto.ToECDSA(fundingPrivateKey)
@@ -251,7 +252,7 @@ func fundEthAddress(ctx context.Context, testLogger zerolog.Logger, node devenv.
 		return pkgerrors.Wrap(fkErr, "failed to convert funding private key to ECDSA")
 	}
 
-	_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bcOut.SethClient, libfunding.FundsToSend{
+	_, fundingErr := libfunding.SendFunds(ctx, zerolog.Logger{}, bc.SethClient, libfunding.FundsToSend{
 		ToAddress:  common.HexToAddress(nodeAddress),
 		Amount:     big.NewInt(libc.MustSafeInt64(fundingAmount)),
 		PrivateKey: fundingKey,
@@ -283,8 +284,8 @@ func fundSolanaAddress(ctx context.Context, testLogger zerolog.Logger, node deve
 	return nil
 }
 
-func getTronNodeAddress(node devenv.Node, bcOut *cre.Blockchain) common.Address {
-	nodeAddress := node.AccountAddr[strconv.FormatUint(bcOut.ChainID, 10)]
+func getTronNodeAddress(node devenv.Node, bc *cre.Blockchain) common.Address {
+	nodeAddress := node.AccountAddr[strconv.FormatUint(bc.ChainID, 10)]
 	if nodeAddress == "" {
 		return common.Address{} // Skip nodes without addresses for this chain
 	}
@@ -292,15 +293,15 @@ func getTronNodeAddress(node devenv.Node, bcOut *cre.Blockchain) common.Address 
 	return common.HexToAddress(nodeAddress)
 }
 
-func FundTronAddress(ctx context.Context, testLogger zerolog.Logger, nodeAddress common.Address, fundingAmount uint64, bcOut *cre.Blockchain, env *cldf.Environment) error {
+func FundTronAddress(ctx context.Context, testLogger zerolog.Logger, nodeAddress common.Address, fundingAmount uint64, bc *cre.Blockchain, env *cldf.Environment) error {
 	receiverAddress := address.EVMAddressToAddress(nodeAddress)
 
 	testLogger.Info().Msgf("Attempting to fund TRON account %s", nodeAddress)
 
 	tronChains := env.BlockChains.TronChains()
-	tronChain, exists := tronChains[bcOut.ChainSelector]
+	tronChain, exists := tronChains[bc.ChainSelector]
 	if !exists {
-		return fmt.Errorf("TRON chain not found for selector %d", bcOut.ChainSelector)
+		return fmt.Errorf("TRON chain not found for selector %d", bc.ChainSelector)
 	}
 
 	tx, err := tronChain.Client.Transfer(tronChain.Address, receiverAddress, libc.MustSafeInt64(fundingAmount))

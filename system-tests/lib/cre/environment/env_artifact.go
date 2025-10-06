@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -248,7 +247,7 @@ func GenerateArtifact(
 		Topology:      donTopology,
 	}
 
-	for i, don := range donTopology.DonsWithMetadata {
+	for donIdx, don := range donTopology.ToDonMetadata() {
 		donArtifact := DonArtifact{
 			DonName:        don.Name,
 			DonID:          don.ID,
@@ -258,14 +257,10 @@ func GenerateArtifact(
 			Capabilities:   make([]DONCapabilityArtifact, 0),
 		}
 
-		workerNodes, workerNodesErr := crenode.FindManyWithLabel(don.NodesMetadata, &cre.Label{
-			Key:   crenode.NodeTypeKey,
-			Value: cre.WorkerNode,
-		}, crenode.EqualLabels)
-		if workerNodesErr != nil {
-			return nil, pkgerrors.Wrap(workerNodesErr, "failed to find worker nodes")
+		workerNodes, wErr := don.WorkerNodes()
+		if wErr != nil {
+			return nil, pkgerrors.Wrap(wErr, "failed to find worker nodes")
 		}
-
 		donArtifact.F = libc.MustSafeUint8((len(workerNodes) - 1) / 3)
 
 		for _, capabilityFn := range capabilityRegistryFns {
@@ -273,7 +268,7 @@ func GenerateArtifact(
 				continue
 			}
 
-			capabilitiesFn, capabilitiesFnErr := capabilityFn(don.Flags, nodeSets[i])
+			capabilitiesFn, capabilitiesFnErr := capabilityFn(don.Flags, nodeSets[donIdx])
 			if capabilitiesFnErr != nil {
 				return nil, pkgerrors.Wrap(capabilitiesFnErr, "failed to get capabilities from capability registry function")
 			}
@@ -291,13 +286,13 @@ func GenerateArtifact(
 		}
 
 		nop := NOPArtifact{
-			ID:    i + 1, // NOP IDs start from 1
+			ID:    donIdx + 1, // NOP IDs start from 1
 			Name:  fmt.Sprintf("NOP for %s DON", don.Name),
-			Admin: fmt.Sprintf("%s%06d", NOPAdminPrefix, i+1),
+			Admin: fmt.Sprintf("%s%06d", NOPAdminPrefix, donIdx+1),
 		}
 
 		var nodeIDs []string
-		for _, node := range don.DON.Nodes {
+		for _, node := range donTopology.Dons.List()[donIdx].Nodes {
 			nodeIDs = append(nodeIDs, node.NodeID)
 		}
 

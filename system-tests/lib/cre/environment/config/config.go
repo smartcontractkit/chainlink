@@ -96,7 +96,7 @@ func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) er
 }
 
 const (
-	WorkflowRegistryV2Semver   = "2.0.0-dev"
+	WorkflowRegistryV2Semver   = "2.0.0"
 	CapabilityRegistryV2Semver = "2.0.0"
 	DefaultDONFamily           = "test-don-family"
 )

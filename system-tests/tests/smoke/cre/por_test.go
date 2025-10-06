@@ -151,7 +151,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 				WriteTargetName:       writeTargetName,
 			},
 		}
-		testLogger.Info().Msgf("Workflow config for chain %d: WriteTarget=%s, DataFeedsCache=%s", chainID, writeTargetName, dataFeedsCacheAddress.Hex())
+		testLogger.Info().Msgf("Workflow config for chain %d: WriteTarget=%s, DataFeedsCache=%s, FeedID: %s", chainID, writeTargetName, dataFeedsCacheAddress.Hex(), feedID)
 		workflowFileLocation := cfg.WorkflowFileLocation
 
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
