@@ -1006,7 +1006,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 				params.CommitOffChainConfig.MultipleReportsEnabled = true
 				params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
 				params.CommitOffChainConfig.MaxPricesPerReport = 3
-				params.CommitOffChainConfig.MaxMerkleTreeSize = 3
+				params.CommitOffChainConfig.MaxMerkleTreeSize = 10
 				params.CommitOffChainConfig.MerkleRootAsyncObserverDisabled = true
 				return params
 			})
