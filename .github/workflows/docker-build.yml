@@ -14,7 +14,7 @@ on:
         required: true
 
 concurrency:
-  group: "docker-build-${{ github.ref_name }}"
+  group: "docker-build-${{ github.event_name }}-${{ github.ref_name }}"
   cancel-in-progress: true
 
 jobs:

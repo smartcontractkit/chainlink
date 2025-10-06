@@ -9,6 +9,7 @@ GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 # Set to true to install private plugins (will require GitHub auth).
 CL_INSTALL_PRIVATE_PLUGINS ?= false
 CL_INSTALL_TESTING_PLUGINS ?= false
+CL_IS_PROD_BUILD ?= true
 # Output directory for loopinstall plugin manifests (set by caller)
 CL_LOOPINSTALL_OUTPUT_DIR ?=
 # Conditionally define arsguments for loopinstall based on CL_LOOPINSTALL_OUTPUT_DIR
@@ -51,6 +52,10 @@ docs: ## Install and run pkgsite to view Go docs
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GCFLAGS) $(GOFLAGS) .
+
+.PHONY: install-chainlink-dev
+install-chainlink-dev: operator-ui ## Install the chainlink binary.
+	go install -tags dev $(GCFLAGS) $(GOFLAGS) .
 
 .PHONY: install-chainlink-cover
 install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
@@ -109,6 +114,7 @@ docker:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
+	--build-arg CL_IS_PROD_BUILD=$(CL_IS_PROD_BUILD) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f core/chainlink.Dockerfile . \
 	-t chainlink:develop \
