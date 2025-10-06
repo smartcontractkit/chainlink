@@ -65,7 +65,6 @@ func (rc *responseCache) CachedFetch(ctx context.Context, workflowID string, req
 		return cachedResp.response
 	}
 	response := fetchFn()
-	// Only store in cache if storeOnFetch is true
 	if storeOnFetch && isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
 		rc.cache[req.Hash()] = &cachedResponse{
 			response: response,

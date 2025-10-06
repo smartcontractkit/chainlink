@@ -116,16 +116,14 @@ func TestRequestHash(t *testing.T) {
 	t.Run("having different cacheSettings results in the same Hash", func(t *testing.T) {
 		req1 := createTestRequest("GET", "https://example.com")
 		req1.CacheSettings = gateway_common.CacheSettings{
-			ReadFromCache: true,
-			MaxAgeMs:      5000,
-			Store:         true,
+			MaxAgeMs: 5000,
+			Store:    true,
 		}
 
 		req2 := createTestRequest("GET", "https://example.com")
 		req2.CacheSettings = gateway_common.CacheSettings{
-			ReadFromCache: false,
-			MaxAgeMs:      10000,
-			Store:         false,
+			MaxAgeMs: 10000,
+			Store:    false,
 		}
 
 		hash1 := req1.Hash()
