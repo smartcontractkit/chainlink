@@ -59,6 +59,7 @@ func TestSetFeedConfig(t *testing.T) {
 			semver.MustParse("1.0.0"),
 			"aptos",
 		))
+	require.NoError(t, err)
 
 	// set feed config
 	resp, err = commonChangesets.Apply(t, resp, commonChangesets.Configure(

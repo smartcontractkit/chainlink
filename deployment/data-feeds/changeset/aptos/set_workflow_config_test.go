@@ -59,6 +59,7 @@ func TestSetWorkflowConfig(t *testing.T) {
 			semver.MustParse("1.0.0"),
 			"aptos",
 		))
+	require.NoError(t, err)
 
 	// set workflow config
 	resp, err = commonChangesets.Apply(t, resp, commonChangesets.Configure(
