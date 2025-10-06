@@ -42,9 +42,8 @@ func transferRegistryOwnershipLogic(env cldf.Environment, c types.TransferDataFe
 		}
 		if !tx.Success {
 			return cldf.ChangesetOutput{}, fmt.Errorf("registry Transfer ownership transaction failed: %s", tx.Hash)
-		} else {
-			fmt.Println("Registry Transfer ownership transaction succeeded", tx.Hash)
 		}
+		env.Logger.Info("Registry Transfer ownership transaction succeeded", tx.Hash)
 	}
 	if c.TransferRouter {
 		submitResult, err := contract.Router().TransferOwnership(txOps, newOwner)
@@ -57,18 +56,16 @@ func transferRegistryOwnershipLogic(env cldf.Environment, c types.TransferDataFe
 		}
 		if !tx.Success {
 			return cldf.ChangesetOutput{}, fmt.Errorf("router Transfer ownership transaction failed: %s", tx.Hash)
-		} else {
-			fmt.Println("Router Transfer ownership transaction succeeded", tx.Hash)
 		}
+		env.Logger.Info("Router Transfer ownership transaction succeeded", tx.Hash)
 	}
 
 	return cldf.ChangesetOutput{}, nil
 }
 
 func transferRegistryOwnershipPrecondition(env cldf.Environment, c types.TransferDataFeedsAptosOwnershipConfig) error {
-	if c.TransferRegistry == false && c.TransferRouter == false {
+	if !c.TransferRegistry && !c.TransferRouter {
 		return errors.New("at least one of TransferRegistry or TransferRouter must be true")
-
 	}
 	newOwner := aptos.AccountAddress{}
 	err := newOwner.ParseStringRelaxed(c.NewOwner)

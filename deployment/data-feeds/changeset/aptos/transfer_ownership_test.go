@@ -57,6 +57,7 @@ func TestTransferOwnership(t *testing.T) {
 			semver.MustParse("1.0.0"),
 			"aptos",
 		))
+	require.NoError(t, err)
 
 	resp, err = commonChangesets.Apply(t, resp, commonChangesets.Configure(
 		aptosCS.TransferOwnershipChangeset,
@@ -71,5 +72,4 @@ func TestTransferOwnership(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
 }
