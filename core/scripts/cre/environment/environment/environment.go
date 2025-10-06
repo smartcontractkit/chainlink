@@ -232,7 +232,7 @@ func startCmd() *cobra.Command {
 		doSetup                  bool
 		cleanupWait              time.Duration
 		withBeholder             bool
-		withDashBoards           bool
+		withDashboards           bool
 		withBilling              bool
 		protoConfigs             []string
 		setupConfig              SetupConfig
@@ -391,7 +391,7 @@ func startCmd() *cobra.Command {
 				}
 			}
 
-			if withDashBoards {
+			if withDashboards {
 				err := setupDashboards(setupConfig)
 				if err != nil {
 					return errors.Wrap(err, "failed to setup dashboards")
@@ -482,7 +482,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
-	cmd.Flags().BoolVarP(&withDashBoards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
+	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
@@ -510,13 +510,19 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 	// Wait for grafana at localhost:3000 to be available
 	fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
+	grafanaContacted := false
 	for i := 0; i < 30; i++ {
 		time.Sleep(1 * time.Second)
 		_, err = http.Get("http://localhost:3000")
 		if err != nil {
 			continue
 		}
+		grafanaContacted = true
 		break
+	}
+
+	if !grafanaContacted {
+		return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
 	}
 
 	// Store the current directory
@@ -527,7 +533,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 
 	// change to observability directory
 	if err = os.Chdir(cfg.Observability.TargetPath); err != nil {
-		return errors.Wrap(err, "failed to change directory to ./observability")
+		return errors.Wrapf(err, "failed to change directory to %s", cfg.Observability.TargetPath)
 	}
 
 	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
