@@ -2,6 +2,7 @@
 compose/
 blockscout/
 binaries/
+observability/
 
 # contract artifacts
 examples/contracts/abi

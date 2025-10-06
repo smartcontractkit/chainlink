@@ -6,7 +6,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
@@ -230,6 +232,7 @@ func startCmd() *cobra.Command {
 		doSetup                  bool
 		cleanupWait              time.Duration
 		withBeholder             bool
+		withDashBoards           bool
 		withBilling              bool
 		protoConfigs             []string
 	)
@@ -387,6 +390,51 @@ func startCmd() *cobra.Command {
 				}
 			}
 
+			if withDashBoards {
+				// Run the `ctf obs up -f` command from the ./bin directory
+				ctfCmd := exec.Command("./bin/ctf", "obs", "up", "-f")
+
+				obsOutput, err := ctfCmd.CombinedOutput()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+					return errors.Wrap(err, "failed to start ctf observability stack: "+string(obsOutput))
+				}
+
+				fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
+
+				// Wait for localhost:3000 to be available
+				fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
+				for i := 0; i < 30; i++ {
+					time.Sleep(1 * time.Second)
+					_, err := http.Get("http://localhost:3000")
+					if err != nil {
+						continue
+					}
+					break
+				}
+
+				// Deploy the dashboards
+
+				// change to observability directory
+				if err := os.Chdir("./observability"); err != nil {
+					return errors.Wrap(err, "failed to change directory to ./observability")
+				}
+
+				deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
+				deployOutput, err := deployDashboardsCmd.CombinedOutput()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+					return errors.Wrap(err, "failed to deploy dashboards: "+string(deployOutput))
+				}
+
+				// change back to original directory
+				if err := os.Chdir(".."); err != nil {
+					return errors.Wrap(err, "failed to change directory back to original")
+				}
+
+				fmt.Print(libformat.PurpleText("\nDashboards successfully deployed\n"))
+			}
+
 			if withBilling {
 				startBillingErr := startBilling(
 					cmdContext,
@@ -471,6 +519,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
+	cmd.Flags().BoolVarP(&withDashBoards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
