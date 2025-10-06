@@ -230,8 +230,16 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
-					if err := node.CreateSupportedChains(ctx, supportedChains, jd); err != nil {
-						return fmt.Errorf("failed to create supported chains: %w", err)
+					jdChains := []JDChainConfigInput{}
+					for _, chain := range supportedChains {
+						jdChains = append(jdChains, JDChainConfigInput{
+							ChainID:   chain.ChainID,
+							ChainType: chain.ChainType,
+						})
+					}
+
+					if err := node.CreateJDChainConfigs(ctx, jdChains, jd); err != nil {
+						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
 				case RoleGateway:
 					// no chains configuration needed for gateway nodes
@@ -253,18 +261,6 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	}
 
 	return don, nil
-}
-
-func (n *Node) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd *jd.JobDistributor) error {
-	jdChains := []JDChainConfigInput{}
-	for _, chain := range chains {
-		jdChains = append(jdChains, JDChainConfigInput{
-			ChainID:   chain.ChainID,
-			ChainType: chain.ChainType,
-		})
-	}
-
-	return n.CreateJDChainConfigs(ctx, jdChains, jd)
 }
 
 type Node struct {
