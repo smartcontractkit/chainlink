@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -295,11 +297,16 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "destgasamount":
-			// Expect uint32
-			if val, ok := fieldValue.(uint32); ok {
-				return val, nil
-			} else {
-				return 0, errors.New("invalid type for destgasamount, expected uint32")
+			switch v := fieldValue.(type) {
+			case uint32:
+				return v, nil
+			case int64: // LOOP converts expected uint32 to int64
+				if v > math.MaxUint32 {
+					return 0, fmt.Errorf("destGasAmount exceeds uint32 max, got %d", v)
+				}
+				return uint32(v), nil //nolint:gosec // G115: validated to be within uint32 max above
+			default:
+				return 0, errors.New("invalid type for destgasamount, expected uint32 or int64")
 			}
 		default:
 		}
