@@ -180,7 +180,7 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 					return "", false, fmt.Errorf("failed to clear existing working directory: %w", err)
 				}
 			} else {
-				if err = os.MkdirAll(workingDir, 0755); err != nil {
+				if err = os.MkdirAll(workingDir, 0o755); err != nil {
 					return "", false, fmt.Errorf("failed to create working directory: %w", err)
 				}
 			}
