@@ -358,7 +358,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				HomeChainReader:            i.homeChainReader,
 				HomeChainSelector:          i.homeChainSelector,
 				ChainAccessors:             chainAccessors,
-				LOOPPCCIPProviderSupported: pluginServices.LOOPPCCIPProviderSupported,
+				LOOPPCCIPProviderSupported: pluginServices.CCIPProviderSupported,
 				ExtendedReaders:            extendedReaders,
 				ContractWriters:            chainWriters,
 				RmnPeerClient:              rmnPeerClient,
@@ -434,7 +434,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				HomeChainReader:            i.homeChainReader,
 				TokenDataEncoder:           pluginConfig.TokenDataEncoder,
 				EstimateProvider:           pluginConfig.GasEstimateProvider,
-				LOOPPCCIPProviderSupported: pluginServices.LOOPPCCIPProviderSupported,
+				LOOPPCCIPProviderSupported: pluginServices.CCIPProviderSupported,
 				ChainAccessors:             chainAccessors,
 				ExtendedReaders:            extendedReaders,
 				ContractWriters:            chainWriters,
@@ -508,7 +508,7 @@ func (i *pluginOracleCreator) createCCIPProviders(
 		}
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 
-		ccipProviderSupported, ok := pluginServices.LOOPPCCIPProviderSupported[relayID.Network]
+		ccipProviderSupported, ok := pluginServices.CCIPProviderSupported[relayID.Network]
 		if ccipProviderSupported && ok {
 			i.lggr.Debugw("creating CCIPProvider for chain family",
 				"chainSelector", chainSelector, "chainFamily", relayID.Network)
