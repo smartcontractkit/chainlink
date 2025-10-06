@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -50,8 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
 
@@ -61,34 +60,34 @@ const finalityDepth = 4
 func TestContractReaderEventsInitValidation(t *testing.T) {
 	tests := []struct {
 		name                 string
-		chainContractReaders map[string]types.ChainContractReader
+		chainContractReaders map[string]config.ChainContractReader
 		expectedError        error
 	}{
 		{
 			name: "Invalid ABI",
-			chainContractReaders: map[string]types.ChainContractReader{
+			chainContractReaders: map[string]config.ChainContractReader{
 				"InvalidContract": {
 					ContractABI: "{invalid json}",
-					Configs:     map[string]*types.ChainReaderDefinition{},
+					Configs:     map[string]*config.ChainReaderDefinition{},
 				},
 			},
 			expectedError: fmt.Errorf("failed to parse abi"),
 		},
 		{
 			name: "Conflicting polling filter definitions",
-			chainContractReaders: map[string]types.ChainContractReader{
+			chainContractReaders: map[string]config.ChainContractReader{
 				"ContractWithConflict": {
 					ContractABI: "[]",
-					Configs: map[string]*types.ChainReaderDefinition{
+					Configs: map[string]*config.ChainReaderDefinition{
 						"EventWithConflict": {
 							ChainSpecificName: "EventName",
-							ReadType:          types.Event,
-							EventDefinitions: &types.EventDefinitions{
-								PollingFilter: &types.PollingFilter{},
+							ReadType:          config.Event,
+							EventDefinitions: &config.EventDefinitions{
+								PollingFilter: &config.PollingFilter{},
 							},
 						},
 					},
-					ContractPollingFilter: types.ContractPollingFilter{
+					ContractPollingFilter: config.ContractPollingFilter{
 						GenericEventNames: []string{"EventWithConflict"},
 					},
 				},
@@ -99,13 +98,13 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 		},
 		{
 			name: "No polling filter defined",
-			chainContractReaders: map[string]types.ChainContractReader{
+			chainContractReaders: map[string]config.ChainContractReader{
 				"ContractWithNoFilter": {
 					ContractABI: "[]",
-					Configs: map[string]*types.ChainReaderDefinition{
+					Configs: map[string]*config.ChainReaderDefinition{
 						"EventWithNoFilter": {
 							ChainSpecificName: "EventName",
-							ReadType:          types.Event,
+							ReadType:          config.Event,
 						},
 					},
 				},
@@ -116,13 +115,13 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 		},
 		{
 			name: "Invalid chain reader definition read type",
-			chainContractReaders: map[string]types.ChainContractReader{
+			chainContractReaders: map[string]config.ChainContractReader{
 				"ContractWithInvalidReadType": {
 					ContractABI: "[]",
-					Configs: map[string]*types.ChainReaderDefinition{
+					Configs: map[string]*config.ChainReaderDefinition{
 						"InvalidReadType": {
 							ChainSpecificName: "InvalidName",
-							ReadType:          types.ReadType(2),
+							ReadType:          config.ReadType(2),
 						},
 					},
 				},
@@ -133,16 +132,16 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 		},
 		{
 			name: "Event not present in ABI",
-			chainContractReaders: map[string]types.ChainContractReader{
+			chainContractReaders: map[string]config.ChainContractReader{
 				"ContractWithConflict": {
 					ContractABI: "[{\"anonymous\":false,\"inputs\":[],\"name\":\"WrongEvent\",\"type\":\"event\"}]",
-					Configs: map[string]*types.ChainReaderDefinition{
+					Configs: map[string]*config.ChainReaderDefinition{
 						"SomeEvent": {
 							ChainSpecificName: "EventName",
-							ReadType:          types.Event,
+							ReadType:          config.Event,
 						},
 					},
-					ContractPollingFilter: types.ContractPollingFilter{
+					ContractPollingFilter: config.ContractPollingFilter{
 						GenericEventNames: []string{"SomeEvent"},
 					},
 				},
@@ -153,18 +152,18 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 		},
 		{
 			name: "Event has a unnecessary data word index override",
-			chainContractReaders: map[string]types.ChainContractReader{
+			chainContractReaders: map[string]config.ChainContractReader{
 				"ContractWithConflict": {
 					ContractABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"someDW\",\"type\":\"address\"}],\"name\":\"EventName\",\"type\":\"event\"}]",
-					ContractPollingFilter: types.ContractPollingFilter{
+					ContractPollingFilter: config.ContractPollingFilter{
 						GenericEventNames: []string{"SomeEvent"},
 					},
-					Configs: map[string]*types.ChainReaderDefinition{
+					Configs: map[string]*config.ChainReaderDefinition{
 						"SomeEvent": {
 							ChainSpecificName: "EventName",
-							ReadType:          types.Event,
+							ReadType:          config.Event,
 
-							EventDefinitions: &types.EventDefinitions{
+							EventDefinitions: &config.EventDefinitions{
 								GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 									"DW": {
 										Name:  "someDW",
@@ -181,18 +180,18 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 		},
 		{
 			name: "Event has a bad type defined in data word detail override config",
-			chainContractReaders: map[string]types.ChainContractReader{
+			chainContractReaders: map[string]config.ChainContractReader{
 				"ContractWithConflict": {
 					ContractABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"someDW\",\"type\":\"string\"}],\"name\":\"EventName\",\"type\":\"event\"}]",
-					ContractPollingFilter: types.ContractPollingFilter{
+					ContractPollingFilter: config.ContractPollingFilter{
 						GenericEventNames: []string{"SomeEvent"},
 					},
-					Configs: map[string]*types.ChainReaderDefinition{
+					Configs: map[string]*config.ChainReaderDefinition{
 						"SomeEvent": {
 							ChainSpecificName: "EventName",
-							ReadType:          types.Event,
+							ReadType:          config.Event,
 
-							EventDefinitions: &types.EventDefinitions{
+							EventDefinitions: &config.EventDefinitions{
 								GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 									"DW": {
 										Name:  "someDW",
@@ -212,7 +211,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), nil, nil, nil, types.ChainReaderConfig{Contracts: tt.chainContractReaders})
+			_, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), nil, nil, nil, config.ChainReaderConfig{Contracts: tt.chainContractReaders})
 			require.Error(t, err)
 			if err != nil {
 				assert.Contains(t, err.Error(), tt.expectedError.Error())
@@ -227,7 +226,7 @@ func TestChainReader_HealthReport(t *testing.T) {
 	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)
 	htError := errors.New("head tracker error")
 	ht.EXPECT().HealthReport().Return(map[string]error{"ht_name": htError}).Once()
-	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, types.ChainReaderConfig{Contracts: nil})
+	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: nil})
 	require.NoError(t, err)
 	healthReport := cr.HealthReport()
 	require.True(t, services.ContainsError(healthReport, clcommontypes.ErrFinalityViolated), "expected chain reader to propagate logpoller's error")
@@ -456,7 +455,7 @@ func (h *helper) Context(t *testing.T) context.Context {
 	return testutils.Context(t)
 }
 
-func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client {
+func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf config.ChainReaderConfig) client.Client {
 	// wrap the client so that we can mock historical contract state
 	cwh := &evm.ClientWithContractHistory{Client: h.Client(t), HT: ht}
 	require.NoError(t, cwh.Init(ctx, conf))

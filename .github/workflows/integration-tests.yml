@@ -282,7 +282,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           docker-additional-build-args: |
-            GO_COVER_FLAG=true
+            CL_IS_PROD_BUILD=false
           go-get-overrides: |
             github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
           gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
