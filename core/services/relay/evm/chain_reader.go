@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type ChainReaderService interface {
