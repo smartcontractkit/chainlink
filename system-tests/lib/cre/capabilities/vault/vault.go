@@ -109,7 +109,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
-			bootstrapNode, isBootstrap := input.DonTopology.BootstrapNode()
+			bootstrapNode, isBootstrap := input.DonTopology.Bootstrap()
 			if !isBootstrap {
 				return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 			}

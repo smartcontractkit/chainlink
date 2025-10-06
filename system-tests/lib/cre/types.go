@@ -651,7 +651,7 @@ func (m DonsMetadata) validate() error {
 		return errors.New("at least one don is required")
 	}
 
-	if m.BootstrapNodeCount() == 0 {
+	if m.BootstrapCount() == 0 {
 		return errors.New("at least one nodeSet must have a bootstrap node")
 	}
 
@@ -671,17 +671,7 @@ func (m DonsMetadata) validate() error {
 	return nil
 }
 
-// BootstrapNode returns the bootstrap node from the first DON that contains one. Currently only one bootstrap node is supported.
-func (m DonsMetadata) BootstrapNode() (*NodeMetadata, bool) {
-	for _, don := range m.dons {
-		if _, isBootstrap := don.Bootstrap(); isBootstrap {
-			return don.Bootstrap()
-		}
-	}
-	return nil, false
-}
-
-func (m DonsMetadata) BootstrapNodeCount() int {
+func (m DonsMetadata) BootstrapCount() int {
 	count := 0
 	for _, don := range m.dons {
 		if _, isBootstrap := don.Bootstrap(); isBootstrap {
@@ -689,6 +679,15 @@ func (m DonsMetadata) BootstrapNodeCount() int {
 		}
 	}
 	return count
+}
+
+func (m DonsMetadata) Bootstrap() (*NodeMetadata, bool) {
+	for _, don := range m.dons {
+		if node, isBootstrap := don.Bootstrap(); isBootstrap {
+			return node, true
+		}
+	}
+	return nil, false
 }
 
 // WorkflowDON returns the DON with the WorkflowDON flag. Returns an error if
@@ -802,7 +801,7 @@ type DonTopology struct {
 
 // BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
 // Currently only one bootstrap is supported.
-func (t *DonTopology) BootstrapNode() (*Node, bool) {
+func (t *DonTopology) Bootstrap() (*Node, bool) {
 	for _, don := range t.Dons.List() {
 		if node, isBootstrap := don.Bootstrap(); isBootstrap {
 			return node, true
@@ -812,7 +811,7 @@ func (t *DonTopology) BootstrapNode() (*Node, bool) {
 	return nil, false
 }
 
-func (t *DonTopology) GatewayNode() (*Node, bool) {
+func (t *DonTopology) Gateway() (*Node, bool) {
 	for _, don := range t.Dons.List() {
 		if node, isGateway := don.Gateway(); isGateway {
 			return node, true
