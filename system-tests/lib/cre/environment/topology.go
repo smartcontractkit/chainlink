@@ -2,54 +2,43 @@ package environment
 
 import (
 	"fmt"
-	"maps"
-	"os"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	creconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
-	cresecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
-	creflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func PrepareConfiguration(
+func PrepareNodeTOMLConfigurations(
 	registryChainSelector uint64,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
-	infraInput infra.Provider,
+	provider infra.Provider,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	addressBook deployment.AddressBook,
 	datastore datastore.DataStore,
 	capabilities []cre.InstallableCapability,
 	capabilityConfigs cre.CapabilityConfigs,
-	copyCapabilityBinaries bool,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
-	topology, err := cre.NewTopology(nodeSets, infraInput)
+	topology, tErr := cre.NewTopology(nodeSets, provider)
+	if tErr != nil {
+		return nil, nil, errors.Wrap(tErr, "failed to create topology")
+	}
+
+	bt, err := topology.BootstrapNode()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create topology: %w", err)
+		return nil, nil, errors.Wrap(err, "failed to find bootstrap node")
 	}
 
-	localNodeSets := copyCapabilityAwareNodeSets(nodeSets)
-
-	// Generate EVM and P2P keys or read them from the config
-	// That way we can pass them final configs and do away with restarting the nodes
-	var keys *cre.GenerateKeysOutput
-
-	keysOutput, keysOutputErr := cresecrets.KeysOutputFromConfig(localNodeSets)
-	if keysOutputErr != nil {
-		return nil, nil, errors.Wrap(keysOutputErr, "failed to generate keys output")
+	capabilitiesPeeringData, ocrPeeringData, peeringErr := cre.PeeringCfgs(bt)
+	if peeringErr != nil {
+		return nil, nil, errors.Wrap(peeringErr, "failed to find peering data")
 	}
 
-	evmChainIDs := make([]int, 0)
-	solChainIDs := make([]string, 0)
+	localNodeSets := topology.CapabilitiesAwareNodeSets()
 	chainPerSelector := make(map[uint64]*cre.WrappedBlockchainOutput)
 	for _, bcOut := range blockchainOutputs {
 		if bcOut.SolChain != nil {
@@ -58,44 +47,18 @@ func PrepareConfiguration(
 			chainPerSelector[sel].ChainSelector = sel
 			chainPerSelector[sel].SolChain = bcOut.SolChain
 			chainPerSelector[sel].SolChain.ArtifactsDir = bcOut.SolChain.ArtifactsDir
-			solChainIDs = append(solChainIDs, bcOut.SolChain.ChainID)
 			continue
 		}
 		chainPerSelector[bcOut.ChainSelector] = bcOut
-		evmChainIDs = append(evmChainIDs, libc.MustSafeInt(bcOut.ChainID))
 	}
 
-	generateKeysInput := &cre.GenerateKeysInput{
-		GenerateEVMKeysForChainIDs: evmChainIDs,
-		GenerateSolKeysForChainIDs: solChainIDs,
-		GenerateP2PKeys:            true,
-		GenerateDKGRecipientKeys:   true,
-		Topology:                   topology,
-		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
-		Out:                        keysOutput,
-	}
-	keys, keysErr := cresecrets.GenerateKeys(generateKeysInput)
-	if keysErr != nil {
-		return nil, nil, errors.Wrap(keysErr, "failed to generate keys")
-	}
-
-	topology, addKeysErr := cresecrets.AddKeysToTopology(topology, keys)
-	if addKeysErr != nil {
-		return nil, nil, errors.Wrap(addKeysErr, "failed to add keys to topology")
-	}
-
-	capabilitiesPeeringData, ocrPeeringData, peeringErr := libdon.FindPeeringData(topology)
-	if peeringErr != nil {
-		return nil, nil, errors.Wrap(peeringErr, "failed to find peering data")
-	}
-
-	topology.CapabilitiesPeeringData = capabilitiesPeeringData
-	topology.OCRPeeringData = ocrPeeringData
-
-	for i, donMetadata := range topology.DonsMetadata {
+	for i, donMetadata := range topology.DonsMetadata.List() {
+		// make sure that either all or none of the node specs have config or secrets provided in the TOML config
 		configsFound := 0
 		secretsFound := 0
-		for _, nodeSpec := range localNodeSets[i].NodeSpecs {
+		nodeSet := localNodeSets[i]
+
+		for _, nodeSpec := range nodeSet.NodeSpecs {
 			if nodeSpec.Node.TestConfigOverrides != "" {
 				configsFound++
 			}
@@ -103,6 +66,7 @@ func PrepareConfiguration(
 				secretsFound++
 			}
 		}
+
 		if configsFound != 0 && configsFound != len(localNodeSets[i].NodeSpecs) {
 			return nil, nil, fmt.Errorf("%d out of %d node specs have config overrides. Either provide overrides for all nodes or none at all", configsFound, len(localNodeSets[i].NodeSpecs))
 		}
@@ -112,11 +76,10 @@ func PrepareConfiguration(
 		}
 
 		// Allow providing only secrets, because we can decode them and use them to generate configs
-		// We can't allow providing only configs, because we can't replace secret-related values in the configs
+		// We can't allow providing only configs, because we don't want to deal with parsing configs to set new secrets there.
 		// If both are provided, we assume that the user knows what they are doing and we don't need to validate anything
-		// And that configs match the secrets
 		if configsFound > 0 && secretsFound == 0 {
-			return nil, nil, fmt.Errorf("nodese config overrides are provided for DON %d, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.ID)
+			return nil, nil, fmt.Errorf("nodespec config overrides are provided for DON %s, but not secrets. You need to either provide both, only secrets or nothing at all", donMetadata.Name)
 		}
 
 		configFactoryFunctions := make([]cre.NodeConfigTransformerFn, 0)
@@ -124,7 +87,7 @@ func PrepareConfiguration(
 			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigTransformerFn())
 		}
 
-		// generate configs only if they are not provided
+		// generate node TOML configs only if they are not provided in the environment TOML config
 		if configsFound == 0 {
 			config, configErr := creconfig.Generate(
 				cre.GenerateConfigsInput{
@@ -151,159 +114,18 @@ func PrepareConfiguration(
 			}
 		}
 
-		// generate secrets only if they are not provided
+		// generate node TOML secrets only if they are not provided in the environment TOML config
 		if secretsFound == 0 {
-			secretsInput := &cre.GenerateSecretsInput{
-				DonMetadata: donMetadata,
-			}
-
-			if evmKeys, ok := keys.EVMKeys[donMetadata.ID]; ok {
-				secretsInput.EVMKeys = evmKeys
-			}
-
-			if solKeys, ok := keys.SolKeys[donMetadata.ID]; ok {
-				secretsInput.SolKeys = solKeys
-			}
-
-			if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
-				secretsInput.P2PKeys = p2pKeys
-			}
-
-			if dkgKeys, ok := keys.DKGRecipientKeys[donMetadata.ID]; ok {
-				secretsInput.DKGRecipientKeys = dkgKeys
-			}
-
-			// EVM, Solana and P2P keys will be provided to nodes as secrets
-			secrets, secretsErr := cresecrets.GenerateSecrets(
-				secretsInput,
-			)
-			if secretsErr != nil {
-				return nil, nil, errors.Wrap(secretsErr, "failed to generate secrets")
-			}
-
-			for j := range donMetadata.NodesMetadata {
-				localNodeSets[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
-			}
-		}
-
-		if !copyCapabilityBinaries {
-			continue
-		}
-
-		customBinariesPaths := make(map[cre.CapabilityFlag]string)
-		for flag, config := range capabilityConfigs {
-			if creflags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
-				customBinariesPaths[flag] = config.BinaryPath
-			}
-		}
-
-		executableErr := crecapabilities.MakeBinariesExecutable(customBinariesPaths)
-		if executableErr != nil {
-			return nil, nil, errors.Wrap(executableErr, "failed to make binaries executable")
-		}
-
-		var appendErr error
-		localNodeSets[i], appendErr = crecapabilities.AppendBinariesPathsNodeSpec(localNodeSets[i], donMetadata, customBinariesPaths)
-		if appendErr != nil {
-			return nil, nil, errors.Wrapf(appendErr, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
-		}
-	}
-
-	// Add env vars, which were provided programmatically, to the node specs
-	// or fail, if node specs already had some env vars set in the TOML config
-	for donIdx, donMetadata := range topology.DonsMetadata {
-		hasEnvVarsInTomlConfig := false
-		for nodeIdx, nodeSpec := range localNodeSets[donIdx].NodeSpecs {
-			if len(nodeSpec.Node.EnvVars) > 0 {
-				hasEnvVarsInTomlConfig = true
-				break
-			}
-
-			localNodeSets[donIdx].NodeSpecs[nodeIdx].Node.EnvVars = localNodeSets[donIdx].EnvVars
-		}
-
-		if hasEnvVarsInTomlConfig && len(localNodeSets[donIdx].EnvVars) > 0 {
-			return nil, nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
-		}
-	}
-
-	// Deploy the DONs
-	// Hack for CI that allows us to dynamically set the chainlink image and version
-	// CTFv2 currently doesn't support dynamic image and version setting
-	if os.Getenv("CI") == "true" {
-		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
-		// that stores chainlink version and then we can use it to resolve the image name
-		for i := range localNodeSets {
-			image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
-			for j := range localNodeSets[i].NodeSpecs {
-				localNodeSets[i].NodeSpecs[j].Node.Image = image
-				// unset docker context and file path, so that we can use the image from the registry
-				localNodeSets[i].NodeSpecs[j].Node.DockerContext = ""
-				localNodeSets[i].NodeSpecs[j].Node.DockerFilePath = ""
+			for nodeIndex := range donMetadata.NodesMetadata {
+				wnode := donMetadata.NodesMetadata[nodeIndex]
+				nodeSecretsTOML, err := wnode.Keys.ToNodeSecretsTOML()
+				if err != nil {
+					return nil, nil, errors.Wrapf(err, "failed to marshal node secrets (DON: %s, Node index: %d)", donMetadata.Name, nodeIndex)
+				}
+				localNodeSets[i].NodeSpecs[nodeIndex].Node.TestSecretsOverrides = nodeSecretsTOML
 			}
 		}
 	}
 
 	return topology, localNodeSets, nil
-}
-
-func copyCapabilityAwareNodeSets(
-	nodeSets []*cre.CapabilitiesAwareNodeSet,
-) []*cre.CapabilitiesAwareNodeSet {
-	copiedNodeSets := make([]*cre.CapabilitiesAwareNodeSet, len(nodeSets))
-	for i, originalNs := range nodeSets {
-		if originalNs == nil {
-			copiedNodeSets[i] = nil
-			continue
-		}
-
-		newNs := &cre.CapabilitiesAwareNodeSet{
-			BootstrapNodeIndex: originalNs.BootstrapNodeIndex,
-			GatewayNodeIndex:   originalNs.GatewayNodeIndex,
-		}
-
-		if originalNs.Input != nil {
-			inputCopy := *originalNs.Input
-			newNs.Input = &inputCopy
-		}
-
-		if originalNs.Capabilities != nil {
-			newNs.Capabilities = make([]string, len(originalNs.Capabilities))
-			copy(newNs.Capabilities, originalNs.Capabilities)
-		}
-
-		if originalNs.ComputedCapabilities != nil {
-			newNs.ComputedCapabilities = make([]string, len(originalNs.ComputedCapabilities))
-			copy(newNs.ComputedCapabilities, originalNs.ComputedCapabilities)
-		}
-
-		if originalNs.DONTypes != nil {
-			newNs.DONTypes = make([]string, len(originalNs.DONTypes))
-			copy(newNs.DONTypes, originalNs.DONTypes)
-		}
-
-		if originalNs.SupportedChains != nil {
-			newNs.SupportedChains = make([]uint64, len(originalNs.SupportedChains))
-			copy(newNs.SupportedChains, originalNs.SupportedChains)
-		}
-
-		if originalNs.EnvVars != nil {
-			newNs.EnvVars = make(map[string]string, len(originalNs.EnvVars))
-			maps.Copy(newNs.EnvVars, originalNs.EnvVars)
-		}
-
-		if originalNs.ChainCapabilities != nil {
-			newNs.ChainCapabilities = make(map[string]*cre.ChainCapabilityConfig, len(originalNs.ChainCapabilities))
-			maps.Copy(newNs.ChainCapabilities, originalNs.ChainCapabilities)
-		}
-
-		if originalNs.SupportedSolChains != nil {
-			newNs.SupportedSolChains = make([]string, len(originalNs.SupportedSolChains))
-			copy(newNs.SupportedSolChains, originalNs.SupportedSolChains)
-		}
-
-		copiedNodeSets[i] = newNs
-	}
-
-	return copiedNodeSets
 }

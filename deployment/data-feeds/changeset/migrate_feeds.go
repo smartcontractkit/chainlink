@@ -19,13 +19,6 @@ import (
 // Returns a new datastore with the deployed AggregatorProxy addresses.
 var MigrateFeedsChangeset = cldf.CreateChangeSet(migrateFeedsLogic, migrateFeedsPrecondition)
 
-type MigrationSchema struct {
-	Address        string              `json:"address"`
-	TypeAndVersion cldf.TypeAndVersion `json:"typeAndVersion"`
-	FeedID         string              `json:"feedId"`
-	Description    string              `json:"description"`
-}
-
 func migrateFeedsLogic(env cldf.Environment, c types.MigrationConfig) (cldf.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.BlockChains.EVMChains()[c.ChainSelector]
@@ -33,7 +26,7 @@ func migrateFeedsLogic(env cldf.Environment, c types.MigrationConfig) (cldf.Chan
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 	ds := datastore.NewMemoryDataStore()
 
-	proxies, _ := LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
+	proxies := c.Proxies
 
 	var feedIDs []string
 	addresses := make([]common.Address, len(proxies))
@@ -80,15 +73,12 @@ func migrateFeedsPrecondition(env cldf.Environment, c types.MigrationConfig) err
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 
-	proxies, err := LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
-	if err != nil {
-		return fmt.Errorf("failed to load addresses input file: %w", err)
-	}
+	proxies := c.Proxies
 	var feedIDs []string
 	for _, proxy := range proxies {
 		feedIDs = append(feedIDs, proxy.FeedID)
 	}
-	_, err = FeedIDsToBytes16(feedIDs)
+	_, err := FeedIDsToBytes16(feedIDs)
 	if err != nil {
 		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}

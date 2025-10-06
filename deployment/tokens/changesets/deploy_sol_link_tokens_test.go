@@ -6,14 +6,13 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink/deployment/tokens/internal/ops"
 )
 
@@ -162,27 +161,30 @@ func Test_DeploySolLinkTokens_Apply(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var (
-				lggr = logger.Test(t)
-				e    = memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-					SolChains: 1,
-				})
-				cs = deploySolLinkTokens{}
-			)
+			programsPath := t.TempDir() // We don't need programs in here to deploy the token
 
-			got, err := cs.Apply(e, tt.giveFunc(e))
+			rt, err := runtime.New(t.Context(),
+				runtime.WithEnvOpts(
+					environment.WithSolanaContainerN(t, 1, programsPath, map[string]string{}),
+				),
+			)
+			require.NoError(t, err)
+
+			err = rt.Exec(
+				runtime.ChangesetTask(DeploySolLinkTokens, tt.giveFunc(rt.Environment())),
+			)
 			require.NoError(t, err)
 
 			// Check that the address book has the link token contract for each chain
-			for _, csel := range e.BlockChains.ListChainSelectors() {
-				addrBookByChain, err := got.AddressBook.AddressesForChain(csel) //nolint:staticcheck // Will be removed once the address book is no longer required.
+			for _, csel := range rt.Environment().BlockChains.ListChainSelectors() {
+				addrBookByChain, err := rt.State().AddressBook.AddressesForChain(csel)
 				require.NoError(t, err)
 				require.NotEmpty(t, addrBookByChain)
 				require.Len(t, addrBookByChain, 1)
 			}
 
 			// Check the address book has the link token contract for each chain
-			addrRefs, err := got.DataStore.Addresses().Fetch()
+			addrRefs, err := rt.State().DataStore.Addresses().Fetch()
 			require.NoError(t, err)
 			require.Len(t, addrRefs, 1)
 		})

@@ -88,7 +88,7 @@ func setupLoadTestWriterEnvironment(
 		CapabilitiesContractFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:                     in.Blockchains,
 		JdInput:                              in.JD,
-		InfraInput:                           *in.Infra,
+		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 	}
 
@@ -170,9 +170,9 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	loadTestJobSpecsFactoryFn := func(input *cretypes.JobSpecInput) (cretypes.DonsToJobSpecs, error) {
 		donTojobSpecs := make(cretypes.DonsToJobSpecs, 0)
 
-		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
+		for _, donMetadata := range input.DonTopology.Dons.DonMetadata {
 			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.WorkerNode}, node.EqualLabels)
+			workflowNodeSet, err2 := node.FindManyWithLabel(donMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.WorkerNode}, node.EqualLabels)
 			if err2 != nil {
 				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 				return nil, errors.Wrap(err2, "failed to find worker nodes")
@@ -183,12 +183,12 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 				}
 
-				if flags.HasFlag(donWithMetadata.Flags, cretypes.MockCapability) && in.MockCapabilities != nil {
+				if flags.HasFlag(donMetadata.Flags, cretypes.MockCapability) && in.MockCapabilities != nil {
 					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, "mock", in.MockCapabilities))
 				}
 			}
 
-			donTojobSpecs[donWithMetadata.ID] = jobSpecs
+			donTojobSpecs[donMetadata.ID] = jobSpecs
 		}
 
 		return donTojobSpecs, nil
@@ -249,9 +249,9 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 	ctx := t.Context()
 	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
-	for _, don := range setupOutput.donTopology.DonsWithMetadata {
-		if flags.HasFlag(don.Flags, cretypes.MockCapability) {
-			for i, n := range don.DON.Nodes {
+	for idx, donMetadata := range setupOutput.donTopology.Dons.DonMetadata {
+		if flags.HasFlag(donMetadata.Flags, cretypes.MockCapability) {
+			for i, n := range setupOutput.donTopology.Dons.List()[idx].Nodes {
 				if i == 0 {
 					continue // Skip bootstrap nodes
 				}
@@ -271,7 +271,7 @@ func TestLoad_Writer_MockCapabilities(t *testing.T) {
 
 	f := 0
 	// Nr of signatures needs to be equal with f+1, compute f based on the nr of ocr3 worker nodes
-	for _, donMetadata := range setupOutput.donTopology.DonsWithMetadata {
+	for _, donMetadata := range setupOutput.donTopology.Dons.DonMetadata {
 		if flags.HasFlag(donMetadata.Flags, cretypes.ConsensusCapability) {
 			workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &cretypes.Label{
 				Key:   node.NodeTypeKey,

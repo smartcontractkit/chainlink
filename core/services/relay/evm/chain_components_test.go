@@ -28,6 +28,7 @@ import (
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commonevm "github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -164,7 +165,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 							ReadType:          types.Event,
 
 							EventDefinitions: &types.EventDefinitions{
-								GenericDataWordDetails: map[string]types.DataWordDetail{
+								GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 									"DW": {
 										Name:  "someDW",
 										Index: ptr(0),
@@ -192,7 +193,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 							ReadType:          types.Event,
 
 							EventDefinitions: &types.EventDefinitions{
-								GenericDataWordDetails: map[string]types.DataWordDetail{
+								GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 									"DW": {
 										Name:  "someDW",
 										Index: ptr(0),
