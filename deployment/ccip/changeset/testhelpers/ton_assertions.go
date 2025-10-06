@@ -36,7 +36,7 @@ const (
 	pollInterval        = 2500 * time.Millisecond // How often to check for new blocks
 	clientRetries       = 3                       // Number of retries for TON client operations
 	txBatchSize         = 100                     // Number of transactions to fetch per batch
-	progressLogInterval = 30 * time.Second        // How often to log "still waiting" progress updates
+	progressLogInterval = 15 * time.Second        // How often to log "still waiting" progress updates
 )
 
 // eventSubscriber encapsulates subscribing to and waiting for TON events with timeout handling.
@@ -93,7 +93,6 @@ func (s *eventSubscriber[T]) waitUntil(t *testing.T, processEvent func(T) (bool,
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
 
-	// Progress ticker to show we're still listening
 	progressTicker := time.NewTicker(progressLogInterval)
 	defer progressTicker.Stop()
 
@@ -104,45 +103,24 @@ func (s *eventSubscriber[T]) waitUntil(t *testing.T, processEvent func(T) (bool,
 		select {
 		case event := <-eventCh:
 			eventCount++
-			elapsed := time.Since(startTime)
-
 			done, err := processEvent(event)
 			if err != nil {
-				s.lggr.Errorw("Event processing failed",
-					"error", err,
-					"eventNumber", eventCount,
-					"elapsedTime", elapsed.String())
 				return err
 			}
 			if done {
-				s.lggr.Infow("Event processing complete",
-					"totalEvents", eventCount,
-					"duration", elapsed.String())
 				return nil
 			}
 
 		case err := <-errCh:
-			elapsed := time.Since(startTime)
-			s.lggr.Errorw("Stream error occurred",
-				"error", err,
-				"eventsProcessed", eventCount,
-				"duration", elapsed.String())
 			return err
 
 		case <-progressTicker.C:
-			elapsed := time.Since(startTime)
-			s.lggr.Infow("Still waiting for event",
+			s.lggr.Infow("Still waiting",
 				"eventName", s.eventName,
-				"elapsed", elapsed.Round(time.Second).String(),
-				"eventsProcessed", eventCount)
+				"elapsed", time.Since(startTime).Round(time.Second).String())
 
 		case <-timeout.C:
-			elapsed := time.Since(startTime)
-			s.lggr.Errorw("Timeout waiting for events",
-				"eventsProcessed", eventCount,
-				"duration", elapsed.String(),
-				"timeout", tests.WaitTimeout(t))
-			return fmt.Errorf("%w: after processing %d events in %s", ErrTimeout, eventCount, elapsed.String())
+			return fmt.Errorf("%w: after %s", ErrTimeout, time.Since(startTime).String())
 		}
 	}
 }
