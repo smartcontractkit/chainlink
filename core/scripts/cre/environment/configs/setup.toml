@@ -47,3 +47,8 @@ repository = "https://github.com/smartcontractkit/capabilities"
 branch = "main"
 build_command = "pnpm install && ./nx run-many -t build"
 artifacts_dirs = ["./bin/amd64", "./chain_capabilities/bin/amd64"]
+
+[observability]
+repository = "https://github.com/smartcontractkit/chainlink-observability"
+branch = "main"
+target_path = "./observability"

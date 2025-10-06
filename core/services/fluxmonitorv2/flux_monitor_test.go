@@ -911,6 +911,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+	quarantine.Flaky(t, "DX-1806")
 	t.Parallel()
 	db, nodeAddr := setupFullDBWithKey(t)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
@@ -1030,6 +1031,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 }
 
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
+	quarantine.Flaky(t, "DX-1857")
 	t.Parallel()
 
 	g := gomega.NewWithT(t)

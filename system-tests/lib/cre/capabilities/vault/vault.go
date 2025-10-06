@@ -3,13 +3,14 @@ package vault
 import (
 	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
@@ -71,13 +72,8 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 		}
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
-		donMetadata := make([]*cre.DonMetadata, 0)
-		for _, don := range input.DonTopology.DonsWithMetadata {
-			donMetadata = append(donMetadata, don.DonMetadata)
-		}
-
 		// return early if no DON has the vault capability
-		if !don.AnyDonHasCapability(donMetadata, flag) {
+		if !don.AnyDonHasCapability(input.DonTopology.Dons.DonMetadata, flag) {
 			return donToJobSpecs, nil
 		}
 
@@ -103,35 +99,21 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			return nil, errors.Wrap(err, "failed to get DKG address")
 		}
 
-		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
-			if !flags.HasFlag(donWithMetadata.Flags, flag) {
+		for _, donMetadata := range input.DonTopology.Dons.DonMetadata {
+			if !flags.HasFlag(donMetadata.Flags, flag) {
 				continue
 			}
 
 			// create job specs for the worker nodes
-			workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
-			if err != nil {
+			workerNodes, wErr := donMetadata.WorkerNodes()
+			if wErr != nil {
 				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-				return nil, errors.Wrap(err, "failed to find worker nodes")
+				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
-			// look for boostrap node and then for required values in its labels
-			bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
+			bootstrapNode, bootErr := input.DonTopology.BootstrapNode()
 			if bootErr != nil {
-				// if there is no bootstrap node in this DON, we need to use the global bootstrap node
-				for _, don := range input.DonTopology.DonsWithMetadata {
-					for _, n := range don.NodesMetadata {
-						p2pValue, p2pErr := node.FindLabelValue(n, node.NodeP2PIDKey)
-						if p2pErr != nil {
-							continue
-						}
-
-						if strings.Contains(p2pValue, input.DonTopology.OCRPeeringData.OCRBootstraperPeerID) {
-							bootstrapNode = n
-							break
-						}
-					}
-				}
+				return nil, errors.Wrap(bootErr, "failed to find bootstrap node")
 			}
 
 			bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
@@ -139,30 +121,36 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 				return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
 			}
 
-			// create job specs for the bootstrap node
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
+			_, ocrPeeringData, peeringErr := cre.PeeringCfgs(bootstrapNode)
+			if peeringErr != nil {
+				return nil, errors.Wrap(peeringErr, "failed to find peering data")
+			}
 
-			for _, workerNode := range workflowNodeSet {
+			// create job specs for the bootstrap node
+			donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, "vault-capability", vaultCapabilityAddress.Address, chainID))
+
+			for _, workerNode := range workerNodes {
 				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
 				if nodeIDErr != nil {
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 				}
 
-				nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.AddressKeyFromSelector(input.DonTopology.HomeChainSelector))
-				if ethErr != nil {
-					return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
+				evmKey, ok := workerNode.Keys.EVM[chainID]
+				if !ok {
+					return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
 				}
 
 				ocr2KeyBundlesPerFamily, ocr2kbErr := node.ExtractBundleKeysPerFamily(workerNode)
 				if ocr2kbErr != nil {
 					return nil, errors.Wrap(ocr2kbErr, "failed to get ocr2 key bundle id from labels")
 				}
-				offchainKeyBundleID, ok := ocr2KeyBundlesPerFamily["evm"]
+
+				evmOCR2KeyBundle, ok := ocr2KeyBundlesPerFamily[chainselectors.FamilyEVM]
 				if !ok {
 					return nil, errors.New("key bundle ID for evm family is not found")
 				}
 
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, nodeEthAddr, offchainKeyBundleID, input.DonTopology.OCRPeeringData, chainID))
+				donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.WorkerVaultOCR3(nodeID, vaultCapabilityAddress.Address, dkgAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
 			}
 		}
 

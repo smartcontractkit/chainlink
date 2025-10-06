@@ -13,7 +13,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/type_and_version"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 )
 
 type ContractType string
@@ -51,14 +51,14 @@ func VerifyTypeAndVersion(ctx context.Context, addr string, crFactory ContractRe
 }
 
 func TypeAndVersion(ctx context.Context, addr string, crFactory ContractReaderFactory) (ContractType, semver.Version, error) {
-	cfg := types.ChainReaderConfig{
-		Contracts: map[string]types.ChainContractReader{
+	cfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			ContractName: {
 				ContractABI: type_and_version.ITypeAndVersionABI,
-				Configs: map[string]*types.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					MethodName: {
 						ChainSpecificName: MethodName,
-						ReadType:          types.Method,
+						ReadType:          config.Method,
 					},
 				},
 			},

@@ -15,6 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -57,23 +58,23 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 			FundingPerChainFamilyForEachNode: input.FundingPerChainFamilyForEachNode,
 		}
 		requiredFundingPerChain := make(map[uint64]uint64)
-		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
+		for _, metaDon := range deps.DonTopology.ToDonMetadata() {
 			for _, bcOut := range deps.BlockchainOutputs {
 				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) && bcOut.SolChain == nil {
 					continue
 				}
 
 				if bcOut.SolChain != nil {
-					requiredFundingPerChain[bcOut.SolChain.ChainSelector] += input.FundingPerChainFamilyForEachNode["solana"] * uint64(len(metaDon.DON.Nodes))
+					requiredFundingPerChain[bcOut.SolChain.ChainSelector] += input.FundingPerChainFamilyForEachNode[chainselectors.FamilySolana] * uint64(len(metaDon.NodesMetadata))
 					continue
 				}
 
 				if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
-					requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["tron"] * uint64(len(metaDon.DON.Nodes))
+					requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode[chainselectors.FamilyTron] * uint64(len(metaDon.NodesMetadata))
 					continue
 				}
 
-				requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode["evm"] * uint64(len(metaDon.DON.Nodes))
+				requiredFundingPerChain[bcOut.ChainSelector] += input.FundingPerChainFamilyForEachNode[chainselectors.FamilyEVM] * uint64(len(metaDon.NodesMetadata))
 			}
 		}
 
@@ -82,15 +83,15 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 				continue
 			}
 
-			chainFamily := "evm"
+			chainFamily := chainselectors.FamilyEVM
 			if bcOut.SolChain != nil {
-				chainFamily = "solana"
+				chainFamily = chainselectors.FamilySolana
 			} else if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
-				chainFamily = "tron"
+				chainFamily = chainselectors.FamilyTron
 			}
 
 			switch chainFamily {
-			case "evm":
+			case chainselectors.FamilyEVM:
 				if _, exists := output.PrivateKeysPerChainFamily[chainFamily]; !exists {
 					output.PrivateKeysPerChainFamily[chainFamily] = make(map[uint64][]byte)
 				}
@@ -116,7 +117,7 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 
 					output.PrivateKeysPerChainFamily[chainFamily][bcOut.ChainSelector] = privateKeyBytes
 				}
-			case "solana":
+			case chainselectors.FamilySolana:
 				if _, exists := output.PrivateKeysPerChainFamily[chainFamily]; !exists {
 					output.PrivateKeysPerChainFamily[chainFamily] = make(map[uint64][]byte)
 				}
@@ -137,7 +138,7 @@ var PrepareCLNodesFundingOp = operations.NewOperation[PrepareFundCLNodesOpInput,
 
 					output.PrivateKeysPerChainFamily[chainFamily][bcOut.SolChain.ChainSelector] = private
 				}
-			case "tron":
+			case chainselectors.FamilyTron:
 				// TRON uses its own built-in funding account, no preparation needed
 				continue
 			default:
@@ -186,19 +187,19 @@ var FundCLNodesOp = operations.NewOperation(
 	"Fund Chainlink Nodes",
 	func(b operations.Bundle, deps FundCLNodesOpDeps, input FundCLNodesOpInput) (*FundCLNodesOpOutput, error) {
 		ctx := b.GetContext()
-		for _, metaDon := range deps.DonTopology.DonsWithMetadata {
-			deps.TestLogger.Info().Msgf("Funding nodes for DON %s", metaDon.Name)
+		for donIndex, donMetadata := range deps.DonTopology.ToDonMetadata() {
+			deps.TestLogger.Info().Msgf("Funding nodes for DON %s", donMetadata.Name)
 			for _, bcOut := range deps.BlockchainOutputs {
-				if !flags.RequiresForwarderContract(metaDon.Flags, bcOut.ChainID) &&
+				if !flags.RequiresForwarderContract(donMetadata.Flags, bcOut.ChainID) &&
 					bcOut.SolChain == nil { // for now, we can only write to solana, so we consider forwarder is always present
 					continue
 				}
-				for _, node := range metaDon.DON.Nodes {
-					chainFamily := "evm"
+				for _, node := range deps.DonTopology.Dons.List()[donIndex].Nodes {
+					chainFamily := chainselectors.FamilyEVM
 					if bcOut.SolChain != nil {
-						chainFamily = "solana"
+						chainFamily = chainselectors.FamilySolana
 					} else if bcOut.BlockchainOutput.Family == blockchain.FamilyTron {
-						chainFamily = "tron"
+						chainFamily = chainselectors.FamilyTron
 					}
 
 					fundingAmount, ok := input.FundingAmountPerChainFamily[chainFamily]
@@ -207,15 +208,15 @@ var FundCLNodesOp = operations.NewOperation(
 					}
 
 					switch chainFamily {
-					case "evm":
+					case chainselectors.FamilyEVM:
 						if err := fundEthAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily); err != nil {
 							return nil, err
 						}
-					case "solana":
+					case chainselectors.FamilySolana:
 						if err := fundSolanaAddress(ctx, deps.TestLogger, node, fundingAmount, bcOut, input.PrivateKeyPerChainFamily); err != nil {
 							return nil, err
 						}
-					case "tron":
+					case chainselectors.FamilyTron:
 						nodeAddress := getTronNodeAddress(node, bcOut)
 						if err := FundTronAddress(ctx, deps.TestLogger, nodeAddress, fundingAmount, bcOut, deps.Env); err != nil {
 							return nil, err
@@ -226,7 +227,7 @@ var FundCLNodesOp = operations.NewOperation(
 				}
 			}
 
-			deps.TestLogger.Info().Msgf("Funded nodes for DON %s", metaDon.Name)
+			deps.TestLogger.Info().Msgf("Funded nodes for DON %s", donMetadata.Name)
 		}
 
 		return &FundCLNodesOpOutput{}, nil

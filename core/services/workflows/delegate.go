@@ -25,10 +25,10 @@ func WithBillingClient(client metering.BillingClient) func(*Delegate) {
 	}
 }
 
-func WithWorkflowRegistry(address, chainID string) func(*Delegate) {
+func WithWorkflowRegistry(address, chainSelector string) func(*Delegate) {
 	return func(e *Delegate) {
 		e.workflowRegistryAddress = address
-		e.workflowRegistryChainID = chainID
+		e.workflowRegistryChainSelector = chainSelector
 	}
 }
 
@@ -44,8 +44,8 @@ type Delegate struct {
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
-	// WorkflowRegistryChainID is the chain ID for the workflow registry
-	workflowRegistryChainID string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -84,21 +84,21 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:                    d.logger,
-		Workflow:                sdkSpec,
-		WorkflowID:              spec.WorkflowSpec.WorkflowID,
-		WorkflowOwner:           spec.WorkflowSpec.WorkflowOwner,
-		WorkflowName:            NewLegacyWorkflowName(spec.WorkflowSpec.WorkflowName),
-		Registry:                d.registry,
-		Store:                   d.store,
-		Config:                  config,
-		Binary:                  binary,
-		SecretsFetcher:          d.secretsFetcher,
-		RateLimiter:             d.ratelimiter,
-		WorkflowLimits:          d.workflowLimits,
-		BillingClient:           d.billingClient,
-		WorkflowRegistryAddress: d.workflowRegistryAddress,
-		WorkflowRegistryChainID: d.workflowRegistryChainID,
+		Lggr:                          d.logger,
+		Workflow:                      sdkSpec,
+		WorkflowID:                    spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner:                 spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:                  NewLegacyWorkflowName(spec.WorkflowSpec.WorkflowName),
+		Registry:                      d.registry,
+		Store:                         d.store,
+		Config:                        config,
+		Binary:                        binary,
+		SecretsFetcher:                d.secretsFetcher,
+		RateLimiter:                   d.ratelimiter,
+		WorkflowLimits:                d.workflowLimits,
+		BillingClient:                 d.billingClient,
+		WorkflowRegistryAddress:       d.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: d.workflowRegistryChainSelector,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {

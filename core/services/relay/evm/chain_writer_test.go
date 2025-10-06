@@ -17,12 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	rollupmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestChainWriter(t *testing.T) {
@@ -41,7 +41,7 @@ func TestChainWriter(t *testing.T) {
 	t.Run("Initialization", func(t *testing.T) {
 		t.Run("Fails with invalid ABI", func(t *testing.T) {
 			baseConfig := newBaseChainWriterConfig()
-			invalidAbiConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
+			invalidAbiConfig := modifyChainWriterConfig(baseConfig, func(cfg *config.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].ContractABI = ""
 			})
 			_, err = NewChainWriterService(lggr, client, txm, ge, invalidAbiConfig, nil)
@@ -50,7 +50,7 @@ func TestChainWriter(t *testing.T) {
 
 		t.Run("Fails with invalid method names", func(t *testing.T) {
 			baseConfig := newBaseChainWriterConfig()
-			invalidMethodNameConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
+			invalidMethodNameConfig := modifyChainWriterConfig(baseConfig, func(cfg *config.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].Configs["report"].ChainSpecificName = ""
 			})
 			_, err = NewChainWriterService(lggr, client, txm, ge, invalidMethodNameConfig, nil)
@@ -187,13 +187,13 @@ func TestChainWriter(t *testing.T) {
 }
 
 // Helper functions to remove redundant creation of configs
-func newBaseChainWriterConfig() relayevmtypes.ChainWriterConfig {
-	return relayevmtypes.ChainWriterConfig{
-		Contracts: map[string]*relayevmtypes.ContractConfig{
+func newBaseChainWriterConfig() config.ChainWriterConfig {
+	return config.ChainWriterConfig{
+		Contracts: map[string]*config.ContractConfig{
 			"forwarder": {
 				// TODO: Use generic ABI / test contract rather than a keystone specific one
 				ContractABI: forwarder.KeystoneForwarderABI,
-				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
+				Configs: map[string]*config.ChainWriterDefinition{
 					"report": {
 						ChainSpecificName: "report",
 						Checker:           "simulate",
@@ -207,7 +207,7 @@ func newBaseChainWriterConfig() relayevmtypes.ChainWriterConfig {
 	}
 }
 
-func modifyChainWriterConfig(baseConfig relayevmtypes.ChainWriterConfig, modifyFn func(*relayevmtypes.ChainWriterConfig)) relayevmtypes.ChainWriterConfig {
+func modifyChainWriterConfig(baseConfig config.ChainWriterConfig, modifyFn func(*config.ChainWriterConfig)) config.ChainWriterConfig {
 	modifiedConfig := baseConfig
 	modifyFn(&modifiedConfig)
 	return modifiedConfig

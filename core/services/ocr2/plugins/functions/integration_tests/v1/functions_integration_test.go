@@ -88,6 +88,7 @@ func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *
 }
 
 func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
+	quarantine.Flaky(t, "DX-1808")
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()

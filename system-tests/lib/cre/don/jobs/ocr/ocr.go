@@ -63,7 +63,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 	logger := framework.L
 
-	for donIdx, donWithMetadata := range donTopology.DonsWithMetadata {
+	for donIdx, donMetadata := range donTopology.ToDonMetadata() {
 		if !capabilityEnabler(nodeSetInput[donIdx], flag) {
 			continue
 		}
@@ -80,46 +80,19 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 
 		binaryPath := filepath.Join(containerPath, filepath.Base(capabilityConfig.BinaryPath))
 
-		workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.WorkerNode}, node.EqualLabels)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to find worker nodes")
+		workerNodes, wErr := donMetadata.WorkerNodes()
+		if wErr != nil {
+			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
 
-		donName := donWithMetadata.Name
-		// look for boostrap node and then for required values in its labels
-		bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
-		if bootErr != nil {
-			// if there is no bootstrap node in this DON, we need to use the global bootstrap node
-			found := false
-			for _, don := range donTopology.DonsWithMetadata {
-				for _, n := range don.NodesMetadata {
-					p2pValue, p2pErr := node.FindLabelValue(n, node.NodeP2PIDKey)
-					if p2pErr != nil {
-						continue
-					}
-
-					if strings.Contains(p2pValue, donTopology.OCRPeeringData.OCRBootstraperPeerID) {
-						bootstrapNode = n
-						donName = don.Name
-						found = true
-						break
-					}
-				}
-			}
-
-			if !found {
-				return nil, errors.New("failed to find global OCR bootstrap node")
-			}
+		bootstrapNode, err := donTopology.BootstrapNode()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get bootstrap node from DON metadata")
 		}
 
 		bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
 		if nodeIDErr != nil {
 			return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
-		}
-
-		internalHostsBS, err := getBoostrapWorkflowNames(bootstrapNode, donName, infraInput)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't generate bootstrap node host for DON %s: %w", donName, err)
 		}
 
 		chainIDs, err := enabledChainsProvider(donTopology, nodeSetInput[donIdx], flag)
@@ -156,53 +129,40 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 				return nil, errors.Wrap(err, "failed to get EVM capability address")
 			}
 
-			if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-				donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)
+			if _, ok := donToJobSpecs[donMetadata.ID]; !ok {
+				donToJobSpecs[donMetadata.ID] = make(cre.DonJobs, 0)
 			}
 
 			// create job specs for the bootstrap node
-			donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, contractName, ocr3ConfigContractAddress.Address, chainIDUint64))
+			donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobs.BootstrapOCR3(bootstrapNodeID, contractName, ocr3ConfigContractAddress.Address, chainIDUint64))
 			logger.Debug().Msgf("Found deployed '%s' OCR3 contract on chain %d at %s", contractName, chainIDUint64, ocr3ConfigContractAddress.Address)
 
-			for _, workerNode := range workflowNodeSet {
+			for _, workerNode := range workerNodes {
 				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
 				if nodeIDErr != nil {
 					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
 				}
 
-				transmitterAddress, tErr := node.FindLabelValue(workerNode, node.AddressKeyFromSelector(chain.Selector))
-				if tErr != nil {
-					return nil, errors.Wrap(tErr, "failed to get transmitter address from bootstrap node labels")
+				ethKey, ok := workerNode.Keys.EVM[chainIDUint64]
+				if !ok {
+					return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainIDUint64, workerNode.Index)
 				}
+				transmitterAddress := ethKey.PublicAddress.Hex()
 
 				bundlesPerFamily, kbErr := node.ExtractBundleKeysPerFamily(workerNode)
 				if kbErr != nil {
 					return nil, errors.Wrap(kbErr, "failed to get ocr families bundle id from worker node labels")
 				}
 
-				keyBundle, ok := bundlesPerFamily["evm"] // we can always expect evm bundle key id present since evm is homechain
+				keyBundle, ok := bundlesPerFamily[chainsel.FamilyEVM] // we can always expect evm bundle key id present since evm is the registry chain
 				if !ok {
 					return nil, errors.New("failed to get key bundle id for evm family")
 				}
 
-				keyNodeAddress := node.AddressKeyFromSelector(chain.Selector)
-				nodeAddress, nodeAddressErr := node.FindLabelValue(workerNode, keyNodeAddress)
-				if nodeAddressErr != nil {
-					return nil, errors.Wrap(nodeAddressErr, "failed to get node address from labels")
-				}
+				nodeAddress := transmitterAddress
 				logger.Debug().Msgf("Deployed node on chain %d/%d at %s", chainIDUint64, chain.Selector, nodeAddress)
 
-				bootstrapNodeP2pKeyID, pErr := node.FindLabelValue(bootstrapNode, node.NodeP2PIDKey)
-				if pErr != nil {
-					return nil, errors.Wrap(pErr, "failed to get p2p key id from bootstrap node labels")
-				}
-
-				// remove the prefix if it exists, to match the expected format
-				bootstrapNodeP2pKeyID = strings.TrimPrefix(bootstrapNodeP2pKeyID, "p2p_")
-				bootstrapPeers := make([]string, len(internalHostsBS))
-				for i, workflowName := range internalHostsBS {
-					bootstrapPeers[i] = fmt.Sprintf("%s@%s:5001", bootstrapNodeP2pKeyID, workflowName)
-				}
+				bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", bootstrapNode.Keys.CleansedPeerID(), bootstrapNode.Host, cre.OCRPeeringPort)}
 
 				strategyName := "single-chain"
 				if len(bundlesPerFamily) > 1 {
@@ -233,7 +193,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 				}
 				oracleStr := strings.ReplaceAll(oracleBuffer.String(), "\n", "\n\t")
 
-				logger.Debug().Msgf("Creating %s Capability job spec for chainID: %d, selector: %d, DON:%q, node:%q", flag, chainIDUint64, chain.Selector, donWithMetadata.Name, nodeID)
+				logger.Debug().Msgf("Creating %s Capability job spec for chainID: %d, selector: %d, DON:%q, node:%q", flag, chainIDUint64, chain.Selector, donMetadata.Name, nodeID)
 
 				jobConfig, cErr := jobConfigGenerator(logger, chainIDUint64, nodeAddress, mergedConfig)
 				if cErr != nil {
@@ -248,31 +208,16 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 				jobSpec := jobs.WorkerStandardCapability(nodeID, jobName, binaryPath, jobConfig, oracleStr)
 				jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &flag}}
 
-				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(cre.DonJobs, 0)
+				if _, ok := donToJobSpecs[donMetadata.ID]; !ok {
+					donToJobSpecs[donMetadata.ID] = make(cre.DonJobs, 0)
 				}
 
-				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
+				donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobSpec)
 			}
 		}
 	}
 
 	return donToJobSpecs, nil
-}
-
-func getBoostrapWorkflowNames(bootstrapNode *cre.NodeMetadata, donName string, infraInput infra.Provider) ([]string, error) {
-	nodeIndexStr, nErr := node.FindLabelValue(bootstrapNode, node.IndexKey)
-	if nErr != nil {
-		return nil, errors.Wrap(nErr, "failed to find index label")
-	}
-
-	nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
-	if nIErr != nil {
-		return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
-	}
-
-	internalHostBS := infraInput.InternalHost(nodeIndex, true, donName)
-	return []string{internalHostBS}, nil
 }
 
 // ConfigMerger merges default config with overrides (either on DON or chain level)

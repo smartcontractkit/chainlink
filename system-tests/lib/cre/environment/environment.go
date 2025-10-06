@@ -11,6 +11,8 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -62,7 +64,7 @@ type SetupInput struct {
 	CapabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet
 	BlockchainsInput          []blockchain.Input
 	JdInput                   *jd.Input
-	InfraInput                infra.Provider
+	Provider                  infra.Provider
 	ContractVersions          map[string]string
 	WithV2Registries          bool
 	OCR3Config                *keystone_changeset.OracleConfig
@@ -118,8 +120,8 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
-	if input.InfraInput.Type == infra.CRIB {
-		cribErr := crib.Bootstrap(input.InfraInput)
+	if input.Provider.Type == infra.CRIB {
+		cribErr := crib.Bootstrap(input.Provider)
 		if cribErr != nil {
 			return nil, pkgerrors.Wrap(cribErr, "failed to bootstrap CRIB")
 		}
@@ -136,7 +138,7 @@ func SetupTestEnvironment(
 		lggr:       testLogger,
 		singleFile: singleFileLogger,
 	}, BlockchainsInput{
-		infra:            input.InfraInput,
+		infra:            input.Provider,
 		blockchainsInput: input.BlockchainsInput,
 	})
 	if bcOutErr != nil {
@@ -165,16 +167,15 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Keystone contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
-	topology, updatedNodeSets, topoErr := PrepareConfiguration(
+	topology, updatedNodeSets, topoErr := PrepareNodeTOMLConfigurations(
 		startBlockchainsOutput.RegistryChain().ChainSelector,
 		input.CapabilitiesAwareNodeSets,
-		input.InfraInput,
+		input.Provider,
 		startBlockchainsOutput.BlockChainOutputs,
 		deployKeystoneContractsOutput.Env.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		deployKeystoneContractsOutput.Env.DataStore,
 		input.Capabilities,
 		input.CapabilityConfigs,
-		input.CopyCapabilityBinaries,
 	)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
@@ -188,14 +189,16 @@ func SetupTestEnvironment(
 		input.JdInput,
 		startBlockchainsOutput.RegistryChain().BlockchainOutput,
 		topology,
-		input.InfraInput,
+		input.Provider,
+		input.CapabilityConfigs,
+		input.CopyCapabilityBinaries,
 		updatedNodeSets,
 	)
 	if donJDErr != nil {
 		return nil, pkgerrors.Wrap(donJDErr, "failed to start DONs or Job Distributor")
 	}
 
-	linkDonsToJD := &cre.LinkDonsToJDInput{
+	linkDonsToJDInput := &cre.LinkDonsToJDInput{
 		JdOutput:          jdOutput,
 		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
 		NodeSetOutput:     nodeSetOutput,
@@ -203,11 +206,14 @@ func SetupTestEnvironment(
 		Topology:          topology,
 	}
 
-	cldfEnvironment, dons, cldErr := libdon.LinkToJobDistributor(ctx, linkDonsToJD)
+	cldfEnvironment, dons, cldErr := libdon.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
-	creEnvironment := newCreEnvironment(startBlockchainsOutput.RegistryChain().ChainSelector, cldfEnvironment, dons, topology)
+	creEnvironment, creErr := newCreEnvironment(startBlockchainsOutput.RegistryChain().ChainSelector, cldfEnvironment, dons, topology)
+	if creErr != nil {
+		return nil, pkgerrors.Wrap(creErr, "failed to create CRE environment")
+	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
@@ -227,7 +233,7 @@ func SetupTestEnvironment(
 		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		CreEnvironment:            creEnvironment,
 		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
-		InfraInput:                input.InfraInput,
+		InfraInput:                input.Provider,
 		CapabilitiesConfigs:       input.CapabilityConfigs,
 		Capabilities:              input.Capabilities,
 	}
@@ -247,9 +253,9 @@ func SetupTestEnvironment(
 		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
 		DonTopology:       creEnvironment.DonTopology,
 	}, PrepareFundCLNodesOpInput{FundingPerChainFamilyForEachNode: map[string]uint64{
-		"evm":    10000000000000000, // 0.01 ETH
-		"solana": 50_000_000_000,    // 50 SOL
-		"tron":   100_000_000,       // 100 TRX in SUN
+		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
+		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
+		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
 	}})
 	if prefundErr != nil {
 		return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
@@ -317,7 +323,7 @@ func SetupTestEnvironment(
 			// There are no filters registered with the V2 WF Registry Syncer
 			return nil
 		default:
-			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.InfraInput.Type, startBlockchainsOutput.RegistryChain().ChainID, creEnvironment.DonTopology, updatedNodeSets)
+			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.Provider.Type, startBlockchainsOutput.RegistryChain().ChainID, creEnvironment.DonTopology, updatedNodeSets)
 		}
 	})
 
@@ -497,26 +503,16 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 	input.JdInput.Out = jdOutput
 }
 
-func newCreEnvironment(registryChainSelector uint64, cldfEnv *cldf.Environment, dons []*devenv.DON, topology *cre.Topology) *cre.Environment {
-	donTopology := &cre.DonTopology{
-		WorkflowDonID:           topology.WorkflowDONID,
-		HomeChainSelector:       registryChainSelector,
-		CapabilitiesPeeringData: topology.CapabilitiesPeeringData,
-		OCRPeeringData:          topology.OCRPeeringData,
-		GatewayConnectorOutput:  topology.GatewayConnectorOutput,
-	}
-
-	for i, donMetadata := range topology.DonsMetadata {
-		donTopology.DonsWithMetadata = append(donTopology.DonsWithMetadata, &cre.DonWithMetadata{
-			DON:         dons[i],
-			DonMetadata: donMetadata,
-		})
+func newCreEnvironment(registryChainSelector uint64, cldfEnv *cldf.Environment, dons []*devenv.DON, topology *cre.Topology) (*cre.Environment, error) {
+	creDons, donsErr := cre.NewDons(topology.DonsMetadata, dons)
+	if donsErr != nil {
+		return nil, pkgerrors.Wrap(donsErr, "failed to create CRE Dons")
 	}
 
 	return &cre.Environment{
 		CldfEnvironment: cldfEnv,
-		DonTopology:     donTopology,
-	}
+		DonTopology:     cre.NewDonTopology(registryChainSelector, topology, creDons),
+	}, nil
 }
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains map[uint64]cldf_chain.BlockChain) *cldf.Environment {
