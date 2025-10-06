@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -24,201 +25,333 @@ import (
 	"github.com/smartcontractkit/chainlink-ton/pkg/ton/hash"
 )
 
-const tonTickerInterval = 2500 * time.Millisecond
-const safeLookbackBlocks = 50
+var (
+	// ErrTimeout is returned when event subscription times out
+	ErrTimeout = errors.New("timed out waiting for events")
+)
 
-// CCIPEventTopics maps TON event topics (CRC32 hashes) to their event names.
-// OffRamp events used in these test assertions (EVM→TON flow).
-var CCIPEventTopics = map[uint32]string{
-	hash.CRC32(consts.EventNameCommitReportAccepted):  consts.EventNameCommitReportAccepted,
-	hash.CRC32(consts.EventNameExecutionStateChanged): consts.EventNameExecutionStateChanged,
+// TON blockchain polling configuration
+const (
+	safeLookbackBlocks  = uint32(50)              // Number of blocks to look back when starting event scan
+	pollInterval        = 2500 * time.Millisecond // How often to check for new blocks
+	clientRetries       = 3                       // Number of retries for TON client operations
+	txBatchSize         = 100                     // Number of transactions to fetch per batch
+	progressLogInterval = 30 * time.Second        // How often to log "still waiting" progress updates
+)
+
+// eventSubscriber encapsulates subscribing to and waiting for TON events with timeout handling.
+type eventSubscriber[T any] struct {
+	lggr       logger.Logger
+	ctx        context.Context
+	tonChain   cldf_ton.Chain
+	contract   *address.Address
+	startBlock uint32
+	eventName  string
 }
 
-// getEventName returns the event name for a given topic, or a formatted unknown topic string.
-func getEventName(topic uint32) string {
-	if name, ok := CCIPEventTopics[topic]; ok {
-		return name
+// subscribeToEvents creates a new event subscriber for a specific event type.
+// If startBlock is 0, it will calculate an appropriate start block with lookback.
+func subscribeToEvents[T any](
+	lggr logger.Logger,
+	ctx context.Context,
+	tonChain cldf_ton.Chain,
+	contract *address.Address,
+	startBlock uint32,
+	eventName string,
+) *eventSubscriber[T] {
+	sub := &eventSubscriber[T]{
+		lggr:       lggr,
+		ctx:        ctx,
+		tonChain:   tonChain,
+		contract:   contract,
+		startBlock: startBlock,
+		eventName:  eventName,
 	}
-	return fmt.Sprintf("Unknown_0x%08x", topic)
+
+	// Calculate start block with lookback if not provided
+	if startBlock == 0 {
+		sub.startBlock = sub.calculateStartBlock()
+	}
+
+	return sub
 }
 
-func ConfirmCommitWithExpectedSeqNumRangeTON(t *testing.T, srcSelector uint64, tonChain cldf_ton.Chain, offRampContract address.Address, expectedSeqNumRange ccipocr3common.SeqNumRange) (bool, error) {
-	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
-
-	// Create prefixed logger for TON event assertion
-	lggr := logger.Named(logger.Test(t), "TON_EVENT_ASSERTION:COMMIT")
-	lggr.Infof("waiting for commit report from srcSelector=%d, expectedSeqNumRange=[%d, %d], timeout=%v",
-		srcSelector, expectedSeqNumRange.Start(), expectedSeqNumRange.End(), tests.WaitTimeout(t))
-
-	tonBlockTicker := time.NewTicker(tonTickerInterval)
-	// Start from a bit earlier to catch any events we might have missed
-	// Use a lookback of about 50 blocks to ensure we don't miss commit events
-	var startBlock uint32 = 0
-	if currentBlock, err := tonChain.Client.CurrentMasterchainInfo(t.Context()); err == nil && currentBlock.SeqNo > safeLookbackBlocks {
-		startBlock = currentBlock.SeqNo - safeLookbackBlocks
-		lggr.Infof("scan from block %d (50 blocks back from current %d)", startBlock, currentBlock.SeqNo)
+// calculateStartBlock determines the starting block for event scanning with lookback.
+func (s *eventSubscriber[T]) calculateStartBlock() uint32 {
+	currentBlock, err := s.tonChain.Client.CurrentMasterchainInfo(s.ctx)
+	if err != nil || currentBlock.SeqNo <= safeLookbackBlocks {
+		return 0
 	}
+	return currentBlock.SeqNo - safeLookbackBlocks
+}
 
-	eventCh, errCh := GetEvents[offramp.CommitReportAccepted](t, lggr, t.Context(), tonChain, &offRampContract, startBlock, tonBlockTicker)
+// waitUntil waits for events and processes them with the provided handler.
+// The handler returns (done bool, error) where done=true stops waiting.
+func (s *eventSubscriber[T]) waitUntil(t *testing.T, processEvent func(T) (bool, error)) error {
+	eventCh, errCh := streamEvents[T](s.lggr, s.ctx, s.tonChain, s.contract, s.startBlock, s.eventName)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
 
+	// Progress ticker to show we're still listening
+	progressTicker := time.NewTicker(progressLogInterval)
+	defer progressTicker.Stop()
+
+	eventCount := 0
+	startTime := time.Now()
+
 	for {
 		select {
-		case commitEvent := <-eventCh:
-			// Log event details with proper dereferencing
-			if commitEvent.MerkleRoot != nil {
-				lggr.Infof("received CommitReportAccepted event: MerkleRoot={SourceChainSelector:%d, MinSeqNr:%d, MaxSeqNr:%d, MerkleRoot:%x}, PriceUpdates=%+v",
-					commitEvent.MerkleRoot.SourceChainSelector, commitEvent.MerkleRoot.MinSeqNr, commitEvent.MerkleRoot.MaxSeqNr,
-					commitEvent.MerkleRoot.MerkleRoot, commitEvent.PriceUpdates)
-			} else {
-				lggr.Infof("received CommitReportAccepted event: MerkleRoot=<nil>, PriceUpdates=%+v", commitEvent.PriceUpdates)
+		case event := <-eventCh:
+			eventCount++
+			elapsed := time.Since(startTime)
+
+			done, err := processEvent(event)
+			if err != nil {
+				s.lggr.Errorw("Event processing failed",
+					"error", err,
+					"eventNumber", eventCount,
+					"elapsedTime", elapsed.String())
+				return err
+			}
+			if done {
+				s.lggr.Infow("Event processing complete",
+					"totalEvents", eventCount,
+					"duration", elapsed.String())
+				return nil
 			}
 
-			// if merkle root is zero, it only contains price updates
-			if commitEvent.MerkleRoot == nil {
-				lggr.Infof("Skipping CommitReportAccepted with only price updates")
-				continue
-			}
-
-			mr := commitEvent.MerkleRoot
-			require.Equal(t, srcSelector, mr.SourceChainSelector)
-
-			// TODO: this logic is duplicated with verifyCommitReport, share
-			seenMessages.visitCommitReport(commitEvent.MerkleRoot.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
-			if mr.SourceChainSelector == srcSelector &&
-				uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
-				uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-				t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
-				return true, nil
-			}
-
-			if seenMessages.allCommited(srcSelector) {
-				t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
-				return true, nil
-			}
 		case err := <-errCh:
-			require.NoError(t, err)
+			elapsed := time.Since(startTime)
+			s.lggr.Errorw("Stream error occurred",
+				"error", err,
+				"eventsProcessed", eventCount,
+				"duration", elapsed.String())
+			return err
+
+		case <-progressTicker.C:
+			elapsed := time.Since(startTime)
+			s.lggr.Infow("Still waiting for event",
+				"eventName", s.eventName,
+				"elapsed", elapsed.Round(time.Second).String(),
+				"eventsProcessed", eventCount)
+
 		case <-timeout.C:
-			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				tonChain.Selector, srcSelector, expectedSeqNumRange.String())
+			elapsed := time.Since(startTime)
+			s.lggr.Errorw("Timeout waiting for events",
+				"eventsProcessed", eventCount,
+				"duration", elapsed.String(),
+				"timeout", tests.WaitTimeout(t))
+			return fmt.Errorf("%w: after processing %d events in %s", ErrTimeout, eventCount, elapsed.String())
 		}
 	}
 }
 
-// ConfirmExecWithSeqNrsTON waits for execution state changes on TON for the given sequence numbers
-// Returns a map of sequence number to execution state
-func ConfirmExecWithSeqNrsTON(
+// ConfirmCommitWithExpectedSeqNumRangeTON waits for a commit report that covers the expected sequence number range.
+func ConfirmCommitWithExpectedSeqNumRangeTON(
 	t *testing.T,
-	srcSelector uint64,
+	srcChainSelector uint64,
 	tonChain cldf_ton.Chain,
-	offRampContract address.Address,
+	offRamp address.Address,
+	expectedSeqNums ccipocr3common.SeqNumRange,
+) (bool, error) {
+	seqNumTracker := NewCommitReportTracker(srcChainSelector, expectedSeqNums)
+
+	lggr := logger.Named(logger.Test(t), "TON_EVENT_ASSERTION:COMMIT")
+	lggr.Infow("Waiting for commit report",
+		"sourceChain", srcChainSelector,
+		"destChain", tonChain.Selector,
+		"expectedSeqNums", fmt.Sprintf("[%d, %d]", expectedSeqNums.Start(), expectedSeqNums.End()))
+
+	subscriber := subscribeToEvents[offramp.CommitReportAccepted](lggr, t.Context(), tonChain, &offRamp, 0, consts.EventNameCommitReportAccepted)
+
+	reportsProcessed := 0
+	err := subscriber.waitUntil(t, func(commitEvent offramp.CommitReportAccepted) (bool, error) {
+		reportsProcessed++
+
+		// skip price-only OR empty updates
+		if commitEvent.MerkleRoot == nil {
+			return false, nil // continue waiting
+		}
+
+		mr := commitEvent.MerkleRoot
+		require.Equal(t, srcChainSelector, mr.SourceChainSelector,
+			"Commit report source chain mismatch")
+
+		lggr.Infow("Received commit",
+			"seqNums", fmt.Sprintf("[%d, %d]", mr.MinSeqNr, mr.MaxSeqNr))
+
+		// Track this commit report
+		seqNumTracker.visitCommitReport(srcChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
+
+		// Check if single report covers entire range
+		if uint64(expectedSeqNums.Start()) >= mr.MinSeqNr &&
+			uint64(expectedSeqNums.End()) <= mr.MaxSeqNr {
+			t.Logf("All sequence numbers committed in a single report [%d, %d]",
+				expectedSeqNums.Start(), expectedSeqNums.End())
+			return true, nil
+		}
+
+		// Check if all messages committed across multiple reports
+		if seqNumTracker.allCommited(srcChainSelector) {
+			t.Logf("All sequence numbers committed across multiple reports [%d, %d]",
+				expectedSeqNums.Start(), expectedSeqNums.End())
+			return true, nil
+		}
+
+		return false, nil // continue waiting
+	})
+
+	if err != nil {
+		// Add detailed context to timeout error
+		if errors.Is(err, ErrTimeout) {
+			lggr.Errorw("Commit confirmation timed out",
+				"destChain", tonChain.Selector,
+				"sourceChain", srcChainSelector,
+				"expectedSeqNums", expectedSeqNums.String(),
+				"reportsProcessed", reportsProcessed)
+			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source chain %d expected seq nums %s (processed %d reports): %w",
+				tonChain.Selector, srcChainSelector, expectedSeqNums.String(), reportsProcessed, err)
+		}
+		require.NoError(t, err)
+		return false, err
+	}
+
+	return true, nil
+}
+
+// ConfirmExecWithExpectedSeqNrsTON waits for execution state changes on TON for the given sequence numbers.
+// Returns a map of sequence number to execution state.
+func ConfirmExecWithExpectedSeqNrsTON(
+	t *testing.T,
+	srcChainSelector uint64,
+	tonChain cldf_ton.Chain,
+	offRamp address.Address,
 	startBlock *uint64,
-	expectedSeqNrs []uint64,
+	expectedSeqNums []uint64,
 ) (map[uint64]int, error) {
-	if len(expectedSeqNrs) == 0 {
+	if len(expectedSeqNums) == 0 {
 		return nil, fmt.Errorf("no expected sequence numbers provided")
 	}
 
-	// Create prefixed logger for TON event assertion
 	lggr := logger.Named(logger.Test(t), "TON_EVENT_ASSERTION:EXEC")
-	lggr.Infof("waiting for execution state changes from srcSelector=%d, expectedSeqNrs=%v, timeout=%v",
-		srcSelector, expectedSeqNrs, tests.WaitTimeout(t))
+	lggr.Infow("Waiting for execution",
+		"sourceChain", srcChainSelector,
+		"destChain", tonChain.Selector,
+		"expectedSeqNums", expectedSeqNums)
 
-	executionStates := make(map[uint64]int)
-
-	tonBlockTicker := time.NewTicker(tonTickerInterval)
-
-	// Determine start block
-	var scanStartBlock uint32 = 0
+	// Use provided start block or calculate with lookback
+	var scanStartBlock uint32
 	if startBlock != nil {
 		scanStartBlock = uint32(*startBlock)
-	} else if currentBlock, err := tonChain.Client.CurrentMasterchainInfo(t.Context()); err == nil && currentBlock.SeqNo > safeLookbackBlocks {
-		scanStartBlock = currentBlock.SeqNo - safeLookbackBlocks
-		lggr.Infof("scan from block %d (50 blocks back from current %d)", scanStartBlock, currentBlock.SeqNo)
 	}
 
-	eventCh, errCh := GetEvents[offramp.ExecutionStateChanged](t, lggr, t.Context(), tonChain, &offRampContract, scanStartBlock, tonBlockTicker)
+	subscriber := subscribeToEvents[offramp.ExecutionStateChanged](lggr, t.Context(), tonChain, &offRamp, scanStartBlock, consts.EventNameExecutionStateChanged)
 
-	timeout := time.NewTimer(tests.WaitTimeout(t))
-	defer timeout.Stop()
-
-	// Track which sequence numbers we're waiting for
-	expectedSeqNums := make(map[uint64]bool)
-	for _, seqNum := range expectedSeqNrs {
-		expectedSeqNums[seqNum] = true
+	executionStates := make(map[uint64]int)
+	pending := make(map[uint64]bool)
+	for _, seqNum := range expectedSeqNums {
+		pending[seqNum] = true
 	}
 
-	for {
-		select {
-		case execEvent := <-eventCh:
-			lggr.Infof("received ExecutionStateChanged event: SourceChainSelector=%d, SequenceNumber=%d, MessageID=%x, State=%d",
-				execEvent.SourceChainSelector, execEvent.SequenceNumber, execEvent.MessageID, execEvent.State)
+	eventsProcessed := 0
+	err := subscriber.waitUntil(t, func(execEvent offramp.ExecutionStateChanged) (bool, error) {
+		eventsProcessed++
 
-			// Check if this is for our source chain
-			if execEvent.SourceChainSelector != srcSelector {
-				lggr.Debugf("skipping event from different source chain: %d (expected %d)", execEvent.SourceChainSelector, srcSelector)
-				continue
+		// Check if this is for our source chain and expected sequence number
+		if execEvent.SourceChainSelector != srcChainSelector {
+			return false, nil // continue waiting
+		}
+		if _, expected := pending[execEvent.SequenceNumber]; !expected {
+			return false, nil // continue waiting
+		}
+
+		// Handle different execution states
+		switch execEvent.State {
+		case EXECUTION_STATE_INPROGRESS:
+			// Don't log IN_PROGRESS, it's just noise
+			return false, nil // continue waiting
+
+		case EXECUTION_STATE_FAILURE:
+			lggr.Errorw("Execution failed",
+				"sequenceNumber", execEvent.SequenceNumber,
+				"messageID", fmt.Sprintf("%x", execEvent.MessageID))
+			return false, fmt.Errorf("execution failed for sequence number %d on chain %d, message ID: %x",
+				execEvent.SequenceNumber, execEvent.SourceChainSelector, execEvent.MessageID)
+
+		case EXECUTION_STATE_SUCCESS:
+			executionStates[execEvent.SequenceNumber] = int(execEvent.State)
+			delete(pending, execEvent.SequenceNumber)
+
+			lggr.Infow("Execution successful",
+				"sequenceNumber", execEvent.SequenceNumber,
+				"remaining", len(pending))
+
+			if len(pending) == 0 {
+				t.Logf("All sequence numbers executed: %v", expectedSeqNums)
+				return true, nil // done
 			}
 
-			// Check if this is a sequence number we're waiting for
-			if _, expected := expectedSeqNums[execEvent.SequenceNumber]; expected {
-				// State 1 = IN_PROGRESS, State 2 = SUCCESS, State 3 = FAILURE
-				// Only record and remove from expected if we got SUCCESS state
-				if execEvent.State == 1 {
-					lggr.Infof("received IN_PROGRESS state for seq num %d, waiting for SUCCESS state", execEvent.SequenceNumber)
-					continue
-				}
+		default:
+			lggr.Warnw("Unknown execution state",
+				"state", execEvent.State,
+				"sequenceNumber", execEvent.SequenceNumber)
+		}
 
-				if execEvent.State == 3 {
-					lggr.Errorf("Execution failure detected for seq num %d, source chain %d, message id %x, state %d", execEvent.SequenceNumber, execEvent.SourceChainSelector, execEvent.MessageID, execEvent.State)
-					// Don't delete from expected, don't record, just continue
-					continue
-				}
+		return false, nil // continue waiting
+	})
 
-				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
-				delete(expectedSeqNums, execEvent.SequenceNumber)
-
-				lggr.Infof("found execution state for seq num %d: state=%d, remaining=%d",
-					execEvent.SequenceNumber, execEvent.State, len(expectedSeqNums))
-			}
-
-			// if we've found all expected sequence numbers, return
-			if len(expectedSeqNums) == 0 {
-				t.Logf("All sequence numbers executed: %v", expectedSeqNrs)
-				return executionStates, nil
-			}
-
-		case err := <-errCh:
-			return nil, fmt.Errorf("error while waiting for execution events: %w", err)
-
-		case <-timeout.C:
-			missing := make([]uint64, 0, len(expectedSeqNums))
-			for seqNum := range expectedSeqNums {
+	if err != nil {
+		// Add detailed context to timeout error
+		if errors.Is(err, ErrTimeout) {
+			missing := make([]uint64, 0, len(pending))
+			for seqNum := range pending {
 				missing = append(missing, seqNum)
 			}
-			return executionStates, fmt.Errorf("timed out after waiting for execution on chain selector %d from source selector %d, missing seq nums: %v",
-				tonChain.Selector, srcSelector, missing)
+			lggr.Errorw("Execution confirmation timed out",
+				"destChain", tonChain.Selector,
+				"sourceChain", srcChainSelector,
+				"expectedSeqNums", expectedSeqNums,
+				"missingSeqNums", missing,
+				"successfulExecutions", len(executionStates),
+				"eventsProcessed", eventsProcessed)
+			return executionStates, fmt.Errorf("timed out after waiting for execution on chain selector %d from source chain %d, missing seq nums: %v (processed %d events, %d successful): %w",
+				tonChain.Selector, srcChainSelector, missing, eventsProcessed, len(executionStates), err)
 		}
+		return nil, fmt.Errorf("error while waiting for execution events: %w", err)
 	}
+
+	return executionStates, nil
 }
 
-func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, tonChain cldf_ton.Chain, contractAddress *address.Address, startBlock uint32, ticker *time.Ticker) (<-chan T, <-chan error) {
-	ch := make(chan T)
+// streamEvents continuously polls the TON blockchain for events of type T.
+// Returns two channels: one for events and one for errors.
+// The polling continues until the context is cancelled.
+func streamEvents[T any](
+	lggr logger.Logger,
+	ctx context.Context,
+	tonChain cldf_ton.Chain,
+	contract *address.Address,
+	startBlock uint32,
+	eventName string,
+) (<-chan T, <-chan error) {
+	eventCh := make(chan T)
 	errorCh := make(chan error)
 
 	go func() {
-		defer ticker.Stop()
-		defer close(ch)
+		defer close(eventCh)
 		defer close(errorCh)
 
-		// lazy client provider
+		ticker := time.NewTicker(pollInterval)
+		defer ticker.Stop()
+
+		// Client provider with retry logic
 		clientProvider := func(ctx context.Context) (ton.APIClientWrapped, error) {
-			return tonChain.Client.WithRetry(3), nil
+			return tonChain.Client.WithRetry(clientRetries), nil
 		}
-		// init loader
-		loader := tonlploader.NewTxLoader(lggr, clientProvider, 100)
+
+		// Initialize transaction loader
+		loader := tonlploader.NewTxLoader(lggr, clientProvider, txBatchSize)
 
 		lastProcessedBlock := startBlock
 
@@ -240,24 +373,23 @@ func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, ton
 				}
 
 				// 2. Fetch transactions
-				txs, err := loader.FetchTxsForAddress(ctx, blockRange, contractAddress)
+				txs, err := loader.FetchTxsForAddress(ctx, blockRange, contract)
 				if err != nil {
 					errorCh <- fmt.Errorf("failed to load transactions: %w", err)
 					return
 				}
 
-				// 3. Get messages in transactions to see if there is event we're looking for
-				events, err := extractEventMessage[T](txs, lggr)
+				// 3. Extract and filter events
+				events, err := extractEventMessage[T](txs, lggr, eventName)
 				if err != nil {
-					errorCh <- err
+					errorCh <- fmt.Errorf("failed to extract events from block %d: %w", newSeqNo, err)
 					return
 				}
 
 				// Send events to channel
 				for _, event := range events {
-					lggr.Infof("TON:FOUND EVENT: %+v", event)
 					select {
-					case ch <- event:
+					case eventCh <- event:
 					case <-ctx.Done():
 						return
 					}
@@ -269,106 +401,101 @@ func GetEvents[T any](t *testing.T, lggr logger.Logger, ctx context.Context, ton
 		}
 	}()
 
-	return ch, errorCh
+	return eventCh, errorCh
 }
 
-// getBlockRange creates a block range from lastProcessedBlock to current masterchain head
+// getBlockRange creates a block range from lastProcessedBlock to current masterchain head.
+// Returns nil blockRange if there are no new blocks to process.
 func getBlockRange(ctx context.Context, tonChain cldf_ton.Chain, lastProcessedBlock uint32) (*tonlptypes.BlockRange, uint32, error) {
-	// lazy client provider
-	clientProvider := func(_ context.Context) (ton.APIClientWrapped, error) {
-		return tonChain.Client.WithRetry(3), nil
-	}
+	client := tonChain.Client.WithRetry(clientRetries)
 
-	// 1. Get latest block number
-	client, err := clientProvider(ctx)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get client: %w", err)
-	}
-
+	// Get current block
 	toBlock, err := client.CurrentMasterchainInfo(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get current masterchain info: %w", err)
 	}
 
-	// Skip if no new blocks
+	// No new blocks to process
 	if toBlock.SeqNo <= lastProcessedBlock {
 		return nil, toBlock.SeqNo, nil
 	}
 
-	// 2. Create a block range
+	// Lookup previous block if we have a starting point
 	var prevBlock *ton.BlockIDExt
 	if lastProcessedBlock > 0 {
-		// Get the previous block reference
 		prevBlock, err = client.LookupBlock(ctx, toBlock.Workchain, toBlock.Shard, lastProcessedBlock)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to lookup previous block %d: %w", lastProcessedBlock, err)
 		}
 	}
 
-	blockRange := &tonlptypes.BlockRange{
-		Prev: prevBlock,
-		To:   toBlock,
+	return &tonlptypes.BlockRange{Prev: prevBlock, To: toBlock}, toBlock.SeqNo, nil
+}
+
+// tryParseEvent attempts to parse an event of type T from a single TON message.
+// Only parses events that match the expected eventName topic.
+// Returns the event and true if successful, or zero value and false if parsing failed.
+func tryParseEvent[T any](msg *tlb.Message, lggr logger.Logger, expectedEventName string) (T, bool) {
+	var zero T
+
+	if msg.MsgType != tlb.MsgTypeExternalOut {
+		return zero, false
 	}
 
-	return blockRange, toBlock.SeqNo, nil
+	extOut := msg.AsExternalOut()
+	if extOut == nil {
+		return zero, false
+	}
+
+	// decode event topic
+	bucket := event.NewExtOutLogBucket(extOut.DestAddr())
+	topic, err := bucket.DecodeEventTopic()
+	if err != nil {
+		return zero, false
+	}
+
+	// Filter by expected event topic first - avoid parsing wrong event types
+	expectedTopic := hash.CRC32(expectedEventName)
+	if topic != expectedTopic {
+		return zero, false
+	}
+
+	bodyCell := extOut.Payload()
+	if bodyCell == nil {
+		return zero, false
+	}
+
+	// parse event using TLB
+	var parsedEvent T
+	if err := tlb.LoadFromCell(&parsedEvent, bodyCell.BeginParse()); err != nil {
+		lggr.Warnw("Failed to parse event body",
+			"eventName", expectedEventName,
+			"topic", fmt.Sprintf("0x%08x", topic),
+			"error", err)
+		return zero, false
+	}
+
+	return parsedEvent, true
 }
 
 // extractEventMessage processes transactions to extract events of type T from external messages.
-// Only processes events registered in CCIPEventTopics to filter out noise from OCR and other events.
-func extractEventMessage[T any](txs []tonlptypes.TxWithBlock, lggr logger.Logger) ([]T, error) {
+// Only processes events matching the specified eventName topic.
+func extractEventMessage[T any](txs []tonlptypes.TxWithBlock, lggr logger.Logger, eventName string) ([]T, error) {
 	var events []T
 
 	for _, tx := range txs {
-		if tx.Tx == nil {
+		if tx.Tx == nil || tx.Tx.IO.Out == nil {
 			continue
 		}
-		if tx.Tx.IO.Out != nil {
-			msgs, err := tx.Tx.IO.Out.ToSlice()
-			if err != nil {
-				continue
-			}
 
-			for _, msg := range msgs {
-				if msg.MsgType == tlb.MsgTypeExternalOut {
-					if extOut := msg.AsExternalOut(); extOut != nil {
-						// decode event topic
-						bucket := event.NewExtOutLogBucket(extOut.DestAddr())
-						topic, err := bucket.DecodeEventTopic()
-						if err != nil {
-							lggr.Debugw("Failed to decode event topic", "error", err)
-							continue
-						}
+		msgs, err := tx.Tx.IO.Out.ToSlice()
+		if err != nil {
+			continue
+		}
 
-						// skip events not in our assertion list (filters out OCR events, etc.)
-						if _, isKnown := CCIPEventTopics[topic]; !isKnown {
-							continue
-						}
-
-						bodyCell := extOut.Payload()
-						if bodyCell == nil {
-							lggr.Debugw("No payload in external out message")
-							continue
-						}
-
-						lggr.Debugw("Processing event",
-							"name", getEventName(topic),
-							"topic", fmt.Sprintf("0x%08x", topic),
-							"bits", bodyCell.BeginParse().BitsLeft(),
-							"refs", bodyCell.RefsNum())
-
-						// parse event using TLB - only succeeds if structure matches
-						var event T
-						err = tlb.LoadFromCell(&event, bodyCell.BeginParse())
-						if err != nil {
-							lggr.Debugw("Failed to parse event",
-								"event", getEventName(topic),
-								"error", err)
-							continue
-						}
-
-						events = append(events, event)
-					}
-				}
+		for _, msg := range msgs {
+			if event, ok := tryParseEvent[T](&msg, lggr, eventName); ok {
+				events = append(events, event)
 			}
 		}
 	}

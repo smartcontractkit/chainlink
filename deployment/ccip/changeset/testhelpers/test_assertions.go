@@ -842,7 +842,7 @@ func ConfirmExecWithSeqNrsForAll(
 					return err
 				}
 			case chainsel.FamilyTon:
-				innerExecutionStates, err = ConfirmExecWithSeqNrsTON(
+				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsTON(
 					t,
 					srcChain,
 					e.BlockChains.TonChains()[dstChain],
