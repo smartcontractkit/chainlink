@@ -235,6 +235,7 @@ func startCmd() *cobra.Command {
 		withDashBoards           bool
 		withBilling              bool
 		protoConfigs             []string
+		setupConfig              SetupConfig
 	)
 
 	cmd := &cobra.Command{
@@ -391,7 +392,7 @@ func startCmd() *cobra.Command {
 			}
 
 			if withDashBoards {
-				err := setupDashboards()
+				err := setupDashboards(setupConfig)
 				if err != nil {
 					return errors.Wrap(err, "failed to setup dashboards")
 				}
@@ -486,10 +487,16 @@ func startCmd() *cobra.Command {
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
+	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	return cmd
 }
 
-func setupDashboards() error {
+func setupDashboards(setupCfg SetupConfig) error {
+	cfg, cfgErr := readConfig(setupCfg.ConfigPath)
+	if cfgErr != nil {
+		return errors.Wrap(cfgErr, "failed to read config")
+	}
+
 	// Run the `ctf obs up -f` command from the ./bin directory
 	ctfCmd := exec.Command("./bin/ctf", "obs", "up", "-f")
 
@@ -512,8 +519,14 @@ func setupDashboards() error {
 		break
 	}
 
+	// Store the current directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return errors.Wrap(err, "failed to get current directory")
+	}
+
 	// change to observability directory
-	if err := os.Chdir("./observability"); err != nil {
+	if err := os.Chdir(cfg.Observability.TargetPath); err != nil {
 		return errors.Wrap(err, "failed to change directory to ./observability")
 	}
 
@@ -525,7 +538,7 @@ func setupDashboards() error {
 	}
 
 	// change back to original directory
-	if err := os.Chdir(".."); err != nil {
+	if err := os.Chdir(originalDir); err != nil {
 		return errors.Wrap(err, "failed to change directory back to original")
 	}
 
