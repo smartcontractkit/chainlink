@@ -58,7 +58,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		}
 	}
 
-	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperator, len(config.Nops))
+	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, len(config.Nops))
 	for i, nop := range config.Nops {
 		nops[i] = nop.ToWrapper()
 	}

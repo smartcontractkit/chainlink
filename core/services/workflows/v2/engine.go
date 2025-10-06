@@ -104,12 +104,12 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		)),
 		platform.KeyP2PID, localNode.PeerID.String(),
 		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
-		platform.WorkflowRegistryChain, cfg.WorkflowRegistryChainSelector,
+		platform.WorkflowRegistryChainSelector, cfg.WorkflowRegistryChainSelector,
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.FormatUint(uint64(localNode.WorkflowDON.ConfigVersion), 10),
 	}
 
-	beholderLogger := logger.Sugared(custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter)).Named("WorkflowEngine").With(labels...)
+	beholderLogger := logger.Sugared(custmsg.NewBeholderLogger(cfg.Lggr, cfg.BeholderEmitter).Named("WorkflowEngine").With(labels...))
 	metricsLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(
 		platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,

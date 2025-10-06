@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -32,6 +33,10 @@ const (
 	DuplicateReport = 2
 )
 
+type TransmitNotifier interface {
+	OnTransmit(listen func(digest types.ConfigDigest, seqNr uint64))
+}
+
 type Transmitter interface {
 	llotypes.Transmitter
 	services.Service
@@ -39,6 +44,25 @@ type Transmitter interface {
 
 type TransmitterRetirementReportCacheWriter interface {
 	StoreAttestedRetirementReport(ctx context.Context, cd ocrtypes.ConfigDigest, seqNr uint64, retirementReport []byte, sigs []types.AttributedOnchainSignature) error
+}
+
+type onTransmit struct {
+	mu        sync.RWMutex
+	listeners []func(digest types.ConfigDigest, seqNr uint64)
+}
+
+func (o *onTransmit) OnTransmit(listen func(digest types.ConfigDigest, seqNr uint64)) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.listeners = append(o.listeners, listen)
+}
+
+func (o *onTransmit) notify(digest types.ConfigDigest, seqNr uint64) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	for _, listener := range o.listeners {
+		go listener(digest, seqNr)
+	}
 }
 
 type transmitter struct {
@@ -49,6 +73,7 @@ type transmitter struct {
 
 	subTransmitters       []Transmitter
 	retirementReportCache TransmitterRetirementReportCacheWriter
+	*onTransmit
 }
 
 type TransmitterOpts struct {
@@ -99,6 +124,7 @@ func NewTransmitter(opts TransmitterOpts) (Transmitter, error) {
 		opts.FromAccount,
 		subTransmitters,
 		opts.RetirementReportCache,
+		&onTransmit{},
 	}, nil
 }
 
@@ -154,6 +180,8 @@ func (t *transmitter) Transmit(
 		}
 		return nil
 	}
+	t.notify(digest, seqNr)
+
 	g := new(errgroup.Group)
 	for _, st := range t.subTransmitters {
 		g.Go(func() error {

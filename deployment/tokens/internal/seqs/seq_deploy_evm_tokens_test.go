@@ -7,19 +7,18 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	chainevm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	chainevmprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func Test_SeqDeployEVMTokens(t *testing.T) {
 	t.Parallel()
 
 	var (
-		chainID       = chain_selectors.ETHEREUM_TESTNET_SEPOLIA.EvmChainID
 		chainSelector = chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector
 	)
 
@@ -59,17 +58,22 @@ func Test_SeqDeployEVMTokens(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			prov := chainevmprovider.NewSimChainProvider(
+				t, chainSelector, chainevmprovider.SimChainProviderConfig{},
+			)
+			blockchain, err := prov.Initialize(t.Context())
+			require.NoError(t, err)
+
+			chain, ok := blockchain.(chainevm.Chain)
+			require.True(t, ok)
+
 			var (
 				ab = cldf.NewMemoryAddressBook()
 				ds = datastore.NewMemoryDataStore()
 
-				chains = cldf_chain.NewBlockChainsFromSlice(
-					memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{chainID}, 1),
-				).EVMChains()
-
 				b    = optest.NewBundle(t)
 				deps = SeqDeployEVMTokensDeps{
-					EVMChains: chains,
+					EVMChains: map[uint64]chainevm.Chain{chainSelector: chain},
 					AddrBook:  ab,
 					Datastore: ds,
 				}
