@@ -30,9 +30,10 @@ const (
 )
 
 type TimelockConfig struct {
-	MinDelay     time.Duration        `json:"minDelay"` // delay for timelock worker to execute the transfers.
-	MCMSAction   types.TimelockAction `json:"mcmsAction"`
-	OverrideRoot bool                 `json:"overrideRoot"` // if true, override the previous root with the new one.
+	MinDelay                  time.Duration        `json:"minDelay"` // delay for timelock worker to execute the transfers.
+	MCMSAction                types.TimelockAction `json:"mcmsAction"`
+	OverrideRoot              bool                 `json:"overrideRoot"`                        // if true, override the previous root with the new one.
+	TimelockQualifierPerChain map[uint64]string    `json:"timelockQualifierPerChain,omitempty"` // optional qualifier to fetch timelock address from datastore
 }
 
 func (tc *TimelockConfig) MCMBasedOnActionSolana(s state.MCMSWithTimelockStateSolana) (string, error) {

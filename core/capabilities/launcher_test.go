@@ -15,7 +15,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -32,8 +31,7 @@ import (
 
 var _ capabilities.TriggerCapability = (*mockTrigger)(nil)
 
-type mockDonNotifier struct {
-}
+type mockDonNotifier struct{}
 
 func (m *mockDonNotifier) NotifyDonSet(don capabilities.DON) {
 }
@@ -178,7 +176,7 @@ func TestLauncher(t *testing.T) {
 		defer launcher.Close()
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
-		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a trigger capability - it won't be exposed remotely").Len())
+		assert.Equal(t, 1, observedLogs.FilterMessage("failed to serve capability").Len())
 	})
 
 	t.Run("NOK-invalid_target_capability", func(t *testing.T) {
@@ -221,7 +219,7 @@ func TestLauncher(t *testing.T) {
 		defer launcher.Close()
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
-		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a target capability - it won't be exposed remotely").Len())
+		assert.Equal(t, 1, observedLogs.FilterMessage("failed to serve capability").Len())
 	})
 
 	t.Run("start and close with nil peer wrapper", func(t *testing.T) {
@@ -245,10 +243,11 @@ func TestLauncher(t *testing.T) {
 }
 
 func newTriggerEventMsg(t *testing.T,
-	senderPeerID types.PeerID,
+	senderPeerID p2ptypes.PeerID,
 	workflowID string,
 	triggerEvent map[string]any,
-	triggerEventID string) (*remotetypes.MessageBody, *values.Map) {
+	triggerEventID string,
+) (*remotetypes.MessageBody, *values.Map) {
 	triggerEventValue, err := values.NewMap(triggerEvent)
 	require.NoError(t, err)
 	capResponse := capabilities.TriggerResponse{
@@ -258,7 +257,7 @@ func newTriggerEventMsg(t *testing.T,
 		},
 		Err: nil,
 	}
-	marshaled, err := pb.MarshalTriggerResponse(capResponse)
+	marshaled, err := capabilitiespb.MarshalTriggerResponse(capResponse)
 	require.NoError(t, err)
 	return &remotetypes.MessageBody{
 		Sender: senderPeerID[:],

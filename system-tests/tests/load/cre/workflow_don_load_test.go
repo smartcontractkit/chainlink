@@ -147,7 +147,7 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
-		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // will not migrate now
+		universalSetupOutput.CldEnvironment.ExistingAddresses,
 		universalSetupOutput.BlockchainOutput[0].ChainSelector,
 		keystone_changeset.KeystoneForwarder.String(),
 	)
@@ -224,7 +224,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 		for _, don := range input.DonTopology.Dons.List() {
 			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := don.WorkerNodes()
+			workflowNodeSet, err2 := don.Workers()
 			if err2 != nil {
 				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 				return nil, errors.Wrap(err2, "failed to find worker nodes")
@@ -246,7 +246,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 		for _, don := range input.DonTopology.Dons.List() {
 			jobSpecs := make(cretypes.DonJobs, 0)
-			workflowNodeSet, err2 := don.WorkerNodes()
+			workflowNodeSet, err2 := don.Workers()
 			if err2 != nil {
 				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 				return nil, errors.Wrap(err2, "failed to find worker nodes")
@@ -1161,12 +1161,12 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			}
 
 			// create job specs for the worker nodes
-			workerNodes, wErr := don.WorkerNodes()
+			workerNodes, wErr := don.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to get worker nodes from DON metadata")
 			}
 
-			bootstrapNode, isBootstrap := don.BootstrapNode()
+			bootstrapNode, isBootstrap := don.Bootstrap()
 			if !isBootstrap {
 				return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 			}

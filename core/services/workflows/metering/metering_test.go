@@ -32,7 +32,7 @@ const (
 	testWorkflowID          = "workflowId"
 	testWorkflowExecutionID = "workflowExecutionId"
 	dummyRegistryAddress    = "0x123"
-	dummyChainSelector      = "11155111"
+	dummyChainSelector      = "16015286601757825753" // Ethereum Sepolia chain selector
 	workflowV1              = "v1"
 	workflowV2              = "v2"
 )
@@ -1347,7 +1347,7 @@ func Test_MeterReports(t *testing.T) {
 			Return(&billing.GetWorkflowExecutionRatesResponse{
 				RateCards: successRates,
 			}, nil)
-		// Use a valid chain selector (Sepolia: 11155111)
+		// Use a valid chain selector (Sepolia: 16015286601757825753)
 		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)

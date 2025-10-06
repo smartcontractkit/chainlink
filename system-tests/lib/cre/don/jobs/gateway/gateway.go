@@ -38,7 +38,7 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 				continue
 			}
 
-			workerNode, wErr := don.WorkerNodes()
+			workerNode, wErr := don.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}

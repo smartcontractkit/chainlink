@@ -103,7 +103,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 			}
 
 			// create job specs for the worker nodes
-			workerNodes, wErr := don.WorkerNodes()
+			workerNodes, wErr := don.Workers()
 			if wErr != nil {
 				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")

@@ -3,19 +3,18 @@ package pipeline
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	stderrors "errors"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 )
