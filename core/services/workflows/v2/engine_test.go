@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/quarantine"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
@@ -473,6 +474,7 @@ func (m *mockOrgResolver) Ready() error {
 }
 
 func TestEngine_Execution(t *testing.T) {
+	quarantine.Flaky(t, "DX-1725")
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
 	module.EXPECT().Close()

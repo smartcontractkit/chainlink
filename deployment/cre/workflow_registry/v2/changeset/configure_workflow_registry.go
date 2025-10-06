@@ -195,8 +195,8 @@ type SetDONLimitInput struct {
 	ChainSelector             uint64           `json:"chainSelector"`
 	WorkflowRegistryQualifier string           `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 	DONFamily                 string           `json:"donFamily"`                 // DON family identifier
-	Limit                     uint32           `json:"limit"`                     // Maximum number of workflows per owner
-	Enabled                   bool             `json:"enabled"`                   // Whether the limit is enabled
+	DONLimit                  uint32           `json:"donlimit"`                  // Maximum number of workflows per owner
+	UserDefaultLimit          uint32           `json:"userDefaultLimit"`          // Whether the limit is enabled
 	MCMSConfig                *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
@@ -225,12 +225,12 @@ func (l SetDONLimit) Apply(e cldf.Environment, config SetDONLimitInput) (cldf.Ch
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
 		contracts.SetDONLimitOp, deps, contracts.SetDONLimitOpInput{
-			ChainSelector: config.ChainSelector,
-			Qualifier:     config.WorkflowRegistryQualifier,
-			DONFamily:     config.DONFamily,
-			Limit:         config.Limit,
-			Enabled:       config.Enabled,
-			MCMSConfig:    config.MCMSConfig,
+			ChainSelector:    config.ChainSelector,
+			Qualifier:        config.WorkflowRegistryQualifier,
+			DONFamily:        config.DONFamily,
+			DONLimit:         config.DONLimit,
+			UserDefaultLimit: config.UserDefaultLimit,
+			MCMSConfig:       config.MCMSConfig,
 		},
 	)
 	if err != nil {

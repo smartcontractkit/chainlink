@@ -3,13 +3,12 @@ package pipeline
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/pkg/errors"
-
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )

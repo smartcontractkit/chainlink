@@ -16,10 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-// Constants for configuration
 const (
 	// Channel buffer sizes
-	messageChannelBufferSize = 20
+	messageChannelBufferSize = 40
 	errorChannelBufferSize   = 1
 	channelFullRetryTimeout  = 100 * time.Millisecond
 

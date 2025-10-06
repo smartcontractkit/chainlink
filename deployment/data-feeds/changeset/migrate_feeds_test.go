@@ -3,9 +3,12 @@ package changeset_test
 import (
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
@@ -39,6 +42,7 @@ func TestMigrateFeeds(t *testing.T) {
 			types.DeployConfig{
 				ChainsToDeploy: []uint64{chainSelector},
 				Labels:         []string{"data-feeds"},
+				Qualifier:      "data-feeds",
 			},
 		),
 	)
@@ -61,8 +65,26 @@ func TestMigrateFeeds(t *testing.T) {
 		types.MigrationConfig{
 			ChainSelector: chainSelector,
 			CacheAddress:  common.HexToAddress(cacheAddress),
-			InputFileName: "testdata/migrate_feeds.json",
-			InputFS:       testFS,
+			Proxies: []*types.MigrationSchema{
+				{
+					Address:     "0x33442400910b7B03316fe47eF8fC7bEd54Bca407",
+					FeedID:      "0x01bb0467f50003040000000000000000",
+					Description: "TEST / USD",
+					TypeAndVersion: cldf.TypeAndVersion{
+						Type:    "AggregatorProxy",
+						Version: *semver.MustParse("1.0.0"),
+					},
+				},
+				{
+					Address:     "0x43442400910b7B03316fe47eF8fC7bEd54Bca407",
+					FeedID:      "0x01b40467f50003040000000000000000",
+					Description: "LINK / USD",
+					TypeAndVersion: cldf.TypeAndVersion{
+						Type:    "AggregatorProxy",
+						Version: *semver.MustParse("1.0.0"),
+					},
+				},
+			},
 			WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
 				{
 					AllowedSender:        common.HexToAddress("0x22"),
