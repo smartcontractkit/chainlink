@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/grpc/credentials/insecure"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -25,14 +27,14 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 		return errors.Wrap(err, "input validation failed")
 	}
 
-	for _, don := range input.DonTopology.DonsWithMetadata {
-		if jobSpecs, ok := input.DonToJobSpecs[don.ID]; ok {
+	for _, donMetadata := range input.DonTopology.ToDonMetadata() {
+		if jobSpecs, ok := input.DonToJobSpecs[donMetadata.ID]; ok {
 			createErr := jobs.Create(ctx, input.CldEnv.Offchain, jobSpecs)
 			if createErr != nil {
-				return errors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
+				return errors.Wrapf(createErr, "failed to create jobs for DON %d", donMetadata.ID)
 			}
 		} else {
-			testLogger.Warn().Msgf("No job specs found for DON %d", don.ID)
+			testLogger.Warn().Msgf("No job specs found for DON %d", donMetadata.ID)
 		}
 	}
 
@@ -76,18 +78,19 @@ func LinkToJobDistributor(ctx context.Context, input *cre.LinkDonsToJDInput) (*c
 	var allNodesInfo []devenv.NodeInfo
 
 	for idx, nodeOutput := range input.NodeSetOutput {
-		bootstrapNodes, err := node.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to find bootstrap nodes")
+		// a maximum of 1 bootstrap is supported due to environment constraints
+		bootstrapNodeCount := 0
+		if input.Topology.DonsMetadata.List()[idx].ContainsBootstrapNode() {
+			bootstrapNodeCount = 1
 		}
 
-		nodeInfo, err := node.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata[idx].ID, len(bootstrapNodes))
+		nodeInfo, err := node.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata.List()[idx].ID, bootstrapNodeCount)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to get node info")
 		}
 		allNodesInfo = append(allNodesInfo, nodeInfo...)
 
-		supportedChains, schErr := findSupportedChainsForDON(input.Topology.DonsMetadata[idx], input.BlockchainOutputs)
+		supportedChains, schErr := findSupportedChainsForDON(input.Topology.DonsMetadata.List()[idx], input.BlockchainOutputs)
 		if schErr != nil {
 			return nil, nil, errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
@@ -158,7 +161,10 @@ func findSupportedChainsForDON(donMetadata *cre.DonMetadata, blockchainOutputs [
 	chains := make([]devenv.ChainConfig, 0)
 
 	for chainSelector, bcOut := range blockchainOutputs {
-		if len(donMetadata.SupportedChains) > 0 && !slices.Contains(donMetadata.SupportedChains, bcOut.ChainID) {
+		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bcOut.ChainID)
+		hasSolanaWriteCapability := flags.HasFlagForAnyChain(donMetadata.Flags, cre.WriteSolanaCapability)
+		chainIsSolana := strings.EqualFold(bcOut.BlockchainOutput.Family, chainselectors.FamilySolana)
+		if !hasEVMChainEnabled && (!hasSolanaWriteCapability || !chainIsSolana) {
 			continue
 		}
 
@@ -175,10 +181,10 @@ func findSupportedChainsForDON(donMetadata *cre.DonMetadata, blockchainOutputs [
 
 func addOCRKeyLabelsToNodeMetadata(dons []*devenv.DON, topology *cre.Topology) []*devenv.DON {
 	for i, don := range dons {
-		for j, donNode := range topology.DonsMetadata[i].NodesMetadata {
+		for j, donNode := range topology.DonsMetadata.List()[i].NodesMetadata {
 			// required for job proposals, because they need to include the ID of the node in Job Distributor
 			donNode.Labels = append(donNode.Labels, &cre.Label{
-				Key:   node.NodeIDKey,
+				Key:   cre.NodeIDKey,
 				Value: don.NodeIds()[j],
 			})
 
@@ -192,7 +198,7 @@ func addOCRKeyLabelsToNodeMetadata(dons []*devenv.DON, topology *cre.Topology) [
 			}
 
 			donNode.Labels = append(donNode.Labels, &cre.Label{
-				Key:   node.NodeOCRFamiliesKey,
+				Key:   cre.NodeOCRFamiliesKey,
 				Value: node.CreateNodeOCRFamiliesListValue(ocrSupportedFamilies),
 			})
 		}

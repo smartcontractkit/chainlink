@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
@@ -54,29 +53,8 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeC
 	}
 
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
-		var roles []string
-		nodeType, typeErr := node.FindLabelValue(nodeMetadata, node.NodeTypeKey)
-		if typeErr != nil {
-			return nil, errors.Wrap(typeErr, "failed to find node type")
-		}
-
-		roles = append(roles, nodeType)
-
-		if slices.Contains(roles, cre.BootstrapNode) && slices.Contains(roles, cre.WorkerNode) {
-			return nil, fmt.Errorf("node at index %d in DON %s cannot be both a bootstrap node and a worker node", nodeIdx, input.DonMetadata.Name)
-		}
-
-		if node.HasLabel(nodeMetadata, node.ExtraRolesKey) {
-			extraRoles, extraErr := node.FindLabelValue(nodeMetadata, node.ExtraRolesKey)
-			if extraErr != nil {
-				return nil, errors.Wrap(extraErr, "failed to check for extra roles")
-			}
-
-			roles = append(roles, strings.Split(extraRoles, ",")...)
-		}
-
-		nodeConfig := defaultNodeConfigGenerator()
-		for _, role := range roles {
+		nodeConfig := baseNodeConfig()
+		for _, role := range nodeMetadata.Roles {
 			switch role {
 			case cre.BootstrapNode:
 				var cErr error
@@ -86,7 +64,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeC
 				}
 			case cre.WorkerNode:
 				var cErr error
-				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs, input.GatewayConnectorOutput, input.DonMetadata.Name, input.DonMetadata.Flags, nodeMetadata.Labels)
+				nodeConfig, cErr = addWorkerNodeConfig(nodeConfig, input.OCRPeeringData, input.CapabilitiesPeeringData, commonInputs, input.GatewayConnectorOutput, input.DonMetadata.Name, input.DonMetadata.Flags, nodeMetadata)
 				if cErr != nil {
 					return nil, errors.Wrapf(cErr, "failed to add worker node config for node at index %d in DON %s", nodeIdx, input.DonMetadata.Name)
 				}
@@ -98,7 +76,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeC
 				}
 			default:
 				supportedRoles := []string{cre.BootstrapNode, cre.WorkerNode, cre.GatewayNode}
-				return nil, fmt.Errorf("unsupported node type %s found for node at index %d in DON %s. Supported roles: %s", nodeType, nodeIdx, input.DonMetadata.Name, strings.Join(supportedRoles, ", "))
+				return nil, fmt.Errorf("unsupported node type %s found for node at index %d in DON %s. Supported roles: %s", role, nodeIdx, input.DonMetadata.Name, strings.Join(supportedRoles, ", "))
 			}
 		}
 
@@ -129,7 +107,7 @@ func Generate(input cre.GenerateConfigsInput, nodeConfigTransformers []cre.NodeC
 	return configOverrides, nil
 }
 
-func defaultNodeConfigGenerator() corechainlink.Config {
+func baseNodeConfig() corechainlink.Config {
 	return corechainlink.Config{
 		Core: coretoml.Core{
 			Feature: coretoml.Feature{
@@ -190,7 +168,7 @@ func addBootstrapNodeConfig(
 			Enabled: ptr.Ptr(true),
 			ChainID: ptr.Ptr(commonInputs.solanaChain.ChainID),
 			Nodes: []*solcfg.Node{
-				&solcfg.Node{
+				{
 					Name: &commonInputs.solanaChain.Name,
 					URL:  commonconfig.MustParseURL(commonInputs.solanaChain.NodeURL),
 				},
@@ -216,7 +194,7 @@ func addWorkerNodeConfig(
 	gatewayConnector *cre.GatewayConnectorOutput,
 	donName string,
 	donFlags []string,
-	nodeLabels []*cre.Label,
+	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
 	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
@@ -280,18 +258,9 @@ func addWorkerNodeConfig(
 	}
 
 	if flags.HasFlag(donFlags, cre.WorkflowDON) || don.NodeNeedsAnyGateway(donFlags) {
-		// find node's ETH address on the registry chain
-		var nodeEthAddr string
-		expectedAddressKey := node.AddressKeyFromSelector(commonInputs.registryChainSelector)
-		for _, label := range nodeLabels {
-			if label.Key == expectedAddressKey {
-				nodeEthAddr = label.Value
-				break
-			}
-		}
-
-		if nodeEthAddr == "" {
-			return existingConfig, errors.Errorf("no ETH address found for node for chain %d", commonInputs.registryChainID)
+		evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
+		if !ok {
+			return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
@@ -309,7 +278,7 @@ func addWorkerNodeConfig(
 			existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
 				DonID:             ptr.Ptr(donName),
 				ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(commonInputs.registryChainID, 10)),
-				NodeAddress:       ptr.Ptr(nodeEthAddr),
+				NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
 				Gateways:          gateways,
 			}
 		}
@@ -423,7 +392,7 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 
 		// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
 		// TODO: review if we really need this SupportedChains functionality
-		if len(input.DonMetadata.SupportedChains) > 0 && !slices.Contains(input.DonMetadata.SupportedChains, bcOut.ChainID) {
+		if len(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains()) > 0 && !slices.Contains(input.DonMetadata.CapabilitiesAwareNodeSet().EVMChains(), bcOut.ChainID) {
 			continue
 		}
 

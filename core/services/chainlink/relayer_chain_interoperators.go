@@ -98,10 +98,10 @@ func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*
 		loopRelayers: make(map[types.RelayID]loop.Relayer),
 		srvs:         make([]services.ServiceCtx, 0),
 	}
-	for _, initFn := range initFuncs {
+	for i, initFn := range initFuncs {
 		err := initFn(cr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to initialize relayer chain interoperators at index %d: %w", i, err)
 		}
 	}
 	return cr, nil

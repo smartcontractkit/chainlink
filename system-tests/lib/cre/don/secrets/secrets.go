@@ -3,221 +3,118 @@ package secrets
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"slices"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-type NodeEthKey struct {
-	JSON     string `toml:"JSON"`
-	Password string `toml:"Password"`
-	ChainID  int    `toml:"ID"`
-}
-
-type NodeSolKey struct {
-	JSON     string `toml:"JSON"`
-	Password string `toml:"Password"`
-	ChainID  string `toml:"ID"`
-}
-
-type NodeP2PKey struct {
-	JSON     string `toml:"JSON"`
-	Password string `toml:"Password"`
-}
-
-type NodeDKGRecipientKey struct {
-	JSON     string `toml:"JSON"`
-	Password string `toml:"Password"`
-}
-type NodeEthKeyWrapper struct {
-	EthKeys []NodeEthKey `toml:"Keys"`
-}
-
-type NodeSolKeyWrapper struct {
-	SolKeys []NodeSolKey `toml:"Keys"`
-}
-
-type NodeSecret struct {
-	EthKeys         NodeEthKeyWrapper   `toml:"EVM"`
-	SolKeys         NodeSolKeyWrapper   `toml:"Solana"`
-	P2PKey          NodeP2PKey          `toml:"P2PKey"`
-	DKGRecipientKey NodeDKGRecipientKey `toml:"DKGRecipientKey"`
+type nodeSecret struct {
+	EthKeys         nodeEthKeyWrapper   `toml:"EVM"`
+	SolKeys         nodeSolKeyWrapper   `toml:"Solana"`
+	P2PKey          nodeP2PKey          `toml:"P2PKey"`
+	DKGRecipientKey nodeDKGRecipientKey `toml:"DKGRecipientKey"`
 
 	// Add more fields as needed to reflect 'Secrets' struct from /core/config/toml/types.go
 	// We can't use the original struct, because it's using custom types that serialize secrets to 'xxxxx'
 }
 
-func GenerateSecrets(input *cre.GenerateSecretsInput) (cre.NodeIndexToSecretsOverride, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
-
-	overrides := make(cre.NodeIndexToSecretsOverride)
-
-	for i := range input.DonMetadata.NodesMetadata {
-		nodeSecret := NodeSecret{}
-		if input.EVMKeys != nil {
-			nodeSecret.EthKeys = NodeEthKeyWrapper{}
-			for chainID, evmKeys := range input.EVMKeys {
-				nodeSecret.EthKeys.EthKeys = append(nodeSecret.EthKeys.EthKeys, NodeEthKey{
-					JSON:     string(evmKeys.EncryptedJSONs[i]),
-					Password: evmKeys.Password,
-					ChainID:  chainID,
-				})
-			}
-		}
-
-		if input.DKGRecipientKeys != nil {
-			nodeSecret.DKGRecipientKey = NodeDKGRecipientKey{
-				JSON:     string(input.DKGRecipientKeys.EncryptedJSONs[i]),
-				Password: input.DKGRecipientKeys.Password,
-			}
-		}
-
-		if input.P2PKeys != nil {
-			nodeSecret.P2PKey = NodeP2PKey{
-				JSON:     string(input.P2PKeys.EncryptedJSONs[i]),
-				Password: input.P2PKeys.Password,
-			}
-		}
-
-		if input.SolKeys != nil {
-			nodeSecret.SolKeys = NodeSolKeyWrapper{}
-			for chainID, solKeys := range input.SolKeys {
-				nodeSecret.SolKeys.SolKeys = append(nodeSecret.SolKeys.SolKeys, NodeSolKey{
-					JSON:     string(solKeys.EncryptedJSONs[i]),
-					Password: solKeys.Password,
-					ChainID:  chainID,
-				})
-			}
-		}
-
-		nodeSecretString, err := toml.Marshal(nodeSecret)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to marshal node secrets")
-		}
-
-		overrides[i] = string(nodeSecretString)
-	}
-
-	return overrides, nil
+type nodeEthKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+	ChainID  uint64 `toml:"ID"`
 }
 
-func AddKeysToTopology(topology *cre.Topology, keys *cre.GenerateKeysOutput) (*cre.Topology, error) {
-	if topology == nil {
-		return nil, errors.New("topology is nil")
-	}
+type nodeSolKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+	ChainID  string `toml:"ID"`
+}
 
-	if keys == nil {
-		return nil, errors.New("keys is nil")
-	}
+type nodeP2PKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+}
 
-	if len(keys.P2PKeys) != len(topology.DonsMetadata) {
-		return nil, fmt.Errorf("number of P2P keys does not match the number of DONs. Expected %d, got %d", len(topology.DonsMetadata), len(keys.P2PKeys))
-	}
+type nodeDKGRecipientKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+}
 
-	if len(keys.DKGRecipientKeys) != len(topology.DonsMetadata) {
-		return nil, fmt.Errorf("number of DKG recipient keys does not match the number of DONs. Expected %d, got %d", len(topology.DonsMetadata), len(keys.DKGRecipientKeys))
-	}
+type nodeEthKeyWrapper struct {
+	EthKeys []nodeEthKey `toml:"Keys"`
+}
 
-	if len(keys.EVMKeys) != len(topology.DonsMetadata) {
-		return nil, fmt.Errorf("number of EVM keys does not match the number of DONs. Expected %d, got %d", len(topology.DonsMetadata), len(keys.EVMKeys))
-	}
+type nodeSolKeyWrapper struct {
+	SolKeys []nodeSolKey `toml:"Keys"`
+}
 
-	for _, donMetadata := range topology.DonsMetadata {
-		if _, ok := keys.P2PKeys[donMetadata.ID]; !ok {
-			return nil, fmt.Errorf("no P2P keys found for DON %d", donMetadata.ID)
+type NodeKeys struct {
+	EVM    map[uint64]*crypto.EVMKey
+	Solana map[string]*crypto.SolKey
+	P2PKey *crypto.P2PKey
+	DKGKey *crypto.DKGRecipientKey
+}
+
+// CleansedPeerID returns the PeerID without the "p2p_" prefix, or an empty string if P2PKey is nil
+func (n NodeKeys) CleansedPeerID() string {
+	if n.P2PKey == nil {
+		return ""
+	}
+	return strings.TrimPrefix(n.P2PKey.PeerID.String(), "p2p_")
+}
+
+func (n *NodeKeys) ToNodeSecretsTOML() (string, error) {
+	ns := nodeSecret{}
+
+	if n.P2PKey != nil {
+		ns.P2PKey = nodeP2PKey{
+			JSON:     string(n.P2PKey.EncryptedJSON),
+			Password: n.P2PKey.Password,
 		}
+	}
 
-		p2pKeys := keys.P2PKeys[donMetadata.ID]
-		if len(p2pKeys.PeerIDs) != len(donMetadata.NodesMetadata) {
-			return nil, fmt.Errorf("number of P2P keys for DON %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, len(donMetadata.NodesMetadata), len(p2pKeys.PeerIDs))
+	if n.DKGKey != nil {
+		ns.DKGRecipientKey = nodeDKGRecipientKey{
+			JSON:     string(n.DKGKey.EncryptedJSON),
+			Password: n.DKGKey.Password,
 		}
-		for idx, nodeMetadata := range donMetadata.NodesMetadata {
-			nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
-				Key:   node.NodeP2PIDKey,
-				Value: p2pKeys.PeerIDs[idx],
+	}
+
+	if n.EVM != nil {
+		ns.EthKeys = nodeEthKeyWrapper{}
+		for chainID, evmKeys := range n.EVM {
+			ns.EthKeys.EthKeys = append(ns.EthKeys.EthKeys, nodeEthKey{
+				JSON:     string(evmKeys.EncryptedJSON),
+				Password: evmKeys.Password,
+				ChainID:  chainID,
 			})
 		}
+	}
 
-		if _, ok := keys.DKGRecipientKeys[donMetadata.ID]; !ok {
-			return nil, fmt.Errorf("no DKG recipient keys found for DON %d", donMetadata.ID)
-		}
-		dkgRecipientKeys := keys.DKGRecipientKeys[donMetadata.ID]
-		if len(dkgRecipientKeys.PubKeys) != len(donMetadata.NodesMetadata) {
-			return nil, fmt.Errorf("number of DKG recipient keys for DON %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, len(donMetadata.NodesMetadata), len(dkgRecipientKeys.PubKeys))
-		}
-		for idx, nodeMetadata := range donMetadata.NodesMetadata {
-			nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
-				Key:   cre.NodeDKGRecipientKey,
-				Value: common.Bytes2Hex(dkgRecipientKeys.PubKeys[idx]),
+	if n.Solana != nil {
+		ns.SolKeys = nodeSolKeyWrapper{}
+		for chainID, solKeys := range n.Solana {
+			ns.SolKeys.SolKeys = append(ns.SolKeys.SolKeys, nodeSolKey{
+				JSON:     string(solKeys.EncryptedJSON),
+				Password: solKeys.Password,
+				ChainID:  chainID,
 			})
-		}
-
-		if _, ok := keys.EVMKeys[donMetadata.ID]; !ok {
-			return nil, fmt.Errorf("no EVM keys found for DON %d", donMetadata.ID)
-		}
-
-		chainIDsToEVMKeys := keys.EVMKeys[donMetadata.ID]
-
-		// Now add the EVM addresses to the node metadata
-		for chainID, evmKeys := range chainIDsToEVMKeys {
-			chainSelector, selectorErr := chainselectors.SelectorFromChainId(libc.MustSafeUint64(int64(chainID)))
-			if selectorErr != nil {
-				return nil, errors.Wrapf(selectorErr, "failed to get chain selector for chain ID %d", chainID)
-			}
-			if len(evmKeys.PublicAddresses) != len(donMetadata.NodesMetadata) {
-				return nil, fmt.Errorf("number of EVM keys for DON %d and chain ID %d does not match the number of nodes. Expected %d, got %d", donMetadata.ID, chainID, len(donMetadata.NodesMetadata), len(evmKeys.PublicAddresses))
-			}
-
-			for idx, nodeMetadata := range donMetadata.NodesMetadata {
-				nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
-					Key:   node.AddressKeyFromSelector(chainSelector),
-					Value: evmKeys.PublicAddresses[idx].Hex(),
-				})
-			}
-		}
-
-		chainIDsToSolKeys, ok := keys.SolKeys[donMetadata.ID]
-		if !ok {
-			continue
-		}
-
-		for chainID, solKeys := range chainIDsToSolKeys {
-			selector, ok := chainselectors.SolanaChainIdToChainSelector()[chainID]
-			if !ok {
-				return nil, errors.New("selector not found for solana chainID " + chainID)
-			}
-
-			if len(solKeys.PublicAddresses) != len(donMetadata.NodesMetadata) {
-				return nil, fmt.Errorf("number of sol keys for DON %d and chainID %s doesn't match the number of Nodes. Expected %d got %d",
-					donMetadata.ID, chainID, len(donMetadata.NodesMetadata), len(solKeys.PublicAddresses))
-			}
-			for idx, nodeMetadata := range donMetadata.NodesMetadata {
-				nodeMetadata.Labels = append(nodeMetadata.Labels, &cre.Label{
-					Key:   node.AddressKeyFromSelector(selector),
-					Value: solKeys.PublicAddresses[idx].String(),
-				})
-			}
 		}
 	}
 
-	return topology, nil
+	nodeSecretString, err := toml.Marshal(ns)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal node secrets")
+	}
+	return string(nodeSecretString), nil
 }
 
 // secrets struct mirrors `Secrets` struct in "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -245,7 +142,7 @@ type ethKeys struct {
 
 type ethKey struct {
 	JSON     *string
-	ID       *int
+	ID       *uint64
 	Password *string
 }
 
@@ -265,12 +162,14 @@ type evmJSON struct {
 	Address string `json:"address"`
 }
 
-var publicEVMAddressFromEncryptedJSON = func(jsonString string) (string, error) {
+func publicEVMAddressFromEncryptedJSON(jsonString string) (string, error) {
 	var eJSON evmJSON
+
 	err := json.Unmarshal([]byte(jsonString), &eJSON)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal evm json")
 	}
+
 	return eJSON.Address, nil
 }
 
@@ -280,7 +179,7 @@ type solJSON struct {
 	PublicKey string `json:"publicKey"`
 }
 
-var publicSolKeyFromEncryptedJSON = func(jsonString string) (solana.PublicKey, error) {
+func publicSolKeyFromEncryptedJSON(jsonString string) (solana.PublicKey, error) {
 	var eJSON solJSON
 	err := json.Unmarshal([]byte(jsonString), &eJSON)
 	if err != nil {
@@ -301,12 +200,14 @@ type p2pJSON struct {
 	PeerID string `json:"peerID"`
 }
 
-var publicP2PAddressFromEncryptedJSON = func(jsonString string) (string, error) {
+func publicP2PAddressFromEncryptedJSON(jsonString string) (string, error) {
 	var pJSON p2pJSON
+
 	err := json.Unmarshal([]byte(jsonString), &pJSON)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal p2p json")
 	}
+
 	return pJSON.PeerID, nil
 }
 
@@ -314,213 +215,98 @@ type dkgRecipientJSON struct {
 	PublicKey string `json:"publicKey"`
 }
 
-var publicDKGRecipientKeyFromEncryptedJSON = func(jsonString string) (dkgocrtypes.P256ParticipantPublicKey, error) {
+func publicDKGRecipientKeyFromEncryptedJSON(jsonString string) (dkgocrtypes.P256ParticipantPublicKey, error) {
 	var dJSON dkgRecipientJSON
+
 	err := json.Unmarshal([]byte(jsonString), &dJSON)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal dkg recipient key json")
 	}
+
 	return hex.DecodeString(dJSON.PublicKey)
 }
 
-func KeysOutputFromConfig(nodeSets []*cre.CapabilitiesAwareNodeSet) (*cre.GenerateKeysOutput, error) {
-	output := &cre.GenerateKeysOutput{
-		EVMKeys:          make(cre.DonsToEVMKeys),
-		SolKeys:          make(cre.DonsToSolKeys),
-		P2PKeys:          make(cre.DonsToP2PKeys),
-		DKGRecipientKeys: make(cre.DonsToDKGRecipientKeys),
+func ImportNodeKeys(secretsToml string) (*NodeKeys, error) {
+	keys := &NodeKeys{
+		EVM:    make(map[uint64]*crypto.EVMKey),
+		Solana: make(map[string]*crypto.SolKey),
 	}
 
-	p2pKeysFoundPerDon := make(map[uint32]int)
-	dkgRecipientKeysFoundPerDon := make(map[uint32]int)
-	evmKeysFoundPerDon := make(map[uint32]int)
-	for donIdx, nodeSet := range nodeSets {
-		donIdxUint32 := uint32(donIdx) // #nosec G115: ignore as this will NEVER happen, we don't have zillions of DONs
-		p2pKeys := crypto.P2PKeys{}
-		dkgRecipientKeys := crypto.DKGRecipientKeys{}
-		evmKeysPerChainID := make(cre.ChainIDToEVMKeys)
-		solKeysPerChainID := make(cre.ChainIDToSolKeys)
-		for nodeIdx, nodeSpec := range nodeSet.NodeSpecs {
-			if nodeSpec.Node.TestSecretsOverrides != "" {
-				var sSecrets secrets
-				unmarshallErr := toml.Unmarshal([]byte(nodeSpec.Node.TestSecretsOverrides), &sSecrets)
-				if unmarshallErr != nil {
-					return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal secrets for node %d in DON %d", nodeIdx, donIdx)
-				}
-
-				// For simplicity we will allow importing only both P2P keys and EVM keys, not just one of them
-				if sSecrets.P2PKey.JSON == nil || sSecrets.P2PKey.Password == nil {
-					return nil, fmt.Errorf("P2P key or password is nil for node %d in DON %d", nodeIdx, donIdx)
-				}
-				p2pKeys.EncryptedJSONs = append(p2pKeys.EncryptedJSONs, []byte(*sSecrets.P2PKey.JSON))
-				p2pKeys.Password = *sSecrets.P2PKey.Password
-				peerID, peerIDErr := publicP2PAddressFromEncryptedJSON(*sSecrets.P2PKey.JSON)
-				if peerIDErr != nil {
-					return nil, errors.Wrapf(peerIDErr, "failed to get public p2p address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
-				}
-				p2pKeys.PeerIDs = append(p2pKeys.PeerIDs, peerID)
-				p2pKeysFoundPerDon[donIdxUint32]++
-
-				if sSecrets.DKGRecipientKey.JSON != nil {
-					dkgRecipientKeys.EncryptedJSONs = append(dkgRecipientKeys.EncryptedJSONs, []byte(*sSecrets.DKGRecipientKey.JSON))
-					dkgRecipientKeys.Password = *sSecrets.DKGRecipientKey.Password
-					dkgRecipientPubKey, err := publicDKGRecipientKeyFromEncryptedJSON(*sSecrets.DKGRecipientKey.JSON)
-					if err != nil {
-						return nil, errors.Wrapf(err, "failed to get public DKG recipient key for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
-					}
-					dkgRecipientKeys.PubKeys = append(dkgRecipientKeys.PubKeys, dkgRecipientPubKey)
-					dkgRecipientKeysFoundPerDon[donIdxUint32]++
-				}
-
-				if len(sSecrets.EVM.Keys) == 0 {
-					return nil, fmt.Errorf("EVM keys is nil for node %d in DON %d", nodeIdx, donIdx)
-				}
-
-				for _, evmKey := range sSecrets.EVM.Keys {
-					if evmKey.JSON == nil || evmKey.Password == nil || evmKey.ID == nil {
-						return nil, fmt.Errorf("EVM key or password or ID is nil for node %d in DON %d", nodeIdx, donIdx)
-					}
-
-					publicEVMAddress, publicEVMAddressErr := publicEVMAddressFromEncryptedJSON(*evmKey.JSON)
-					if publicEVMAddressErr != nil {
-						return nil, errors.Wrapf(publicEVMAddressErr, "failed to get public evm address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
-					}
-
-					// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-					if len(nodeSet.SupportedChains) > 0 && !slices.Contains(nodeSet.SupportedChains, libc.MustSafeUint64(int64(*evmKey.ID))) {
-						continue
-					}
-
-					if _, ok := evmKeysPerChainID[*evmKey.ID]; !ok {
-						evmKeysPerChainID[*evmKey.ID] = &crypto.EVMKeys{}
-					}
-
-					evmKeysPerChainID[*evmKey.ID].EncryptedJSONs = append(evmKeysPerChainID[*evmKey.ID].EncryptedJSONs, []byte(*evmKey.JSON))
-					evmKeysPerChainID[*evmKey.ID].PublicAddresses = append(evmKeysPerChainID[*evmKey.ID].PublicAddresses, common.HexToAddress(publicEVMAddress))
-					evmKeysPerChainID[*evmKey.ID].Password = *evmKey.Password
-				}
-				evmKeysFoundPerDon[donIdxUint32]++
-
-				for _, solKey := range sSecrets.Solana.Keys {
-					if solKey.JSON == nil || solKey.Password == nil || solKey.ID == nil {
-						return nil, fmt.Errorf("solana key or password or id is nil for node %d in don %d", nodeIdx, donIdx)
-					}
-					// if the DON doesn't support solana chain, we skip it
-					if !slices.Contains(nodeSet.SupportedSolChains, *solKey.ID) {
-						continue
-					}
-
-					publicSolAddr, addrErr := publicSolKeyFromEncryptedJSON(*solKey.JSON)
-					if addrErr != nil {
-						return nil, errors.Wrapf(addrErr, "failed to get public Solana address for node %d in DON %d from encrypted JSON", nodeIdx, donIdx)
-					}
-					if _, ok := solKeysPerChainID[*solKey.ID]; !ok {
-						solKeysPerChainID[*solKey.ID] = &crypto.SolKeys{}
-					}
-
-					solKeysPerChainID[*solKey.ID].EncryptedJSONs = append(solKeysPerChainID[*solKey.ID].EncryptedJSONs, []byte(*solKey.JSON))
-					solKeysPerChainID[*solKey.ID].PublicAddresses = append(solKeysPerChainID[*solKey.ID].PublicAddresses,
-						publicSolAddr)
-					solKeysPerChainID[*solKey.ID].Password = *solKey.Password
-				}
-			}
-		}
-		// +1 because we use 1-based indexing in the CRE
-		donIndexToUse := libc.MustSafeUint64FromInt(donIdx + 1)
-		output.P2PKeys[donIndexToUse] = &p2pKeys
-		output.DKGRecipientKeys[donIndexToUse] = &dkgRecipientKeys
-		output.EVMKeys[donIndexToUse] = evmKeysPerChainID
-		output.SolKeys[donIndexToUse] = solKeysPerChainID
+	var sSecrets secrets
+	unmarshallErr := toml.Unmarshal([]byte(secretsToml), &sSecrets)
+	if unmarshallErr != nil {
+		return nil, errors.Wrap(unmarshallErr, "failed to unmarshal TOML secrets")
 	}
 
-	anyFound := false
-	// Validate that we found keys for all nodes in all DONs
-	for donIdx, nodeSet := range nodeSets {
-		donIdxUint32 := uint32(donIdx) // #nosec G115
-		if p2pKeysFoundPerDon[donIdxUint32] != 0 && len(nodeSet.NodeSpecs) != p2pKeysFoundPerDon[donIdxUint32] {
-			return nil, fmt.Errorf("number of P2P keys found for DON %d does not match the number of nodes. Expected %d, got %d", donIdx, len(nodeSet.NodeSpecs), p2pKeysFoundPerDon[donIdxUint32])
+	if sSecrets.P2PKey.JSON == nil || sSecrets.P2PKey.Password == nil {
+		return nil, errors.New("P2P key or password is nil")
+	}
+
+	peerID, peerIDErr := publicP2PAddressFromEncryptedJSON(*sSecrets.P2PKey.JSON)
+	if peerIDErr != nil {
+		return nil, errors.Wrapf(peerIDErr, "failed to get public p2p address for node from encrypted JSON")
+	}
+
+	p := new(p2pkey.PeerID)
+	if err := p.UnmarshalString(peerID); err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal PeerID")
+	}
+
+	keys.P2PKey = &crypto.P2PKey{
+		EncryptedJSON: []byte(*sSecrets.P2PKey.JSON),
+		Password:      *sSecrets.P2PKey.Password,
+		PeerID:        *p,
+	}
+
+	if sSecrets.DKGRecipientKey.JSON != nil {
+		keys.DKGKey = &crypto.DKGRecipientKey{
+			EncryptedJSON: []byte(*sSecrets.DKGRecipientKey.JSON),
+			Password:      *sSecrets.DKGRecipientKey.Password,
 		}
-		if evmKeysFoundPerDon[donIdxUint32] != 0 && len(nodeSet.NodeSpecs) != evmKeysFoundPerDon[donIdxUint32] {
-			return nil, fmt.Errorf("number of EVM keys found for DON %d does not match the number of nodes. Expected %d, got %d", donIdx, len(nodeSet.NodeSpecs), evmKeysFoundPerDon[donIdxUint32])
+		dkgRecipientPubKey, err := publicDKGRecipientKeyFromEncryptedJSON(*sSecrets.DKGRecipientKey.JSON)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get public DKG recipient key from encrypted JSON")
 		}
-		if p2pKeysFoundPerDon[donIdxUint32] != 0 && evmKeysFoundPerDon[donIdxUint32] != 0 {
-			anyFound = true
+		keys.DKGKey.PubKey = dkgRecipientPubKey
+	}
+
+	for _, evmKey := range sSecrets.EVM.Keys {
+		if evmKey.JSON == nil || evmKey.Password == nil || evmKey.ID == nil {
+			return nil, errors.New("EVM key or password or ID is nil")
+		}
+
+		publicEVMAddress, publicEVMAddressErr := publicEVMAddressFromEncryptedJSON(*evmKey.JSON)
+		if publicEVMAddressErr != nil {
+			return nil, errors.Wrapf(publicEVMAddressErr, "failed to get public evm address from encrypted JSON")
+		}
+
+		if _, ok := keys.EVM[*evmKey.ID]; !ok {
+			keys.EVM[*evmKey.ID] = &crypto.EVMKey{}
+		}
+
+		keys.EVM[*evmKey.ID] = &crypto.EVMKey{
+			EncryptedJSON: []byte(*evmKey.JSON),
+			PublicAddress: common.HexToAddress(publicEVMAddress),
+			Password:      *evmKey.Password,
 		}
 	}
 
-	if !anyFound {
-		// If no keys were found for any DON, we can return empty output
-		return nil, nil
-	}
-
-	return output, nil
-}
-
-func GenerateKeys(input *cre.GenerateKeysInput) (*cre.GenerateKeysOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
-
-	if input.Out != nil {
-		return input.Out, nil
-	}
-
-	output := &cre.GenerateKeysOutput{
-		EVMKeys:          make(cre.DonsToEVMKeys),
-		SolKeys:          make(cre.DonsToSolKeys),
-		P2PKeys:          make(cre.DonsToP2PKeys),
-		DKGRecipientKeys: make(cre.DonsToDKGRecipientKeys),
-	}
-
-	for _, donMetadata := range input.Topology.DonsMetadata {
-		if input.GenerateP2PKeys {
-			p2pKeys, err := crypto.GenerateP2PKeys(input.Password, len(donMetadata.NodesMetadata))
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate P2P keys")
-			}
-			output.P2PKeys[donMetadata.ID] = p2pKeys
-		}
-		if input.GenerateDKGRecipientKeys {
-			dkgKeys, err := crypto.GenerateDKGRecipientKeys(input.Password, len(donMetadata.NodesMetadata))
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate DKG recipient keys")
-			}
-			output.DKGRecipientKeys[donMetadata.ID] = dkgKeys
+	for _, solKey := range sSecrets.Solana.Keys {
+		if solKey.JSON == nil || solKey.Password == nil || solKey.ID == nil {
+			return nil, errors.New("solana key or password or id is nil")
 		}
 
-		if len(input.GenerateEVMKeysForChainIDs) > 0 {
-			for _, chainID := range input.GenerateEVMKeysForChainIDs {
-				// if the DON doesn't support the chain, we skip it; if slice is empty, it means that the DON supports all chains
-				if len(donMetadata.SupportedChains) > 0 && !slices.Contains(donMetadata.SupportedChains, libc.MustSafeUint64(int64(chainID))) {
-					continue
-				}
-				evmKeys, err := crypto.GenerateEVMKeys(input.Password, len(donMetadata.NodesMetadata))
-				if err != nil {
-					return nil, errors.Wrap(err, "failed to generate EVM keys")
-				}
-				if _, ok := output.EVMKeys[donMetadata.ID]; !ok {
-					output.EVMKeys[donMetadata.ID] = make(cre.ChainIDToEVMKeys)
-				}
-				output.EVMKeys[donMetadata.ID][chainID] = evmKeys
-			}
+		publicSolAddr, addrErr := publicSolKeyFromEncryptedJSON(*solKey.JSON)
+		if addrErr != nil {
+			return nil, errors.Wrapf(addrErr, "failed to get public Solana address from encrypted JSON")
 		}
 
-		for _, chainID := range input.GenerateSolKeysForChainIDs {
-			solKeys, err := crypto.GenerateSolKeys(input.Password, len(donMetadata.NodesMetadata))
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to generate Sol keys")
-			}
-			if _, ok := output.SolKeys[donMetadata.ID]; !ok {
-				output.SolKeys[donMetadata.ID] = make(cre.ChainIDToSolKeys)
-			}
-
-			output.SolKeys[donMetadata.ID][chainID] = solKeys
+		keys.Solana[*solKey.ID] = &crypto.SolKey{
+			EncryptedJSON: []byte(*solKey.JSON),
+			PublicAddress: publicSolAddr,
+			Password:      *solKey.Password,
 		}
 	}
 
-	return output, nil
+	return keys, nil
 }

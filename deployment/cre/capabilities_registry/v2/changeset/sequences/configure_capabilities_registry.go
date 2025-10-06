@@ -25,7 +25,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	MCMSConfig       *ocr3.MCMSConfig
 	Description      string
 	ContractAddress  string
-	Nops             []capabilities_registry_v2.CapabilitiesRegistryNodeOperator
+	Nops             []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	Nodes            []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 	Capabilities     []capabilities_registry_v2.CapabilitiesRegistryCapability
 	DONs             []capabilities_registry_v2.CapabilitiesRegistryNewDONParams

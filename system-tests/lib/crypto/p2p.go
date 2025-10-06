@@ -5,28 +5,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type P2PKeys struct {
-	EncryptedJSONs [][]byte
-	PeerIDs        []string
-	Password       string
+type P2PKey struct {
+	EncryptedJSON []byte
+	PeerID        p2pkey.PeerID
+	Password      string
 }
 
-func GenerateP2PKeys(password string, n int) (*P2PKeys, error) {
-	result := &P2PKeys{
-		Password: password,
+func NewP2PKey(password string) (*P2PKey, error) {
+	key, err := p2pkey.NewV2()
+	if err != nil {
+		return nil, err
 	}
-	for i := 0; i < n; i++ {
-		key, err := p2pkey.NewV2()
-		if err != nil {
-			return nil, err
-		}
-		d, err := key.ToEncryptedJSON(password, utils.DefaultScryptParams)
-		if err != nil {
-			return nil, err
-		}
+	d, err := key.ToEncryptedJSON(password, utils.DefaultScryptParams)
+	if err != nil {
+		return nil, err
+	}
 
-		result.EncryptedJSONs = append(result.EncryptedJSONs, d)
-		result.PeerIDs = append(result.PeerIDs, key.PeerID().String())
-	}
-	return result, nil
+	return &P2PKey{
+		EncryptedJSON: d,
+		PeerID:        key.PeerID(),
+		Password:      password,
+	}, nil
 }

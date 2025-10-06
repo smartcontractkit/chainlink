@@ -435,8 +435,8 @@ func startCmd() *cobra.Command {
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
-				for idx, don := range output.DonTopology.DonsWithMetadata {
-					if flags.HasFlag(don.Flags, cre.WorkflowDON) {
+				for idx, donMetadata := range output.DonTopology.ToDonMetadata() {
+					if flags.HasFlag(donMetadata.Flags, cre.WorkflowDON) {
 						workflowDonID = libc.MustSafeUint32(idx + 1)
 						break
 					}
@@ -628,7 +628,7 @@ func StartCLIEnvironment(
 		ContractVersions:          env.ContractVersions(),
 		WithV2Registries:          env.WithV2Registries(),
 		JdInput:                   in.JD,
-		InfraInput:                *in.Infra,
+		Provider:                  *in.Infra,
 		S3ProviderInput:           in.S3ProviderInput,
 		CapabilityConfigs:         in.CapabilityConfigs,
 		CopyCapabilityBinaries:    withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)

@@ -245,12 +245,12 @@ var SetWorkflowOwnerConfigOp = operations.NewOperation(
 
 // SetDONLimit Operation
 type SetDONLimitOpInput struct {
-	ChainSelector uint64           `json:"chainSelector"`
-	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily     string           `json:"donFamily"`
-	Limit         uint32           `json:"limit"`
-	Enabled       bool             `json:"enabled"`
-	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector    uint64           `json:"chainSelector"`
+	Qualifier        string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily        string           `json:"donFamily"`
+	DONLimit         uint32           `json:"donlimit"`
+	UserDefaultLimit uint32           `json:"userDefaultLimit"`
+	MCMSConfig       *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
 type SetDONLimitOpOutput struct {
@@ -261,7 +261,7 @@ type SetDONLimitOpOutput struct {
 var SetDONLimitOp = operations.NewOperation(
 	"set-don-limit-op",
 	semver.MustParse("1.0.0"),
-	"Set DON Limit in WorkflowRegistry V2",
+	"Set DON DONLimit in WorkflowRegistry V2",
 	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input SetDONLimitOpInput) (SetDONLimitOpOutput, error) {
 		chain, ok := deps.Env.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
@@ -288,7 +288,7 @@ var SetDONLimitOp = operations.NewOperation(
 
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.SetDONLimit(opts, input.DONFamily, input.Limit, input.Enabled)
+			tx, err := registry.SetDONLimit(opts, input.DONFamily, input.DONLimit, input.UserDefaultLimit)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call SetDONLimit: %w", err)
 			}
