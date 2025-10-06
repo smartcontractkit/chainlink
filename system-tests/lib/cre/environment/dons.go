@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"slices"
+	"sync"
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
@@ -108,15 +108,8 @@ func StartDONs(
 	}
 
 	errGroup, _ := errgroup.WithContext(ctx)
+	var resultMap sync.Map
 
-	// to preserve order of node sets, we will collect results in a channel and then sort them by index
-	// because later on we rely on the order of node sets matching the order of DONs in topology
-	type orderedNodeOutput struct {
-		Index  int
-		Output *cre.WrappedNodeOutput
-	}
-
-	resultCh := make(chan *orderedNodeOutput, len(capabilitiesAwareNodeSets))
 	for idx, nodeSetInput := range capabilitiesAwareNodeSets {
 		startTime := time.Now()
 		lggr.Info().Msgf("Starting DON named %s", nodeSetInput.Name)
@@ -126,14 +119,11 @@ func StartDONs(
 				return pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
 			}
 
-			resultCh <- &orderedNodeOutput{
-				Output: &cre.WrappedNodeOutput{
-					Output:       nodeset,
-					NodeSetName:  nodeSetInput.Name,
-					Capabilities: nodeSetInput.ComputedCapabilities,
-				},
-				Index: idx,
-			}
+			resultMap.Store(idx, &cre.WrappedNodeOutput{
+				Output:       nodeset,
+				NodeSetName:  nodeSetInput.Name,
+				Capabilities: nodeSetInput.ComputedCapabilities,
+			})
 
 			lggr.Info().Msgf("DON %s started in %.2f seconds", nodeSetInput.Name, time.Since(startTime).Seconds())
 
@@ -144,21 +134,13 @@ func StartDONs(
 	if err := errGroup.Wait(); err != nil {
 		return nil, err
 	}
-	close(resultCh)
 
-	orderedOutput := make([]*orderedNodeOutput, len(capabilitiesAwareNodeSets))
-	for res := range resultCh {
-		orderedOutput[res.Index] = res
-	}
-
-	slices.SortFunc(orderedOutput, func(a, b *orderedNodeOutput) int {
-		return a.Index - b.Index
+	nodeSetOutput := make([]*cre.WrappedNodeOutput, len(capabilitiesAwareNodeSets))
+	resultMap.Range(func(key, value any) bool {
+		// key is index, value is *cre.WrappedNodeOutput
+		nodeSetOutput[key.(int)] = value.(*cre.WrappedNodeOutput)
+		return true
 	})
-
-	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
-	for _, res := range orderedOutput {
-		nodeSetOutput = append(nodeSetOutput, res.Output)
-	}
 
 	return nodeSetOutput, nil
 }
