@@ -411,7 +411,7 @@ var USDCReaderConfig = config.ChainReaderConfig{
 					ChainSpecificName: consts.EventNameCCTPMessageSent,
 					ReadType:          config.Event,
 					EventDefinitions: &config.EventDefinitions{
-						GenericDataWordDetails: map[string]config.DataWordDetail{
+						GenericDataWordDetails: map[string]evm.DataWordDetail{
 							consts.CCTPMessageSentValue: {
 								Name: consts.CCTPMessageSentValue,
 								// Filtering by the 3rd word (indexing starts from 0) so it's ptr(2)
