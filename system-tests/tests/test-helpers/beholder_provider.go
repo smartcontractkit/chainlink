@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -55,7 +56,7 @@ type ConsumerOptions struct {
 	Topic                  string // If empty, uses the first topic from config.
 	MessageBuffer          int
 	ErrorBuffer            int
-	CommitSync             bool // Enables synchronous commits after each message. Defaults to "false" (async commits).
+	CommitSync             bool // Default: true.Enables synchronous commits, safer (guaranteed commit). Async is less safe (potential reprocessing).
 	IsolationReadCommitted bool // Ensures only committed messages are read. Defaults to "false".
 }
 
@@ -117,27 +118,83 @@ func loadBeholderStackCache(relativePathToRepoRoot string) (*config.ChipIngressC
 	return c, nil
 }
 
-// createValidationConsumer creates a temporary Kafka consumer for validation purposes.
-func (b *Beholder) createValidationConsumer(ctx context.Context, groupIDPrefix string) (*kafka.Consumer, error) {
+/*
+SubscribeToBeholderMessages starts a Kafka consumer and returns message/error channels.
+
+1. Tests Kafka broker connectivity before starting the listener (FATAL - fails fast if not accessible)
+2. Validates Beholder heartbeat to ensure it's alive and healthy (FATAL - fails fast if not detected)
+3. Validates topic existence and accessibility during subscription
+4. Verifies topic metadata and partition availability
+5. Coordinates consumer readiness to prevent race conditions with producers
+
+Parameters:
+  - ctx: Context for lifecycle management
+  - messageTypes: Map of CloudEvents ce_type to protobuf factory functions
+
+Returns:
+  - Message channel (closed when consumer stops)
+  - Error channel (buffered, reports fatal errors)
+*/
+func (b *Beholder) SubscribeToBeholderMessages(ctx context.Context, messageTypes map[string]func() proto.Message,
+) (<-chan proto.Message, <-chan error) {
+	// If the Beholder is not initialized, return an error channel
 	if b == nil || b.cfg == nil {
-		return nil, errors.New(errBeholderOrConfigNil)
+		errCh := make(chan error, 1)
+		errCh <- errors.New(errBeholderOrConfigNil)
+		close(errCh)
+		return nil, errCh
 	}
 
-	clientID := fmt.Sprintf("%s-%d", groupIDPrefix, time.Now().UnixNano())
-	cfg := &kafka.ConfigMap{
-		"bootstrap.servers":  b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL,
-		"group.id":           clientID,
-		"client.id":          clientID,
-		"auto.offset.reset":  "latest",
-		"session.timeout.ms": kafkaSessionTimeoutMs,
+	// Create options internally with unique group ID (to enable tests parallelization)
+	opts := &ConsumerOptions{
+		GroupID:                fmt.Sprintf("beholder-consumer-%d", time.Now().UnixNano()),
+		Topic:                  b.cfg.Kafka.Topics[0],
+		MessageBuffer:          defaultMessageBufferSize,
+		ErrorBuffer:            defaultErrorBufferSize,
+		CommitSync:             true, // guaranteed Kafka acknowledgment
+		IsolationReadCommitted: false,
 	}
 
-	consumer, err := b.createAndSubscribeConsumer(cfg, b.cfg.Kafka.Topics[0])
-	if err != nil {
-		return nil, err
+	msgCh := make(chan proto.Message, opts.MessageBuffer)
+	errCh := make(chan error, opts.ErrorBuffer)
+	readyCh := make(chan struct{}, 1)
+
+	// Pre-flight validation: Kafka connectivity (fatal - fail early if Kafka is not accessible)
+	b.lggr.Debug().Msg("Performing Kafka connectivity validation...")
+	if err := b.validateConsumerConnectivity(ctx); err != nil {
+		b.lggr.Error().Err(err).Msg("Kafka connectivity validation failed")
+		errCh <- errors.Wrap(err, "kafka connectivity validation failed")
+		close(errCh)
+		close(msgCh)
+		return msgCh, errCh
 	}
 
-	return consumer, nil
+	// Pre-flight validation: Beholder heartbeat (fatal - fail early if Beholder is not healthy)
+	b.lggr.Debug().Msg("Performing Beholder heartbeat validation...")
+	if err := b.validateBeholderHeartbeat(ctx); err != nil {
+		b.lggr.Error().Err(err).Msg("Beholder heartbeat validation failed")
+		errCh <- errors.Wrap(err, "beholder heartbeat validation failed")
+		close(errCh)
+		close(msgCh)
+		return msgCh, errCh
+	}
+
+	// Start consumer in background  and wait for consumer readiness to coordinate with producers/workflows
+	go b.consume(ctx, messageTypes, opts, msgCh, errCh, readyCh)
+	select {
+	case <-readyCh:
+		b.lggr.Info().Msg("Kafka consumer ready and subscribed - safe to start workflow execution")
+	case <-time.After(maxConsumerConnectivityTimeout): // Increased timeout for CI environments
+		select {
+		case errCh <- errors.New("timeout waiting for Kafka consumer readiness"):
+		default:
+		}
+		b.lggr.Error().Msg("Timeout waiting for Kafka consumer readiness - check broker connectivity")
+	case <-ctx.Done():
+		b.lggr.Info().Msg("Context cancelled while waiting for Kafka consumer readiness")
+	}
+
+	return msgCh, errCh
 }
 
 // validateKafkaConnectivity explicitly validates Kafka broker connectivity.
@@ -175,48 +232,35 @@ func (b *Beholder) validateBeholderHeartbeat(ctx context.Context) error {
 		retryDelay = 5 * time.Second
 	)
 
-	var lastErr error
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		b.lggr.Info().
-			Int("attempt", attempt).
-			Int("max_retries", maxRetries).
-			Dur("max_timeout", maxConsumerConnectivityTimeout).
-			Int("session_timeout_ms", kafkaSessionTimeoutMs).
-			Msg("Validating Beholder heartbeat...")
+	b.lggr.Info().
+		Int("max_retries", maxRetries).
+		Dur("retry_delay", retryDelay).
+		Dur("max_timeout", maxConsumerConnectivityTimeout).
+		Int("session_timeout_ms", kafkaSessionTimeoutMs).
+		Msg("Starting Beholder heartbeat validation...")
 
-		err := b.validateBeholderHeartbeatAttempt(ctx)
-		if err == nil {
-			// Success!
-			return nil
-		}
-
-		lastErr = err
-		b.lggr.Warn().
-			Err(err).
-			Int("attempt", attempt).
-			Int("max_retries", maxRetries).
-			Msg("Beholder heartbeat validation attempt failed")
-
-		if attempt < maxRetries {
+	return retry.Do(
+		func() error {
+			return b.validateBeholderHeartbeatOnce(ctx)
+		},
+		retry.Context(ctx),
+		retry.Attempts(maxRetries),
+		retry.Delay(retryDelay),
+		retry.DelayType(retry.FixedDelay),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
 			b.lggr.Warn().
+				Err(err).
+				Uint("attempt", n+1).
+				Uint("max_retries", maxRetries).
 				Dur("retry_delay", retryDelay).
-				Int("next_attempt", attempt+1).
-				Msg("Retrying Beholder heartbeat validation...")
-
-			select {
-			case <-ctx.Done():
-				return errors.Wrap(ctx.Err(), "context cancelled during heartbeat validation retry")
-			case <-time.After(retryDelay):
-				// Continue to next attempt
-			}
-		}
-	}
-
-	return errors.Wrapf(lastErr, "failed to detect Beholder heartbeat after %d attempts", maxRetries)
+				Msg("Beholder heartbeat validation attempt failed, retrying...")
+		}),
+	)
 }
 
-// validateBeholderHeartbeatAttempt performs a single heartbeat validation attempt.
-func (b *Beholder) validateBeholderHeartbeatAttempt(ctx context.Context) error {
+// validateBeholderHeartbeatOnce performs a single heartbeat validation attempt.
+func (b *Beholder) validateBeholderHeartbeatOnce(ctx context.Context) error {
 	hctx, cancel := context.WithTimeout(ctx, maxConsumerConnectivityTimeout)
 	defer cancel()
 
@@ -229,7 +273,6 @@ func (b *Beholder) validateBeholderHeartbeatAttempt(ctx context.Context) error {
 			b.lggr.Warn().Err(closeErr).Msg("Failed to close heartbeat validation consumer")
 		}
 	}()
-
 	b.lggr.Info().Msg("Created consumer for heartbeat validation")
 
 	// Use blocking ReadMessage with timeout instead of ticker pattern
@@ -286,6 +329,28 @@ func (b *Beholder) validateBeholderHeartbeatAttempt(ctx context.Context) error {
 	}
 }
 
+// createValidationConsumer creates a temporary Kafka consumer for validation purposes.
+func (b *Beholder) createValidationConsumer(ctx context.Context, groupIDPrefix string) (*kafka.Consumer, error) {
+	if b == nil || b.cfg == nil {
+		return nil, errors.New(errBeholderOrConfigNil)
+	}
+
+	groupID := fmt.Sprintf("%s-%d", groupIDPrefix, time.Now().UnixNano())
+	cfg := &kafka.ConfigMap{
+		"bootstrap.servers":  b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL,
+		"group.id":           groupID,
+		"auto.offset.reset":  "latest",
+		"session.timeout.ms": kafkaSessionTimeoutMs,
+	}
+
+	consumer, err := b.createAndSubscribeConsumer(cfg, b.cfg.Kafka.Topics[0])
+	if err != nil {
+		return nil, err
+	}
+
+	return consumer, nil
+}
+
 // isHeartbeatMessage checks if a BaseMessage is a Beholder heartbeat.
 // Heartbeat format: msg="heartbeat" and labels.system="Application"
 func isHeartbeatMessage(msg *commonevents.BaseMessage) bool {
@@ -310,85 +375,6 @@ func isHeartbeatMessage(msg *commonevents.BaseMessage) bool {
 	return strings.EqualFold(systemLabel, "Application")
 }
 
-/*
-SubscribeToBeholderMessages starts a Kafka consumer and returns message/error channels.
-
-1. Tests Kafka broker connectivity before starting the listener (FATAL - fails fast if not accessible)
-2. Validates Beholder heartbeat to ensure it's alive and healthy (FATAL - fails fast if not detected)
-3. Validates topic existence and accessibility during subscription
-4. Verifies topic metadata and partition availability
-5. Coordinates consumer readiness to prevent race conditions with producers
-
-Parameters:
-  - ctx: Context for lifecycle management
-  - messageTypes: Map of CloudEvents ce_type to protobuf factory functions
-
-Returns:
-  - Message channel (closed when consumer stops)
-  - Error channel (buffered, reports fatal errors)
-*/
-func (b *Beholder) SubscribeToBeholderMessages(ctx context.Context, messageTypes map[string]func() proto.Message,
-) (<-chan proto.Message, <-chan error) {
-	// If the Beholder is not initialized, return an error channel
-	if b == nil || b.cfg == nil {
-		errCh := make(chan error, 1)
-		errCh <- errors.New(errBeholderOrConfigNil)
-		close(errCh)
-		return nil, errCh
-	}
-
-	// Create options internally with unique group ID (to enable tests parallelization)
-	opts := &ConsumerOptions{
-		GroupID:                fmt.Sprintf("beholder-consumer-%d", time.Now().UnixNano()),
-		Topic:                  b.cfg.Kafka.Topics[0],
-		MessageBuffer:          defaultMessageBufferSize,
-		ErrorBuffer:            defaultErrorBufferSize,
-		CommitSync:             false,
-		IsolationReadCommitted: false,
-	}
-
-	msgCh := make(chan proto.Message, opts.MessageBuffer)
-	errCh := make(chan error, opts.ErrorBuffer)
-	readyCh := make(chan struct{}, 1)
-
-	// Pre-flight validation: Kafka connectivity (fatal - fail early if Kafka is not accessible)
-	b.lggr.Debug().Msg("Performing automatic Kafka connectivity validation...")
-	if err := b.validateConsumerConnectivity(ctx); err != nil {
-		b.lggr.Error().Err(err).Msg("Kafka connectivity validation failed")
-		errCh <- errors.Wrap(err, "kafka connectivity validation failed")
-		close(errCh)
-		close(msgCh)
-		return msgCh, errCh
-	}
-
-	// Pre-flight validation: Beholder heartbeat (fatal - fail early if Beholder is not healthy)
-	b.lggr.Debug().Msg("Performing Beholder heartbeat validation...")
-	if err := b.validateBeholderHeartbeat(ctx); err != nil {
-		b.lggr.Error().Err(err).Msg("Beholder heartbeat validation failed")
-		errCh <- errors.Wrap(err, "beholder heartbeat validation failed")
-		close(errCh)
-		close(msgCh)
-		return msgCh, errCh
-	}
-
-	// Start consumer in background  and wait for consumer readiness to coordinate with producers/workflows
-	go b.consume(ctx, messageTypes, opts, msgCh, errCh, readyCh)
-	select {
-	case <-readyCh:
-		b.lggr.Info().Msg("Kafka consumer ready and subscribed - safe to start workflow execution")
-	case <-time.After(maxConsumerConnectivityTimeout): // Increased timeout for CI environments
-		select {
-		case errCh <- errors.New("timeout waiting for Kafka consumer readiness"):
-		default:
-		}
-		b.lggr.Error().Msg("Timeout waiting for Kafka consumer readiness - check broker connectivity")
-	case <-ctx.Done():
-		b.lggr.Info().Msg("Context cancelled while waiting for Kafka consumer readiness")
-	}
-
-	return msgCh, errCh
-}
-
 // consume runs the Kafka consumer loop with offset management and automatic reconnection.
 func (b *Beholder) consume(
 	ctx context.Context,
@@ -400,13 +386,12 @@ func (b *Beholder) consume(
 ) {
 	defer close(out)
 
-	// Exponential backoff state
+	// Exponential backoff
 	backoff := 2 * time.Second
 	maxBackoffTimeout := 30 * time.Second
 	backoffFactor := 2.0
 	attempt := 0
-
-	// Main reconnection loop
+	// Reconnection loop
 	for {
 		select {
 		case <-ctx.Done():
@@ -460,19 +445,21 @@ func (b *Beholder) consumeWithReconnect(
 	errCh chan<- error,
 	readyCh chan<- struct{},
 ) error {
+	// The isolation level determines which messages the Kafka consumer is allowed to read:
+	// - [used by default] "read_uncommitted": The consumer can read all messages.
+	// - [beholder does not use Kafka transactions] "read_committed": The consumer will only read messages from transactions that have been successfully committed, ensuring no uncommitted or aborted data is delivered.
+	// This setting is important for applications that require strong data consistency and want to avoid processing uncommitted or potentially rolled-back messages.
 	isolationLevel := "read_uncommitted"
-	if opts.IsolationReadCommitted {
+	if opts.IsolationReadCommitted { // false by default
 		isolationLevel = "read_committed"
 	}
 
-	clientID := opts.GroupID + "-consumer"
 	cfg := &kafka.ConfigMap{
 		"bootstrap.servers":        b.cfg.ChipIngress.Output.RedPanda.KafkaExternalURL,
 		"group.id":                 opts.GroupID,
-		"client.id":                clientID,
 		"auto.offset.reset":        "latest", // Only process new messages by default
 		"session.timeout.ms":       kafkaSessionTimeoutMs,
-		"enable.auto.commit":       false, // Manual commit for safety
+		"enable.auto.commit":       false, // Manual commit for safety. Prevents premature commit.
 		"enable.auto.offset.store": false, // Explicit commit control
 		"isolation.level":          isolationLevel,
 	}
@@ -486,7 +473,7 @@ func (b *Beholder) consumeWithReconnect(
 			b.lggr.Warn().Err(closeErr).Msg("Failed to close Kafka consumer")
 		}
 	}()
-	b.lggr.Info().Str("client_id", clientID).Msg("Kafka consumer created successfully")
+	b.lggr.Info().Msg("Kafka consumer created successfully")
 
 	// Verify and log subscription details
 	if err := b.logSubscriptionInfo(consumer, opts, errCh); err != nil {
@@ -509,7 +496,7 @@ func (b *Beholder) consumeWithReconnect(
 	interestedTypes := getMessageTypeKeys(messageTypes)
 	b.lggr.Debug().Strs("interested_types", interestedTypes).Msg("Starting message listening loop")
 
-	// Use a reusable timer to prevent timer leaks
+	// Recreate the timer on each UserLogs message to avoid timer reset race conditions
 	timeoutTimer := time.NewTimer(maxConsumerConnectivityTimeout)
 	defer timeoutTimer.Stop()
 
@@ -594,16 +581,13 @@ func (b *Beholder) consumeWithReconnect(
 			}
 
 			// Reset timeout if we received a UserLogs message
-			// Check the actual proto message type rather than the string
 			if _, isUserLogs := pm.(*workflowevents.UserLogs); isUserLogs {
-				// Drain timer channel before resetting to prevent leaks
+				// Go recommendation: don't reuse timers, create new ones to avoid race conditions
 				if !timeoutTimer.Stop() {
-					select {
-					case <-timeoutTimer.C:
-					default:
-					}
+					// Timer already fired, drain it to prevent blocking
+					<-timeoutTimer.C
 				}
-				timeoutTimer.Reset(maxConsumerConnectivityTimeout)
+				timeoutTimer = time.NewTimer(maxConsumerConnectivityTimeout)
 				b.lggr.Info().
 					Int64("offset", int64(msg.TopicPartition.Offset)).
 					Int32("partition", msg.TopicPartition.Partition).
@@ -633,10 +617,17 @@ func (b *Beholder) consumeWithReconnect(
 	}
 }
 
-// commitMessage commits a Kafka message offset using either sync or async commit.
+// commitMessage tells Kafka that the message processed and offset committed
+// without commits, if the consumer crashes and restarts, it would re-read all messages from the beginning
+//
+// Two commit modes:
+// 1. Synchronous - SLOWER but SAFER: StoreMessage + Commit. Guarantees the offset is persisted before continuing.
+// 2. Asynchronous - FASTER but less safe: CommitMessage, don't wait for confirmation from Kafka, offset commit happens in the background
+//
+// Default: false.Re-reading some messages on crash/restart is acceptable
 func (b *Beholder) commitMessage(consumer *kafka.Consumer, msg *kafka.Message, syncCommit bool) error {
 	if syncCommit {
-		// Synchronous commit: Store offset first, then commit synchronously
+		// Synchronous: Store offset first, then commit synchronously
 		if _, err := consumer.StoreMessage(msg); err != nil {
 			return errors.Wrap(err, "store offset")
 		}
@@ -644,7 +635,7 @@ func (b *Beholder) commitMessage(consumer *kafka.Consumer, msg *kafka.Message, s
 			return errors.Wrap(err, "commit sync")
 		}
 	} else {
-		// Asynchronous commit: Use CommitMessage directly (stores + commits in one call)
+		// Asynchronous: One-step fire-and-forget (stores + commits in one call)
 		if _, err := consumer.CommitMessage(msg); err != nil {
 			return errors.Wrap(err, "commit message async")
 		}
@@ -653,11 +644,6 @@ func (b *Beholder) commitMessage(consumer *kafka.Consumer, msg *kafka.Message, s
 	return nil
 }
 
-/*
-	=========================
-	Utility Functions
-	=========================
-*/
 // getHeaderValue extracts a header value from a Kafka message.
 func getHeaderValue(key string, msg *kafka.Message) (string, bool) {
 	for _, h := range msg.Headers {
