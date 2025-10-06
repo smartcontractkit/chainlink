@@ -529,7 +529,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 	// Check the file exists before trying to run the script
 	scriptPath := filepath.Join(cfg.Observability.TargetPath, "deploy-cre-local.sh")
 	if _, err = os.Stat(scriptPath); os.IsNotExist(err) {
-		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run: " + scriptPath)
+		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run")
 	}
 
 	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
