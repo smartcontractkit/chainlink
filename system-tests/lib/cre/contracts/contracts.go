@@ -50,7 +50,6 @@ import (
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
-	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 
@@ -330,7 +329,7 @@ func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 		offChain: input.CldEnv.Offchain,
 	}
 
-	for donIdx, donMetadata := range input.Topology.DonsMetadata {
+	for donIdx, donMetadata := range input.Topology.DonsMetadata.List() {
 		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
 		// since it doesn't have any capabilities
 		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
@@ -353,23 +352,15 @@ func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 			capabilities = append(capabilities, enabledCapabilities...)
 		}
 
-		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
-			Key:   crenode.NodeTypeKey,
-			Value: cre.WorkerNode,
-		}, crenode.EqualLabels)
-
-		if workerNodesErr != nil {
-			return nil, errors.Wrap(workerNodesErr, "failed to find worker nodes")
+		workerNodes, wErr := donMetadata.WorkerNodes()
+		if wErr != nil {
+			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
 
 		donPeerIDs := make([]string, len(workerNodes))
 		for i, node := range workerNodes {
-			p2pID, err := crenode.ToP2PID(node, crenode.NoOpTransformFn)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get p2p id for node %d", i)
-			}
-
-			donPeerIDs[i] = p2pID
+			// we need to use p2pID here with the "p2p_" prefix
+			donPeerIDs[i] = node.Keys.P2PKey.PeerID.String()
 		}
 
 		forwarderF := (len(workerNodes) - 1) / 3
@@ -401,6 +392,7 @@ func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 			flags:           donMetadata.Flags,
 		}
 	}
+
 	return dons, nil
 }
 
@@ -746,15 +738,11 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
 	var transmissionSchedule []int
 
-	for _, metaDon := range topology.DonsMetadata {
+	for _, metaDon := range topology.DonsMetadata.List() {
 		if flags.HasFlag(metaDon.Flags, cre.ConsensusCapability) || flags.HasFlag(metaDon.Flags, cre.ConsensusCapabilityV2) {
-			workerNodes, workerNodesErr := crenode.FindManyWithLabel(metaDon.NodesMetadata, &cre.Label{
-				Key:   crenode.NodeTypeKey,
-				Value: cre.WorkerNode,
-			}, crenode.EqualLabels)
-
-			if workerNodesErr != nil {
-				return nil, errors.Wrap(workerNodesErr, "failed to find worker nodes")
+			workerNodes, wErr := metaDon.WorkerNodes()
+			if wErr != nil {
+				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
 			// this schedule makes sure that all worker nodes are transmitting OCR3 reports
@@ -823,7 +811,7 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 	}
 
 	vaultIndex := -1
-	for i, don := range topology.DonsMetadata {
+	for i, don := range topology.DonsMetadata.List() {
 		if flags.HasFlag(don.Flags, cre.VaultCapability) {
 			vaultIndex = i
 			break
@@ -833,18 +821,12 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 		return nil, errors.New("no vault DON found in the topology")
 	}
 
-	for i, nmd := range topology.DonsMetadata[vaultIndex].NodesMetadata {
+	for i, nmd := range topology.DonsMetadata.List()[vaultIndex].NodesMetadata {
 		if i == nodeSets[vaultIndex].BootstrapNodeIndex {
 			continue
 		}
-		dkgRecipientKeyStr, err := crenode.FindLabelValue(nmd, cre.NodeDKGRecipientKey)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to find DKG recipient key label")
-		}
-		pubKey, err := hex.DecodeString(dkgRecipientKeyStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to decode DKG recipient key")
-		}
+
+		pubKey := nmd.Keys.DKGKey.PubKey
 		cfg.DealerPublicKeys = append(cfg.DealerPublicKeys, pubKey)
 		cfg.RecipientPublicKeys = append(cfg.RecipientPublicKeys, pubKey)
 	}
@@ -1123,27 +1105,19 @@ func configureTronForwarders(env *cldf.Environment, registryChainSelector uint64
 	triggerOptions.FeeLimit = 1_000_000_000
 
 	var wfNodeIDs []string
-	for _, donMetadata := range topology.DonsMetadata {
+	for _, donMetadata := range topology.DonsMetadata.List() {
 		if flags.HasOnlyOneFlag(donMetadata.Flags, cre.GatewayDON) {
 			continue
 		}
 
-		workerNodes, workerNodesErr := crenode.FindManyWithLabel(donMetadata.NodesMetadata, &cre.Label{
-			Key:   crenode.NodeTypeKey,
-			Value: cre.WorkerNode,
-		}, crenode.EqualLabels)
-		if workerNodesErr != nil {
-			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", workerNodesErr)
+		workerNodes, wErr := donMetadata.WorkerNodes()
+		if wErr != nil {
+			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)
 		}
 
 		for _, node := range workerNodes {
-			p2pID, err := crenode.ToP2PID(node, crenode.NoOpTransformFn)
-			if err != nil {
-				return fmt.Errorf("failed to get p2p id for node: %w", err)
-			}
-			wfNodeIDs = append(wfNodeIDs, p2pID)
+			wfNodeIDs = append(wfNodeIDs, node.Keys.P2PKey.PeerID.String())
 		}
-		break
 	}
 
 	configChangeset := commonchangeset.Configure(tronchangeset.ConfigureForwarder{}, &tronchangeset.ConfigureForwarderRequest{

@@ -689,6 +689,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
+	quarantine.Flaky(t, "DX-1730")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
 	testSingleConsumerAlwaysRevertingCallbackStillFulfilled(

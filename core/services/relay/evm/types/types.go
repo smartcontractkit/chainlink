@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -56,14 +57,6 @@ type CodecConfig struct {
 type ChainCodecConfig struct {
 	TypeABI         string                `json:"typeAbi" toml:"typeABI"`
 	ModifierConfigs codec.ModifiersConfig `json:"modifierConfigs,omitempty" toml:"modifierConfigs,omitempty"`
-}
-
-type DataWordDetail struct {
-	Name string `json:"name"`
-	// Index is indexed from 0. Index should only be used as an override in specific edge case scenarios where the index can't be programmatically calculated, otherwise leave this as nil.
-	Index *int `json:"index,omitempty"`
-	// Type should follow the geth ABI types naming convention
-	Type string `json:"type,omitempty"`
 }
 
 type ContractPollingFilter struct {
@@ -107,7 +100,7 @@ type EventDefinitions struct {
 	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
 	// GenericDataWordDetails key is generic name for evm log event data word that maps to chain details.
 	// For e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value.
-	GenericDataWordDetails map[string]DataWordDetail `json:"genericDataWordDetails,omitempty"`
+	GenericDataWordDetails map[string]evm.DataWordDetail `json:"genericDataWordDetails,omitempty"`
 	// PollingFilter should be defined on a contract level in ContractPollingFilter,
 	// unless event needs to override the contract level filter options.
 	// This will create a separate log poller filter for this event.

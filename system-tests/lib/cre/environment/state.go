@@ -94,6 +94,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 
 	allNodeInfo := make([]deployment_devenv.NodeInfo, 0)
 	allNodeIDs := make([]string, 0)
+	devenvDons := make([]*deployment_devenv.DON, 0, len(envArtifact.DONs))
 
 	for idx, don := range envArtifact.DONs {
 		_, ok := envArtifact.Nodes[don.DonName]
@@ -105,12 +106,13 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			allNodeIDs = append(allNodeIDs, id)
 		}
 
-		bootstrapNodes, err := crenode.FindManyWithLabel(envArtifact.Topology.DonsWithMetadata[idx].NodesMetadata, &cre.Label{Key: crenode.NodeTypeKey, Value: cre.BootstrapNode}, crenode.EqualLabels)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to find bootstrap nodes")
+		// a maximum of 1 bootstrap is supported due to environment constraints
+		bootstrapNodesCount := 0
+		if envArtifact.Topology.ToDonMetadata()[idx].ContainsBootstrapNode() {
+			bootstrapNodesCount = 1
 		}
 
-		nodeInfo, err := crenode.GetNodeInfo(cachedInput.NodeSets[idx].Out, cachedInput.NodeSets[idx].Name, don.DonID, len(bootstrapNodes))
+		nodeInfo, err := crenode.GetNodeInfo(cachedInput.NodeSets[idx].Out, cachedInput.NodeSets[idx].Name, don.DonID, bootstrapNodesCount)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to get node info for don %s", don.DonName)
 		}
@@ -133,8 +135,18 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)
 		}
 
-		envArtifact.Topology.DonsWithMetadata[idx].DON = registeredDon
+		devenvDons = append(devenvDons, registeredDon)
 		allNodeInfo = append(allNodeInfo, nodeInfo...)
+	}
+
+	donsMetadata, metaErr := cre.NewDonsMetadata(envArtifact.Topology.ToDonMetadata(), *cachedInput.Infra)
+	if metaErr != nil {
+		return nil, nil, errors.Wrapf(metaErr, "failed to recreate dons metadata from artifact")
+	}
+
+	dons, donsErr := cre.NewDons(donsMetadata, devenvDons)
+	if donsErr != nil {
+		return nil, nil, errors.Wrapf(donsErr, "failed to create Dons from metadata")
 	}
 
 	offChain, offChainErr := deployment_devenv.NewJDClient(ctx, deployment_devenv.JDConfig{
@@ -175,9 +187,14 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		blockChains,
 	)
 
+	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra)
+	if tErr != nil {
+		return nil, nil, errors.Wrap(tErr, "failed to recreate topology from artifact")
+	}
+
 	return &cre.Environment{
 		CldfEnvironment: cldEnv,
-		DonTopology:     &envArtifact.Topology,
+		DonTopology:     cre.NewDonTopology(envArtifact.Topology.HomeChainSelector, topology, dons),
 	}, wrappedBlockchainOutputs, nil
 }
 

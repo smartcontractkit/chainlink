@@ -16,13 +16,9 @@ import (
 
 var (
 	NodeTypeKey            = cre.NodeTypeKey
-	HostLabelKey           = cre.HostLabelKey
-	IndexKey               = cre.IndexKey
-	ExtraRolesKey          = cre.ExtraRolesKey
 	NodeIDKey              = cre.NodeIDKey
 	NodeOCR2KeyBundleIDKey = cre.NodeOCR2KeyBundleIDKey
 	NodeOCRFamiliesKey     = cre.NodeOCRFamiliesKey
-	NodeP2PIDKey           = cre.NodeP2PIDKey
 	DONIDKey               = cre.DONIDKey
 	EnvironmentKey         = cre.EnvironmentKey
 	ProductKey             = cre.ProductKey
@@ -38,12 +34,8 @@ func CreateNodeOCRFamiliesListValue(families []string) string {
 	return strings.Join(families, ",")
 }
 
-func AddressKeyFromSelector(chainSelector uint64) string {
-	return strconv.FormatUint(chainSelector, 10) + "_public_address"
-}
-
 func ExtractBundleKeysPerFamily(n *cre.NodeMetadata) (map[string]string, error) {
-	keyBundlesFamilies, fErr := FindLabelValue(n, NodeOCRFamiliesKey)
+	keyBundlesFamilies, fErr := FindLabelValue(n, cre.NodeOCRFamiliesKey)
 	if fErr != nil {
 		return nil, fmt.Errorf("failed to get ocr families bundle id from worker node labels: %w", fErr)
 	}
@@ -60,33 +52,6 @@ func ExtractBundleKeysPerFamily(n *cre.NodeMetadata) (map[string]string, error) 
 	}
 
 	return bundlesPerFamily, nil
-}
-
-type stringTransformer func(string) string
-
-func NoOpTransformFn(value string) string {
-	return value
-}
-
-func KeyExtractingTransformFn(value string) string {
-	parts := strings.Split(value, "_")
-	if len(parts) > 1 {
-		return parts[len(parts)-1]
-	}
-	return value
-}
-
-func ToP2PID(node *cre.NodeMetadata, transformFn stringTransformer) (string, error) {
-	for _, label := range node.Labels {
-		if label.Key == NodeP2PIDKey {
-			if label.Value == "" {
-				return "", errors.New("p2p label value is empty for node")
-			}
-			return transformFn(label.Value), nil
-		}
-	}
-
-	return "", errors.New("p2p label not found for node")
 }
 
 // copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751

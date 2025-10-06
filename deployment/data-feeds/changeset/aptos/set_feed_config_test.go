@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-func TestDeployAptosCache(t *testing.T) {
+func TestSetFeedConfig(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
@@ -30,6 +30,7 @@ func TestDeployAptosCache(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
+	// deploy platform
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))[0]
 	chain := env.BlockChains.AptosChains()[chainSelector]
 	platform1, err := aptosCS.DeployPlatform(chain, aptos.AccountAddress{}, []string{})
@@ -37,6 +38,7 @@ func TestDeployAptosCache(t *testing.T) {
 	platform2, err := aptosCS.DeployPlatformSecondary(chain, aptos.AccountAddress{}, []string{})
 	require.NoError(t, err)
 
+	// deploy cache
 	resp, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
 		aptosCS.DeployDataFeedsChangeset,
 		types.DeployAptosConfig{
@@ -58,7 +60,18 @@ func TestDeployAptosCache(t *testing.T) {
 			"aptos",
 		))
 	require.NoError(t, err)
-	require.NotNil(t, addrs.Address)
-	require.Equal(t, datastore.ContractType("DataFeedsCache"), addrs.Type)
-	require.Equal(t, "aptos", addrs.Qualifier)
+
+	// set feed config
+	resp, err = commonChangesets.Apply(t, resp, commonChangesets.Configure(
+		aptosCS.SetFeedConfigChangeset,
+		types.SetRegistryFeedConfig{
+			CacheAddress:  addrs.Address,
+			ChainSelector: chainSelector,
+			Descriptions:  []string{"1", "2"},
+			DataIDs:       []string{"0x01a9dde66f0003320000000000000000", "0x0157e996b50003320000000000000000"},
+		},
+	),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
 }

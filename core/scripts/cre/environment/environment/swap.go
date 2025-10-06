@@ -123,12 +123,13 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 	// cancel jobs for nodes that have the capability
 	// donId -> nodeId -> proposalIDs
 	donIdxToNodeIDToProposalIDs := map[int]map[string][]string{}
-	for idx, nodeSet := range creEnvironment.DonTopology.DonsWithMetadata {
-		if !flags.HasFlagForAnyChain(nodeSet.Flags, capabilityFlag) {
+	for idx, donMetadata := range creEnvironment.DonTopology.ToDonMetadata() {
+		if !flags.HasFlagForAnyChain(donMetadata.Flags, capabilityFlag) {
 			continue
 		}
+
 		donIdxToNodeIDToProposalIDs[idx] = map[string][]string{}
-		for _, node := range nodeSet.DON.Nodes {
+		for _, node := range creEnvironment.DonTopology.Dons.List()[idx].Nodes {
 			// get all jobs that have a label named "capability" with value equal to capability name
 			jobResp, jobErr := creEnvironment.CldfEnvironment.Offchain.ListJobs(ctx, &jdjob.ListJobsRequest{
 				Filter: &jdjob.ListJobsRequest_Filter{
@@ -167,7 +168,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 
 	// copy the binary to the Docker containers that have the capability
 	for donIdx := range donIdxToNodeIDToProposalIDs {
-		pattern := ns.NodeNamePrefix(creEnvironment.DonTopology.DonsWithMetadata[donIdx].Name)
+		pattern := ns.NodeNamePrefix(creEnvironment.DonTopology.ToDonMetadata()[donIdx].Name)
 		capDir, dirErr := crecapabilities.DefaultContainerDirectory(config.Infra.Type)
 		if dirErr != nil {
 			return errors.Wrapf(dirErr, "failed to get default capabilities directory for infra type %s", config.Infra.Type)
@@ -245,7 +246,7 @@ func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forc
 
 	// approve the job proposals again, so that the jobs are restarted with the new binary
 	for donIdx, nodeIDToProposalIDs := range donIdxToNodeIDToProposalIDs {
-		for _, node := range creEnvironment.DonTopology.DonsWithMetadata[donIdx].DON.Nodes {
+		for _, node := range creEnvironment.DonTopology.Dons.List()[donIdx].Nodes {
 			proposalIDs, ok := nodeIDToProposalIDs[node.NodeID]
 			if ok {
 				framework.L.Info().Msgf("Approving %d job proposals for node %s", len(proposalIDs), node.Name)

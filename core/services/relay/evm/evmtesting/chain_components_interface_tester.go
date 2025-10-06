@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commonevm "github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/chain_reader_tester"
@@ -109,7 +110,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
 							GenericTopicNames: map[string]string{"field": "Field"},
-							GenericDataWordDetails: map[string]types.DataWordDetail{
+							GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 								"OracleID": {Name: "oracleId"},
 								// this is just to illustrate an example, generic names shouldn't really be formatted like this since other chains might not store it in the same way
 								"NestedStaticStruct.Inner.IntVal": {Name: "nestedStaticStruct.Inner.IntVal"},
@@ -129,7 +130,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 						ChainSpecificName: staticBytesEventName,
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
-							GenericDataWordDetails: map[string]types.DataWordDetail{
+							GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 								"msgTransmitterEvent": {
 									Name:  "msgTransmitterEvent",
 									Index: ptr(2),

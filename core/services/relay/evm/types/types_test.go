@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -128,7 +129,7 @@ func Test_ChainReaderConfig(t *testing.T) {
 								ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 								EventDefinitions: &EventDefinitions{
 									GenericTopicNames:      map[string]string{"TopicKey1": "TopicVal1"},
-									GenericDataWordDetails: map[string]DataWordDetail{"DataWordKey": {Name: "DataWordKey"}},
+									GenericDataWordDetails: map[string]evm.DataWordDetail{"DataWordKey": {Name: "DataWordKey"}},
 									PollingFilter: &PollingFilter{
 										Topic2:       evmtypes.HashArray{common.HexToHash("0x4abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
 										Topic3:       evmtypes.HashArray{common.HexToHash("0x5abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
