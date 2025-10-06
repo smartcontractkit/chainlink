@@ -8,7 +8,64 @@ on:
     tags:
       - v*
   pull_request:
+    branches:name: Chain Selectors Version Check
+
+on:
+  push:
     branches:
+      - develop
+      - release/*
+    tags:
+      - v*
+  pull_request:
+    branches:
+      - release/*
+
+jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: ⚙️ Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: true
+          go-version-file: "go.mod"
+
+      - name: 🔍 Verify Chain Selectors Version
+        id: verify-chain-selectors
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_chain_selector_version=$(go list -m -f '{{.Version}}' github.com/smartcontractkit/chain-selectors)
+          latest_chain_selector_version=$(gh release view -R smartcontractkit/chain-selectors --json tagName --jq '.tagName')
+
+          echo "🔗 Current: $current_chain_selector_version"
+          echo "🚀 Latest:  $latest_chain_selector_version"
+          echo
+
+          # Branch name detection
+          branch_name="${GITHUB_REF_NAME:-$(echo $GITHUB_REF | sed 's|refs/heads/||')}"
+
+          if [[ "$current_chain_selector_version" != "$latest_chain_selector_version" ]]; then
+            if [[ "$branch_name" == release/* || "$branch_name" == v* ]]; then
+              echo "::error:: Chain Selectors version mismatch on release branch."
+              echo "::error:: Current: $current_chain_selector_version | Latest: $latest_chain_selector_version"
+              exit 1
+            else
+              echo "::warning:: Chain Selectors version mismatch on develop branch."
+              echo "::warning:: Current: $current_chain_selector_version | Latest: $latest_chain_selector_version"
+            fi
+          else
+            echo "::notice:: Chain Selectors version is up to date ($current_chain_selector_version)."
+          fi
+
       - release/*
 
 
