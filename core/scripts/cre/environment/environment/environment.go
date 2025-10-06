@@ -526,6 +526,12 @@ func setupDashboards(setupCfg SetupConfig) error {
 		return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
 	}
 
+	// Check the file exists before trying to run the script
+	scriptPath := filepath.Join(cfg.Observability.TargetPath, "deploy-cre-local.sh")
+	if _, err = os.Stat(scriptPath); os.IsNotExist(err) {
+		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run: " + scriptPath)
+	}
+
 	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
 	deployDashboardsCmd.Dir = cfg.Observability.TargetPath
 	deployOutput, err := deployDashboardsCmd.CombinedOutput()
