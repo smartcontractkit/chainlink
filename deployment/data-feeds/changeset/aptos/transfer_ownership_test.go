@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-func TestDeployAptosCache(t *testing.T) {
+func TestTransferOwnership(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
@@ -57,8 +57,19 @@ func TestDeployAptosCache(t *testing.T) {
 			semver.MustParse("1.0.0"),
 			"aptos",
 		))
+
+	resp, err = commonChangesets.Apply(t, resp, commonChangesets.Configure(
+		aptosCS.TransferOwnershipChangeset,
+		types.TransferDataFeedsAptosOwnershipConfig{
+			ChainSelector:    chainSelector,
+			Address:          addrs.Address,
+			TransferRegistry: true,
+			TransferRouter:   true,
+			NewOwner:         "0x0000000000000000000000000000000000000003",
+		},
+	),
+	)
 	require.NoError(t, err)
-	require.NotNil(t, addrs.Address)
-	require.Equal(t, datastore.ContractType("DataFeedsCache"), addrs.Type)
-	require.Equal(t, "aptos", addrs.Qualifier)
+	require.NotNil(t, resp)
+
 }
