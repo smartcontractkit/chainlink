@@ -254,6 +254,9 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	if len(nodeIDs) == 0 {
 		return nil, nil
 	}
+	// Note: if expanding the list of options here, you must also update the sorting logic
+	// at the bottom of the function.
+
 	// if nodeIDs starts with `p2p_` lookup by p2p_id instead
 	filterByPeerIDs := strings.HasPrefix(nodeIDs[0], "p2p_")
 	var filter *nodev1.ListNodesRequest_Filter
@@ -310,6 +313,20 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	if xerr != nil && onlyMissingEVMChain {
 		xerr = errors.Join(ErrMissingNodeMetadata, xerr)
 	}
+
+	// Sort the list according to the nodeIDs input order.
+	orderedNodeIDs := map[string]int{}
+	for i, id := range nodeIDs {
+		orderedNodeIDs[id] = i
+	}
+	sort.Slice(nodes, func(i, j int) bool {
+		if strings.HasPrefix(nodeIDs[0], "p2p_") {
+			return orderedNodeIDs[nodes[i].PeerID.String()] < orderedNodeIDs[nodes[j].PeerID.String()]
+		} else if strings.HasPrefix(nodeIDs[0], "node_") {
+			return orderedNodeIDs[nodes[i].NodeID] < orderedNodeIDs[nodes[j].NodeID]
+		}
+		return orderedNodeIDs[nodes[i].CSAKey] < orderedNodeIDs[nodes[j].CSAKey]
+	})
 	return nodes, xerr
 }
 

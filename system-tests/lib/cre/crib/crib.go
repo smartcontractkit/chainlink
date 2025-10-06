@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
@@ -21,11 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func Bootstrap(infraInput infra.Input) error {
+func Bootstrap(infraInput infra.Provider) error {
 	plan := crib.NewPlan(
 		"namespace",
 		crib.Namespace(infraInput.CRIB.Namespace),
@@ -104,31 +102,28 @@ func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet
 
 	componentFuncs := make([]crib.ComponentFunc, 0)
 
-	for j, donMetadata := range input.Topology.DonsMetadata {
-		imageName, imageTag, err := imageNameAndTag(input, j)
+	for donIdx, donMetadata := range input.Topology.DonsMetadata.List() {
+		imageName, imageTag, err := imageNameAndTag(input, donIdx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get image name and tag for %s", donMetadata.Name)
 		}
 
-		for i, nodeMetadata := range donMetadata.NodesMetadata {
-			configToml, secrets, confSecretsErr := getConfigAndSecretsForNode(nodeMetadata, j, input, donMetadata)
+		for nodeIdx, nodeMetadata := range donMetadata.NodesMetadata {
+			configToml, secrets, confSecretsErr := getConfigAndSecretsForNode(nodeMetadata, donIdx, input, donMetadata)
 			if confSecretsErr != nil {
 				return nil, confSecretsErr
 			}
-			nodeSpec, confSecretsErr := getNodeSpecForNode(nodeMetadata, j, input, donMetadata)
-			if confSecretsErr != nil {
-				return nil, errors.Wrapf(confSecretsErr, "failed to get node spec for %s", donMetadata.Name)
-			}
+
 			cFunc := nodev1.Component(&nodev1.Props{
 				Namespace:       input.Namespace,
 				Image:           fmt.Sprintf("%s:%s", imageName, imageTag),
-				AppInstanceName: fmt.Sprintf("%s-%d", donMetadata.Name, i),
+				AppInstanceName: fmt.Sprintf("%s-%d", donMetadata.Name, nodeIdx),
 				// passing as config not as override
 				Config: *configToml,
 				SecretsOverrides: map[string]string{
 					"overrides": *secrets,
 				},
-				EnvVars: nodeSpec.Node.EnvVars,
+				EnvVars: input.NodeSetInputs[donIdx].NodeSpecs[nodeMetadata.Index].Node.EnvVars,
 			})
 			componentFuncs = append(componentFuncs, cFunc)
 		}
@@ -160,7 +155,7 @@ func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet
 	}
 
 	// setting outputs in a similar way as in func ReadNodeSetURL
-	for j := range input.Topology.DonsMetadata {
+	for j := range input.Topology.DonsMetadata.List() {
 		out := &ns.Output{
 			// UseCache: true will disable deploying docker containers via CTF
 			UseCache: true,
@@ -188,26 +183,9 @@ func DeployDons(input *cre.DeployCribDonsInput) ([]*cre.CapabilitiesAwareNodeSet
 	return input.NodeSetInputs, nil
 }
 
-func getNodeSpecForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *cre.DeployCribDonsInput, donMetadata *cre.DonMetadata) (*clnode.Input, error) {
-	nodeIndexStr, findErr := libnode.FindLabelValue(nodeMetadata, libnode.IndexKey)
-	if findErr != nil {
-		return nil, errors.Wrapf(findErr, "failed to find node index in nodeset %s", donMetadata.Name)
-	}
-
-	nodeIndex, convErr := strconv.Atoi(nodeIndexStr)
-	if convErr != nil {
-		return nil, errors.Wrapf(convErr, "failed to convert node index '%s' to int in nodeset %s", nodeIndexStr, donMetadata.Name)
-	}
-
-	nodeSpec := input.NodeSetInputs[donIndex].NodeSpecs[nodeIndex]
-	return nodeSpec, nil
-}
-
 func getConfigAndSecretsForNode(nodeMetadata *cre.NodeMetadata, donIndex int, input *cre.DeployCribDonsInput, donMetadata *cre.DonMetadata) (*string, *string, error) {
-	nodeSpec, err := getNodeSpecForNode(nodeMetadata, donIndex, input, donMetadata)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get node spec")
-	}
+	nodeSpec := input.NodeSetInputs[donIndex].NodeSpecs[nodeMetadata.Index]
+
 	cleanedToml, tomlErr := cleanToml(nodeSpec.Node.TestConfigOverrides)
 	if tomlErr != nil {
 		return nil, nil, errors.Wrap(tomlErr, "failed to clean TOML")

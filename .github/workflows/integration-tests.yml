@@ -126,6 +126,8 @@ jobs:
               - *core_changes
               - 'core/scripts/cre/environment/**/*'
               - 'system-tests/**'
+              - 'plugins/plugins.private.yaml'
+              - 'plugins/plugins.public.yaml'
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
@@ -158,12 +160,12 @@ jobs:
         with:
           check-label: "run-e2e-tests"
 
-      - name: Get PR Labels (run-e2e-regression)
+      - name: Get PR Labels (skip-e2e-regression)
         if: github.event_name == 'pull_request'
         id: label-runs-e2e-regression
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
-          check-label: "run-e2e-regression"
+          check-label: "skip-e2e-regression"
 
       - name: Set runner labels
         id: runner-labels
@@ -305,18 +307,17 @@ jobs:
           CONTAINS_CHANGES: ${{ needs.changes.outputs.github-ci-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
           RUN_E2E_TESTS_REGRESSION_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-regression-label-found }}
         run: |
-          echo "Regression tests run: ${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}"
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
             # Run Core CRE E2E tests on PRs if there are relevant changes
             if [[ "${CONTAINS_CHANGES}" == 'true' ]]; then
-              echo "workflow-name=Run Core CRE E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-            if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
-              echo "Including CRE regression tests as the label 'run-e2e-regression' is found"
-              echo "workflow-name=Run Core CRE E2E Regression Tests For PR" | tee -a "$GITHUB_OUTPUT"
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
               echo "with-regression=true" | tee -a "$GITHUB_OUTPUT"
+            fi
+            # Opt-out of CRE regression tests if the label 'skip-e2e-regression' is found
+            if [[ "${RUN_E2E_TESTS_REGRESSION_LABEL_FOUND}" == 'true' ]]; then
+              echo "Skipping CRE regression tests: label 'skip-e2e-regression' is found"
+              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+              echo "with-regression=false" | tee -a "$GITHUB_OUTPUT"
             fi
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
@@ -343,7 +344,7 @@ jobs:
           fi
 
   run-core-cre-e2e-tests:
-    name: ${{ needs.run-core-cre-e2e-tests-setup.outputs.workflow-name }}
+    name: Run Core CRE E2E Tests For PR
     needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
@@ -357,7 +358,23 @@ jobs:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
-      with_regression: ${{ needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true' }}
+    secrets: inherit
+
+  run-core-cre-e2e-regression-tests:
+    name: Run Core CRE E2E Regression Tests For PR
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
+    uses: ./.github/workflows/cre-regression-system-tests.yaml
+    with:
+      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit
 
   run-core-e2e-tests-setup:
@@ -424,17 +441,17 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1 # 2025-07-08
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e77c336588c4642a825e13b35f381dccfa6a928a # 2025-10-03
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: ${{ needs.run-core-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
-      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      quarantine: true
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -456,6 +473,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
+      TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
 
   run-ccip-e2e-tests-setup:
     name: Run CCIP E2E Tests Setup
@@ -521,18 +539,18 @@ jobs:
       contents: read
     needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1 # 2025-07-08
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e77c336588c4642a825e13b35f381dccfa6a928a # 2025-10-03
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: ${{ needs.run-ccip-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
-      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       team: "CCIP"
+      quarantine: true
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -556,6 +574,7 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
+      TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
 
   check-e2e-test-results:
     if: always()
@@ -567,6 +586,7 @@ jobs:
         run-core-e2e-tests,
         run-ccip-e2e-tests,
         run-core-cre-e2e-tests,
+        run-core-cre-e2e-regression-tests,
       ]
     steps:
       - name: Check Core test results
@@ -620,6 +640,21 @@ jobs:
             echo "::warning::Core CRE E2E tests were skipped."
           fi
 
+      - name: Fail the job if core CRE tests were not successful
+        if: always()
+        env:
+          RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
+        run: |
+          if [[ "${RESULT}" == "failure" ]]; then
+            echo "::error::Core CRE E2E regression tests failed."
+            exit 1
+          elif [[ "${RESULT}" == "cancelled" ]]; then
+            echo "::error::Core CRE E2E regression tests were cancelled."
+            exit 1
+          elif [[ "${RESULT}" == "skipped" ]]; then
+            echo "::warning::Core CRE E2E regression tests were skipped."
+          fi
+
       - name: Warn if CCIP tests were not successful
         if: always()
         env:
@@ -642,7 +677,13 @@ jobs:
     # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
     # By always running this, it delays the start of the next workflow run due to concurrency rules.
     if: always() && !cancelled()
-    needs: [run-core-e2e-tests, run-ccip-e2e-tests, run-core-cre-e2e-tests]
+    needs:
+      [
+        run-core-e2e-tests,
+        run-ccip-e2e-tests,
+        run-core-cre-e2e-tests,
+        run-core-cre-e2e-regression-tests,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo

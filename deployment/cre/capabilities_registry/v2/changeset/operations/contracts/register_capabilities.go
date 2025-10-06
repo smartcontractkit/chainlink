@@ -15,6 +15,7 @@ import (
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
@@ -158,11 +159,12 @@ func dedupCapabilities(
 		return nil, errors.New("capabilities list is empty")
 	}
 
-	caps, err := capReg.GetCapabilities(nil)
+	// Fetch all capabilities via generic pagination helper
+	caps, err := pkg.GetCapabilities(nil, capReg)
 	if err != nil {
-		err = cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call GetCapabilities: %w", err)
 	}
+
 	existingByID := make(map[string]struct{})
 	for _, existingCap := range caps {
 		existingByID[existingCap.CapabilityId] = struct{}{}

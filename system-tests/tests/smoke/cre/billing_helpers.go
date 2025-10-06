@@ -206,6 +206,7 @@ func assertBillingStateChanged(t *testing.T, initial billingAssertionState, time
 	t.Helper()
 
 	// set up a connection to the billing database and run query until data exists
+	const pollInterval = 2 * time.Second
 	assert.Eventually(t, func() bool {
 		finalCredits := queryCredits(t, initial.DB)
 
@@ -237,7 +238,7 @@ func assertBillingStateChanged(t *testing.T, initial billingAssertionState, time
 		}
 
 		return true
-	}, timeout, 10*time.Second)
+	}, timeout, pollInterval)
 }
 
 type billingCredit struct {
@@ -282,13 +283,9 @@ func setupFakeBillingPriceProvider(t *testing.T, input *fake.Input) string {
 		require.NoError(t, err)
 	})
 
-	_, err := fake.NewFakeDataProvider(input)
-	require.NoError(t, err)
-
 	host := framework.HostDockerInternal()
 	url := fmt.Sprintf("%s:%d", host, input.Port)
-
-	err = fake.Func("GET", "/api/v1/reports/bulk", func(c *gin.Context) {
+	err := fake.Func("GET", "/api/v1/reports/bulk", func(c *gin.Context) {
 		ids := strings.Split(c.Query("feedIDs"), ",")
 		if len(ids) != 1 {
 			c.Data(http.StatusBadRequest, "text/plain", []byte("feedIDs parameter is required"))

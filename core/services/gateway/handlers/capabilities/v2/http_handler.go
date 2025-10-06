@@ -119,6 +119,19 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 }
 
 func WithDefaults(cfg ServiceConfig) ServiceConfig {
+	// TODO: userRateLimiter defaults will be replaced by limits integration
+	if cfg.UserRateLimiter.GlobalBurst == 0 {
+		cfg.UserRateLimiter.GlobalBurst = 100
+	}
+	if cfg.UserRateLimiter.GlobalRPS == 0 {
+		cfg.UserRateLimiter.GlobalRPS = 100
+	}
+	if cfg.UserRateLimiter.PerSenderBurst == 0 {
+		cfg.UserRateLimiter.PerSenderBurst = 100
+	}
+	if cfg.UserRateLimiter.PerSenderRPS == 0 {
+		cfg.UserRateLimiter.PerSenderRPS = 100
+	}
 	if cfg.CleanUpPeriodMs == 0 {
 		cfg.CleanUpPeriodMs = defaultCleanUpPeriodMs
 	}

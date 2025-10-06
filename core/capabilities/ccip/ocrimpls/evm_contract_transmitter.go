@@ -34,11 +34,11 @@ type EVMExecCallArgs struct {
 
 // EVMContractTransmitterFactory implements the transmitter factory for EVM chains.
 type EVMContractTransmitterFactory struct {
-	extraDataCodec ccipocr3.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
 // NewEVMContractTransmitterFactory returns a new EVMContractTransmitterFactory.
-func NewEVMContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodec) *EVMContractTransmitterFactory {
+func NewEVMContractTransmitterFactory(extraDataCodec ccipocr3.ExtraDataCodecBundle) *EVMContractTransmitterFactory {
 	return &EVMContractTransmitterFactory{
 		extraDataCodec: extraDataCodec,
 	}
@@ -50,7 +50,7 @@ var EVMExecCallDataFunc = func(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-	_ ccipocr3.ExtraDataCodec,
+	_ ccipocr3.ExtraDataCodecBundle,
 ) (contract string, method string, args any, err error) {
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,
@@ -67,7 +67,7 @@ func NewEVMCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-		_ ccipocr3.ExtraDataCodec,
+		_ ccipocr3.ExtraDataCodecBundle,
 	) (string, string, any, error) {
 		return consts.ContractNameOffRamp,
 			commitMethod,

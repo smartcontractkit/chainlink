@@ -239,8 +239,8 @@ func TestSetDONLimit(t *testing.T) {
 			ChainSelector:             fixture.chainSelector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			DONFamily:                 "test-don-family",
-			Limit:                     10,
-			Enabled:                   true,
+			DONLimit:                  10,
+			UserDefaultLimit:          5,
 			MCMSConfig:                nil,
 		})
 		t.Logf("Set DON limit result: err=%v, output=%v", err, output)
@@ -257,8 +257,8 @@ func TestSetDONLimit(t *testing.T) {
 			ChainSelector:             mcmsFixture.chainSelector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
 			DONFamily:                 "test-don-family",
-			Limit:                     10,
-			Enabled:                   true,
+			DONLimit:                  10,
+			UserDefaultLimit:          5,
 			MCMSConfig: &ocr3.MCMSConfig{
 				MinDuration: 30 * time.Second,
 			},
@@ -280,8 +280,8 @@ func TestSetUserDONOverride(t *testing.T) {
 			ChainSelector:             fixture.chainSelector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			DONFamily:                 "test-don-family",
-			Limit:                     10,
-			Enabled:                   true,
+			DONLimit:                  10,
+			UserDefaultLimit:          5,
 			MCMSConfig:                nil,
 		})
 		require.NoError(t, err, "set DON limit should succeed")
@@ -310,8 +310,8 @@ func TestSetUserDONOverride(t *testing.T) {
 			ChainSelector:             mcmsFixture.chainSelector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2-mcms",
 			DONFamily:                 "test-don-family",
-			Limit:                     10,
-			Enabled:                   true,
+			DONLimit:                  10,
+			UserDefaultLimit:          5,
 			MCMSConfig:                nil,
 		})
 		require.NoError(t, err, "set DON limit should succeed")

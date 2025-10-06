@@ -40,7 +40,10 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
+	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
+	http_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
@@ -80,7 +83,7 @@ func GetWritableChainsFromSavedEnvironmentState(t *testing.T, testEnv *ttypes.Te
 	testLogger.Info().Msg("Getting writable chains from saved environment state.")
 	writeableChains := []uint64{}
 	for _, bcOutput := range testEnv.WrappedBlockchainOutputs {
-		for _, donMetadata := range testEnv.CreEnvironment.DonTopology.DonsWithMetadata {
+		for _, donMetadata := range testEnv.CreEnvironment.DonTopology.ToDonMetadata() {
 			if flags.RequiresForwarderContract(donMetadata.Flags, bcOutput.ChainID) {
 				if !slices.Contains(writeableChains, bcOutput.ChainID) {
 					writeableChains = append(writeableChains, bcOutput.ChainID)
@@ -113,19 +116,11 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 
 /*
 Starts Beholder
-1. Starts Beholder if it is not running already
-2. Loads Beholder stack cache to get Kafka connection details
-3. Starts a Kafka listener for Beholder messages
-
-Returns:
-1. Context for the listener (with timeout)
-2. Channel to receive messages
-3. Channel to receive errors from the listener
-
 Recommendation: Use it in tests that need to listen for Beholder messages.
 */
 func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
+
 	beholder, err := NewBeholder(framework.L, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath)
 	require.NoError(t, err, "failed to create beholder instance")
 
@@ -149,33 +144,12 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	})
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
-	drainChannels(beholderMsgChan, beholderErrChan) // drain any old messages, if any
+
+	// No more draining - let all messages through for processing
+	// The consumer is ready and any messages received are legitimate
+	testLogger.Info().Msg("Beholder listener ready - all messages will be processed")
+
 	return listenerCtx, beholderMsgChan, beholderErrChan
-}
-
-// Logs all messages received from Beholder until the context is done
-func LogBeholderMessages(ctx context.Context, t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment, messageChan <-chan proto.Message, errChan <-chan error) {
-	t.Helper()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-errChan:
-			require.FailNowf(t, "Kafka error received from Kafka %s", err.Error())
-		case msg := <-messageChan:
-			switch typedMsg := msg.(type) {
-			case *commonevents.BaseMessage:
-				testLogger.Info().Msgf("Received BaseMessage from Beholder: %s", typedMsg.Msg)
-			case *workflowevents.UserLogs:
-				for _, logLine := range typedMsg.LogLines {
-					testLogger.Info().Msgf("Received workflow msg: %s", logLine.Message)
-				}
-			default:
-				testLogger.Info().Msgf("Received unknown message of type '%T'", msg)
-			}
-		}
-	}
 }
 
 /*
@@ -257,21 +231,6 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 	return nil
 }
 
-func drainChannels(messageChan <-chan proto.Message, kafkaErrChan <-chan error) {
-	// Drain any existing messages
-	for {
-		select {
-		case <-messageChan:
-			// Discard old messages
-		case <-kafkaErrChan:
-			// Discard old errors
-		default:
-			// Channels are empty, exit
-			return
-		}
-	}
-}
-
 //////////////////////////////
 //      CRYPTO HELPERS      //
 //////////////////////////////
@@ -330,8 +289,11 @@ type WorkflowConfig interface {
 		portypes.WorkflowConfig |
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
+		consensus_negative_config.Config |
 		evmread_config.Config |
-		evmread_negative_config.Config
+		evmread_negative_config.Config |
+		evmwrite_negative_config.Config |
+		http_negative_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -406,8 +368,8 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 		case *portypes.WorkflowConfig:
 			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
-			testLogger.Info().Msg("PoR v2 workflow config file created.")
+			require.NoError(t, configErr, "failed to create PoR workflow config file")
+			testLogger.Info().Msg("PoR workflow config file created.")
 
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)
@@ -421,6 +383,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
 			testLogger.Info().Msg("Cron workflow config file created.")
 
+		case *consensus_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create consensus workflow config file")
+			testLogger.Info().Msg("Consensus workflow config file created.")
+
 		case *evmread_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
 			workflowConfigFilePath = workflowCfgFilePath
@@ -432,6 +400,18 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread-negative workflow config file")
 			testLogger.Info().Msg("EVM Read negative workflow config file created.")
+
+		case *evmwrite_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create evmwrite-negative workflow config file")
+			testLogger.Info().Msg("EVM Write negative workflow config file created.")
+
+		case *http_negative_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create http-negative workflow config file")
+			testLogger.Info().Msg("HTTP negative workflow config file created.")
 
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
@@ -602,13 +582,6 @@ func deleteWorkflows(t *testing.T, uniqueWorkflowName string,
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	switch tv.Version.Major() {
-	case 2:
-		// TODO(CRE-876): delete with workflowID
-		testLogger.Warn().Msg("Skipping workflow deletion from the registry for v2 workflows (not implemented yet, see CRE-876)")
-		return
-	default:
-	}
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchainOutputs[0].SethClient, workflowRegistryAddress, tv, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
@@ -642,7 +615,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryAddr:        workflowRegistryAddress,
 		WorkflowRegistryTypeVersion: tv,
 		ChainID:                     homeChainSelector,
-		DonID:                       testEnv.CreEnvironment.DonTopology.DonsWithMetadata[0].ID,
+		DonID:                       testEnv.CreEnvironment.DonTopology.ToDonMetadata()[0].ID,
 		ContainerTargetDir:          creworkflow.DefaultWorkflowTargetDir,
 		WrappedBlockchainOutputs:    testEnv.WrappedBlockchainOutputs,
 	}

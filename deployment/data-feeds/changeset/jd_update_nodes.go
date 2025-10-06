@@ -2,7 +2,6 @@ package changeset
 
 import (
 	"errors"
-	"fmt"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -15,15 +14,8 @@ import (
 // UpdatesNodesJDChangeset is a changeset that reads node info from a JSON file and updates node name and labels in Job Distributor
 var UpdatesNodesJDChangeset = cldf.CreateChangeSet(updatesNodesJDLogic, updatesNodesJDLogicPrecondition)
 
-type NodeConfigSchema struct {
-	ID           string          `json:"id"`            // node id
-	Name         string          `json:"name"`          // new node name
-	Labels       []*ptypes.Label `json:"labels"`        // new labels
-	AppendLabels bool            `json:"append_labels"` // if true, append new labels to existing labels, otherwise replace
-}
-
-func updatesNodesJDLogic(env cldf.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
-	nodes, _ := LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
+func updatesNodesJDLogic(env cldf.Environment, c types.UpdateNodeConfig) (cldf.ChangesetOutput, error) {
+	nodes := c.Nodes
 
 	for _, node := range nodes {
 		n, err := env.Offchain.GetNode(env.GetContext(), &nodev1.GetNodeRequest{
@@ -58,14 +50,9 @@ func updatesNodesJDLogic(env cldf.Environment, c types.NodeConfig) (cldf.Changes
 	return cldf.ChangesetOutput{}, nil
 }
 
-func updatesNodesJDLogicPrecondition(env cldf.Environment, c types.NodeConfig) error {
-	if c.InputFileName == "" {
-		return errors.New("input file name is required")
-	}
-
-	_, err := LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
-	if err != nil {
-		return fmt.Errorf("failed to load node config input file: %w", err)
+func updatesNodesJDLogicPrecondition(env cldf.Environment, c types.UpdateNodeConfig) error {
+	if len(c.Nodes) == 0 {
+		return errors.New("no nodes provided in the config")
 	}
 
 	return nil

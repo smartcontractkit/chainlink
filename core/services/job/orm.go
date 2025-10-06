@@ -948,28 +948,28 @@ type OCRConfig interface {
 // LoadConfigVarsLocalOCR loads local OCR vars into the OCROracleSpec.
 func LoadConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg OCRConfig) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
-		os.ObservationTimeout = models.Interval(ocrCfg.ObservationTimeout())
+		os.ObservationTimeout = sqlutil.Interval(ocrCfg.ObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
-		os.BlockchainTimeout = models.Interval(ocrCfg.BlockchainTimeout())
+		os.BlockchainTimeout = sqlutil.Interval(ocrCfg.BlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
-		os.ContractConfigTrackerSubscribeInterval = models.Interval(ocrCfg.ContractSubscribeInterval())
+		os.ContractConfigTrackerSubscribeInterval = sqlutil.Interval(ocrCfg.ContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
-		os.ContractConfigTrackerPollInterval = models.Interval(ocrCfg.ContractPollInterval())
+		os.ContractConfigTrackerPollInterval = sqlutil.Interval(ocrCfg.ContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
 		os.ContractConfigConfirmations = evmOcrCfg.ContractConfirmations()
 	}
 	if os.DatabaseTimeout == nil {
-		os.DatabaseTimeout = models.NewInterval(evmOcrCfg.DatabaseTimeout())
+		os.DatabaseTimeout = sqlutil.NewInterval(evmOcrCfg.DatabaseTimeout())
 	}
 	if os.ObservationGracePeriod == nil {
-		os.ObservationGracePeriod = models.NewInterval(evmOcrCfg.ObservationGracePeriod())
+		os.ObservationGracePeriod = sqlutil.NewInterval(evmOcrCfg.ObservationGracePeriod())
 	}
 	if os.ContractTransmitterTransmitTimeout == nil {
-		os.ContractTransmitterTransmitTimeout = models.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
+		os.ContractTransmitterTransmitTimeout = sqlutil.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
 	}
 	os.CaptureEATelemetry = ocrCfg.CaptureEATelemetry()
 

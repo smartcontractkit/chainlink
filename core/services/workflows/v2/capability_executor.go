@@ -55,6 +55,9 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	// the capability is local, and we should use the localNode's DON ID.
 	var donID uint32
 	if !info.IsLocal {
+		if info.DON == nil {
+			return nil, fmt.Errorf("remote capability info is missing DON field, ID: %s", info.ID)
+		}
 		donID = info.DON.ID
 	} else {
 		donID = c.localNode.WorkflowDON.ID
@@ -128,7 +131,10 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	defer execCancel()
 
+	executionStart := time.Now()
 	capResp, err := capability.Execute(execCtx, capReq)
+	executionDuration := time.Since(executionStart)
+	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		c.lggr.Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, err)

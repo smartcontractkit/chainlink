@@ -26,6 +26,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/credentials"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -128,6 +130,8 @@ type Application interface {
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
+	GetCapabilitiesRegistry() *capabilities.Registry
+
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
@@ -196,6 +200,7 @@ type ChainlinkApplication struct {
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
 	loopRegistrarConfig      plugins.RegistrarConfig
+	capabilitiesRegistry     *capabilities.Registry
 
 	started     bool
 	startStopMu sync.Mutex
@@ -214,6 +219,7 @@ type ApplicationOpts struct {
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
+	VersionTag               string
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
@@ -325,7 +331,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize relayer chain interoperators: %w", err)
 	}
 
 	var billingClient metering.BillingClient
@@ -379,7 +385,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			return nil, errors.New("P2P stack required for OCR or OCR2")
 		}
 		if err2 := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
-			return nil, err2
+			return nil, fmt.Errorf("invalid P2P config: %w", err2)
 		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
@@ -758,7 +764,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			cfg.OCR2(),
 			legacyEVMChains,
 			globalLogger,
-			opts.Version,
+			opts.VersionTag,
 			loopRegistrarConfig,
 		)
 	} else {
@@ -770,7 +776,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			panic("service unexpectedly nil")
 		}
 		if err := healthChecker.Register(s); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to register health check for service %T: %w", s, err)
 		}
 	}
 
@@ -798,6 +804,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
 		loopRegistrarConfig:      loopRegistrarConfig,
+		capabilitiesRegistry:     opts.CapabilitiesRegistry,
 
 		ds: opts.DS,
 
@@ -1072,6 +1079,14 @@ func newCREServices(
 					return nil, vErr
 				}
 
+				wrChainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(
+					capCfg.WorkflowRegistry().ChainID(),
+					capCfg.WorkflowRegistry().NetworkID(),
+				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
+				}
+
 				switch wrVersion.Major() {
 				case 1:
 					var fetcherFunc wftypes.FetcherFunc
@@ -1112,7 +1127,7 @@ func newCREServices(
 						artifactsStore,
 						key,
 						syncerV1.WithBillingClient(billingClient),
-						syncerV1.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
+						syncerV1.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 					)
 					if err != nil {
 						return nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
@@ -1178,17 +1193,11 @@ func newCREServices(
 					// Create OrgResolver for workflow owner organization resolution
 					var orgResolver orgresolver.OrgResolver
 					if cfg.CRE().Linking().URL() != "" {
-						// Convert chain selector from string to uint64
-						chainSelector, err2 := strconv.ParseUint(capCfg.WorkflowRegistry().ChainID(), 10, 64)
-						if err2 != nil {
-							return nil, fmt.Errorf("invalid workflow registry chain selector: %w", err2)
-						}
-
 						orgResolverConfig := orgresolver.Config{
 							URL:                           cfg.CRE().Linking().URL(),
 							TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
 							WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
-							WorkflowRegistryChainSelector: chainSelector,
+							WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
 						}
 						orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
 						if err != nil {
@@ -1213,7 +1222,7 @@ func newCREServices(
 						artifactsStore,
 						key,
 						syncerV2.WithBillingClient(billingClient),
-						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), capCfg.WorkflowRegistry().ChainID()),
+						syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), strconv.FormatUint(wrChainDetails.ChainSelector, 10)),
 						syncerV2.WithOrgResolver(orgResolver),
 					)
 					if err != nil {
@@ -1432,6 +1441,10 @@ func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
 	return app.ExternalInitiatorManager
+}
+
+func (app *ChainlinkApplication) GetCapabilitiesRegistry() *capabilities.Registry {
+	return app.capabilitiesRegistry
 }
 
 func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {

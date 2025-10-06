@@ -60,9 +60,3 @@ func OneDonMetadataWithFlag(donTopologies []*cre.DonMetadata, flag string) (*cre
 
 	return donTopologies[0], nil
 }
-
-func NodeSetFlags(nodeSet *cre.CapabilitiesAwareNodeSet) ([]string, error) {
-	var stringCaps []string
-
-	return append(stringCaps, append(nodeSet.ComputedCapabilities, nodeSet.DONTypes...)...), nil
-}

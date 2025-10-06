@@ -56,7 +56,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
-	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 

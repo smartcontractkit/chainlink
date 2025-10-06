@@ -259,6 +259,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		AuditLogger:              auditLogger,
 		ExternalInitiatorManager: webhook.NewExternalInitiatorManager(ds, unrestrictedClient),
 		Version:                  static.Version,
+		VersionTag:               static.VersionTag,
 		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
