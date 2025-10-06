@@ -1,133 +1,127 @@
 package changeset_test
 
 import (
+	"crypto/ecdsa"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func TestRemoveFeedProxyMapping(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-
-	newEnv, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
-		changeset.DeployCacheChangeset,
-		types.DeployConfig{
-			ChainsToDeploy: []uint64{chainSelector},
-			Labels:         []string{"data-feeds"},
-		},
-	), commonChangesets.Configure(
-		cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
-		map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-			chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-		},
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
 	))
 	require.NoError(t, err)
 
-	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.DeployCacheChangeset, types.DeployConfig{
+			ChainsToDeploy: []uint64{selector},
+			Labels:         []string{"data-feeds"},
+		}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		}),
+	)
+	require.NoError(t, err)
+
+	records := rt.State().DataStore.Addresses().Filter(datastore.AddressRefByType("DataFeedsCache"))
 	require.Len(t, records, 1)
 	cacheAddress := records[0].Address
 
 	dataid := "0x01bb0467f50003040000000000000000"
 
 	// without MCMS
-	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
-		changeset.SetFeedAdminChangeset,
-		types.SetFeedAdminConfig{
-			ChainSelector: chainSelector,
+
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.SetFeedAdminChangeset, types.SetFeedAdminConfig{
+			ChainSelector: selector,
 			CacheAddress:  common.HexToAddress(cacheAddress),
-			AdminAddress:  common.HexToAddress(env.BlockChains.EVMChains()[chainSelector].DeployerKey.From.Hex()),
+			AdminAddress:  common.HexToAddress(rt.Environment().BlockChains.EVMChains()[selector].DeployerKey.From.Hex()),
 			IsAdmin:       true,
-		},
-	), commonChangesets.Configure(
-		changeset.UpdateDataIDProxyChangeset,
-		types.UpdateDataIDProxyConfig{
-			ChainSelector:  chainSelector,
+		}),
+		runtime.ChangesetTask(changeset.UpdateDataIDProxyChangeset, types.UpdateDataIDProxyConfig{
+			ChainSelector:  selector,
 			CacheAddress:   common.HexToAddress(cacheAddress),
 			ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
 			DataIDs:        []string{dataid},
-		},
-	), commonChangesets.Configure(
-		changeset.RemoveFeedProxyMappingChangeset,
-		types.RemoveFeedProxyConfig{
-			ChainSelector:  chainSelector,
+		}),
+		runtime.ChangesetTask(changeset.RemoveFeedProxyMappingChangeset, types.RemoveFeedProxyConfig{
+			ChainSelector:  selector,
 			CacheAddress:   common.HexToAddress(cacheAddress),
 			ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
-		},
-	))
+		}),
+	)
 	require.NoError(t, err)
 
 	// with MCMS
-	records = newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("RBACTimelock"))
+	records = rt.State().DataStore.Addresses().Filter(datastore.AddressRefByType("RBACTimelock"))
 	require.Len(t, records, 1)
 	timeLockAddress := records[0].Address
 
-	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
-		changeset.SetFeedAdminChangeset,
-		types.SetFeedAdminConfig{
-			ChainSelector: chainSelector,
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.SetFeedAdminChangeset, types.SetFeedAdminConfig{
+			ChainSelector: selector,
 			CacheAddress:  common.HexToAddress(cacheAddress),
 			AdminAddress:  common.HexToAddress(timeLockAddress),
 			IsAdmin:       true,
-		},
-	), commonChangesets.Configure(
-		cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
-		commonChangesets.TransferToMCMSWithTimelockConfig{
+		}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2), commonChangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
-				chainSelector: {common.HexToAddress(cacheAddress)},
+				selector: {common.HexToAddress(cacheAddress)},
 			},
 			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
-		},
-	))
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+	)
 	require.NoError(t, err)
+	require.Len(t, rt.State().Proposals, 1)
+	require.True(t, rt.State().Proposals[0].IsExecuted)
 
 	// Set and remove the feed config with MCMS
-	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
-		changeset.UpdateDataIDProxyChangeset,
-		types.UpdateDataIDProxyConfig{
-			ChainSelector:  chainSelector,
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.UpdateDataIDProxyChangeset, types.UpdateDataIDProxyConfig{
+			ChainSelector:  selector,
 			CacheAddress:   common.HexToAddress(cacheAddress),
 			ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
 			DataIDs:        []string{dataid},
 			McmsConfig: &types.MCMSConfig{
 				MinDelay: 0,
 			},
-		},
-	), commonChangesets.Configure(
-		changeset.RemoveFeedProxyMappingChangeset,
-		types.RemoveFeedProxyConfig{
-			ChainSelector:  chainSelector,
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err)
+	require.Len(t, rt.State().Proposals, 2)
+	require.True(t, rt.State().Proposals[1].IsExecuted)
+
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.RemoveFeedProxyMappingChangeset, types.RemoveFeedProxyConfig{
+			ChainSelector:  selector,
 			CacheAddress:   common.HexToAddress(cacheAddress),
 			ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
 			McmsConfig: &types.MCMSConfig{
 				MinDelay: 0,
 			},
-		},
-	))
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+	)
 	require.NoError(t, err)
+	require.Len(t, rt.State().Proposals, 3)
+	require.True(t, rt.State().Proposals[2].IsExecuted)
 }
