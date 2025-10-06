@@ -196,6 +196,18 @@ func TestJSONParseTask(t *testing.T) {
 			"",
 		},
 		{
+			"empty path",
+			"",
+			"",
+			"",
+			"false",
+			pipeline.NewVarsFrom(nil),
+			[]pipeline.Result{{Value: `{"data": [[0, 1]],"timestamp": 1234567890}`}},
+			map[string]interface{}{"data": []interface{}{[]interface{}{int64(0), int64(1)}}, "timestamp": int64(1234567890)},
+			nil,
+			"",
+		},
+		{
 			"return false",
 			"",
 			"data",

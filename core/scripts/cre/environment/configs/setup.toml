@@ -1,7 +1,7 @@
 [general]
 aws_profile = "sdlc"
 min_gh_cli_version = "v2.50.0"
-ctf_version = "0.10.3"
+ctf_version = "0.10.28"
 
 [job_distributor.build_config]
 repository = "https://github.com/smartcontractkit/job-distributor"
@@ -26,6 +26,18 @@ pre_run = "pushd chip-ingress && go mod vendor && popd"
 [chip_ingress.pull_config]
 local_image = "chip-ingress:local-cre"
 ecr_image = "{{.ECR}}/atlas-chip-ingress:bbac3c825b061546980fa9d7dc0f3e8c34347bcf"
+
+[billing_platform_service.build_config]
+repository = "https://github.com/smartcontractkit/billing-platform-service"
+branch = "main"
+require_github_token = true
+dockerfile = "./Dockerfile"
+docker_ctx = "."
+local_image = "billing-platform-service:local-cre"
+
+[billing_platform_service.pull_config]
+local_image = "billing-platform-service:local-cre"
+ecr_image = "{{.ECR}}/billing-platform-service:1.36.1"
 
 [capabilities]
 target_path = "./binaries"

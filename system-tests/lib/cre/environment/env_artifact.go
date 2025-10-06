@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -84,6 +83,8 @@ func (c *DONCapabilityConfig) UnmarshalJSON(data []byte) error {
 
 		// use a map to hold any nested shape: RemoteTriggerConfig/RemoteTargetConfig/RemoteExecutableConfig
 		RemoteConfig map[string]json.RawMessage `json:"RemoteConfig,omitempty"`
+		// use a map to hold any methods, if present, to iterate later
+		MethodConfigs map[string]json.RawMessage `json:"method_configs,omitempty"`
 	}
 
 	aux.Alias = (*Alias)(c)
@@ -92,42 +93,85 @@ func (c *DONCapabilityConfig) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	if aux.RemoteConfig == nil {
-		// nothing else to do, no remote config to parse
-		return nil
+	if aux.RemoteConfig != nil {
+		// parse the remote config based on the key
+		switch {
+		case aux.RemoteConfig["RemoteTriggerConfig"] != nil:
+			var rt capabilitiespb.RemoteTriggerConfig
+			if err := json.Unmarshal(aux.RemoteConfig["RemoteTriggerConfig"], &rt); err != nil {
+				return err
+			}
+			c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+				RemoteTriggerConfig: &rt,
+			}
+		case aux.RemoteConfig["RemoteTargetConfig"] != nil:
+			var tgt capabilitiespb.RemoteTargetConfig
+			if err := json.Unmarshal(aux.RemoteConfig["RemoteTargetConfig"], &tgt); err != nil {
+				return err
+			}
+			c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+				RemoteTargetConfig: &tgt,
+			}
+		case aux.RemoteConfig["RemoteExecutableConfig"] != nil:
+			var ex capabilitiespb.RemoteExecutableConfig
+			if err := json.Unmarshal(aux.RemoteConfig["RemoteExecutableConfig"], &ex); err != nil {
+				return err
+			}
+			c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &ex,
+			}
+		default:
+			keys := make([]string, 0, len(aux.RemoteConfig))
+			for k := range aux.RemoteConfig {
+				keys = append(keys, k)
+			}
+			return fmt.Errorf("unknown remote config type in capability config, keys: %v", keys)
+		}
 	}
 
-	switch {
-	case aux.RemoteConfig["RemoteTriggerConfig"] != nil:
-		var rt capabilitiespb.RemoteTriggerConfig
-		if err := json.Unmarshal(aux.RemoteConfig["RemoteTriggerConfig"], &rt); err != nil {
-			return err
+	if aux.MethodConfigs != nil {
+		methodConfigs := make(map[string]*capabilitiespb.CapabilityMethodConfig, len(aux.MethodConfigs))
+		for methodName, methodConfig := range aux.MethodConfigs {
+			var methodRemoteConfig map[string]json.RawMessage
+			if err := json.Unmarshal(methodConfig, &methodRemoteConfig); err != nil {
+				return err
+			}
+
+			var innerRemoteConfig map[string]json.RawMessage
+			if err := json.Unmarshal(methodRemoteConfig["RemoteConfig"], &innerRemoteConfig); err != nil {
+				return err
+			}
+			switch {
+			case innerRemoteConfig["RemoteTriggerConfig"] != nil:
+				var rt capabilitiespb.RemoteTriggerConfig
+				if err := json.Unmarshal(innerRemoteConfig["RemoteTriggerConfig"], &rt); err != nil {
+					return err
+				}
+				methodConfigs[methodName] = &capabilitiespb.CapabilityMethodConfig{
+					RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+						RemoteTriggerConfig: &rt,
+					},
+				}
+			case innerRemoteConfig["RemoteExecutableConfig"] != nil:
+				var ex capabilitiespb.RemoteExecutableConfig
+				if err := json.Unmarshal(innerRemoteConfig["RemoteExecutableConfig"], &ex); err != nil {
+					return err
+				}
+				methodConfigs[methodName] = &capabilitiespb.CapabilityMethodConfig{
+					RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+						RemoteExecutableConfig: &ex,
+					},
+				}
+			default:
+				keys := make([]string, 0, len(innerRemoteConfig))
+				for k := range innerRemoteConfig {
+					keys = append(keys, k)
+				}
+				return fmt.Errorf("unknown method config type for method %s, unknown config value keys: %s", methodName, strings.Join(keys, ","))
+			}
 		}
-		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &rt,
-		}
-	case aux.RemoteConfig["RemoteTargetConfig"] != nil:
-		var tgt capabilitiespb.RemoteTargetConfig
-		if err := json.Unmarshal(aux.RemoteConfig["RemoteTargetConfig"], &tgt); err != nil {
-			return err
-		}
-		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
-			RemoteTargetConfig: &tgt,
-		}
-	case aux.RemoteConfig["RemoteExecutableConfig"] != nil:
-		var ex capabilitiespb.RemoteExecutableConfig
-		if err := json.Unmarshal(aux.RemoteConfig["RemoteExecutableConfig"], &ex); err != nil {
-			return err
-		}
-		c.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteExecutableConfig{
-			RemoteExecutableConfig: &ex,
-		}
-	default:
-		keys := make([]string, 0, len(aux.RemoteConfig))
-		for k := range aux.RemoteConfig {
-			keys = append(keys, k)
-		}
-		return fmt.Errorf("unknown remote config type in capability config, keys: %v", keys)
+
+		c.MethodConfigs = methodConfigs
 	}
 
 	return nil
@@ -203,7 +247,7 @@ func GenerateArtifact(
 		Topology:      donTopology,
 	}
 
-	for i, don := range donTopology.DonsWithMetadata {
+	for donIdx, don := range donTopology.ToDonMetadata() {
 		donArtifact := DonArtifact{
 			DonName:        don.Name,
 			DonID:          don.ID,
@@ -213,14 +257,10 @@ func GenerateArtifact(
 			Capabilities:   make([]DONCapabilityArtifact, 0),
 		}
 
-		workerNodes, workerNodesErr := crenode.FindManyWithLabel(don.NodesMetadata, &cre.Label{
-			Key:   crenode.NodeTypeKey,
-			Value: cre.WorkerNode,
-		}, crenode.EqualLabels)
-		if workerNodesErr != nil {
-			return nil, pkgerrors.Wrap(workerNodesErr, "failed to find worker nodes")
+		workerNodes, wErr := don.WorkerNodes()
+		if wErr != nil {
+			return nil, pkgerrors.Wrap(wErr, "failed to find worker nodes")
 		}
-
 		donArtifact.F = libc.MustSafeUint8((len(workerNodes) - 1) / 3)
 
 		for _, capabilityFn := range capabilityRegistryFns {
@@ -228,7 +268,7 @@ func GenerateArtifact(
 				continue
 			}
 
-			capabilitiesFn, capabilitiesFnErr := capabilityFn(don.Flags, nodeSets[i])
+			capabilitiesFn, capabilitiesFnErr := capabilityFn(don.Flags, nodeSets[donIdx])
 			if capabilitiesFnErr != nil {
 				return nil, pkgerrors.Wrap(capabilitiesFnErr, "failed to get capabilities from capability registry function")
 			}
@@ -246,13 +286,13 @@ func GenerateArtifact(
 		}
 
 		nop := NOPArtifact{
-			ID:    i + 1, // NOP IDs start from 1
+			ID:    donIdx + 1, // NOP IDs start from 1
 			Name:  fmt.Sprintf("NOP for %s DON", don.Name),
-			Admin: fmt.Sprintf("%s%06d", NOPAdminPrefix, i+1),
+			Admin: fmt.Sprintf("%s%06d", NOPAdminPrefix, donIdx+1),
 		}
 
 		var nodeIDs []string
-		for _, node := range don.DON.Nodes {
+		for _, node := range donTopology.Dons.List()[donIdx].Nodes {
 			nodeIDs = append(nodeIDs, node.NodeID)
 		}
 

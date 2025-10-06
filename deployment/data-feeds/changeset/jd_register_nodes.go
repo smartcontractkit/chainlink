@@ -2,7 +2,6 @@ package changeset
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -34,8 +33,8 @@ type DONConfigSchema struct {
 
 const productLabel = "data-feeds"
 
-func registerNodesToJDLogic(env cldf.Environment, c types.NodeConfig) (cldf.ChangesetOutput, error) {
-	dons, _ := LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
+func registerNodesToJDLogic(env cldf.Environment, c types.RegisterNodeConfig) (cldf.ChangesetOutput, error) {
+	dons := c.DONs
 
 	for _, don := range dons {
 		for _, node := range don.Nodes {
@@ -101,14 +100,9 @@ func registerNodesToJDLogic(env cldf.Environment, c types.NodeConfig) (cldf.Chan
 	return cldf.ChangesetOutput{}, nil
 }
 
-func registerNodesToJDLogicPrecondition(env cldf.Environment, c types.NodeConfig) error {
-	if c.InputFileName == "" {
-		return errors.New("input file name is required")
-	}
-
-	_, err := LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
-	if err != nil {
-		return fmt.Errorf("failed to load don config input file: %w", err)
+func registerNodesToJDLogicPrecondition(env cldf.Environment, c types.RegisterNodeConfig) error {
+	if len(c.DONs) == 0 {
+		return errors.New("no DONs provided in the configuration")
 	}
 
 	return nil

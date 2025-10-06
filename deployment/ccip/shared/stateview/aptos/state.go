@@ -8,8 +8,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/regulated_token_pool"
 	aptosHelpers "github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	aptosview "github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
@@ -34,6 +36,7 @@ type CCIPChainState struct {
 	ManagedTokens    map[shared.TokenSymbol]aptos.AccountAddress
 
 	AptosManagedTokenPools map[aptos.AccountAddress]aptos.AccountAddress // TokenAddress -> TokenPoolAddress
+	RegulatedTokenPools    map[aptos.AccountAddress]aptos.AccountAddress // TokenAddress -> TokenPoolAddress
 	BurnMintTokenPools     map[aptos.AccountAddress]aptos.AccountAddress // TokenAddress -> TokenPoolAddress
 	LockReleaseTokenPools  map[aptos.AccountAddress]aptos.AccountAddress // TokenAddress -> TokenPoolAddress
 
@@ -67,6 +70,7 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 	chainState := CCIPChainState{
 		ManagedTokens:          make(map[shared.TokenSymbol]aptos.AccountAddress),
 		AptosManagedTokenPools: make(map[aptos.AccountAddress]aptos.AccountAddress),
+		RegulatedTokenPools:    make(map[aptos.AccountAddress]aptos.AccountAddress),
 		BurnMintTokenPools:     make(map[aptos.AccountAddress]aptos.AccountAddress),
 		LockReleaseTokenPools:  make(map[aptos.AccountAddress]aptos.AccountAddress),
 	}
@@ -106,6 +110,24 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 				symbol = shared.TokenSymbol(typeAndVersion.Labels.List()[0])
 			}
 			chainState.ManagedTokens[symbol] = *address
+		case shared.AptosRegulatedTokenType:
+			noLabel := typeAndVersion.Labels.IsEmpty()
+			symbol := shared.TokenSymbol("")
+			if noLabel {
+				token := regulated_token.Bind(*address, client)
+				metadataAddress, err := token.RegulatedToken().TokenMetadata(nil)
+				if err != nil {
+					return chainState, fmt.Errorf("failed to get FA Metadata for RegulatedToken %s: %w", addrStr, err)
+				}
+				metadata, err := aptosHelpers.GetFungibleAssetMetadata(client, metadataAddress)
+				if err != nil {
+					return chainState, fmt.Errorf("failed to get Fungible Asset Metadata for RegulatedToken %s: %w", addrStr, err)
+				}
+				symbol = shared.TokenSymbol(metadata.Symbol)
+			} else {
+				symbol = shared.TokenSymbol(typeAndVersion.Labels.List()[0])
+			}
+			chainState.ManagedTokens[symbol] = *address
 		case shared.AptosManagedTokenPoolType:
 			noLabel := typeAndVersion.Labels.IsEmpty()
 			token := aptos.AccountAddress{}
@@ -125,6 +147,25 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 				}
 			}
 			chainState.AptosManagedTokenPools[token] = *address
+		case shared.AptosRegulatedTokenPoolType:
+			noLabel := typeAndVersion.Labels.IsEmpty()
+			token := aptos.AccountAddress{}
+			if noLabel {
+				pool := regulated_token_pool.Bind(*address, client)
+				t, err := pool.RegulatedTokenPool().GetToken(nil)
+				if err != nil {
+					return chainState, fmt.Errorf("failed to get token for RegulatedTokenPool: %s: %w", addrStr, err)
+				}
+				token = t
+			} else {
+				labels := typeAndVersion.Labels.List()
+				tokenStr := labels[0]
+				err := token.ParseStringRelaxed(tokenStr)
+				if err != nil {
+					return chainState, fmt.Errorf("failed to parse token address %s for RegulatedTokenPool %s: %w", tokenStr, addrStr, err)
+				}
+			}
+			chainState.RegulatedTokenPools[token] = *address
 		case shared.BurnMintTokenPool:
 			noLabel := typeAndVersion.Labels.IsEmpty()
 			token := aptos.AccountAddress{}
@@ -285,6 +326,23 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.ManagedTokenPool())
 			if err != nil {
 				return fmt.Errorf("failed to generate token pool view for ManagedTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
+			}
+			chainView.UpdateMu.Lock()
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
+			chainView.UpdateMu.Unlock()
+		}
+		return nil
+	})
+	errGroup.Go(func() error {
+		for tokenAddress, tokenPoolAddress := range s.RegulatedTokenPools {
+			faMetadata, err := aptosHelpers.GetFungibleAssetMetadata(chain.Client, tokenAddress)
+			if err != nil {
+				return fmt.Errorf("failed to get fungible asset metadata for token %s: %w", tokenAddress, err)
+			}
+			contract := regulated_token_pool.Bind(tokenPoolAddress, chain.Client)
+			tokenPoolView, err := aptosview.GenerateTokenPoolView(chain, tokenPoolAddress, contract.RegulatedTokenPool())
+			if err != nil {
+				return fmt.Errorf("failed to generate token pool view for RegulatedTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
 			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)

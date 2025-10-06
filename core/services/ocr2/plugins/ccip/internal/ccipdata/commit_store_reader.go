@@ -7,15 +7,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
 // Common to all versions
@@ -62,21 +58,4 @@ type CommitStoreReader interface {
 	cciptypes.CommitStoreReader
 	SetGasEstimator(ctx context.Context, gpe gas.EvmFeeEstimator) error
 	SetSourceMaxGasPrice(ctx context.Context, sourceMaxGasPrice *big.Int) error
-}
-
-// FetchCommitStoreStaticConfig provides access to a commitStore's static config, which is required to access the source chain ID.
-func FetchCommitStoreStaticConfig(address common.Address, ec client.Client) (commit_store.CommitStoreStaticConfig, error) {
-	commitStore, err := loadCommitStore(address, ec)
-	if err != nil {
-		return commit_store.CommitStoreStaticConfig{}, err
-	}
-	return commitStore.GetStaticConfig(&bind.CallOpts{})
-}
-
-func loadCommitStore(commitStoreAddress common.Address, client client.Client) (commit_store.CommitStoreInterface, error) {
-	_, err := ccipconfig.VerifyTypeAndVersion(commitStoreAddress, client, ccipconfig.CommitStore)
-	if err != nil {
-		return nil, errors.Wrap(err, "Invalid commitStore contract")
-	}
-	return commit_store.NewCommitStore(commitStoreAddress, client)
 }

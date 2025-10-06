@@ -328,6 +328,7 @@ func NewOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, ch
 		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: aggregatorAddress,
 	}
+
 	return newContractConfigProvider(ctx, lggr, chain, opts, aggregatorAddress, OCR3CapabilityLogDecoder, offchainConfigDigester)
 }
 
@@ -999,7 +1000,14 @@ func (r *Relayer) NewContractWriter(_ context.Context, config []byte) (commontyp
 	}
 
 	cfg.MaxGasPrice = r.chain.Config().EVM().GasEstimator().PriceMax()
-	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg)
+	if r.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+		chain, ok := r.chain.(legacyevm.ChainTronSupport)
+		if !ok {
+			return nil, fmt.Errorf("chain %s does not support Tron", r.chain.ID())
+		}
+		return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, chain.GetTronTXM())
+	}
+	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg, nil)
 }
 
 func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byte) (commontypes.ContractReader, error) {

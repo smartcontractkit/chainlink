@@ -1,0 +1,171 @@
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  docker_cmd_params = ["-b", "5"]
+
+[[blockchains]]
+  chain_id = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+  port = "8550"
+  type = "solana"
+  public_key = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"
+  contracts_dir = "../tests/smoke/cre/solana_contracts"
+  [blockchains.solana_programs]
+    keystone_forwarder = "whV7Q5pi17hPPyaPksToDw1nMx6Lh8qmNWKFaLRQ4wz"
+    data_feeds_cache = "3kX63udXtYcsdj2737Wi2KGd2PhqiKPgAFAxstrjtRUa"
+
+[jd]
+  # change to your version
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  image = "job-distributor:0.12.7"
+
+[fake]
+  port = 8171
+
+#[s3provider]
+#  # use all defaults
+#  port = 9000
+#  console_port = 9001
+
+[infra]
+  # either "docker" or "crib"
+  type = "docker"
+
+#[infra.crib]
+#  namespace = "crib-local"
+#  folder_location = "/absolute/path/to/crib/deployments/cre"
+#  provider = "kind"  # or "aws"
+
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+  don_types = ["workflow", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10100
+  supported_evm_chains = [1337] # even though this nodeset has no capability that requires connection to this chain we need it since it is the registry chain
+
+  # index of node in the nodeset that will act as the bootsrap node (not required, but added for visiblity)
+  bootstrap_node_index = 0
+  # added for visiblity, required always, when don_types include "gateway"
+  gateway_node_index = 0
+
+  env_vars = { CL_EVM_CMD = "" }
+
+  capabilities = ["ocr3", "custom-compute", "mock", "write-solana"]
+  supported_sol_chains = ["5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"]
+  #[nodesets.chain_capabilities]
+  #  write-evm = ["1337"]
+  [nodesets.capability_overrides.mock]
+    # add as many as you want:
+    [[nodesets.capability_overrides.mock.DefaultMocks]]
+      Id = "securemint-trigger@1.0.0"
+      Description = "trigger mock for secure mint"
+      Type="trigger"
+
+  # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["13401:7777","5002:5002","15002:15002"]
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      custom_ports = ["13402:7777"]   # External:internal port mapping
+      #image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      custom_ports = ["13403:7777"]   # External:internal port mapping
+      #image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
+      custom_ports = ["13404:7777"]   # External:internal port mapping
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """
+
+  [[nodesets.node_specs]]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      #image = "chainlink-tmp:latest"
+      custom_ports = ["13405:7777"]   # External:internal port mapping
+      user_config_overrides = """
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      # Remove this bit to allow downloading workflows from remote sources
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+
+      [Billing]
+      URL = "billing-platform-service:2223"
+      TLSEnabled = false
+      """

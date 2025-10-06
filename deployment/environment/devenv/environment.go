@@ -39,14 +39,9 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 	}
 	var nodeIDs []string
 	if jd.don != nil {
-		// Gateway DON doesn't require any chain setup, and trying to create chains for it will fail,
-		// because its nodes are missing chain-related configuration. Of course, we could add that configuration,
-		// but its not how it is setup on production.
-		if len(config.Chains) > 0 {
-			err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
-			if err != nil {
-				return nil, nil, err
-			}
+		err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
+		if err != nil {
+			return nil, nil, err
 		}
 		nodeIDs = jd.don.NodeIds()
 	}

@@ -98,10 +98,10 @@ func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*
 		loopRelayers: make(map[types.RelayID]loop.Relayer),
 		srvs:         make([]services.ServiceCtx, 0),
 	}
-	for _, initFn := range initFuncs {
+	for i, initFn := range initFuncs {
 		err := initFn(cr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to initialize relayer chain interoperators at index %d: %w", i, err)
 		}
 	}
 	return cr, nil
@@ -236,6 +236,24 @@ func InitTON(factory RelayerFactory, ks keystore.TON, csaKS keystore.CSA, chainC
 		}
 
 		for id, relayer := range tonRelayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
+// InitSui is a option for instantiating Sui relayers
+func InitSui(factory RelayerFactory, ks keystore.Sui, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		loopKs := &keystore.SuiLoopSinger{Sui: ks}
+		relayers, err := factory.NewSui(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
+		if err != nil {
+			return fmt.Errorf("failed to setup sui relayer: %w", err)
+		}
+
+		for id, relayer := range relayers {
 			op.srvs = append(op.srvs, relayer)
 			op.loopRelayers[id] = relayer
 		}

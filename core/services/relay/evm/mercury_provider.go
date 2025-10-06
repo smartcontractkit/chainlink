@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
@@ -39,7 +38,6 @@ type mercuryProvider struct {
 	codec              commontypes.Codec
 	csaSigner          *coretypes.Ed25519Signer
 	transmitter        evmmercury.Transmitter
-	reportCodecV1      v1.ReportCodec
 	reportCodecV2      v2.ReportCodec
 	reportCodecV3      v3.ReportCodec
 	reportCodecV4      v4.ReportCodec
@@ -63,7 +61,6 @@ func NewMercuryProvider(
 	mercuryORM evmmercury.ORM,
 	triggerCapability *triggers.MercuryTriggerService,
 ) (*mercuryProvider, error) {
-	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV1"))
 	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV2"))
 	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
 	reportCodecV4 := reportcodecv4.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV4"))
@@ -71,8 +68,6 @@ func NewMercuryProvider(
 	getCodecForFeed := func(feedID mercuryutils.FeedID) (evmmercury.TransmitterReportDecoder, error) {
 		var transmitterCodec evmmercury.TransmitterReportDecoder
 		switch feedID.Version() {
-		case 1:
-			transmitterCodec = reportCodecV1
 		case 2:
 			transmitterCodec = reportCodecV2
 		case 3:
@@ -115,7 +110,6 @@ func NewMercuryProvider(
 		codec,
 		csaSigner,
 		transmitter,
-		reportCodecV1,
 		reportCodecV2,
 		reportCodecV3,
 		reportCodecV4,
@@ -168,8 +162,9 @@ func (p *mercuryProvider) OnchainConfigCodec() mercurytypes.OnchainConfigCodec {
 	return mercury.StandardOnchainConfigCodec{}
 }
 
+// deprecated
 func (p *mercuryProvider) ReportCodecV1() v1.ReportCodec {
-	return p.reportCodecV1
+	return nil
 }
 
 func (p *mercuryProvider) ReportCodecV2() v2.ReportCodec {

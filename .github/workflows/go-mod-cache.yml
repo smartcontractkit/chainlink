@@ -24,15 +24,28 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            go-mod-${{ runner.os }}-
+<- name: Cache Go modules
+  uses: actions/cache@v4
+  with:
+    path: |
+      ~/.cache/go-build
+      ~/go/pkg/mod
+    key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+    restore-keys: |
+      go-mod-${{ runner.os }}-
 
-      - name: Download dependencies
-        run: go mod download
+- name: Install Dependencies
+  if: ${{ steps.setup-go.outputs.primary-cache-hit-modules != 'true' }}
+  shell: bash
+  run: |
+    echo "::group::go mod download"
+    go mod download
+    echo "::endgroup::"
+
+    echo "::group::Install LOOP plugins"
+    make install-plugins-public
+    echo "::endgroup::"
+
+    echo "::group::Install testing tools"
+    go install gotest.tools/gotestsum@v1.12.3
+    echo "::endgroup::"

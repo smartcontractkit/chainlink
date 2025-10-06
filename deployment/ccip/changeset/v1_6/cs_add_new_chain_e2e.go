@@ -118,6 +118,9 @@ func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changese
 		Configs: []changeset.DeployPrerequisiteConfigPerChain{
 			changeset.DeployPrerequisiteConfigPerChain{
 				ChainSelector: c.NewChain.Selector,
+				Opts: []changeset.PrerequisiteOpt{
+					changeset.WithTokenPoolFactoryEnabled(),
+				},
 			},
 		},
 	}

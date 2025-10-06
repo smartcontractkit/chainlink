@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
@@ -135,7 +135,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(ctx, *p, models.Interval(0))
+		specID, err = orm.CreateSpec(ctx, *p, sqlutil.Interval(0))
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec

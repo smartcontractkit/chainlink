@@ -15,13 +15,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
@@ -79,7 +79,7 @@ func TestResolver_Jobs(t *testing.T) {
 						ID:              1,
 						Name:            null.StringFrom("job1"),
 						SchemaVersion:   1,
-						MaxTaskDuration: models.Interval(1 * time.Second),
+						MaxTaskDuration: sqlutil.Interval(1 * time.Second),
 						ExternalJobID:   externalJobID,
 						CreatedAt:       f.Timestamp(),
 						Type:            job.OffchainReporting,
@@ -215,7 +215,7 @@ func TestResolver_Job(t *testing.T) {
 					Name:            null.StringFrom("job1"),
 					SchemaVersion:   1,
 					GasLimit:        clnull.Uint32From(123),
-					MaxTaskDuration: models.Interval(1 * time.Second),
+					MaxTaskDuration: sqlutil.Interval(1 * time.Second),
 					ExternalJobID:   externalJobID,
 					CreatedAt:       f.Timestamp(),
 					Type:            job.OffchainReporting,
@@ -264,7 +264,7 @@ func TestResolver_Job(t *testing.T) {
 					Name:            null.StringFrom("job1"),
 					SchemaVersion:   1,
 					GasLimit:        clnull.Uint32From(123),
-					MaxTaskDuration: models.Interval(1 * time.Second),
+					MaxTaskDuration: sqlutil.Interval(1 * time.Second),
 					ExternalJobID:   externalJobID,
 					CreatedAt:       f.Timestamp(),
 					Type:            job.OffchainReporting,
@@ -459,7 +459,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 					ID:              id,
 					Name:            null.StringFrom("test-job"),
 					ExternalJobID:   extJID,
-					MaxTaskDuration: models.Interval(2 * time.Second),
+					MaxTaskDuration: sqlutil.Interval(2 * time.Second),
 					CreatedAt:       f.Timestamp(),
 				}, nil)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)

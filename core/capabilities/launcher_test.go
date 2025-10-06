@@ -15,7 +15,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -32,8 +31,7 @@ import (
 
 var _ capabilities.TriggerCapability = (*mockTrigger)(nil)
 
-type mockDonNotifier struct {
-}
+type mockDonNotifier struct{}
 
 func (m *mockDonNotifier) NotifyDonSet(don capabilities.DON) {
 }
@@ -126,6 +124,7 @@ func TestLauncher(t *testing.T) {
 			registry,
 			&mockDonNotifier{},
 		)
+		require.NoError(t, launcher.Start(t.Context()))
 		defer launcher.Close()
 
 		dispatcher.On("SetReceiver", fullTriggerCapID, dID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
@@ -173,10 +172,11 @@ func TestLauncher(t *testing.T) {
 			registry,
 			&mockDonNotifier{},
 		)
+		require.NoError(t, launcher.Start(t.Context()))
 		defer launcher.Close()
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
-		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a trigger capability - it won't be exposed remotely").Len())
+		assert.Equal(t, 1, observedLogs.FilterMessage("failed to serve capability").Len())
 	})
 
 	t.Run("NOK-invalid_target_capability", func(t *testing.T) {
@@ -215,18 +215,39 @@ func TestLauncher(t *testing.T) {
 			registry,
 			&mockDonNotifier{},
 		)
+		require.NoError(t, launcher.Start(t.Context()))
 		defer launcher.Close()
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
-		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a target capability - it won't be exposed remotely").Len())
+		assert.Equal(t, 1, observedLogs.FilterMessage("failed to serve capability").Len())
+	})
+
+	t.Run("start and close with nil peer wrapper", func(t *testing.T) {
+		lggr := logger.Test(t)
+		registry := NewRegistry(lggr)
+		dispatcher := remoteMocks.NewDispatcher(t)
+		sharedPeer := mocks.NewSharedPeer(t)
+		sharedPeer.On("ID").Return(ragetypes.PeerID(RandomUTF8BytesWord()))
+		launcher := NewLauncher(
+			lggr,
+			nil,
+			sharedPeer,
+			nil,
+			dispatcher,
+			registry,
+			&mockDonNotifier{},
+		)
+		require.NoError(t, launcher.Start(t.Context()))
+		require.NoError(t, launcher.Close())
 	})
 }
 
 func newTriggerEventMsg(t *testing.T,
-	senderPeerID types.PeerID,
+	senderPeerID p2ptypes.PeerID,
 	workflowID string,
 	triggerEvent map[string]any,
-	triggerEventID string) (*remotetypes.MessageBody, *values.Map) {
+	triggerEventID string,
+) (*remotetypes.MessageBody, *values.Map) {
 	triggerEventValue, err := values.NewMap(triggerEvent)
 	require.NoError(t, err)
 	capResponse := capabilities.TriggerResponse{
@@ -236,7 +257,7 @@ func newTriggerEventMsg(t *testing.T,
 		},
 		Err: nil,
 	}
-	marshaled, err := pb.MarshalTriggerResponse(capResponse)
+	marshaled, err := capabilitiespb.MarshalTriggerResponse(capResponse)
 	require.NoError(t, err)
 	return &remotetypes.MessageBody{
 		Sender: senderPeerID[:],
@@ -271,8 +292,6 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	dID := uint32(1)
 	capDonID := uint32(2)
 
-	rtc := &capabilities.RemoteTriggerConfig{}
-	rtc.ApplyDefaults()
 	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
 		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
 			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
@@ -298,6 +317,8 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
@@ -312,7 +333,6 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 
 	err = launcher.OnNewRegistry(ctx, localRegistry)
 	require.NoError(t, err)
-	defer launcher.Close()
 
 	baseCapability, err := registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
@@ -386,13 +406,14 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
 
 	// If the DON were public, this would fail with two errors:
 	// - error fetching the capabilities from the registry since they haven't been added
 	// - erroneous calls to dispatcher.SetReceiver, since the call hasn't been registered.
 	err := launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
-	defer launcher.Close()
 
 	// Finally, assert that no services were added.
 	assert.Empty(t, launcher.subServices)
@@ -418,8 +439,6 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	dID := uint32(1)
 	capDonID := uint32(2)
 
-	rtc := &capabilities.RemoteTriggerConfig{}
-	rtc.ApplyDefaults()
 	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
 		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
 			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
@@ -444,13 +463,14 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
 
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
-	defer launcher.Close()
 
 	_, err = registry.Get(t.Context(), fullTriggerCapID)
 	require.NoError(t, err)
@@ -479,15 +499,20 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 	dID := uint32(1)
 	triggerCapDonID := uint32(2)
 	targetCapDonID := uint32(3)
-	// The below state describes a Workflow DON (AcceptsWorkflows = true),
-	// which exposes the streams-trigger and write_chain capabilities.
-	// We expect receivers to be wired up and both capabilities to be added to the registry.
+
+	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{},
+		},
+	})
+	require.NoError(t, err)
+
 	localRegistry := buildLocalRegistry()
 	addDON(localRegistry, dID, uint32(0), uint8(1), true, true, workflowDonNodes, 1, nil)
 	addDON(localRegistry, triggerCapDonID, uint32(0), uint8(1), true, false, capabilityDonNodes, 1, [][32]byte{triggerCapID, targetCapID})
-	addCapabilityToDON(localRegistry, triggerCapDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
+	addCapabilityToDON(localRegistry, triggerCapDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, cfg)
 	addDON(localRegistry, targetCapDonID, uint32(0), uint8(1), false, false, capabilityDonNodes, 1, [][32]byte{triggerCapID, targetCapID})
-	addCapabilityToDON(localRegistry, targetCapDonID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
+	addCapabilityToDON(localRegistry, targetCapDonID, fullTargetID, capabilities.CapabilityTypeTarget, cfg)
 
 	launcher := NewLauncher(
 		lggr,
@@ -498,12 +523,11 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		registry,
 		&mockDonNotifier{},
 	)
-
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
 	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 
-	err := launcher.OnNewRegistry(t.Context(), localRegistry)
-	require.NoError(t, err)
-	defer launcher.Close()
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
 
 	_, err = registry.Get(t.Context(), fullTriggerCapID)
 	require.NoError(t, err)
@@ -568,10 +592,10 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
-
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
-	defer launcher.Close()
 }
 
 func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
@@ -630,6 +654,8 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
 
 	inputs := [][]bool{
 		// { belongsToACapabilityDON, belongsToAWorkflowDON, isBootstrap }
@@ -662,7 +688,6 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
-	defer launcher.Close()
 }
 
 func TestLauncher_DonPairsToUpdate(t *testing.T) {
@@ -712,7 +737,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[2])
 }
 
-func TestLauncher_CreateCombinedClientForV2Capabilities(t *testing.T) {
+func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -724,8 +749,6 @@ func TestLauncher_CreateCombinedClientForV2Capabilities(t *testing.T) {
 	executableCapID := RandomUTF8BytesWord()
 	wfDonID := uint32(1)
 	capDonID := uint32(2)
-	rtc := &capabilities.RemoteTriggerConfig{}
-	rtc.ApplyDefaults()
 
 	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
 		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
@@ -761,41 +784,60 @@ func TestLauncher_CreateCombinedClientForV2Capabilities(t *testing.T) {
 	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
 	addCapabilityToDON(localRegistry, capDonID, fullExecutableCapID, capabilities.CapabilityTypeTarget, execCfg)
 
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(workflowDonNodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	launcher := NewLauncher(
 		lggr,
-		wrapper,
 		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
 	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiverForMethod", fullExecutableCapID, capDonID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
 
+	// first test the initial CombinedClient creation
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
 
-	_, err = registry.Get(t.Context(), fullTriggerCapID)
+	trigCap, err := registry.Get(t.Context(), fullTriggerCapID)
+	require.NoError(t, err)
+	trigCC, ok := trigCap.(remote.CombinedClient)
+	assert.True(t, ok, "expected CombinedClient object")
+	subscriber := trigCC.GetTriggerSubscriber("StreamsTrigger")
+	capInfo, err := subscriber.Info(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, fullTriggerCapID, capInfo.ID)
+	assert.Len(t, capInfo.DON.Members, 4)
+
+	execCap, err := registry.Get(t.Context(), fullExecutableCapID)
+	require.NoError(t, err)
+	execCC, ok := execCap.(remote.CombinedClient)
+	assert.True(t, ok, "expected CombinedClient object")
+	require.NotNil(t, execCC.GetExecutableClient("Write"))
+
+	// Now update config for one capability and verify it's propagated correctly (DON size)
+	capDon := localRegistry.IDsToDONs[registrysyncer.DonID(capDonID)]
+	capDon.Members = append(capDon.Members, ragetypes.PeerID(RandomUTF8BytesWord()))
+	localRegistry.IDsToDONs[registrysyncer.DonID(capDonID)] = capDon
+	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
 
-	executableCap, err := registry.Get(t.Context(), fullExecutableCapID)
+	capInfo, err = subscriber.Info(t.Context())
 	require.NoError(t, err)
-
-	_, ok := executableCap.(capabilities.ExecutableAndTriggerCapability)
-	assert.True(t, ok, "expected executableCap to be of type capabilities.ExecutableAndTriggerCapability")
+	assert.Equal(t, fullTriggerCapID, capInfo.ID)
+	assert.Len(t, capInfo.DON.Members, 5)
 }
 
-func TestLauncher_ExposeV2CapabilitiesRemotely(t *testing.T) {
+func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	fullTriggerCapID := "streams-trigger@1.0.0"
@@ -823,8 +865,6 @@ func TestLauncher_ExposeV2CapabilitiesRemotely(t *testing.T) {
 	executableCapID := RandomUTF8BytesWord()
 	wfDonID := uint32(1)
 	capDonID := uint32(2)
-	rtc := &capabilities.RemoteTriggerConfig{}
-	rtc.ApplyDefaults()
 
 	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
 		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
@@ -860,22 +900,21 @@ func TestLauncher_ExposeV2CapabilitiesRemotely(t *testing.T) {
 	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
 	addCapabilityToDON(localRegistry, capDonID, fullExecutableCapID, capabilities.CapabilityTypeTarget, execCfg)
 
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(capabilityDonNodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(capabilityDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	launcher := NewLauncher(
 		lggr,
-		wrapper,
 		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
 	)
+	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
 	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)

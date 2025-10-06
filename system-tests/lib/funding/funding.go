@@ -51,7 +51,7 @@ func SendFundsSol(ctx context.Context, logger zerolog.Logger, client *rpc.Client
 	logger.Debug().
 		Uint64("Sender balance:", bal.Value)
 
-	recent, err := client.GetRecentBlockhash(ctx, rpc.CommitmentFinalized)
+	recent, err := client.GetLatestBlockhash(ctx, rpc.CommitmentFinalized)
 	if err != nil {
 		return fmt.Errorf("failed to get recent block hash: %w", err)
 	}

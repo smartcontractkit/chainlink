@@ -199,7 +199,7 @@ func TestReader_Integration(t *testing.T) {
 	cid := writeChainCapabilityV2.CapabilityId
 
 	// Add node operator
-	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP_V2",
@@ -425,7 +425,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 	cid := writeChainCapabilityV2.CapabilityId
 
 	// Add node operator
-	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP_V2",
@@ -713,7 +713,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	simulatedBackend.Commit()
 
 	// Add node operator
-	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP_V2_FAMILY",
@@ -1050,6 +1050,8 @@ func (r *CapabilitiesRegistryReader) GetDONsInFamily(ctx context.Context, family
 		primitives.Unconfirmed,
 		map[string]any{
 			"donFamily": family,
+			"start":     0,
+			"limit":     1000,
 		},
 		&familyADONs,
 	)

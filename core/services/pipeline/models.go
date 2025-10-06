@@ -14,18 +14,17 @@ import (
 	"github.com/shopspring/decimal"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type Spec struct {
 	ID                int32
-	DotDagSource      string          `json:"dotDagSource"`
-	CreatedAt         time.Time       `json:"-"`
-	MaxTaskDuration   models.Interval `json:"-"`
-	GasLimit          *uint32         `json:"-"`
-	ForwardingAllowed bool            `json:"-"`
+	DotDagSource      string           `json:"dotDagSource"`
+	CreatedAt         time.Time        `json:"-"`
+	MaxTaskDuration   sqlutil.Interval `json:"-"`
+	GasLimit          *uint32          `json:"-"`
+	ForwardingAllowed bool             `json:"-"`
 
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`

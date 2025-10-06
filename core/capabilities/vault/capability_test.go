@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -32,7 +33,8 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, nil)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -127,7 +129,8 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, nil)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -221,7 +224,8 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, nil)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -293,7 +297,8 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, nil)
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg, nil)
 	servicetest.Run(t, capability)
 
 	owner := "test-owner"
@@ -362,6 +367,16 @@ func TestCapability_CRUD(t *testing.T) {
 		Namespace: "Bar",
 		Owner:     owner,
 	}
+	lpk := NewLazyPublicKey()
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	lpk.Set(pk)
+	rawSecret := "raw secret string"
+	cipher, err := tdh2easy.Encrypt(pk, []byte(rawSecret))
+	require.NoError(t, err)
+	cipherBytes, err := cipher.Marshal()
+	require.NoError(t, err)
+	encryptedSecret := hex.EncodeToString(cipherBytes)
 
 	testCases := []struct {
 		name     string
@@ -382,7 +397,7 @@ func TestCapability_CRUD(t *testing.T) {
 					EncryptedSecrets: []*vault.EncryptedSecret{
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -402,7 +417,7 @@ func TestCapability_CRUD(t *testing.T) {
 					EncryptedSecrets: []*vault.EncryptedSecret{
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -423,47 +438,47 @@ func TestCapability_CRUD(t *testing.T) {
 					EncryptedSecrets: []*vault.EncryptedSecret{
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -484,7 +499,7 @@ func TestCapability_CRUD(t *testing.T) {
 					EncryptedSecrets: []*vault.EncryptedSecret{
 						{
 							Id:             sid,
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -509,7 +524,28 @@ func TestCapability_CRUD(t *testing.T) {
 								Namespace: "Bar",
 								Owner:     "",
 							},
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
+						},
+					},
+				}
+				return capability.UpdateSecrets(t.Context(), req)
+			},
+		},
+		{
+			name: "UpdateSecrets_InvalidEncryptedSecret",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
+			error: "failed to verify encrypted value",
+			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
+				req := &vault.UpdateSecretsRequest{
+					RequestId: requestID,
+					EncryptedSecrets: []*vault.EncryptedSecret{
+						{
+							Id:             sid,
+							EncryptedValue: "abcd1234",
 						},
 					},
 				}
@@ -534,7 +570,7 @@ func TestCapability_CRUD(t *testing.T) {
 								Namespace: "Bar",
 								Owner:     "Owner",
 							},
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 						{
 							Id: &vault.SecretIdentifier{
@@ -542,7 +578,7 @@ func TestCapability_CRUD(t *testing.T) {
 								Namespace: "Bar",
 								Owner:     "Owner",
 							},
-							EncryptedValue: "encrypted-value",
+							EncryptedValue: encryptedSecret,
 						},
 					},
 				}
@@ -724,7 +760,8 @@ func TestCapability_CRUD(t *testing.T) {
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
-			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, nil)
+			reg := coreCapabilities.NewRegistry(lggr)
+			capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk)
 			servicetest.Run(t, capability)
 
 			wait := func() {}
@@ -763,6 +800,28 @@ func TestCapability_CRUD(t *testing.T) {
 	}
 }
 
+func TestCapability_Lifecycle(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, "owner", nil).Maybe()
+	reg := coreCapabilities.NewRegistry(lggr)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil)
+
+	require.NoError(t, capability.Start(t.Context()))
+
+	_, err := reg.GetExecutable(t.Context(), vault.CapabilityID)
+	require.NoError(t, err)
+
+	require.NoError(t, capability.Close())
+
+	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
+	require.ErrorContains(t, err, "no compatible capability found for id vault@1.0.0")
+}
+
 func TestCapability_PublicKeyGet(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
@@ -770,8 +829,9 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	reg := coreCapabilities.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
-	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, lpk)
+	capability := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk)
 	servicetest.Run(t, capability)
 
 	_, err := capability.GetPublicKey(t.Context(), nil)

@@ -191,7 +191,7 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 
 // Test EVM -> SVM extra data decoding in contract transmitter
 func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
-	extraDataCodec := ccipocr3.ExtraDataCodec(map[string]ccipocr3.SourceChainExtraDataCodec{
+	extraDataCodec := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
 	})
@@ -474,7 +474,8 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		simClient,
 		txm,
 		gasEstimator,
-		chainWriterConfigRaw(transmitters[0], assets.GWei(1)))
+		chainWriterConfigRaw(transmitters[0], assets.GWei(1)),
+		nil)
 	require.NoError(t, err, "failed to create chain writer")
 	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainSelectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldfSolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -585,6 +586,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 }
 
 func TestBillingWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1723")
 	t.Parallel()
 	doTestBilling(t, true)
 }
@@ -596,6 +598,7 @@ func TestBillingWithoutMcms(t *testing.T) {
 }
 
 func TestSetTokenAuthority(t *testing.T) {
+	quarantine.Flaky(t, "DX-1778")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
@@ -817,6 +820,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
@@ -908,10 +912,9 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 			ChainSelector: solChain,
 			SetPoolTokenConfigs: []ccipChangesetSolana.SetPoolTokenConfig{
 				{
-					TokenPubKey:     tokenAddress,
-					PoolType:        pool,
-					Metadata:        tokenMetadata,
-					WritableIndexes: []uint8{3, 4, 7},
+					TokenPubKey: tokenAddress,
+					PoolType:    pool,
+					Metadata:    tokenMetadata,
 				},
 			},
 			MCMS: mcmsConfig,
@@ -928,6 +931,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1753")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)
@@ -944,11 +948,12 @@ func TestDeployCCIPContracts(t *testing.T) {
 	// TODO: Fix this test to use the new changeset
 	t.Parallel()
 	skipInCI(t)
-	testhelpers.DeployCCIPContractsTest(t, 1)
+	testhelpers.DeployCCIPContractsTest(t, 1, 1)
 }
 
 // ocr3 test
 func TestSetOcr3Active(t *testing.T) {
+	quarantine.Flaky(t, "DX-1775")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
@@ -978,6 +983,7 @@ func TestSetOcr3Active(t *testing.T) {
 }
 
 func TestSetOcr3Candidate(t *testing.T) {
+	quarantine.Flaky(t, "DX-1771")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))

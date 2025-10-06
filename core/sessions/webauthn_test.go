@@ -3,6 +3,7 @@ package sessions
 import (
 	"encoding/json"
 	"fmt"
+	mrand "math/rand"
 	"testing"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -72,7 +73,7 @@ func TestWebAuthnSessionStore(t *testing.T) {
 }
 
 func mustRandomUser(t testing.TB) User {
-	email := fmt.Sprintf("user-%v@chainlink.test", testutils.NewRandomPositiveInt64())
+	email := fmt.Sprintf("user-%v@chainlink.test", mrand.Int63())
 	r, err := NewUser(email, testutils.Password, UserRoleAdmin)
 	if err != nil {
 		t.Fatal(err)

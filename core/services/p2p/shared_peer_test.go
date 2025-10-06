@@ -55,6 +55,11 @@ func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 	require.NoError(t, sp.Close())
 }
 
+func TestDon2DonSharedPeer_ErrorOnNilSingletonPeerWrapper(t *testing.T) {
+	sp := p2p.NewDon2DonSharedPeer(nil, nil, logger.TestLogger(t))
+	require.Error(t, sp.Start(t.Context()))
+}
+
 func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
 	pw := ocrcommon.NewSingletonPeerWrapper(nil, nil, nil, nil, logger.TestLogger(t)) // nils are ok, we won't Start() it
 	_, myPeerID := newKeyPair(t)

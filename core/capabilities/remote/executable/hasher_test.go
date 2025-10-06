@@ -30,6 +30,48 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 	require.NotEqual(t, hash1a, hash2) // different data, same signatures
 }
 
+func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
+	nilReq := capabilities.CapabilityRequest{Payload: nil}
+	nilReqBytes, err := pb.MarshalCapabilityRequest(nilReq)
+	require.NoError(t, err)
+
+	msgBody := &types.MessageBody{Payload: nilReqBytes}
+
+	hasher := NewWriteReportExcludeSignaturesHasher()
+	_, err = hasher.Hash(msgBody)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "capability request payload is nil")
+}
+
+func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
+	nilReq := &evmcappb.WriteReportRequest{Report: nil}
+	nilPb, err := anypb.New(nilReq)
+	require.NoError(t, err)
+
+	capReq := capabilities.CapabilityRequest{Payload: nilPb}
+	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
+	require.NoError(t, err)
+
+	msgBody := &types.MessageBody{Payload: capReqBytes}
+
+	hasher := NewWriteReportExcludeSignaturesHasher()
+	_, err = hasher.Hash(msgBody)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "WriteReportRequest.Report is nil")
+}
+
+func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
+	// Test with completely invalid payload that cannot be unmarshaled
+	msgBody := &types.MessageBody{
+		Payload: []byte("invalid protobuf data"),
+	}
+
+	hasher := NewWriteReportExcludeSignaturesHasher()
+	_, err := hasher.Hash(msgBody)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to unmarshal capability request")
+}
+
 func getRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
 	attrSigs := []*sdk.AttributedSignature{}
 	for i, sig := range sigs {

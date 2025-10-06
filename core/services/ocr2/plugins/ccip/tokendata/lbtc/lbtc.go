@@ -144,23 +144,6 @@ func NewLBTCTokenDataReader(
 	}
 }
 
-func NewLBTCTokenDataReaderWithHTTPClient(
-	origin TokenDataReader,
-	httpClient http.IHttpClient,
-	lbtcTokenAddress common.Address,
-	requestInterval time.Duration,
-) *TokenDataReader {
-	return &TokenDataReader{
-		lggr:                  origin.lggr,
-		httpClient:            httpClient,
-		attestationAPI:        origin.attestationAPI,
-		attestationAPITimeout: origin.attestationAPITimeout,
-		coolDownMu:            origin.coolDownMu,
-		lbtcTokenAddress:      lbtcTokenAddress,
-		rate:                  rate.NewLimiter(rate.Every(requestInterval), 1),
-	}
-}
-
 // ReadTokenData queries the LBTC attestation API.
 func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) ([]byte, error) {
 	if tokenIndex < 0 || tokenIndex >= len(msg.TokenAmounts) {

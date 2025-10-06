@@ -77,6 +77,9 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		ChainSel:     req.ChainSel,
 		ProgramName:  deployment.KeystoneForwarderProgramName,
 		Overallocate: true,
+		ContractType: ForwarderContract,
+		Qualifier:    req.Qualifier,
+		Version:      version,
 	}
 
 	deps := operation.Deps{

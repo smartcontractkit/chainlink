@@ -98,13 +98,6 @@ func bloomValues(data []byte, hashbuf []byte) (uint, byte, uint, byte, uint, byt
 // out on a block.
 type AvaBlockNonce [8]byte
 
-// EncodeNonce converts the given integer to a block nonce.
-func EncodeNonce(i uint64) AvaBlockNonce {
-	var n AvaBlockNonce
-	binary.BigEndian.PutUint64(n[:], i)
-	return n
-}
-
 // Uint64 returns the integer value of a block nonce.
 func (n AvaBlockNonce) Uint64() uint64 {
 	return binary.BigEndian.Uint64(n[:])

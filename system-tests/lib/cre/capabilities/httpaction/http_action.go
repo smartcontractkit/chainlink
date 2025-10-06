@@ -77,11 +77,6 @@ metadataAggregationIntervalMs = 1_000
 globalBurst = 10
 globalRPS = 50
 perSenderBurst = 10
-perSenderRPS = 10
-[gatewayConfig.Dons.Handlers.Config.UserRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
 perSenderRPS = 10`}, nil
 }
 

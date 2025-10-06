@@ -111,7 +111,9 @@ func (o *oracleMock) Close(ctx context.Context) error {
 	return nil
 }
 
-type gatewayConnectorMock struct{}
+type gatewayConnectorMock struct {
+	core.UnimplementedGatewayConnector
+}
 
 func (g *gatewayConnectorMock) Start(context.Context) error {
 	return nil

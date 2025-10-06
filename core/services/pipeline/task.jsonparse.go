@@ -3,11 +3,11 @@ package pipeline
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	stderrors "errors"
 	"math/big"
 	"strings"
 
+	"github.com/goccy/go-json"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"

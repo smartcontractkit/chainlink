@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // ChainID   *big.Big   `json:"chainID"`
@@ -95,7 +95,7 @@ func Test_ChainReaderConfig(t *testing.T) {
 								Topic2:       evmtypes.HashArray{common.HexToHash("0x1abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
 								Topic3:       evmtypes.HashArray{common.HexToHash("0x2abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
 								Topic4:       evmtypes.HashArray{common.HexToHash("0x3abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
-								Retention:    models.Interval(time.Minute * 1),
+								Retention:    sqlutil.Interval(time.Minute * 1),
 								MaxLogsKept:  100,
 								LogsPerBlock: 10,
 							},
@@ -133,7 +133,7 @@ func Test_ChainReaderConfig(t *testing.T) {
 										Topic2:       evmtypes.HashArray{common.HexToHash("0x4abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
 										Topic3:       evmtypes.HashArray{common.HexToHash("0x5abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
 										Topic4:       evmtypes.HashArray{common.HexToHash("0x6abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
-										Retention:    models.Interval(time.Minute * 1),
+										Retention:    sqlutil.Interval(time.Minute * 1),
 										MaxLogsKept:  100,
 										LogsPerBlock: 10,
 									},

@@ -15,8 +15,6 @@ import (
 	"github.com/shopspring/decimal"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -31,7 +29,10 @@ const (
 	RatiosKey = "spendRatios"
 	// the default decimal precision is a fixed number defined in the billing service. if this gets changed
 	// in the billing service project, the value here needs to change.
-	defaultDecimalPrecision = 3 // one thousandth of a dollar
+	defaultDecimalPrecision = 10 // one thousandth of a dollar
+
+	EngineVersionV1 = "v1"
+	EngineVersionV2 = "v2"
 )
 
 var (
@@ -76,17 +77,26 @@ type ReportStep struct {
 	// The maximum amount of universal credits that should be used in this step
 	Deduction decimal.Decimal
 	// The actual resource spend that each node used for this step
-	Spends map[string][]ReportStepDetail
+	Spends           map[string][]ReportStepDetail
+	AggregatedSpends map[string]AggregatedStepDetail
 }
 
 type ReportStepDetail struct {
-	Peer2PeerID string
-	SpendValue  string
+	Peer2PeerID   string
+	SpendValue    string
+	CRESpendValue decimal.Decimal
+}
+
+type AggregatedStepDetail struct {
+	SpendUnit     string
+	SpendValue    decimal.Decimal
+	CRESpendValue decimal.Decimal
 }
 
 type Report struct {
 	// descriptive properties
-	labels map[string]string
+	labels        map[string]string
+	engineVersion string
 
 	// dependencies
 	balance *balanceStore
@@ -114,7 +124,14 @@ type Report struct {
 	workflowRegistryChainSelector uint64
 }
 
-func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger, client BillingClient, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) (*Report, error) {
+func NewReport(
+	ctx context.Context,
+	labels map[string]string,
+	lggr logger.Logger,
+	client BillingClient,
+	metrics *monitoring.WorkflowsMetricLabeler,
+	workflowRegistryAddress, workflowRegistryChainSelector, engineVersion string,
+) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
 		_, ok := labels[label]
@@ -129,6 +146,7 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		metrics:                 metrics,
 		workflowRegistryAddress: workflowRegistryAddress,
 		rateCard:                make(map[string]decimal.Decimal),
+		engineVersion:           engineVersion,
 
 		reserved: false,
 		steps:    make(map[string]ReportStep),
@@ -145,15 +163,12 @@ func NewReport(ctx context.Context, labels map[string]string, lggr logger.Logger
 		report.switchToMeteringMode(ErrNoBillingClient)
 	}
 
-	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
+	chainSelector, err := strconv.ParseUint(workflowRegistryChainSelector, 10, 64)
 	if err != nil {
-		report.switchToMeteringMode(fmt.Errorf("failed to parse registry chain id: %w", err))
+		report.switchToMeteringMode(fmt.Errorf("failed to parse registry chain selector: %w", err))
 	}
 
-	report.workflowRegistryChainSelector, err = chainselectors.SelectorFromChainId(chainID)
-	if err != nil {
-		report.switchToMeteringMode(fmt.Errorf("failed to get selector for chain id: %w", err))
-	}
+	report.workflowRegistryChainSelector = chainSelector
 
 	if client != nil {
 		report.client = client
@@ -238,7 +253,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
-		r.switchToMeteringMode(err)
+		r.switchToMeteringMode(fmt.Errorf("%w: failed to parse credits %s", err, resp.GetCredits()))
 
 		return nil
 	}
@@ -261,8 +276,9 @@ func ByResource(
 ) func(string, *Report) ([]capabilities.SpendLimit, error) {
 	return func(ref string, r *Report) ([]capabilities.SpendLimit, error) {
 		step := ReportStep{
-			CapabilityID: capabilityID,
-			Deduction:    decimal.Zero,
+			CapabilityID:     capabilityID,
+			Deduction:        decimal.Zero,
+			AggregatedSpends: make(map[string]AggregatedStepDetail),
 		}
 
 		defer func() {
@@ -296,8 +312,9 @@ func ByDerivedAvailability(
 ) func(string, *Report) ([]capabilities.SpendLimit, error) {
 	return func(ref string, r *Report) ([]capabilities.SpendLimit, error) {
 		step := ReportStep{
-			CapabilityID: info.ID,
-			Deduction:    decimal.Zero,
+			CapabilityID:     info.ID,
+			Deduction:        decimal.Zero,
+			AggregatedSpends: make(map[string]AggregatedStepDetail),
 		}
 
 		defer func() {
@@ -373,15 +390,21 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	// Group by resource dimension
 	for _, nodeDetail := range spendsByNode {
 		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
-			Peer2PeerID: nodeDetail.Peer2PeerID,
-			SpendValue:  nodeDetail.SpendValue,
+			Peer2PeerID:   nodeDetail.Peer2PeerID,
+			SpendValue:    nodeDetail.SpendValue,
+			CRESpendValue: decimal.Zero,
 		})
 	}
 
 	// Aggregate node responses to a single number
 	for unit, spendDetails := range resourceSpends {
+		aggregated := AggregatedStepDetail{
+			SpendUnit:  unit,
+			SpendValue: decimal.Zero,
+		}
+
 		deciVals := []decimal.Decimal{}
-		for _, detail := range spendDetails {
+		for idx, detail := range spendDetails {
 			value, err := decimal.NewFromString(detail.SpendValue)
 			if err != nil {
 				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
@@ -396,16 +419,32 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 				value = value.Shift(18) // shift to fixed point value
 			}
 
+			if val, err := r.balance.ConvertToBalance(unit, value); err == nil {
+				resourceSpends[unit][idx].CRESpendValue = val
+			}
+
 			deciVals = append(deciVals, value)
 		}
 
-		aggregateSpend := medianSpend(deciVals)
-		bal, err := r.balance.ConvertToBalance(unit, aggregateSpend)
-		if err != nil {
-			r.switchToMeteringMode(fmt.Errorf("attempted to Settle [%s]: %w", unit, err))
+		// TODO: explicitly ignore RPC_EVM spend types for now -
+		// this check causes TestEngine_Metering_ValidBillingClient/billing_type_and_capability_settle_spend_type_mismatch ./core/services/workflows/v2
+		// to fail because the capability is returning a spend type that isn't gas or compute
+		// This should be removed when we have proper support for non-gas/compute spend types
+		if unit == "RPC_EVM" {
+			continue
 		}
 
-		spentCredits = spentCredits.Add(bal)
+		aggregated.SpendValue = medianSpend(deciVals)
+		bal, err := r.balance.ConvertToBalance(unit, aggregated.SpendValue)
+
+		if err != nil {
+			r.switchToMeteringMode(fmt.Errorf("attempted to Settle [%s]: %w", unit, err))
+		} else {
+			aggregated.CRESpendValue = bal
+			spentCredits = spentCredits.Add(bal)
+		}
+
+		step.AggregatedSpends[unit] = aggregated
 	}
 
 	step.Spends = resourceSpends
@@ -425,10 +464,36 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 	return nil
 }
 
+func labelToInt32(label string) int32 {
+	if value, err := strconv.ParseInt(label, 10, 32); err == nil {
+		return int32(value)
+	}
+
+	return -1
+}
+
 func (r *Report) FormatReport() *protoEvents.MeteringReport {
 	protoReport := &protoEvents.MeteringReport{
-		Steps:        map[string]*protoEvents.MeteringReportStep{},
-		Metadata:     &protoEvents.WorkflowMetadata{},
+		Steps: map[string]*protoEvents.MeteringReportStep{},
+		Metadata: &protoEvents.WorkflowMetadata{
+			WorkflowOwner:           r.labels[platform.KeyWorkflowOwner],
+			WorkflowName:            r.labels[platform.KeyWorkflowID],
+			Version:                 r.labels[platform.KeyWorkflowVersion],
+			WorkflowID:              r.labels[platform.KeyWorkflowID],
+			WorkflowExecutionID:     r.labels[platform.KeyWorkflowExecutionID],
+			DonID:                   labelToInt32(r.labels[platform.KeyDonID]),
+			DonF:                    labelToInt32(r.labels[platform.KeyDonF]),
+			DonN:                    labelToInt32(r.labels[platform.KeyDonN]),
+			P2PID:                   r.labels[platform.KeyP2PID],
+			WorkflowRegistryAddress: r.workflowRegistryAddress,
+			WorkflowRegistryVersion: "", // TODO: r.workflowRegistryVersion,
+			WorkflowRegistryChain:   strconv.FormatUint(r.workflowRegistryChainSelector, 10),
+			EngineVersion:           r.engineVersion,
+			DonVersion:              "", // TODO: r.donVersion,
+			Trigger: &protoEvents.TriggerDetail{
+				TriggerID: r.labels[platform.KeyTriggerID],
+			},
+		},
 		MeteringMode: r.meteringMode,
 	}
 
@@ -439,22 +504,29 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 	r.stepRefLookup = []string{}
 
 	for ref, step := range r.steps {
+		stepDetails := &protoEvents.MeteringReportStep{}
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
 		r.stepRefLookup = append(r.stepRefLookup, ref+":"+step.CapabilityID)
 
 		for unit, details := range step.Spends {
 			for _, detail := range details {
 				nodeDetails = append(nodeDetails, &protoEvents.MeteringReportNodeDetail{
-					Peer_2PeerId: detail.Peer2PeerID,
-					SpendUnit:    unit,
-					SpendValue:   detail.SpendValue,
+					Peer_2PeerId:  detail.Peer2PeerID,
+					SpendUnit:     unit,
+					SpendValue:    detail.SpendValue,
+					SpendValueCre: detail.CRESpendValue.StringFixed(defaultDecimalPrecision),
 				})
+			}
+
+			if aggregated, ok := step.AggregatedSpends[unit]; ok {
+				stepDetails.AggSpendValue = aggregated.SpendValue.StringFixed(defaultDecimalPrecision)
+				stepDetails.AggSpendUnit = aggregated.SpendUnit
+				stepDetails.AggSpendValueCre = aggregated.CRESpendValue.StringFixed(defaultDecimalPrecision)
 			}
 		}
 
-		protoReport.Steps[ref] = &protoEvents.MeteringReportStep{
-			Nodes: nodeDetails,
-		}
+		stepDetails.Nodes = nodeDetails
+		protoReport.Steps[ref] = stepDetails
 	}
 
 	return protoReport
@@ -676,12 +748,21 @@ type Reports struct {
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
-	// WorkflowRegistryChainSelector is the chain ID for the workflow registry
-	workflowRegistryChainID string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
+	engineVersion                 string
 }
 
 // NewReports initializes and returns a new Reports.
-func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logger, labels map[string]string, metrics *monitoring.WorkflowsMetricLabeler, workflowRegistryAddress, workflowRegistryChainID string) *Reports {
+func NewReports(
+	client BillingClient,
+	owner, workflowID string,
+	lggr logger.Logger,
+	labels map[string]string,
+	metrics *monitoring.WorkflowsMetricLabeler,
+	workflowRegistryAddress,
+	workflowRegistryChainSelector, engineVersion string,
+) *Reports {
 	valOf := reflect.ValueOf(client)
 	if valOf.IsValid() && valOf.IsNil() {
 		client = nil
@@ -697,8 +778,9 @@ func NewReports(client BillingClient, owner, workflowID string, lggr logger.Logg
 		workflowID: workflowID,
 		labelMap:   labels,
 
-		workflowRegistryAddress: workflowRegistryAddress,
-		workflowRegistryChainID: workflowRegistryChainID,
+		workflowRegistryAddress:       workflowRegistryAddress,
+		workflowRegistryChainSelector: workflowRegistryChainSelector,
+		engineVersion:                 engineVersion,
 	}
 }
 
@@ -725,7 +807,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID)
+	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainSelector, s.engineVersion)
 	if err != nil {
 		return nil, err
 	}

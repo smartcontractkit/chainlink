@@ -607,7 +607,6 @@ type SetPoolTokenConfig struct {
 	PoolType          cldf.ContractType
 	Metadata          string
 	SkipRegistryCheck bool // set to true when you want to register and set pool in the same proposal
-	WritableIndexes   []uint8
 }
 
 type SetPoolConfig struct {
@@ -699,6 +698,10 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 		lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey][tokenConfig.PoolType][tokenConfig.Metadata]
 
+		writableIndexes := []uint8{3, 4, 7}
+		if tokenConfig.PoolType == shared.CCTPTokenPool {
+			writableIndexes = []uint8{4, 5, 7, 10, 16}
+		}
 		var currentAdmin solana.PublicKey
 		// if skip registry check is true, then we are registering and setting pool in the same batch, so while generating the instruction, we will use the timelock signer as the current admin
 		if tokenConfig.SkipRegistryCheck {
@@ -711,7 +714,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 			currentAdmin = tokenAdminRegistryAccount.Administrator
 		}
 		base := solRouter.NewSetPoolInstruction(
-			tokenConfig.WritableIndexes,
+			writableIndexes,
 			routerConfigPDA,
 			tokenAdminRegistryPDA,
 			tokenPubKey,

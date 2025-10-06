@@ -99,7 +99,7 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context,
 	var respCh chan capabilities.TriggerResponse
 	ok := s.IfNotStopped(func() {
 		respCh, err = s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
-			l, ch, tErr := newLogEventTrigger(ctx, s.lggr, req.Metadata.WorkflowID, reqConfig, s.logEventConfig, s.relayer)
+			l, ch, tErr := newLogEventTrigger(ctx, s.lggr, req.Metadata, reqConfig, s.logEventConfig, s.relayer)
 			if tErr != nil {
 				return l, ch, tErr
 			}

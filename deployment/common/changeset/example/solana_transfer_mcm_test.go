@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/quarantine"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -215,6 +216,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 }
 
 func TestTransferFromTimelockConfig_Apply(t *testing.T) {
+	quarantine.Flaky(t, "DX-1754")
 	t.Parallel()
 	env := setupFundingTestEnv(t)
 	cfgAmounts := example.TransferData{

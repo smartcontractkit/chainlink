@@ -778,18 +778,3 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	tomlStr, err := tomlCfg.TOMLString()
 	return tomlCfg, tomlStr, err
 }
-
-func GetSourceDestPairs(chains []uint64) []testhelpers.SourceDestPair {
-	var pairs []testhelpers.SourceDestPair
-	for i, src := range chains {
-		for j, dest := range chains {
-			if i != j {
-				pairs = append(pairs, testhelpers.SourceDestPair{
-					SourceChainSelector: src,
-					DestChainSelector:   dest,
-				})
-			}
-		}
-	}
-	return pairs
-}

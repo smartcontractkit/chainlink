@@ -1442,14 +1442,6 @@ observationSource = """
 	return MarshallTemplate(w, "Webhook Job", webHookTemplateString)
 }
 
-// ObservationSourceSpecHTTP creates a http GET task spec for json data
-func ObservationSourceSpecHTTP(url string) string {
-	return fmt.Sprintf(`
-		fetch [type=http method=GET url="%s"];
-		parse [type=jsonparse path="data,result"];
-		fetch -> parse;`, url)
-}
-
 // ObservationSourceSpecBridge creates a bridge task spec for json data
 func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 	return fmt.Sprintf(`

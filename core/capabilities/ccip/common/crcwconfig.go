@@ -21,6 +21,7 @@ type ChainReaderProviderOpts struct {
 	ChainSelector   cciptypes.ChainSelector
 	ChainFamily     string
 	DestChainFamily string
+	Transmitters    map[types.RelayID][]string
 }
 
 // ChainWriterProviderOpts is a struct that contains the parameters for GetChainWriter.
