@@ -191,7 +191,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
-			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+			platform.KeyWorkflowOwner, wfOwner,
 			platform.KeyWorkflowTag, payload.WorkflowTag,
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,

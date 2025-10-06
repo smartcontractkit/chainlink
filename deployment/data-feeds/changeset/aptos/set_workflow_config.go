@@ -50,10 +50,9 @@ func setWorkflowConfigLogic(env cldf.Environment, c types.SetRegistryWorkflowCon
 		return cldf.ChangesetOutput{}, err
 	}
 	if !tx.Success {
-		fmt.Println("Transaction failed", tx.Hash)
-	} else {
-		fmt.Println("Transaction succeeded", tx.Hash)
+		return cldf.ChangesetOutput{}, fmt.Errorf("set workflow config transaction failed: %s", tx.Hash)
 	}
+	env.Logger.Info("Transaction succeeded", tx.Hash)
 
 	return cldf.ChangesetOutput{}, nil
 }

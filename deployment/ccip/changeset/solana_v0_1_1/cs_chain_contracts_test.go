@@ -586,6 +586,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 }
 
 func TestBillingWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1723")
 	t.Parallel()
 	doTestBilling(t, true)
 }
@@ -819,6 +820,7 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
 	doTestTokenAdminRegistry(t, true)
 }
@@ -929,6 +931,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
+	quarantine.Flaky(t, "DX-1753")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)

@@ -1,24 +1,23 @@
 package changeset
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -37,12 +36,10 @@ var (
 )
 
 func TestBatchNativeTransferValidation(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 0,
-	})
-	// Ensure a non-nil datastore for validation that inspects whitelist state
-	env.DataStore = datastore.NewMemoryDataStore().Seal()
+	t.Parallel()
+
+	env, err := environment.New(t.Context())
+	require.NoError(t, err)
 
 	tests := []struct {
 		name      string
@@ -108,7 +105,9 @@ func TestBatchNativeTransferValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateBatchNativeTransferConfig(env.GetContext(), env, tt.config)
+			t.Parallel()
+
+			err := ValidateBatchNativeTransferConfig(env.GetContext(), *env, tt.config)
 
 			if tt.wantError {
 				require.Error(t, err)
@@ -123,10 +122,10 @@ func TestBatchNativeTransferValidation(t *testing.T) {
 }
 
 func TestSetWhitelist(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 0,
-	})
+	t.Parallel()
+
+	rt, err := runtime.New(t.Context())
+	require.NoError(t, err)
 
 	initialConfig := types.SetWhitelistConfig{
 		WhitelistByChain: map[uint64][]types.WhitelistAddress{
@@ -145,13 +144,13 @@ func TestSetWhitelist(t *testing.T) {
 		},
 	}
 
-	output, err := SetWhitelistChangeset.Apply(env, initialConfig)
+	initialTask := runtime.ChangesetTask(SetWhitelistChangeset, initialConfig)
+	err = rt.Exec(initialTask)
+
 	require.NoError(t, err)
-	require.NotNil(t, output.DataStore)
+	require.NotNil(t, rt.State().Outputs[initialTask.ID()].DataStore)
 
-	env.DataStore = output.DataStore.Seal()
-
-	whitelist, err := GetWhitelistedAddresses(env, []uint64{testChainID})
+	whitelist, err := GetWhitelistedAddresses(rt.Environment(), []uint64{testChainID})
 	require.NoError(t, err)
 	require.Len(t, whitelist[testChainID], 2)
 
@@ -168,13 +167,13 @@ func TestSetWhitelist(t *testing.T) {
 		},
 	}
 
-	output2, err := SetWhitelistChangeset.Apply(env, updatedConfig)
+	removeTask := runtime.ChangesetTask(SetWhitelistChangeset, updatedConfig)
+	err = rt.Exec(removeTask)
+
 	require.NoError(t, err)
-	require.NotNil(t, output2.DataStore)
+	require.NotNil(t, rt.State().Outputs[removeTask.ID()].DataStore)
 
-	env.DataStore = output2.DataStore.Seal()
-
-	updatedWhitelist, err := GetWhitelistedAddresses(env, []uint64{testChainID})
+	updatedWhitelist, err := GetWhitelistedAddresses(rt.Environment(), []uint64{testChainID})
 	require.NoError(t, err)
 	require.Len(t, updatedWhitelist[testChainID], 1)
 	require.Equal(t, testAddr2, updatedWhitelist[testChainID][0].Address)
@@ -182,40 +181,41 @@ func TestSetWhitelist(t *testing.T) {
 
 func TestBatchNativeTransferIntegration(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	})
-
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 2, "Need 2 chains for testing")
 
 	t.Run("full workflow with MCMS setup", func(t *testing.T) {
-		env = setupMCMSInfrastructure(t, env, chainSelectors)
-		fundDeployerAccounts(t, env, chainSelectors)
-		env = setupWhitelist(t, env, chainSelectors...)
-		env = fundTimelockContracts(t, env, chainSelectors...)
-		executeBatchTransfersWithMCMS(t, env, chainSelectors...)
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulatedN(t, 2),
+		))
+		require.NoError(t, err)
+
+		chainSelectors := make([]uint64, 0)
+		for chainSel := range rt.Environment().BlockChains.EVMChains() {
+			chainSelectors = append(chainSelectors, chainSel)
+		}
+		require.Len(t, chainSelectors, 2, "Need 2 chains for testing")
+
+		setupMCMSInfrastructure(t, rt, chainSelectors)
+		fundDeployerAccounts(t, rt.Environment(), chainSelectors)
+		setupWhitelist(t, rt, chainSelectors...)
+		fundTimelockContracts(t, rt, chainSelectors...)
+		executeBatchTransfersWithMCMS(t, rt, chainSelectors...)
 	})
 
 	t.Run("direct execution without MCMS", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
-		env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-			Chains: 2,
-		})
-		chainSelectors := getChainSelectors(env)
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulatedN(t, 2),
+		))
+		require.NoError(t, err)
+
+		chainSelectors := getChainSelectors(rt.Environment())
 		testChain := chainSelectors[0]
-		env = setupWhitelist(t, env, testChain)
-		executeDirectTransfers(t, env, testChain)
+		setupWhitelist(t, rt, testChain)
+		executeDirectTransfers(t, rt, testChain)
 	})
 }
 
-func setupMCMSInfrastructure(t *testing.T, env cldf.Environment, chainSelectors []uint64) cldf.Environment {
-	lggr := env.Logger
-	lggr.Info("Setting up MCMS infrastructure with real deployment")
+func setupMCMSInfrastructure(t *testing.T, rt *runtime.Runtime, chainSelectors []uint64) {
+	t.Log("Setting up MCMS infrastructure with real deployment")
 
 	timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, sel := range chainSelectors {
@@ -223,8 +223,8 @@ func setupMCMSInfrastructure(t *testing.T, env cldf.Environment, chainSelectors 
 		timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
 	}
 
-	updatedEnv, err := commonchangeset.Apply(t, env,
-		commonchangeset.Configure(
+	err := rt.Exec(
+		runtime.ChangesetTask(
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			timelockCfgs,
 		),
@@ -232,23 +232,21 @@ func setupMCMSInfrastructure(t *testing.T, env cldf.Environment, chainSelectors 
 	require.NoError(t, err)
 
 	for _, chainSel := range chainSelectors {
-		timelockAddr, err := GetContractAddress(updatedEnv.DataStore, chainSel, commontypes.RBACTimelock)
+		timelockAddr, err := GetContractAddress(rt.State().DataStore, chainSel, commontypes.RBACTimelock)
 		require.NoError(t, err)
-		lggr.Infow("Timelock deployed", "chain", chainSel, "address", timelockAddr)
+		t.Logf("Timelock deployed on chain %d with address %s", chainSel, timelockAddr)
 
-		proposerAddr, err := GetContractAddress(updatedEnv.DataStore, chainSel, commontypes.ProposerManyChainMultisig)
+		proposerAddr, err := GetContractAddress(rt.State().DataStore, chainSel, commontypes.ProposerManyChainMultisig)
 		require.NoError(t, err)
-		lggr.Infow("Proposer deployed", "chain", chainSel, "address", proposerAddr)
+		t.Logf("Proposer deployed on chain %d with address %s", chainSel, proposerAddr)
 	}
 
-	lggr.Info("MCMS deployment completed successfully")
-	return updatedEnv
+	t.Log("MCMS deployment completed successfully")
 }
 
 // fundDeployerAccounts ensures deployer accounts have sufficient native tokens
 func fundDeployerAccounts(t *testing.T, env cldf.Environment, chainSelectors []uint64) {
-	lggr := env.Logger
-	lggr.Info("Funding deployer accounts")
+	t.Log("Funding deployer accounts")
 
 	for _, chainSel := range chainSelectors {
 		chain := env.BlockChains.EVMChains()[chainSel]
@@ -259,13 +257,12 @@ func fundDeployerAccounts(t *testing.T, env cldf.Environment, chainSelectors []u
 		minBalance := HundredETH
 		require.GreaterOrEqual(t, balance.Cmp(minBalance), 0, "Deployer account has insufficient balance on chain %d: balance=%s, required=%s", chainSel, balance.String(), minBalance.String())
 
-		lggr.Infow("Deployer account funded", "chain", chainSel, "balance", balance.String())
+		t.Logf("Deployer account funded on chain %d with balance %s", chainSel, balance.String())
 	}
 }
 
-func setupWhitelist(t *testing.T, env cldf.Environment, chainSelectors ...uint64) cldf.Environment {
-	lggr := env.Logger
-	lggr.Info("Setting up whitelist")
+func setupWhitelist(t *testing.T, rt *runtime.Runtime, chainSelectors ...uint64) {
+	t.Log("Setting up whitelist")
 
 	whitelistByChain := make(map[uint64][]types.WhitelistAddress)
 
@@ -297,31 +294,23 @@ func setupWhitelist(t *testing.T, env cldf.Environment, chainSelectors ...uint64
 		WhitelistByChain: whitelistByChain,
 	}
 
-	output, err := SetWhitelistChangeset.Apply(env, whitelistConfig)
-	require.NoError(t, err)
-	require.NotNil(t, output.DataStore)
+	setTask := runtime.ChangesetTask(SetWhitelistChangeset, whitelistConfig)
+	err := rt.Exec(setTask)
 
-	// Merge the new whitelist DataStore with existing DataStore (which contains MCMS addresses)
-	mergedDS := datastore.NewMemoryDataStore()
-	err = mergedDS.Merge(env.DataStore)
 	require.NoError(t, err)
-	err = mergedDS.Merge(output.DataStore.Seal())
-	require.NoError(t, err)
-
-	env.DataStore = mergedDS.Seal()
+	require.NotNil(t, rt.State().Outputs[setTask.ID()].DataStore)
 
 	totalAddresses := 0
 	for _, addresses := range whitelistByChain {
 		totalAddresses += len(addresses)
 	}
-	lggr.Infow("Whitelist configured", "chains", len(whitelistByChain), "total_addresses", totalAddresses)
-	return env
+
+	t.Logf("Whitelist configured | chains: %d, total_addresses: %d", len(whitelistByChain), totalAddresses)
 }
 
 // fundTimelockContracts funds timelock contracts with native tokens
-func fundTimelockContracts(t *testing.T, env cldf.Environment, chainSelectors ...uint64) cldf.Environment {
-	lggr := env.Logger
-	lggr.Info("Funding timelock contracts")
+func fundTimelockContracts(t *testing.T, rt *runtime.Runtime, chainSelectors ...uint64) {
+	t.Log("Funding timelock contracts")
 
 	fundingConfig := types.FundTimelockConfig{
 		FundingByChain: make(map[uint64]*big.Int),
@@ -329,31 +318,39 @@ func fundTimelockContracts(t *testing.T, env cldf.Environment, chainSelectors ..
 
 	fundingAmount := TenETH
 
-	timelockBalances, err := GetTimelockBalances(env, chainSelectors)
+	timelockBalances, err := GetTimelockBalances(rt.Environment(), chainSelectors)
 	require.NoError(t, err, "Failed to get timelock balances - contracts may not be deployed")
 
 	for _, chainSel := range chainSelectors {
 		balance, exists := timelockBalances[chainSel]
 		require.True(t, exists, "Timelock balance info not found for chain %d", chainSel)
-		lggr.Infow("Found timelock to fund", "chain", chainSel, "address", balance.TimelockAddr, "current_balance", balance.Balance.String())
+		t.Logf("Found timelock to fund on chain %d with address %s and current balance %s", chainSel, balance.TimelockAddr, balance.Balance.String())
 
 		fundingConfig.FundingByChain[chainSel] = fundingAmount
 	}
 
-	output, err := FundTimelockChangeset.Apply(env, fundingConfig)
+	err = rt.Exec(
+		runtime.ChangesetTask(FundTimelockChangeset, fundingConfig),
+	)
+
 	require.NoError(t, err)
 
-	if output.DataStore != nil {
-		env.DataStore = output.DataStore.Seal()
+	timelockBalances, err = GetTimelockBalances(rt.Environment(), chainSelectors)
+	require.NoError(t, err, "Failed to get timelock balances - contracts may not be deployed")
+
+	for _, chainSel := range chainSelectors {
+		balance, exists := timelockBalances[chainSel]
+		require.True(t, exists, "Timelock balance info not found for chain %d", chainSel)
+		t.Logf("Found timelock to fund on chain %d with address %s and current balance %s", chainSel, balance.TimelockAddr, balance.Balance.String())
+
+		fundingConfig.FundingByChain[chainSel] = fundingAmount
 	}
 
-	lggr.Info("Timelock contracts funded successfully")
-	return env
+	t.Log("Timelock contracts funded successfully")
 }
 
-func executeBatchTransfersWithMCMS(t *testing.T, env cldf.Environment, chainSelectors ...uint64) {
-	lggr := env.Logger
-	lggr.Info("Executing batch transfers with MCMS")
+func executeBatchTransfersWithMCMS(t *testing.T, rt *runtime.Runtime, chainSelectors ...uint64) {
+	t.Log("Executing batch transfers with MCMS")
 
 	transferConfig := types.BatchNativeTransferConfig{
 		TransfersByChain: make(map[uint64][]types.NativeTransfer),
@@ -381,10 +378,13 @@ func executeBatchTransfersWithMCMS(t *testing.T, env cldf.Environment, chainSele
 		}
 	}
 
-	output, err := BatchNativeTransferChangeset.Apply(env, transferConfig)
+	transferTask := runtime.ChangesetTask(BatchNativeTransferChangeset, transferConfig)
+	err := rt.Exec(transferTask)
 	require.NoError(t, err)
-	require.NotEmpty(t, output.MCMSTimelockProposals, "Should create MCMS proposals")
 
+	output := rt.State().Outputs[transferTask.ID()]
+
+	require.NotEmpty(t, output.MCMSTimelockProposals, "Should create MCMS proposals")
 	require.Len(t, output.MCMSTimelockProposals, 1, "Should create exactly 1 MCMS proposal for all chains")
 
 	proposal := output.MCMSTimelockProposals[0]
@@ -399,35 +399,23 @@ func executeBatchTransfersWithMCMS(t *testing.T, env cldf.Environment, chainSele
 		require.True(t, operationChains[expectedChain], "Proposal should contain operation for chain %d", expectedChain)
 	}
 
-	lggr.Infow("MCMS proposals created", "count", len(output.MCMSTimelockProposals), "operations_in_proposal", len(proposal.Operations), "chains_in_proposal", len(operationChains))
+	err = rt.Exec(
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err)
 
-	for i, proposal := range output.MCMSTimelockProposals {
-		require.NotEmpty(t, proposal.Operations, "Proposal %d should have operations", i)
+	t.Log("MCMS proposal executed successfully")
 
-		lggr.Infow("Executing MCMS proposal", "index", i, "operations", len(proposal.Operations))
-
-		mcmProp := proposalutils.SignMCMSTimelockProposal(t, env, &proposal, false)
-
-		err = proposalutils.ExecuteMCMSProposalV2(t, env, mcmProp)
-		require.NoError(t, err, "Failed to execute MCMS proposal %d", i)
-
-		err = proposalutils.ExecuteMCMSTimelockProposalV2(t, env, &proposal)
-		require.NoError(t, err, "Failed to execute timelock proposal %d", i)
-
-		lggr.Infow("MCMS proposal executed successfully", "index", i)
-	}
-
-	verifyTransferExecution(t, env, transferConfig, chainSelectors)
+	verifyTransferExecution(t, rt.Environment(), transferConfig, chainSelectors)
 }
 
-func executeDirectTransfers(t *testing.T, env cldf.Environment, chainSelector uint64) {
-	lggr := env.Logger
-	lggr.Info("Executing direct transfers without MCMS")
+func executeDirectTransfers(t *testing.T, rt *runtime.Runtime, chainSelector uint64) {
+	t.Log("Executing direct transfers without MCMS")
 
 	recipient := common.HexToAddress(testRecipientAddr1)
 	transferAmount := OneETH
 
-	chain := env.BlockChains.EVMChains()[chainSelector]
+	chain := rt.Environment().BlockChains.EVMChains()[chainSelector]
 	initialBalance, err := chain.Client.BalanceAt(testutils.Context(t), recipient, nil)
 	require.NoError(t, err)
 
@@ -444,8 +432,9 @@ func executeDirectTransfers(t *testing.T, env cldf.Environment, chainSelector ui
 		Description: "Direct transfer test",
 	}
 
-	output, err := BatchNativeTransferChangeset.Apply(env, transferConfig)
+	output, err := BatchNativeTransferChangeset.Apply(rt.Environment(), transferConfig)
 	require.NoError(t, err)
+
 	require.NotNil(t, output.Reports, "Should have execution reports")
 
 	finalBalance, err := chain.Client.BalanceAt(testutils.Context(t), recipient, nil)
@@ -454,13 +443,13 @@ func executeDirectTransfers(t *testing.T, env cldf.Environment, chainSelector ui
 	expectedBalance := big.NewInt(0).Add(initialBalance, transferAmount)
 	require.Equal(t, expectedBalance, finalBalance, "Recipient balance should increase by transfer amount")
 
-	lggr.Info("Direct transfers executed and verified successfully")
+	t.Log("Direct transfers executed and verified successfully")
 }
 
 // verifyTransferExecution verifies that transfers were executed by checking recipient balances
 func verifyTransferExecution(t *testing.T, env cldf.Environment, config types.BatchNativeTransferConfig, chainSelectors []uint64) {
 	lggr := env.Logger
-	lggr.Info("Verifying transfer execution")
+	t.Log("Verifying transfer execution")
 
 	evmChains := env.BlockChains.EVMChains()
 

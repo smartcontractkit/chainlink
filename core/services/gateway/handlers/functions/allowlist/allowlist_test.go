@@ -16,12 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	clienttest "github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	amocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 const (
@@ -372,7 +372,7 @@ func TestExtractContractVersion(t *testing.T) {
 func encodeTypeAndVersionResponse(typeAndVersion string) ([]byte, error) {
 	codecName := "my_codec"
 	evmEncoderConfig := `[{"Name":"typeAndVersion","Type":"string"}]`
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
 	encoder, err := codec.NewCodec(codecConfig)

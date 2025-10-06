@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -40,7 +41,6 @@ import (
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	registrysyncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type crFactory struct {
@@ -51,7 +51,7 @@ type crFactory struct {
 }
 
 func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.ContractReader, error) {
-	crCfg := &evmrelaytypes.ChainReaderConfig{}
+	crCfg := &config.ChainReaderConfig{}
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func TestReader_Integration(t *testing.T) {
 	cid := writeChainCapabilityV2.CapabilityId
 
 	// Add node operator
-	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP_V2",
@@ -425,7 +425,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 	cid := writeChainCapabilityV2.CapabilityId
 
 	// Add node operator
-	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP_V2",
@@ -713,7 +713,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	simulatedBackend.Commit()
 
 	// Add node operator
-	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP_V2_FAMILY",
@@ -784,7 +784,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	simulatedBackend.Commit()
 
 	// Create capability configurations
-	config := &capabilitiespb.CapabilityConfig{
+	capConfig := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
 			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
@@ -795,7 +795,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 			},
 		},
 	}
-	configb, err := proto.Marshal(config)
+	configb, err := proto.Marshal(capConfig)
 	require.NoError(t, err)
 
 	cfgs := []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
@@ -882,11 +882,11 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 
 	// Create a V2 reader to test family operations directly
 	// First, we need to create a properly configured contract reader
-	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
-		Contracts: map[string]evmrelaytypes.ChainContractReader{
+	contractReaderConfig := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			"CapabilitiesRegistry": {
 				ContractABI: capabilities_registry_v2.CapabilitiesRegistryABI,
-				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					"getDONs": {
 						ChainSpecificName: "getDONs",
 					},
@@ -1050,6 +1050,8 @@ func (r *CapabilitiesRegistryReader) GetDONsInFamily(ctx context.Context, family
 		primitives.Unconfirmed,
 		map[string]any{
 			"donFamily": family,
+			"start":     0,
+			"limit":     1000,
 		},
 		&familyADONs,
 	)

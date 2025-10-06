@@ -18,6 +18,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
-	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type txManager interface {
@@ -58,7 +58,7 @@ type contractTransmitter struct {
 }
 
 var _ FunctionsContractTransmitter = &contractTransmitter{}
-var _ evmRelayTypes.RouteUpdateSubscriber = &contractTransmitter{}
+var _ config.RouteUpdateSubscriber = &contractTransmitter{}
 
 func transmitterFilterName(addr common.Address) string {
 	return logpoller.FilterName("FunctionsOCR2ContractTransmitter", addr.String())

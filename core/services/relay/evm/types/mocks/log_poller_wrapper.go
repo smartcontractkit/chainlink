@@ -5,7 +5,8 @@ package mocks
 import (
 	context "context"
 
-	types "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	config "github.com/smartcontractkit/chainlink-evm/pkg/config"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -115,32 +116,32 @@ func (_c *LogPollerWrapper_HealthReport_Call) RunAndReturn(run func() map[string
 }
 
 // LatestEvents provides a mock function with given fields: ctx
-func (_m *LogPollerWrapper) LatestEvents(ctx context.Context) ([]types.OracleRequest, []types.OracleResponse, error) {
+func (_m *LogPollerWrapper) LatestEvents(ctx context.Context) ([]config.OracleRequest, []config.OracleResponse, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LatestEvents")
 	}
 
-	var r0 []types.OracleRequest
-	var r1 []types.OracleResponse
+	var r0 []config.OracleRequest
+	var r1 []config.OracleResponse
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]types.OracleRequest, []types.OracleResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) ([]config.OracleRequest, []config.OracleResponse, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) []types.OracleRequest); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) []config.OracleRequest); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.OracleRequest)
+			r0 = ret.Get(0).([]config.OracleRequest)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context) []types.OracleResponse); ok {
+	if rf, ok := ret.Get(1).(func(context.Context) []config.OracleResponse); ok {
 		r1 = rf(ctx)
 	} else {
 		if ret.Get(1) != nil {
-			r1 = ret.Get(1).([]types.OracleResponse)
+			r1 = ret.Get(1).([]config.OracleResponse)
 		}
 	}
 
@@ -171,12 +172,12 @@ func (_c *LogPollerWrapper_LatestEvents_Call) Run(run func(ctx context.Context))
 	return _c
 }
 
-func (_c *LogPollerWrapper_LatestEvents_Call) Return(_a0 []types.OracleRequest, _a1 []types.OracleResponse, _a2 error) *LogPollerWrapper_LatestEvents_Call {
+func (_c *LogPollerWrapper_LatestEvents_Call) Return(_a0 []config.OracleRequest, _a1 []config.OracleResponse, _a2 error) *LogPollerWrapper_LatestEvents_Call {
 	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *LogPollerWrapper_LatestEvents_Call) RunAndReturn(run func(context.Context) ([]types.OracleRequest, []types.OracleResponse, error)) *LogPollerWrapper_LatestEvents_Call {
+func (_c *LogPollerWrapper_LatestEvents_Call) RunAndReturn(run func(context.Context) ([]config.OracleRequest, []config.OracleResponse, error)) *LogPollerWrapper_LatestEvents_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -318,7 +319,7 @@ func (_c *LogPollerWrapper_Start_Call) RunAndReturn(run func(context.Context) er
 }
 
 // SubscribeToUpdates provides a mock function with given fields: ctx, name, subscriber
-func (_m *LogPollerWrapper) SubscribeToUpdates(ctx context.Context, name string, subscriber types.RouteUpdateSubscriber) {
+func (_m *LogPollerWrapper) SubscribeToUpdates(ctx context.Context, name string, subscriber config.RouteUpdateSubscriber) {
 	_m.Called(ctx, name, subscriber)
 }
 
@@ -330,14 +331,14 @@ type LogPollerWrapper_SubscribeToUpdates_Call struct {
 // SubscribeToUpdates is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-//   - subscriber types.RouteUpdateSubscriber
+//   - subscriber config.RouteUpdateSubscriber
 func (_e *LogPollerWrapper_Expecter) SubscribeToUpdates(ctx interface{}, name interface{}, subscriber interface{}) *LogPollerWrapper_SubscribeToUpdates_Call {
 	return &LogPollerWrapper_SubscribeToUpdates_Call{Call: _e.mock.On("SubscribeToUpdates", ctx, name, subscriber)}
 }
 
-func (_c *LogPollerWrapper_SubscribeToUpdates_Call) Run(run func(ctx context.Context, name string, subscriber types.RouteUpdateSubscriber)) *LogPollerWrapper_SubscribeToUpdates_Call {
+func (_c *LogPollerWrapper_SubscribeToUpdates_Call) Run(run func(ctx context.Context, name string, subscriber config.RouteUpdateSubscriber)) *LogPollerWrapper_SubscribeToUpdates_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(types.RouteUpdateSubscriber))
+		run(args[0].(context.Context), args[1].(string), args[2].(config.RouteUpdateSubscriber))
 	})
 	return _c
 }
@@ -347,7 +348,7 @@ func (_c *LogPollerWrapper_SubscribeToUpdates_Call) Return() *LogPollerWrapper_S
 	return _c
 }
 
-func (_c *LogPollerWrapper_SubscribeToUpdates_Call) RunAndReturn(run func(context.Context, string, types.RouteUpdateSubscriber)) *LogPollerWrapper_SubscribeToUpdates_Call {
+func (_c *LogPollerWrapper_SubscribeToUpdates_Call) RunAndReturn(run func(context.Context, string, config.RouteUpdateSubscriber)) *LogPollerWrapper_SubscribeToUpdates_Call {
 	_c.Run(run)
 	return _c
 }
