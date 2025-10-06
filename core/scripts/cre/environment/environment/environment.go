@@ -513,7 +513,8 @@ func setupDashboards(setupCfg SetupConfig) error {
 	grafanaContacted := false
 	for i := 0; i < 30; i++ {
 		time.Sleep(1 * time.Second)
-		_, err = http.Get("http://localhost:3000")
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
+		_, err = http.DefaultClient.Do(req)
 		if err != nil {
 			continue
 		}
@@ -525,27 +526,12 @@ func setupDashboards(setupCfg SetupConfig) error {
 		return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
 	}
 
-	// Store the current directory
-	originalDir, err := os.Getwd()
-	if err != nil {
-		return errors.Wrap(err, "failed to get current directory")
-	}
-
-	// change to observability directory
-	if err = os.Chdir(cfg.Observability.TargetPath); err != nil {
-		return errors.Wrapf(err, "failed to change directory to %s", cfg.Observability.TargetPath)
-	}
-
 	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
+	deployDashboardsCmd.Dir = cfg.Observability.TargetPath
 	deployOutput, err := deployDashboardsCmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		return errors.Wrap(err, "failed to deploy dashboards: "+string(deployOutput))
-	}
-
-	// change back to original directory
-	if err := os.Chdir(originalDir); err != nil {
-		return errors.Wrap(err, "failed to change directory back to original")
 	}
 
 	fmt.Print(libformat.PurpleText("\nDashboards successfully deployed\n"))
