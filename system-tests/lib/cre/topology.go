@@ -91,8 +91,8 @@ func (t *Topology) CapabilitiesAwareNodeSets() []*CapabilitiesAwareNodeSet {
 
 // BootstrapNode returns the metadata for the node that should be used as the bootstrap node for P2P peering
 // Currently only one bootstrap is supported.
-func (t *Topology) BootstrapNode() (*NodeMetadata, bool) {
-	return t.DonsMetadata.BootstrapNode()
+func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
+	return t.DonsMetadata.Bootstrap()
 }
 
 type PeeringNode interface {

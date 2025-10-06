@@ -55,7 +55,7 @@ func PrepareNodeTOMLs(
 		return nil, nil, errors.Wrap(tErr, "failed to create topology")
 	}
 
-	bt, hasBootstrap := topology.BootstrapNode()
+	bt, hasBootstrap := topology.Bootstrap()
 	if !hasBootstrap {
 		return nil, nil, errors.New("no DON contains a bootstrap node, but exactly one is required")
 	}
