@@ -391,48 +391,10 @@ func startCmd() *cobra.Command {
 			}
 
 			if withDashBoards {
-				// Run the `ctf obs up -f` command from the ./bin directory
-				ctfCmd := exec.Command("./bin/ctf", "obs", "up", "-f")
-
-				obsOutput, err := ctfCmd.CombinedOutput()
+				err := setupDashboards()
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-					return errors.Wrap(err, "failed to start ctf observability stack: "+string(obsOutput))
+					return errors.Wrap(err, "failed to setup dashboards")
 				}
-
-				fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
-
-				// Wait for localhost:3000 to be available
-				fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
-				for i := 0; i < 30; i++ {
-					time.Sleep(1 * time.Second)
-					_, err := http.Get("http://localhost:3000")
-					if err != nil {
-						continue
-					}
-					break
-				}
-
-				// Deploy the dashboards
-
-				// change to observability directory
-				if err := os.Chdir("./observability"); err != nil {
-					return errors.Wrap(err, "failed to change directory to ./observability")
-				}
-
-				deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
-				deployOutput, err := deployDashboardsCmd.CombinedOutput()
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-					return errors.Wrap(err, "failed to deploy dashboards: "+string(deployOutput))
-				}
-
-				// change back to original directory
-				if err := os.Chdir(".."); err != nil {
-					return errors.Wrap(err, "failed to change directory back to original")
-				}
-
-				fmt.Print(libformat.PurpleText("\nDashboards successfully deployed\n"))
 			}
 
 			if withBilling {
@@ -525,6 +487,50 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	return cmd
+}
+
+func setupDashboards() error {
+	// Run the `ctf obs up -f` command from the ./bin directory
+	ctfCmd := exec.Command("./bin/ctf", "obs", "up", "-f")
+
+	obsOutput, err := ctfCmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		return errors.Wrap(err, "failed to start ctf observability stack: "+string(obsOutput))
+	}
+
+	fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
+
+	// Wait for grafana at localhost:3000 to be available
+	fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
+	for i := 0; i < 30; i++ {
+		time.Sleep(1 * time.Second)
+		_, err := http.Get("http://localhost:3000")
+		if err != nil {
+			continue
+		}
+		break
+	}
+
+	// change to observability directory
+	if err := os.Chdir("./observability"); err != nil {
+		return errors.Wrap(err, "failed to change directory to ./observability")
+	}
+
+	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
+	deployOutput, err := deployDashboardsCmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		return errors.Wrap(err, "failed to deploy dashboards: "+string(deployOutput))
+	}
+
+	// change back to original directory
+	if err := os.Chdir(".."); err != nil {
+		return errors.Wrap(err, "failed to change directory back to original")
+	}
+
+	fmt.Print(libformat.PurpleText("\nDashboards successfully deployed\n"))
+	return nil
 }
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
