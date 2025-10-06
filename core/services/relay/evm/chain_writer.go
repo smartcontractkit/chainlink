@@ -19,6 +19,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
@@ -49,7 +50,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 		maxGasPrice: config.MaxGasPrice,
 
 		contracts:       config.Contracts,
-		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]evmtypes.CodecEntry{}, DecoderDefs: map[string]evmtypes.CodecEntry{}},
 		abiMethods:      make(map[string]abi.Method),
 	}
 
@@ -201,7 +202,7 @@ func (w *chainWriter) parseContracts() error {
 				return fmt.Errorf("%w: failed to create input mods", err)
 			}
 
-			input := types.NewCodecEntry(abiMethod.Inputs, abiMethod.ID, inputMod)
+			input := evmtypes.NewCodecEntry(abiMethod.Inputs, abiMethod.ID, inputMod)
 
 			if err = input.Init(); err != nil {
 				return fmt.Errorf("%w: failed to init codec entry for method %s", err, method)

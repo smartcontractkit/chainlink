@@ -1,0 +1,63 @@
+name: Go Mod Local Updater
+##
+# This workflow updates locally replaced module paths in go.mod files to point
+# to the latest commit on the develop (trunk) branch.
+#
+# Successive runs will utilize the same branch (and PR if already opened).
+##
+
+on:
+  schedule:
+    - cron: "0 */4 * * *" # Every 4 hours daily
+  workflow_dispatch:
+
+env:
+  BRANCH_HEAD: "auto/gomod-local-updater"
+  PR_TITLE: "chore: update locally replaced module paths in go.mod files"
+  PR_DRAFT: false
+  PR_LABELS: "auto"
+
+permissions: {}
+
+jobs:
+  autoupdate:
+    name: Go Mod Local Updater
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: develop
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: true
+
+      - name: Run Go Mod Local Updater
+        run: |
+          make gomodslocalupdate
+
+      - name: Setup github token
+        id: setup-github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+
+      - name: Create PR
+        id: create-pr
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          base: develop
+          branch: ${{ env.BRANCH_HEAD}}
+          draft: ${{ env.PR_DRAFT }}
+          labels: ${{ env.PR_LABELS }}
+          sign-commits: true
+          title: ${{ env.PR_TITLE }}
+          token: ${{ steps.setup-github-token.outputs.access-token }}
