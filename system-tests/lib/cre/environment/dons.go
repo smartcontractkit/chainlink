@@ -23,7 +23,7 @@ type StartedDON struct {
 type StartedDONs []*StartedDON
 
 func (s *StartedDONs) NodeOutputs() []*cre.WrappedNodeOutput {
-	outputs := make([]*cre.WrappedNodeOutput, 0, len(*s))
+	outputs := make([]*cre.WrappedNodeOutput, len(*s))
 	for idx, don := range *s {
 		outputs[idx] = don.NodeOutput
 	}
@@ -31,7 +31,7 @@ func (s *StartedDONs) NodeOutputs() []*cre.WrappedNodeOutput {
 }
 
 func (s *StartedDONs) DONs() []*cre.DON {
-	dons := make([]*cre.DON, 0, len(*s))
+	dons := make([]*cre.DON, len(*s))
 	for idx, don := range *s {
 		dons[idx] = don.DON
 	}
