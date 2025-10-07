@@ -142,8 +142,8 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 }
 
 var (
-	// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
-	// and no API credentials have been provided
+// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
+// and no API credentials have been provided
 	ErrorNoAPICredentialsAvailable = errors.New("API credentials must be supplied")
 )
 
@@ -154,6 +154,7 @@ type Shell struct {
 	Logger                         logger.Logger           // initialized in Before
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
+	SetSecondaryCore               func(core zapcore.Core)
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer

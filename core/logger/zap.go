@@ -5,18 +5,24 @@ import (
 	"sync/atomic"
 
 	pkgerrors "github.com/pkg/errors"
-	otellog "go.opentelemetry.io/otel/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 )
 
-// AtomicCore provides thread-safe core swapping using atomic operations
+// AtomicCore provides thread-safe core swapping using atomic operations.
+// It starts as a noop core and can be atomically swapped to include additional cores.
 var _ zapcore.Core = &AtomicCore{}
 
 type AtomicCore struct {
 	atomic.Pointer[zapcore.Core]
+}
+
+// NewAtomicCore creates a new AtomicCore initialized with a noop core
+func NewAtomicCore() *AtomicCore {
+	ac := &AtomicCore{}
+	noop := zapcore.NewNopCore()
+	ac.Store(&noop)
+	return ac
 }
 
 func (d *AtomicCore) load() zapcore.Core {
@@ -40,15 +46,39 @@ func (d *AtomicCore) Write(e zapcore.Entry, fs []zapcore.Field) error { return d
 func (d *AtomicCore) Sync() error { return d.load().Sync() }
 
 var _ Logger = &zapLogger{}
-var _ OtelCore = &zapLogger{}
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	level      zap.AtomicLevel
-	fields     []interface{}
-	callerSkip int
-	opts       []zap.Option
-	core       *AtomicCore // Use AtomicCore instead of otelLogger
+	level         zap.AtomicLevel
+	fields        []interface{}
+	callerSkip    int
+	opts          []zap.Option
+	core          *AtomicCore // Use AtomicCore instead of otelLogger
+	secondaryCore *AtomicCore
+}
+
+// newZapLogger creates a new zapLogger with the given configuration
+func newZapLogger(level zap.AtomicLevel, opts []zap.Option, core zapcore.Core) *zapLogger {
+	// Initialize primary AtomicCore with the main logger core
+	primaryCore := NewAtomicCore()
+	primaryCore.Store(&core)
+
+	// Initialize secondary AtomicCore as noop for potential OTel integration
+	secondaryCore := NewAtomicCore()
+
+	// Combine primary and secondary cores
+	combinedCore := zapcore.NewTee(primaryCore, secondaryCore)
+
+	// Create sugared logger with the combined core
+	sugaredLogger := zap.New(combinedCore, opts...).Sugar()
+
+	return &zapLogger{
+		SugaredLogger: sugaredLogger,
+		level:         level,
+		opts:          opts,
+		core:          primaryCore,
+		secondaryCore: secondaryCore,
+	}
 }
 
 func makeEncoderConfig(unixTS bool) zapcore.EncoderConfig {
@@ -127,13 +157,7 @@ func (l *zapLogger) Recover(panicErr interface{}) {
 	l.Criticalw("Recovered goroutine panic", "panic", panicErr)
 }
 
-// SetOtelCore atomically swaps the logger core to include OTel integration
-func (l *zapLogger) SetOtelCore(otelLogger otellog.Logger) {
-	primaryCore := l.core.load()
-	otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(zapcore.DebugLevel))
-	combinedCore := zapcore.NewTee(primaryCore, otelCore)
-
-	l.core.Store(&combinedCore)
-	newLogger := zap.New(l.core, l.opts...)
-	l.SugaredLogger = newLogger.Sugar()
+// setSecondaryCore atomically swaps the secondary core to include OTel integration
+func (l *zapLogger) setSecondaryCore(core zapcore.Core) {
+	l.secondaryCore.Store(&core)
 }

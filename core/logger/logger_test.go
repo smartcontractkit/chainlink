@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/log/noop"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 )
 
 func TestConfig(t *testing.T) {
@@ -32,7 +34,7 @@ func TestStderrWriter(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSetOtelCore(t *testing.T) {
+func TestOtelCore(t *testing.T) {
 	testCases := []struct {
 		name       string
 		enableOtel bool
@@ -49,23 +51,23 @@ func TestSetOtelCore(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Use TestLoggerObserved to create a logger that we can access
-			logger, _ := TestLoggerObserved(t, zapcore.InfoLevel)
+			// Create a logger using Config.New() which returns the setOtelCore function
+			cfg := Config{
+				LogLevel: zapcore.InfoLevel,
+			}
+			logger, closeFn, setSecondaryCore := cfg.New()
+			defer closeFn()
 			require.NotNil(t, logger)
+			require.NotNil(t, setSecondaryCore)
 
 			if tc.enableOtel {
 				// Create a no-op OTel logger for testing
 				noopLogger := noop.NewLoggerProvider().Logger("test")
 
-				// Enable OTel integration via SetOtelCore
-				// Check if we can access OtelCore through the interface
-				if otelCore, ok := logger.(OtelCore); ok {
-					otelCore.SetOtelCore(noopLogger)
-					// Test that logger works with otel core
-					logger.Info("test log message with otel")
-				} else {
-					t.Skip("Logger does not implement OtelCore interface")
-				}
+				// Enable OTel integration via the setOtelCore function
+				setSecondaryCore(otelzap.NewCore(noopLogger, otelzap.WithLevel(zapcore.DebugLevel)))
+				// Test that logger works with otel core
+				logger.Info("test log message with otel")
 			} else {
 				// Test that regular logger works
 				logger.Info("test log message without otel")

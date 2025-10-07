@@ -78,7 +78,7 @@ func NewApp(s *Shell) *cli.App {
 		// Default to using a stdout logger only.
 		// This is overidden for server commands which may start a rotating
 		// logger instead.
-		lggr, closeFn := logger.NewLogger()
+		lggr, closeFn, _ := logger.NewLogger()
 
 		cfg, err := opts.New()
 		if err != nil {
@@ -274,10 +274,11 @@ func NewApp(s *Shell) *cli.App {
 					SentryEnabled:  s.Config.Sentry().DSN() != "",
 				}
 
-				l, closeFn := lggrCfg.New()
+				l, closeFn, setSecondaryCore := lggrCfg.New()
 
 				s.Logger = l
 				s.CloseLogger = closeFn
+				s.SetSecondaryCore = setSecondaryCore
 
 				return nil
 			},

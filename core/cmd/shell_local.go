@@ -15,18 +15,19 @@ import (
 	"sync"
 	"time"
 
-	otellog "go.opentelemetry.io/otel/log"
-
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -1141,16 +1142,20 @@ func (s *Shell) initStartComponents(c *cli.Context) error {
 	}
 
 	// If log streaming is enabled add Otel logger
-	var otelLogger otellog.Logger
 	if s.Config.Telemetry().LogStreamingEnabled() {
-		otelLogger = beholder.GetLogger()
-		// SetOtelCore enables OTel integration by atomically swapping the core
-		otelCore, ok := lggr.(logger.OtelCore)
-		if !ok {
-			return errors.New("logger type not supported for OTel integration")
+		if s.SetSecondaryCore == nil {
+			return errors.New("Shell.SetSecondaryCore is nil")
 		}
-		otelCore.SetOtelCore(otelLogger)
+		// Get the OTel sdk logger
+		otelLogger := beholder.GetLogger()
+		// Create OTel core and store it in the secondary core
+		// The logger is already using a combined core (primary + secondary),
+		// so this swap will automatically be reflected in all logging
+		// TODO: get logging level from s.Loger.Level
+		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(zapcore.DebugLevel))
+		s.SetSecondaryCore(otelCore)
 		lggr.Info("Log streaming enabled")
+
 	}
 
 	return nil

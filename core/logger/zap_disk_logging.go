@@ -4,10 +4,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -86,10 +86,10 @@ func (l *zapDiskLogger) pollDiskSpace() {
 	}
 }
 
-func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*zapDiskLogger, func() error, error) {
+func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*zapDiskLogger, func() error, func(zapcore.Core), error) {
 	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, c.UnixTS)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	cores = append(cores, defaultCore)
 
@@ -97,7 +97,7 @@ func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*z
 	diskCore, diskErr := newDiskCore(diskLogLevel, c)
 	if diskErr != nil {
 		defaultCloseFn()
-		return nil, nil, diskErr
+		return nil, nil, nil, diskErr
 	}
 	cores = append(cores, diskCore)
 
@@ -105,7 +105,7 @@ func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*z
 	l, diskCloseFn, err := newLoggerForCore(zcfg, core)
 	if err != nil {
 		defaultCloseFn()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	lggr := &zapDiskLogger{
@@ -129,5 +129,5 @@ func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*z
 		return lggr.Sync()
 	})
 
-	return lggr, closeLogger, err
+	return lggr, closeLogger, l.setSecondaryCore, err
 }

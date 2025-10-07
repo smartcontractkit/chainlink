@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/fatih/color"
-	otellog "go.opentelemetry.io/otel/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -75,12 +74,6 @@ var _ common.Logger = (Logger)(nil)
 //
 // Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
 // Deprecated: use [common.Logger] & [common.SugaredLogger]
-
-// OtelCore provides access to OTel logger core management functionality
-type OtelCore interface {
-	SetOtelCore(otelLogger otellog.Logger)
-}
-
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger
@@ -159,7 +152,7 @@ func verShaNameStatic() string {
 
 // NewLogger returns a new Logger with default configuration.
 // Tests should use TestLogger.
-func NewLogger() (Logger, func() error) {
+func NewLogger() (Logger, func() error, func(zapcore.Core)) {
 	var c Config
 	return c.New()
 }
@@ -182,7 +175,7 @@ type Config struct {
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
-func (c *Config) New() (Logger, func() error) {
+func (c *Config) New() (Logger, func() error, func(zapcore.Core)) {
 	if c.diskSpaceAvailableFn == nil {
 		c.diskSpaceAvailableFn = diskSpaceAvailable
 	}
@@ -195,12 +188,13 @@ func (c *Config) New() (Logger, func() error) {
 	var (
 		l           Logger
 		closeLogger func() error
+		setCore     func(zapcore.Core)
 		err         error
 	)
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
+		l, closeLogger, setCore, err = newDefaultLogger(cfg, c.UnixTS)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
+		l, closeLogger, setCore, err = newRotatingFileLogger(cfg, *c)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -211,7 +205,7 @@ func (c *Config) New() (Logger, func() error) {
 	}
 	l = newPrometheusLogger(l)
 	l = l.With("version", verShaNameStatic())
-	return l, closeLogger
+	return l, closeLogger, setCore
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
@@ -250,42 +244,38 @@ func newZapConfigBase() zap.Config {
 	return cfg
 }
 
-func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, func(zapcore.Core), error) {
 	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)
 	if err != nil {
 		coreCloseFn()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	return l, func() error {
 		coreCloseFn()
 		loggerCloseFn()
 		return nil
-	}, nil
+	}, l.setSecondaryCore, nil
 }
 
-func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (*zapLogger, func(), error) {
+func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (
+	*zapLogger, func(), error,
+) {
 	errSink, closeFn, err := zap.Open(zcfg.ErrorOutputPaths...)
 	if err != nil {
 		return nil, nil, err
 	}
 	opts := []zap.Option{zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)}
 
-	// Initialize AtomicCore with the current core
-	atomicCore := &AtomicCore{}
-	atomicCore.Store(&core)
+	// Create zapLogger with atomic cores for OTel integration support
+	zapLogger := newZapLogger(zcfg.Level, opts, core)
 
-	return &zapLogger{
-		level:         zcfg.Level,
-		SugaredLogger: zap.New(core, opts...).Sugar(),
-		opts:          opts,
-		core:          atomicCore,
-	}, closeFn, nil
+	return zapLogger, closeFn, nil
 }
 
 func newDefaultLoggingCore(zcfg zap.Config, unixTS bool) (zapcore.Core, func(), error) {

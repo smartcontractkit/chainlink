@@ -1,7 +1,5 @@
 package logger
 
-import otellog "go.opentelemetry.io/otel/log"
-
 // SugaredLogger extends the base Logger interface with syntactic sugar, similar to zap.SugaredLogger.
 type SugaredLogger interface {
 	Logger
@@ -23,8 +21,6 @@ func Sugared(l Logger) SugaredLogger {
 		h:      l.Helper(1),
 	}
 }
-
-var _ OtelCore = &sugared{}
 
 type sugared struct {
 	Logger
@@ -55,12 +51,5 @@ func (s *sugared) ErrorIf(err error, msg string) {
 func (s *sugared) ErrorIfFn(fn func() error, msg string) {
 	if err := fn(); err != nil {
 		s.h.Errorw(msg, "err", err)
-	}
-}
-
-// SetOtelCore implements OtelCore interface by delegating to the underlying logger
-func (s *sugared) SetOtelCore(otelLogger otellog.Logger) {
-	if otelCore, ok := s.Logger.(OtelCore); ok {
-		otelCore.SetOtelCore(otelLogger)
 	}
 }
