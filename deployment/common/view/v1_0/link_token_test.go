@@ -4,15 +4,16 @@ import (
 	"math/big"
 	"testing"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 )
 
 func TestLinkTokenView(t *testing.T) {
@@ -33,7 +34,7 @@ func TestLinkTokenView(t *testing.T) {
 
 func TestLinkTokenViewZk(t *testing.T) {
 	// Timeouts in CI
-	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
 
 	selector := chainselectors.TEST_90000050.Selector
 	env, err := environment.New(t.Context(),

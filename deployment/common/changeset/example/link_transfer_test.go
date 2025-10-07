@@ -233,8 +233,6 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 		rt, selector = setupLinkTransferRuntime(t)
 	)
 
-	// env := setupLinkTransferTestEnv(t)
-	// chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
 	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
