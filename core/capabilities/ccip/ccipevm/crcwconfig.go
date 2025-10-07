@@ -6,10 +6,11 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // ChainCWProvider is a struct that implements the ChainRWProvider interface for EVM chains.
@@ -17,7 +18,7 @@ type ChainCWProvider struct{}
 
 // GetChainReader returns a new ContractReader for EVM chains.
 func (g ChainCWProvider) GetChainReader(ctx context.Context, params ccipcommon.ChainReaderProviderOpts) (types.ContractReader, error) {
-	var chainReaderConfig evmrelaytypes.ChainReaderConfig
+	var chainReaderConfig config.ChainReaderConfig
 	if params.ChainID == params.DestChainID && params.ChainFamily == params.DestChainFamily {
 		chainReaderConfig = evmconfig.DestReaderConfig
 	} else {

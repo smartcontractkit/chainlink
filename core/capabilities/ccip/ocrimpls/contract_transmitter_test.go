@@ -53,7 +53,6 @@ import (
 	kschaintype "github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
@@ -557,12 +556,12 @@ const (
 	methodTransmitWithoutSignatures = "TransmitWithoutSignatures"
 )
 
-func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) evmrelaytypes.ChainWriterConfig {
-	return evmrelaytypes.ChainWriterConfig{
-		Contracts: map[string]*evmrelaytypes.ContractConfig{
+func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) evmconfig.ChainWriterConfig {
+	return evmconfig.ChainWriterConfig{
+		Contracts: map[string]*evmconfig.ContractConfig{
 			contractName: {
 				ContractABI: multi_ocr3_helper.MultiOCR3HelperABI,
-				Configs: map[string]*evmrelaytypes.ChainWriterDefinition{
+				Configs: map[string]*evmconfig.ChainWriterDefinition{
 					methodTransmitWithSignatures: {
 						ChainSpecificName: "transmitWithSignatures",
 						GasLimit:          1e6,

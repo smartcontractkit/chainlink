@@ -34,7 +34,7 @@ type requestAuthorizer struct {
 
 func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error) {
 	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-175): Remove this bypass once we have a Vault DON e2e tests setup in local CRE.
-	if build.IsDev() || build.IsProd() {
+	if build.IsDev() {
 		r.lggr.Warnw("bypassing RequestAuthorizer since it is not a production build", "build-mode", build.Mode())
 		// returning owner as Owner1, since that's used in vault e2e tests.
 		return true, "Owner1", nil

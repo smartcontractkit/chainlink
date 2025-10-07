@@ -16,15 +16,14 @@ import (
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	looptestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 )
 
 const anyExtraValue = 3
@@ -44,7 +43,7 @@ func TestCodec(t *testing.T) {
 		codecName := "my_codec"
 		evmEncoderConfig := `[{"Name":"","Type":"int32"},{"Name":"","Type":"int32"}]`
 
-		codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+		codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 			codecName: {TypeABI: evmEncoderConfig},
 		}}
 		c, err := codec.NewCodec(codecConfig)
@@ -90,7 +89,7 @@ func TestCodec_SimpleEncode(t *testing.T) {
 	}
 	evmEncoderConfig := `[{"Name":"Report","Type":"int32"},{"Name":"Meta","Type":"string"}]`
 
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
 	c, err := codec.NewCodec(codecConfig)
@@ -119,7 +118,7 @@ func TestCodec_EncodeTuple(t *testing.T) {
 	}
 	evmEncoderConfig := `[{"Name":"Report","Type":"int32"},{"Name":"Nested","Type":"tuple","Components":[{"Name":"Other","Type":"string"},{"Name":"Count","Type":"int32"},{"Name":"Meta","Type":"string"}]}]`
 
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
 	c, err := codec.NewCodec(codecConfig)
@@ -151,7 +150,7 @@ func TestCodec_EncodeTupleWithLists(t *testing.T) {
 	}
 	evmEncoderConfig := `[{"Name":"Elem","Type":"tuple","InternalType":"tuple","Components":[{"Name":"Prices","Type":"uint256[]","InternalType":"uint256[]","Components":null,"Indexed":false},{"Name":"Timestamps","Type":"uint32[]","InternalType":"uint32[]","Components":null,"Indexed":false}],"Indexed":false}]`
 
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
 	c, err := codec.NewCodec(codecConfig)
@@ -203,7 +202,7 @@ func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeReques
 }
 
 func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{}}
+	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{}}
 	testStruct := CreateTestStruct[*testing.T](0, it)
 	for k, v := range codecDefs {
 		defBytes, err := json.Marshal(v)

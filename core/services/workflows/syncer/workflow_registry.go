@@ -24,10 +24,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -745,10 +745,10 @@ type sequenceWithEventType struct {
 func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	ctx context.Context,
 ) (types.ContractReader, error) {
-	contractReaderCfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
+	contractReaderCfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			WorkflowRegistryContractName: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
+				ContractPollingFilter: config.ContractPollingFilter{
 					GenericEventNames: []string{
 						string(ForceUpdateSecretsEvent),
 						string(WorkflowActivatedEvent),
@@ -759,33 +759,33 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 					},
 				},
 				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					GetWorkflowMetadataListByDONMethodName: {
 						ChainSpecificName: GetWorkflowMetadataListByDONMethodName,
 					},
 					string(ForceUpdateSecretsEvent): {
 						ChainSpecificName: string(ForceUpdateSecretsEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowActivatedEvent): {
 						ChainSpecificName: string(WorkflowActivatedEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowDeletedEvent): {
 						ChainSpecificName: string(WorkflowDeletedEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowPausedEvent): {
 						ChainSpecificName: string(WorkflowPausedEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowRegisteredEvent): {
 						ChainSpecificName: string(WorkflowRegisteredEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowUpdatedEvent): {
 						ChainSpecificName: string(WorkflowUpdatedEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 				},
 			},

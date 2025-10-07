@@ -75,6 +75,7 @@ type config struct {
 	ChipIngress    chipIngressConfig    `toml:"chip_ingress"`
 	BillingService billingServiceConfig `toml:"billing_platform_service"`
 	Capabilities   capabilitiesConfig   `toml:"capabilities"`
+	Observability  observabilityConfig  `toml:"observability"`
 }
 
 type generalConfig struct {
@@ -110,6 +111,12 @@ type capabilityRepository struct {
 	ArtifactsDirs []string `toml:"artifacts_dirs"`
 }
 
+type observabilityConfig struct {
+	RepoURL    string `toml:"repository"`
+	Branch     string `toml:"branch"`
+	TargetPath string `toml:"target_path"`
+}
+
 var (
 	ECR = os.Getenv("AWS_ECR") // TODO this can be moved to an env file
 )
@@ -136,7 +143,7 @@ type BuildConfig struct {
 // setupRepo clones the repository if it's a remote URL or uses the local path if it's a directory.
 // It returns the working directory path, a boolean indicating if it's a local repo, and an error if any.
 // It will checkout the specified reference branch/tag and commit if provided.
-func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, commit string) (string, bool, error) {
+func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, commit, workingDir string) (string, bool, error) {
 	if repo == "" {
 		return "", false, errors.New("repository URL or path is empty")
 	}
@@ -150,8 +157,6 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 		}
 	}
 
-	var workingDir string
-
 	if isLocalRepo {
 		// Use the local repo path directly
 		workingDir = repo
@@ -159,16 +164,31 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 		if reference == "" {
 			return "", false, errors.New("branch or tag reference is required for remote repositories")
 		}
-		// Create a temporary directory for cloning the remote repo
-		tempDir, err2 := os.MkdirTemp("", filepath.Base(repo)+"-*")
-		if err2 != nil {
-			return "", false, fmt.Errorf("failed to create temporary directory: %w", err2)
+
+		if workingDir == "" {
+			// Create a temporary directory for cloning the remote repo
+			tempDir, err2 := os.MkdirTemp("", filepath.Base(repo)+"-*")
+			if err2 != nil {
+				return "", false, fmt.Errorf("failed to create temporary directory: %w", err2)
+			}
+			workingDir = tempDir
+		} else {
+			var err error
+			// Clear or create the working directory
+			if _, err = os.Stat(workingDir); err == nil {
+				if err = os.RemoveAll(workingDir); err != nil {
+					return "", false, fmt.Errorf("failed to clear existing working directory: %w", err)
+				}
+			} else {
+				if err = os.MkdirAll(workingDir, 0o755); err != nil {
+					return "", false, fmt.Errorf("failed to create working directory: %w", err)
+				}
+			}
 		}
-		workingDir = tempDir
 
 		// Clone the repository
 		logger.Info().Msgf("Cloning repository from %s", repo)
-		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", reference, "--single-branch", repo, tempDir)
+		cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", reference, "--single-branch", repo, workingDir)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err2 := cmd.Run(); err2 != nil {
@@ -178,14 +198,14 @@ func setupRepo(ctx context.Context, logger zerolog.Logger, repo, reference, comm
 			// Checkout the specific commit if provided
 			logger.Info().Msgf("Checking out commit %s", commit)
 			cmd := exec.CommandContext(ctx, "git", "fetch", "--depth", "1", "origin", commit)
-			cmd.Dir = tempDir
+			cmd.Dir = workingDir
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err2 := cmd.Run(); err2 != nil {
 				return "", false, fmt.Errorf("failed to checkout commit %s: %w", commit, err2)
 			}
 			cmd = exec.CommandContext(ctx, "git", "checkout", commit)
-			cmd.Dir = tempDir
+			cmd.Dir = workingDir
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err2 := cmd.Run(); err2 != nil {
@@ -214,7 +234,7 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		}
 	}
 
-	workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo, tag, commit)
+	workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo, tag, commit, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to setup repository: %w", err)
 	}
@@ -478,6 +498,13 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
+	observabilityRepoPath, _, err := setupRepo(ctx, logger, cfg.Observability.RepoURL, cfg.Observability.Branch,
+		"", cfg.Observability.TargetPath)
+	if err != nil {
+		setupErr = errors.Wrap(err, "failed to clone observability repo")
+		return
+	}
+
 	buildErr := buildCapabilityBinaries(ctx, cfg.Capabilities)
 	if buildErr != nil {
 		setupErr = errors.Wrap(buildErr, "failed to build capabilities")
@@ -490,6 +517,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
 	logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipLocalImage)
+	logger.Info().Msgf("   ✓ Observability repo cloned to %s", observabilityRepoPath)
 	if withBilling {
 		logger.Info().Msgf("   ✓ Billing Platform Service image %s is available", billingLocalImage)
 	}
@@ -577,7 +605,7 @@ func buildCapabilityBinaries(ctx context.Context, capabilitiesConfig capabilitie
 	for _, repo := range capabilitiesConfig.Repositories {
 		logger.Info().Msgf("🔍 Building %s...", repo.RepoURL)
 
-		workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo.RepoURL, repo.Branch, "")
+		workingDir, isLocalRepo, err := setupRepo(ctx, logger, repo.RepoURL, repo.Branch, "", "")
 		if err != nil {
 			return fmt.Errorf("failed to setup up repository: %w", err)
 		}

@@ -13,9 +13,8 @@ import (
 
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // DecoderHooks
@@ -46,7 +45,7 @@ var DecoderHooks = []mapstructure.DecodeHookFunc{
 // It means that if you need to use a [codec.Modifier] to reference a field
 // you need to use the Go name instead of the name on-chain.
 // eg: rename FooBar -> Bar, not foo_bar_ to Bar if the name on-chain is foo_bar_
-func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
+func NewCodec(conf config.CodecConfig) (commontypes.RemoteCodec, error) {
 	parsed := &ParsedTypes{
 		EncoderDefs: map[string]evmtypes.CodecEntry{},
 		DecoderDefs: map[string]evmtypes.CodecEntry{},

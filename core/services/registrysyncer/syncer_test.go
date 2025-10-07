@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	kcr_v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -41,8 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
 	captestutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 )
 
@@ -81,7 +80,7 @@ type crFactory struct {
 }
 
 func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.ContractReader, error) {
-	crCfg := &evmrelaytypes.ChainReaderConfig{}
+	crCfg := &config.ChainReaderConfig{}
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err
 	}
