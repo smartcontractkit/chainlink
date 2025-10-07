@@ -22,7 +22,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	config2 "github.com/smartcontractkit/chainlink-evm/pkg/config"
-	llo2 "github.com/smartcontractkit/chainlink-evm/pkg/llo"
+	evmllo "github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -53,13 +53,13 @@ type lloProvider struct {
 	services.Service
 	eng *services.Engine
 
-	cps []llo2.ConfigPollerService
+	cps []evmllo.ConfigPollerService
 
 	transmitter            LLOTransmitter
 	logger                 logger.Logger
 	channelDefinitionCache llotypes.ChannelDefinitionCache
 	digester               ocrtypes.OffchainConfigDigester
-	shouldRetireCache      llo2.ShouldRetireCacheService
+	shouldRetireCache      evmllo.ShouldRetireCacheService
 	csaSigner              *coretypes.Ed25519Signer
 
 	lp              FilterRegisterer
@@ -77,7 +77,7 @@ func NewLLOProvider(
 	ctx context.Context,
 	lggr logger.Logger,
 	pargs commontypes.PluginArgs,
-	cc llo2.ConfigCache,
+	cc evmllo.ConfigCache,
 	chain legacyevm.Chain,
 	configuratorAddress common.Address,
 	cdcFactory channeldefinitions.ChannelDefinitionCacheFactory,
@@ -99,7 +99,7 @@ func NewLLOProvider(
 	if err != nil {
 		return nil, err
 	}
-	src := llo2.NewShouldRetireCache(lggr, lp, configuratorAddress, donID)
+	src := evmllo.NewShouldRetireCache(lggr, lp, configuratorAddress, donID)
 
 	csaPub := relayConfig.EffectiveTransmitterID.String
 	csaSigner, err := coretypes.NewEd25519Signer(csaPub, csaKeystore.Sign)
@@ -325,9 +325,9 @@ func (w *mercuryConfigPollerWrapper) close() error {
 	return w.ConfigPoller.Close()
 }
 
-func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc llo2.ConfigCache, lp logpoller.LogPoller, chainID *big.Int, configuratorAddress common.Address, relayConfig config2.RelayConfig) (cps []llo2.ConfigPollerService, configDigester ocrtypes.OffchainConfigDigester, err error) {
+func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc evmllo.ConfigCache, lp logpoller.LogPoller, chainID *big.Int, configuratorAddress common.Address, relayConfig config2.RelayConfig) (cps []evmllo.ConfigPollerService, configDigester ocrtypes.OffchainConfigDigester, err error) {
 	donID := relayConfig.LLODONID
-	donIDHash := llo2.DonIDToBytes32(donID)
+	donIDHash := evmllo.DonIDToBytes32(donID)
 	switch relayConfig.LLOConfigMode {
 	case config2.LLOConfigModeMercury:
 		// NOTE: This uses the old config digest prefix for compatibility with legacy contracts
@@ -338,41 +338,41 @@ func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc llo2.Config
 			lggr,
 			lp,
 			configuratorAddress,
-			llo2.DonIDToBytes32(donID),
+			evmllo.DonIDToBytes32(donID),
 		)
 		if err != nil {
 			return nil, nil, err
 		}
 		// don't need to replay in the wrapper since the provider will handle it
 		w := newMercuryConfigPollerWrapper(lggr, mcp, relayConfig.FromBlock, false)
-		cps = []llo2.ConfigPollerService{w}
+		cps = []evmllo.ConfigPollerService{w}
 	case config2.LLOConfigModeBlueGreen:
 		// NOTE: Register filter here because the config poller doesn't do it on its own
-		err := lp.RegisterFilter(ctx, logpoller.Filter{Name: lloProviderConfiguratorFilterName(configuratorAddress, donID), EventSigs: []common.Hash{llo2.ProductionConfigSet, llo2.StagingConfigSet, llo2.PromoteStagingConfig}, Topic2: []common.Hash{donIDHash}, Addresses: []common.Address{configuratorAddress}})
+		err := lp.RegisterFilter(ctx, logpoller.Filter{Name: lloProviderConfiguratorFilterName(configuratorAddress, donID), EventSigs: []common.Hash{evmllo.ProductionConfigSet, evmllo.StagingConfigSet, evmllo.PromoteStagingConfig}, Topic2: []common.Hash{donIDHash}, Addresses: []common.Address{configuratorAddress}})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to register filter: %w", err)
 		}
 
-		configDigester = llo2.NewOffchainConfigDigester(donIDHash, chainID, configuratorAddress, ocrtypes.ConfigDigestPrefixLLO)
-		blueCP := llo2.NewConfigPoller(
+		configDigester = evmllo.NewOffchainConfigDigester(donIDHash, chainID, configuratorAddress, ocrtypes.ConfigDigestPrefixLLO)
+		blueCP := evmllo.NewConfigPoller(
 			lggr,
 			lp,
 			cc,
 			configuratorAddress,
 			donID,
-			llo2.InstanceTypeBlue,
+			evmllo.InstanceTypeBlue,
 			relayConfig.FromBlock,
 		)
-		greenCP := llo2.NewConfigPoller(
+		greenCP := evmllo.NewConfigPoller(
 			lggr,
 			lp,
 			cc,
 			configuratorAddress,
 			donID,
-			llo2.InstanceTypeGreen,
+			evmllo.InstanceTypeGreen,
 			relayConfig.FromBlock,
 		)
-		cps = []llo2.ConfigPollerService{blueCP, greenCP}
+		cps = []evmllo.ConfigPollerService{blueCP, greenCP}
 	}
 	return cps, configDigester, nil
 }

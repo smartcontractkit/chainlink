@@ -50,7 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	llo2 "github.com/smartcontractkit/chainlink-evm/pkg/llo"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -326,7 +326,7 @@ func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backe
 	for i := 0; i < nNodes; i++ {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
-	donIDPadded := llo2.DonIDToBytes32(donID)
+	donIDPadded := llo.DonIDToBytes32(donID)
 	_, err = legacyVerifier.SetConfig(steve, donIDPadded, signerAddresses, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig, nil)
 	require.NoError(t, err)
 
@@ -361,7 +361,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	for i := 0; i < nNodes; i++ {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
-	donIDPadded := llo2.DonIDToBytes32(donID)
+	donIDPadded := llo.DonIDToBytes32(donID)
 	var isProduction bool
 	{
 		cfg, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Decode(onchainConfig)
@@ -384,9 +384,9 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 
 	var topic common.Hash
 	if isProduction {
-		topic = llo2.ProductionConfigSet
+		topic = llo.ProductionConfigSet
 	} else {
-		topic = llo2.StagingConfigSet
+		topic = llo.StagingConfigSet
 	}
 	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
 	require.NoError(t, err)
@@ -399,7 +399,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 }
 
 func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, isGreenProduction bool) {
-	donIDPadded := llo2.DonIDToBytes32(donID)
+	donIDPadded := llo.DonIDToBytes32(donID)
 	_, err := configurator.PromoteStagingConfig(steve, donIDPadded, isGreenProduction)
 	require.NoError(t, err)
 

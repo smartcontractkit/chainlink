@@ -16,7 +16,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
-	codec2 "github.com/smartcontractkit/chainlink-evm/pkg/codec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -50,7 +50,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 		maxGasPrice: config.MaxGasPrice,
 
 		contracts:       config.Contracts,
-		parsedContracts: &codec2.ParsedTypes{EncoderDefs: map[string]evmtypes.CodecEntry{}, DecoderDefs: map[string]evmtypes.CodecEntry{}},
+		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]evmtypes.CodecEntry{}, DecoderDefs: map[string]evmtypes.CodecEntry{}},
 		abiMethods:      make(map[string]abi.Method),
 	}
 
@@ -77,7 +77,7 @@ type chainWriter struct {
 	maxGasPrice *assets.Wei
 
 	contracts       map[string]*config.ContractConfig
-	parsedContracts *codec2.ParsedTypes
+	parsedContracts *codec.ParsedTypes
 	// Store ABI methods for Tron transaction formatting
 	abiMethods map[string]abi.Method // key: "contract.method"
 
@@ -104,7 +104,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		return fmt.Errorf("method config not found: %v", method)
 	}
 
-	calldata, err := w.encoder.Encode(ctx, args, codec2.WrapItemType(contract, method, true))
+	calldata, err := w.encoder.Encode(ctx, args, codec.WrapItemType(contract, method, true))
 	if err != nil {
 		return fmt.Errorf("%w: failed to encode args", err)
 	}
@@ -197,7 +197,7 @@ func (w *chainWriter) parseContracts() error {
 			w.abiMethods[methodKey] = abiMethod
 
 			// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-			inputMod, err := methodConfig.InputModifications.ToModifier(codec2.DecoderHooks...)
+			inputMod, err := methodConfig.InputModifications.ToModifier(codec.DecoderHooks...)
 			if err != nil {
 				return fmt.Errorf("%w: failed to create input mods", err)
 			}
@@ -208,7 +208,7 @@ func (w *chainWriter) parseContracts() error {
 				return fmt.Errorf("%w: failed to init codec entry for method %s", err, method)
 			}
 
-			w.parsedContracts.EncoderDefs[codec2.WrapItemType(contract, method, true)] = input
+			w.parsedContracts.EncoderDefs[codec.WrapItemType(contract, method, true)] = input
 		}
 	}
 
@@ -260,7 +260,7 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 // GetEstimateFee returns total cost of TX execution in the underlying chain's currency.
 // The value (val) is included in the fee calculation.
 func (w *chainWriter) GetEstimateFee(ctx context.Context, contract, method string, args any, toAddress string, meta *commontypes.TxMeta, val *big.Int) (commontypes.EstimateFee, error) {
-	calldata, err := w.encoder.Encode(ctx, args, codec2.WrapItemType(contract, method, true))
+	calldata, err := w.encoder.Encode(ctx, args, codec.WrapItemType(contract, method, true))
 	if err != nil {
 		return commontypes.EstimateFee{}, fmt.Errorf("%w: failed to encode args", err)
 	}
