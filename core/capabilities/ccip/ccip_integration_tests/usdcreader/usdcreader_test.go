@@ -82,6 +82,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 			},
 		},
 		nil,
+		nil,
 		map[cciptypes.ChainSelector]contractreader.Extended{
 			ethereumChain: ts.reader,
 		}, mokAddrCodec)
@@ -282,6 +283,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 						SourceMessageTransmitterAddr: ts.contractAddr.String(),
 					},
 				},
+				nil,
 				nil,
 				map[cciptypes.ChainSelector]contractreader.Extended{
 					sourceChain: ts.reader,

@@ -110,7 +110,7 @@ func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
 		ocr3confighelper.PublicConfig{},
 		"evm",
 		"1",
-		ccipcommon.PluginConfig{},
+		ccipcommon.PluginServices{},
 		"",
 		map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte]{},
 	)
@@ -158,6 +158,9 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 		// but good for completeness if we were to test the non-nil path.
 		ContractTransmitterFactory: &mocks.ContractTransmitterFactory{},
 	}
+	pluginServices := ccipcommon.PluginServices{
+		PluginConfig: pluginCfg,
+	}
 	offrampAddrStr := "0x123"
 
 	testCases := []struct {
@@ -195,7 +198,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 				publicCfg,
 				destChainFamily,
 				destChainID,
-				pluginCfg,
+				pluginServices,
 				offrampAddrStr,
 				contractTransmitters,
 			)
