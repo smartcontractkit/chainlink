@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#added Add otelzap core to logger
+#added Wire up OTel logs streaming, integrate chainlink logger with otel

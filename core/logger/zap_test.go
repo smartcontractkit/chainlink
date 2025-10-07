@@ -15,7 +15,7 @@ import (
 )
 
 func newTestLogger(t *testing.T, cfg Config) Logger {
-	lggr, closeFn, _ := cfg.New()
+	lggr, closeFn := cfg.New()
 	t.Cleanup(func() {
 		assert.NoError(t, closeFn())
 	})

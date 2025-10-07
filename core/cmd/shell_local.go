@@ -1141,21 +1141,17 @@ func (s *Shell) initStartComponents(c *cli.Context) error {
 		return errors.Wrap(err, "failed initializing globals")
 	}
 
-	// If log streaming is enabled add Otel logger
+	// If log streaming is enabled swap core to add Otel
 	if s.Config.Telemetry().LogStreamingEnabled() {
-		if s.SetSecondaryCore == nil {
-			return errors.New("Shell.SetSecondaryCore is nil")
+		if s.OtelCore == nil {
+			return errors.New("Shell.OtelCore is nil")
 		}
-		// Get the OTel sdk logger
 		otelLogger := beholder.GetLogger()
-		// Create OTel core and store it in the secondary core
-		// The logger is already using a combined core (primary + secondary),
-		// so this swap will automatically be reflected in all logging
-		// TODO: get logging level from s.Loger.Level
+		// TODO: get logging level from s.Logger.Level
 		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(zapcore.DebugLevel))
-		s.SetSecondaryCore(otelCore)
-		lggr.Info("Log streaming enabled")
 
+		s.OtelCore.Store(&otelCore)
+		lggr.Info("Log streaming enabled")
 	}
 
 	return nil

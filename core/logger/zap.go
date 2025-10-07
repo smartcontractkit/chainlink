@@ -49,35 +49,28 @@ var _ Logger = &zapLogger{}
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	level         zap.AtomicLevel
-	fields        []interface{}
-	callerSkip    int
-	opts          []zap.Option
-	core          *AtomicCore // Use AtomicCore instead of otelLogger
-	secondaryCore *AtomicCore
+	level      zap.AtomicLevel
+	fields     []interface{}
+	callerSkip int
+	opts       []zap.Option
+	core       zapcore.Core
+	otelCore   *AtomicCore
 }
 
 // newZapLogger creates a new zapLogger with the given configuration
 func newZapLogger(level zap.AtomicLevel, opts []zap.Option, core zapcore.Core) *zapLogger {
-	// Initialize primary AtomicCore with the main logger core
-	primaryCore := NewAtomicCore()
-	primaryCore.Store(&core)
 
-	// Initialize secondary AtomicCore as noop for potential OTel integration
-	secondaryCore := NewAtomicCore()
-
-	// Combine primary and secondary cores
-	combinedCore := zapcore.NewTee(primaryCore, secondaryCore)
-
-	// Create sugared logger with the combined core
+	// Initialize Otel AtomicCore as noop for potential OTel integration
+	otelCore := NewAtomicCore()
+	combinedCore := zapcore.NewTee(core, otelCore)
 	sugaredLogger := zap.New(combinedCore, opts...).Sugar()
 
 	return &zapLogger{
 		SugaredLogger: sugaredLogger,
 		level:         level,
 		opts:          opts,
-		core:          primaryCore,
-		secondaryCore: secondaryCore,
+		core:          core,
+		otelCore:      otelCore,
 	}
 }
 
@@ -155,9 +148,4 @@ func (l *zapLogger) Sync() error {
 
 func (l *zapLogger) Recover(panicErr interface{}) {
 	l.Criticalw("Recovered goroutine panic", "panic", panicErr)
-}
-
-// setSecondaryCore atomically swaps the secondary core to include OTel integration
-func (l *zapLogger) setSecondaryCore(core zapcore.Core) {
-	l.secondaryCore.Store(&core)
 }

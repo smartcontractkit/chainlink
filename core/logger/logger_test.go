@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,21 +52,20 @@ func TestOtelCore(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create a logger using Config.New() which returns the setOtelCore function
 			cfg := Config{
 				LogLevel: zapcore.InfoLevel,
 			}
-			logger, closeFn, setSecondaryCore := cfg.New()
+			logger, closeFn, atomicCore := cfg.NewWithAtomicCore()
 			defer closeFn()
 			require.NotNil(t, logger)
-			require.NotNil(t, setSecondaryCore)
+			require.NotNil(t, atomicCore)
 
 			if tc.enableOtel {
 				// Create a no-op OTel logger for testing
 				noopLogger := noop.NewLoggerProvider().Logger("test")
 
-				// Enable OTel integration via the setOtelCore function
-				setSecondaryCore(otelzap.NewCore(noopLogger, otelzap.WithLevel(zapcore.DebugLevel)))
+				otelCore := otelzap.NewCore(noopLogger, otelzap.WithLevel(zapcore.DebugLevel))
+				atomicCore.Store(&otelCore)
 				// Test that logger works with otel core
 				logger.Info("test log message with otel")
 			} else {
@@ -77,4 +77,38 @@ func TestOtelCore(t *testing.T) {
 			assert.NotNil(t, logger)
 		})
 	}
+}
+
+func TestNewWithAtomicCore_RotatingFileLogger(t *testing.T) {
+	// Test that rotating file logger works with AtomicCore approach
+	tempDir := t.TempDir()
+
+	cfg := Config{
+		LogLevel:       zapcore.InfoLevel,
+		Dir:            tempDir,
+		FileMaxSizeMB:  1, // Enable rotating file logger
+		FileMaxAgeDays: 1,
+		FileMaxBackups: 1,
+	}
+
+	logger, closeFn, atomicCore := cfg.NewWithAtomicCore()
+	defer closeFn()
+
+	require.NotNil(t, logger)
+	require.NotNil(t, atomicCore)
+
+	// Test that the logger works
+	logger.Info("test message for rotating file logger")
+
+	// Test that we can add OTel core to the AtomicCore
+	noopLogger := noop.NewLoggerProvider().Logger("test")
+	otelCore := otelzap.NewCore(noopLogger, otelzap.WithLevel(zapcore.DebugLevel))
+	atomicCore.Store(&otelCore)
+
+	// Test logging with OTel integration
+	logger.Info("test message with otel integration")
+
+	// Verify log file was created
+	logFile := filepath.Join(tempDir, "chainlink_debug.log")
+	require.FileExists(t, logFile)
 }

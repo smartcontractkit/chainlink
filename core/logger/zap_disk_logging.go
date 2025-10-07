@@ -86,10 +86,10 @@ func (l *zapDiskLogger) pollDiskSpace() {
 	}
 }
 
-func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*zapDiskLogger, func() error, func(zapcore.Core), error) {
+func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*zapDiskLogger, func() error, error) {
 	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, c.UnixTS)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	cores = append(cores, defaultCore)
 
@@ -97,7 +97,7 @@ func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*z
 	diskCore, diskErr := newDiskCore(diskLogLevel, c)
 	if diskErr != nil {
 		defaultCloseFn()
-		return nil, nil, nil, diskErr
+		return nil, nil, diskErr
 	}
 	cores = append(cores, diskCore)
 
@@ -105,7 +105,7 @@ func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*z
 	l, diskCloseFn, err := newLoggerForCore(zcfg, core)
 	if err != nil {
 		defaultCloseFn()
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	lggr := &zapDiskLogger{
@@ -129,5 +129,28 @@ func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*z
 		return lggr.Sync()
 	})
 
-	return lggr, closeLogger, l.setSecondaryCore, err
+	return lggr, closeLogger, err
+}
+
+func newRotatingFileCore(zcfg zap.Config, c Config) (zapcore.Core, func(), error) {
+	// Create default console core
+	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, c.UnixTS)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create disk logging core
+	diskLogLevel := zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	diskCore, err := newDiskCore(diskLogLevel, c)
+	if err != nil {
+		defaultCloseFn()
+		return nil, nil, err
+	}
+
+	combinedCore := zapcore.NewTee(defaultCore, diskCore)
+	combinedCloseFn := func() {
+		defaultCloseFn()
+	}
+
+	return combinedCore, combinedCloseFn, nil
 }
