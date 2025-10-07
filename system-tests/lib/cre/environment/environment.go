@@ -180,21 +180,37 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before DON startup")))
-	_, preErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PreDONStartupOp, PreDONStartupOpDeps{
-		TestLogger:        testLogger,
-		CldfEnv:           deployKeystoneContractsOutput.Env,
-		Provider:          input.Provider,
-		Topology:          topology,
-		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
-		ContractVersions:  input.ContractVersions,
-		CapabilityConfigs: input.CapabilityConfigs,
-	}, PreDONStartupOpInput{
-		RegistryChainSelector: startBlockchainsOutput.RegistryChain().ChainSelector,
-		Features:              input.Features,
-	})
-	if preErr != nil {
-		return nil, fmt.Errorf("failed to apply features before DON startup: %w", preErr)
+	for _, feature := range input.Features.List() {
+		testLogger.Info().Msgf("Executing PreDONStartup for feature %s", feature.Flag())
+		if preErr := feature.PreDONStartup(
+			testLogger,
+			startBlockchainsOutput.RegistryChain().ChainSelector,
+			deployKeystoneContractsOutput.Env,
+			input.Provider,
+			topology,
+			startBlockchainsOutput.BlockChainOutputs,
+			input.CapabilityConfigs,
+			input.ContractVersions,
+		); preErr != nil {
+			return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), preErr)
+		}
+		testLogger.Info().Msgf("PreDONStartup for feature %s executed successfully", feature.Flag())
 	}
+	// _, preErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PreDONStartupOp, PreDONStartupOpDeps{
+	// 	TestLogger:        testLogger,
+	// 	CldfEnv:           deployKeystoneContractsOutput.Env,
+	// 	Provider:          input.Provider,
+	// 	Topology:          topology,
+	// 	BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
+	// 	ContractVersions:  input.ContractVersions,
+	// 	CapabilityConfigs: input.CapabilityConfigs,
+	// }, PreDONStartupOpInput{
+	// 	RegistryChainSelector: startBlockchainsOutput.RegistryChain().ChainSelector,
+	// 	Features:              input.Features,
+	// })
+	// if preErr != nil {
+	// 	return nil, fmt.Errorf("failed to apply features before DON startup: %w", preErr)
+	// }
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
@@ -343,18 +359,36 @@ func SetupTestEnvironment(
 	})
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after DON startup")))
-	postDONStartupOutput, postErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PostDONStartupOp, PostDONStartupOpDeps{
-		TestLogger:        testLogger,
-		CreEnv:            creEnvironment,
-		NodeSetOutput:     startedDONs.NodeOutputs(),
-		ContractVersions:  input.ContractVersions,
-		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
-	}, PostDONStartupOpInput{
-		Features: input.Features,
-	})
-	if postErr != nil {
-		return nil, pkgerrors.Wrap(postErr, "failed to execute PostDONStartup features")
+	var postDONStartupOutput *cre.PostDONStartupOutput
+	for _, feature := range input.Features.List() {
+		var pErr error
+		testLogger.Info().Msgf("Executing PostDONStartup for feature %s", feature.Flag())
+		postDONStartupOutput, pErr = feature.PostDONStartup(
+			ctx,
+			testLogger,
+			creEnvironment,
+			startedDONs.NodeOutputs(),
+			startBlockchainsOutput.BlockChainOutputs,
+			input.ContractVersions,
+		)
+		if pErr != nil {
+			return nil, fmt.Errorf("failed to execute PostDONStartup for feature %s: %w", feature.Flag(), pErr)
+		}
+		testLogger.Info().Msgf("PostDONStartup for feature %s executed successfully", feature.Flag())
 	}
+
+	// postDONStartupOutput, postErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PostDONStartupOp, PostDONStartupOpDeps{
+	// 	TestLogger:        testLogger,
+	// 	CreEnv:            creEnvironment,
+	// 	NodeSetOutput:     startedDONs.NodeOutputs(),
+	// 	ContractVersions:  input.ContractVersions,
+	// 	BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
+	// }, PostDONStartupOpInput{
+	// 	Features: input.Features,
+	// })
+	// if postErr != nil {
+	// 	return nil, pkgerrors.Wrap(postErr, "failed to execute PostDONStartup features")
+	// }
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring OCR3 and Keystone contracts")))
@@ -363,7 +397,19 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(ksErr, "failed to prepare keystone configuration input")
 	}
 
-	postDONStartupOutput.Output.MergeWithConfigureInput(configureKeystoneInput)
+	for k, v := range postDONStartupOutput.DONCapabilityWithConfigs {
+		if configureKeystoneInput.DONCapabilityWithConfigs == nil {
+			configureKeystoneInput.DONCapabilityWithConfigs = make(map[int][]keystone_changeset.DONCapabilityWithConfig)
+		}
+
+		if configureKeystoneInput.DONCapabilityWithConfigs[k] == nil {
+			configureKeystoneInput.DONCapabilityWithConfigs[k] = make([]keystone_changeset.DONCapabilityWithConfig, 0)
+		}
+
+		configureKeystoneInput.DONCapabilityWithConfigs[k] = append(configureKeystoneInput.DONCapabilityWithConfigs[k], v...)
+	}
+
+	// postDONStartupOutput.Output.MergeWithConfigureInput(configureKeystoneInput)
 
 	keystoneErr := crecontracts.ConfigureKeystone(*configureKeystoneInput)
 	if keystoneErr != nil {

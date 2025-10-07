@@ -231,7 +231,7 @@ func createJobs(
 			return errors.Wrap(wErr, "failed to find worker nodes")
 		}
 
-		bootstrapNode, isBootstrap := creEnv.DonTopology.BootstrapNode()
+		bootstrapNode, isBootstrap := creEnv.DonTopology.Bootstrap()
 		if !isBootstrap {
 			return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 		}
