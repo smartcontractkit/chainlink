@@ -54,7 +54,6 @@ func testLogger(tb testing.TB, core zapcore.Core, lvl zapcore.Level) SugaredLogg
 	zl := &zapLogger{
 		level:         a,
 		SugaredLogger: zlog.Sugar(),
-		core:          atomicCore,
 	}
 	return Sugared(zl.With("version", verShaNameStatic()))
 }

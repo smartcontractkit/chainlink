@@ -57,7 +57,10 @@ func TestOtelCore(t *testing.T) {
 
 			atomicCore := NewAtomicCore()
 			logger, closeFn := cfg.NewWithCores()
-			defer closeFn()
+			defer func() {
+				err := closeFn()
+				require.NoError(t, err)
+			}()
 			require.NotNil(t, logger)
 
 			if tc.enableOtel {

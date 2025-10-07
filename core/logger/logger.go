@@ -271,19 +271,16 @@ func newDefaultLogger(zcfg zap.Config, unixTS bool, cores ...zapcore.Core) (Logg
 	}, nil
 }
 
-func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (
-	*zapLogger, func(), error,
-) {
+func newLoggerForCore(zcfg zap.Config, core zapcore.Core) (*zapLogger, func(), error) {
 	errSink, closeFn, err := zap.Open(zcfg.ErrorOutputPaths...)
 	if err != nil {
 		return nil, nil, err
 	}
-	opts := []zap.Option{zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)}
 
-	// Create zapLogger with OTel atomic core
-	zapLogger := newZapLogger(zcfg.Level, opts, core)
-
-	return zapLogger, closeFn, nil
+	return &zapLogger{
+		level:         zcfg.Level,
+		SugaredLogger: zap.New(core, zap.ErrorOutput(errSink), zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)).Sugar(),
+	}, closeFn, nil
 }
 
 func newDefaultLoggingCore(zcfg zap.Config, unixTS bool) (zapcore.Core, func(), error) {

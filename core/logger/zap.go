@@ -52,26 +52,6 @@ type zapLogger struct {
 	level      zap.AtomicLevel
 	fields     []interface{}
 	callerSkip int
-	opts       []zap.Option
-	core       zapcore.Core
-	otelCore   *AtomicCore
-}
-
-// newZapLogger creates a new zapLogger with the given configuration
-func newZapLogger(level zap.AtomicLevel, opts []zap.Option, core zapcore.Core) *zapLogger {
-
-	// Initialize Otel AtomicCore as noop for potential OTel integration
-	otelCore := NewAtomicCore()
-	combinedCore := zapcore.NewTee(core, otelCore)
-	sugaredLogger := zap.New(combinedCore, opts...).Sugar()
-
-	return &zapLogger{
-		SugaredLogger: sugaredLogger,
-		level:         level,
-		opts:          opts,
-		core:          core,
-		otelCore:      otelCore,
-	}
 }
 
 func makeEncoderConfig(unixTS bool) zapcore.EncoderConfig {
