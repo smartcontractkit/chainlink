@@ -129,7 +129,7 @@ var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
 	{"non-numeric string", "abc", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
 	{"empty string", "", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
 	{"decimal", "100.5", filterLogsInvalidFromBlock, "toBlock 150 is less than fromBlock"},
-	{"fromBlock greater than toBlock by more than 100", "49", filterLogsInvalidFromBlock, "exceeds maximum allowed range of 100"}, // toBlock is 150, so distance is 100+
+	{"fromBlock greater than toBlock by more than 100", "49", filterLogsInvalidFromBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"}, // toBlock is 150, so distance is 100+
 }
 
 var evmNegativeTestsFilterLogsWithInvalidToBlock = []evmNegativeTest{
@@ -139,10 +139,10 @@ var evmNegativeTestsFilterLogsWithInvalidToBlock = []evmNegativeTest{
 	{"zero", "0", filterLogsInvalidToBlock, "block number 0 is not supported"},
 	{"less then FromBlock", "1", filterLogsInvalidToBlock, "toBlock 1 is less than fromBlock"},
 	{"very large number", "9223372036854775808", filterLogsInvalidToBlock, "is not an int64"}, // int64 max + 1
-	{"non-numeric string", "abc", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"},
-	{"empty string", "", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"}, // equivalent to "current block"
-	{"decimal", "100.5", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"},
-	{"toBlock greater than fromBlock by more than 100", "103", filterLogsInvalidToBlock, "exceeds maximum allowed range of 100"}, // fromBlock is 2
+	{"non-numeric string", "abc", filterLogsInvalidToBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"},
+	{"empty string", "", filterLogsInvalidToBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"}, // equivalent to "current block"
+	{"decimal", "100.5", filterLogsInvalidToBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"},
+	{"toBlock greater than fromBlock by more than 100", "103", filterLogsInvalidToBlock, "PerWorkflow.ChainRead.LogQueryBlockLimit limited for workflow"}, // fromBlock is 2
 }
 
 var evmNegativeTestsGetTransactionByHashInvalidHash = []evmNegativeTest{
