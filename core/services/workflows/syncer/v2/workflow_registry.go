@@ -173,27 +173,32 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 
 		w.wg.Add(1)
 		go func() {
-			defer w.lggr.Debugw("Received DON and set ContractReader")
+			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer w.wg.Done()
 			defer close(initDoneCh)
 
-			w.lggr.Debugw("Waiting for DON...")
-			if _, err := w.workflowDonNotifier.WaitForDon(ctx); err != nil {
-				w.lggr.Errorw("failed to wait for don", "err", err)
-				return
+			ticker := w.getTicker(defaultTickInterval)
+			for {
+				if w.contractReader != nil {
+					break
+				}
+				select {
+				case <-ctx.Done():
+					w.lggr.Debug("shutting down workflowregistry, %s", ctx.Err())
+					return
+				case <-ticker:
+					// Async initialization of contract reader because there is an on-chain
+					// call dependency.  Blocking on initialization results in a
+					// deadlock.  Instead wait until the node has identified it's DON
+					// as a proxy for a DON and on-chain ready state .
+					reader, err := w.newWorkflowRegistryContractReader(ctx)
+					if err != nil {
+						w.lggr.Errorw("contract reader unavailable : %s", err)
+						break
+					}
+					w.contractReader = reader
+				}
 			}
-
-			// Async initialization of contract reader because there is an on-chain
-			// call dependency.  Blocking on initialization results in a
-			// deadlock.  Instead wait until the node has identified it's DON
-			// as a proxy for a DON and on-chain ready state .
-			reader, err := w.newWorkflowRegistryContractReader(ctx)
-			if err != nil {
-				w.lggr.Criticalf("contract reader unavailable : %s", err)
-				return
-			}
-
-			w.contractReader = reader
 		}()
 
 		w.wg.Add(1)
