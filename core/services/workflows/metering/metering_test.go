@@ -1047,6 +1047,76 @@ func Test_Report_FormatReport(t *testing.T) {
 		assert.Equal(t, expected, report.FormatReport().Steps)
 		billingClient.AssertExpectations(t)
 	})
+
+	t.Run("single execution does not aggregate", func(t *testing.T) {
+		t.Parallel()
+
+		numSteps := 1
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "10000000000", // 10 gwei per credit
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		expected := map[string]*eventspb.MeteringReportStep{}
+
+		for i := range numSteps {
+			stepRef := strconv.Itoa(i)
+
+			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
+			require.NoError(t, err)
+
+			require.NoError(t, report.Settle(stepRef, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+				{Peer2PeerID: "xyz", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "42"},
+				{Peer2PeerID: "abc", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "44"},
+				{Peer2PeerID: "abc", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
+				{Peer2PeerID: "lmno", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "12"},
+			}}))
+
+			expected[stepRef] = &eventspb.MeteringReportStep{
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId:  "xyz",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:    "42",
+						SpendValueCre: "84.0000000000",
+					},
+					{
+						Peer_2PeerId:  "abc",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:    "44",
+						SpendValueCre: "88.0000000000",
+					},
+					{
+						Peer_2PeerId:  "lmno",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:    "12",
+						SpendValueCre: "24.0000000000",
+					},
+					{
+						Peer_2PeerId:  "abc",
+						SpendUnit:     testUnitGas,
+						SpendValue:    "0.000001",
+						SpendValueCre: "100.0000000000",
+					},
+				},
+				AggSpendValue:    "1000000000000.0000000000", // converted to wei before median is taken
+				AggSpendUnit:     testUnitGas,
+				AggSpendValueCre: "100.0000000000",
+				CapdonN:          1,
+			}
+		}
+
+		assert.Equal(t, expected, report.FormatReport().Steps)
+		billingClient.AssertExpectations(t)
+	})
 }
 
 func Test_Report_SendReceipt(t *testing.T) {

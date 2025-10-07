@@ -75,7 +75,7 @@ type ReportStep struct {
 	// The ID of the capability being used in this step
 	CapabilityID string
 	// CapDONN is the total number of nodes in a capability DON.
-	CapDONN uint32
+	CapdonN uint32
 	// The maximum amount of universal credits that should be used in this step
 	Deduction decimal.Decimal
 	// The actual resource spend that each node used for this step
@@ -444,6 +444,8 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 			metadata.CapDON_N = 1
 		}
 
+		// TODO: indicate in the registry config that a capability is single execution or not
+		// https://smartcontract-it.atlassian.net/browse/CRE-1037
 		if !isGasSpendType(unit) {
 			value = value.Mul(decimal.NewFromUint64(uint64(metadata.CapDON_N)))
 		}
@@ -461,7 +463,7 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 	}
 
 	step.Spends = resourceSpends
-	step.CapDONN = metadata.CapDON_N
+	step.CapdonN = metadata.CapDON_N
 	r.steps[ref] = step
 
 	// if in metering mode, exit early without modifying local balance
@@ -540,7 +542,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		}
 
 		stepDetails.Nodes = nodeDetails
-		stepDetails.CapdonN = step.CapDONN
+		stepDetails.CapdonN = step.CapdonN
 		protoReport.Steps[ref] = stepDetails
 	}
 
