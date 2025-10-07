@@ -362,8 +362,9 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, lggr)
-		require.NoError(t, capabilityNode.SetConfig(config, underlying, capInfo, capDonInfo, workflowDONs,
-			capabilityNodeResponseTimeout, 10, messageHasher))
+		config.RequestTimeout = capabilityNodeResponseTimeout
+		config.ServerMaxParallelRequests = 10
+		require.NoError(t, capabilityNode.SetConfig(config, underlying, capInfo, capDonInfo, workflowDONs, messageHasher))
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
@@ -472,28 +473,16 @@ func Test_Server_SetConfig(t *testing.T) {
 
 	underlying := &TestCapability{}
 	requestTimeout := 10 * time.Second
-	maxParallelRequests := 5
+	maxParallelRequests := uint32(5)
 
 	t.Run("valid config should succeed", func(t *testing.T) {
 		config := &commoncap.RemoteExecutableConfig{
 			RequestHashExcludedAttributes: []string{"test"},
+			RequestTimeout:                requestTimeout,
+			ServerMaxParallelRequests:     maxParallelRequests,
 		}
 
-		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs,
-			requestTimeout, maxParallelRequests, nil)
-		require.NoError(t, err)
-	})
-
-	t.Run("nil config should use default", func(t *testing.T) {
-		err := server.SetConfig(nil, underlying, capInfo, localDonInfo, workflowDONs,
-			requestTimeout, maxParallelRequests, nil)
-		require.NoError(t, err)
-	})
-
-	t.Run("nil hasher should create default V1 hasher", func(t *testing.T) {
-		config := &commoncap.RemoteExecutableConfig{}
-		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs,
-			requestTimeout, maxParallelRequests, nil)
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
 		require.NoError(t, err)
 	})
 
@@ -504,14 +493,14 @@ func Test_Server_SetConfig(t *testing.T) {
 		}
 
 		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, underlying, invalidCapInfo,
-			localDonInfo, workflowDONs, requestTimeout, maxParallelRequests, nil)
+			localDonInfo, workflowDONs, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "capability info provided does not match")
 	})
 
 	t.Run("nil underlying capability should return error", func(t *testing.T) {
 		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, nil, capInfo,
-			localDonInfo, workflowDONs, requestTimeout, maxParallelRequests, nil)
+			localDonInfo, workflowDONs, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "underlying capability cannot be nil")
 	})
@@ -550,9 +539,10 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	// Set initial config
 	config1 := &commoncap.RemoteExecutableConfig{
 		RequestHashExcludedAttributes: []string{"attr1"},
+		RequestTimeout:                5 * time.Second,
+		ServerMaxParallelRequests:     3,
 	}
-	err := server.SetConfig(config1, underlying, capInfo, localDonInfo, workflowDONs,
-		5*time.Second, 3, nil)
+	err := server.SetConfig(config1, underlying, capInfo, localDonInfo, workflowDONs, nil)
 	require.NoError(t, err)
 
 	// Verify server can start with valid config
@@ -563,9 +553,10 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	// Replace with new config
 	config2 := &commoncap.RemoteExecutableConfig{
 		RequestHashExcludedAttributes: []string{"attr2", "attr3"},
+		RequestTimeout:                10 * time.Second,
+		ServerMaxParallelRequests:     5,
 	}
-	err = server.SetConfig(config2, underlying, capInfo, localDonInfo, workflowDONs,
-		10*time.Second, 5, nil)
+	err = server.SetConfig(config2, underlying, capInfo, localDonInfo, workflowDONs, nil)
 	require.NoError(t, err)
 
 	// Clean up
@@ -618,9 +609,12 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 		}
 
 		underlying := &TestCapability{}
-
-		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, underlying, capInfo,
-			localDonInfo, workflowDONs, 10*time.Second, 5, nil)
+		cfg := &commoncap.RemoteExecutableConfig{
+			RequestTimeout:            10 * time.Second,
+			ServerMaxParallelRequests: 5,
+		}
+		err := server.SetConfig(cfg, underlying, capInfo,
+			localDonInfo, workflowDONs, nil)
 		require.NoError(t, err)
 
 		err = server.Start(ctx)

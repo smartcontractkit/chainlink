@@ -54,8 +54,6 @@ type dynamicServerConfig struct {
 	capInfo                commoncap.CapabilityInfo
 	localDonInfo           commoncap.DON
 	workflowDONs           map[uint32]commoncap.DON
-	requestTimeout         time.Duration
-	maxParallelRequests    int
 }
 
 type Server interface {
@@ -63,7 +61,7 @@ type Server interface {
 	services.Service
 	SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableConfig, underlying commoncap.ExecutableCapability,
 		capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON,
-		requestTimeout time.Duration, maxParallelRequests int, messageHasher types.MessageHasher) error
+		messageHasher types.MessageHasher) error
 }
 
 var _ Server = &server{}
@@ -90,13 +88,14 @@ func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatch
 
 // SetConfig sets the remote server configuration dynamically
 func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableConfig, underlying commoncap.ExecutableCapability,
-	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON,
-	requestTimeout time.Duration, maxParallelRequests int, messageHasher types.MessageHasher) error {
+	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, messageHasher types.MessageHasher) error {
+	currCfg := r.cfg.Load()
 	if remoteExecutableConfig == nil {
 		r.lggr.Info("no remote config provided, using default values")
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
 	if messageHasher == nil {
+		r.lggr.Warn("no message hasher provided, using default V1 hasher")
 		messageHasher = NewV1Hasher(remoteExecutableConfig.RequestHashExcludedAttributes)
 	}
 	if capInfo.ID == "" || capInfo.ID != r.capabilityID {
@@ -108,12 +107,17 @@ func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableCon
 	if len(localDonInfo.Members) == 0 {
 		return errors.New("empty localDonInfo provided")
 	}
-	if requestTimeout <= 0 {
-		return errors.New("requestTimeout must be positive")
+	if remoteExecutableConfig.RequestTimeout <= 0 {
+		return errors.New("cfg.RequestTimeout must be positive")
 	}
-	// Use a sensible default if maxParallelRequests is not set or is 0
-	if maxParallelRequests <= 0 {
-		maxParallelRequests = 10 // default value
+	if remoteExecutableConfig.ServerMaxParallelRequests <= 0 {
+		return errors.New("cfg.ServerMaxParallelRequests must be positive")
+	}
+
+	if currCfg != nil && currCfg.remoteExecutableConfig != nil &&
+		currCfg.remoteExecutableConfig.ServerMaxParallelRequests > 0 &&
+		remoteExecutableConfig.ServerMaxParallelRequests != currCfg.remoteExecutableConfig.ServerMaxParallelRequests {
+		r.lggr.Warn("ServerMaxParallelRequests changed but it won't be applied until node restart")
 	}
 
 	// always replace the whole dynamicServerConfig object to avoid inconsistent state
@@ -124,8 +128,6 @@ func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableCon
 		capInfo:                capInfo,
 		localDonInfo:           localDonInfo,
 		workflowDONs:           workflowDONs,
-		requestTimeout:         requestTimeout,
-		maxParallelRequests:    maxParallelRequests,
 	})
 	return nil
 }
@@ -138,6 +140,9 @@ func (r *server) Start(ctx context.Context) error {
 		if cfg == nil {
 			return errors.New("config not set - call SetConfig() before Start()")
 		}
+		if cfg.remoteExecutableConfig == nil {
+			return errors.New("remote executable config not set - call SetConfig() before Start()")
+		}
 		if cfg.underlying == nil {
 			return errors.New("underlying capability not set - call SetConfig() before Start()")
 		}
@@ -147,19 +152,18 @@ func (r *server) Start(ctx context.Context) error {
 		if len(cfg.localDonInfo.Members) == 0 {
 			return errors.New("local DON info not set - call SetConfig() before Start()")
 		}
-		if cfg.requestTimeout <= 0 {
-			return errors.New("request timeout not set - call SetConfig() before Start()")
+		if cfg.remoteExecutableConfig.RequestTimeout <= 0 {
+			return errors.New("cfg.RequestTimeout not set - call SetConfig() before Start()")
 		}
-		// maxParallelRequests should always be positive after SetConfig, but just in case
-		if cfg.maxParallelRequests <= 0 {
-			return errors.New("maxParallelRequests not set properly - call SetConfig() before Start()")
+		if cfg.remoteExecutableConfig.ServerMaxParallelRequests <= 0 {
+			return errors.New("cfg.ServerMaxParallelRequests not set - call SetConfig() before Start()")
 		}
 		if r.dispatcher == nil {
 			return errors.New("dispatcher set to nil, cannot start server")
 		}
 
 		// Initialize parallel executor with the configured max parallel requests
-		r.parallelExecutor = newParallelExecutor(cfg.maxParallelRequests)
+		r.parallelExecutor = newParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests))
 
 		r.wg.Add(1)
 		go func() {
@@ -188,8 +192,8 @@ func (r *server) Start(ctx context.Context) error {
 }
 
 func getServerTickerInterval(cfg *dynamicServerConfig) time.Duration {
-	if cfg != nil && cfg.requestTimeout > 0 {
-		return cfg.requestTimeout
+	if cfg.remoteExecutableConfig.RequestTimeout > 0 {
+		return cfg.remoteExecutableConfig.RequestTimeout
 	}
 	return defaultExpiryCheckInterval
 }
@@ -284,7 +288,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}
 
 		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, cfg.requestTimeout, r.capMethodName, r.lggr)
+			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return

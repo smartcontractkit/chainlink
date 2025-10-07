@@ -594,7 +594,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 var (
 	// TODO: make this configurable
 	defaultTargetRequestTimeout                 = 8 * time.Minute
-	defaultMaxParallelCapabilityExecuteRequests = 1000
+	defaultMaxParallelCapabilityExecuteRequests = uint32(1000)
 )
 
 // serveCapabilities exposes capabilities that are available on this node, as part of the given DON.
@@ -683,7 +683,11 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 				w.cachedShims.executableServers[shimKey] = server
 			}
 
-			remoteConfig := &capabilities.RemoteExecutableConfig{}
+			remoteConfig := &capabilities.RemoteExecutableConfig{
+				// deprecated defaults - v2 reads these from onchain config
+				RequestTimeout:            defaultTargetRequestTimeout,
+				ServerMaxParallelRequests: defaultMaxParallelCapabilityExecuteRequests,
+			}
 			if capabilityConfig.RemoteTargetConfig != nil {
 				remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
 			}
@@ -693,12 +697,10 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 				info,
 				don.DON,
 				idsToDONs,
-				defaultTargetRequestTimeout,
-				defaultMaxParallelCapabilityExecuteRequests,
 				nil,
 			)
 			if errCfg != nil {
-				return nil, fmt.Errorf("failed to set server config: %w", err)
+				return nil, fmt.Errorf("failed to set server config: %w", errCfg)
 			}
 
 			return server, nil
@@ -729,7 +731,11 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 				w.cachedShims.executableServers[shimKey] = server
 			}
 
-			remoteConfig := &capabilities.RemoteExecutableConfig{}
+			remoteConfig := &capabilities.RemoteExecutableConfig{
+				// deprecated defaults - v2 reads these from onchain config
+				RequestTimeout:            defaultTargetRequestTimeout,
+				ServerMaxParallelRequests: defaultMaxParallelCapabilityExecuteRequests,
+			}
 			if capabilityConfig.RemoteTargetConfig != nil {
 				remoteConfig.RequestHashExcludedAttributes = capabilityConfig.RemoteTargetConfig.RequestHashExcludedAttributes
 			}
@@ -739,12 +745,10 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, c registrysy
 				info,
 				don.DON,
 				idsToDONs,
-				defaultTargetRequestTimeout,
-				defaultMaxParallelCapabilityExecuteRequests,
 				nil,
 			)
 			if errCfg != nil {
-				return nil, fmt.Errorf("failed to set server config: %w", err)
+				return nil, fmt.Errorf("failed to set server config: %w", errCfg)
 			}
 
 			return server, nil
@@ -991,8 +995,6 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 				info,
 				myDON.DON,
 				idsToDONs,
-				config.RemoteExecutableConfig.RequestTimeout,
-				int(config.RemoteExecutableConfig.ServerMaxParallelRequests),
 				requestHasher,
 			)
 			if err != nil {

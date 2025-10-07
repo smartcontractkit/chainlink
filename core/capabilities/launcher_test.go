@@ -885,8 +885,9 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 			"Write": {
 				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 					RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-						RequestTimeout: durationpb.New(30 * time.Second),
-						DeltaStage:     durationpb.New(1 * time.Second),
+						RequestTimeout:            durationpb.New(30 * time.Second),
+						ServerMaxParallelRequests: 10,
+						DeltaStage:                durationpb.New(1 * time.Second),
 					},
 				},
 			},
