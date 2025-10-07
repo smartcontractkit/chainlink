@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -50,13 +49,11 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		blockchainDeployers = k8s_blockchains.NewDeployerSet(framework.L, cachedInput.Infra.CRIB.Namespace, CribConfigsDir)
 	}
 
-	startBcOut, startErr := operations.ExecuteOperation(operations.NewBundle(
-		func() context.Context { return ctx },
-		cldLogger, operations.NewMemoryReporter()),
-		StartBlockchainsOp,
-		StartBlockchainsOpDeps{Deployers: blockchainDeployers, CommonLogger: cldLogger},
-		StartBlockchainsOpInput{Inputs: cachedInput.Blockchains})
-
+	deployedBlockchains, startErr := blockchains.Start(
+		cldLogger,
+		cachedInput.Blockchains,
+		blockchainDeployers,
+	)
 	if startErr != nil {
 		return nil, nil, errors.Wrap(startErr, "failed to start blockchains")
 	}
@@ -137,8 +134,8 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.Wrapf(offChainErr, "failed to create offchain client")
 	}
 
-	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(startBcOut.Output.DeployedBlockchains.Outputs))
-	for _, output := range startBcOut.Output.DeployedBlockchains.Outputs {
+	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(deployedBlockchains.Outputs))
+	for _, output := range deployedBlockchains.Outputs {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(output)
 		if cfgErr != nil {
 			return nil, nil, errors.Wrapf(cfgErr, "failed to build chain config from write for blockchain %s", output.CtfOutput.Family)
@@ -173,5 +170,5 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 	return &cre.Environment{
 		CldfEnvironment: cldEnv,
 		DonTopology:     cre.NewDonTopology(envArtifact.Topology.HomeChainSelector, topology, dons),
-	}, startBcOut.Output.DeployedBlockchains.Outputs, nil
+	}, deployedBlockchains.Outputs, nil
 }

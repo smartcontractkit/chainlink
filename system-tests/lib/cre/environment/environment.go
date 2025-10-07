@@ -136,13 +136,11 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
 
-	startBcOut, startErr := operations.ExecuteOperation(operations.NewBundle(
-		func() context.Context { return ctx },
-		singleFileLogger, operations.NewMemoryReporter()),
-		StartBlockchainsOp,
-		StartBlockchainsOpDeps{Deployers: input.BlockchainDeployers, CommonLogger: singleFileLogger},
-		StartBlockchainsOpInput{Inputs: input.BlockchainsInput})
-
+	deployedBlockchains, startErr := blockchains.Start(
+		singleFileLogger,
+		input.BlockchainsInput,
+		input.BlockchainDeployers,
+	)
 	if startErr != nil {
 		return nil, pkgerrors.Wrap(startErr, "failed to start blockchains")
 	}
@@ -155,8 +153,8 @@ func SetupTestEnvironment(
 		testLogger,
 		singleFileLogger,
 		crecontracts.DeployKeystoneContractsInput{
-			CldfEnvironment:           newCldfEnvironment(ctx, singleFileLogger, startBcOut.Output.DeployedBlockchains.CldfBlockChains, startBcOut.Output.OpBundle),
-			CtfBlockchains:            startBcOut.Output.DeployedBlockchains.Outputs,
+			CldfEnvironment:           newCldfEnvironment(ctx, singleFileLogger, deployedBlockchains.CldfBlockChains),
+			CtfBlockchains:            deployedBlockchains.Outputs,
 			ContractVersions:          input.ContractVersions,
 			WithV2Registries:          input.WithV2Registries,
 			CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
@@ -170,10 +168,10 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
 	topology, updatedNodeSets, topoErr := PrepareNodeTOMLConfigurations(
-		startBcOut.Output.DeployedBlockchains.RegistryChain().ChainSelector,
+		deployedBlockchains.RegistryChain().ChainSelector,
 		input.CapabilitiesAwareNodeSets,
 		input.Provider,
-		startBcOut.Output.DeployedBlockchains.Outputs,
+		deployedBlockchains.Outputs,
 		deployKeystoneContractsOutput.Env.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		deployKeystoneContractsOutput.Env.DataStore,
 		input.Capabilities,
@@ -189,7 +187,7 @@ func SetupTestEnvironment(
 	jdOutput, nodeSetOutput, donJDErr := StartDONsAndJD(
 		testLogger,
 		input.JdInput,
-		startBcOut.Output.DeployedBlockchains.RegistryChain().CtfOutput,
+		deployedBlockchains.RegistryChain().CtfOutput,
 		topology,
 		input.Provider,
 		input.CapabilityConfigs,
@@ -202,7 +200,7 @@ func SetupTestEnvironment(
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
 		JdOutput:        jdOutput,
-		Blockchains:     startBcOut.Output.DeployedBlockchains.Outputs,
+		Blockchains:     deployedBlockchains.Outputs,
 		NodeSetOutput:   nodeSetOutput,
 		CldfEnvironment: deployKeystoneContractsOutput.Env,
 		Topology:        topology,
@@ -212,7 +210,7 @@ func SetupTestEnvironment(
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
-	creEnvironment, creErr := newCreEnvironment(startBcOut.Output.DeployedBlockchains.RegistryChain().ChainSelector, cldfEnvironment, dons, topology)
+	creEnvironment, creErr := newCreEnvironment(deployedBlockchains.RegistryChain().ChainSelector, cldfEnvironment, dons, topology)
 	if creErr != nil {
 		return nil, pkgerrors.Wrap(creErr, "failed to create CRE environment")
 	}
@@ -231,7 +229,7 @@ func SetupTestEnvironment(
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
-		HomeChainBlockchainOutput: startBcOut.Output.DeployedBlockchains.RegistryChain().CtfOutput,
+		HomeChainBlockchainOutput: deployedBlockchains.RegistryChain().CtfOutput,
 		JobSpecFactoryFunctions:   jobSpecFactoryFunctions,
 		CreEnvironment:            creEnvironment,
 		CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
@@ -252,7 +250,7 @@ func SetupTestEnvironment(
 	preFundingOutput, prefundErr := operations.ExecuteOperation(creEnvironment.CldfEnvironment.OperationsBundle, PrepareCLNodesFundingOp, PrepareFundCLNodesOpDeps{
 		TestLogger:  testLogger,
 		Env:         creEnvironment.CldfEnvironment,
-		Blockchains: startBcOut.Output.DeployedBlockchains.Outputs,
+		Blockchains: deployedBlockchains.Outputs,
 		DonTopology: creEnvironment.DonTopology,
 	}, PrepareFundCLNodesOpInput{FundingPerChainFamilyForEachNode: map[string]uint64{
 		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
@@ -271,7 +269,7 @@ func SetupTestEnvironment(
 		_, fundErr := operations.ExecuteOperation(creEnvironment.CldfEnvironment.OperationsBundle, FundCLNodesOp, FundCLNodesOpDeps{
 			TestLogger:        testLogger,
 			Env:               creEnvironment.CldfEnvironment,
-			BlockchainOutputs: startBcOut.Output.DeployedBlockchains.Outputs,
+			BlockchainOutputs: deployedBlockchains.Outputs,
 			DonTopology:       creEnvironment.DonTopology,
 		}, FundCLNodesOpInput{
 			FundingAmountPerChainFamily: preFundingOutput.Output.FundingPerChainFamilyForEachNode,
@@ -300,12 +298,12 @@ func SetupTestEnvironment(
 		testLogger,
 		singleFileLogger,
 		&cre.WorkflowRegistryInput{
-			ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, startBcOut.Output.DeployedBlockchains.RegistryChain().ChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
+			ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, deployedBlockchains.RegistryChain().ChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
 			ContractVersion: cldf.TypeAndVersion{Version: wfRegVersion},
-			ChainSelector:   startBcOut.Output.DeployedBlockchains.RegistryChain().ChainSelector,
+			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector,
 			CldEnv:          deployKeystoneContractsOutput.Env,
 			AllowedDonIDs:   []uint64{topology.WorkflowDONID},
-			WorkflowOwners:  []common.Address{startBcOut.Output.DeployedBlockchains.RegistryChain().SethClient.MustGetRootKeyAddress()},
+			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().SethClient.MustGetRootKeyAddress()},
 		},
 	)
 
@@ -325,13 +323,13 @@ func SetupTestEnvironment(
 			// There are no filters registered with the V2 WF Registry Syncer
 			return nil
 		default:
-			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.Provider.Type, startBcOut.Output.DeployedBlockchains.RegistryChain().ChainID, creEnvironment.DonTopology, updatedNodeSets)
+			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.Provider.Type, deployedBlockchains.RegistryChain().ChainID, creEnvironment.DonTopology, updatedNodeSets)
 		}
 	})
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring OCR3 and Keystone contracts")))
 
-	configureKeystoneInput, ksErr := prepareKeystoneConfigurationInput(*input, startBcOut.Output.DeployedBlockchains.RegistryChain().ChainSelector, topology, updatedNodeSets, creEnvironment.CldfEnvironment, deployKeystoneContractsOutput, startBcOut.Output.DeployedBlockchains.Outputs)
+	configureKeystoneInput, ksErr := prepareKeystoneConfigurationInput(*input, deployedBlockchains.RegistryChain().ChainSelector, topology, updatedNodeSets, creEnvironment.CldfEnvironment, deployKeystoneContractsOutput, deployedBlockchains.Outputs)
 	if ksErr != nil {
 		return nil, pkgerrors.Wrap(ksErr, "failed to prepare keystone configuration input")
 	}
@@ -352,7 +350,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
 
-	appendOutputsToInput(input, nodeSetOutput, startBcOut.Output.DeployedBlockchains.Outputs, jdOutput)
+	appendOutputsToInput(input, nodeSetOutput, deployedBlockchains.Outputs, jdOutput)
 
 	if err := workflowRegistryConfigurationOutput.Store(config.MustWorkflowRegistryStateFileAbsPath(relativePathToRepoRoot)); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to store workflow registry configuration output")
@@ -360,7 +358,7 @@ func SetupTestEnvironment(
 
 	return &SetupOutput{
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
-		Blockchains:                         startBcOut.Output.DeployedBlockchains.Outputs,
+		Blockchains:                         deployedBlockchains.Outputs,
 		DonTopology:                         creEnvironment.DonTopology,
 		NodeOutput:                          nodeSetOutput,
 		CldEnvironment:                      creEnvironment.CldfEnvironment,
@@ -517,7 +515,7 @@ func newCreEnvironment(registryChainSelector uint64, cldfEnv *cldf.Environment, 
 	}, nil
 }
 
-func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains, opBundle operations.Bundle) *cldf.Environment {
+func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains cldf_chain.BlockChains) *cldf.Environment {
 	memoryDatastore := datastore.NewMemoryDataStore()
 	allChainsCLDEnvironment := &cldf.Environment{
 		Name:              "local CRE",
@@ -527,9 +525,11 @@ func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cld
 		GetContext: func() context.Context {
 			return ctx
 		},
-		BlockChains:      cldfBlockchains,
-		OCRSecrets:       focr.XXXGenerateTestOCRSecrets(),
-		OperationsBundle: opBundle,
+		BlockChains: cldfBlockchains,
+		OCRSecrets:  focr.XXXGenerateTestOCRSecrets(),
+		OperationsBundle: operations.NewBundle(
+			func() context.Context { return ctx },
+			singleFileLogger, operations.NewMemoryReporter()),
 	}
 
 	return allChainsCLDEnvironment
