@@ -6,7 +6,6 @@ import (
 	"maps"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/alitto/pond/v2"
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -38,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/worker"
 )
 
 const (
@@ -203,20 +203,33 @@ func SetupTestEnvironment(
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
-	startedJD, startedDONs, donJDErr := StartDONsAndJD(
-		ctx,
-		testLogger,
-		input.JdInput,
-		startBlockchainsOutput.RegistryChain().BlockchainOutput,
-		topology,
-		input.Provider,
-		input.CapabilityConfigs,
-		input.CopyCapabilityBinaries,
-		updatedNodeSets,
-	)
-	if donJDErr != nil {
-		return nil, pkgerrors.Wrap(donJDErr, "failed to start DONs or Job Distributor")
+	queue := worker.New(10)
+	jdStartedFuture := queue.SubmitAny(func() (any, error) {
+		jdOutput, startJDErr := StartJD(testLogger, *input.JdInput, input.Provider)
+		if startJDErr != nil {
+			return nil, pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
+		}
+		return jdOutput, nil
+	})
+
+	donsStartedFuture := queue.SubmitAny(func() (any, error) {
+		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, startBlockchainsOutput.RegistryChain().BlockchainOutput, input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets)
+		if startDonsErr != nil {
+			return nil, pkgerrors.Wrap(startDonsErr, "failed to start DONs")
+		}
+
+		return nodeSetOutput, nil
+	})
+
+	// First wait for JD to start, because it will be faster than DONs
+	startedJD, jdStartErr := worker.AwaitAs[*StartedJD](ctx, jdStartedFuture)
+	if jdStartErr != nil {
+		return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
+	}
+
+	startedDONs, donStartErr := worker.AwaitAs[*StartedDONs](ctx, donsStartedFuture)
+	if donStartErr != nil {
+		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
@@ -282,8 +295,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(prefundErr, "failed to prepare funding of CL nodes")
 	}
 
-	bkgErrPool := pond.NewPool(10)
-	fundNodesTaskErr := bkgErrPool.SubmitErr(func() error {
+	fundNodesFuture := queue.SubmitErr(func() error {
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Funding Chainlink nodes\n\n"))
 		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished Funding Chainlink nodes\n\n"))
 
@@ -323,7 +335,7 @@ func SetupTestEnvironment(
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow Registry Contract configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	wfFilterErr := bkgErrPool.SubmitErr(func() error {
+	wfFiltersFuture := queue.SubmitErr(func() error {
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Waiting for Workflow Registry filters registration\n\n"))
 		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished waiting for Workflow Registry filters registration\n\n"))
 
@@ -368,14 +380,14 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	bkgErrPool.StopAndWait()
-	if err := fundNodesTaskErr.Wait(); err != nil {
+	if err := worker.AwaitErr(ctx, fundNodesFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to fund chainlink nodes")
 	}
 
-	if err := wfFilterErr.Wait(); err != nil {
+	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
+	queue.StopAndWait()
 
 	appendOutputsToInput(input, startedDONs.NodeOutputs(), startBlockchainsOutput, startedJD.JDOutput)
 
@@ -429,6 +441,7 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		ConsensusV2OCR3Address:      crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
 		WithV2Registries:            input.WithV2Registries,
+		DONCapabilityWithConfigs:    make(map[int][]keystone_changeset.DONCapabilityWithConfig),
 	}
 
 	if configureKeystoneInput.VaultOCR3Address != nil && configureKeystoneInput.VaultOCR3Address.Cmp(common.Address{}) != 0 {

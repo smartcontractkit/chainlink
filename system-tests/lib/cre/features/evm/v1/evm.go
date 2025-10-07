@@ -322,6 +322,8 @@ func deployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, c
 		testLogger.Info().Msgf("Deployed EVM Forwarder %s contract on chain %d at %s", contractVersions[keystone_changeset.KeystoneForwarder.String()], selector, forwarderAddr)
 	}
 
+	cldfEnv.DataStore = memoryDatastore.Seal()
+
 	return nil
 }
 

@@ -34,12 +34,6 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 	}
 	capabilities = append(capabilities, customCompute)
 
-	// c1, c1Err := consensusv1capability.New(homeChainID)
-	// if c1Err != nil {
-	// 	return nil, errors.Wrap(c1Err, "failed to create consensus capability v1")
-	// }
-	// capabilities = append(capabilities, c1)
-
 	c2, c2Err := consensusv2capability.New()
 	if c2Err != nil {
 		return nil, errors.Wrap(c2Err, "failed to create consensus capability v2")
@@ -87,12 +81,6 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 		return nil, errors.Wrap(mockErr, "failed to create mock capability")
 	}
 	capabilities = append(capabilities, mock)
-
-	// writeevm, writeevmErr := writeevmcapability.New()
-	// if writeevmErr != nil {
-	// 	return nil, errors.Wrap(writeevmErr, "failed to create write evm capability")
-	// }
-	// capabilities = append(capabilities, writeevm)
 
 	writesol, writeSolErr := writesolanacapability.New()
 	if writeSolErr != nil {

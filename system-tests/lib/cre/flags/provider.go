@@ -14,6 +14,7 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.ConsensusCapabilityV2,
 			cre.CronCapability,
 			cre.CustomComputeCapability,
+			cre.DONTimeCapability,
 			cre.WebAPITargetCapability,
 			cre.WebAPITriggerCapability,
 			cre.MockCapability,

@@ -256,6 +256,8 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		forwarderF = 1
 	}
 
+	don.F = uint8(forwarderF)
+
 	return don, nil
 }
 

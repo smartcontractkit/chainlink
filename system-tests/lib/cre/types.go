@@ -798,8 +798,8 @@ type DonTopology struct {
 
 // BootstrapNode returns the the bootstrap node that should be used as the bootstrap node for P2P peering
 // Currently only one bootstrap is supported.
-func (t *DonTopology) Bootstrap() (*Node, bool) {
-	for _, don := range t.Dons.List() {
+func (d *DonTopology) Bootstrap() (*Node, bool) {
+	for _, don := range d.Dons.List() {
 		if node, isBootstrap := don.Bootstrap(); isBootstrap {
 			return node, true
 		}
@@ -808,8 +808,8 @@ func (t *DonTopology) Bootstrap() (*Node, bool) {
 	return nil, false
 }
 
-func (t *DonTopology) Gateway() (*Node, bool) {
-	for _, don := range t.Dons.List() {
+func (d *DonTopology) Gateway() (*Node, bool) {
+	for _, don := range d.Dons.List() {
 		if node, hasGateway := don.Gateway(); hasGateway {
 			return node, true
 		}
@@ -839,8 +839,8 @@ func (d *DonTopology) OneDonWithFlag(flag CapabilityFlag) (*DON, error) {
 	return found[0], nil
 }
 
-func (t *DonTopology) AnyDonHasCapability(capability CapabilityFlag) bool {
-	for _, don := range t.Dons.List() {
+func (d *DonTopology) AnyDonHasCapability(capability CapabilityFlag) bool {
+	for _, don := range d.Dons.List() {
 		if don.HasFlag(capability) {
 			return true
 		}
