@@ -29,10 +29,11 @@ type ConfigureVaultPluginInput struct {
 	ContractChainSelector uint64 `json:"contract_chain_selector" yaml:"contract_chain_selector"`
 	ContractQualifier     string `json:"contract_qualifier" yaml:"contract_qualifier"`
 
-	DON          contracts.DonNodeSet `json:"don" yaml:"don"`
-	OracleConfig *ocr3.OracleConfig   `json:"oracle_config" yaml:"oracle_config"`
-	DryRun       bool                 `json:"dry_run" yaml:"dry_run"`
-	InstanceID   InstanceIDComponents `json:"instance_id" yaml:"instance_id"`
+	DON                   contracts.DonNodeSet         `json:"don" yaml:"don"`
+	OracleConfig          *ocr3.OracleConfig           `json:"oracle_config" yaml:"oracle_config"`
+	DryRun                bool                         `json:"dry_run" yaml:"dry_run"`
+	InstanceID            InstanceIDComponents         `json:"instance_id" yaml:"instance_id"`
+	ReportingPluginConfig *vault.ReportingPluginConfig `json:"reporting_plugin_config,omitempty" yaml:"reporting_plugin_config,omitempty"`
 
 	MCMSConfig *ocr3.MCMSConfig `json:"mcms_config" yaml:"mcms_config"`
 }
@@ -93,11 +94,9 @@ func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPlug
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to decode config digest: %w", err)
 	}
 	instanceID := string(dkgocrtypes.MakeInstanceID(dkgAddr, [32]byte(configDigestBytes)))
-	cfg := &vault.ReportingPluginConfig{
-		DKGInstanceID: &instanceID,
-	}
+	input.ReportingPluginConfig.DKGInstanceID = &instanceID
 
-	cfgb, err := proto.Marshal(cfg)
+	cfgb, err := proto.Marshal(input.ReportingPluginConfig)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to marshal VaultPlugin reporting plugin config: %w", err)
 	}
