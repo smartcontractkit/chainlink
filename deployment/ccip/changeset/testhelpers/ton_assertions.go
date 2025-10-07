@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"testing"
@@ -42,7 +43,6 @@ const (
 // eventSubscriber encapsulates subscribing to and waiting for TON events with timeout handling.
 type eventSubscriber[T any] struct {
 	lggr       logger.Logger
-	ctx        context.Context
 	tonChain   cldf_ton.Chain
 	contract   *address.Address
 	startBlock uint32
@@ -52,8 +52,8 @@ type eventSubscriber[T any] struct {
 // subscribeToEvents creates a new event subscriber for a specific event type.
 // If startBlock is 0, it will calculate an appropriate start block with lookback.
 func subscribeToEvents[T any](
-	lggr logger.Logger,
 	ctx context.Context,
+	lggr logger.Logger,
 	tonChain cldf_ton.Chain,
 	contract *address.Address,
 	startBlock uint32,
@@ -61,7 +61,6 @@ func subscribeToEvents[T any](
 ) *eventSubscriber[T] {
 	sub := &eventSubscriber[T]{
 		lggr:       lggr,
-		ctx:        ctx,
 		tonChain:   tonChain,
 		contract:   contract,
 		startBlock: startBlock,
@@ -70,15 +69,15 @@ func subscribeToEvents[T any](
 
 	// Calculate start block with lookback if not provided
 	if startBlock == 0 {
-		sub.startBlock = sub.calculateStartBlock()
+		sub.startBlock = sub.calculateStartBlock(ctx)
 	}
 
 	return sub
 }
 
 // calculateStartBlock determines the starting block for event scanning with lookback.
-func (s *eventSubscriber[T]) calculateStartBlock() uint32 {
-	currentBlock, err := s.tonChain.Client.CurrentMasterchainInfo(s.ctx)
+func (s *eventSubscriber[T]) calculateStartBlock(ctx context.Context) uint32 {
+	currentBlock, err := s.tonChain.Client.CurrentMasterchainInfo(ctx)
 	if err != nil || currentBlock.SeqNo <= safeLookbackBlocks {
 		return 0
 	}
@@ -87,10 +86,10 @@ func (s *eventSubscriber[T]) calculateStartBlock() uint32 {
 
 // waitUntil waits for events and processes them with the provided handler.
 // The handler returns (done bool, error) where done=true stops waiting.
-func (s *eventSubscriber[T]) waitUntil(t *testing.T, processEvent func(T) (bool, error)) error {
-	eventCh, errCh := streamEvents[T](s.lggr, s.ctx, s.tonChain, s.contract, s.startBlock, s.eventName)
+func (s *eventSubscriber[T]) waitUntil(ctx context.Context, until time.Duration, processEvent func(T) (bool, error)) error {
+	eventCh, errCh := streamEvents[T](ctx, s.lggr, s.tonChain, s.contract, s.startBlock, s.eventName)
 
-	timeout := time.NewTimer(tests.WaitTimeout(t))
+	timeout := time.NewTimer(until)
 	defer timeout.Stop()
 
 	progressTicker := time.NewTicker(progressLogInterval)
@@ -141,10 +140,11 @@ func ConfirmCommitWithExpectedSeqNumRangeTON(
 		"destChain", tonChain.Selector,
 		"expectedSeqNums", fmt.Sprintf("[%d, %d]", expectedSeqNums.Start(), expectedSeqNums.End()))
 
-	subscriber := subscribeToEvents[offramp.CommitReportAccepted](lggr, t.Context(), tonChain, &offRamp, 0, consts.EventNameCommitReportAccepted)
+	ctx := t.Context()
+	subscriber := subscribeToEvents[offramp.CommitReportAccepted](ctx, lggr, tonChain, &offRamp, 0, consts.EventNameCommitReportAccepted)
 
 	reportsProcessed := 0
-	err := subscriber.waitUntil(t, func(commitEvent offramp.CommitReportAccepted) (bool, error) {
+	err := subscriber.waitUntil(ctx, tests.WaitTimeout(t), func(commitEvent offramp.CommitReportAccepted) (bool, error) {
 		reportsProcessed++
 
 		// skip price-only OR empty updates
@@ -209,7 +209,7 @@ func ConfirmExecWithExpectedSeqNrsTON(
 	expectedSeqNums []uint64,
 ) (map[uint64]int, error) {
 	if len(expectedSeqNums) == 0 {
-		return nil, fmt.Errorf("no expected sequence numbers provided")
+		return nil, errors.New("no expected sequence numbers provided")
 	}
 
 	lggr := logger.Named(logger.Test(t), "TON_EVENT_ASSERTION:EXEC")
@@ -221,10 +221,11 @@ func ConfirmExecWithExpectedSeqNrsTON(
 	// Use provided start block or calculate with lookback
 	var scanStartBlock uint32
 	if startBlock != nil {
-		scanStartBlock = uint32(*startBlock)
+		scanStartBlock = uint32(*startBlock) //nolint:gosec // safe conversion, test node
 	}
 
-	subscriber := subscribeToEvents[offramp.ExecutionStateChanged](lggr, t.Context(), tonChain, &offRamp, scanStartBlock, consts.EventNameExecutionStateChanged)
+	ctx := t.Context()
+	subscriber := subscribeToEvents[offramp.ExecutionStateChanged](ctx, lggr, tonChain, &offRamp, scanStartBlock, consts.EventNameExecutionStateChanged)
 
 	executionStates := make(map[uint64]int)
 	pending := make(map[uint64]bool)
@@ -233,7 +234,7 @@ func ConfirmExecWithExpectedSeqNrsTON(
 	}
 
 	eventsProcessed := 0
-	err := subscriber.waitUntil(t, func(execEvent offramp.ExecutionStateChanged) (bool, error) {
+	err := subscriber.waitUntil(ctx, tests.WaitTimeout(t), func(execEvent offramp.ExecutionStateChanged) (bool, error) {
 		eventsProcessed++
 
 		// Check if this is for our source chain and expected sequence number
@@ -253,7 +254,7 @@ func ConfirmExecWithExpectedSeqNrsTON(
 		case EXECUTION_STATE_FAILURE:
 			lggr.Errorw("Execution failed",
 				"sequenceNumber", execEvent.SequenceNumber,
-				"messageID", fmt.Sprintf("%x", execEvent.MessageID))
+				"messageID", hex.EncodeToString(execEvent.MessageID[:]))
 			return false, fmt.Errorf("execution failed for sequence number %d on chain %d, message ID: %x",
 				execEvent.SequenceNumber, execEvent.SourceChainSelector, execEvent.MessageID)
 
@@ -306,8 +307,8 @@ func ConfirmExecWithExpectedSeqNrsTON(
 // Returns two channels: one for events and one for errors.
 // The polling continues until the context is cancelled.
 func streamEvents[T any](
-	lggr logger.Logger,
 	ctx context.Context,
+	lggr logger.Logger,
 	tonChain cldf_ton.Chain,
 	contract *address.Address,
 	startBlock uint32,

@@ -187,7 +187,6 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
-		// TODO: need a test case with wallet receiver(no reply nor received events)
 	})
 	_ = out
 }
