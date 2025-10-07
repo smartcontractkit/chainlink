@@ -11,13 +11,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 )
 
 var (
-	_                     types.OffchainConfigDigester        = &functionsOffchainConfigDigester{}
-	_                     evmRelayTypes.RouteUpdateSubscriber = &functionsOffchainConfigDigester{}
-	FunctionsDigestPrefix                                     = types.ConfigDigestPrefixEVMSimple
+	_                     types.OffchainConfigDigester = &functionsOffchainConfigDigester{}
+	_                     config.RouteUpdateSubscriber = &functionsOffchainConfigDigester{}
+	FunctionsDigestPrefix                              = types.ConfigDigestPrefixEVMSimple
 	// In order to support multiple OCR plugins with a single jobspec & OCR2Base contract, each plugin must have a unique config digest.
 	// This is accomplished by overriding the single config digest from the contract with a unique prefix for each plugin via this custom offchain digester & config poller.
 	ThresholdDigestPrefix = types.ConfigDigestPrefix(7)
