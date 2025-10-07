@@ -301,6 +301,45 @@ func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment
 	return &ocr3DeployReport.Output, nil
 }
 
+func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64, env *cldf.Environment, contractVersions map[string]string) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, *common.Address, error) {
+	memoryDatastore := datastore.NewMemoryDataStore()
+
+	// load all existing addresses into memory datastore
+	mergeErr := memoryDatastore.Merge(env.DataStore)
+	if mergeErr != nil {
+		return nil, nil, fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+	}
+
+	ocr3DeployReport, err := operations.ExecuteSequence(
+		env.OperationsBundle,
+		ks_contracts_op.DeployOCR3ContractsSequence,
+		ks_contracts_op.DeployOCR3ContractSequenceDeps{
+			Env: env,
+		},
+		ks_contracts_op.DeployOCR3ContractSequenceInput{
+			ChainSelector: selector,
+			Qualifier:     qualifier,
+		},
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, selector, err)
+	}
+	// TODO: CRE-742 remove address book
+	if err = env.ExistingAddresses.Merge(ocr3DeployReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
+		return nil, nil, fmt.Errorf("failed to merge address book with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
+	}
+	if err = memoryDatastore.Merge(ocr3DeployReport.Output.Datastore); err != nil {
+		return nil, nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
+	}
+
+	address := MustGetAddressFromMemoryDataStore(memoryDatastore, selector, keystone_changeset.OCR3Capability.String(), contractVersions[keystone_changeset.OCR3Capability.String()], OCR3ContractQualifier)
+	logger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], selector, address)
+
+	env.DataStore = memoryDatastore.Seal()
+
+	return &ocr3DeployReport.Output, &address, nil
+}
+
 func deployVaultContracts(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*creseq.DeployVaultOutput, error) {
 	report, err := operations.ExecuteSequence(
 		env.OperationsBundle,

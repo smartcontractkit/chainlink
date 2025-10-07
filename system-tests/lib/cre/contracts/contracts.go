@@ -738,25 +738,27 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 }
 
 // values supplied by Alexandr Yepishev as the expected values for OCR3 config
-func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
-	var transmissionSchedule []int
+// func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
+func DefaultOCR3Config() (*keystone_changeset.OracleConfig, error) {
+	// TODO transmission schedule should be set by calling don.ResolveOCR3Config(config)
+	// var transmissionSchedule []int
 
-	for _, metaDon := range topology.DonsMetadata.List() {
-		if flags.HasFlag(metaDon.Flags, cre.ConsensusCapability) || flags.HasFlag(metaDon.Flags, cre.ConsensusCapabilityV2) {
-			workerNodes, wErr := metaDon.Workers()
-			if wErr != nil {
-				return nil, errors.Wrap(wErr, "failed to find worker nodes")
-			}
+	// for _, metaDon := range topology.DonsMetadata.List() {
+	// 	if flags.HasFlag(metaDon.Flags, cre.ConsensusCapability) || flags.HasFlag(metaDon.Flags, cre.ConsensusCapabilityV2) {
+	// 		workerNodes, wErr := metaDon.Workers()
+	// 		if wErr != nil {
+	// 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
+	// 		}
 
-			// this schedule makes sure that all worker nodes are transmitting OCR3 reports
-			transmissionSchedule = []int{len(workerNodes)}
-			break
-		}
-	}
+	// 		// this schedule makes sure that all worker nodes are transmitting OCR3 reports
+	// 		transmissionSchedule = []int{len(workerNodes)}
+	// 		break
+	// 	}
+	// }
 
-	if len(transmissionSchedule) == 0 {
-		return nil, errors.New("no OCR3-capable DON found in the topology")
-	}
+	// if len(transmissionSchedule) == 0 {
+	// 	return nil, errors.New("no OCR3-capable DON found in the topology")
+	// }
 
 	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := &keystone_changeset.OracleConfig{
@@ -768,12 +770,12 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 		DeltaCertifiedCommitRequestMillis: 1000,
 		DeltaStageMillis:                  30000,
 		MaxRoundsPerEpoch:                 10,
-		TransmissionSchedule:              transmissionSchedule,
-		MaxDurationQueryMillis:            1000,
-		MaxDurationObservationMillis:      1000,
-		MaxDurationShouldAcceptMillis:     1000,
-		MaxDurationShouldTransmitMillis:   1000,
-		MaxFaultyOracles:                  1,
+		// TransmissionSchedule:              transmissionSchedule,
+		MaxDurationQueryMillis:          1000,
+		MaxDurationObservationMillis:    1000,
+		MaxDurationShouldAcceptMillis:   1000,
+		MaxDurationShouldTransmitMillis: 1000,
+		MaxFaultyOracles:                1,
 		ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
 			MaxQueryLengthBytes:       1000000,
 			MaxObservationLengthBytes: 1000000,
@@ -787,8 +789,8 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 	return oracleConfig, nil
 }
 
-func DefaultChainCapabilityOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig, error) {
-	cfg, err := DefaultOCR3Config(topology)
+func DefaultChainCapabilityOCR3Config(_ *cre.Topology) (*keystone_changeset.OracleConfig, error) {
+	cfg, err := DefaultOCR3Config()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate default OCR3 config: %w", err)
 	}

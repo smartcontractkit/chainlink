@@ -17,11 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
+	// clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -106,6 +110,7 @@ func NewRoles(roles []string) (Roles, error) {
 type DON struct {
 	Name string `toml:"name" json:"name"`
 	ID   uint64 `toml:"id" json:"id"`
+	F    uint8  `toml:"f" json:"f"` // max faulty nodes
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
@@ -167,6 +172,15 @@ func (d *DON) Bootstrap() (*Node, bool) {
 	return nil, false
 }
 
+func (d *DON) WorkersCount() int {
+	workers, wErr := d.Workers()
+	if wErr != nil {
+		return 0
+	}
+
+	return len(workers)
+}
+
 func (d *DON) Workers() ([]*Node, error) {
 	workers := make([]*Node, 0)
 	for _, node := range d.Nodes {
@@ -210,6 +224,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		Flags:             donMetadata.Flags,
 		chainCapabilities: donMetadata.ns.ChainCapabilities,
 	}
+
 	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
@@ -230,6 +245,15 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 
 	if err := errgroup.Wait(); err != nil {
 		return nil, fmt.Errorf("failed to create new nodes in DON: %w", err)
+	}
+
+	forwarderF := (don.WorkersCount() - 1) / 3
+	if forwarderF == 0 {
+		if don.HasFlag(ConsensusCapability) || don.HasFlag(ConsensusCapabilityV2) {
+			return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", don.WorkersCount())
+		}
+		// for other capabilities, we can use 1 as F
+		forwarderF = 1
 	}
 
 	return don, nil
@@ -339,13 +363,13 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		return nil, fmt.Errorf("failed to create node graphql client: %w", gqErr)
 	}
 
-	chainlinkClient, cErr := clclient.NewChainlinkClient(&clclient.ChainlinkConfig{
+	chainlinkClient, cErr := clclient.NewChainlinkClient(&clclient.Config{
 		URL:         ctfNode.Node.ExternalURL,
 		Email:       ctfNode.Node.APIAuthUser,
 		Password:    ctfNode.Node.APIAuthPassword,
 		InternalIP:  ctfNode.Node.InternalIP,
 		HTTPTimeout: ptr.Ptr(10 * time.Second),
-	}, framework.L)
+	})
 	if cErr != nil {
 		return nil, fmt.Errorf("failed to create node rest client: %w", cErr)
 	}
@@ -770,7 +794,7 @@ func (n *Node) ApproveProposals(ctx context.Context, proposalIDs []string) error
 	return nil
 }
 
-func (n *Node) ExportOCR2Keys(id string) (*clclient.OCR2ExportKey, error) {
+func (n *Node) ExportOCR2Keys(id string) (*clclient.ExportedOCR2Key, error) {
 	keys, _, err := n.Clients.RestClient.ExportOCR2Key(id)
 	if err != nil {
 		return nil, err
@@ -845,4 +869,32 @@ func FindDONsSupportedChains(donMetadata *DonMetadata, blockchainOutputs []*Wrap
 	}
 
 	return chains, nil
+}
+
+// Make DonMetadata also implement it, just in case?
+type KeystoneDON interface {
+	KeystoneDONConfig() ks_contracts_op.ConfigureKeystoneDON
+	ResolveORC3Config(config *keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig
+}
+
+func (d *DON) KeystoneDONConfig() ks_contracts_op.ConfigureKeystoneDON {
+	don := ks_contracts_op.ConfigureKeystoneDON{
+		Name: d.Name,
+	}
+
+	for _, node := range d.Nodes {
+		if node.HasRole(RoleWorker) {
+			don.NodeIDs = append(don.NodeIDs, node.Keys.P2PKey.PeerID.String())
+		}
+	}
+	// for _, nop := range d.Nops {
+	// 	don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
+	// }
+	return don
+}
+
+func (d *DON) ResolveORC3Config(config *keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig {
+	config.TransmissionSchedule = []int{d.WorkersCount()}
+
+	return config
 }

@@ -196,21 +196,6 @@ func SetupTestEnvironment(
 		}
 		testLogger.Info().Msgf("PreDONStartup for feature %s executed successfully", feature.Flag())
 	}
-	// _, preErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PreDONStartupOp, PreDONStartupOpDeps{
-	// 	TestLogger:        testLogger,
-	// 	CldfEnv:           deployKeystoneContractsOutput.Env,
-	// 	Provider:          input.Provider,
-	// 	Topology:          topology,
-	// 	BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
-	// 	ContractVersions:  input.ContractVersions,
-	// 	CapabilityConfigs: input.CapabilityConfigs,
-	// }, PreDONStartupOpInput{
-	// 	RegistryChainSelector: startBlockchainsOutput.RegistryChain().ChainSelector,
-	// 	Features:              input.Features,
-	// })
-	// if preErr != nil {
-	// 	return nil, fmt.Errorf("failed to apply features before DON startup: %w", preErr)
-	// }
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
@@ -376,19 +361,6 @@ func SetupTestEnvironment(
 		}
 		testLogger.Info().Msgf("PostDONStartup for feature %s executed successfully", feature.Flag())
 	}
-
-	// postDONStartupOutput, postErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PostDONStartupOp, PostDONStartupOpDeps{
-	// 	TestLogger:        testLogger,
-	// 	CreEnv:            creEnvironment,
-	// 	NodeSetOutput:     startedDONs.NodeOutputs(),
-	// 	ContractVersions:  input.ContractVersions,
-	// 	BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
-	// }, PostDONStartupOpInput{
-	// 	Features: input.Features,
-	// })
-	// if postErr != nil {
-	// 	return nil, pkgerrors.Wrap(postErr, "failed to execute PostDONStartup features")
-	// }
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring OCR3 and Keystone contracts")))
@@ -486,7 +458,7 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 	if input.OCR3Config != nil {
 		configureKeystoneInput.OCR3Config = *input.OCR3Config
 	} else {
-		ocr3Config, ocr3ConfigErr := crecontracts.DefaultOCR3Config(topology)
+		ocr3Config, ocr3ConfigErr := crecontracts.DefaultOCR3Config()
 		if ocr3ConfigErr != nil {
 			return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
 		}
@@ -496,7 +468,7 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 	if input.DONTimeConfig != nil {
 		configureKeystoneInput.DONTimeConfig = *input.DONTimeConfig
 	} else {
-		donTimeConfig, donTimeConfigErr := crecontracts.DefaultOCR3Config(topology)
+		donTimeConfig, donTimeConfigErr := crecontracts.DefaultOCR3Config()
 		donTimeConfig.DeltaRoundMillis = 0 // Fastest rounds possible
 		if donTimeConfigErr != nil {
 			return nil, pkgerrors.Wrap(donTimeConfigErr, "failed to generate default DON Time config")
@@ -505,7 +477,7 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 	}
 
 	if configureKeystoneInput.VaultOCR3Address != nil && configureKeystoneInput.VaultOCR3Address.Cmp(common.Address{}) != 0 {
-		ocr3Config, ocr3ConfigErr := crecontracts.DefaultOCR3Config(topology)
+		ocr3Config, ocr3ConfigErr := crecontracts.DefaultOCR3Config()
 		if ocr3ConfigErr != nil {
 			return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
 		}
@@ -526,7 +498,7 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 
 	configureKeystoneInput.EVMOCR3Config = *chainOCR3Config
 
-	defaultOcr3Config, defaultOcr3ConfigErr := crecontracts.DefaultOCR3Config(topology)
+	defaultOcr3Config, defaultOcr3ConfigErr := crecontracts.DefaultOCR3Config()
 	if defaultOcr3ConfigErr != nil {
 		return nil, pkgerrors.Wrap(defaultOcr3ConfigErr, "failed to generate default OCR3 config for EVM")
 	}

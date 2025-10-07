@@ -51,7 +51,7 @@
 
   env_vars = { CL_EVM_CMD = "" }
 
-  capabilities = ["ocr3", "custom-compute", "mock", "write-solana"]
+  capabilities = ["ocr3", "custom-compute", "mock", "write-solana", "don-time"]
   supported_sol_chains = ["5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"]
   #[nodesets.chain_capabilities]
   #  write-evm = ["1337"]

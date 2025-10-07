@@ -82,6 +82,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get DON Time address")
 		}
+		_ = donTimeAddress
 
 		for _, don := range input.DonTopology.Dons.List() {
 			if !don.HasFlag(flag) {
@@ -119,7 +120,7 @@ func jobSpec(chainID uint64) cre.JobSpecFn {
 
 				// we pass here bundles for all chains to enable multi-chain signing
 				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.WorkerOCR3(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringCfg, chainID))
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.DonTimeJob(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
+				// donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.DonTimeJob(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
 			}
 		}
 

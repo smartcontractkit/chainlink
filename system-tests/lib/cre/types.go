@@ -50,6 +50,7 @@ const (
 // Capabilities
 const (
 	ConsensusCapability     CapabilityFlag = "ocr3"
+	DONTimeCapability       CapabilityFlag = "don-time"
 	ConsensusCapabilityV2   CapabilityFlag = "consensus" // v2
 	CronCapability          CapabilityFlag = "cron"
 	EVMCapability           CapabilityFlag = "evm"
@@ -824,6 +825,27 @@ func (t *DonTopology) Gateway() (*Node, bool) {
 	}
 
 	return nil, false
+}
+
+func (d *DonTopology) WithFlag(flag CapabilityFlag) []*DON {
+	found := make([]*DON, 0)
+	for _, don := range d.Dons.List() {
+		if don.HasFlag(flag) {
+			found = append(found, don)
+		}
+	}
+
+	return found
+}
+
+func (d *DonTopology) OneWithFlag(flag CapabilityFlag) (*DON, error) {
+	found := d.WithFlag(flag)
+
+	if len(found) != 1 {
+		return nil, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(found))
+	}
+
+	return found[0], nil
 }
 
 func (t *DonTopology) AnyDonHasCapability(capability CapabilityFlag) bool {

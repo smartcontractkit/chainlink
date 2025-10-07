@@ -89,6 +89,18 @@ func (t *Topology) CapabilitiesAwareNodeSets() []*CapabilitiesAwareNodeSet {
 	return sets
 }
 
+func (t *Topology) WithFlag(flag CapabilityFlag) []*DonMetadata {
+	donsMetadata := make([]*DonMetadata, 0)
+	for _, donMetadata := range t.DonsMetadata.List() {
+		if !donMetadata.HasFlag(flag) {
+			continue
+		}
+		donsMetadata = append(donsMetadata, donMetadata)
+	}
+
+	return donsMetadata
+}
+
 // BootstrapNode returns the metadata for the node that should be used as the bootstrap node for P2P peering
 // Currently only one bootstrap is supported.
 func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
