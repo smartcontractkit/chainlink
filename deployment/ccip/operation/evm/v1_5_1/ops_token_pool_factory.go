@@ -30,7 +30,7 @@ var (
 		&opsutil.ContractOpts{
 			Version:          &deployment.Version1_5_1,
 			EVMBytecode:      common.FromHex(token_pool_factory.TokenPoolFactoryBin),
-			ZkSyncVMBytecode: nil, // TODO: Fill back when zkSync bindings and bytecode are available
+			ZkSyncVMBytecode: token_pool_factory.ZkBytecode,
 		},
 		func(input DeployTokenPoolFactoryInput) []interface{} {
 			return []interface{}{

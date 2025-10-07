@@ -38,10 +38,13 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipopsv1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 var (
@@ -559,55 +562,33 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		e.Logger.Infow("router already deployed", "chain", chain.String(), "addr", chainState.Router.Address)
 	}
 	if deployOpts.TokenPoolFactoryEnabled {
+		var err error
+		var tokenPoolFactoryAddr common.Address
 		if tokenPoolFactory == nil {
-			tokenPoolFactoryContract, err := cldf.DeployContract(lggr, chain, ab,
-				func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
-					var (
-						tpfAddr  common.Address
-						tx2      *types.Transaction
-						contract *token_pool_factory.TokenPoolFactory
-						err2     error
-					)
-					if chain.IsZkSyncVM {
-						tpfAddr, _, contract, err2 = token_pool_factory.DeployTokenPoolFactoryZk(
-							nil,
-							chain.ClientZkSyncVM,
-							chain.DeployerKeyZkSyncVM,
-							chain.Client,
-							tokenAdminReg.Address(),
-							regAddresses[0],
-							rmnProxy.Address(),
-							r.Address(),
-						)
-					} else {
-						tpfAddr, tx2, contract, err2 = token_pool_factory.DeployTokenPoolFactory(
-							chain.DeployerKey,
-							chain.Client,
-							tokenAdminReg.Address(),
-							// There will always be at least one registry module deployed at this point.
-							// We just use the first one here. If a different RegistryModule is desired,
-							// users can run DeployTokenPoolFactoryChangeset with the desired address.
-							regAddresses[0],
-							rmnProxy.Address(),
-							r.Address(),
-						)
-					}
-					return cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
-						Address: tpfAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TokenPoolFactory, deployment.Version1_5_1), Err: err2,
-					}
+			tpfReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipopsv1_5_1.DeployTokenPoolFactoryOp, chain, opsutil.EVMDeployInput[ccipopsv1_5_1.DeployTokenPoolFactoryInput]{
+				ChainSelector: chain.ChainSelector(),
+				DeployInput: ccipopsv1_5_1.DeployTokenPoolFactoryInput{
+					ChainSelector:              chain.ChainSelector(),
+					TokenAdminRegistry:         tokenAdminReg.Address(),
+					RegistryModule1_6Addresses: regAddresses[0],
+					RMNProxy:                   rmnProxy.Address(),
+					Router:                     r.Address(),
 				},
-			)
+			})
 			if err != nil {
 				lggr.Errorw("Failed to deploy token pool factory", "chain", chain.String(), "err", err)
 				return err
 			}
-
-			tokenPoolFactory = tokenPoolFactoryContract.Contract
+			tokenPoolFactoryAddr = tpfReport.Output.Address
+			err = ab.Save(chain.ChainSelector(), tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion))
+			if err != nil {
+				return fmt.Errorf("failed to save address %s for chain %d: %w", tpfReport.Output.Address.Hex(), chain.ChainSelector(), err)
+			}
 		} else {
 			lggr.Infow("Token pool factory already deployed", "chain", chain.String(), "addr", tokenPoolFactory.Address)
+			tokenPoolFactoryAddr = tokenPoolFactory.Address()
 		}
 
-		var err error
 		factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool, err =
 			deployTokenPools(e.Logger, chain, ab, rmnProxy.Address(), r.Address(),
 				factoryBurnMintERC20, burnMintTokenPool, burnFromMintTokenPool, burnWithFromMintTokenPool, lockReleaseTokenPool)
@@ -616,7 +597,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 		}
 		e.Logger.Infow("Deployed TokenPoolFactory Contracts",
 			"chain", chain.String(),
-			"tokenPoolFactory", tokenPoolFactory.Address(),
+			"tokenPoolFactory", tokenPoolFactoryAddr,
 			"factoryBurnMintERC20", factoryBurnMintERC20.Address(),
 			"burnMintTokenPool", burnMintTokenPool.Address(),
 			"burnFromMintTokenPool", burnFromMintTokenPool.Address(),
