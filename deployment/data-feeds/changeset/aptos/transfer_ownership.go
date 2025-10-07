@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-// TransferOwnershipChangeset  transfers ownership of Registry contract on Aptos
-var TransferOwnershipChangeset = cldf.CreateChangeSet(transferRegistryOwnershipLogic, transferRegistryOwnershipPrecondition)
+// TransferOwnershipChangeset  transfers ownership of Registry/Router contract on Aptos
+var TransferOwnershipChangeset = cldf.CreateChangeSet(transferDataFeedsOwnershipLogic, transferDataFeedsOwnershipPrecondition)
 
-func transferRegistryOwnershipLogic(env cldf.Environment, c types.TransferDataFeedsAptosOwnershipConfig) (cldf.ChangesetOutput, error) {
+func transferDataFeedsOwnershipLogic(env cldf.Environment, c types.TransferDataFeedsAptosOwnershipConfig) (cldf.ChangesetOutput, error) {
 	state, _ := changeset.LoadAptosOnchainState(env)
 	chain := env.BlockChains.AptosChains()[c.ChainSelector]
 	chainState := state.AptosChains[c.ChainSelector]
@@ -63,7 +63,7 @@ func transferRegistryOwnershipLogic(env cldf.Environment, c types.TransferDataFe
 	return cldf.ChangesetOutput{}, nil
 }
 
-func transferRegistryOwnershipPrecondition(env cldf.Environment, c types.TransferDataFeedsAptosOwnershipConfig) error {
+func transferDataFeedsOwnershipPrecondition(env cldf.Environment, c types.TransferDataFeedsAptosOwnershipConfig) error {
 	if !c.TransferRegistry && !c.TransferRouter {
 		return errors.New("at least one of TransferRegistry or TransferRouter must be true")
 	}

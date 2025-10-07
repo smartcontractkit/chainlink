@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -27,30 +26,9 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
 )
-
-const balanceReaderABIJson = `[
-   {
-      "inputs":[
-         {
-            "internalType":"address[]",
-            "name":"addresses",
-            "type":"address[]"
-         }
-      ],
-      "name":"getNativeBalances",
-      "outputs":[
-         {
-            "internalType":"uint256[]",
-            "name":"",
-            "type":"uint256[]"
-         }
-      ],
-      "stateMutability":"view",
-      "type":"function"
-   }
-]`
 
 func RunProofOfReservesWorkflow(config types.WorkflowConfig, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[types.WorkflowConfig], error) {
 	return cre.Workflow[types.WorkflowConfig]{
@@ -90,7 +68,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead1, balanceAtResult.String()))
 
 	// get balance with CallContract
-	readBalancesParsedABI, err := getReadBalancesContractABI(runtime, balanceReaderABIJson)
+	readBalancesParsedABI, err := getReadBalancesContractABI(runtime)
 	if err != nil {
 		runtime.Logger().Error(fmt.Sprintf("failed to get ReadBalances ABI: %v", err))
 		return "", fmt.Errorf("failed to get ReadBalances ABI: %w", err)
@@ -179,17 +157,18 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	return message, nil
 }
 
-func getReadBalancesContractABI(runtime cre.Runtime, balanceReaderABI string) (abi.ABI, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(balanceReaderABI))
-	if err != nil {
-		runtime.Logger().Error(fmt.Sprintf("failed to parse ABI: %v", err))
-		return abi.ABI{}, fmt.Errorf("failed to parse ABI: %w", err)
+func getReadBalancesContractABI(runtime cre.Runtime) (*abi.ABI, error) {
+	runtime.Logger().Info("getting Balance Reader contract ABI")
+	readBalancesABI, abiErr := balance_reader.BalanceReaderMetaData.GetAbi()
+	if abiErr != nil {
+		runtime.Logger().Error("failed to get Balance Reader contract ABI", "error", abiErr)
+		return nil, fmt.Errorf("failed to get Balance Reader contract ABI: %w", abiErr)
 	}
-	runtime.Logger().With().Info(fmt.Sprintln("Parsed ABI successfully"))
-	return parsedABI, nil
+	runtime.Logger().Info("successfully got Balance Reader contract ABI")
+	return readBalancesABI, nil
 }
 
-func readBalancesFromContract(addresses []common.Address, readBalancesABI abi.ABI, evmClient evm.Client, runtime cre.Runtime, config types.WorkflowConfig) (*evm.CallContractReply, error) {
+func readBalancesFromContract(addresses []common.Address, readBalancesABI *abi.ABI, evmClient evm.Client, runtime cre.Runtime, config types.WorkflowConfig) (*evm.CallContractReply, error) {
 	methodName := "getNativeBalances"
 	packedData, err := readBalancesABI.Pack(methodName, addresses)
 	if err != nil {

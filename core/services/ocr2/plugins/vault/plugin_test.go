@@ -85,12 +85,12 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
 
 	assert.Equal(t, "VaultReportingPlugin", info.Name)
-	assert.Equal(t, 1024, info.Limits.MaxQueryLength)
-	assert.Equal(t, 102400, info.Limits.MaxObservationLength)
-	assert.Equal(t, 1024, info.Limits.MaxReportsPlusPrecursorLength)
-	assert.Equal(t, 409600, info.Limits.MaxReportLength)
-	assert.Equal(t, 10, info.Limits.MaxReportCount)
-	assert.Equal(t, 1024, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
+	assert.Equal(t, 100, info.Limits.MaxQueryLength)
+	assert.Equal(t, 512000, info.Limits.MaxObservationLength)
+	assert.Equal(t, 512000, info.Limits.MaxReportsPlusPrecursorLength)
+	assert.Equal(t, 512000, info.Limits.MaxReportLength)
+	assert.Equal(t, 20, info.Limits.MaxReportCount)
+	assert.Equal(t, 1024*1024, info.Limits.MaxKeyValueModifiedKeysPlusValuesLength)
 	assert.Equal(t, 1024*1024, info.Limits.MaxBlobPayloadLength)
 
 	cfg = vaultcommon.ReportingPluginConfig{
