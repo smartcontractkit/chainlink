@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
-	mockstatuschecker "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker/mocks"
+	mockstatuschecker "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks/statuschecker"
 )
 
 type testCase struct {

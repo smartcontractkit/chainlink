@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -397,63 +396,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) SetChainReaderConfigSupplier(cha
 
 func (it *EVMChainComponentsInterfaceTester[T]) SetChainWriterConfigSupplier(chainWriterConfigSupplier func(t T) config.ChainWriterConfig) {
 	it.chainWriterConfigSupplier = chainWriterConfigSupplier
-}
-
-func OracleIDsToBytes(oracleIDs [32]commontypes.OracleID) [32]byte {
-	convertedIDs := [32]byte{}
-	for i, id := range oracleIDs {
-		convertedIDs[i] = byte(id)
-	}
-	return convertedIDs
-}
-
-func ConvertAccounts(accounts [][]byte) []common.Address {
-	convertedAccounts := make([]common.Address, len(accounts))
-	for i, a := range accounts {
-		convertedAccounts[i] = common.Address(a)
-	}
-	return convertedAccounts
-}
-
-func ToInternalType(testStruct TestStruct) chain_reader_tester.TestStruct {
-	return chain_reader_tester.TestStruct{
-		Field:               *testStruct.Field,
-		DifferentField:      testStruct.DifferentField,
-		OracleId:            byte(testStruct.OracleID),
-		OracleIds:           OracleIDsToBytes(testStruct.OracleIDs),
-		AccountStruct:       AccountStructToInternalType(testStruct.AccountStruct),
-		Accounts:            ConvertAccounts(testStruct.Accounts),
-		BigField:            testStruct.BigField,
-		NestedDynamicStruct: MidDynamicToInternalType(testStruct.NestedDynamicStruct),
-		NestedStaticStruct:  MidStaticToInternalType(testStruct.NestedStaticStruct),
-	}
-}
-
-func AccountStructToInternalType(a AccountStruct) chain_reader_tester.AccountStruct {
-	return chain_reader_tester.AccountStruct{
-		Account:    common.Address(a.Account),
-		AccountStr: common.HexToAddress(a.AccountStr),
-	}
-}
-
-func MidDynamicToInternalType(m MidLevelDynamicTestStruct) chain_reader_tester.MidLevelDynamicTestStruct {
-	return chain_reader_tester.MidLevelDynamicTestStruct{
-		FixedBytes: m.FixedBytes,
-		Inner: chain_reader_tester.InnerDynamicTestStruct{
-			IntVal: int64(m.Inner.I),
-			S:      m.Inner.S,
-		},
-	}
-}
-
-func MidStaticToInternalType(m MidLevelStaticTestStruct) chain_reader_tester.MidLevelStaticTestStruct {
-	return chain_reader_tester.MidLevelStaticTestStruct{
-		FixedBytes: m.FixedBytes,
-		Inner: chain_reader_tester.InnerStaticTestStruct{
-			IntVal: int64(m.Inner.I),
-			A:      common.BytesToAddress(m.Inner.A),
-		},
-	}
 }
 
 func ptr[T any](v T) *T {
