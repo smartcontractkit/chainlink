@@ -7,7 +7,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	interfacetesttypes "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/bindings"
+	"github.com/smartcontractkit/chainlink-evm/pkg/bindings"
 )
 
 // This wrapper is required to enable the ChainReader to access historical data
