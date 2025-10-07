@@ -33,6 +33,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	readermocks "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
@@ -59,7 +60,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // This file contains e2e tests for CCIPReader methods, goal of these tests is to cover entire flow of
@@ -168,7 +168,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 		cl,
 		nil,
 		nil,
-		evmtypes.ChainWriterConfig{
+		config.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
 		nil,
@@ -320,7 +320,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		cl,
 		nil,
 		nil,
-		evmtypes.ChainWriterConfig{
+		config.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
 		nil,
@@ -717,14 +717,14 @@ func TestCCIPReader_Nonces(t *testing.T) {
 		},
 	}
 
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
+	cfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			consts.ContractNameNonceManager: {
 				ContractABI: ccip_reader_tester.CCIPReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					consts.MethodNameGetInboundNonce: {
 						ChainSpecificName: "getInboundNonce",
-						ReadType:          evmtypes.Method,
+						ReadType:          config.Method,
 					},
 				},
 			},
@@ -893,7 +893,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		clD,
 		nil,
 		nil,
-		evmtypes.ChainWriterConfig{
+		config.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
 		nil,
@@ -1305,7 +1305,7 @@ func testSetupRealContracts(
 		)
 		require.NoError(t, lp.Start(ctx))
 
-		var cfg evmtypes.ChainReaderConfig
+		var cfg config.ChainReaderConfig
 		if chainSelector == cs(destChain) {
 			cfg = evmconfig.DestReaderConfig
 		} else {
@@ -1327,7 +1327,7 @@ func testSetupRealContracts(
 			cl,
 			nil,
 			nil,
-			evmtypes.ChainWriterConfig{
+			config.ChainWriterConfig{
 				MaxGasPrice: assets.GWei(1),
 			},
 			nil,
@@ -1442,7 +1442,7 @@ func testSetup(
 		cl,
 		nil,
 		nil,
-		evmtypes.ChainWriterConfig{
+		config.ChainWriterConfig{
 			MaxGasPrice: assets.GWei(1),
 		},
 		nil,
@@ -1719,7 +1719,7 @@ type testSetupParams struct {
 	ReaderChain        cciptypes.ChainSelector
 	DestChain          cciptypes.ChainSelector
 	OnChainSeqNums     map[cciptypes.ChainSelector]cciptypes.SeqNum
-	Cfg                evmtypes.ChainReaderConfig
+	Cfg                config.ChainReaderConfig
 	ToBindContracts    map[cciptypes.ChainSelector][]types.BoundContract
 	ToMockBindings     map[cciptypes.ChainSelector][]types.BoundContract
 	BindTester         bool
