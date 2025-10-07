@@ -591,5 +591,38 @@ func TestIDL(t *testing.T) {
 			},
 		),
 	})
+
+	// Close IDL
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseIDLs),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// Update IDL
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
 	require.NoError(t, err)
 }
