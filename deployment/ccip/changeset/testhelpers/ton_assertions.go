@@ -254,7 +254,7 @@ func ConfirmExecWithExpectedSeqNrsTON(
 		case EXECUTION_STATE_FAILURE:
 			lggr.Errorw("Execution failed",
 				"sequenceNumber", execEvent.SequenceNumber,
-				"messageID", hex.EncodeToString(execEvent.MessageID[:]))
+				"messageID", hex.EncodeToString(execEvent.MessageID))
 			return false, fmt.Errorf("execution failed for sequence number %d on chain %d, message ID: %x",
 				execEvent.SequenceNumber, execEvent.SourceChainSelector, execEvent.MessageID)
 
