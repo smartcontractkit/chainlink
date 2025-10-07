@@ -194,7 +194,8 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 
 func deployReceiverContract(tonChain ton.Chain, offRampAddr *address.Address) (*address.Address, error) {
 	// parse compiled contract
-	codeCell, err := wrappers.ParseCompiledContract(bindings.GetBuildDir("examples.receiver.compiled.json"))
+	// Note: receiver is under ccip/test (not examples) so it's included in GitHub releases
+	codeCell, err := wrappers.ParseCompiledContract(bindings.GetBuildDir("ccip.test.receiver.compiled.json"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Receiver compiled contract: %w", err)
 	}
