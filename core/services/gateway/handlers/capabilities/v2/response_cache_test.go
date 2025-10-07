@@ -202,7 +202,7 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 	})
 }
 
-func TestCachedFetch(t *testing.T) {
+func TestFetch(t *testing.T) {
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
 	workflowID := "workflow-123"
@@ -217,7 +217,7 @@ func TestCachedFetch(t *testing.T) {
 			return expectedResp
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn, true)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		require.True(t, fetchCalled)
 		require.Equal(t, expectedResp, result)
@@ -239,7 +239,7 @@ func TestCachedFetch(t *testing.T) {
 			return createTestResponse(200, "should not be called")
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn, true)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		require.False(t, fetchCalled, "fetchFn should not be called on cache hit")
 		require.Equal(t, cachedResp, result)
@@ -261,7 +261,7 @@ func TestCachedFetch(t *testing.T) {
 			return expectedResp
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn, true)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		require.True(t, fetchCalled)
 		require.Equal(t, expectedResp, result)
@@ -275,7 +275,7 @@ func TestCachedFetch(t *testing.T) {
 			return response
 		}
 
-		cache.CachedFetch(t.Context(), workflowID, req, fetchFn, true)
+		cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
@@ -290,7 +290,7 @@ func TestCachedFetch(t *testing.T) {
 			return response
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn, false)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, false)
 
 		// Should return the response but not cache it
 		require.Equal(t, response, result)
@@ -307,7 +307,7 @@ func TestCachedFetch(t *testing.T) {
 			return response
 		}
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, fetchFn, true)
+		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
 
 		// Should return the response but not cache it
 		require.Equal(t, response, result)
@@ -446,7 +446,7 @@ func TestEdgeCases(t *testing.T) {
 
 		cache.Set(workflowID, req, resp)
 
-		result := cache.CachedFetch(t.Context(), workflowID, req, func() gateway_common.OutboundHTTPResponse {
+		result := cache.Fetch(t.Context(), workflowID, req, func() gateway_common.OutboundHTTPResponse {
 			return resp
 		}, true)
 		require.Equal(t, resp, result)

@@ -345,16 +345,16 @@ func TestHandleNodeMessage_EmptyID(t *testing.T) {
 }
 
 type mockResponseCache struct {
-	deleteExpiredCh      chan struct{}
-	setCallCount         int
-	cachedFetchCallCount int
+	deleteExpiredCh chan struct{}
+	setCallCount    int
+	fetchCallCount  int
 }
 
 func newMockResponseCache() *mockResponseCache {
 	return &mockResponseCache{
-		deleteExpiredCh:      make(chan struct{}),
-		setCallCount:         0,
-		cachedFetchCallCount: 0,
+		deleteExpiredCh: make(chan struct{}),
+		setCallCount:    0,
+		fetchCallCount:  0,
 	}
 }
 
@@ -362,8 +362,8 @@ func (m *mockResponseCache) Set(workflowID string, req gateway_common.OutboundHT
 	m.setCallCount++
 }
 
-func (m *mockResponseCache) CachedFetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse {
-	m.cachedFetchCallCount++
+func (m *mockResponseCache) Fetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse {
+	m.fetchCallCount++
 	return fetchFn()
 }
 
@@ -591,7 +591,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 
 		// Verify Set was called once and CachedFetch was not called
 		require.Equal(t, 1, mockCache.setCallCount, "Set should be called once when Store=true and MaxAgeMs=0")
-		require.Equal(t, 0, mockCache.cachedFetchCallCount, "CachedFetch should not be called when MaxAgeMs=0")
+		require.Equal(t, 0, mockCache.fetchCallCount, "CachedFetch should not be called when MaxAgeMs=0")
 		mockHTTPClient.AssertExpectations(t)
 		mockDon.AssertExpectations(t)
 	})
@@ -635,7 +635,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 
 		// Verify Set was not called and CachedFetch was not called
 		require.Equal(t, 0, mockCache.setCallCount, "Set should not be called when Store=false and MaxAgeMs=0")
-		require.Equal(t, 0, mockCache.cachedFetchCallCount, "CachedFetch should not be called when MaxAgeMs=0")
+		require.Equal(t, 0, mockCache.fetchCallCount, "CachedFetch should not be called when MaxAgeMs=0")
 		mockHTTPClient.AssertExpectations(t)
 		mockDon.AssertExpectations(t)
 	})
@@ -678,7 +678,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 		handler.wg.Wait()
 
 		// Verify CachedFetch was called and Set was not called directly
-		require.Equal(t, 1, mockCache.cachedFetchCallCount, "CachedFetch should be called when MaxAgeMs>0")
+		require.Equal(t, 1, mockCache.fetchCallCount, "CachedFetch should be called when MaxAgeMs>0")
 		require.Equal(t, 0, mockCache.setCallCount, "Set should not be called directly when using CachedFetch")
 		mockHTTPClient.AssertExpectations(t)
 		mockDon.AssertExpectations(t)

@@ -51,11 +51,11 @@ func (rc *responseCache) isExpiredOrNotCached(workflowID string, req gateway.Out
 	return false
 }
 
-// CachedFetch fetches a response from the cache if it exists and
+// Fetch fetches a response from the cache if it exists and
 // the age of cached response is less than the max age of the request.
 // If the cached response is expired or not cached, it fetches a new response from the fetchFn.
 // and caches the response if it is cacheable and storeOnFetch is true.
-func (rc *responseCache) CachedFetch(ctx context.Context, workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse, storeOnFetch bool) gateway.OutboundHTTPResponse {
+func (rc *responseCache) Fetch(ctx context.Context, workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse, storeOnFetch bool) gateway.OutboundHTTPResponse {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
 	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
