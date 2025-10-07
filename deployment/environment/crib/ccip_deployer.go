@@ -92,7 +92,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		}
 	}
 
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
 		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{evmChains[chain].DeployerKey.From}, []mcmstypes.Config{})
@@ -116,7 +116,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 			RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
 			RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
 			NodeOperators:            testhelpers.NewTestNodeOperator(evmChains[homeChainSel].DeployerKey.From),
-			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIds},
+			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIDs},
 		},
 	))
 	if err != nil {
