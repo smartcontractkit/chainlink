@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	commontypes2 "github.com/smartcontractkit/libocr/commontypes"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,13 +18,12 @@ import (
 	looptestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	codec2 "github.com/smartcontractkit/chainlink/v2/evm/codec"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
 )
 
 const anyExtraValue = 3
@@ -46,7 +46,7 @@ func TestCodec(t *testing.T) {
 		codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 			codecName: {TypeABI: evmEncoderConfig},
 		}}
-		c, err := codec.NewCodec(codecConfig)
+		c, err := codec2.NewCodec(codecConfig)
 		require.NoError(t, err)
 
 		result, err := c.Encode(testutils.Context(t), encode, codecName)
@@ -92,7 +92,7 @@ func TestCodec_SimpleEncode(t *testing.T) {
 	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
-	c, err := codec.NewCodec(codecConfig)
+	c, err := codec2.NewCodec(codecConfig)
 	require.NoError(t, err)
 
 	result, err := c.Encode(testutils.Context(t), input, codecName)
@@ -121,7 +121,7 @@ func TestCodec_EncodeTuple(t *testing.T) {
 	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
-	c, err := codec.NewCodec(codecConfig)
+	c, err := codec2.NewCodec(codecConfig)
 	require.NoError(t, err)
 
 	result, err := c.Encode(testutils.Context(t), input, codecName)
@@ -153,7 +153,7 @@ func TestCodec_EncodeTupleWithLists(t *testing.T) {
 	codecConfig := config.CodecConfig{Configs: map[string]config.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
-	c, err := codec.NewCodec(codecConfig)
+	c, err := codec2.NewCodec(codecConfig)
 	require.NoError(t, err)
 
 	result, err := c.Encode(testutils.Context(t), input, codecName)
@@ -220,7 +220,7 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		if slices.Contains([]string{TestItemType, TestItemSliceType, TestItemArray1Type, TestItemArray2Type, TestItemWithConfigExtra}, k) {
 			addressByteModifier := &commoncodec.AddressBytesToStringModifierConfig{
 				Fields:   []string{"AccountStruct.AccountStr"},
-				Modifier: codec.EVMAddressModifier{},
+				Modifier: codec2.EVMAddressModifier{},
 			}
 
 			entry.ModifierConfigs = append(entry.ModifierConfigs, addressByteModifier)
@@ -239,7 +239,7 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		codecConfig.Configs[k] = entry
 	}
 
-	c, err := codec.NewCodec(codecConfig)
+	c, err := codec2.NewCodec(codecConfig)
 	require.NoError(t, err)
 	return c
 }
@@ -261,13 +261,13 @@ func encodeFieldsOnSliceOrArray(t *testing.T, request *EncodeRequest) []byte {
 
 	switch request.TestOn {
 	case TestItemArray1Type:
-		args[0] = [1]chain_reader_tester.TestStruct{evmtesting.ToInternalType(request.TestStructs[0])}
+		args[0] = [1]chain_reader_tester.TestStruct{ToInternalType(request.TestStructs[0])}
 	case TestItemArray2Type:
-		args[0] = [2]chain_reader_tester.TestStruct{evmtesting.ToInternalType(request.TestStructs[0]), evmtesting.ToInternalType(request.TestStructs[1])}
+		args[0] = [2]chain_reader_tester.TestStruct{ToInternalType(request.TestStructs[0]), ToInternalType(request.TestStructs[1])}
 	default:
 		tmp := make([]chain_reader_tester.TestStruct, len(request.TestStructs))
 		for i, ts := range request.TestStructs {
-			tmp[i] = evmtesting.ToInternalType(ts)
+			tmp[i] = ToInternalType(ts)
 		}
 		args[0] = tmp
 	}
@@ -385,10 +385,67 @@ func argsFromTestStruct(ts TestStruct) []any {
 		ts.DifferentField,
 		uint8(ts.OracleID),
 		getOracleIDs(ts),
-		evmtesting.AccountStructToInternalType(ts.AccountStruct),
+		AccountStructToInternalType(ts.AccountStruct),
 		getAccounts(ts),
 		ts.BigField,
-		evmtesting.MidDynamicToInternalType(ts.NestedDynamicStruct),
-		evmtesting.MidStaticToInternalType(ts.NestedStaticStruct),
+		MidDynamicToInternalType(ts.NestedDynamicStruct),
+		MidStaticToInternalType(ts.NestedStaticStruct),
+	}
+}
+
+func OracleIDsToBytes(oracleIDs [32]commontypes2.OracleID) [32]byte {
+	convertedIDs := [32]byte{}
+	for i, id := range oracleIDs {
+		convertedIDs[i] = byte(id)
+	}
+	return convertedIDs
+}
+
+func ConvertAccounts(accounts [][]byte) []common.Address {
+	convertedAccounts := make([]common.Address, len(accounts))
+	for i, a := range accounts {
+		convertedAccounts[i] = common.Address(a)
+	}
+	return convertedAccounts
+}
+
+func ToInternalType(testStruct TestStruct) chain_reader_tester.TestStruct {
+	return chain_reader_tester.TestStruct{
+		Field:               *testStruct.Field,
+		DifferentField:      testStruct.DifferentField,
+		OracleId:            byte(testStruct.OracleID),
+		OracleIds:           OracleIDsToBytes(testStruct.OracleIDs),
+		AccountStruct:       AccountStructToInternalType(testStruct.AccountStruct),
+		Accounts:            ConvertAccounts(testStruct.Accounts),
+		BigField:            testStruct.BigField,
+		NestedDynamicStruct: MidDynamicToInternalType(testStruct.NestedDynamicStruct),
+		NestedStaticStruct:  MidStaticToInternalType(testStruct.NestedStaticStruct),
+	}
+}
+
+func AccountStructToInternalType(a AccountStruct) chain_reader_tester.AccountStruct {
+	return chain_reader_tester.AccountStruct{
+		Account:    common.Address(a.Account),
+		AccountStr: common.HexToAddress(a.AccountStr),
+	}
+}
+
+func MidDynamicToInternalType(m MidLevelDynamicTestStruct) chain_reader_tester.MidLevelDynamicTestStruct {
+	return chain_reader_tester.MidLevelDynamicTestStruct{
+		FixedBytes: m.FixedBytes,
+		Inner: chain_reader_tester.InnerDynamicTestStruct{
+			IntVal: int64(m.Inner.I),
+			S:      m.Inner.S,
+		},
+	}
+}
+
+func MidStaticToInternalType(m MidLevelStaticTestStruct) chain_reader_tester.MidLevelStaticTestStruct {
+	return chain_reader_tester.MidLevelStaticTestStruct{
+		FixedBytes: m.FixedBytes,
+		Inner: chain_reader_tester.InnerStaticTestStruct{
+			IntVal: int64(m.Inner.I),
+			A:      common.BytesToAddress(m.Inner.A),
+		},
 	}
 }

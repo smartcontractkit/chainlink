@@ -13,18 +13,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
+	codec2 "github.com/smartcontractkit/chainlink/v2/evm/codec"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/onramp"
 	ccipconsts "github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 )
 
 type EventBinding struct {
@@ -275,7 +278,7 @@ func (b *EventBinding) GetLatestValueWithHeadData(ctx context.Context, address c
 		return nil, err
 	}
 
-	topicTypeID := codec.WrapItemType(b.contractName, b.eventName, true)
+	topicTypeID := codec2.WrapItemType(b.contractName, b.eventName, true)
 
 	onChainTypedVal, err := b.toNativeOnChainType(topicTypeID, params)
 	if err != nil {
@@ -438,14 +441,14 @@ func (b *EventBinding) extractFilterTopics(topicTypeID string, value any) (filte
 	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
 		var native any
-		native, err = codec.RepresentArray(item, b.eventTypes[topicTypeID])
+		native, err = codec2.RepresentArray(item, b.eventTypes[topicTypeID])
 		if err != nil {
 			return nil, fmt.Errorf("%w: error converting params to log topics: %s", commontypes.ErrInternal, err.Error())
 		}
 
 		filterTopics = []any{native}
 	case reflect.Struct, reflect.Map:
-		if filterTopics, err = codec.UnrollItem(item, b.eventTypes[topicTypeID]); err != nil {
+		if filterTopics, err = codec2.UnrollItem(item, b.eventTypes[topicTypeID]); err != nil {
 			return nil, fmt.Errorf("%w: error unrolling params into log topics: %s", commontypes.ErrInternal, err.Error())
 		}
 	default:
@@ -507,7 +510,7 @@ func (b *EventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 
 	}
 	// decode non indexed topics and apply output modifiers
-	if err := b.codec.Decode(ctx, log.Data, into, codec.WrapItemType(b.contractName, b.eventName, false)); err != nil {
+	if err := b.codec.Decode(ctx, log.Data, into, codec2.WrapItemType(b.contractName, b.eventName, false)); err != nil {
 		return fmt.Errorf("%w: failed to decode log data: %s", commontypes.ErrInvalidType, err.Error())
 	}
 
@@ -526,7 +529,7 @@ func (b *EventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
 
-	if err := codec.MapstructureDecode(topicsInto, into); err != nil {
+	if err := codec2.MapstructureDecode(topicsInto, into); err != nil {
 		return fmt.Errorf("%w: failed to decode log data: %s", commontypes.ErrInvalidEncoding, err.Error())
 	}
 
@@ -637,7 +640,7 @@ func (b *EventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 	}
 
 	var hashedValComps []logpoller.HashedValueComparator
-	itemType := codec.WrapItemType(b.contractName, b.eventName+"."+comparator.Name, true)
+	itemType := codec2.WrapItemType(b.contractName, b.eventName+"."+comparator.Name, true)
 	for _, valComp := range comparator.ValueComparators {
 		hashedValComp, err := b.valueCmpToHashedCmp(itemType, isDW, valComp)
 		if err != nil {
@@ -690,7 +693,7 @@ func (b *EventBinding) toNativeOnChainType(itemType string, value any) (any, err
 	}
 
 	// apply map struct evm hooks to correct incoming values
-	if err = codec.MapstructureDecode(value, offChain); err != nil {
+	if err = codec2.MapstructureDecode(value, offChain); err != nil {
 		return nil, fmt.Errorf("%w: failed to decode offChain value: %s", commontypes.ErrInternal, err.Error())
 	}
 

@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/bindings"
-	evmcodec "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
+	bindings2 "github.com/smartcontractkit/chainlink/v2/evm/bindings"
+	evmcodec "github.com/smartcontractkit/chainlink/v2/evm/codec"
 )
 
 const contractName = "ChainReaderTester"
@@ -87,7 +87,7 @@ func newBindingsMapping() bindingsMapping {
 		methodNameMappingByContract: methodNameMappingByContract,
 		contractReaderProxy:         &contractReaderProxy,
 		chainWriterProxy:            &chainWriterProxy,
-		chainReaderTesters:          map[string]*bindings.ChainReaderTester{},
+		chainReaderTesters:          map[string]*bindings2.ChainReaderTester{},
 	}
 	contractReaderProxy.bm = &bm
 	chainWriterProxy.bm = &bm
@@ -97,7 +97,7 @@ func newBindingsMapping() bindingsMapping {
 
 func getChainReaderConfig(wrapped *EVMChainComponentsInterfaceTester[*testing.T]) config.ChainReaderConfig {
 	testStruct := interfacetests.CreateTestStruct[*testing.T](0, wrapped)
-	chainReaderConfig := bindings.NewChainReaderConfig()
+	chainReaderConfig := bindings2.NewChainReaderConfig()
 	chainReaderConfig.Contracts["ChainReaderTester"].Configs["ReturnSeen"] = &config.ChainReaderDefinition{
 		CacheEnabled:      false,
 		ChainSpecificName: "returnSeen",
@@ -118,7 +118,7 @@ func getChainReaderConfig(wrapped *EVMChainComponentsInterfaceTester[*testing.T]
 }
 
 func getChainWriterConfig(t *testing.T, wrapped *EVMChainComponentsInterfaceTester[*testing.T]) config.ChainWriterConfig {
-	return bindings.NewChainWriterConfig(*assets.NewWei(big.NewInt(1000000000000000000)), 2_000_000, wrapped.Helper.Accounts(t)[1].From)
+	return bindings2.NewChainWriterConfig(*assets.NewWei(big.NewInt(1000000000000000000)), 2_000_000, wrapped.Helper.Accounts(t)[1].From)
 }
 
 func (b bindingClientTester) Name() string {
@@ -147,7 +147,7 @@ func (b bindingClientTester) addDefaultBindings(t *testing.T) {
 	for _, binding := range defaultBindings {
 		chainReaderTester := b.bindingsMapping.chainReaderTesters[binding.Address]
 		if chainReaderTester == nil {
-			chainReaderTester = &bindings.ChainReaderTester{
+			chainReaderTester = &bindings2.ChainReaderTester{
 				BoundContract: binding,
 				ChainWriter:   b.bindingsMapping.chainWriterProxy.ContractWriter,
 			}
@@ -174,7 +174,7 @@ type bindingsMapping struct {
 	contractNameMapping         map[string]string
 	methodNameMappingByContract map[string]map[string]string
 	delegates                   map[string]*Delegate
-	chainReaderTesters          map[string]*bindings.ChainReaderTester
+	chainReaderTesters          map[string]*bindings2.ChainReaderTester
 	contractReaderProxy         *bindingContractReaderProxy
 	chainWriterProxy            *bindingChainWriterProxy
 }
@@ -192,7 +192,7 @@ type bindingChainWriterProxy struct {
 func (b bindingContractReaderProxy) Bind(ctx context.Context, boundContracts []commontypes.BoundContract) error {
 	updatedBindings := b.bm.translateContractNames(boundContracts)
 	for _, updatedBinding := range updatedBindings {
-		b.bm.chainReaderTesters[updatedBinding.Address] = &bindings.ChainReaderTester{
+		b.bm.chainReaderTesters[updatedBinding.Address] = &bindings2.ChainReaderTester{
 			BoundContract:  updatedBinding,
 			ContractReader: b.ContractReader,
 			ChainWriter:    b.bm.chainWriterProxy.ContractWriter,
@@ -241,19 +241,19 @@ func (b bindingChainWriterProxy) SubmitTransaction(ctx context.Context, contract
 	case interfacetests.AnyContractName, interfacetests.AnySecondContractName:
 		switch method {
 		case interfacetests.MethodSettingStruct:
-			bindingsInput := bindings.AddTestStructInput{}
+			bindingsInput := bindings2.AddTestStructInput{}
 			_ = convertStruct(args, &bindingsInput)
 			return chainReaderTesters.AddTestStruct(ctx, bindingsInput, transactionID, toAddress, meta)
 		case interfacetests.MethodSettingUint64:
-			bindingsInput := bindings.SetAlterablePrimitiveValueInput{}
+			bindingsInput := bindings2.SetAlterablePrimitiveValueInput{}
 			_ = convertStruct(args, &bindingsInput)
 			return chainReaderTesters.SetAlterablePrimitiveValue(ctx, bindingsInput, transactionID, toAddress, meta)
 		case interfacetests.MethodTriggeringEvent:
-			bindingsInput := bindings.TriggerEventInput{}
+			bindingsInput := bindings2.TriggerEventInput{}
 			_ = convertStruct(args, &bindingsInput)
 			return chainReaderTesters.TriggerEvent(ctx, bindingsInput, transactionID, toAddress, meta)
 		case interfacetests.MethodTriggeringEventWithDynamicTopic:
-			bindingsInput := bindings.TriggerEventWithDynamicTopicInput{}
+			bindingsInput := bindings2.TriggerEventWithDynamicTopicInput{}
 			_ = convertStruct(args, &bindingsInput)
 			return chainReaderTesters.TriggerEventWithDynamicTopic(ctx, bindingsInput, transactionID, toAddress, meta)
 		default:
@@ -295,13 +295,13 @@ func (b *bindingsMapping) createDelegates() {
 }
 
 func (b *bindingsMapping) createDelegateForMethodTakingLatestParams() *Delegate {
-	delegate := Delegate{inputType: reflect.TypeOf(bindings.GetElementAtIndexInput{})}
+	delegate := Delegate{inputType: reflect.TypeOf(bindings2.GetElementAtIndexInput{})}
 	delegate.delegateFunc = func(ctx context.Context, readyKey string, input *any, level primitives.ConfidenceLevel) (any, error) {
-		methodInvocation := func(ctx context.Context, readKey string, input *bindings.GetElementAtIndexInput, level primitives.ConfidenceLevel) (any, error) {
+		methodInvocation := func(ctx context.Context, readKey string, input *bindings2.GetElementAtIndexInput, level primitives.ConfidenceLevel) (any, error) {
 			chainReaderTester := b.GetChainReaderTester(readKey)
 			return chainReaderTester.GetElementAtIndex(ctx, *input, level)
 		}
-		return invokeSpecificMethod(ctx, b.translateReadKey(readyKey), (*input).(*bindings.GetElementAtIndexInput), level, methodInvocation)
+		return invokeSpecificMethod(ctx, b.translateReadKey(readyKey), (*input).(*bindings2.GetElementAtIndexInput), level, methodInvocation)
 	}
 	return &delegate
 }
@@ -319,13 +319,13 @@ func (b *bindingsMapping) createDelegateForMethodReturningAlterableUint64() *Del
 }
 
 func (b *bindingsMapping) createDelegateForMethodReturningSeenStruct() *Delegate {
-	delegate := Delegate{inputType: reflect.TypeOf(bindings.ReturnSeenInput{})}
+	delegate := Delegate{inputType: reflect.TypeOf(bindings2.ReturnSeenInput{})}
 	delegate.delegateFunc = func(ctx context.Context, readyKey string, input *any, level primitives.ConfidenceLevel) (any, error) {
-		methodInvocation := func(ctx context.Context, readKey string, input *bindings.ReturnSeenInput, level primitives.ConfidenceLevel) (any, error) {
+		methodInvocation := func(ctx context.Context, readKey string, input *bindings2.ReturnSeenInput, level primitives.ConfidenceLevel) (any, error) {
 			chainReaderTester := b.GetChainReaderTester(readKey)
 			return chainReaderTester.ReturnSeen(ctx, *input, level)
 		}
-		return invokeSpecificMethod(ctx, b.translateReadKey(readyKey), (*input).(*bindings.ReturnSeenInput), level, methodInvocation)
+		return invokeSpecificMethod(ctx, b.translateReadKey(readyKey), (*input).(*bindings2.ReturnSeenInput), level, methodInvocation)
 	}
 	return &delegate
 }
@@ -409,7 +409,7 @@ func (b bindingsMapping) getBindingDelegate(readKey string) (*Delegate, error) {
 	return delegate, nil
 }
 
-func (b bindingsMapping) GetChainReaderTester(key string) *bindings.ChainReaderTester {
+func (b bindingsMapping) GetChainReaderTester(key string) *bindings2.ChainReaderTester {
 	address := key[0:strings.Index(key, "-")]
 	return b.chainReaderTesters[address]
 }
@@ -445,9 +445,9 @@ func (d Delegate) apply(ctx context.Context, readKey string, input any, confiden
 
 // Utility function to converted original types from and to bindings expected types.
 func convertStruct(src any, dst any) error {
-	if reflect.TypeOf(src).Kind() == reflect.Ptr && reflect.TypeOf(dst).Kind() == reflect.Ptr && reflect.TypeOf(src).Elem() == reflect.TypeOf(interfacetests.LatestParams{}) && reflect.TypeOf(dst).Elem() == reflect.TypeOf(bindings.GetElementAtIndexInput{}) {
+	if reflect.TypeOf(src).Kind() == reflect.Ptr && reflect.TypeOf(dst).Kind() == reflect.Ptr && reflect.TypeOf(src).Elem() == reflect.TypeOf(interfacetests.LatestParams{}) && reflect.TypeOf(dst).Elem() == reflect.TypeOf(bindings2.GetElementAtIndexInput{}) {
 		value := src.(*interfacetests.LatestParams).I
-		dst.(*bindings.GetElementAtIndexInput).I = big.NewInt(int64(value))
+		dst.(*bindings2.GetElementAtIndexInput).I = big.NewInt(int64(value))
 		return nil
 	}
 	decoder, err := createDecoder(dst)
@@ -466,7 +466,7 @@ func convertStruct(src any, dst any) error {
 			decoder, _ := createDecoder(auxTestStruct)
 			_ = decoder.Decode(src)
 			destTestStruct.TestStruct = *auxTestStruct
-			sourceTestStruct := src.(bindings.TestStruct)
+			sourceTestStruct := src.(bindings2.TestStruct)
 			destTestStruct.BigField = sourceTestStruct.BigField
 			destTestStruct.NestedStaticStruct.Inner.I = int(sourceTestStruct.NestedStaticStruct.Inner.IntVal)
 			destTestStruct.NestedStaticStruct.FixedBytes = sourceTestStruct.NestedStaticStruct.FixedBytes
@@ -477,15 +477,15 @@ func convertStruct(src any, dst any) error {
 	case reflect.TypeOf(dst).Elem() == reflect.TypeOf(interfacetests.TestStruct{}):
 		destTestStruct := dst.(*interfacetests.TestStruct)
 		if destTestStruct != nil {
-			sourceTestStruct := src.(bindings.TestStruct)
+			sourceTestStruct := src.(bindings2.TestStruct)
 			destTestStruct.BigField = sourceTestStruct.BigField
 			destTestStruct.NestedStaticStruct.Inner.I = int(sourceTestStruct.NestedStaticStruct.Inner.IntVal)
 			destTestStruct.NestedStaticStruct.FixedBytes = sourceTestStruct.NestedStaticStruct.FixedBytes
 			destTestStruct.NestedDynamicStruct.Inner.I = int(sourceTestStruct.NestedDynamicStruct.Inner.IntVal)
 			destTestStruct.NestedDynamicStruct.FixedBytes = sourceTestStruct.NestedDynamicStruct.FixedBytes
 		}
-	case reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings.AddTestStructInput{}):
-		destTestStruct := dst.(*bindings.AddTestStructInput)
+	case reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings2.AddTestStructInput{}):
+		destTestStruct := dst.(*bindings2.AddTestStructInput)
 		if destTestStruct != nil {
 			sourceTestStruct := src.(interfacetests.TestStruct)
 			destTestStruct.BigField = sourceTestStruct.BigField
@@ -494,8 +494,8 @@ func convertStruct(src any, dst any) error {
 			destTestStruct.NestedDynamicStruct.Inner.IntVal = int64(sourceTestStruct.NestedDynamicStruct.Inner.I)
 			destTestStruct.NestedDynamicStruct.FixedBytes = sourceTestStruct.NestedDynamicStruct.FixedBytes
 		}
-	case reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings.ReturnSeenInput{}):
-		destTestStruct := dst.(*bindings.ReturnSeenInput)
+	case reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings2.ReturnSeenInput{}):
+		destTestStruct := dst.(*bindings2.ReturnSeenInput)
 		if destTestStruct != nil {
 			sourceTestStruct := src.(interfacetests.TestStruct)
 			destTestStruct.BigField = sourceTestStruct.BigField

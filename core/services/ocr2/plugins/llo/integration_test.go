@@ -39,6 +39,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llo2 "github.com/smartcontractkit/chainlink/v2/evm/llo"
 
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -62,7 +63,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/verifier"
@@ -326,7 +326,7 @@ func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backe
 	for i := 0; i < nNodes; i++ {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
-	donIDPadded := llo.DonIDToBytes32(donID)
+	donIDPadded := llo2.DonIDToBytes32(donID)
 	_, err = legacyVerifier.SetConfig(steve, donIDPadded, signerAddresses, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig, nil)
 	require.NoError(t, err)
 
@@ -361,7 +361,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	for i := 0; i < nNodes; i++ {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
-	donIDPadded := llo.DonIDToBytes32(donID)
+	donIDPadded := llo2.DonIDToBytes32(donID)
 	var isProduction bool
 	{
 		cfg, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Decode(onchainConfig)
@@ -384,9 +384,9 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 
 	var topic common.Hash
 	if isProduction {
-		topic = llo.ProductionConfigSet
+		topic = llo2.ProductionConfigSet
 	} else {
-		topic = llo.StagingConfigSet
+		topic = llo2.StagingConfigSet
 	}
 	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
 	require.NoError(t, err)
@@ -399,7 +399,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 }
 
 func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, isGreenProduction bool) {
-	donIDPadded := llo.DonIDToBytes32(donID)
+	donIDPadded := llo2.DonIDToBytes32(donID)
 	_, err := configurator.PromoteStagingConfig(steve, donIDPadded, isGreenProduction)
 	require.NoError(t, err)
 

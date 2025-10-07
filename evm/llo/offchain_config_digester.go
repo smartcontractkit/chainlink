@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc/credentials"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/exposed_configurator"
 )
@@ -44,12 +43,12 @@ func (d OffchainConfigDigester) ConfigDigest(_ context.Context, cc ocrtypes.Cont
 		// MERC-3594
 		onchainPubKeys[i] = signer
 	}
-	transmitters := []credentials.StaticSizedPublicKey{}
+	transmitters := [][ed25519.PublicKeySize]byte{}
 	for i, transmitter := range cc.Transmitters {
 		if len(transmitter) != 2*ed25519.PublicKeySize {
 			return ocrtypes.ConfigDigest{}, errors.Errorf("%v-th evm transmitter should be a 64 character hex-encoded ed25519 public key, but got '%v' (%d chars)", i, transmitter, len(transmitter))
 		}
-		var t credentials.StaticSizedPublicKey
+		var t [ed25519.PublicKeySize]byte
 		b, err := hex.DecodeString(string(transmitter))
 		if err != nil {
 			return ocrtypes.ConfigDigest{}, errors.Wrapf(err, "%v-th evm transmitter is not valid hex, got: %q", i, transmitter)
@@ -95,7 +94,7 @@ func configDigest(
 	contractAddress common.Address,
 	configCount uint64,
 	onchainPubKeys [][]byte,
-	transmitters []credentials.StaticSizedPublicKey,
+	transmitters [][ed25519.PublicKeySize]byte,
 	f uint8,
 	onchainConfig []byte,
 	offchainConfigVersion uint64,

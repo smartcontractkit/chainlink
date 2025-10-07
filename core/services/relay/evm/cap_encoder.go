@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/abi"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
+	"github.com/smartcontractkit/chainlink/v2/evm/codec"
 )
 
 const (

@@ -21,11 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	codec2 "github.com/smartcontractkit/chainlink/v2/evm/codec"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 )
 
@@ -40,7 +40,7 @@ type chainReader struct {
 	ht       logpoller.HeadTracker
 	lp       logpoller.LogPoller
 	client   EVMClient
-	parsed   *codec.ParsedTypes
+	parsed   *codec2.ParsedTypes
 	bindings *read.BindingsRegistry
 	codec    commontypes.RemoteCodec
 	commonservices.StateMachine
@@ -63,7 +63,7 @@ func NewChainReaderService(_ context.Context, lggr logger.Logger, lp logpoller.L
 		lp:       lp,
 		client:   client,
 		bindings: read.NewBindingsRegistry(),
-		parsed:   &codec.ParsedTypes{EncoderDefs: map[string]evmtypes.CodecEntry{}, DecoderDefs: map[string]evmtypes.CodecEntry{}},
+		parsed:   &codec2.ParsedTypes{EncoderDefs: map[string]evmtypes.CodecEntry{}, DecoderDefs: map[string]evmtypes.CodecEntry{}},
 	}
 
 	var err error
@@ -150,14 +150,14 @@ func (cr *chainReader) init(chainContractReaders map[string]config.ChainContract
 func injectEVMSpecificCodecModifiers(chainReaderDefinition *config.ChainReaderDefinition) {
 	for i, modConfig := range chainReaderDefinition.InputModifications {
 		if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
-			addrModifierConfig.Modifier = codec.EVMAddressModifier{}
+			addrModifierConfig.Modifier = codec2.EVMAddressModifier{}
 			chainReaderDefinition.InputModifications[i] = addrModifierConfig
 		}
 	}
 
 	for i, modConfig := range chainReaderDefinition.OutputModifications {
 		if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
-			addrModifierConfig.Modifier = codec.EVMAddressModifier{}
+			addrModifierConfig.Modifier = codec2.EVMAddressModifier{}
 			chainReaderDefinition.OutputModifications[i] = addrModifierConfig
 		}
 	}
@@ -395,7 +395,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	}
 
 	codecTypes, codecModifiers := make(map[string]evmtypes.CodecEntry), make(map[string]commoncodec.Modifier)
-	topicTypeID := codec.WrapItemType(contractName, eventName, true)
+	topicTypeID := codec2.WrapItemType(contractName, eventName, true)
 	codecTypes[topicTypeID], codecModifiers[topicTypeID] = cr.getEventItemTypeAndModifier(topicTypeID)
 
 	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
@@ -451,7 +451,7 @@ func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventIn
 				return nil, nil, nil, err
 			}
 
-			topicCodecTypeID := codec.WrapItemType(contractName, topicTypeID, true)
+			topicCodecTypeID := codec2.WrapItemType(contractName, topicTypeID, true)
 			topicsTypes[topicCodecTypeID], topicsModifiers[topicCodecTypeID] = cr.getEventItemTypeAndModifier(topicCodecTypeID)
 		}
 	}
@@ -477,7 +477,7 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, abiDWsDeta
 			return nil, nil, fmt.Errorf("failed to init codec for data word: %q on index: %d, err: %w", genericName, dwDetail.Index, err)
 		}
 
-		dwCodecTypeID := codec.WrapItemType(contractName, dwTypeID, true)
+		dwCodecTypeID := codec2.WrapItemType(contractName, dwTypeID, true)
 		dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
 	}
 
@@ -524,7 +524,7 @@ func (cr *chainReader) getEventItemTypeAndModifier(itemType string) (evmtypes.Co
 
 func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, inputModifications commoncodec.ModifiersConfig) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	inputMod, err := inputModifications.ToModifier(codec.DecoderHooks...)
+	inputMod, err := inputModifications.ToModifier(codec2.DecoderHooks...)
 	if err != nil {
 		return err
 	}
@@ -534,17 +534,17 @@ func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arg
 		return err
 	}
 
-	cr.parsed.EncoderDefs[codec.WrapItemType(contractName, itemType, true)] = input
+	cr.parsed.EncoderDefs[codec2.WrapItemType(contractName, itemType, true)] = input
 	return nil
 }
 
 func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.Arguments, outputModifications commoncodec.ModifiersConfig) error {
-	mod, err := outputModifications.ToModifier(codec.DecoderHooks...)
+	mod, err := outputModifications.ToModifier(codec2.DecoderHooks...)
 	if err != nil {
 		return err
 	}
 	output := evmtypes.NewCodecEntry(outputs, nil, mod)
-	cr.parsed.DecoderDefs[codec.WrapItemType(contractName, itemType, false)] = output
+	cr.parsed.DecoderDefs[codec2.WrapItemType(contractName, itemType, false)] = output
 	return output.Init()
 }
 

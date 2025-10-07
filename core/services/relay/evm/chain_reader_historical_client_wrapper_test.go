@@ -14,12 +14,12 @@ import (
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	codec2 "github.com/smartcontractkit/chainlink/v2/evm/codec"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 )
 
 // ClientWithContractHistory makes it possible to modify client.Client CallContract so that it returns historical data.
@@ -32,7 +32,7 @@ type ClientWithContractHistory struct {
 
 func (cwh *ClientWithContractHistory) Init(_ context.Context, chainReaderConfig config.ChainReaderConfig) error {
 	cwh.valsWithCall = make(map[int64]valWithCall)
-	parsedTypes := codec.ParsedTypes{
+	parsedTypes := codec2.ParsedTypes{
 		EncoderDefs: make(map[string]evmtypes.CodecEntry),
 		DecoderDefs: make(map[string]evmtypes.CodecEntry),
 	}
@@ -51,12 +51,12 @@ func (cwh *ClientWithContractHistory) Init(_ context.Context, chainReaderConfig 
 
 			injectEVMSpecificCodecModifiers(readDef)
 
-			inputMod, err := readDef.InputModifications.ToModifier(codec.DecoderHooks...)
+			inputMod, err := readDef.InputModifications.ToModifier(codec2.DecoderHooks...)
 			if err != nil {
 				return err
 			}
 
-			outputMod, err := readDef.OutputModifications.ToModifier(codec.DecoderHooks...)
+			outputMod, err := readDef.OutputModifications.ToModifier(codec2.DecoderHooks...)
 			if err != nil {
 				return err
 			}
@@ -71,8 +71,8 @@ func (cwh *ClientWithContractHistory) Init(_ context.Context, chainReaderConfig 
 				return err
 			}
 
-			parsedTypes.EncoderDefs[codec.WrapItemType(contractName, genericName, true)] = input
-			parsedTypes.DecoderDefs[codec.WrapItemType(contractName, genericName, false)] = output
+			parsedTypes.EncoderDefs[codec2.WrapItemType(contractName, genericName, true)] = input
+			parsedTypes.DecoderDefs[codec2.WrapItemType(contractName, genericName, false)] = output
 		}
 	}
 
@@ -128,7 +128,7 @@ func (cwh *ClientWithContractHistory) CallContract(ctx context.Context, msg ethe
 	}
 
 	// encode the expected call to compare with the actual call
-	dataToCmp, err := cwh.codec.Encode(ctx, valAndCall.Params, codec.WrapItemType(valAndCall.ContractName, valAndCall.ReadName, true))
+	dataToCmp, err := cwh.codec.Encode(ctx, valAndCall.Params, codec2.WrapItemType(valAndCall.ContractName, valAndCall.ReadName, true))
 	if err != nil {
 		return nil, err
 	}
