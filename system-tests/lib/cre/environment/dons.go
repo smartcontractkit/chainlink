@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
@@ -14,7 +15,30 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func StartDONs(lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Provider, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) ([]*cre.WrappedNodeOutput, error) {
+type StartedDON struct {
+	NodeOutput *cre.WrappedNodeOutput
+	DON        *cre.DON
+}
+
+type StartedDONs []*StartedDON
+
+func (s *StartedDONs) NodeOutputs() []*cre.WrappedNodeOutput {
+	outputs := make([]*cre.WrappedNodeOutput, 0, len(*s))
+	for idx, don := range *s {
+		outputs[idx] = don.NodeOutput
+	}
+	return outputs
+}
+
+func (s *StartedDONs) DONs() []*cre.DON {
+	dons := make([]*cre.DON, 0, len(*s))
+	for idx, don := range *s {
+		dons[idx] = don.DON
+	}
+	return dons
+}
+
+func StartDONs(ctx context.Context, lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Provider, registryChainBlockchainOutput *blockchain.Output, capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet) (*StartedDONs, error) {
 	startTime := time.Now()
 	lggr.Info().Msgf("Starting %d DONs", len(capabilitiesAwareNodeSets))
 
@@ -34,23 +58,30 @@ func StartDONs(lggr zerolog.Logger, topology *cre.Topology, infraInput infra.Pro
 		}
 	}
 
-	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
-
+	startedDONs := StartedDONs{}
 	// TODO we could parallelize this as well in the future, but for single DON env this doesn't matter
-	for _, nodeSetInput := range capabilitiesAwareNodeSets {
+	for idx, nodeSetInput := range capabilitiesAwareNodeSets {
 		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, registryChainBlockchainOutput)
 		if nodesetErr != nil {
 			return nil, pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
 		}
 
-		nodeSetOutput = append(nodeSetOutput, &cre.WrappedNodeOutput{
-			Output:       nodeset,
-			NodeSetName:  nodeSetInput.Name,
-			Capabilities: nodeSetInput.ComputedCapabilities,
+		don, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], nodeset.CLNodes)
+		if donErr != nil {
+			return nil, pkgerrors.Wrapf(donErr, "failed to create DON from node set named %s", nodeSetInput.Name)
+		}
+
+		startedDONs = append(startedDONs, &StartedDON{
+			NodeOutput: &cre.WrappedNodeOutput{
+				Output:       nodeset,
+				NodeSetName:  nodeSetInput.Name,
+				Capabilities: nodeSetInput.ComputedCapabilities,
+			},
+			DON: don,
 		})
 	}
 
 	lggr.Info().Msgf("DONs started in %.2f seconds", time.Since(startTime).Seconds())
 
-	return nodeSetOutput, nil
+	return &startedDONs, nil
 }

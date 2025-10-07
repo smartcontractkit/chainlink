@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -25,7 +26,6 @@ import (
 	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type ChainWriterService interface {
@@ -36,7 +36,7 @@ type ChainWriterService interface {
 // Compile-time assertion that chainWriter implements the ChainWriterService interface.
 var _ ChainWriterService = (*chainWriter)(nil)
 
-func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config types.ChainWriterConfig, tronTxm *trontxm.TronTxm) (ChainWriterService, error) {
+func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config config.ChainWriterConfig, tronTxm *trontxm.TronTxm) (ChainWriterService, error) {
 	if config.MaxGasPrice == nil {
 		return nil, fmt.Errorf("max gas price is required")
 	}
@@ -76,7 +76,7 @@ type chainWriter struct {
 	ge          gas.EvmFeeEstimator
 	maxGasPrice *assets.Wei
 
-	contracts       map[string]*types.ContractConfig
+	contracts       map[string]*config.ContractConfig
 	parsedContracts *codec.ParsedTypes
 	// Store ABI methods for Tron transaction formatting
 	abiMethods map[string]abi.Method // key: "contract.method"

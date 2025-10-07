@@ -18,19 +18,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commonevm "github.com/smartcontractkit/chainlink-common/pkg/types/evm"
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive,staticcheck // dot-imports
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 )
 
 const (
@@ -53,7 +53,7 @@ type EVMChainComponentsInterfaceTesterHelper[T TestingT[T]] interface {
 	Accounts(t T) []*bind.TransactOpts
 	TXM(T, client.Client) evmtxmgr.TxManager
 	// To enable the historical wrappers required for Simulated Backend tests.
-	ChainReaderEVMClient(ctx context.Context, t T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client
+	ChainReaderEVMClient(ctx context.Context, t T, ht logpoller.HeadTracker, conf config.ChainReaderConfig) client.Client
 	WrappedChainWriter(cw clcommontypes.ContractWriter, client client.Client) clcommontypes.ContractWriter
 	LogPoller(t T) logpoller.LogPoller
 	HeadTracker(t T) logpoller.HeadTracker
@@ -64,18 +64,18 @@ type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
 	Helper                    EVMChainComponentsInterfaceTesterHelper[T]
 	DeployLock                *sync.Mutex
 	client                    client.Client
-	chainReaderConfigSupplier func(t T) types.ChainReaderConfig
-	chainWriterConfigSupplier func(t T) types.ChainWriterConfig
+	chainReaderConfigSupplier func(t T) config.ChainReaderConfig
+	chainWriterConfigSupplier func(t T) config.ChainWriterConfig
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetBindings(t T) []clcommontypes.BoundContract {
 	return it.deployNewContracts(t)
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.ChainReaderConfig {
+func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) config.ChainReaderConfig {
 	testStruct := CreateTestStruct[T](0, it)
 
-	methodTakingLatestParamsReturningTestStructConfig := types.ChainReaderDefinition{
+	methodTakingLatestParamsReturningTestStructConfig := config.ChainReaderDefinition{
 		ChainSpecificName: "getElementAtIndex",
 		OutputModifications: codec.ModifiersConfig{
 			&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
@@ -86,14 +86,14 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 		},
 	}
 
-	return types.ChainReaderConfig{
-		Contracts: map[string]types.ChainContractReader{
+	return config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
-				ContractPollingFilter: types.ContractPollingFilter{
+				ContractPollingFilter: config.ContractPollingFilter{
 					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed, staticBytesEventName},
 				},
-				Configs: map[string]*types.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
 					MethodReturningAlterableUint64: {
 						ChainSpecificName: "getAlterablePrimitiveValue",
@@ -106,10 +106,10 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 					},
 					EventName: {
 						ChainSpecificName: "Triggered",
-						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
 							GenericTopicNames: map[string]string{"field": "Field"},
-							GenericDataWordDetails: map[string]types.DataWordDetail{
+							GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 								"OracleID": {Name: "oracleId"},
 								// this is just to illustrate an example, generic names shouldn't really be formatted like this since other chains might not store it in the same way
 								"NestedStaticStruct.Inner.IntVal": {Name: "nestedStaticStruct.Inner.IntVal"},
@@ -127,9 +127,9 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 					},
 					staticBytesEventName: {
 						ChainSpecificName: staticBytesEventName,
-						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
-							GenericDataWordDetails: map[string]types.DataWordDetail{
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
+							GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 								"msgTransmitterEvent": {
 									Name:  "msgTransmitterEvent",
 									Index: ptr(2),
@@ -140,7 +140,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 					},
 					EventWithFilterName: {
 						ChainSpecificName: "Triggered",
-						ReadType:          types.Event,
+						ReadType:          config.Event,
 						OutputModifications: codec.ModifiersConfig{
 							&codec.AddressBytesToStringModifierConfig{
 								Fields: []string{"AccountStruct.AccountStr"},
@@ -149,10 +149,10 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
-						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
 							// No specific reason for filter being defined here instead of on contract level, this is just for test case variety.
-							PollingFilter: &types.PollingFilter{},
+							PollingFilter: &config.PollingFilter{},
 						},
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
@@ -160,9 +160,9 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 					},
 					triggerWithAllTopics: {
 						ChainSpecificName: triggerWithAllTopics,
-						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
-							PollingFilter: &types.PollingFilter{},
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
+							PollingFilter: &config.PollingFilter{},
 						},
 						// This doesn't have to be here, since the defalt mapping would work, but is left as an example.
 						// Keys which are string float values(confidence levels) are chain agnostic and should be reused across chains.
@@ -171,8 +171,8 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 					},
 					triggerWithAllTopicsWithHashed: {
 						ChainSpecificName: triggerWithAllTopicsWithHashed,
-						ReadType:          types.Event,
-						EventDefinitions:  &types.EventDefinitions{},
+						ReadType:          config.Event,
+						EventDefinitions:  &config.EventDefinitions{},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
@@ -202,7 +202,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 			},
 			AnySecondContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
-				Configs: map[string]*types.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
 					MethodReturningUint64: {
 						ChainSpecificName: "getDifferentPrimitiveValue",
@@ -213,12 +213,12 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.
 	}
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) getChainWriterConfig(t T) types.ChainWriterConfig {
-	return types.ChainWriterConfig{
-		Contracts: map[string]*types.ContractConfig{
+func (it *EVMChainComponentsInterfaceTester[T]) getChainWriterConfig(t T) config.ChainWriterConfig {
+	return config.ChainWriterConfig{
+		Contracts: map[string]*config.ContractConfig{
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
-				Configs: map[string]*types.ChainWriterDefinition{
+				Configs: map[string]*config.ChainWriterDefinition{
 					"addTestStruct": {
 						ChainSpecificName: "addTestStruct",
 						FromAddress:       it.Helper.Accounts(t)[1].From,
@@ -273,7 +273,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainWriterConfig(t T) types.
 			},
 			AnySecondContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
-				Configs: map[string]*types.ChainWriterDefinition{
+				Configs: map[string]*config.ChainWriterDefinition{
 					"addTestStruct": {
 						ChainSpecificName: "addTestStruct",
 						FromAddress:       it.Helper.Accounts(t)[1].From,
@@ -383,19 +383,19 @@ func (it *EVMChainComponentsInterfaceTester[T]) MaxWaitTimeForEvents() time.Dura
 
 func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 	if it.chainReaderConfigSupplier == nil {
-		it.chainReaderConfigSupplier = func(t T) types.ChainReaderConfig { return it.getChainReaderConfig(t) }
+		it.chainReaderConfigSupplier = func(t T) config.ChainReaderConfig { return it.getChainReaderConfig(t) }
 	}
 	if it.chainWriterConfigSupplier == nil {
-		it.chainWriterConfigSupplier = func(t T) types.ChainWriterConfig { return it.getChainWriterConfig(t) }
+		it.chainWriterConfigSupplier = func(t T) config.ChainWriterConfig { return it.getChainWriterConfig(t) }
 	}
 	it.client = it.Helper.ChainReaderEVMClient(it.Helper.Context(t), t, it.Helper.HeadTracker(t), it.chainReaderConfigSupplier(t))
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) SetChainReaderConfigSupplier(chainReaderConfigSupplier func(t T) types.ChainReaderConfig) {
+func (it *EVMChainComponentsInterfaceTester[T]) SetChainReaderConfigSupplier(chainReaderConfigSupplier func(t T) config.ChainReaderConfig) {
 	it.chainReaderConfigSupplier = chainReaderConfigSupplier
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) SetChainWriterConfigSupplier(chainWriterConfigSupplier func(t T) types.ChainWriterConfig) {
+func (it *EVMChainComponentsInterfaceTester[T]) SetChainWriterConfigSupplier(chainWriterConfigSupplier func(t T) config.ChainWriterConfig) {
 	it.chainWriterConfigSupplier = chainWriterConfigSupplier
 }
 

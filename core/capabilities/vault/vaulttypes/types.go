@@ -48,8 +48,7 @@ var (
 
 func GetSupportedMethods(lggr logger.Logger) []string {
 	methods := slices.Clone(Methods)
-	forceDevMode := true
-	if !build.IsProd() || forceDevMode {
+	if build.IsDev() {
 		// Allow secrets get in non-prod environments for testing purposes
 		// This should never be enabled in production
 		methods = append(methods, MethodSecretsGet)

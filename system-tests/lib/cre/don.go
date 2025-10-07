@@ -26,7 +26,6 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -116,16 +115,16 @@ type DON struct {
 	gh GatewayHelper
 }
 
-func (m *DON) Metadata() *DonMetadata {
+func (d *DON) Metadata() *DonMetadata {
 	dm := &DonMetadata{
-		Name:          m.Name,
-		ID:            m.ID,
-		Flags:         m.Flags,
-		NodesMetadata: make([]*NodeMetadata, len(m.Nodes)),
+		Name:          d.Name,
+		ID:            d.ID,
+		Flags:         d.Flags,
+		NodesMetadata: make([]*NodeMetadata, len(d.Nodes)),
 		// caution: missing NodeSet field, since we don't have it here
 	}
 
-	for i, node := range m.Nodes {
+	for i, node := range d.Nodes {
 		dm.NodesMetadata[i] = node.Metadata()
 	}
 
@@ -133,12 +132,12 @@ func (m *DON) Metadata() *DonMetadata {
 }
 
 // copied from flags.go to avoid import cycle
-func (m *DON) HasFlag(flag CapabilityFlag) bool {
-	if slices.Contains(m.Flags, flag) {
+func (d *DON) HasFlag(flag CapabilityFlag) bool {
+	if slices.Contains(d.Flags, flag) {
 		return true
 	}
 
-	for _, value := range m.Flags {
+	for _, value := range d.Flags {
 		if strings.HasPrefix(value, flag+"-") {
 			return true
 		}
@@ -147,8 +146,8 @@ func (m *DON) HasFlag(flag CapabilityFlag) bool {
 	return false
 }
 
-func (m *DON) Gateway() (*Node, bool) {
-	for _, node := range m.Nodes {
+func (d *DON) Gateway() (*Node, bool) {
+	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleGateway) {
 			return node, true
 		}
@@ -158,8 +157,8 @@ func (m *DON) Gateway() (*Node, bool) {
 }
 
 // Currently only one bootstrap node is supported.
-func (m *DON) Bootstrap() (*Node, bool) {
-	for _, node := range m.Nodes {
+func (d *DON) Bootstrap() (*Node, bool) {
+	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleBootstrap) {
 			return node, true
 		}
@@ -168,9 +167,9 @@ func (m *DON) Bootstrap() (*Node, bool) {
 	return nil, false
 }
 
-func (m *DON) Workers() ([]*Node, error) {
+func (d *DON) Workers() ([]*Node, error) {
 	workers := make([]*Node, 0)
-	for _, node := range m.Nodes {
+	for _, node := range d.Nodes {
 		if node.Roles.Contains(RoleWorker) {
 			workers = append(workers, node)
 		}
@@ -183,27 +182,27 @@ func (m *DON) Workers() ([]*Node, error) {
 	return workers, nil
 }
 
-func (m *DON) JDNodeIDs() []string {
+func (d *DON) JDNodeIDs() []string {
 	nodeIDs := []string{}
-	for _, n := range m.Nodes {
+	for _, n := range d.Nodes {
 		nodeIDs = append(nodeIDs, n.JobDistributorDetails.NodeID)
 	}
 	return nodeIDs
 }
 
-func (m *DON) RequiresGateway() bool {
-	return m.gh.RequiresGateway(m.Flags)
+func (d *DON) RequiresGateway() bool {
+	return d.gh.RequiresGateway(d.Flags)
 }
 
-func (m *DON) RequiresWebAPI() bool {
-	return m.gh.RequiresWebAPI(m.Flags)
+func (d *DON) RequiresWebAPI() bool {
+	return d.gh.RequiresWebAPI(d.Flags)
 }
 
-func (m *DON) ChainCapabilities() map[string]*ChainCapabilityConfig {
-	return m.chainCapabilities
+func (d *DON) ChainCapabilities() map[string]*ChainCapabilityConfig {
+	return d.chainCapabilities
 }
 
-func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output, supportedChains []ChainConfig, jd *jd.JobDistributor) (*DON, error) {
+func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*DON, error) {
 	don := &DON{
 		Nodes:             make([]*Node, 0),
 		Name:              donMetadata.Name,
@@ -221,25 +220,6 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 				return fmt.Errorf("failed to create node %d: %w", idx, err)
 			}
 
-			// Set up Job distributor in node and register node with the job distributor
-			setupErr := node.SetUpAndLinkJobDistributor(ctx, jd)
-			if setupErr != nil {
-				return fmt.Errorf("failed to set up job distributor in node %s: %w", node.Name, setupErr)
-			}
-
-			for _, role := range node.Roles {
-				switch role {
-				case RoleWorker, RoleBootstrap:
-					if err := node.CreateSupportedChains(ctx, supportedChains, jd); err != nil {
-						return fmt.Errorf("failed to create supported chains: %w", err)
-					}
-				case RoleGateway:
-					// no chains configuration needed for gateway nodes
-				default:
-					return fmt.Errorf("unknown node role: %s", role)
-				}
-			}
-
 			mu.Lock()
 			don.Nodes = append(don.Nodes, node)
 			mu.Unlock()
@@ -255,16 +235,52 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func (n *Node) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd *jd.JobDistributor) error {
-	jdChains := []JDChainConfigInput{}
-	for _, chain := range chains {
-		jdChains = append(jdChains, JDChainConfigInput{
-			ChainID:   chain.ChainID,
-			ChainType: chain.ChainType,
+func (d *DON) RegisterWithJD(ctx context.Context, supportedChains []ChainConfig, jd *jd.JobDistributor) error {
+	mu := &sync.Mutex{}
+
+	errgroup := errgroup.Group{}
+	for idx, node := range d.Nodes {
+		errgroup.Go(func() error {
+			// Set up Job distributor in node and register node with the job distributor
+			setupErr := node.SetUpAndLinkJobDistributor(ctx, jd)
+			if setupErr != nil {
+				return fmt.Errorf("failed to set up job distributor in node %s: %w", node.Name, setupErr)
+			}
+
+			for _, role := range node.Roles {
+				switch role {
+				case RoleWorker, RoleBootstrap:
+					jdChains := []JDChainConfigInput{}
+					for _, chain := range supportedChains {
+						jdChains = append(jdChains, JDChainConfigInput{
+							ChainID:   chain.ChainID,
+							ChainType: chain.ChainType,
+						})
+					}
+
+					if err := node.CreateJDChainConfigs(ctx, jdChains, jd); err != nil {
+						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
+					}
+				case RoleGateway:
+					// no chains configuration needed for gateway nodes
+				default:
+					return fmt.Errorf("unknown node role: %s", role)
+				}
+			}
+
+			mu.Lock()
+			d.Nodes[idx] = node
+			mu.Unlock()
+
+			return nil
 		})
 	}
 
-	return n.CreateJDChainConfigs(ctx, jdChains, jd)
+	if err := errgroup.Wait(); err != nil {
+		return fmt.Errorf("failed to create new nodes in DON: %w", err)
+	}
+
+	return nil
 }
 
 type Node struct {
@@ -762,50 +778,34 @@ func (n *Node) ExportOCR2Keys(id string) (*clclient.OCR2ExportKey, error) {
 	return keys, nil
 }
 
-func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.Environment, []*DON, error) {
+func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.Environment, error) {
 	if input == nil {
-		return nil, nil, errors.New("input is nil")
+		return nil, errors.New("input is nil")
 	}
 	if err := input.Validate(); err != nil {
-		return nil, nil, errors.Wrap(err, "input validation failed")
+		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	jdConfig := jd.JDConfig{
-		GRPC:  input.JdOutput.ExternalGRPCUrl,
-		WSRPC: input.JdOutput.InternalWSRPCUrl,
-		Creds: insecure.NewCredentials(),
-	}
-
-	jdClient, jdErr := jd.NewJDClient(jdConfig)
-	if jdErr != nil {
-		return nil, nil, errors.Wrap(jdErr, "failed to create JD client")
-	}
-
-	dons := make([]*DON, len(input.NodeSetOutput))
-
-	for idx, nodeOutput := range input.NodeSetOutput {
+	for idx, don := range input.DONs {
 		supportedChains, schErr := FindDONsSupportedChains(input.Topology.DonsMetadata.List()[idx], input.BlockchainOutputs)
 		if schErr != nil {
-			return nil, nil, errors.Wrap(schErr, "failed to find supported chains for DON")
+			return nil, errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
 
-		don, regErr := NewDON(ctx, input.Topology.DonsMetadata.List()[idx], nodeOutput.CLNodes, supportedChains, jdClient)
-		if regErr != nil {
-			return nil, nil, fmt.Errorf("failed to create a new DON: %w", regErr)
+		if err := don.RegisterWithJD(ctx, supportedChains, input.JDClient); err != nil {
+			return nil, fmt.Errorf("failed to register DON with JD: %w", err)
 		}
-
-		dons[idx] = don
 	}
 
 	var nodeIDs []string
-	for _, don := range dons {
+	for _, don := range input.DONs {
 		nodeIDs = append(nodeIDs, don.JDNodeIDs()...)
 	}
 
-	input.CldfEnvironment.Offchain = jdClient
+	input.CldfEnvironment.Offchain = input.JDClient
 	input.CldfEnvironment.NodeIDs = nodeIDs
 
-	return input.CldfEnvironment, dons, nil
+	return input.CldfEnvironment, nil
 }
 
 // copied from flags package to avoid circular dependency

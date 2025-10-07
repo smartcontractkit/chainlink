@@ -8,6 +8,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
@@ -17,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
 	modulefeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
+	moduleplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform"
+	moduleplatform_secondary "github.com/smartcontractkit/chainlink-aptos/bindings/platform_secondary"
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -317,11 +320,33 @@ type SetRegistryFeedConfig struct {
 	CacheAddress  string   `json:"cacheAddress" yaml:"cacheAddress"`
 }
 
+type TransferDataFeedsAptosOwnershipConfig struct {
+	ChainSelector    uint64 `json:"chainSelector" yaml:"chainSelector"`
+	Address          string `json:"address" yaml:"address"`
+	NewOwner         string `json:"NewOwner" yaml:"NewOwner"`
+	TransferRegistry bool   `json:"transferRegistry" yaml:"transferRegistry"`
+	TransferRouter   bool   `json:"transferRouter" yaml:"transferRouter"`
+}
+
 type DeployDataFeedsResponse struct {
 	Address  aptos.AccountAddress
 	Tx       api.Hash
 	Tv       cldf.TypeAndVersion
 	Contract *modulefeeds.DataFeeds
+}
+
+type DeployPlatformResponse struct {
+	Address  aptos.AccountAddress
+	Tx       api.Hash
+	Tv       cldf.TypeAndVersion
+	Contract *moduleplatform.Platform
+}
+
+type DeployPlatformSecondaryResponse struct {
+	Address  aptos.AccountAddress
+	Tx       api.Hash
+	Tv       cldf.TypeAndVersion
+	Contract *moduleplatform_secondary.PlatformSecondary
 }
 
 type DeployAptosConfig struct {

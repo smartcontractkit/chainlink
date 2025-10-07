@@ -131,19 +131,33 @@ func NewORM(ds sqlutil.DataSource, lggr logger.Logger) orm {
 }
 
 func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error {
+	orm.lggr.Debugw("Adding local registry to DB...")
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		localRegistryJSON, err := localRegistry.MarshalJSON()
 		if err != nil {
 			return err
 		}
 		hash := sha256.Sum256(localRegistryJSON)
-		_, err = tx.ExecContext(
+		r, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO registry_syncer_states (data, data_hash) VALUES ($1, $2) ON CONFLICT (data_hash) DO NOTHING`,
+			`INSERT INTO registry_syncer_states (data, data_hash) 
+            SELECT $1, $2 
+            WHERE $2 NOT IN (
+                SELECT data_hash FROM registry_syncer_states 
+                ORDER BY id DESC LIMIT 1
+            )`,
 			localRegistryJSON, hex.EncodeToString(hash[:]),
 		)
 		if err != nil {
 			return err
+		}
+
+		n, _ := r.RowsAffected()
+		if n != 0 {
+			id, _ := r.LastInsertId()
+			orm.lggr.Debugw("Inserted new local registry", "id", id, "hash", hex.EncodeToString(hash[:]), "registry", localRegistry)
+		} else {
+			orm.lggr.Debugw("No rows affected, local registry updated. ", "hash", hex.EncodeToString(hash[:]))
 		}
 		_, err = tx.ExecContext(ctx, `DELETE FROM registry_syncer_states
 WHERE data_hash NOT IN (
@@ -162,9 +176,12 @@ func (orm orm) LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error) 
 	if err != nil {
 		return nil, err
 	}
+	hash := sha256.Sum256([]byte(localRegistryJSON))
 	err = localRegistry.UnmarshalJSON([]byte(localRegistryJSON))
 	if err != nil {
 		return nil, err
 	}
+	orm.lggr.Debugw("Fetched latest local registry from DB", "hash", hex.EncodeToString(hash[:]), "registry", localRegistry)
+
 	return &localRegistry, nil
 }

@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
 
@@ -534,21 +535,55 @@ func (w *workflowRegistry) getTicker(d time.Duration) <-chan time.Time {
 	return w.ticker
 }
 
+// isEmptyWorkflowID checks if a WorkflowID is empty (all zeros)
+func isEmptyWorkflowID(wfID [32]byte) bool {
+	emptyID := [32]byte{}
+	return wfID == emptyID
+}
+
+// validateWorkflowMetadata logs warnings for incomplete workflow metadata from contract
+func validateWorkflowMetadata(wfMeta workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, lggr logger.Logger) {
+	if isEmptyWorkflowID(wfMeta.WorkflowId) {
+		lggr.Warnw("Workflow has empty WorkflowID from contract",
+			"workflowName", wfMeta.WorkflowName,
+			"owner", hex.EncodeToString(wfMeta.Owner.Bytes()),
+			"binaryURL", wfMeta.BinaryUrl,
+			"configURL", wfMeta.ConfigUrl)
+	}
+
+	if len(wfMeta.Owner.Bytes()) == 0 {
+		lggr.Warnw("Workflow has empty Owner from contract",
+			"workflowID", hex.EncodeToString(wfMeta.WorkflowId[:]),
+			"workflowName", wfMeta.WorkflowName,
+			"binaryURL", wfMeta.BinaryUrl,
+			"configURL", wfMeta.ConfigUrl)
+	}
+
+	if wfMeta.BinaryUrl == "" || wfMeta.ConfigUrl == "" {
+		lggr.Warnw("Workflow has empty BinaryURL or ConfigURL from contract",
+			"workflowID", hex.EncodeToString(wfMeta.WorkflowId[:]),
+			"workflowName", wfMeta.WorkflowName,
+			"owner", hex.EncodeToString(wfMeta.Owner.Bytes()),
+			"binaryURL", wfMeta.BinaryUrl,
+			"configURL", wfMeta.ConfigUrl)
+	}
+}
+
 func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	ctx context.Context,
 ) (types.ContractReader, error) {
-	contractReaderCfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
+	contractReaderCfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			WorkflowRegistryContractName: {
 				ContractABI: workflow_registry_wrapper_v2.WorkflowRegistryABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					GetWorkflowsByDONMethodName: {
 						ChainSpecificName: GetWorkflowsByDONMethodName,
-						ReadType:          evmtypes.Method,
+						ReadType:          config.Method,
 					},
 					GetAllowlistedRequestsMethodName: {
 						ChainSpecificName: GetAllowlistedRequestsMethodName,
-						ReadType:          evmtypes.Method,
+						ReadType:          config.Method,
 					},
 				},
 			},
@@ -615,6 +650,9 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 			}
 
 			for _, wfMeta := range workflows.List {
+				// Log warnings for incomplete metadata but don't skip processing
+				validateWorkflowMetadata(wfMeta, w.lggr)
+
 				// TODO: https://smartcontract-it.atlassian.net/browse/CAPPL-1021 load balance across workflow nodes in DON Family
 				allWorkflows = append(allWorkflows, WorkflowMetadataView{
 					WorkflowID:   wfMeta.WorkflowId,

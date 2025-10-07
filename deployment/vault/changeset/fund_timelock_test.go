@@ -4,14 +4,12 @@ import (
 	"math/big"
 	"testing"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var (
@@ -20,17 +18,14 @@ var (
 )
 
 func TestFundTimelockValidation(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
+	t.Parallel()
 
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 1)
-	testChainSel := chainSelectors[0]
+	selector := chainselectors.TEST_90000001.Selector
+
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector}),
+	)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name      string
@@ -50,7 +45,7 @@ func TestFundTimelockValidation(t *testing.T) {
 			name: "zero amount funding",
 			config: types.FundTimelockConfig{
 				FundingByChain: map[uint64]*big.Int{
-					testChainSel: big.NewInt(0),
+					selector: big.NewInt(0),
 				},
 			},
 			wantError: true,
@@ -60,7 +55,7 @@ func TestFundTimelockValidation(t *testing.T) {
 			name: "negative amount funding",
 			config: types.FundTimelockConfig{
 				FundingByChain: map[uint64]*big.Int{
-					testChainSel: big.NewInt(-1),
+					selector: big.NewInt(-1),
 				},
 			},
 			wantError: true,
@@ -80,7 +75,7 @@ func TestFundTimelockValidation(t *testing.T) {
 			name: "valid funding config",
 			config: types.FundTimelockConfig{
 				FundingByChain: map[uint64]*big.Int{
-					testChainSel: OneETH,
+					selector: OneETH,
 				},
 			},
 			wantError: false,
@@ -89,12 +84,14 @@ func TestFundTimelockValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateFundTimelockConfig(env.GetContext(), env, tt.config)
+			t.Parallel()
+
+			err := ValidateFundTimelockConfig(t.Context(), *env, tt.config)
 
 			if tt.wantError {
 				require.Error(t, err)
 				if tt.errorMsg != "" {
-					require.Contains(t, err.Error(), tt.errorMsg)
+					require.ErrorContains(t, err, tt.errorMsg)
 				}
 			} else {
 				require.NoError(t, err)
@@ -104,24 +101,22 @@ func TestFundTimelockValidation(t *testing.T) {
 }
 
 func TestGetTimelockBalances(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	})
+	t.Parallel()
 
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 2)
-	env = setupMCMSInfrastructure(t, env, chainSelectors)
+	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, selectors),
+	))
+	require.NoError(t, err)
+
+	setupMCMSInfrastructure(t, rt, selectors)
 
 	t.Run("get balances for existing timelocks", func(t *testing.T) {
-		balances, err := GetTimelockBalances(env, chainSelectors)
+		balances, err := GetTimelockBalances(rt.Environment(), selectors)
 		require.NoError(t, err)
-		require.Len(t, balances, len(chainSelectors))
+		require.Len(t, balances, len(selectors))
 
-		for _, chainSel := range chainSelectors {
+		for _, chainSel := range selectors {
 			balance, exists := balances[chainSel]
 			require.True(t, exists)
 			require.NotNil(t, balance.Balance)
@@ -130,73 +125,67 @@ func TestGetTimelockBalances(t *testing.T) {
 	})
 
 	t.Run("get balances for non existent chain", func(t *testing.T) {
-		_, err := GetTimelockBalances(env, []uint64{999999})
+		_, err := GetTimelockBalances(rt.Environment(), []uint64{999999})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "chain 999999 not found")
 	})
 
 	t.Run("get balances with no timelock deployed", func(t *testing.T) {
-		envNoTimelock := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-			Chains: 1,
-		})
-		envNoTimelock.DataStore = datastore.NewMemoryDataStore().Seal()
+		envNoTimelock, err := environment.New(t.Context(),
+			environment.WithEVMSimulatedN(t, 1),
+		)
+		require.NoError(t, err)
 
 		testChainSels := make([]uint64, 0)
 		for chainSel := range envNoTimelock.BlockChains.EVMChains() {
 			testChainSels = append(testChainSels, chainSel)
 		}
 
-		balances, err := GetTimelockBalances(envNoTimelock, testChainSels)
+		balances, err := GetTimelockBalances(*envNoTimelock, testChainSels)
 		require.NoError(t, err)
 		require.Empty(t, balances)
 	})
 }
 
 func TestCalculateFundingRequirements(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	})
+	t.Parallel()
 
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 2)
+	selectors := []uint64{chainselectors.TEST_90000001.Selector, chainselectors.TEST_90000002.Selector}
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, selectors),
+	))
+	require.NoError(t, err)
 
-	chain1 := chainSelectors[0]
-	chain2 := chainSelectors[1]
-
-	env = setupMCMSInfrastructure(t, env, chainSelectors)
+	setupMCMSInfrastructure(t, rt, selectors)
 
 	t.Run("calculate requirements for multiple chains", func(t *testing.T) {
 		config := types.BatchNativeTransferConfig{
 			TransfersByChain: map[uint64][]types.NativeTransfer{
-				chain1: {
+				selectors[0]: {
 					{To: testAddr1, Amount: OneETH},
 					{To: testAddr2, Amount: TenETH},
 				},
-				chain2: {
+				selectors[1]: {
 					{To: testRecipientMultiChain, Amount: FiveETH},
 				},
 			},
 		}
 
-		requirements, err := CalculateFundingRequirements(env, config)
+		requirements, err := CalculateFundingRequirements(rt.Environment(), config)
 		require.NoError(t, err)
 		require.Len(t, requirements, 2)
 
-		req1 := requirements[chain1]
+		req1 := requirements[selectors[0]]
 		require.NotNil(t, req1)
-		require.Equal(t, chain1, req1.ChainSelector)
+		require.Equal(t, selectors[0], req1.ChainSelector)
 		require.NotNil(t, req1.CurrentBalance)
 		expectedAmount1 := big.NewInt(0).Add(OneETH, TenETH)
 		require.Equal(t, expectedAmount1, req1.RequiredAmount)
 		require.Equal(t, 2, req1.TransferCount)
 
-		req2 := requirements[chain2]
+		req2 := requirements[selectors[1]]
 		require.NotNil(t, req2)
-		require.Equal(t, chain2, req2.ChainSelector)
+		require.Equal(t, selectors[1], req2.ChainSelector)
 		require.NotNil(t, req2.CurrentBalance)
 		require.Equal(t, FiveETH, req2.RequiredAmount)
 		require.Equal(t, 1, req2.TransferCount)
@@ -207,7 +196,7 @@ func TestCalculateFundingRequirements(t *testing.T) {
 			TransfersByChain: map[uint64][]types.NativeTransfer{},
 		}
 
-		requirements, err := CalculateFundingRequirements(env, config)
+		requirements, err := CalculateFundingRequirements(rt.Environment(), config)
 		require.NoError(t, err)
 		require.Empty(t, requirements)
 	})
@@ -215,17 +204,17 @@ func TestCalculateFundingRequirements(t *testing.T) {
 	t.Run("calculate requirements with single transfer", func(t *testing.T) {
 		config := types.BatchNativeTransferConfig{
 			TransfersByChain: map[uint64][]types.NativeTransfer{
-				chain1: {
+				selectors[0]: {
 					{To: testAddr1, Amount: OneETH},
 				},
 			},
 		}
 
-		requirements, err := CalculateFundingRequirements(env, config)
+		requirements, err := CalculateFundingRequirements(rt.Environment(), config)
 		require.NoError(t, err)
 		require.Len(t, requirements, 1)
 
-		req := requirements[chain1]
+		req := requirements[selectors[0]]
 		require.NotNil(t, req)
 		require.Equal(t, OneETH, req.RequiredAmount)
 		require.Equal(t, 1, req.TransferCount)
@@ -233,79 +222,82 @@ func TestCalculateFundingRequirements(t *testing.T) {
 }
 
 func TestFundTimelockChangeset(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
+	t.Parallel()
 
-	chainSelectors := make([]uint64, 0)
-	for chainSel := range env.BlockChains.EVMChains() {
-		chainSelectors = append(chainSelectors, chainSel)
-	}
-	require.Len(t, chainSelectors, 1)
-	testChainSel := chainSelectors[0]
+	selector1 := chainselectors.TEST_90000001.Selector
+	selector2 := chainselectors.TEST_90000002.Selector
 
-	env = setupMCMSInfrastructure(t, env, chainSelectors)
-	fundDeployerAccounts(t, env, chainSelectors)
+	t.Run("single chain", func(t *testing.T) {
+		t.Parallel()
 
-	t.Run("successful timelock funding", func(t *testing.T) {
-		fundingAmount := OneETH
-		config := types.FundTimelockConfig{
-			FundingByChain: map[uint64]*big.Int{
-				testChainSel: fundingAmount,
-			},
-		}
+		selectors := []uint64{selector1}
 
-		balancesBefore, err := GetTimelockBalances(env, chainSelectors)
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, selectors),
+		))
 		require.NoError(t, err)
-		balanceBefore := balancesBefore[testChainSel].Balance
 
-		output, err := FundTimelockChangeset.Apply(env, config)
-		require.NoError(t, err)
-		require.NotNil(t, output.DataStore)
+		setupMCMSInfrastructure(t, rt, selectors)
+		fundDeployerAccounts(t, rt.Environment(), selectors)
 
-		balancesAfter, err := GetTimelockBalances(env, chainSelectors)
-		require.NoError(t, err)
-		balanceAfter := balancesAfter[testChainSel].Balance
+		t.Run("successful timelock funding", func(t *testing.T) {
+			fundingAmount := OneETH
+			config := types.FundTimelockConfig{
+				FundingByChain: map[uint64]*big.Int{
+					selector1: fundingAmount,
+				},
+			}
 
-		expectedBalance := big.NewInt(0).Add(balanceBefore, fundingAmount)
-		require.Equal(t, expectedBalance, balanceAfter)
-	})
+			balancesBefore, err := GetTimelockBalances(rt.Environment(), []uint64{selector1})
+			require.NoError(t, err)
+			balanceBefore := balancesBefore[selector1].Balance
 
-	t.Run("funding with invalid config fails precondition", func(t *testing.T) {
-		config := types.FundTimelockConfig{
-			FundingByChain: map[uint64]*big.Int{},
-		}
+			output, err := FundTimelockChangeset.Apply(rt.Environment(), config)
+			require.NoError(t, err)
+			require.NotNil(t, output.DataStore)
 
-		err := FundTimelockChangeset.VerifyPreconditions(env, config)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "funding_by_chain must not be empty")
-	})
+			balancesAfter, err := GetTimelockBalances(rt.Environment(), selectors)
+			require.NoError(t, err)
+			balanceAfter := balancesAfter[selector1].Balance
 
-	t.Run("funding multiple chains", func(t *testing.T) {
-		env2 := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-			Chains: 2,
+			expectedBalance := big.NewInt(0).Add(balanceBefore, fundingAmount)
+			require.Equal(t, expectedBalance, balanceAfter)
 		})
 
-		chainSels2 := make([]uint64, 0)
-		for chainSel := range env2.BlockChains.EVMChains() {
-			chainSels2 = append(chainSels2, chainSel)
-		}
-		require.Len(t, chainSels2, 2)
+		t.Run("funding with invalid config fails precondition", func(t *testing.T) {
+			config := types.FundTimelockConfig{
+				FundingByChain: map[uint64]*big.Int{},
+			}
 
-		env2 = setupMCMSInfrastructure(t, env2, chainSels2)
-		fundDeployerAccounts(t, env2, chainSels2)
+			err := FundTimelockChangeset.VerifyPreconditions(rt.Environment(), config)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "funding_by_chain must not be empty")
+		})
+	})
+
+	t.Run("multiple chains", func(t *testing.T) {
+		t.Parallel()
+
+		selectors := []uint64{selector1, selector2}
+
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, selectors),
+		))
+		require.NoError(t, err)
+
+		setupMCMSInfrastructure(t, rt, selectors)
+		fundDeployerAccounts(t, rt.Environment(), selectors)
 
 		fundingAmount1 := OneETH
 		fundingAmount2 := TwoETH
 		config := types.FundTimelockConfig{
 			FundingByChain: map[uint64]*big.Int{
-				chainSels2[0]: fundingAmount1,
-				chainSels2[1]: fundingAmount2,
+				selector1: fundingAmount1,
+				selector2: fundingAmount2,
 			},
 		}
 
-		output, err := FundTimelockChangeset.Apply(env2, config)
+		output, err := FundTimelockChangeset.Apply(rt.Environment(), config)
 		require.NoError(t, err)
 		require.NotNil(t, output.DataStore)
 	})

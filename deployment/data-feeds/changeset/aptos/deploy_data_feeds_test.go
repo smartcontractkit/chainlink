@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/aptos-labs/aptos-go-sdk"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -13,7 +14,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/aptos"
+	aptosCS "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -30,14 +31,18 @@ func TestDeployAptosCache(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))[0]
+	chain := env.BlockChains.AptosChains()[chainSelector]
+	platform1, err := aptosCS.DeployPlatform(chain, aptos.AccountAddress{}, []string{})
+	require.NoError(t, err)
+	platform2, err := aptosCS.DeployPlatformSecondary(chain, aptos.AccountAddress{}, []string{})
+	require.NoError(t, err)
 
 	resp, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
-		aptos.DeployDataFeedsChangeset,
+		aptosCS.DeployDataFeedsChangeset,
 		types.DeployAptosConfig{
 			ChainsToDeploy:           []uint64{chainSelector},
-			OwnerAddress:             "0x0000000000000000000000000000000000000000",
-			PlatformAddress:          "0x0000000000000000000000000000000000000001",
-			SecondaryPlatformAddress: "0x0000000000000000000000000000000000000002",
+			PlatformAddress:          platform1.Address.String(),
+			SecondaryPlatformAddress: platform2.Address.String(),
 			Qualifier:                "aptos",
 		},
 	),

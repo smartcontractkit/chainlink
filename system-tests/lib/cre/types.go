@@ -22,6 +22,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 
+	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -1122,16 +1123,16 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 }
 
 type LinkDonsToJDInput struct {
-	JdOutput          *jd.Output
+	JDClient          *cldf_jd.JobDistributor
 	BlockchainOutputs []*WrappedBlockchainOutput
-	NodeSetOutput     []*WrappedNodeOutput
+	DONs              []*DON
 	Topology          *Topology
 	CldfEnvironment   *cldf.Environment
 }
 
 func (f *LinkDonsToJDInput) Validate() error {
-	if f.JdOutput == nil {
-		return errors.New("jd output not set")
+	if f.JDClient == nil {
+		return errors.New("jd client not set")
 	}
 	if len(f.BlockchainOutputs) == 0 {
 		return errors.New("blockchain output not set")
@@ -1145,8 +1146,8 @@ func (f *LinkDonsToJDInput) Validate() error {
 		}
 		expectedSeth++
 	}
-	if len(f.NodeSetOutput) == 0 {
-		return errors.New("node set output not set")
+	if len(f.DONs) == 0 {
+		return errors.New("DONS not set")
 	}
 	if f.Topology == nil {
 		return errors.New("topology not set")

@@ -16,12 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type Syncer interface {
@@ -116,12 +116,12 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 }
 
 // buildV2ContractReaderConfig creates the contract reader configuration for V2 capabilities registry
-func buildV2ContractReaderConfig() evmrelaytypes.ChainReaderConfig {
-	return evmrelaytypes.ChainReaderConfig{
-		Contracts: map[string]evmrelaytypes.ChainContractReader{
+func buildV2ContractReaderConfig() config.ChainReaderConfig {
+	return config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			"CapabilitiesRegistry": {
 				ContractABI: capabilities_registry_v2.CapabilitiesRegistryABI,
-				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					"getDONs": {
 						ChainSpecificName: "getDONs",
 					},

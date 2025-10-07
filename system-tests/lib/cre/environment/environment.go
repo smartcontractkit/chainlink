@@ -198,7 +198,8 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
-	jdOutput, nodeSetOutput, donJDErr := StartDONsAndJD(
+	startedJD, startedDONs, donJDErr := StartDONsAndJD(
+		ctx,
 		testLogger,
 		input.JdInput,
 		startBlockchainsOutput.RegistryChain().BlockchainOutput,
@@ -213,20 +214,20 @@ func SetupTestEnvironment(
 	}
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JdOutput:          jdOutput,
+		JDClient:          startedJD.Client,
 		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
-		NodeSetOutput:     nodeSetOutput,
 		CldfEnvironment:   deployKeystoneContractsOutput.Env,
 		Topology:          topology,
+		DONs:              startedDONs.DONs(),
 	}
 
-	cldfEnvironment, dons, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	cldfEnvironment, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
 	creEnvironment := &cre.Environment{
 		CldfEnvironment: cldfEnvironment,
-		DonTopology:     cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(dons)),
+		DonTopology:     cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(startedDONs.DONs())),
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -345,7 +346,7 @@ func SetupTestEnvironment(
 	postDONStartupOutput, postErr := operations.ExecuteOperation(deployKeystoneContractsOutput.Env.OperationsBundle, PostDONStartupOp, PostDONStartupOpDeps{
 		TestLogger:        testLogger,
 		CreEnv:            creEnvironment,
-		NodeSetOutput:     nodeSetOutput,
+		NodeSetOutput:     startedDONs.NodeOutputs(),
 		ContractVersions:  input.ContractVersions,
 		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
 	}, PostDONStartupOpInput{
@@ -380,7 +381,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
 
-	appendOutputsToInput(input, nodeSetOutput, startBlockchainsOutput, jdOutput)
+	appendOutputsToInput(input, startedDONs.NodeOutputs(), startBlockchainsOutput, startedJD.JDOutput)
 
 	if err := workflowRegistryConfigurationOutput.Store(config.MustWorkflowRegistryStateFileAbsPath(relativePathToRepoRoot)); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to store workflow registry configuration output")
@@ -390,7 +391,7 @@ func SetupTestEnvironment(
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
 		BlockchainOutput:                    startBlockchainsOutput.BlockChainOutputs,
 		DonTopology:                         creEnvironment.DonTopology,
-		NodeOutput:                          nodeSetOutput,
+		NodeOutput:                          startedDONs.NodeOutputs(),
 		CldEnvironment:                      creEnvironment.CldfEnvironment,
 		S3ProviderOutput:                    s3Output,
 	}, nil
