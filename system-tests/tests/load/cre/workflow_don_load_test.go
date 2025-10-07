@@ -1171,7 +1171,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 				return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 			}
 
-			bootstrapNodeID := bootstrapNode.Keys.CleansedPeerID()
+			bootstrapNodeID := strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_")
 
 			// create job specs for the bootstrap node
 			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))

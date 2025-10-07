@@ -235,7 +235,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 	return don, nil
 }
 
-func (d *DON) RegisterWithJD(ctx context.Context, supportedChains []ChainConfig, jd *jd.JobDistributor) error {
+func RegisterWithJD(ctx context.Context, d *DON, supportedChains []ChainConfig, jd *jd.JobDistributor) error {
 	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
@@ -258,7 +258,7 @@ func (d *DON) RegisterWithJD(ctx context.Context, supportedChains []ChainConfig,
 						})
 					}
 
-					if err := node.CreateJDChainConfigs(ctx, jdChains, jd); err != nil {
+					if err := CreateJDChainConfigs(ctx, node, jdChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
 				case RoleGateway:
@@ -315,9 +315,8 @@ func (n *Node) GetHost() string {
 	return n.Host
 }
 
-// CleansedPeerID returns the PeerID without the "p2p_" prefix, or an empty string if P2PKey is nil
-func (n *Node) CleansedPeerID() string {
-	return n.Keys.CleansedPeerID()
+func (n *Node) PeerID() string {
+	return n.Keys.PeerID()
 }
 
 func (n *Node) HasRole(role Role) bool {
@@ -420,7 +419,7 @@ type JDChainConfigInput struct {
 	ChainType string
 }
 
-func (n *Node) CreateJDChainConfigs(ctx context.Context, chains []JDChainConfigInput, jd *jd.JobDistributor) error {
+func CreateJDChainConfigs(ctx context.Context, n *Node, chains []JDChainConfigInput, jd *jd.JobDistributor) error {
 	for _, chain := range chains {
 		var account string
 
@@ -601,7 +600,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd *jd.JobDistr
 
 	// register the node in the job distributor
 	registerResponse, err := jd.RegisterNode(ctx, &nodev1.RegisterNodeRequest{
-		PublicKey: n.Keys.CSAKey.CleansedKey(),
+		PublicKey: strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
 		Labels:    labels,
 		Name:      n.Name,
 	})
@@ -792,7 +791,7 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) (*cldf.
 			return nil, errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
 
-		if err := don.RegisterWithJD(ctx, supportedChains, input.JDClient); err != nil {
+		if err := RegisterWithJD(ctx, don, supportedChains, input.JDClient); err != nil {
 			return nil, fmt.Errorf("failed to register DON with JD: %w", err)
 		}
 	}

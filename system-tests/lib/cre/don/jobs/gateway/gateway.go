@@ -93,11 +93,11 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 		}
 
 		// we know that at least one DON must be the gateway DON, because topology.validate() checks that
-		isGateway := false
+		hasGateway := false
 		for _, don := range input.DonTopology.Dons.List() {
 			var gatewayNode *cre.Node
-			gatewayNode, isGateway = don.Gateway()
-			if !isGateway {
+			gatewayNode, hasGateway = don.Gateway()
+			if !hasGateway {
 				continue
 			}
 
@@ -111,7 +111,7 @@ func JobSpec(extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []str
 			}
 		}
 
-		if !isGateway {
+		if !hasGateway {
 			return nil, errors.New("no gateway node found in any DON, but at least one is required")
 		}
 

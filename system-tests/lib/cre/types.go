@@ -528,8 +528,8 @@ func NewDonMetadata(c *CapabilitiesAwareNodeSet, id uint64, provider infra.Provi
 }
 
 func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration, error) {
-	gatewayNode, isGateway := m.Gateway()
-	if !isGateway {
+	gatewayNode, hasGateway := m.Gateway()
+	if !hasGateway {
 		return nil, errors.New("don does not have a gateway node")
 	}
 
@@ -705,7 +705,7 @@ func (m DonsMetadata) WorkflowDON() (*DonMetadata, error) {
 
 func (m DonsMetadata) GatewayEnabled() bool {
 	for _, don := range m.dons {
-		if _, isGateway := don.Gateway(); isGateway {
+		if _, hasGateway := don.Gateway(); hasGateway {
 			return true
 		}
 	}
@@ -714,7 +714,7 @@ func (m DonsMetadata) GatewayEnabled() bool {
 
 func (m DonsMetadata) GetGatewayDON() (*DonMetadata, error) {
 	for _, don := range m.dons {
-		if _, isGateway := don.Gateway(); isGateway {
+		if _, hasGateway := don.Gateway(); hasGateway {
 			return don, nil
 		}
 	}
@@ -745,8 +745,8 @@ func (n *NodeMetadata) GetHost() string {
 	return n.Host
 }
 
-func (n *NodeMetadata) CleansedPeerID() string {
-	return n.Keys.CleansedPeerID()
+func (n *NodeMetadata) PeerID() string {
+	return strings.TrimPrefix(n.Keys.PeerID(), "p2p_")
 }
 
 type NodeMetadataConfig struct {
@@ -814,7 +814,7 @@ func (t *DonTopology) Bootstrap() (*Node, bool) {
 
 func (t *DonTopology) Gateway() (*Node, bool) {
 	for _, don := range t.Dons.List() {
-		if node, isGateway := don.Gateway(); isGateway {
+		if node, hasGateway := don.Gateway(); hasGateway {
 			return node, true
 		}
 	}
