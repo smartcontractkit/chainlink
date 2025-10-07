@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"sort"
 	"strings"
 	"text/template"
 
@@ -17,12 +16,8 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -35,6 +30,11 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -53,7 +53,7 @@ func (o *EVM) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *EVM) PreDONStartup(
+func (o *EVM) PreEnvStartup(
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
 	cldfEnv *cldf.Environment,
@@ -62,10 +62,10 @@ func (o *EVM) PreDONStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-) error {
-	donsMetadata := topology.WithFlag(flag)
+) (*cre.PreEnvStartupOutput, error) {
+	donsMetadata := topology.DonsWithFlag(flag)
 	if len(donsMetadata) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	evmForwardersSelectors := make([]uint64, 0)
@@ -92,68 +92,28 @@ func (o *EVM) PreDONStartup(
 	}
 
 	if len(evmForwardersSelectors) == 0 && len(tronForwardersSelectors) == 0 {
-		return nil
-	}
-
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(cldfEnv.DataStore)
-	if mergeErr != nil {
-		return fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
+		return nil, fmt.Errorf("no forwarders to deploy, but write-evm capability was requested by %d DONs", len(donsMetadata))
 	}
 
 	if len(evmForwardersSelectors) > 0 {
 		deployErr := deployEVMForwarders(testLogger, cldfEnv, evmForwardersSelectors, contractVersions)
 		if deployErr != nil {
-			return errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
+			return nil, errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
 		}
-		// evmForwardersReport, deployErr := operations.ExecuteSequence(
-		// 	cldfEnv.OperationsBundle,
-		// 	forwarder.DeploySequence,
-		// 	forwarder.DeploySequenceDeps{
-		// 		Env: cldfEnv,
-		// 	},
-		// 	forwarder.DeploySequenceInput{
-		// 		Targets: evmForwardersSelectors,
-		// 	},
-		// )
-		// if deployErr != nil {
-		// 	return errors.Wrap(deployErr, "failed to deploy evm forwarder")
-		// }
-
-		// if err := cldfEnv.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-		// 	return errors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
-		// }
-
-		// if err := memoryDatastore.Merge(evmForwardersReport.Output.Datastore); err != nil {
-		// 	return errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
-		// }
-
-		// for _, forwarderSelector := range evmForwardersSelectors {
-		// 	forwarderAddr := contracts.MustGetAddressFromMemoryDataStore(memoryDatastore, forwarderSelector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-		// 	testLogger.Info().Msgf("Deployed Forwarder %s contract on chain %d at %s", contractVersions[keystone_changeset.KeystoneForwarder.String()], forwarderSelector, forwarderAddr)
-		// }
 	}
 
 	if len(tronForwardersSelectors) > 0 {
 		deployErr := deployTronForwarders(testLogger, cldfEnv, tronForwardersSelectors, contractVersions)
 		if deployErr != nil {
-			return errors.Wrap(deployErr, "failed to deploy Tron Keystone forwarder")
+			return nil, errors.Wrap(deployErr, "failed to deploy Tron Keystone forwarder")
 		}
-		// err := memoryDatastore.Merge(cldfEnv.DataStore)
-		// if err != nil {
-		// 	return errors.Wrap(err, "failed to merge Tron deployment results into main datastore")
-		// }
 	}
 
-	// cldfEnv.DataStore = memoryDatastore.Seal()
-
-	// update node configs to include write-evm config
+	// update node configs to include write-evm (evm v1) configuration
 	for _, donMetadata := range donsMetadata {
 		workerNodes, wErr := donMetadata.Workers()
 		if wErr != nil {
-			return errors.Wrap(wErr, "failed to find worker nodes")
+			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
 
 		for _, workerNode := range workerNodes {
@@ -163,7 +123,7 @@ func (o *EVM) PreDONStartup(
 			for _, chainID := range donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
 				chain, exists := chain_selectors.ChainByEvmChainID(chainID)
 				if !exists {
-					return errors.Errorf("failed to find selector for chain ID %d", chainID)
+					return nil, errors.Errorf("failed to find selector for chain ID %d", chainID)
 				}
 
 				evmData := writeEVMData{
@@ -173,20 +133,20 @@ func (o *EVM) PreDONStartup(
 
 				forwarderAddress, fErr := findForwarderAddress(chain, cldfEnv.ExistingAddresses) //nolint:staticcheck // won't migrate now
 				if fErr != nil {
-					return errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
+					return nil, errors.Errorf("failed to find forwarder address for chain %d", chain.Selector)
 				}
 				evmData.ForwarderAddress = forwarderAddress.Hex()
 
 				evmKey, ok := workerNode.Keys.EVM[chainID]
 				if !ok {
-					return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
+					return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
 				}
 				evmData.FromAddress = evmKey.PublicAddress
 
 				var mergeErr error
 				evmData, mergeErr = mergeDefaultAndRuntimeConfigValues(evmData, capabilityConfigs, donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities, chainID)
 				if mergeErr != nil {
-					return errors.Wrap(mergeErr, "failed to merge default and runtime write-evm config values")
+					return nil, errors.Wrap(mergeErr, "failed to merge default and runtime write-evm config values")
 				}
 
 				writeEvmConfigs = append(writeEvmConfigs, evmData)
@@ -197,11 +157,11 @@ func (o *EVM) PreDONStartup(
 			var typedConfig corechainlink.Config
 			unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
 			if unmarshallErr != nil {
-				return errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+				return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
 			}
 
 			if len(typedConfig.EVM) < len(writeEvmConfigs) {
-				return fmt.Errorf("not enough EVM chains configured in node index %d to add write-evm (evm v1) config. Expected at least %d chains, but found %d", workerNode.Index, len(writeEvmConfigs), len(typedConfig.EVM))
+				return nil, fmt.Errorf("not enough EVM chains configured in node index %d to add write-evm (evm v1) config. Expected at least %d chains, but found %d", workerNode.Index, len(writeEvmConfigs), len(typedConfig.EVM))
 			}
 
 			for _, w := range writeEvmConfigs {
@@ -211,7 +171,7 @@ func (o *EVM) PreDONStartup(
 					if chainIDIsEqual {
 						evmWorkflow, evmErr := buildEVMWorkflowConfig(w)
 						if evmErr != nil {
-							return errors.Wrap(evmErr, "failed to build EVM workflow config")
+							return nil, errors.Wrap(evmErr, "failed to build EVM workflow config")
 						}
 
 						typedConfig.EVM[idx].Workflow = *evmWorkflow
@@ -223,41 +183,63 @@ func (o *EVM) PreDONStartup(
 				}
 
 				if !chainFound {
-					return fmt.Errorf("failed to find EVM chain with ID %d in the config of node index %d to add write-evm config", w.ChainID, workerNode.Index)
+					return nil, fmt.Errorf("failed to find EVM chain with ID %d in the config of node index %d to add write-evm config", w.ChainID, workerNode.Index)
 				}
 			}
 
 			stringifiedConfig, mErr := toml.Marshal(typedConfig)
 			if mErr != nil {
-				return errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+				return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 			}
 
 			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
 		}
 	}
 
-	// TODO return capabilities registry configuration data
+	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
+	for donIdx, donMetadata := range donsMetadata {
+		if capabilities[donIdx] == nil {
+			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
+		}
+		for _, chainID := range donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
+			fullName := corevm.GenerateWriteTargetName(chainID)
+			splitName := strings.Split(fullName, "@")
 
-	return nil
+			capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   splitName[0],
+					Version:        splitName[1],
+					CapabilityType: 3, // TARGET
+					ResponseType:   1, // OBSERVATION_IDENTICAL
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			})
+
+		}
+	}
+
+	return &cre.PreEnvStartupOutput{
+		DONCapabilityWithConfigs: capabilities,
+	}, nil
 }
 
-func (o *EVM) PostDONStartup(
+func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
 	nodeSetOutput []*cre.WrappedNodeOutput,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	contractVersions map[string]string,
-) (*cre.PostDONStartupOutput, error) {
-	dons := creEnv.DonTopology.WithFlag(flag)
+) error {
+	dons := creEnv.DonTopology.DonWithFlag(flag)
 	if len(dons) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	// configure forwarders contracts
 	allAddresses, addrErr := creEnv.CldfEnvironment.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
 	if addrErr != nil {
-		return nil, errors.Wrap(addrErr, "failed to get addresses from address book")
+		return errors.Wrap(addrErr, "failed to get addresses from address book")
 	}
 
 	evmChainsWithForwarders := make(map[uint64]struct{})
@@ -283,64 +265,25 @@ func (o *EVM) PostDONStartup(
 		}
 	}
 
-	// dons, donsErr := toDons(creEnv)
-	// if donsErr != nil {
-	// 	return nil, fmt.Errorf("failed to convert to dons: %w", donsErr)
-	// }
-
-	// consensusV1DON, err := dons.shouldBeOneDon(cre.ConsensusCapability)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get consensus v1 DON: %w", err)
-	// }
-
-	// ocr3DONs := cr.WithFlag(cre.ConsensusCapability)
-	// ocr3DON := dons[0]
-	ocr3DON, oneErr := creEnv.DonTopology.OneWithFlag(cre.ConsensusCapability)
+	ocr3DON, oneErr := creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapability)
 	if oneErr != nil {
-		return nil, oneErr
+		return oneErr
 	}
 
 	if len(evmChainsWithForwarders) > 0 {
 		if evmErr := configureEVMForwarders(testLogger, creEnv.CldfEnvironment, creEnv.DonTopology.HomeChainSelector, evmChainsWithForwarders, ocr3DON); evmErr != nil {
-			return nil, errors.Wrap(evmErr, "failed to configure EVM forwarders")
+			return errors.Wrap(evmErr, "failed to configure EVM forwarders")
 		}
 	}
 
 	if len(tronChainsWithForwarders) > 0 {
 		tErr := configureTronForwarders(testLogger, creEnv.CldfEnvironment, creEnv.DonTopology.HomeChainSelector, dons)
 		if tErr != nil {
-			return nil, errors.Wrap(tErr, "failed to configure TRON forwarders")
+			return errors.Wrap(tErr, "failed to configure TRON forwarders")
 		}
 	}
 
-	// return capabilities registry configuration data
-	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-
-	for donIdx, don := range creEnv.DonTopology.Dons.List() {
-		if capabilities[donIdx] == nil {
-			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
-		}
-		if don.HasFlag(flag) {
-			for _, chainID := range don.ChainCapabilities()[flag].EnabledChains {
-				fullName := corevm.GenerateWriteTargetName(chainID)
-				splitName := strings.Split(fullName, "@")
-
-				capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
-					Capability: kcr.CapabilitiesRegistryCapability{
-						LabelledName:   splitName[0],
-						Version:        splitName[1],
-						CapabilityType: 3, // TARGET
-						ResponseType:   1, // OBSERVATION_IDENTICAL
-					},
-					Config: &capabilitiespb.CapabilityConfig{},
-				})
-			}
-		}
-	}
-
-	return &cre.PostDONStartupOutput{
-		DONCapabilityWithConfigs: capabilities,
-	}, nil
+	return nil
 }
 
 func deployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[string]string) error {
@@ -485,7 +428,6 @@ func configureTronForwarders(testLogger zerolog.Logger, env *cldf.Environment, r
 	return nil
 }
 
-// copied from system-tests/lib/cre/capabilities/writeevm/write_evm.go
 func findForwarderAddress(chain chain_selectors.Chain, addressBook cldf.AddressBook) (*common.Address, error) {
 	addrsForChains, addErr := addressBook.AddressesForChain(chain.Selector)
 	if addErr != nil {
@@ -569,128 +511,3 @@ const evmWorkflowConfigTemplate = `
 	PollPeriod = '{{.PollPeriod}}'
 	AcceptanceTimeout = '{{.AcceptanceTimeout}}'
 `
-
-// copied from system-tests/lib/cre/contracts/contracts.go and modified
-func toDons(
-	creEnv *cre.Environment,
-) (*dons, error) {
-	dons := &dons{
-		c:        make(map[string]donConfig),
-		offChain: creEnv.CldfEnvironment.Offchain,
-	}
-
-	for _, don := range creEnv.DonTopology.Dons.List() {
-		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
-		// since it doesn't have any capabilities
-		if flags.HasOnlyOneFlag(don.Flags, cre.GatewayDON) {
-			continue
-		}
-
-		var capabilities []keystone_changeset.DONCapabilityWithConfig
-
-		// // check what capabilities each DON has and register them with Capabilities Registry contract
-		// for _, configFn := range input.CapabilityRegistryConfigFns {
-		// 	if configFn == nil {
-		// 		continue
-		// 	}
-
-		// 	enabledCapabilities, err2 := configFn(don.Flags, input.NodeSets[donIdx])
-		// 	if err2 != nil {
-		// 		return nil, errors.Wrap(err2, "failed to get capabilities from config function")
-		// 	}
-
-		// 	capabilities = append(capabilities, enabledCapabilities...)
-		// }
-
-		workerNodes, wErr := don.Workers()
-		if wErr != nil {
-			return nil, errors.Wrap(wErr, "failed to find worker nodes")
-		}
-
-		donPeerIDs := make([]string, len(workerNodes))
-		for i, node := range workerNodes {
-			// we need to use p2pID here with the "p2p_" prefix
-			donPeerIDs[i] = node.Keys.P2PKey.PeerID.String()
-		}
-
-		forwarderF := (len(workerNodes) - 1) / 3
-		if forwarderF == 0 {
-			if flags.HasFlag(don.Flags, cre.ConsensusCapability) || flags.HasFlag(don.Flags, cre.ConsensusCapabilityV2) {
-				return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", len(workerNodes))
-			}
-			// for other capabilities, we can use 1 as F
-			forwarderF = 1
-		}
-
-		// we only need to assign P2P IDs to NOPs, since `ConfigureInitialContractsChangeset` method
-		// will take care of creating DON to Nodes mapping
-		nop := keystone_changeset.NOP{
-			Name:  fmt.Sprintf("NOP for %s DON", don.Name),
-			Nodes: donPeerIDs,
-		}
-		donName := don.Name + "-don"
-		c := keystone_changeset.DonCapabilities{
-			Name:         donName,
-			F:            libc.MustSafeUint8(forwarderF),
-			Nops:         []keystone_changeset.NOP{nop},
-			Capabilities: capabilities,
-		}
-
-		dons.c[donName] = donConfig{
-			id:              uint32(don.ID), //nolint:gosec // G115
-			DonCapabilities: c,
-			flags:           don.Flags,
-		}
-	}
-
-	return dons, nil
-}
-
-type dons struct {
-	c        map[string]donConfig
-	offChain offchain.Client
-}
-
-func (d *dons) donsOrderedByID() []donConfig {
-	out := make([]donConfig, 0, len(d.c))
-	for _, don := range d.c {
-		out = append(out, don)
-	}
-
-	// Use sort library to sort by ID
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].id < out[j].id
-	})
-
-	return out
-}
-
-func (d *dons) ListByFlag(flag cre.CapabilityFlag) ([]donConfig, error) {
-	out := make([]donConfig, 0)
-	for _, don := range d.donsOrderedByID() {
-		if flags.HasFlag(don.flags, flag) {
-			out = append(out, don)
-		}
-	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("don with flag %s not found", flag)
-	}
-	return out, nil
-}
-
-func (d *dons) shouldBeOneDon(flag cre.CapabilityFlag) (donConfig, error) {
-	dons, err := d.ListByFlag(flag)
-	if err != nil {
-		return donConfig{}, err
-	}
-	if len(dons) != 1 {
-		return donConfig{}, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(dons))
-	}
-	return dons[0], nil
-}
-
-type donConfig struct {
-	id uint32 // the DON id as registered in the capabilities registry
-	keystone_changeset.DonCapabilities
-	flags []cre.CapabilityFlag
-}

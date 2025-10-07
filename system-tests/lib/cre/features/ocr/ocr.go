@@ -35,7 +35,7 @@ func (o *OCR) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *OCR) PreDONStartup(
+func (o *OCR) PreEnvStartup(
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
 	cldfEnv *cldf.Environment,
@@ -44,61 +44,59 @@ func (o *OCR) PreDONStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-) error {
+) (*cre.PreEnvStartupOutput, error) {
 	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-	for donIdx, don := range topology.DonsMetadata.List() {
+	for donIdx := range topology.DonsWithFlag(flag) {
 		if capabilities[donIdx] == nil {
 			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
 		}
-		if don.HasFlag(flag) {
-			capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "offchain_reporting",
-					Version:        "1.0.0",
-					CapabilityType: 2, // CONSENSUS
-					ResponseType:   0, // REPORT
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
+		capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "offchain_reporting",
+				Version:        "1.0.0",
+				CapabilityType: 2, // CONSENSUS
+				ResponseType:   0, // REPORT
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
 	}
 
-	//TODO: return capabilities registry configuration data
-
-	return nil
+	return &cre.PreEnvStartupOutput{
+		DONCapabilityWithConfigs: capabilities,
+	}, nil
 }
 
 const (
 	OCR3ContractQualifier = "capability_ocr3"
 )
 
-func (o *OCR) PostDONStartup(
+func (o *OCR) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
 	nodeSetOutput []*cre.WrappedNodeOutput,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	contractVersions map[string]string,
-) (*cre.PostDONStartupOutput, error) {
+) error {
 	// should we support more than one DON with OCR3 capability? Could there be 0? I guess as long as there's 1 with consensus v2?
-	ocr3DON, oneErr := creEnv.DonTopology.OneWithFlag(flag)
+	ocr3DON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)
 	if oneErr != nil {
-		return nil, oneErr
+		return oneErr
 	}
 
 	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, OCR3ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if ocrErr != nil {
-		return nil, fmt.Errorf("failed to deploy OCR3 contract %w", ocrErr)
+		return fmt.Errorf("failed to deploy OCR3 contract %w", ocrErr)
 	}
 
 	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.DonTopology.HomeChainSelector)
 	if chErr != nil {
-		return nil, errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
+		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
 	}
 
 	bootstrap, isBootstrap := creEnv.DonTopology.Bootstrap()
 	if !isBootstrap {
-		return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
 	jobErr := createJobs(
@@ -110,17 +108,17 @@ func (o *OCR) PostDONStartup(
 		bootstrap,
 	)
 	if jobErr != nil {
-		return nil, fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
+		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
 	}
 
 	// wait for LP to be started (otherwise it won't pick up contract's configuration events)
 	if err := waitForLogPollerToBeHealthy(ocr3DON); err != nil {
-		return nil, errors.Wrap(err, "failed while waiting for Log Poller to become healthy")
+		return errors.Wrap(err, "failed while waiting for Log Poller to become healthy")
 	}
 
 	ocr3Config, ocr3confErr := contracts.DefaultOCR3Config()
 	if ocr3confErr != nil {
-		return nil, fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
+		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
 	}
 
 	_, ocr3Err := operations.ExecuteOperation(
@@ -137,32 +135,12 @@ func (o *OCR) PostDONStartup(
 			DryRun:          false,
 		},
 	)
+
 	if ocr3Err != nil {
-		return nil, errors.Wrap(ocr3Err, "failed to configure OCR3 contract")
+		return errors.Wrap(ocr3Err, "failed to configure OCR3 contract")
 	}
 
-	// return capabilities registry configuration data
-	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-	for donIdx, don := range creEnv.DonTopology.Dons.List() {
-		if capabilities[donIdx] == nil {
-			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
-		}
-		if don.HasFlag(flag) {
-			capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "offchain_reporting",
-					Version:        "1.0.0",
-					CapabilityType: 2, // CONSENSUS
-					ResponseType:   0, // REPORT
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-	}
-
-	return &cre.PostDONStartupOutput{
-		DONCapabilityWithConfigs: capabilities,
-	}, nil
+	return nil
 }
 
 func createJobs(

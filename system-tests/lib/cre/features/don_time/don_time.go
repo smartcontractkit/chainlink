@@ -32,7 +32,7 @@ func (o *DONTime) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *DONTime) PreDONStartup(
+func (o *DONTime) PreEnvStartup(
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
 	cldfEnv *cldf.Environment,
@@ -41,42 +41,42 @@ func (o *DONTime) PreDONStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-) error {
+) (*cre.PreEnvStartupOutput, error) {
 	// nothing to do
-	return nil
+	return nil, nil
 }
 
 const (
 	DONTimeContractQualifier = "capability_dontime"
 )
 
-func (o *DONTime) PostDONStartup(
+func (o *DONTime) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
 	nodeSetOutput []*cre.WrappedNodeOutput,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	contractVersions map[string]string,
-) (*cre.PostDONStartupOutput, error) {
+) error {
 	// should we support more than one DON with DON Time capability?
-	donTimeDON, oneErr := creEnv.DonTopology.OneWithFlag(flag)
+	donTimeDON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)
 	if oneErr != nil {
-		return nil, oneErr
+		return oneErr
 	}
 
 	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, DONTimeContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if timeErr != nil {
-		return nil, fmt.Errorf("failed to deploy DONTime contract %w", timeErr)
+		return fmt.Errorf("failed to deploy DONTime contract %w", timeErr)
 	}
 
 	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.DonTopology.HomeChainSelector)
 	if chErr != nil {
-		return nil, errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
+		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
 	}
 
 	bootstrap, isBootstrap := creEnv.DonTopology.Bootstrap()
 	if !isBootstrap {
-		return nil, errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
 	jobErr := createJobs(
@@ -88,12 +88,12 @@ func (o *DONTime) PostDONStartup(
 		bootstrap,
 	)
 	if jobErr != nil {
-		return nil, fmt.Errorf("failed to create DON Time jobs: %w", jobErr)
+		return fmt.Errorf("failed to create DON Time jobs: %w", jobErr)
 	}
 
 	ocr3Config, ocr3confErr := contracts.DefaultOCR3Config()
 	if ocr3confErr != nil {
-		return nil, fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
+		return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
 	}
 
 	_, donTimeErr := operations.ExecuteOperation(
@@ -111,10 +111,10 @@ func (o *DONTime) PostDONStartup(
 		},
 	)
 	if donTimeErr != nil {
-		return nil, errors.Wrap(donTimeErr, "failed to configure DON Time contract")
+		return errors.Wrap(donTimeErr, "failed to configure DON Time contract")
 	}
 
-	return &cre.PostDONStartupOutput{}, nil
+	return nil
 }
 
 func createJobs(

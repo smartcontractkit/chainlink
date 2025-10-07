@@ -355,12 +355,6 @@ type ConfigureKeystoneInput struct {
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
 	BlockchainOutputs           []*WrappedBlockchainOutput
 
-	OCR3Config  keystone_changeset.OracleConfig
-	OCR3Address *common.Address // v1 consensus contract address
-
-	DONTimeConfig  keystone_changeset.OracleConfig
-	DONTimeAddress *common.Address
-
 	VaultOCR3Config  keystone_changeset.OracleConfig
 	VaultOCR3Address *common.Address
 
@@ -397,9 +391,6 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
 	}
-	// if c.OCR3Address == nil || c.CapabilitiesRegistryAddress == nil {
-	// 	return errors.New("OCR3Address and CapabilitiesRegistryAddress must be set")
-	// }
 
 	return nil
 }
@@ -827,7 +818,7 @@ func (t *DonTopology) Gateway() (*Node, bool) {
 	return nil, false
 }
 
-func (d *DonTopology) WithFlag(flag CapabilityFlag) []*DON {
+func (d *DonTopology) DonWithFlag(flag CapabilityFlag) []*DON {
 	found := make([]*DON, 0)
 	for _, don := range d.Dons.List() {
 		if don.HasFlag(flag) {
@@ -838,8 +829,8 @@ func (d *DonTopology) WithFlag(flag CapabilityFlag) []*DON {
 	return found
 }
 
-func (d *DonTopology) OneWithFlag(flag CapabilityFlag) (*DON, error) {
-	found := d.WithFlag(flag)
+func (d *DonTopology) OneDonWithFlag(flag CapabilityFlag) (*DON, error) {
+	found := d.DonWithFlag(flag)
 
 	if len(found) != 1 {
 		return nil, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(found))
@@ -1314,7 +1305,7 @@ func (s *Features) List() []Feature {
 
 type Feature interface {
 	Flag() CapabilityFlag
-	PreDONStartup(
+	PreEnvStartup(
 		testLogger zerolog.Logger,
 		registryChainSelector uint64,
 		cldfEnv *cldf.Environment,
@@ -1323,17 +1314,17 @@ type Feature interface {
 		blockchainOutputs []*WrappedBlockchainOutput,
 		capabilityConfigs CapabilityConfigs,
 		contractVersions map[string]string,
-	) error
-	PostDONStartup(
+	) (*PreEnvStartupOutput, error)
+	PostEnvStartup(
 		ctx context.Context,
 		testLogger zerolog.Logger,
 		creEnv *Environment,
 		nodeSetOutput []*WrappedNodeOutput,
 		blockchainOutputs []*WrappedBlockchainOutput,
 		contractVersions map[string]string,
-	) (*PostDONStartupOutput, error)
+	) error
 }
 
-type PostDONStartupOutput struct {
+type PreEnvStartupOutput struct {
 	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig
 }
