@@ -14,7 +14,7 @@ on:
         required: true
 
 concurrency:
-  group: "docker-build-${{ github.ref_name }}"
+  group: "docker-build-${{ github.event_name }}-${{ github.ref_name }}"
   cancel-in-progress: true
 
 jobs:
@@ -33,6 +33,7 @@ jobs:
         }}
       runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
+      version-tag: ${{ steps.version-info.outputs.version-tag }}
     steps:
       - name: Get PR Labels
         id: pr-labels
@@ -59,6 +60,17 @@ jobs:
             echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
           fi
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version Info
+        id: version-info
+        run: |
+          version_tag=$( git describe --always )
+          echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
+
   docker-core:
     needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
@@ -75,6 +87,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -105,6 +118,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
@@ -137,6 +151,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_INSTALL_TESTING_PLUGINS=true
       docker-manifest-sign: true
@@ -170,6 +185,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
@@ -203,6 +219,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
       docker-manifest-sign: true

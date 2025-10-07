@@ -6,46 +6,37 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func TestBundleAggregatorProxy(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 2,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+	))
+	require.NoError(t, err)
 
-	resp, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
-		DeployCacheChangeset,
-		types.DeployConfig{
-			ChainsToDeploy: []uint64{chainSelector},
+	err = rt.Exec(
+		runtime.ChangesetTask(DeployCacheChangeset, types.DeployConfig{
+			ChainsToDeploy: []uint64{selector},
 			Labels:         []string{"data-feeds"},
-		},
-	), commonChangesets.Configure(
-		DeployBundleAggregatorProxyChangeset,
-		types.DeployBundleAggregatorProxyConfig{
-			ChainsToDeploy: []uint64{chainSelector},
-			Owners:         map[uint64]common.Address{chainSelector: common.HexToAddress("0x1234")},
+		}),
+		runtime.ChangesetTask(DeployBundleAggregatorProxyChangeset, types.DeployBundleAggregatorProxyConfig{
+			ChainsToDeploy: []uint64{selector},
+			Owners:         map[uint64]common.Address{selector: common.HexToAddress("0x1234")},
 			Labels:         []string{"data-feeds"},
 			CacheLabel:     "data-feeds",
-		},
-	))
-
+		}),
+	)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
 
-	addrs, err := resp.DataStore.Addresses().Fetch()
+	addrs, err := rt.State().DataStore.Addresses().Fetch()
 	require.NoError(t, err)
 	require.Len(t, addrs, 2) // BundleAggregatorProxy and DataFeedsCache
 }

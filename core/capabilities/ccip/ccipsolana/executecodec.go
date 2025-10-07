@@ -6,11 +6,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
@@ -20,16 +22,16 @@ import (
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
-	extraDataCodec ccipocr3.ExtraDataCodec
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
-func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodec) *ExecutePluginCodecV1 {
+func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodecBundle) *ExecutePluginCodecV1 {
 	return &ExecutePluginCodecV1{
 		extraDataCodec: extraDataCodec,
 	}
 }
 
-func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
+func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.ExecutePluginReport) ([]byte, error) {
 	if len(report.ChainReports) == 0 {
 		// OCR3 runs in a constant loop and will produce empty reports, so we need to handle this case
 		// return an empty report, CCIP will discard it on ShouldAcceptAttestedReport/ShouldTransmitAcceptedReport
@@ -57,7 +59,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
-			if tokenAmount.Amount.Int.Sign() < 0 {
+			if tokenAmount.Amount.Sign() < 0 {
 				return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
@@ -221,14 +223,18 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "destgasamount":
-			// Expect uint32
-			if v, ok := fieldValue.(uint32); ok {
+			switch v := fieldValue.(type) {
+			case uint32:
 				return v, nil
-			} else {
-				return 0, errors.New("invalid type for destgasamount, expected uint32")
+			case int64: // LOOP converts expected uint32 to int64
+				if v > math.MaxUint32 {
+					return 0, fmt.Errorf("destGasAmount exceeds uint32 max, got %d", v)
+				}
+				return uint32(v), nil //nolint:gosec // G115: validated to be within uint32 max above
+			default:
+				return 0, errors.New("invalid type for destgasamount, expected uint32 or int64")
 			}
 		default:
-
 		}
 	}
 

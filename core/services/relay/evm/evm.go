@@ -37,6 +37,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	txm "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -60,7 +61,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var (
@@ -318,7 +318,7 @@ func (r *Relayer) Chain() legacyevm.Chain {
 	return r.chain
 }
 
-func NewOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
+func NewOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *config.RelayOpts) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.New("invalid contractID, expected hex address")
 	}
@@ -335,7 +335,7 @@ func NewOCR3CapabilityConfigProvider(ctx context.Context, lggr logger.Logger, ch
 // NewPluginProvider, but customized to use a different config provider
 func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.OCR3CapabilityProvider, error) {
 	lggr := logger.Sugared(r.lggr).Named("PluginProvider").Named(rargs.ExternalJobID.String())
-	relayOpts := types.NewRelayOpts(rargs)
+	relayOpts := config.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
@@ -381,7 +381,7 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 
 func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
 	lggr := logger.Sugared(r.lggr).Named("PluginProvider").Named(rargs.ExternalJobID.String())
-	relayOpts := types.NewRelayOpts(rargs)
+	relayOpts := config.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
@@ -416,7 +416,7 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 
 func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {
 	lggr := logger.Sugared(r.lggr).Named("MercuryProvider").Named(rargs.ExternalJobID.String())
-	relayOpts := types.NewRelayOpts(rargs)
+	relayOpts := config.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
@@ -524,7 +524,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		), nil
 	}
 
-	relayOpts := types.NewRelayOpts(rargs)
+	relayOpts := config.NewRelayOpts(rargs)
 	configWatcher, err := newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
@@ -610,7 +610,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 		)
 	}
 
-	relayOpts := types.NewRelayOpts(rargs)
+	relayOpts := config.NewRelayOpts(rargs)
 	configWatcher, err := newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
@@ -650,13 +650,13 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 }
 
 func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
-	relayOpts := types.NewRelayOpts(rargs)
+	relayOpts := config.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 	if relayConfig.LLOConfigMode == "" {
-		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (can be either: %q or %q)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
+		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (can be either: %q or %q)", config.LLOConfigModeMercury, config.LLOConfigModeBlueGreen)
 	}
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
@@ -671,9 +671,9 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	lggr := r.lggr.Named(rargs.ExternalJobID.String()).With("donID", relayConfig.LLODONID, "transmitterID", relayConfig.EffectiveTransmitterID.String)
 
 	switch relayConfig.LLOConfigMode {
-	case types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen:
+	case config.LLOConfigModeMercury, config.LLOConfigModeBlueGreen:
 	default:
-		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q or %q is currently supported)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
+		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q or %q is currently supported)", config.LLOConfigModeMercury, config.LLOConfigModeBlueGreen)
 	}
 
 	cdcFactory, err := r.cdcFactory()
@@ -694,7 +694,7 @@ func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.Re
 // NewConfigProvider is called by bootstrap jobs
 func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayArgs) (configProvider commontypes.ConfigProvider, err error) {
 	lggr := r.lggr.Named(args.ExternalJobID.String()).Named("ConfigProvider")
-	relayOpts := types.NewRelayOpts(args)
+	relayOpts := config.NewRelayOpts(args)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
@@ -744,7 +744,7 @@ func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string,
 	if addr, err = evmtypes.NewEIP55Address(args.ContractID); err != nil {
 		return nil, err
 	}
-	var relayConfig types.RelayConfig
+	var relayConfig config.RelayConfig
 	if err = json.Unmarshal(args.RelayConfig, &relayConfig); err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
@@ -763,7 +763,7 @@ type configWatcher struct {
 
 	contractAddress  common.Address
 	offchainDigester ocrtypes.OffchainConfigDigester
-	configPoller     types.ConfigPoller
+	configPoller     config.ConfigPoller
 	chain            legacyevm.Chain
 	runReplay        bool
 	fromBlock        uint64
@@ -772,7 +772,7 @@ type configWatcher struct {
 func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	offchainDigester ocrtypes.OffchainConfigDigester,
-	configPoller types.ConfigPoller,
+	configPoller config.ConfigPoller,
 	chain legacyevm.Chain,
 	fromBlock uint64,
 	runReplay bool,
@@ -901,7 +901,7 @@ type Keystore interface {
 }
 
 func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore Keystore, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
-	var relayConfig types.RelayConfig
+	var relayConfig config.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
@@ -993,9 +993,9 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 	return transmitter, nil
 }
 
-func (r *Relayer) NewContractWriter(_ context.Context, config []byte) (commontypes.ContractWriter, error) {
-	var cfg types.ChainWriterConfig
-	if err := json.Unmarshal(config, &cfg); err != nil {
+func (r *Relayer) NewContractWriter(_ context.Context, bytes []byte) (commontypes.ContractWriter, error) {
+	var cfg config.ChainWriterConfig
+	if err := json.Unmarshal(bytes, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)
 	}
 
@@ -1011,7 +1011,7 @@ func (r *Relayer) NewContractWriter(_ context.Context, config []byte) (commontyp
 }
 
 func (r *Relayer) NewContractReader(ctx context.Context, chainReaderConfig []byte) (commontypes.ContractReader, error) {
-	cfg := &types.ChainReaderConfig{}
+	cfg := &config.ChainReaderConfig{}
 	if err := json.Unmarshal(chainReaderConfig, cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshall chain reader config err: %s", err)
 	}
@@ -1025,7 +1025,7 @@ func (r *Relayer) EVM() (commontypes.EVMService, error) {
 
 func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
 	lggr := logger.Sugared(r.lggr).Named(rargs.ExternalJobID.String()).Named("MedianProvider")
-	relayOpts := types.NewRelayOpts(rargs)
+	relayOpts := config.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)

@@ -234,7 +234,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 			},
 		},
 	})
-	assert.ErrorContains(t, err, "capability not found")
+	assert.ErrorContains(t, err, "no compatible capability found")
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
@@ -476,7 +476,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	require.Len(t, resp, 1)
 	require.NotNil(t, resp[0].GetError())
 	errVal := resp[0].GetError()
-	assert.Contains(t, errVal.Error, "failed to aggregate decryption shares")
+	assert.Contains(t, errVal.Error, "not enough decryption shares to decrypt the secret")
 }
 
 func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.LocalRegistry {
@@ -548,8 +548,9 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 		pid,
 	}
 
-	valueMap, err := values.NewMap[string](map[string]string{
-		"VaultPublicKey": hex.EncodeToString(vaultPublicKey),
+	valueMap, err := values.Wrap(VaultCapabilityRegistryConfig{
+		VaultPublicKey: hex.EncodeToString(vaultPublicKey),
+		Threshold:      1,
 	})
 	require.NoError(t, err)
 	config := &capabilitiespb.CapabilityConfig{

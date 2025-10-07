@@ -14,17 +14,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	trontxm "github.com/smartcontractkit/chainlink-tron/relayer/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type ChainWriterService interface {
@@ -35,7 +36,7 @@ type ChainWriterService interface {
 // Compile-time assertion that chainWriter implements the ChainWriterService interface.
 var _ ChainWriterService = (*chainWriter)(nil)
 
-func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config types.ChainWriterConfig, tronTxm *trontxm.TronTxm) (ChainWriterService, error) {
+func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config config.ChainWriterConfig, tronTxm *trontxm.TronTxm) (ChainWriterService, error) {
 	if config.MaxGasPrice == nil {
 		return nil, fmt.Errorf("max gas price is required")
 	}
@@ -49,7 +50,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 		maxGasPrice: config.MaxGasPrice,
 
 		contracts:       config.Contracts,
-		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]evmtypes.CodecEntry{}, DecoderDefs: map[string]evmtypes.CodecEntry{}},
 		abiMethods:      make(map[string]abi.Method),
 	}
 
@@ -75,7 +76,7 @@ type chainWriter struct {
 	ge          gas.EvmFeeEstimator
 	maxGasPrice *assets.Wei
 
-	contracts       map[string]*types.ContractConfig
+	contracts       map[string]*config.ContractConfig
 	parsedContracts *codec.ParsedTypes
 	// Store ABI methods for Tron transaction formatting
 	abiMethods map[string]abi.Method // key: "contract.method"
@@ -201,7 +202,7 @@ func (w *chainWriter) parseContracts() error {
 				return fmt.Errorf("%w: failed to create input mods", err)
 			}
 
-			input := types.NewCodecEntry(abiMethod.Inputs, abiMethod.ID, inputMod)
+			input := evmtypes.NewCodecEntry(abiMethod.Inputs, abiMethod.ID, inputMod)
 
 			if err = input.Init(); err != nil {
 				return fmt.Errorf("%w: failed to init codec entry for method %s", err, method)

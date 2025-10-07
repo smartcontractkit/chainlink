@@ -17,11 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type subscriber struct {
@@ -53,7 +53,7 @@ func addr(t *testing.T, lastByte string) []byte {
 	return contractAddr
 }
 
-func setUp(t *testing.T, updateFrequencySec uint32) (*lpmocks.LogPoller, types.LogPollerWrapper, *clienttest.Client) {
+func setUp(t *testing.T, updateFrequencySec uint32) (*lpmocks.LogPoller, evmconfig.LogPollerWrapper, *clienttest.Client) {
 	lggr := logger.Test(t)
 	client := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)

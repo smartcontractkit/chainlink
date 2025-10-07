@@ -64,7 +64,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	sourceChainSelector := allChainSelectors[0]
 	destChainSelector := allChainSelectors[1]
 	// 2. Load initial onchain state
-	state, err := stateview.LoadOnchainState(tenv)
+	state, err := stateview.LoadOnchainState(tenv, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err, "Failed to load initial onchain state")
 
 	allChains := tenv.BlockChains.ListChainSelectors(
@@ -96,14 +96,14 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// 4. Deploy 1.6.0 Pre-reqs contracts
 	DeployUtil(t, &tenv, sourceChainSelector)
-	state, err = stateview.LoadOnchainState(tenv)
+	state, err = stateview.LoadOnchainState(tenv, stateview.WithLoadLegacyContracts(true))
 
 	// 5. Deploy 1.5 Lanes
 	tenv = v1_5.AddLanes(t, tenv, state, pairs)
 	require.NoError(t, err)
 
 	// 6. Validate all needed contracts are deployed
-	state, err = stateview.LoadOnchainState(tenv)
+	state, err = stateview.LoadOnchainState(tenv, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err, "Failed to load initial onchain state")
 	sourceChainState := state.MustGetEVMChainState(sourceChainSelector)
 	require.NotNil(t, sourceChainState, "Src Chain state should not be nil")
@@ -281,7 +281,7 @@ func DeployUtil(t *testing.T, e *cldf.Environment, homeChainSel uint64) {
 	*e = eVal // Update the environment pointed to by e
 
 	// load onchain state
-	state, err := stateview.LoadOnchainState(*e)
+	state, err := stateview.LoadOnchainState(*e, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 
 	// verify all contracts populated
@@ -311,7 +311,7 @@ const (
 func DeployTokensAndTokenPools(t *testing.T, e cldf.Environment, addressBook *cldf.AddressBook) cldf.Environment {
 	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	selectorA, selectorB := selectors[0], selectors[1]
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	newPools := map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {

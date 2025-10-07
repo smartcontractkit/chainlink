@@ -5,7 +5,7 @@ externalJobID = "{{ .ExternalJobID }}"
 forwardingAllowed = false
 command = "{{ .Command }}"
 config = """{{ .Config }}"""
-{{ if .OracleFactory.Enabled }}
+{{ if and .OracleFactory .OracleFactory.Enabled }}
 [oracle_factory]
 enabled = {{ .OracleFactory.Enabled }}
 bootstrap_peers = [{{ range $index, $peer := .OracleFactory.BootstrapPeers }}{{ if $index }}, {{ end }}"{{ $peer }}"{{ end }}]

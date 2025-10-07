@@ -20,17 +20,16 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 func CreateOCRv2JobsLocal(
@@ -78,7 +77,7 @@ func CreateOCRv2JobsLocal(
 					"chainID": chainId,
 				},
 				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valPath)),
-				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
+				ContractConfigTrackerPollInterval: *sqlutil.NewInterval(15 * time.Second),
 			},
 		}
 		_, err := bootstrapNode.MustCreateJob(bootstrapSpec)
@@ -129,7 +128,7 @@ func CreateOCRv2JobsLocal(
 					PluginConfig: map[string]any{
 						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", nodeclient.ObservationSourceSpecBridge(juelsBridge)),
 					},
-					ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
+					ContractConfigTrackerPollInterval: *sqlutil.NewInterval(15 * time.Second),
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
 					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyID),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
@@ -137,14 +136,14 @@ func CreateOCRv2JobsLocal(
 				},
 			}
 			if enableChainReaderAndCodec {
-				ocrSpec.OCR2OracleSpec.RelayConfig["chainReader"] = evmtypes.ChainReaderConfig{
-					Contracts: map[string]evmtypes.ChainContractReader{
+				ocrSpec.OCR2OracleSpec.RelayConfig["chainReader"] = config.ChainReaderConfig{
+					Contracts: map[string]config.ChainContractReader{
 						"median": {
-							ContractPollingFilter: evmtypes.ContractPollingFilter{
+							ContractPollingFilter: config.ContractPollingFilter{
 								GenericEventNames: []string{"LatestRoundRequested"},
 							},
 							ContractABI: `[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"requester","type":"address"},{"indexed":false,"internalType":"bytes32","name":"configDigest","type":"bytes32"},{"indexed":false,"internalType":"uint32","name":"epoch","type":"uint32"},{"indexed":false,"internalType":"uint8","name":"round","type":"uint8"}],"name":"RoundRequested","type":"event"},{"inputs":[],"name":"latestTransmissionDetails","outputs":[{"internalType":"bytes32","name":"configDigest","type":"bytes32"},{"internalType":"uint32","name":"epoch","type":"uint32"},{"internalType":"uint8","name":"round","type":"uint8"},{"internalType":"int192","name":"latestAnswer_","type":"int192"},{"internalType":"uint64","name":"latestTimestamp_","type":"uint64"}],"stateMutability":"view","type":"function"}]`,
-							Configs: map[string]*evmtypes.ChainReaderDefinition{
+							Configs: map[string]*config.ChainReaderDefinition{
 								"LatestTransmissionDetails": {
 									ChainSpecificName: "latestTransmissionDetails",
 									OutputModifications: codec.ModifiersConfig{
@@ -161,14 +160,14 @@ func CreateOCRv2JobsLocal(
 								},
 								"LatestRoundRequested": {
 									ChainSpecificName: "RoundRequested",
-									ReadType:          evmtypes.Event,
+									ReadType:          config.Event,
 								},
 							},
 						},
 					},
 				}
-				ocrSpec.OCR2OracleSpec.RelayConfig["codec"] = evmtypes.CodecConfig{
-					Configs: map[string]evmtypes.ChainCodecConfig{
+				ocrSpec.OCR2OracleSpec.RelayConfig["codec"] = config.CodecConfig{
+					Configs: map[string]config.ChainCodecConfig{
 						"MedianReport": {
 							TypeABI: `[{"Name": "Timestamp","Type": "uint32"},{"Name": "Observers","Type": "bytes32"},{"Name": "Observations","Type": "int192[]"},{"Name": "JuelsPerFeeCoin","Type": "int192"}]`,
 						},

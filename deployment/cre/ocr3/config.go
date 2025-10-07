@@ -11,16 +11,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"google.golang.org/protobuf/proto"
 
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
@@ -45,71 +41,6 @@ type TopLevelConfigSource struct {
 
 type MCMSConfig struct {
 	MinDuration time.Duration
-}
-
-type OracleConfig struct {
-	MaxQueryLengthBytes       uint32
-	MaxObservationLengthBytes uint32
-	MaxReportLengthBytes      uint32
-	MaxOutcomeLengthBytes     uint32
-	MaxReportCount            uint32
-	MaxBatchSize              uint32
-	OutcomePruningThreshold   uint64
-	UniqueReports             bool
-	RequestTimeout            time.Duration
-
-	DeltaProgressMillis               uint32
-	DeltaResendMillis                 uint32
-	DeltaInitialMillis                uint32
-	DeltaRoundMillis                  uint32
-	DeltaGraceMillis                  uint32
-	DeltaCertifiedCommitRequestMillis uint32
-	DeltaStageMillis                  uint32
-	MaxRoundsPerEpoch                 uint64
-	TransmissionSchedule              []int
-
-	MaxDurationQueryMillis          uint32
-	MaxDurationObservationMillis    uint32
-	MaxDurationShouldAcceptMillis   uint32
-	MaxDurationShouldTransmitMillis uint32
-
-	MaxFaultyOracles int
-}
-
-func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
-	type aliasT OracleConfig
-	temp := &struct {
-		RequestTimeout string `json:"RequestTimeout"`
-		*aliasT
-	}{
-		aliasT: (*aliasT)(oc),
-	}
-	if err := json.Unmarshal(data, temp); err != nil {
-		return fmt.Errorf("failed to unmarshal OracleConfig: %w", err)
-	}
-
-	if temp.RequestTimeout == "" {
-		oc.RequestTimeout = 0
-	} else {
-		requestTimeout, err := time.ParseDuration(temp.RequestTimeout)
-		if err != nil {
-			return fmt.Errorf("failed to parse RequestTimeout: %w", err)
-		}
-		oc.RequestTimeout = requestTimeout
-	}
-
-	return nil
-}
-
-func (oc OracleConfig) MarshalJSON() ([]byte, error) {
-	type aliasT OracleConfig
-	return json.Marshal(&struct {
-		RequestTimeout string `json:"RequestTimeout"`
-		*aliasT
-	}{
-		RequestTimeout: oc.RequestTimeout.String(),
-		aliasT:         (*aliasT)(&oc),
-	})
 }
 
 type NodeKeys struct {
@@ -301,27 +232,21 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 		})
 	}
 
-	// let's keep reqTimeout as nil if it's 0, so we can use the default value within `chainlink-common`.
-	// See: https://github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/factory.go#L73
 	cfgBytes := reportingPluginConfigOverride
 	if cfgBytes == nil {
-		var reqTimeout *durationpb.Duration
-		if cfg.RequestTimeout > 0 {
-			reqTimeout = durationpb.New(cfg.RequestTimeout)
+		offchainCfg, err := getOffchainCfg(cfg)
+		if err != nil {
+			return OCR2OracleConfig{}, fmt.Errorf("failed to get offchain config: %w", err)
 		}
-		var err2 error
-		cfgBytes, err2 = proto.Marshal(&capocr3types.ReportingPluginConfig{
-			MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
-			MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
-			MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
-			MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
-			MaxReportCount:            cfg.MaxReportCount,
-			MaxBatchSize:              cfg.MaxBatchSize,
-			OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
-			RequestTimeout:            reqTimeout,
-		})
-		if err2 != nil {
-			return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err2)
+		if offchainCfg != nil {
+			offchainCfgAsProto, err := offchainCfg.ToProto()
+			if err != nil {
+				return OCR2OracleConfig{}, fmt.Errorf("failed to convert offchainConfig to proto: %w", err)
+			}
+			cfgBytes, err = proto.Marshal(offchainCfgAsProto)
+			if err != nil {
+				return OCR2OracleConfig{}, fmt.Errorf("failed to marshal offchainConfig to proto: %w", err)
+			}
 		}
 	}
 
@@ -371,6 +296,23 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets focr.OCRSecret
 	}
 
 	return config, nil
+}
+
+func getOffchainCfg(oracleCfg OracleConfig) (offchainConfig, error) {
+	var result offchainConfig
+	if oracleCfg.ConsensusCapOffchainConfig != nil {
+		result = oracleCfg.ConsensusCapOffchainConfig
+	}
+
+	if oracleCfg.ChainCapOffchainConfig != nil {
+		if result != nil {
+			return nil, fmt.Errorf("multiple offchain configs specified: %+v. Only one allowed", oracleCfg)
+		}
+
+		result = oracleCfg.ChainCapOffchainConfig
+	}
+
+	return result, nil
 }
 
 type ConfigureOCR3Request struct {

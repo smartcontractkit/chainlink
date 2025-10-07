@@ -16,6 +16,7 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -29,9 +30,10 @@ const (
 )
 
 type TimelockConfig struct {
-	MinDelay     time.Duration        `json:"minDelay"` // delay for timelock worker to execute the transfers.
-	MCMSAction   types.TimelockAction `json:"mcmsAction"`
-	OverrideRoot bool                 `json:"overrideRoot"` // if true, override the previous root with the new one.
+	MinDelay                  time.Duration        `json:"minDelay"` // delay for timelock worker to execute the transfers.
+	MCMSAction                types.TimelockAction `json:"mcmsAction"`
+	OverrideRoot              bool                 `json:"overrideRoot"`                        // if true, override the previous root with the new one.
+	TimelockQualifierPerChain map[uint64]string    `json:"timelockQualifierPerChain,omitempty"` // optional qualifier to fetch timelock address from datastore
 }
 
 func (tc *TimelockConfig) MCMBasedOnActionSolana(s state.MCMSWithTimelockStateSolana) (string, error) {
@@ -161,6 +163,18 @@ func (tc *TimelockConfig) ValidateSolana(e cldf.Environment, chainSelector uint6
 		}
 	default:
 		return fmt.Errorf("invalid MCMS action %s", tc.MCMSAction)
+	}
+
+	return nil
+}
+
+func (tc *TimelockConfig) ValidateAptos(chain cldf_aptos.Chain, mcmsAddress aptos.AccountAddress) error {
+	if err := tc.validateCommon(); err != nil {
+		return err
+	}
+
+	if (mcmsAddress == aptos.AccountAddress{}) {
+		return fmt.Errorf("aptos MCMS contract not present on chain %s", chain)
 	}
 
 	return nil

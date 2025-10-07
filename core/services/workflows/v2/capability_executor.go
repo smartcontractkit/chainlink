@@ -55,6 +55,9 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	// the capability is local, and we should use the localNode's DON ID.
 	var donID uint32
 	if !info.IsLocal {
+		if info.DON == nil {
+			return nil, fmt.Errorf("remote capability info is missing DON field, ID: %s", info.ID)
+		}
 		donID = info.DON.ID
 	} else {
 		donID = c.localNode.WorkflowDON.ID
@@ -71,28 +74,32 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	if !ok {
 		c.lggr.Errorf("no metering report found for %v", c.WorkflowExecutionID)
 	}
+
 	meteringRef := strconv.Itoa(int(request.CallbackId))
+	spendLimits := []capabilities.SpendLimit{}
 
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step from SDK.
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 parse user max spend for step
-	userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
-	userSpendLimit.Valid = false
+	if meterReport != nil {
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-285 get max spend per step from SDK.
+		// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 parse user max spend for step
+		userSpendLimit := decimal.NewNullDecimal(decimal.Zero)
+		userSpendLimit.Valid = false
 
-	openConcurrentCallSlots, err := c.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx)
-	if err != nil {
-		return nil, err
-	}
-	spendLimits, err := meterReport.Deduct(
-		meteringRef,
-		metering.ByDerivedAvailability(
-			userSpendLimit,
-			openConcurrentCallSlots,
-			info,
-			config.RestrictedConfig,
-		),
-	)
-	if err != nil {
-		c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		var openConcurrentCallSlots int
+		if openConcurrentCallSlots, err = c.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx); err != nil {
+			return nil, err
+		}
+
+		if spendLimits, err = meterReport.Deduct(
+			meteringRef,
+			metering.ByDerivedAvailability(
+				userSpendLimit,
+				openConcurrentCallSlots,
+				info,
+				config.RestrictedConfig,
+			),
+		); err != nil {
+			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		}
 	}
 
 	capReq := capabilities.CapabilityRequest{
@@ -124,7 +131,10 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	defer execCancel()
 
+	executionStart := time.Now()
 	capResp, err := capability.Execute(execCtx, capReq)
+	executionDuration := time.Since(executionStart)
+	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		c.lggr.Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, err)
@@ -136,9 +146,10 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	c.lggr.Debugw("Capability execution succeeded", "capID", request.Id, "capReqCallbackID", request.CallbackId)
 	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, nil)
 
-	err = meterReport.Settle(meteringRef, capResp.Metadata.Metering)
-	if err != nil {
-		c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+	if meterReport != nil {
+		if err = meterReport.Settle(meteringRef, capResp.Metadata.Metering); err != nil {
+			c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+		}
 	}
 
 	return &sdkpb.CapabilityResponse{

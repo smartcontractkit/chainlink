@@ -13,8 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zksync-sdk/zksync2-go/accounts"
-	"github.com/zksync-sdk/zksync2-go/clients"
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -23,6 +21,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
@@ -438,24 +437,79 @@ func TestNewEVMCallOperation(t *testing.T) {
 		assert.NotNil(t, capturedOpts.Signer)
 	})
 }
+
+func TestContractOpts_Validate(t *testing.T) {
+	tests := []struct {
+		desc       string
+		opts       *opsutils.ContractOpts
+		isZkSyncVM bool
+		err        string
+	}{
+		{
+			desc: "valid evm opts",
+			opts: &opsutils.ContractOpts{
+				Version:     semver.MustParse("1.0.0"),
+				EVMBytecode: []byte{0x01, 0x02, 0x03},
+			},
+			isZkSyncVM: false,
+		},
+		{
+			desc: "valid zksyncvm opts",
+			opts: &opsutils.ContractOpts{
+				Version:          semver.MustParse("1.0.0"),
+				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+			},
+			isZkSyncVM: true,
+		},
+		{
+			desc: "nil version",
+			opts: &opsutils.ContractOpts{},
+			err:  "version must be defined",
+		},
+		{
+			desc: "missing evm bytecode",
+			opts: &opsutils.ContractOpts{
+				Version: semver.MustParse("1.0.0"),
+			},
+			isZkSyncVM: false,
+			err:        "evm bytecode must be defined",
+		},
+		{
+			desc: "missing zkSyncVM bytecode",
+			opts: &opsutils.ContractOpts{
+				Version: semver.MustParse("1.0.0"),
+			},
+			isZkSyncVM: true,
+			err:        "zkSyncVM bytecode must be defined",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			err := test.opts.Validate(test.isZkSyncVM)
+			if test.err == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.err)
+			}
+		})
+	}
+}
+
 func TestNewEVMDeployOperation(t *testing.T) {
 	t.Parallel()
+	contractType := cldf.ContractType("TestContract")
 	version, _ := semver.NewVersion("1.0.0")
-	typeAndVersion := cldf.TypeAndVersion{Type: "TestContract", Version: *version}
 
 	t.Run("ChainSelectorMismatch", func(t *testing.T) {
-		deployers := opsutils.VMDeployers[string]{
-			DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, deployInput string) (common.Address, *types.Transaction, error) {
-				return common.Address{}, nil, nil
-			},
-		}
-
-		op := opsutils.NewEVMDeployOperation[string](
+		op := opsutils.NewEVMDeployOperation(
 			"test",
 			version,
 			"description",
-			typeAndVersion,
-			deployers,
+			contractType,
+			nil,
+			nil,
+			func(string) []interface{} { return nil },
 		)
 
 		input := opsutils.EVMDeployInput[string]{
@@ -469,232 +523,243 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		assert.Contains(t, err.Error(), "mismatch between inputted chain selector")
 	})
 
-	t.Run("EVMDeploymentError", func(t *testing.T) {
-		deployers := opsutils.VMDeployers[string]{
-			DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, deployInput string) (common.Address, *types.Transaction, error) {
-				return common.Address{}, nil, errors.New("deployment failed")
-			},
-		}
-
-		op := opsutils.NewEVMDeployOperation[string](
+	t.Run("ContractMetadata undefined", func(t *testing.T) {
+		op := opsutils.NewEVMDeployOperation(
 			"test",
 			version,
 			"description",
-			typeAndVersion,
-			deployers,
+			contractType,
+			nil,
+			nil,
+			func(string) []interface{} { return nil },
 		)
 
 		input := opsutils.EVMDeployInput[string]{
 			ChainSelector: 123,
 			DeployInput:   "test",
 		}
-		chain := cldf_evm.Chain{Selector: 123, IsZkSyncVM: false}
+		chain := cldf_evm.Chain{Selector: 123}
 
 		_, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "contract metadata must be provided for deployment")
+	})
+
+	t.Run("ContractOpts not defined", func(t *testing.T) {
+		op := opsutils.NewEVMDeployOperation(
+			"test",
+			version,
+			"description",
+			contractType,
+			&bind.MetaData{},
+			nil,
+			func(string) []interface{} { return nil },
+		)
+
+		input := opsutils.EVMDeployInput[string]{
+			ChainSelector: 123,
+			DeployInput:   "test",
+		}
+		chain := cldf_evm.Chain{Selector: 123}
+
+		_, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must define ContractOpts for deployment, no defaults provided")
+	})
+
+	t.Run("Default ContractOpts not valid", func(t *testing.T) {
+		op := opsutils.NewEVMDeployOperation(
+			"test",
+			version,
+			"description",
+			contractType,
+			&bind.MetaData{},
+			&opsutils.ContractOpts{
+				Version:          semver.MustParse("0.1.0"),
+				EVMBytecode:      nil,
+				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+			},
+			func(string) []interface{} { return nil },
+		)
+
+		input := opsutils.EVMDeployInput[string]{
+			ChainSelector: 123,
+			DeployInput:   "test",
+		}
+		chain := cldf_evm.Chain{Selector: 123}
+
+		_, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid ContractOpts: evm bytecode must be defined")
+	})
+
+	t.Run("Inputted ContractOpts not valid", func(t *testing.T) {
+		op := opsutils.NewEVMDeployOperation(
+			"test",
+			version,
+			"description",
+			contractType,
+			&bind.MetaData{},
+			nil,
+			func(string) []interface{} { return nil },
+		)
+
+		input := opsutils.EVMDeployInput[string]{
+			ChainSelector: 123,
+			ContractOpts: &opsutils.ContractOpts{
+				Version:          semver.MustParse("0.1.0"),
+				EVMBytecode:      nil,
+				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+			},
+			DeployInput: "test",
+		}
+		chain := cldf_evm.Chain{Selector: 123}
+
+		_, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid ContractOpts: evm bytecode must be defined")
+	})
+
+	t.Run("ABI parsing failure", func(t *testing.T) {
+		op := opsutils.NewEVMDeployOperation(
+			"test",
+			version,
+			"description",
+			contractType,
+			&bind.MetaData{},
+			nil,
+			func(string) []interface{} { return nil },
+		)
+
+		input := opsutils.EVMDeployInput[string]{
+			ChainSelector: 123,
+			ContractOpts: &opsutils.ContractOpts{
+				Version:          semver.MustParse("0.1.0"),
+				EVMBytecode:      []byte{0x01, 0x02, 0x03, 0x04},
+				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+			},
+			DeployInput: "test",
+		}
+		chain := cldf_evm.Chain{Selector: 123}
+
+		_, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse ABI")
+	})
+
+	t.Run("EVM deployment failure", func(t *testing.T) {
+		op := opsutils.NewEVMDeployOperation(
+			"test",
+			version,
+			"description",
+			contractType,
+			&bind.MetaData{ABI: "[]"},
+			nil,
+			func(string) []interface{} { return nil },
+		)
+
+		chain, err := cldf_evm_provider.NewSimChainProvider(t, 5009297550715157269,
+			cldf_evm_provider.SimChainProviderConfig{
+				NumAdditionalAccounts: 1,
+			},
+		).Initialize(t.Context())
+		require.NoError(t, err, "Failed to create SimChainProvider")
+
+		chains := cldf_chain.NewBlockChainsFromSlice(
+			[]cldf_chain.BlockChain{chain},
+		)
+		evmChain := chains.EVMChains()[5009297550715157269]
+
+		input := opsutils.EVMDeployInput[string]{
+			ChainSelector: 5009297550715157269,
+			ContractOpts: &opsutils.ContractOpts{
+				Version:          semver.MustParse("0.1.0"),
+				EVMBytecode:      []byte{0x01, 0x02, 0x03, 0x04},
+				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+			},
+			DeployInput: "test",
+		}
+
+		_, err = operations.ExecuteOperation(optest.NewBundle(t), op, evmChain, input)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to deploy")
-		assert.Contains(t, err.Error(), "deployment failed")
 	})
 
-	t.Run("ZkSyncVMDeploymentError", func(t *testing.T) {
-		deployers := opsutils.VMDeployers[string]{
-			DeployZksyncVM: func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, deployInput string) (common.Address, error) {
-				return common.Address{}, errors.New("zksync deployment failed")
-			},
-		}
-
-		op := opsutils.NewEVMDeployOperation[string](
+	t.Run("EVM confirmation failure", func(t *testing.T) {
+		op := opsutils.NewEVMDeployOperation(
 			"test",
 			version,
 			"description",
-			typeAndVersion,
-			deployers,
-		)
-
-		input := opsutils.EVMDeployInput[string]{
-			ChainSelector: 123,
-			DeployInput:   "test",
-		}
-		chain := cldf_evm.Chain{Selector: 123, IsZkSyncVM: true}
-
-		_, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to deploy")
-		assert.Contains(t, err.Error(), "zksync deployment failed")
-	})
-
-	t.Run("EVMSuccessfulDeployment", func(t *testing.T) {
-		expectedAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-		mockTx := types.NewTransaction(
-			0,
-			common.HexToAddress("0x1234"),
-			big.NewInt(0),
-			21000,
-			big.NewInt(0),
+			contractType,
+			&bind.MetaData{ABI: "[]"},
 			nil,
+			func(string) []interface{} { return nil },
 		)
 
-		deployers := opsutils.VMDeployers[string]{
-			DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, deployInput string) (common.Address, *types.Transaction, error) {
-				return expectedAddr, mockTx, nil
+		chain, err := cldf_evm_provider.NewSimChainProvider(t, 5009297550715157269,
+			cldf_evm_provider.SimChainProviderConfig{
+				NumAdditionalAccounts: 1,
 			},
-		}
+		).Initialize(t.Context())
+		require.NoError(t, err, "Failed to create SimChainProvider")
 
-		op := opsutils.NewEVMDeployOperation[string](
-			"test",
-			version,
-			"description",
-			typeAndVersion,
-			deployers,
+		chains := cldf_chain.NewBlockChainsFromSlice(
+			[]cldf_chain.BlockChain{chain},
 		)
+		evmChain := chains.EVMChains()[5009297550715157269]
+		evmChain.Confirm = func(tx *types.Transaction) (uint64, error) {
+			return 0, errors.New("confirmation failed")
+		}
 
 		input := opsutils.EVMDeployInput[string]{
-			ChainSelector: 123,
-			DeployInput:   "test",
-		}
-
-		// Mock chain with confirmation method
-		chain := cldf_evm.Chain{
-			Selector:   123,
-			IsZkSyncVM: false,
-		}
-		// Override Confirm method to avoid nil pointer
-		chain.Confirm = func(tx *types.Transaction) (uint64, error) {
-			return 0, nil
-		}
-
-		output, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
-		require.NoError(t, err)
-		assert.Equal(t, expectedAddr, output.Output.Address)
-		assert.Equal(t, typeAndVersion.String(), output.Output.TypeAndVersion)
-	})
-
-	t.Run("ZkSyncVMSuccessfulDeployment", func(t *testing.T) {
-		expectedAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-
-		deployers := opsutils.VMDeployers[string]{
-			DeployZksyncVM: func(opts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, deployInput string) (common.Address, error) {
-				return expectedAddr, nil
+			ChainSelector: 5009297550715157269,
+			ContractOpts: &opsutils.ContractOpts{
+				Version:          semver.MustParse("0.1.0"),
+				EVMBytecode:      []byte{0x00},
+				ZkSyncVMBytecode: []byte{0x00},
 			},
+			DeployInput: "test",
 		}
 
-		op := opsutils.NewEVMDeployOperation[string](
-			"test",
-			version,
-			"description",
-			typeAndVersion,
-			deployers,
-		)
-
-		input := opsutils.EVMDeployInput[string]{
-			ChainSelector: 123,
-			DeployInput:   "test",
-		}
-		chain := cldf_evm.Chain{Selector: 123, IsZkSyncVM: true}
-
-		output, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
-		require.NoError(t, err)
-		assert.Equal(t, expectedAddr, output.Output.Address)
-		assert.Equal(t, typeAndVersion.String(), output.Output.TypeAndVersion)
-	})
-
-	t.Run("EVMConfirmationError", func(t *testing.T) {
-		expectedAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-		mockTx := types.NewTransaction(
-			0,
-			common.HexToAddress("0x1234"),
-			big.NewInt(0),
-			21000,
-			big.NewInt(0),
-			nil,
-		)
-
-		deployers := opsutils.VMDeployers[string]{
-			DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, deployInput string) (common.Address, *types.Transaction, error) {
-				return expectedAddr, mockTx, nil
-			},
-		}
-
-		op := opsutils.NewEVMDeployOperation[string](
-			"test",
-			version,
-			"description",
-			typeAndVersion,
-			deployers,
-		)
-
-		input := opsutils.EVMDeployInput[string]{
-			ChainSelector: 123,
-			DeployInput:   "test",
-		}
-
-		chain := cldf_evm.Chain{
-			Selector:   123,
-			IsZkSyncVM: false,
-		}
-		// Mock confirmation failure
-		chain.Confirm = func(tx *types.Transaction) (uint64, error) {
-			return 1, errors.New("confirmation failed")
-		}
-
-		_, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
+		_, err = operations.ExecuteOperation(optest.NewBundle(t), op, evmChain, input)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to confirm deployment")
 		assert.Contains(t, err.Error(), "confirmation failed")
 	})
 
-	t.Run("CustomGasSettings", func(t *testing.T) {
-		var capturedOpts *bind.TransactOpts
-		expectedAddr := common.HexToAddress("0x1234567890123456789012345678901234567890")
-		mockTx := types.NewTransaction(
-			0,
-			common.HexToAddress("0x1234"),
-			big.NewInt(0),
-			21000,
-			big.NewInt(0),
-			nil,
-		)
-
-		deployers := opsutils.VMDeployers[string]{
-			DeployEVM: func(opts *bind.TransactOpts, backend bind.ContractBackend, deployInput string) (common.Address, *types.Transaction, error) {
-				capturedOpts = opts
-				return expectedAddr, mockTx, nil
-			},
-		}
-
-		op := opsutils.NewEVMDeployOperation[string](
+	t.Run("EVM deployment success", func(t *testing.T) {
+		op := opsutils.NewEVMDeployOperation(
 			"test",
 			version,
 			"description",
-			typeAndVersion,
-			deployers,
+			contractType,
+			&bind.MetaData{ABI: "[]"},
+			nil,
+			func(string) []interface{} { return nil },
 		)
 
+		chain, err := cldf_evm_provider.NewSimChainProvider(t, 5009297550715157269,
+			cldf_evm_provider.SimChainProviderConfig{
+				NumAdditionalAccounts: 1,
+			},
+		).Initialize(t.Context())
+		require.NoError(t, err, "Failed to create SimChainProvider")
+
+		chains := cldf_chain.NewBlockChainsFromSlice(
+			[]cldf_chain.BlockChain{chain},
+		)
+		evmChain := chains.EVMChains()[5009297550715157269]
+
 		input := opsutils.EVMDeployInput[string]{
-			ChainSelector: 123,
-			DeployInput:   "test",
-			GasLimit:      100000,
-			GasPrice:      50000000000,
+			ChainSelector: 5009297550715157269,
+			ContractOpts: &opsutils.ContractOpts{
+				Version:          semver.MustParse("0.1.0"),
+				EVMBytecode:      []byte{0x00},
+				ZkSyncVMBytecode: []byte{0x00},
+			},
+			DeployInput: "test",
 		}
 
-		deployerKey := &bind.TransactOpts{
-			GasLimit: 50000,
-			GasPrice: big.NewInt(25000000000),
-		}
-		chain := cldf_evm.Chain{
-			Selector:    123,
-			IsZkSyncVM:  false,
-			DeployerKey: deployerKey,
-		}
-		chain.Confirm = func(tx *types.Transaction) (uint64, error) {
-			return 0, nil
-		}
-
-		_, err := operations.ExecuteOperation(optest.NewBundle(t), op, chain, input)
+		_, err = operations.ExecuteOperation(optest.NewBundle(t), op, evmChain, input)
 		require.NoError(t, err)
-
-		// Verify custom gas settings were applied
-		assert.Equal(t, uint64(100000), capturedOpts.GasLimit)
-		assert.Equal(t, big.NewInt(50000000000), capturedOpts.GasPrice)
 	})
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xssnick/tonutils-go/tvm/cell"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -50,7 +51,7 @@ func TestTONKeyring_Sign3_Verify3(t *testing.T) {
 	digest := ocrtypes.ConfigDigest{}
 
 	t.Run("can verify", func(t *testing.T) {
-		report := ocrtypes.Report{}
+		report := cell.BeginCell().EndCell().ToBOC()
 		seqNr := uint64(1)
 		sig, err := kr1.Sign3(digest, 1, report)
 		require.NoError(t, err)
@@ -61,14 +62,14 @@ func TestTONKeyring_Sign3_Verify3(t *testing.T) {
 	})
 
 	t.Run("invalid sig", func(t *testing.T) {
-		report := ocrtypes.Report{}
+		report := cell.BeginCell().EndCell().ToBOC()
 		seqNr := uint64(1)
 		result := kr2.Verify3(kr1.PublicKey(), digest, seqNr, report, []byte{0x01})
 		assert.False(t, result)
 	})
 
 	t.Run("invalid pubkey", func(t *testing.T) {
-		report := ocrtypes.Report{}
+		report := cell.BeginCell().EndCell().ToBOC()
 		seqNr := uint64(1)
 		sig, err := kr1.Sign3(digest, 1, report)
 		require.NoError(t, err)

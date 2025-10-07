@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
@@ -28,8 +29,8 @@ type logEventTrigger struct {
 	ch   chan<- capabilities.TriggerResponse
 	lggr logger.Logger
 
-	// Workflow ID that this trigger belongs to
-	workflowID string
+	// Workflow metadata
+	metadata capabilities.RequestMetadata
 
 	// Contract address and Event Signature to monitor for
 	reqConfig      *logeventcap.Config
@@ -47,7 +48,7 @@ type logEventTrigger struct {
 // Construct for logEventTrigger struct
 func newLogEventTrigger(ctx context.Context,
 	lggr logger.Logger,
-	workflowID string,
+	metadata capabilities.RequestMetadata,
 	reqConfig *logeventcap.Config,
 	logEventConfig Config,
 	relayer core.Relayer) (*logEventTrigger, chan capabilities.TriggerResponse, error) {
@@ -101,9 +102,9 @@ func newLogEventTrigger(ctx context.Context,
 	// Initialise a Log Event Trigger
 	l := &logEventTrigger{
 		ch:   callbackCh,
-		lggr: logger.Named(lggr, "LogEventTrigger."+workflowID),
+		lggr: logger.Named(lggr, "LogEventTrigger."+metadata.WorkflowID),
 
-		workflowID:     workflowID,
+		metadata:       metadata,
 		reqConfig:      reqConfig,
 		contractReader: contractReader,
 		relayer:        relayer,
@@ -184,12 +185,31 @@ func (l *logEventTrigger) listen() {
 				triggerResp := createTriggerResponse(log, l.logEventConfig.Version(ID))
 
 				// Emit trigger execution started event
-				workflowExecutionID, err := events.GenerateExecutionID(l.workflowID, triggerResp.Event.ID)
+				workflowExecutionID, err := events.GenerateExecutionID(l.metadata.WorkflowID, triggerResp.Event.ID)
 				if err != nil {
 					l.lggr.Errorw("failed to generate execution ID", "err", err)
 					workflowExecutionID = ""
 				}
-				err = events.EmitTriggerExecutionStarted(ctx, map[string]string{}, triggerResp.Event.ID, workflowExecutionID)
+
+				// Create labels map with workflow metadata
+				labels := map[string]string{
+					platform.KeyWorkflowID:    l.metadata.WorkflowID,
+					platform.KeyWorkflowOwner: l.metadata.WorkflowOwner,
+					platform.KeyWorkflowName:  l.metadata.WorkflowName,
+				}
+
+				// Add optional metadata fields if available
+				if l.metadata.WorkflowTag != "" {
+					labels[platform.KeyWorkflowTag] = l.metadata.WorkflowTag
+				}
+				if l.metadata.WorkflowDonID != 0 {
+					labels[platform.KeyDonID] = strconv.FormatUint(uint64(l.metadata.WorkflowDonID), 10)
+				}
+				if l.metadata.WorkflowDonConfigVersion != 0 {
+					labels[platform.DonVersion] = strconv.FormatUint(uint64(l.metadata.WorkflowDonConfigVersion), 10)
+				}
+
+				err = events.EmitTriggerExecutionStarted(ctx, labels, triggerResp.Event.ID, workflowExecutionID)
 				if err != nil {
 					l.lggr.Errorw("failed to emit trigger execution started event", "err", err)
 				}

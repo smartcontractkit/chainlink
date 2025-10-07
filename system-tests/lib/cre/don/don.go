@@ -4,23 +4,22 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/grpc/credentials/insecure"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	ctf_jd "github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.CreateJobsInput) error {
@@ -28,171 +27,18 @@ func CreateJobs(ctx context.Context, testLogger zerolog.Logger, input cre.Create
 		return errors.Wrap(err, "input validation failed")
 	}
 
-	for _, don := range input.DonTopology.DonsWithMetadata {
-		if jobSpecs, ok := input.DonToJobSpecs[don.ID]; ok {
+	for _, donMetadata := range input.DonTopology.ToDonMetadata() {
+		if jobSpecs, ok := input.DonToJobSpecs[donMetadata.ID]; ok {
 			createErr := jobs.Create(ctx, input.CldEnv.Offchain, jobSpecs)
 			if createErr != nil {
-				return errors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
+				return errors.Wrapf(createErr, "failed to create jobs for DON %d", donMetadata.ID)
 			}
 		} else {
-			testLogger.Warn().Msgf("No job specs found for DON %d", don.ID)
+			testLogger.Warn().Msgf("No job specs found for DON %d", donMetadata.ID)
 		}
 	}
 
 	return nil
-}
-
-func ValidateTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infra.Input) error {
-	if len(nodeSetInput) == 0 {
-		return errors.New("at least one nodeset is required")
-	}
-
-	hasAtLeastOneBootstrapNode := false
-	for _, nodeSet := range nodeSetInput {
-		if nodeSet.BootstrapNodeIndex != -1 {
-			hasAtLeastOneBootstrapNode = true
-			break
-		}
-	}
-
-	if !hasAtLeastOneBootstrapNode {
-		return errors.New("at least one nodeSet must have a bootstrap node")
-	}
-
-	workflowDONHasBootstrapNode := false
-	for _, nodeSet := range nodeSetInput {
-		if nodeSet.BootstrapNodeIndex != -1 && slices.Contains(nodeSet.DONTypes, cre.WorkflowDON) {
-			workflowDONHasBootstrapNode = true
-			break
-		}
-	}
-
-	if !workflowDONHasBootstrapNode {
-		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
-	}
-
-	isGatewayRequired := false
-	for _, nodeSet := range nodeSetInput {
-		if NodeNeedsAnyGateway(nodeSet.ComputedCapabilities) {
-			isGatewayRequired = true
-			break
-		}
-	}
-
-	if !isGatewayRequired {
-		return nil
-	}
-
-	anyDONHasGatewayConfigured := false
-	for _, nodeSet := range nodeSetInput {
-		if isGatewayRequired {
-			if flags.HasFlag(nodeSet.DONTypes, cre.GatewayDON) && nodeSet.GatewayNodeIndex != -1 {
-				anyDONHasGatewayConfigured = true
-				break
-			}
-		}
-	}
-
-	if !anyDONHasGatewayConfigured {
-		return errors.New("at least one DON must be configured with gateway DON type and have a gateway node index set, because at least one DON requires gateway due to its capabilities")
-	}
-
-	return nil
-}
-
-func BuildTopology(nodeSetInput []*cre.CapabilitiesAwareNodeSet, infraInput infra.Input, homeChainSelector uint64) (*cre.Topology, error) {
-	topology := &cre.Topology{}
-	donsWithMetadata := make([]*cre.DonMetadata, len(nodeSetInput))
-
-	for i := range nodeSetInput {
-		flags, err := flags.NodeSetFlags(nodeSetInput[i])
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get flags for nodeset %s", nodeSetInput[i].Name)
-		}
-
-		donsWithMetadata[i] = &cre.DonMetadata{
-			ID:              libc.MustSafeUint64FromInt(i + 1), // optimistically set the id to the that which the capabilities registry will assign it
-			Flags:           flags,
-			NodesMetadata:   make([]*cre.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
-			Name:            nodeSetInput[i].Name,
-			SupportedChains: nodeSetInput[i].SupportedChains,
-		}
-	}
-
-	for donIdx, donMetadata := range donsWithMetadata {
-		for nodeIdx := range donMetadata.NodesMetadata {
-			nodeWithLabels := cre.NodeMetadata{}
-			nodeType := cre.WorkerNode
-			if nodeSetInput[donIdx].BootstrapNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].BootstrapNodeIndex {
-				nodeType = cre.BootstrapNode
-			}
-			nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cre.Label{
-				Key:   node.NodeTypeKey,
-				Value: nodeType,
-			})
-
-			// TODO think whether it would make sense for infraInput to also hold functions that resolve hostnames for various infra and node types
-			// and use it with some default, so that we can easily modify it with little effort
-			internalHost := InternalHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
-
-			if flags.HasFlag(donMetadata.Flags, cre.GatewayDON) {
-				if nodeSetInput[donIdx].GatewayNodeIndex != -1 && nodeIdx == nodeSetInput[donIdx].GatewayNodeIndex {
-					nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cre.Label{
-						Key:   node.ExtraRolesKey,
-						Value: cre.GatewayNode,
-					})
-
-					gatewayInternalHost := InternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput)
-
-					if topology.GatewayConnectorOutput == nil {
-						topology.GatewayConnectorOutput = &cre.GatewayConnectorOutput{
-							Configurations: make([]*cre.GatewayConfiguration, 0),
-						}
-					}
-
-					topology.GatewayConnectorOutput.Configurations = append(topology.GatewayConnectorOutput.Configurations, &cre.GatewayConfiguration{
-						Outgoing: cre.Outgoing{
-							Path: "/node",
-							Port: GatewayOutgoingPort,
-							Host: gatewayInternalHost,
-						},
-						Incoming: cre.Incoming{
-							Protocol:     "http",
-							Path:         "/",
-							InternalPort: GatewayIncomingPort,
-							ExternalPort: ExternalGatewayPort(infraInput),
-							Host:         ExternalGatewayHost(nodeIdx, nodeType, donMetadata.Name, infraInput),
-						},
-						AuthGatewayID: "cre-gateway",
-						// do not set gateway connector dons, they will be resolved automatically
-					})
-				}
-			}
-
-			nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cre.Label{
-				Key:   node.IndexKey,
-				Value: strconv.Itoa(nodeIdx),
-			})
-
-			nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cre.Label{
-				Key:   node.HostLabelKey,
-				Value: internalHost,
-			})
-
-			donsWithMetadata[donIdx].NodesMetadata[nodeIdx] = &nodeWithLabels
-		}
-	}
-
-	maybeID, err := flags.OneDonMetadataWithFlag(donsWithMetadata, cre.WorkflowDON)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get workflow DON ID")
-	}
-
-	topology.DonsMetadata = donsWithMetadata
-	topology.WorkflowDONID = maybeID.ID
-	topology.HomeChainSelector = homeChainSelector
-
-	return topology, nil
 }
 
 func AnyDonHasCapability(donMetadata []*cre.DonMetadata, capability cre.CapabilityFlag) bool {
@@ -232,18 +78,19 @@ func LinkToJobDistributor(ctx context.Context, input *cre.LinkDonsToJDInput) (*c
 	var allNodesInfo []devenv.NodeInfo
 
 	for idx, nodeOutput := range input.NodeSetOutput {
-		bootstrapNodes, err := node.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &cre.Label{Key: node.NodeTypeKey, Value: cre.BootstrapNode}, node.EqualLabels)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to find bootstrap nodes")
+		// a maximum of 1 bootstrap is supported due to environment constraints
+		bootstrapNodeCount := 0
+		if input.Topology.DonsMetadata.List()[idx].ContainsBootstrapNode() {
+			bootstrapNodeCount = 1
 		}
 
-		nodeInfo, err := node.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata[idx].ID, len(bootstrapNodes))
+		nodeInfo, err := node.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, input.Topology.DonsMetadata.List()[idx].ID, bootstrapNodeCount)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to get node info")
 		}
 		allNodesInfo = append(allNodesInfo, nodeInfo...)
 
-		supportedChains, schErr := findSupportedChainsForDON(input.Topology.DonsMetadata[idx], input.BlockchainOutputs)
+		supportedChains, schErr := findSupportedChainsForDON(input.Topology.DonsMetadata.List()[idx], input.BlockchainOutputs)
 		if schErr != nil {
 			return nil, nil, errors.Wrap(schErr, "failed to find supported chains for DON")
 		}
@@ -314,7 +161,10 @@ func findSupportedChainsForDON(donMetadata *cre.DonMetadata, blockchainOutputs [
 	chains := make([]devenv.ChainConfig, 0)
 
 	for chainSelector, bcOut := range blockchainOutputs {
-		if len(donMetadata.SupportedChains) > 0 && !slices.Contains(donMetadata.SupportedChains, bcOut.ChainID) {
+		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bcOut.ChainID)
+		hasSolanaWriteCapability := flags.HasFlagForAnyChain(donMetadata.Flags, cre.WriteSolanaCapability)
+		chainIsSolana := strings.EqualFold(bcOut.BlockchainOutput.Family, chainselectors.FamilySolana)
+		if !hasEVMChainEnabled && (!hasSolanaWriteCapability || !chainIsSolana) {
 			continue
 		}
 
@@ -331,10 +181,10 @@ func findSupportedChainsForDON(donMetadata *cre.DonMetadata, blockchainOutputs [
 
 func addOCRKeyLabelsToNodeMetadata(dons []*devenv.DON, topology *cre.Topology) []*devenv.DON {
 	for i, don := range dons {
-		for j, donNode := range topology.DonsMetadata[i].NodesMetadata {
+		for j, donNode := range topology.DonsMetadata.List()[i].NodesMetadata {
 			// required for job proposals, because they need to include the ID of the node in Job Distributor
 			donNode.Labels = append(donNode.Labels, &cre.Label{
-				Key:   node.NodeIDKey,
+				Key:   cre.NodeIDKey,
 				Value: don.NodeIds()[j],
 			})
 
@@ -348,7 +198,7 @@ func addOCRKeyLabelsToNodeMetadata(dons []*devenv.DON, topology *cre.Topology) [
 			}
 
 			donNode.Labels = append(donNode.Labels, &cre.Label{
-				Key:   node.NodeOCRFamiliesKey,
+				Key:   cre.NodeOCRFamiliesKey,
 				Value: node.CreateNodeOCRFamiliesListValue(ocrSupportedFamilies),
 			})
 		}

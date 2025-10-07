@@ -63,6 +63,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
@@ -87,13 +88,8 @@
       URL = "file:///home/chainlink/workflows"
 
       [Billing]
-      URL = "host.docker.internal:2223"
+      URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Capabilities.SharedPeering]
-      Enabled = true
-      [Capabilities.Dispatcher]
-      SendToSharedPeer = true
       """
 
 [[nodesets]]
@@ -124,6 +120,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Log]
@@ -148,13 +145,8 @@
       URL = "file:///home/chainlink/workflows"
 
       [Billing]
-      URL = "host.docker.internal:2223"
+      URL = "billing-platform-service:2223"
       TLSEnabled = false
-
-      [Capabilities.SharedPeering]
-      Enabled = true
-      [Capabilities.Dispatcher]
-      SendToSharedPeer = true
       """
 
 [[nodesets]]
@@ -178,6 +170,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
@@ -203,13 +196,4 @@
       # Remove this bit to allow downloading workflows from remote sources
       [CRE.WorkflowFetcher]
       URL = "file:///home/chainlink/workflows"
-
-      [Billing]
-      URL = "host.docker.internal:2223"
-      TLSEnabled = false
-
-      [Capabilities.SharedPeering]
-      Enabled = true
-      [Capabilities.Dispatcher]
-      SendToSharedPeer = true
       """

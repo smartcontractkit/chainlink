@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -163,6 +164,7 @@ type AdminPauseAllByOwnerOpInput struct {
 	ChainSelector uint64           `json:"chainSelector"`
 	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
 	Owner         common.Address   `json:"owner"`
+	Limit         *big.Int         `json:"limit"`
 	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
@@ -201,7 +203,7 @@ var AdminPauseAllByOwnerOp = operations.NewOperation(
 
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.AdminPauseAllByOwner(opts, input.Owner)
+			tx, err := registry.AdminPauseAllByOwner(opts, input.Owner, input.Limit)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call AdminPauseAllByOwner: %w", err)
 			}
@@ -229,6 +231,7 @@ type AdminPauseAllByDONOpInput struct {
 	ChainSelector uint64           `json:"chainSelector"`
 	Qualifier     string           `json:"qualifier"` // Qualifier to identify the specific workflow registry
 	DONFamily     string           `json:"donFamily"`
+	Limit         *big.Int         `json:"limit"`
 	MCMSConfig    *ocr3.MCMSConfig `json:"mcmsConfig,omitempty"`
 }
 
@@ -267,7 +270,7 @@ var AdminPauseAllByDONOp = operations.NewOperation(
 
 		// Execute the transaction using the strategy
 		proposals, err := strategy.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			tx, err := registry.AdminPauseAllByDON(opts, input.DONFamily)
+			tx, err := registry.AdminPauseAllByDON(opts, input.DONFamily, input.Limit)
 			if err != nil {
 				return nil, fmt.Errorf("failed to call AdminPauseAllByDON: %w", err)
 			}

@@ -16,12 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type Syncer interface {
@@ -65,9 +65,7 @@ type registrySyncer struct {
 
 var _ services.Service = &registrySyncer{}
 
-var (
-	defaultTickInterval = 12 * time.Second
-)
+var defaultTickInterval = 12 * time.Second
 
 // New instantiates a new RegistrySyncer
 func New(
@@ -118,12 +116,12 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 }
 
 // buildV2ContractReaderConfig creates the contract reader configuration for V2 capabilities registry
-func buildV2ContractReaderConfig() evmrelaytypes.ChainReaderConfig {
-	return evmrelaytypes.ChainReaderConfig{
-		Contracts: map[string]evmrelaytypes.ChainContractReader{
+func buildV2ContractReaderConfig() config.ChainReaderConfig {
+	return config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			"CapabilitiesRegistry": {
 				ContractABI: capabilities_registry_v2.CapabilitiesRegistryABI,
-				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					"getDONs": {
 						ChainSpecificName: "getDONs",
 					},
@@ -230,17 +228,24 @@ func (s *registrySyncer) updateStateLoop() {
 
 func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
 	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
-
-	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, nil, &caps)
+	// TODO support pagination if needed
+	// Using large limit for now to avoid pagination complexity
+	// since we don't expect to have that many capabilities
+	params := struct {
+		Start *big.Int
+		Limit *big.Int
+	}{Start: big.NewInt(0), Limit: big.NewInt(1024)}
+	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, params, &caps)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get latest value for getCapabilities: %w", err)
 	}
 
 	idsToCapabilities := map[string]registrysyncer.Capability{}
 	for _, c := range caps {
 		capabilityType, _, parseErr := parseCapabilityMetadata(c.Metadata)
 		if parseErr != nil {
-			return nil, fmt.Errorf("failed to parse capability metadata for %s: %w", c.CapabilityId, parseErr)
+			s.lggr.Warnw("failed to parse capability metadata, skipping", "capabilityID", c.CapabilityId, "error", parseErr)
+			continue
 		}
 		idsToCapabilities[c.CapabilityId] = registrysyncer.Capability{
 			ID:             c.CapabilityId,
@@ -250,9 +255,9 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 
 	dons := []capabilities_registry_v2.CapabilitiesRegistryDONInfo{}
 
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getDONs"), primitives.Unconfirmed, nil, &dons)
+	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getDONs"), primitives.Unconfirmed, params, &dons)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get latest value for getDONs: %w", err)
 	}
 
 	idsToDONs := map[registrysyncer.DonID]registrysyncer.DON{}
@@ -272,9 +277,9 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 
 	nodes := []capabilities_registry_v2.INodeInfoProviderNodeInfo{}
 
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, nil, &nodes)
+	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, params, &nodes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get latest value for getNodes: %w", err)
 	}
 
 	idsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}
@@ -359,6 +364,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		select {
 		case <-s.stopCh:
 			s.lggr.Debug("sync cancelled, stopping")
+			return nil
 		case s.updateChan <- latestRegistry:
 			// Successfully sent state
 			s.lggr.Debug("remote registry update triggered successfully")
@@ -431,10 +437,8 @@ func (s *registrySyncer) AddListener(listeners ...registrysyncer.Listener) {
 func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
 		close(s.stopCh)
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		close(s.updateChan)
 		s.wg.Wait()
+		close(s.updateChan)
 		return nil
 	})
 }

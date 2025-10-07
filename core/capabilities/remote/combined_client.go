@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -13,30 +14,47 @@ import (
 // The capability can have multiple methods, each one being a trigger or an executable.
 // The CombinedClient holds method-specific shims for each method and forwards capability API calls
 // to them. Responses are passed directly to method-specific shims from the Dispatcher.
+type CombinedClient interface {
+	capabilities.ExecutableAndTriggerCapability
+	SetTriggerSubscriber(method string, subscriber capabilities.TriggerCapability)
+	SetExecutableClient(method string, client capabilities.ExecutableCapability)
+	GetTriggerSubscriber(method string) capabilities.TriggerCapability
+	GetExecutableClient(method string) capabilities.ExecutableCapability
+}
+
 type combinedClient struct {
 	info               capabilities.CapabilityInfo
 	triggerSubscribers map[string]capabilities.TriggerCapability
 	executableClients  map[string]capabilities.ExecutableCapability
+	mu                 sync.RWMutex
 }
 
-var _ capabilities.ExecutableAndTriggerCapability = &combinedClient{}
+var _ CombinedClient = &combinedClient{}
 
 func (c *combinedClient) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	return c.info, nil
 }
 
 func (c *combinedClient) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
-	if _, ok := c.triggerSubscribers[request.Method]; !ok {
+	c.mu.RLock()
+	subscriber, ok := c.triggerSubscribers[request.Method]
+	c.mu.RUnlock()
+
+	if !ok {
 		return nil, fmt.Errorf("method %s not defined", request.Method)
 	}
-	return c.triggerSubscribers[request.Method].RegisterTrigger(ctx, request)
+	return subscriber.RegisterTrigger(ctx, request)
 }
 
 func (c *combinedClient) UnregisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) error {
-	if _, ok := c.triggerSubscribers[request.Method]; !ok {
+	c.mu.RLock()
+	subscriber, ok := c.triggerSubscribers[request.Method]
+	c.mu.RUnlock()
+
+	if !ok {
 		return fmt.Errorf("method %s not defined", request.Method)
 	}
-	return c.triggerSubscribers[request.Method].UnregisterTrigger(ctx, request)
+	return subscriber.UnregisterTrigger(ctx, request)
 }
 
 func (c *combinedClient) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -48,10 +66,14 @@ func (c *combinedClient) UnregisterFromWorkflow(ctx context.Context, request cap
 }
 
 func (c *combinedClient) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-	if _, ok := c.executableClients[request.Method]; !ok {
+	c.mu.RLock()
+	client, ok := c.executableClients[request.Method]
+	c.mu.RUnlock()
+
+	if !ok {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("method %s not defined", request.Method)
 	}
-	return c.executableClients[request.Method].Execute(ctx, request)
+	return client.Execute(ctx, request)
 }
 
 func NewCombinedClient(info capabilities.CapabilityInfo) *combinedClient {
@@ -62,10 +84,26 @@ func NewCombinedClient(info capabilities.CapabilityInfo) *combinedClient {
 	}
 }
 
-func (c *combinedClient) AddTriggerSubscriber(method string, subscriber capabilities.TriggerCapability) {
+func (c *combinedClient) SetTriggerSubscriber(method string, subscriber capabilities.TriggerCapability) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.triggerSubscribers[method] = subscriber
 }
 
-func (c *combinedClient) AddExecutableClient(method string, client capabilities.ExecutableCapability) {
+func (c *combinedClient) SetExecutableClient(method string, client capabilities.ExecutableCapability) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.executableClients[method] = client
+}
+
+func (c *combinedClient) GetTriggerSubscriber(method string) capabilities.TriggerCapability {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.triggerSubscribers[method]
+}
+
+func (c *combinedClient) GetExecutableClient(method string) capabilities.ExecutableCapability {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.executableClients[method]
 }

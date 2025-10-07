@@ -30,7 +30,7 @@ type Config struct {
 	Blockchains       []blockchain.Input              `toml:"blockchains" validate:"required"`
 	NodeSets          []*cre.CapabilitiesAwareNodeSet `toml:"nodesets" validate:"required"`
 	JD                *jd.Input                       `toml:"jd" validate:"required"`
-	Infra             *infra.Input                    `toml:"infra" validate:"required"`
+	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
 	Fake              *fake.Input                     `toml:"fake" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
@@ -96,7 +96,7 @@ func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) er
 }
 
 const (
-	WorkflowRegistryV2Semver   = "2.0.0-dev"
+	WorkflowRegistryV2Semver   = "2.0.0"
 	CapabilityRegistryV2Semver = "2.0.0"
 	DefaultDONFamily           = "test-don-family"
 )

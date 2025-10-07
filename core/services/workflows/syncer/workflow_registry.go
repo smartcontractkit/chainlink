@@ -24,11 +24,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/versioning"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -594,14 +594,37 @@ func (w *workflowRegistry) generateReconciliationEvents(ctx context.Context, pen
 				DonID:         donID,
 				WorkflowName:  engine.WorkflowName,
 			}
-			events = append(events, &reconciliationEvent{
-				Event: Event{
-					Data:      toDeletedEvent,
-					EventType: WorkflowDeletedEvent,
+			events = append(
+				[]*reconciliationEvent{
+					{
+						Event: Event{
+							Data:      toDeletedEvent,
+							EventType: WorkflowDeletedEvent,
+						},
+						signature: signature,
+						id:        id,
+					},
 				},
-				signature: signature,
-				id:        id,
-			})
+				events...,
+			)
+		}
+	}
+
+	// Clean up create events which no longer need to be attempted because
+	// the workflow no longer exists in the workflow registry contract
+
+	for id, event := range pendingEvents {
+		if event.EventType == WorkflowRegisteredEvent {
+			existsInMetadata := false
+			for _, wfMeta := range workflowMetadata {
+				if wfMeta.WorkflowID.Hex() == event.Data.(WorkflowRegisteredV1).WorkflowID.Hex() {
+					existsInMetadata = true
+					break
+				}
+			}
+			if !existsInMetadata {
+				delete(pendingEvents, id)
+			}
 		}
 	}
 
@@ -722,10 +745,10 @@ type sequenceWithEventType struct {
 func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	ctx context.Context,
 ) (types.ContractReader, error) {
-	contractReaderCfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
+	contractReaderCfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			WorkflowRegistryContractName: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
+				ContractPollingFilter: config.ContractPollingFilter{
 					GenericEventNames: []string{
 						string(ForceUpdateSecretsEvent),
 						string(WorkflowActivatedEvent),
@@ -736,33 +759,33 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 					},
 				},
 				ContractABI: workflow_registry_wrapper.WorkflowRegistryABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					GetWorkflowMetadataListByDONMethodName: {
 						ChainSpecificName: GetWorkflowMetadataListByDONMethodName,
 					},
 					string(ForceUpdateSecretsEvent): {
 						ChainSpecificName: string(ForceUpdateSecretsEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowActivatedEvent): {
 						ChainSpecificName: string(WorkflowActivatedEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowDeletedEvent): {
 						ChainSpecificName: string(WorkflowDeletedEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowPausedEvent): {
 						ChainSpecificName: string(WorkflowPausedEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowRegisteredEvent): {
 						ChainSpecificName: string(WorkflowRegisteredEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 					string(WorkflowUpdatedEvent): {
 						ChainSpecificName: string(WorkflowUpdatedEvent),
-						ReadType:          evmtypes.Event,
+						ReadType:          config.Event,
 					},
 				},
 			},

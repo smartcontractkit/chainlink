@@ -8,7 +8,8 @@ jobs:
     name: Auto Update
     runs-on: ubuntu-latest
     steps:
-      - uses: docker://chinthakagodawita/autoupdate-action:v1
+      # XXX: Only use sha256 digests to reference docker images since tags can be mutable.
+      - uses: docker://chinthakagodawita/autoupdate-action@sha256:53d7013ad4689b703d2715d4b17d4901bb0a385e495e0b481f37adbe9b3cc3fc # v1 (2025-10-02)
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           PR_FILTER: "labelled"

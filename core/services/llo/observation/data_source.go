@@ -12,9 +12,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/exp/maps"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -73,22 +70,25 @@ func (e *ErrObservationFailed) Unwrap() error {
 var _ llo.DataSource = &dataSource{}
 
 type dataSource struct {
-	lggr        logger.Logger
-	registry    Registry
-	t           Telemeter
-	shouldCache bool
+	lggr     logger.Logger
+	registry Registry
+	t        Telemeter
+
+	activeSeqNrMu sync.Mutex
+	activeSeqNr   uint64
+	cache         *Cache
 }
 
-func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataSource {
-	return newDataSource(lggr, registry, t, true)
+func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter, c *Cache) llo.DataSource {
+	return newDataSource(lggr, registry, t, c)
 }
 
-func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, shouldCache bool) *dataSource {
+func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, c *Cache) *dataSource {
 	return &dataSource{
-		lggr:        logger.Named(lggr, "DataSource"),
-		registry:    registry,
-		t:           t,
-		shouldCache: shouldCache,
+		lggr:     logger.Named(lggr, "DataSource"),
+		registry: registry,
+		t:        t,
+		cache:    c,
 	}
 }
 
@@ -97,15 +97,26 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	now := time.Now()
 	lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 
+	// stream ids to observe
+	streamIDs := make([]streams.StreamID, 0, len(streamValues))
+	for streamID := range streamValues {
+		streamIDs = append(streamIDs, streamID)
+	}
+
 	if opts.VerboseLogging() {
-		streamIDs := make([]streams.StreamID, 0, len(streamValues))
-		for streamID := range streamValues {
-			streamIDs = append(streamIDs, streamID)
-		}
 		sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
 		lggr = logger.With(lggr, "streamIDs", streamIDs)
 		lggr.Debugw("Observing streams")
 	}
+
+	// update the active seq nr
+	// we track the transmitting sequence number to ensure observations
+	// are cached at the sequence number of the active plugin ocr instance (blue/green)
+	// but can also be used by the passive instance.
+	// In case of cache misses for the passive instance we still run the pipeline
+	// but cache at the last sequence number of the active instance.
+	// this ensures that they are still invalidated at the next transmission.
+	activeSeqNr := d.updateActiveSeqNr(opts)
 
 	var wg sync.WaitGroup
 	wg.Add(len(streamValues))
@@ -137,14 +148,14 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	}
 
 	// Observe all streams concurrently
-	for _, streamID := range maps.Keys(streamValues) {
+	for _, streamID := range streamIDs {
 		go func(streamID llotypes.StreamID) {
 			defer wg.Done()
 			var val llo.StreamValue
 			var err error
 
 			// check for valid cached value before observing
-			if val = d.fromCache(opts.ConfigDigest(), streamID); val == nil {
+			if val = d.cache.Get(streamID); val == nil {
 				// no valid cached value, observe the stream
 				if val, err = oc.Observe(ctx, streamID, opts); err != nil {
 					strmIDStr := strconv.FormatUint(uint64(streamID), 10)
@@ -159,7 +170,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 				}
 
 				// cache the observed value
-				d.toCache(opts.ConfigDigest(), streamID, val, opts.OutCtx().SeqNr)
+				d.cache.Add(streamID, val, activeSeqNr)
 			}
 
 			mu.Lock()
@@ -206,18 +217,22 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	return nil
 }
 
-func (d *dataSource) fromCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID) llo.StreamValue {
-	if d.shouldCache {
-		if streamValue, found := GetCache(configDigest).Get(streamID); found && streamValue != nil {
-			return streamValue
-		}
+func (d *dataSource) updateActiveSeqNr(opts llo.DSOpts) uint64 {
+	if opts.OutcomeCodec() == nil {
+		return opts.OutCtx().SeqNr
 	}
-	return nil
-}
 
-func (d *dataSource) toCache(configDigest ocrtypes.ConfigDigest, streamID llotypes.StreamID, val llo.StreamValue, seqNr uint64) {
-	if d.shouldCache && val != nil {
-		// Use the current sequence number as the cache key
-		GetCache(configDigest).Add(streamID, val, seqNr)
+	outcome, err := opts.OutcomeCodec().Decode(opts.OutCtx().PreviousOutcome)
+	if err != nil {
+		d.lggr.Warnf("failed to decode previous outcome, err: %v", err)
+		return opts.OutCtx().SeqNr
 	}
+
+	d.activeSeqNrMu.Lock()
+	defer d.activeSeqNrMu.Unlock()
+	if outcome.LifeCycleStage == llo.LifeCycleStageProduction {
+		d.activeSeqNr = opts.OutCtx().SeqNr
+	}
+
+	return d.activeSeqNr
 }

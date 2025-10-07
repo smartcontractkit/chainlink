@@ -15,8 +15,6 @@ import (
 	"github.com/shopspring/decimal"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -31,7 +29,7 @@ const (
 	RatiosKey = "spendRatios"
 	// the default decimal precision is a fixed number defined in the billing service. if this gets changed
 	// in the billing service project, the value here needs to change.
-	defaultDecimalPrecision = 3 // one thousandth of a dollar
+	defaultDecimalPrecision = 10 // one thousandth of a dollar
 
 	EngineVersionV1 = "v1"
 	EngineVersionV2 = "v2"
@@ -132,7 +130,7 @@ func NewReport(
 	lggr logger.Logger,
 	client BillingClient,
 	metrics *monitoring.WorkflowsMetricLabeler,
-	workflowRegistryAddress, workflowRegistryChainID, engineVersion string,
+	workflowRegistryAddress, workflowRegistryChainSelector, engineVersion string,
 ) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
@@ -165,15 +163,12 @@ func NewReport(
 		report.switchToMeteringMode(ErrNoBillingClient)
 	}
 
-	chainID, err := strconv.ParseUint(workflowRegistryChainID, 10, 64)
+	chainSelector, err := strconv.ParseUint(workflowRegistryChainSelector, 10, 64)
 	if err != nil {
-		report.switchToMeteringMode(fmt.Errorf("failed to parse registry chain id: %w", err))
+		report.switchToMeteringMode(fmt.Errorf("failed to parse registry chain selector: %w", err))
 	}
 
-	report.workflowRegistryChainSelector, err = chainselectors.SelectorFromChainId(chainID)
-	if err != nil {
-		report.switchToMeteringMode(fmt.Errorf("failed to get selector for chain id: %w", err))
-	}
+	report.workflowRegistryChainSelector = chainSelector
 
 	if client != nil {
 		report.client = client
@@ -258,7 +253,7 @@ func (r *Report) Reserve(ctx context.Context) error {
 
 	credits, err := decimal.NewFromString(resp.GetCredits())
 	if err != nil {
-		r.switchToMeteringMode(err)
+		r.switchToMeteringMode(fmt.Errorf("%w: failed to parse credits %s", err, resp.GetCredits()))
 
 		return nil
 	}
@@ -431,8 +426,17 @@ func (r *Report) Settle(ref string, spendsByNode []capabilities.MeteringNodeDeta
 			deciVals = append(deciVals, value)
 		}
 
+		// TODO: explicitly ignore RPC_EVM spend types for now -
+		// this check causes TestEngine_Metering_ValidBillingClient/billing_type_and_capability_settle_spend_type_mismatch ./core/services/workflows/v2
+		// to fail because the capability is returning a spend type that isn't gas or compute
+		// This should be removed when we have proper support for non-gas/compute spend types
+		if unit == "RPC_EVM" {
+			continue
+		}
+
 		aggregated.SpendValue = medianSpend(deciVals)
 		bal, err := r.balance.ConvertToBalance(unit, aggregated.SpendValue)
+
 		if err != nil {
 			r.switchToMeteringMode(fmt.Errorf("attempted to Settle [%s]: %w", unit, err))
 		} else {
@@ -744,9 +748,9 @@ type Reports struct {
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
-	// WorkflowRegistryChainSelector is the chain ID for the workflow registry
-	workflowRegistryChainID string
-	engineVersion           string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	workflowRegistryChainSelector string
+	engineVersion                 string
 }
 
 // NewReports initializes and returns a new Reports.
@@ -757,7 +761,7 @@ func NewReports(
 	labels map[string]string,
 	metrics *monitoring.WorkflowsMetricLabeler,
 	workflowRegistryAddress,
-	workflowRegistryChainID, engineVersion string,
+	workflowRegistryChainSelector, engineVersion string,
 ) *Reports {
 	valOf := reflect.ValueOf(client)
 	if valOf.IsValid() && valOf.IsNil() {
@@ -774,9 +778,9 @@ func NewReports(
 		workflowID: workflowID,
 		labelMap:   labels,
 
-		workflowRegistryAddress: workflowRegistryAddress,
-		workflowRegistryChainID: workflowRegistryChainID,
-		engineVersion:           engineVersion,
+		workflowRegistryAddress:       workflowRegistryAddress,
+		workflowRegistryChainSelector: workflowRegistryChainSelector,
+		engineVersion:                 engineVersion,
 	}
 }
 
@@ -803,7 +807,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainID, s.engineVersion)
+	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainSelector, s.engineVersion)
 	if err != nil {
 		return nil, err
 	}

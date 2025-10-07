@@ -13,8 +13,8 @@ import (
 
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 
 // DecoderHooks
@@ -45,10 +45,10 @@ var DecoderHooks = []mapstructure.DecodeHookFunc{
 // It means that if you need to use a [codec.Modifier] to reference a field
 // you need to use the Go name instead of the name on-chain.
 // eg: rename FooBar -> Bar, not foo_bar_ to Bar if the name on-chain is foo_bar_
-func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
+func NewCodec(conf config.CodecConfig) (commontypes.RemoteCodec, error) {
 	parsed := &ParsedTypes{
-		EncoderDefs: map[string]types.CodecEntry{},
-		DecoderDefs: map[string]types.CodecEntry{},
+		EncoderDefs: map[string]evmtypes.CodecEntry{},
+		DecoderDefs: map[string]evmtypes.CodecEntry{},
 	}
 
 	for k, v := range conf.Configs {
@@ -62,7 +62,7 @@ func NewCodec(conf types.CodecConfig) (commontypes.RemoteCodec, error) {
 			return nil, err
 		}
 
-		item := types.NewCodecEntry(args, nil, mod)
+		item := evmtypes.NewCodecEntry(args, nil, mod)
 		if err = item.Init(); err != nil {
 			return nil, err
 		}
@@ -81,7 +81,7 @@ type evmCodec struct {
 }
 
 func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
-	var itemTypes map[string]types.CodecEntry
+	var itemTypes map[string]evmtypes.CodecEntry
 	if forEncoding {
 		itemTypes = c.EncoderDefs
 	} else {
@@ -112,13 +112,13 @@ func WrapItemType(contractName, itemType string, isParams bool) string {
 var bigIntType = reflect.TypeOf((*big.Int)(nil))
 
 func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
-	if from.Implements(types.SizedBigIntType()) &&
-		!to.Implements(types.SizedBigIntType()) &&
-		!reflect.PointerTo(to).Implements(types.SizedBigIntType()) {
+	if from.Implements(evmtypes.SizedBigIntType()) &&
+		!to.Implements(evmtypes.SizedBigIntType()) &&
+		!reflect.PointerTo(to).Implements(evmtypes.SizedBigIntType()) {
 		return commoncodec.BigIntHook(from, bigIntType, reflect.ValueOf(data).Convert(bigIntType).Interface())
 	}
 
-	if !to.Implements(types.SizedBigIntType()) {
+	if !to.Implements(evmtypes.SizedBigIntType()) {
 		return data, nil
 	}
 
@@ -140,7 +140,7 @@ func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
 		to = reflect.PointerTo(to)
 	}
 
-	converted := reflect.ValueOf(bi).Convert(to).Interface().(types.SizedBigInt)
+	converted := reflect.ValueOf(bi).Convert(to).Interface().(evmtypes.SizedBigInt)
 	return converted, converted.Verify()
 }
 
