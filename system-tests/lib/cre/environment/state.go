@@ -120,21 +120,10 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			allNodeIDs = append(allNodeIDs, id)
 		}
 
-		donMetadata := topology.DonsMetadata.List()[idx]
-		supportedChains, sErr := cre.FindDONsSupportedChains(donMetadata, wrappedBlockchainOutputs)
-		if sErr != nil {
-			return nil, nil, errors.Wrapf(sErr, "failed to find supported chains for don %s", don.DonName)
-		}
-
-		startedDON, donErr := cre.NewDON(ctx, donMetadata, cachedInput.NodeSets[idx].Out.CLNodes)
+		startedDON, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], cachedInput.NodeSets[idx].Out.CLNodes)
 		if donErr != nil {
 			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)
 		}
-
-		if err := startedDON.RegisterWithJD(ctx, supportedChains, offChain); err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to register don %s with JD", don.DonName)
-		}
-
 		dons = append(dons, startedDON)
 	}
 
@@ -165,6 +154,19 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		focr.XXXGenerateTestOCRSecrets(),
 		blockChains,
 	)
+
+	linkDonsToJDInput := &cre.LinkDonsToJDInput{
+		JDClient:          offChain,
+		BlockchainOutputs: wrappedBlockchainOutputs,
+		CldfEnvironment:   cldEnv,
+		Topology:          topology,
+		DONs:              dons,
+	}
+	var linkErr error
+	cldEnv, linkErr = cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	if linkErr != nil {
+		return nil, nil, errors.Wrap(linkErr, "failed to link dons to JD")
+	}
 
 	return &cre.Environment{
 		CldfEnvironment: cldEnv,

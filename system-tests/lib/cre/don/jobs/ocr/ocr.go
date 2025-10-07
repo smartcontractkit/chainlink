@@ -146,7 +146,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 				nodeAddress := transmitterAddress
 				logger.Debug().Msgf("Deployed node on chain %d/%d at %s", chainID, chain.Selector, nodeAddress)
 
-				bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", bootstrapNode.Keys.CleansedPeerID(), bootstrapNode.Host, cre.OCRPeeringPort)}
+				bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.OCRPeeringPort)}
 
 				strategyName := "single-chain"
 				if len(workerNode.Keys.OCR2BundleIDs) > 1 {

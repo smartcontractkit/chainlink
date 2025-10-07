@@ -2,6 +2,7 @@ package cre
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -52,7 +53,7 @@ func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provid
 	if donsMetadata.RequiresGateway() {
 		topology.GatewayConnectorOutput = NewGatewayConnectorOutput()
 		for _, d := range donsMetadata.List() {
-			if _, isGateway := d.Gateway(); isGateway {
+			if _, hasGateway := d.Gateway(); hasGateway {
 				gc, err := d.GatewayConfig(provider)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get gateway config for DON %s: %w", d.Name, err)
@@ -109,11 +110,11 @@ func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
 
 type PeeringNode interface {
 	GetHost() string
-	CleansedPeerID() string
+	PeerID() string
 }
 
 func PeeringCfgs(bt PeeringNode) (CapabilitiesPeeringData, OCRPeeringData, error) {
-	p := bt.CleansedPeerID()
+	p := strings.TrimPrefix(bt.PeerID(), "p2p_")
 	if p == "" {
 		return CapabilitiesPeeringData{}, OCRPeeringData{}, errors.New("cannot create peering configs, node has no P2P key")
 	}
