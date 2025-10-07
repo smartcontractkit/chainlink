@@ -1091,7 +1091,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := memory.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		contractVersion := "c3da1aa11ac209b7b5871d6e817f9d62f8807b87"
+		// TODO: full commit hash doesn't work?
+		// contractVersion := "c3da1aa11ac209b7b5871d6e817f9d62f8807b87"
+		contractVersion := "c3da1aa11ac2"
 		// Allow overriding with a custom version, it's set to "local" on chainlink-ton CI
 		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
 			contractVersion = version
