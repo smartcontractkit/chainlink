@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -213,6 +214,7 @@ func TestRMN_DifferentSigners(t *testing.T) {
 }
 
 func TestRMN_NotEnoughSigners(t *testing.T) {
+	quarantine.Flaky(t, "DX-2045")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "different signers and different observers",
 		passIfNoCommitAfter: 15 * time.Second,
