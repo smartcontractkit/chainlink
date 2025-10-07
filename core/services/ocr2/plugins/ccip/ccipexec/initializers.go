@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/statuschecker"
+	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 
 	"github.com/Masterminds/semver/v3"
 

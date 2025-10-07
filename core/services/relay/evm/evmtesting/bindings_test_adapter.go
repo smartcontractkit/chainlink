@@ -17,9 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	bindings2 "github.com/smartcontractkit/chainlink-evm/pkg/bindings"
+	evmcodec "github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	bindings2 "github.com/smartcontractkit/chainlink/v2/evm/bindings"
-	evmcodec "github.com/smartcontractkit/chainlink/v2/evm/codec"
 )
 
 const contractName = "ChainReaderTester"

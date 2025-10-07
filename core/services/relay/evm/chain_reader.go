@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	codec2 "github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	codec2 "github.com/smartcontractkit/chainlink/v2/evm/codec"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"

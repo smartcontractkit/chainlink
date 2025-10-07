@@ -22,8 +22,8 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	config2 "github.com/smartcontractkit/chainlink-evm/pkg/config"
+	llo2 "github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	llo2 "github.com/smartcontractkit/chainlink/v2/evm/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"

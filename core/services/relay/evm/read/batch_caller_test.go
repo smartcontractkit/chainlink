@@ -14,11 +14,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
-	"github.com/smartcontractkit/chainlink/v2/evm/codec"
 )
 
 func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
