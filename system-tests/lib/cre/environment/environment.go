@@ -207,7 +207,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
 	}
 
-	startedDONs, donStartErr := worker.AwaitAs[StartedDONs](ctx, donsStartedFuture)
+	startedDONs, donStartErr := worker.AwaitAs[*StartedDONs](ctx, donsStartedFuture)
 	if donStartErr != nil {
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}

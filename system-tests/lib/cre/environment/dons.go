@@ -134,9 +134,11 @@ func StartDONs(
 	var resultMap sync.Map
 
 	for idx, nodeSetInput := range capabilitiesAwareNodeSets {
-		startTime := time.Now()
-		lggr.Info().Msgf("Starting DON named %s", nodeSetInput.Name)
+		idx := idx
+		nodeSetInput := nodeSetInput
 		errGroup.Go(func() error {
+			startTime := time.Now()
+			lggr.Info().Msgf("Starting DON named %s", nodeSetInput.Name)
 			nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, registryChainBlockchainOutput)
 			if nodesetErr != nil {
 				return pkgerrors.Wrapf(nodesetErr, "failed to start nodeSet named %s", nodeSetInput.Name)
@@ -154,12 +156,6 @@ func StartDONs(
 					Capabilities: nodeSetInput.ComputedCapabilities,
 				},
 				DON: don,
-			})
-
-			resultMap.Store(idx, &cre.WrappedNodeOutput{
-				Output:       nodeset,
-				NodeSetName:  nodeSetInput.Name,
-				Capabilities: nodeSetInput.ComputedCapabilities,
 			})
 
 			lggr.Info().Msgf("DON %s started in %.2f seconds", nodeSetInput.Name, time.Since(startTime).Seconds())
