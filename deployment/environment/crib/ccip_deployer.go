@@ -65,7 +65,7 @@ const (
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
 // Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, cldf.AddressBook, error) {
-	lggr.Info("Deploying home chain contracts... with solana multi message root")
+	lggr.Info("Deploying home chain contracts...")
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, nil, err
@@ -187,7 +187,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// ------ Part 1 -----
 
 	// ----- Part 2 -----
-	lggr.Infow("setting up ocr... with solana multi message root")
+	lggr.Infow("setting up ocr...")
 	*e, err = mustOCR(e, homeChainSel, feedChainSel, true, rmnEnabled)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply OCR changesets: %w", err)
