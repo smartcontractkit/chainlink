@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestOCR2TaskJobSpec_String(t *testing.T) {
@@ -24,8 +24,8 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 					RelayConfig: map[string]interface{}{
 						"chainID":   1337,
 						"fromBlock": 42,
-						"chainReader": evmtypes.ChainReaderConfig{
-							Contracts: map[string]evmtypes.ChainContractReader{
+						"chainReader": config.ChainReaderConfig{
+							Contracts: map[string]config.ChainContractReader{
 								"median": {
 									ContractABI: `[
   {
@@ -43,7 +43,7 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
   }
 ]
 `,
-									Configs: map[string]*evmtypes.ChainReaderDefinition{
+									Configs: map[string]*config.ChainReaderDefinition{
 										"LatestTransmissionDetails": {
 											ChainSpecificName: "latestTransmissionDetails",
 											OutputModifications: codec.ModifiersConfig{
@@ -60,14 +60,14 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 										},
 										"LatestRoundRequested": {
 											ChainSpecificName: "RoundRequested",
-											ReadType:          evmtypes.Event,
+											ReadType:          config.Event,
 										},
 									},
 								},
 							},
 						},
-						"codec": evmtypes.CodecConfig{
-							Configs: map[string]evmtypes.ChainCodecConfig{
+						"codec": config.CodecConfig{
+							Configs: map[string]config.ChainCodecConfig{
 								"MedianReport": {
 									TypeABI: `[
   {

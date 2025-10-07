@@ -18,8 +18,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -89,7 +89,7 @@ func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*Engine
 }
 
 func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
-	cfg := cresettings.Default.PerWorkflow
+	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}

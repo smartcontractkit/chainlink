@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -42,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 const chainID = 1337
@@ -55,7 +55,7 @@ func NewReader(
 	headTracker logpoller.HeadTracker,
 	client client.Client,
 	address common.Address,
-	chainReaderConfig evmrelaytypes.ChainReaderConfig,
+	chainReaderConfig config.ChainReaderConfig,
 ) types.ContractReader {
 	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Test(t), logPoller, headTracker, client, chainReaderConfig)
 	require.NoError(t, err)
@@ -157,7 +157,7 @@ func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) Test
 }
 
 func (t TestUniverse) NewContractReader(ctx context.Context, cfg []byte) (types.ContractReader, error) {
-	var config evmrelaytypes.ChainReaderConfig
+	var config config.ChainReaderConfig
 	err := json.Unmarshal(cfg, &config)
 	require.NoError(t.TestingT, err)
 	return evm.NewChainReaderService(ctx, logger.Test(t.TestingT), t.LogPoller, t.HeadTracker, t.SimClient, config)

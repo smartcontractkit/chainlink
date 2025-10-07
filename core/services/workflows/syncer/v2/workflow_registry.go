@@ -19,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
 
@@ -572,18 +572,18 @@ func validateWorkflowMetadata(wfMeta workflow_registry_wrapper_v2.WorkflowRegist
 func (w *workflowRegistry) newWorkflowRegistryContractReader(
 	ctx context.Context,
 ) (types.ContractReader, error) {
-	contractReaderCfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
+	contractReaderCfg := config.ChainReaderConfig{
+		Contracts: map[string]config.ChainContractReader{
 			WorkflowRegistryContractName: {
 				ContractABI: workflow_registry_wrapper_v2.WorkflowRegistryABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
+				Configs: map[string]*config.ChainReaderDefinition{
 					GetWorkflowsByDONMethodName: {
 						ChainSpecificName: GetWorkflowsByDONMethodName,
-						ReadType:          evmtypes.Method,
+						ReadType:          config.Method,
 					},
 					GetAllowlistedRequestsMethodName: {
 						ChainSpecificName: GetAllowlistedRequestsMethodName,
-						ReadType:          evmtypes.Method,
+						ReadType:          config.Method,
 					},
 				},
 			},

@@ -56,11 +56,11 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	addressCodecMap := make(map[string]ChainSpecificAddressCodec)
 	chainRWProviderMap := make(map[string]ChainRWProvider)
-	CCIPProviderSupported := make(map[string]bool)
+	looppSupported := make(map[string]bool)
 
 	for family, initFunc := range registeredFactories {
 		config := initFunc(lggr, GetExtraDataCodecRegistry())
-		CCIPProviderSupported[family] = config.CCIPProviderSupported
+		looppSupported[family] = config.CCIPProviderSupported
 
 		extraDataCodecRegistry.RegisterFamilyNoopCodec(family)
 		if config.ExtraDataCodec != nil {
@@ -79,6 +79,6 @@ func GetPluginServices(lggr logger.Logger, chainFamily string) (PluginServices, 
 
 	pluginServices.AddrCodec = NewAddressCodec(addressCodecMap)
 	pluginServices.ChainRW = NewCRCW(chainRWProviderMap)
-	pluginServices.CCIPProviderSupported = CCIPProviderSupported
+	pluginServices.CCIPProviderSupported = looppSupported
 	return pluginServices, nil
 }

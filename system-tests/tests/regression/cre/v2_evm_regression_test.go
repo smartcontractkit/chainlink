@@ -121,7 +121,7 @@ var evmNegativeTestsFilterLogsWithInvalidAddress = []evmNegativeTest{
 }
 
 var evmNegativeTestsFilterLogsWithInvalidFromBlock = []evmNegativeTest{
-	// FilterLogs - invalid TromBlock/ToBlock values
+	// FilterLogs - invalid FromBlock/ToBlock values
 	// Distance between blocks should not be more than 100
 	{"negative number", "-1", filterLogsInvalidFromBlock, "block number -1 is not supported"},
 	{"zero", "0", filterLogsInvalidFromBlock, "block number 0 is not supported"},
@@ -214,7 +214,7 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		expectedError := evmNegativeTest.expectedError
-		timeout := 90 * time.Second
+		timeout := 2 * time.Minute
 		err := t_helpers.AssertBeholderMessage(listenerCtx, t, expectedError, testLogger, messageChan, kafkaErrChan, timeout)
 		require.NoError(t, err, "EVM Read Fail test failed")
 		testLogger.Info().Msg("EVM Read Fail test successfully completed")

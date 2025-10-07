@@ -13,14 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/codec"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 )
 
 // ClientWithContractHistory makes it possible to modify client.Client CallContract so that it returns historical data.
@@ -31,7 +29,7 @@ type ClientWithContractHistory struct {
 	codec clcommontypes.RemoteCodec
 }
 
-func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.ChainReaderConfig) error {
+func (cwh *ClientWithContractHistory) Init(_ context.Context, chainReaderConfig config.ChainReaderConfig) error {
 	cwh.valsWithCall = make(map[int64]valWithCall)
 	parsedTypes := codec.ParsedTypes{
 		EncoderDefs: make(map[string]evmtypes.CodecEntry),
@@ -39,14 +37,14 @@ func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.Chain
 	}
 
 	// setup codec for method calls
-	for contractName, contractCfg := range config.Contracts {
+	for contractName, contractCfg := range chainReaderConfig.Contracts {
 		contractAbi, err := abi.JSON(strings.NewReader(contractCfg.ContractABI))
 		if err != nil {
 			return err
 		}
 
 		for genericName, readDef := range contractCfg.Configs {
-			if readDef.ReadType == types.Event {
+			if readDef.ReadType == config.Event {
 				continue
 			}
 
