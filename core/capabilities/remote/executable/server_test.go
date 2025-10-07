@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -315,6 +316,12 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration,
 	messageHasher remotetypes.MessageHasher) ([]*serverTestClient, []services.Service) {
 	lggr := logger.Test(t)
+	if config.RequestTimeout == 0 {
+		config.RequestTimeout = capabilityNodeResponseTimeout
+	}
+	if config.ServerMaxParallelRequests == 0 {
+		config.ServerMaxParallelRequests = 10
+	}
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -362,8 +369,6 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, lggr)
-		config.RequestTimeout = capabilityNodeResponseTimeout
-		config.ServerMaxParallelRequests = 10
 		require.NoError(t, capabilityNode.SetConfig(config, underlying, capInfo, capDonInfo, workflowDONs, messageHasher))
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
@@ -438,7 +443,6 @@ func (r *serverTestClient) Execute(ctx context.Context, req commoncap.Capability
 	return nil, nil
 }
 
-// Test_Server_SetConfig tests the SetConfig method with various scenarios
 func Test_Server_SetConfig(t *testing.T) {
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
@@ -504,9 +508,68 @@ func Test_Server_SetConfig(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "underlying capability cannot be nil")
 	})
+
+	t.Run("empty local DON members should fail", func(t *testing.T) {
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+		emptyLocalDon := commoncap.DON{
+			ID:      1,
+			Members: []p2ptypes.PeerID{},
+			F:       0,
+		}
+		config := &commoncap.RemoteExecutableConfig{
+			RequestTimeout:            10 * time.Second,
+			ServerMaxParallelRequests: 5,
+		}
+		err := server.SetConfig(config, underlying, capInfo, emptyLocalDon, workflowDONs, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "empty localDonInfo provided")
+	})
+
+	t.Run("nil message hasher should use default", func(t *testing.T) {
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+		config := &commoncap.RemoteExecutableConfig{
+			RequestTimeout:            10 * time.Second,
+			ServerMaxParallelRequests: 5,
+		}
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("zero timeout should fail", func(t *testing.T) {
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+		config := &commoncap.RemoteExecutableConfig{
+			RequestTimeout:            0,
+			ServerMaxParallelRequests: 5,
+		}
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "RequestTimeout must be positive")
+	})
+
+	t.Run("zero max parallel requests should fail", func(t *testing.T) {
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+		config := &commoncap.RemoteExecutableConfig{
+			RequestTimeout:            10 * time.Second,
+			ServerMaxParallelRequests: 0,
+		}
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "ServerMaxParallelRequests must be positive")
+	})
+
+	t.Run("empty workflow DONs should fail", func(t *testing.T) {
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+		emptyWorkflowDONs := map[uint32]commoncap.DON{}
+		config := &commoncap.RemoteExecutableConfig{
+			RequestTimeout:            10 * time.Second,
+			ServerMaxParallelRequests: 5,
+		}
+		err := server.SetConfig(config, underlying, capInfo, localDonInfo, emptyWorkflowDONs, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "empty workflowDONs provided")
+	})
 }
 
-// Test_Server_SetConfig_ConfigReplacement tests that SetConfig properly replaces existing configuration
 func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
@@ -564,7 +627,6 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Test_Server_SetConfig_StartValidation tests that Start() validates the configuration
 func Test_Server_SetConfig_StartValidation(t *testing.T) {
 	ctx := testutils.Context(t)
 
@@ -624,4 +686,317 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 		err = server.Close()
 		require.NoError(t, err)
 	})
+}
+
+func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+	peerID := NewP2PPeerID(t)
+	broker := newTestAsyncMessageBroker(t, 100)
+	dispatcher := broker.NewDispatcherForNode(peerID)
+	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "test-capability-id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Test capability",
+	}
+
+	localDonInfo := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{peerID},
+		F:       0,
+	}
+
+	workflowPeer1 := NewP2PPeerID(t)
+	workflowPeer2 := NewP2PPeerID(t)
+	workflowDONs := map[uint32]commoncap.DON{
+		2: {
+			ID:      2,
+			Members: []p2ptypes.PeerID{workflowPeer1},
+			F:       0,
+		},
+	}
+
+	underlying := &TestSlowExecutionCapability{
+		workflowIDToPause: map[string]time.Duration{
+			workflowID1: 1 * time.Second,
+		},
+	}
+
+	config := &commoncap.RemoteExecutableConfig{
+		RequestTimeout:            10 * time.Second,
+		ServerMaxParallelRequests: 5,
+	}
+	err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+	require.NoError(t, err)
+
+	// Set up workflow node before starting servers
+	workflowDispatcher := broker.NewDispatcherForNode(workflowPeer1)
+	workflowNode := newServerTestClient(workflowPeer1, localDonInfo, workflowDispatcher)
+	broker.RegisterReceiverNode(workflowPeer1, workflowNode)
+	broker.RegisterReceiverNode(peerID, server)
+
+	err = server.Start(ctx)
+	require.NoError(t, err)
+	err = broker.Start(ctx)
+	require.NoError(t, err)
+
+	// Start a request
+	_, err = workflowNode.Execute(context.Background(), commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID:          workflowID1,
+			WorkflowExecutionID: workflowExecutionID1,
+		},
+	})
+	require.NoError(t, err)
+
+	// Change DON membership while request is in flight
+	time.Sleep(100 * time.Millisecond)
+	newWorkflowDONs := map[uint32]commoncap.DON{
+		2: {
+			ID:      2,
+			Members: []p2ptypes.PeerID{workflowPeer1, workflowPeer2},
+			F:       0,
+		},
+	}
+	err = server.SetConfig(config, underlying, capInfo, localDonInfo, newWorkflowDONs, nil)
+	require.NoError(t, err)
+
+	// Original request should still complete
+	select {
+	case msg := <-workflowNode.receivedMessages:
+		assert.NotNil(t, msg)
+	case <-time.After(5 * time.Second):
+		t.Fatal("request did not complete after DON change")
+	}
+
+	// Clean up
+	require.NoError(t, server.Close())
+	require.NoError(t, broker.Close())
+}
+
+func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+	peerID := NewP2PPeerID(t)
+	broker := newTestAsyncMessageBroker(t, 100)
+	dispatcher := broker.NewDispatcherForNode(peerID)
+	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "test-capability-id",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Test capability",
+	}
+
+	localDonInfo := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{peerID},
+		F:       0,
+	}
+
+	workflowDONs := map[uint32]commoncap.DON{
+		2: {
+			ID:      2,
+			Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+			F:       0,
+		},
+	}
+
+	underlying := &TestCapability{}
+	config := &commoncap.RemoteExecutableConfig{
+		RequestTimeout:            10 * time.Second,
+		ServerMaxParallelRequests: 5,
+	}
+
+	err := server.SetConfig(config, underlying, capInfo, localDonInfo, workflowDONs, nil)
+	require.NoError(t, err)
+	err = server.Start(ctx)
+	require.NoError(t, err)
+
+	// Concurrently call SetConfig and Close
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := range 50 {
+			newConfig := &commoncap.RemoteExecutableConfig{
+				RequestTimeout:            time.Duration(5+i) * time.Millisecond,
+				ServerMaxParallelRequests: 5,
+			}
+			_ = server.SetConfig(newConfig, underlying, capInfo, localDonInfo, workflowDONs, nil)
+			time.Sleep(1 * time.Millisecond)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		time.Sleep(25 * time.Millisecond)
+		_ = server.Close()
+	}()
+
+	wg.Wait()
+	// Test passes if no panic occurs
+}
+
+func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+	numWorkflowPeers := 4
+
+	peerID := NewP2PPeerID(t)
+	capabilityPeers := []p2ptypes.PeerID{peerID}
+
+	capDonInfo := commoncap.DON{
+		ID:      1,
+		Members: capabilityPeers,
+		F:       0,
+	}
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id@1.0.0",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Target",
+		DON:            &capDonInfo,
+	}
+
+	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
+	for i := range numWorkflowPeers {
+		workflowPeers[i] = NewP2PPeerID(t)
+	}
+
+	workflowDonInfo := commoncap.DON{
+		Members: workflowPeers,
+		ID:      2,
+		F:       1,
+	}
+
+	broker := newTestAsyncMessageBroker(t, 1000)
+	err := broker.Start(context.Background())
+	require.NoError(t, err)
+	defer broker.Close()
+
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+
+	// Create and set up server
+	dispatcher := broker.NewDispatcherForNode(peerID)
+	server := executable.NewServer(capInfo.ID, "", peerID, dispatcher, lggr)
+
+	underlying := &TestSlowExecutionCapability{
+		workflowIDToPause: map[string]time.Duration{
+			workflowID1: 50 * time.Millisecond,
+		},
+	}
+
+	initialConfig := &commoncap.RemoteExecutableConfig{
+		RequestTimeout:            10 * time.Second,
+		ServerMaxParallelRequests: 10,
+	}
+	err = server.SetConfig(initialConfig, underlying, capInfo, capDonInfo, workflowDONs, nil)
+	require.NoError(t, err)
+
+	err = server.Start(ctx)
+	require.NoError(t, err)
+	defer server.Close()
+
+	broker.RegisterReceiverNode(peerID, server)
+
+	// Create workflow nodes (callers)
+	workflowNodes := make([]*serverTestClient, numWorkflowPeers)
+	for i := range numWorkflowPeers {
+		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
+		workflowNode := newServerTestClient(workflowPeers[i], capDonInfo, workflowPeerDispatcher)
+		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)
+		workflowNodes[i] = workflowNode
+	}
+
+	var wg sync.WaitGroup
+	numExecuteCalls := 20
+	numSetConfigCalls := 10
+
+	// Track successful responses
+	responseCount := sync.Map{}
+
+	// Start goroutine for concurrent SetConfig calls with randomized delays
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := range numSetConfigCalls {
+			// Random delay between 5-50ms
+			delay := time.Duration(5+i*2) * time.Millisecond
+			time.Sleep(delay)
+
+			newConfig := &commoncap.RemoteExecutableConfig{
+				RequestTimeout:            time.Duration(10+i) * time.Second,
+				ServerMaxParallelRequests: uint32(5),
+			}
+			assert.NoError(t, server.SetConfig(newConfig, underlying, capInfo, capDonInfo, workflowDONs, nil))
+		}
+	}()
+
+	// Start multiple goroutines for concurrent Execute calls with randomized delays
+	for callerIdx, caller := range workflowNodes {
+		for execIdx := range numExecuteCalls {
+			wg.Add(1)
+			go func(callerID int, execID int, node *serverTestClient) {
+				defer wg.Done()
+
+				// Random delay between 0-100ms
+				delay := time.Duration(execID*5) * time.Millisecond
+				time.Sleep(delay)
+
+				workflowExecutionID := fmt.Sprintf("exec-%d", execID)
+				_, err := node.Execute(context.Background(),
+					commoncap.CapabilityRequest{
+						Metadata: commoncap.RequestMetadata{
+							WorkflowID:          workflowID1,
+							WorkflowExecutionID: workflowExecutionID,
+						},
+					})
+				if err != nil {
+					t.Logf("Execute error for caller %d exec %d: %v", callerID, execID, err)
+				}
+			}(callerIdx, execIdx, caller)
+		}
+	}
+
+	// Collect responses
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		expectedResponses := numWorkflowPeers * numExecuteCalls
+
+		for i := range expectedResponses {
+			// Try to receive from all callers
+			for _, caller := range workflowNodes {
+				select {
+				case msg := <-caller.receivedMessages:
+					if msg.Error == remotetypes.Error_OK {
+						count, _ := responseCount.LoadOrStore("success", 0)
+						responseCount.Store("success", count.(int)+1)
+					} else {
+						count, _ := responseCount.LoadOrStore("error", 0)
+						responseCount.Store("error", count.(int)+1)
+					}
+				case <-time.After(15 * time.Second):
+					t.Logf("Timeout waiting for response %d/%d", i+1, expectedResponses)
+					return
+				}
+			}
+		}
+	}()
+
+	wg.Wait()
+
+	// Verify we received responses (most should succeed)
+	successCount := 0
+	if val, ok := responseCount.Load("success"); ok {
+		successCount = val.(int)
+	}
+	expectedResponses := numWorkflowPeers * numExecuteCalls
+	require.Equal(t, expectedResponses, successCount)
 }

@@ -107,6 +107,9 @@ func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableCon
 	if len(localDonInfo.Members) == 0 {
 		return errors.New("empty localDonInfo provided")
 	}
+	if len(workflowDONs) == 0 {
+		return errors.New("empty workflowDONs provided")
+	}
 	if remoteExecutableConfig.RequestTimeout <= 0 {
 		return errors.New("cfg.RequestTimeout must be positive")
 	}
