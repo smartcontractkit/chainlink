@@ -126,12 +126,16 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			return nil, nil, errors.Wrapf(sErr, "failed to find supported chains for don %s", don.DonName)
 		}
 
-		registeredDon, donErr := cre.NewDON(ctx, donMetadata, cachedInput.NodeSets[idx].Out.CLNodes, supportedChains, offChain)
+		startedDON, donErr := cre.NewDON(ctx, donMetadata, cachedInput.NodeSets[idx].Out.CLNodes)
 		if donErr != nil {
 			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)
 		}
 
-		dons = append(dons, registeredDon)
+		if err := startedDON.RegisterWithJD(ctx, supportedChains, offChain); err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to register don %s with JD", don.DonName)
+		}
+
+		dons = append(dons, startedDON)
 	}
 
 	chainConfigs := make([]cre.ChainConfig, 0, len(wrappedBlockchainOutputs))

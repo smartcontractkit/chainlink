@@ -183,7 +183,8 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs and linking them to JD")))
 
-	jdOutput, nodeSetOutput, donJDErr := StartDONsAndJD(
+	startedJD, startedDONs, donJDErr := StartDONsAndJD(
+		ctx,
 		testLogger,
 		input.JdInput,
 		startBlockchainsOutput.RegistryChain().BlockchainOutput,
@@ -198,20 +199,20 @@ func SetupTestEnvironment(
 	}
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JdOutput:          jdOutput,
+		JDClient:          startedJD.Client,
 		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
-		NodeSetOutput:     nodeSetOutput,
 		CldfEnvironment:   deployKeystoneContractsOutput.Env,
 		Topology:          topology,
+		DONs:              startedDONs.DONs(),
 	}
 
-	cldfEnvironment, dons, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	cldfEnvironment, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
 	creEnvironment := &cre.Environment{
 		CldfEnvironment: cldfEnvironment,
-		DonTopology:     cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(dons)),
+		DonTopology:     cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(startedDONs.DONs())),
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -283,7 +284,7 @@ func SetupTestEnvironment(
 
 	// Wait for Log Poller to be up and running. If it misses the ConfigSet event, OCR protocol will not start.
 	// TODO: we might want to add similar checks for other OCR3 contracts.
-	if err := waitForLogPollerToBeHealthy(updatedNodeSets, nodeSetOutput); err != nil {
+	if err := waitForLogPollerToBeHealthy(updatedNodeSets, startedDONs.NodeOutputs()); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for Log Poller to become healthy")
 	}
 
@@ -349,7 +350,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
 
-	appendOutputsToInput(input, nodeSetOutput, startBlockchainsOutput, jdOutput)
+	appendOutputsToInput(input, startedDONs.NodeOutputs(), startBlockchainsOutput, startedJD.JDOutput)
 
 	if err := workflowRegistryConfigurationOutput.Store(config.MustWorkflowRegistryStateFileAbsPath(relativePathToRepoRoot)); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to store workflow registry configuration output")
@@ -359,7 +360,7 @@ func SetupTestEnvironment(
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
 		BlockchainOutput:                    startBlockchainsOutput.BlockChainOutputs,
 		DonTopology:                         creEnvironment.DonTopology,
-		NodeOutput:                          nodeSetOutput,
+		NodeOutput:                          startedDONs.NodeOutputs(),
 		CldEnvironment:                      creEnvironment.CldfEnvironment,
 		S3ProviderOutput:                    s3Output,
 	}, nil

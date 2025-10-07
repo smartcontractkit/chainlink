@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,7 +11,9 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials/insecure"
 
+	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
@@ -22,11 +25,11 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*jd.Output, error) {
+func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
-	var jdOutput *jd.Output
+	var startedJD *StartedJD
 	if infraInput.Type == infra.CRIB {
 		deployCribJdInput := &cre.DeployCribJdInput{
 			JDInput:        jdInput,
@@ -42,7 +45,7 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 	}
 
 	var jdErr error
-	jdOutput, jdErr = CreateJobDistributor(jdInput)
+	startedJD, jdErr = CreateJobDistributor(jdInput)
 	if jdErr != nil {
 		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
 
@@ -55,10 +58,15 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 
 	lggr.Info().Msgf("Job Distributor started in %.2f seconds", time.Since(startTime).Seconds())
 
-	return jdOutput, nil
+	return startedJD, nil
 }
 
-func CreateJobDistributor(input jd.Input) (*jd.Output, error) {
+type StartedJD struct {
+	JDOutput *jd.Output
+	Client   *cldf_jd.JobDistributor
+}
+
+func CreateJobDistributor(input jd.Input) (*StartedJD, error) {
 	if os.Getenv("CI") == "true" {
 		jdImage := ctfconfig.MustReadEnvVar_String(E2eJobDistributorImageEnvVarName)
 		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
@@ -70,10 +78,25 @@ func CreateJobDistributor(input jd.Input) (*jd.Output, error) {
 		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
 	}
 
-	return jdOutput, nil
+	jdConfig := cldf_jd.JDConfig{
+		GRPC:  jdOutput.ExternalGRPCUrl,
+		WSRPC: jdOutput.InternalWSRPCUrl,
+		Creds: insecure.NewCredentials(),
+	}
+
+	jdClient, jdErr := cldf_jd.NewJDClient(jdConfig)
+	if jdErr != nil {
+		return nil, pkgerrors.Wrap(jdErr, "failed to create JD client")
+	}
+
+	return &StartedJD{
+		JDOutput: jdOutput,
+		Client:   jdClient,
+	}, nil
 }
 
 func StartDONsAndJD(
+	ctx context.Context,
 	lggr zerolog.Logger,
 	jdInput *jd.Input,
 	registryChainBlockchainOutput *blockchain.Output,
@@ -82,7 +105,7 @@ func StartDONsAndJD(
 	capabilityConfigs cre.CapabilityConfigs,
 	copyCapabilityBinaries bool,
 	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
-) (*jd.Output, []*cre.WrappedNodeOutput, error) {
+) (*StartedJD, *StartedDONs, error) {
 	if jdInput == nil {
 		return nil, nil, errors.New("jd input is nil")
 	}
@@ -92,12 +115,12 @@ func StartDONsAndJD(
 	if topology == nil {
 		return nil, nil, errors.New("topology is nil")
 	}
-	var jdOutput *jd.Output
+	var startedJD *StartedJD
 	jdAndDonsErrGroup := &errgroup.Group{}
 
 	jdAndDonsErrGroup.Go(func() error {
 		var startJDErr error
-		jdOutput, startJDErr = StartJD(lggr, *jdInput, provider)
+		startedJD, startJDErr = StartJD(lggr, *jdInput, provider)
 		if startJDErr != nil {
 			return pkgerrors.Wrap(startJDErr, "failed to start Job Distributor")
 		}
@@ -164,10 +187,10 @@ func StartDONsAndJD(
 		}
 	}
 
-	nodeSetOutput := make([]*cre.WrappedNodeOutput, 0, len(capabilitiesAwareNodeSets))
+	var startedDOns *StartedDONs
 	jdAndDonsErrGroup.Go(func() error {
 		var startDonsErr error
-		nodeSetOutput, startDonsErr = StartDONs(lggr, topology, provider, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
+		startedDOns, startDonsErr = StartDONs(ctx, lggr, topology, provider, registryChainBlockchainOutput, capabilitiesAwareNodeSets)
 		if startDonsErr != nil {
 			return pkgerrors.Wrap(startDonsErr, "failed to start DONs")
 		}
@@ -179,5 +202,5 @@ func StartDONsAndJD(
 		return nil, nil, pkgerrors.Wrap(jdAndDonErr, "failed to start Job Distributor or DONs")
 	}
 
-	return jdOutput, nodeSetOutput, nil
+	return startedJD, startedDOns, nil
 }
