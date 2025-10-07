@@ -99,6 +99,111 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
+func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+	peers := make([]p2ptypes.PeerID, 2)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+	capDonInfo := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{peers[0]},
+		F:       0,
+	}
+	workflowDonInfo := commoncap.DON{
+		ID:      2,
+		Members: []p2ptypes.PeerID{peers[1]},
+		F:       0,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+	underlying := &testTrigger{
+		info:            capInfo,
+		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 2),
+		eventCh:         make(chan commoncap.TriggerResponse, 2),
+	}
+
+	t.Run("returns error when underlying trigger capability is nil", func(t *testing.T) {
+		dispatcher := mocks.NewDispatcher(t)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
+		config := &commoncap.RemoteTriggerConfig{}
+		err := publisher.SetConfig(config, nil, capDonInfo, workflowDONs)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "underlying trigger capability cannot be nil")
+	})
+
+	t.Run("handles nil config", func(t *testing.T) {
+		dispatcher := mocks.NewDispatcher(t)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
+		// Set config as nil - should use defaults
+		err := publisher.SetConfig(nil, underlying, capDonInfo, workflowDONs)
+		require.NoError(t, err)
+
+		// Verify config works
+		ctx := testutils.Context(t)
+		require.NoError(t, publisher.Start(ctx))
+		require.NoError(t, publisher.Close())
+	})
+
+	t.Run("handles nil workflowDONs", func(t *testing.T) {
+		dispatcher := mocks.NewDispatcher(t)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
+		config := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     100 * time.Millisecond,
+			RegistrationExpiry:      100 * time.Second,
+			MinResponsesToAggregate: 1,
+			MessageExpiry:           100 * time.Second,
+		}
+		// Set workflowDONs as nil - should create empty map
+		err := publisher.SetConfig(config, underlying, capDonInfo, nil)
+		require.NoError(t, err)
+
+		// Verify config works
+		ctx := testutils.Context(t)
+		require.NoError(t, publisher.Start(ctx))
+		require.NoError(t, publisher.Close())
+	})
+
+	t.Run("updates existing config", func(t *testing.T) {
+		dispatcher := mocks.NewDispatcher(t)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
+		// Set initial config
+		initialConfig := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     100 * time.Millisecond,
+			RegistrationExpiry:      100 * time.Second,
+			MinResponsesToAggregate: 1,
+			MessageExpiry:           100 * time.Second,
+			MaxBatchSize:            1,
+			BatchCollectionPeriod:   100 * time.Millisecond,
+		}
+		err := publisher.SetConfig(initialConfig, underlying, capDonInfo, workflowDONs)
+		require.NoError(t, err)
+
+		// Update with new config
+		newConfig := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     500 * time.Millisecond,
+			RegistrationExpiry:      500 * time.Second,
+			MinResponsesToAggregate: 3,
+			MessageExpiry:           500 * time.Second,
+			MaxBatchSize:            5,
+			BatchCollectionPeriod:   500 * time.Millisecond,
+		}
+		err = publisher.SetConfig(newConfig, underlying, capDonInfo, workflowDONs)
+		require.NoError(t, err)
+
+		// Verify updated config works
+		ctx := testutils.Context(t)
+		require.NoError(t, publisher.Start(ctx))
+		require.NoError(t, publisher.Close())
+	})
+}
+
 func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, maxBatchSize uint32) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
@@ -138,7 +243,8 @@ func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, max
 		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 2),
 		eventCh:         make(chan commoncap.TriggerResponse, 2),
 	}
-	publisher := remote.NewTriggerPublisher(config, underlying, capInfo, capDonInfo, workflowDONs, dispatcher, "", lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	require.NoError(t, publisher.Start(ctx))
 	return underlying, publisher, dispatcher, peers
 }

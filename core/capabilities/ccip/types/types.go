@@ -46,7 +46,7 @@ type OracleCreator interface {
 }
 
 // Versions of the Solana ChainWriter execute configs. Used to toggle between configs in the home chain config
-const (
+var (
 	SolanaChainWriterExecuteConfigVersionV1 = "v1"
 	SolanaChainWriterExecuteConfigVersionV2 = "v2"
 )

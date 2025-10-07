@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -58,7 +59,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
-			if tokenAmount.Amount.Int.Sign() < 0 {
+			if tokenAmount.Amount.Sign() < 0 {
 				return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
@@ -222,14 +223,18 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "destgasamount":
-			// Expect uint32
-			if v, ok := fieldValue.(uint32); ok {
+			switch v := fieldValue.(type) {
+			case uint32:
 				return v, nil
-			} else {
-				return 0, errors.New("invalid type for destgasamount, expected uint32")
+			case int64: // LOOP converts expected uint32 to int64
+				if v > math.MaxUint32 {
+					return 0, fmt.Errorf("destGasAmount exceeds uint32 max, got %d", v)
+				}
+				return uint32(v), nil //nolint:gosec // G115: validated to be within uint32 max above
+			default:
+				return 0, errors.New("invalid type for destgasamount, expected uint32 or int64")
 			}
 		default:
-
 		}
 	}
 

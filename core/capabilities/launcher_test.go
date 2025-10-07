@@ -77,9 +77,10 @@ func TestLauncher(t *testing.T) {
 		dispatcher := remoteMocks.NewDispatcher(t)
 
 		nodes := newNodes(4)
+		capabilityDonNodes := newNodes(4)
 		peer := mocks.NewPeer(t)
 		peer.On("UpdateConnections", mock.Anything).Return(nil)
-		peer.On("ID").Return(nodes[0])
+		peer.On("ID").Return(capabilityDonNodes[0])
 		peer.On("IsBootstrap").Return(false)
 		wrapper := mocks.NewPeerWrapper(t)
 		wrapper.On("GetPeer").Return(peer)
@@ -108,12 +109,14 @@ func TestLauncher(t *testing.T) {
 		fullMissingTargetID := "super-duper-target@6.6.6"
 		missingTargetCapID := RandomUTF8BytesWord()
 		dID := uint32(1)
+		capDonID := uint32(2)
 
 		localRegistry := buildLocalRegistry()
 		addDON(localRegistry, dID, uint32(0), uint8(1), true, true, nodes, 1, [][32]byte{triggerCapID, targetCapID, missingTargetCapID})
-		addCapabilityToDON(localRegistry, dID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
-		addCapabilityToDON(localRegistry, dID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
-		addCapabilityToDON(localRegistry, dID, fullMissingTargetID, capabilities.CapabilityTypeTarget, nil)
+		addDON(localRegistry, capDonID, uint32(0), uint8(1), true, false, capabilityDonNodes, 1, [][32]byte{triggerCapID, targetCapID})
+		addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
+		addCapabilityToDON(localRegistry, capDonID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
+		addCapabilityToDON(localRegistry, capDonID, fullMissingTargetID, capabilities.CapabilityTypeTarget, nil)
 
 		launcher := NewLauncher(
 			lggr,
@@ -127,8 +130,8 @@ func TestLauncher(t *testing.T) {
 		require.NoError(t, launcher.Start(t.Context()))
 		defer launcher.Close()
 
-		dispatcher.On("SetReceiver", fullTriggerCapID, dID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
-		dispatcher.On("SetReceiver", fullTargetID, dID, mock.AnythingOfType("*executable.server")).Return(nil)
+		dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
+		dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.server")).Return(nil)
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
 	})
@@ -885,8 +888,9 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 			"Write": {
 				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 					RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-						RequestTimeout: durationpb.New(30 * time.Second),
-						DeltaStage:     durationpb.New(1 * time.Second),
+						RequestTimeout:            durationpb.New(30 * time.Second),
+						ServerMaxParallelRequests: 10,
+						DeltaStage:                durationpb.New(1 * time.Second),
 					},
 				},
 			},
