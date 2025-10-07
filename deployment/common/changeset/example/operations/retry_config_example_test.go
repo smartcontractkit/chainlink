@@ -4,32 +4,26 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDisableRetryExampleChangeset(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
+	env, err := environment.New(t.Context())
+	require.NoError(t, err)
 
 	changesetInput := operations.EmptyInput{}
-	_, err := DisableRetryExampleChangeset{}.Apply(e, changesetInput)
+	_, err = DisableRetryExampleChangeset{}.Apply(*env, changesetInput)
 	require.ErrorContains(t, err, "operation failed")
 }
 
 func TestUpdateInputExampleChangeset(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
+
+	env, err := environment.New(t.Context())
+	require.NoError(t, err)
 
 	changesetInput := operations.EmptyInput{}
-	_, err := UpdateInputExampleChangeset{}.Apply(e, changesetInput)
+	_, err = UpdateInputExampleChangeset{}.Apply(*env, changesetInput)
 	require.NoError(t, err)
 }

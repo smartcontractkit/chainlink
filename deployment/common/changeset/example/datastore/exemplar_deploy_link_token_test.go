@@ -3,23 +3,20 @@ package example
 import (
 	"testing"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 )
 
 func Test_ExemplarDeployLinkToken(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
-	chain1 := e.BlockChains.ListChainSelectors()[0]
+	selector := chainselectors.TEST_90000001.Selector
+	env, err := environment.New(t.Context(), environment.WithEVMSimulated(t, []uint64{selector}))
+	require.NoError(t, err)
 
-	result, err := ExemplarDeployLinkToken{}.Apply(e, chain1)
+	result, err := ExemplarDeployLinkToken{}.Apply(*env, selector)
 	require.NoError(t, err)
 
 	// Check that one address ref was created
