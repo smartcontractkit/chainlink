@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -27,9 +26,9 @@ func TestPersistenceManager(t *testing.T) {
 	jobID2 := jobID1 + 1
 
 	ctx := testutils.Context(t)
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	pm := bootstrapPersistenceManager(t, jobID1, db)
 
 	reports := sampleReports
@@ -67,9 +66,9 @@ func TestPersistenceManager(t *testing.T) {
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
 	ctx := testutils.Context(t)
 	jobID := rand.Int32()
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	pm := bootstrapPersistenceManager(t, jobID, db)
 
 	reports := sampleReports
@@ -115,9 +114,9 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 func TestPersistenceManagerPrune(t *testing.T) {
 	jobID1 := rand.Int32()
 	jobID2 := jobID1 + 1
-	db := pgtest.NewSqlxDB(t)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	db := testutils.NewSqlxDB(t)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 
 	ctx := testutils.Context(t)
 
