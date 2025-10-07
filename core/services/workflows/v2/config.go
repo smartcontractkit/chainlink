@@ -89,7 +89,7 @@ func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*Engine
 }
 
 func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
-	cfg := cresettings.Default.PerWorkflow
+	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
