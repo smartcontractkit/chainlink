@@ -1078,6 +1078,7 @@ func Test_Report_FormatReport(t *testing.T) {
 				{Peer2PeerID: "abc", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "44"},
 				{Peer2PeerID: "abc", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
 				{Peer2PeerID: "lmno", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "12"},
+				{Peer2PeerID: "lmno", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
 			}}))
 
 			expected[stepRef] = &eventspb.MeteringReportStep{
@@ -1102,6 +1103,12 @@ func Test_Report_FormatReport(t *testing.T) {
 					},
 					{
 						Peer_2PeerId:  "abc",
+						SpendUnit:     testUnitGas,
+						SpendValue:    "0.000001",
+						SpendValueCre: "100.0000000000",
+					},
+					{
+						Peer_2PeerId:  "lmno",
 						SpendUnit:     testUnitGas,
 						SpendValue:    "0.000001",
 						SpendValueCre: "100.0000000000",
