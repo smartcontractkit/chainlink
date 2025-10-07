@@ -28,7 +28,7 @@ import (
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
+	_ "github.com/smartcontractkit/chainlink-evm/pkg/testutils" // force binding for tx type
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
