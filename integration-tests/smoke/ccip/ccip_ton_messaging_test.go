@@ -173,7 +173,7 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		ac := codec.NewAddressCodec()
 		receiverBytes, err := ac.AddressStringToBytes(receiver.String())
 		require.NoError(t, err)
-		require.Equal(t, 36, len(receiverBytes), "receiver bytes should be 36 bytes")
+		require.Len(t, receiverBytes, 36, "receiver bytes should be 36 bytes")
 
 		out = mt.Run(
 			t,
