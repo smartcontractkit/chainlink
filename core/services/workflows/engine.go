@@ -837,7 +837,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	if meteringOK {
-		err := meteringReport.Settle(stepState.Ref, response.Metadata.Metering)
+		err := meteringReport.Settle(stepState.Ref, response.Metadata)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
