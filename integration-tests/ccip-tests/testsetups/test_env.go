@@ -35,13 +35,13 @@ import (
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func SetResourceProfile(cpu, mem string) map[string]interface{} {
-	return map[string]interface{}{
-		"requests": map[string]interface{}{
+func SetResourceProfile(cpu, mem string) map[string]any {
+	return map[string]any{
+		"requests": map[string]any{
 			"cpu":    cpu,
 			"memory": mem,
 		},
-		"limits": map[string]interface{}{
+		"limits": map[string]any{
 			"cpu":    cpu,
 			"memory": mem,
 		},
@@ -139,8 +139,8 @@ func ChainlinkPropsForUpdate(
 		if upgradeImage == "" || upgradeTag == "" {
 			return nil, 0
 		}
-		updateProps["chainlink"] = map[string]interface{}{
-			"image": map[string]interface{}{
+		updateProps["chainlink"] = map[string]any{
+			"image": map[string]any{
 				"image":   upgradeImage,
 				"version": upgradeTag,
 			},
@@ -164,7 +164,7 @@ func ChainlinkChart(
 	nets []blockchain.EVMNetwork,
 ) environment.ConnectedChart {
 	require.NotNil(t, testInputs.EnvInput.NewCLCluster.Common, "Chainlink Common config is not specified")
-	clProps := make(map[string]interface{})
+	clProps := make(map[string]any)
 	clProps["prometheus"] = true
 	var formattedArgs []string
 	if len(testInputs.EnvInput.NewCLCluster.DBArgs) > 0 {
@@ -173,7 +173,7 @@ func ChainlinkChart(
 			formattedArgs = append(formattedArgs, arg)
 		}
 	}
-	clProps["db"] = map[string]interface{}{
+	clProps["db"] = map[string]any{
 		"resources":                        SetResourceProfile(testInputs.EnvInput.NewCLCluster.DBCPU, testInputs.EnvInput.NewCLCluster.DBMemory),
 		"additionalArgs":                   formattedArgs,
 		"stateful":                         pointer.GetBool(testInputs.EnvInput.NewCLCluster.IsStateful),
@@ -185,7 +185,7 @@ func ChainlinkChart(
 			"version": testInputs.EnvInput.NewCLCluster.Common.DBTag,
 		},
 	}
-	clProps["chainlink"] = map[string]interface{}{
+	clProps["chainlink"] = map[string]any{
 		"resources": SetResourceProfile(testInputs.EnvInput.NewCLCluster.NodeCPU, testInputs.EnvInput.NewCLCluster.NodeMemory),
 		"image": map[string]any{
 			"image":   pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Image),
@@ -362,7 +362,7 @@ func DeployLocalCluster(
 			}
 		} else {
 			// if no individual nodes are specified, then deploy the number of nodes specified in the env input with common config
-			for i := 0; i < noOfNodes; i++ {
+			for range noOfNodes {
 				toml, _, err := SetNodeConfig(
 					selectedNetworks,
 					testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML,
@@ -484,13 +484,13 @@ func DeployEnvironments(
 				testEnvironment.
 					AddHelm(foundry.NewVersioned("0.2.1", &foundry.Props{
 						NetworkName: network.Name,
-						Values: map[string]interface{}{
+						Values: map[string]any{
 							"fullnameOverride": actions.NetworkName(network.Name),
-							"image": map[string]interface{}{
+							"image": map[string]any{
 								"repository": "ghcr.io/foundry-rs/foundry",
 								"tag":        "v0.3.0",
 							},
-							"anvil": map[string]interface{}{
+							"anvil": map[string]any{
 								"chainId":                   fmt.Sprintf("%d", network.ChainID),
 								"blockTime":                 anvilConfig.BlockTime,
 								"forkURL":                   anvilConfig.URL,
@@ -504,7 +504,7 @@ func DeployEnvironments(
 								"baseFee":                   fmt.Sprintf("%d", pointer.GetInt64(anvilConfig.BaseFee)),
 							},
 							"resources": GethResourceProfile,
-							"cache": map[string]interface{}{
+							"cache": map[string]any{
 								"capacity": "150Gi",
 							},
 						},
@@ -524,21 +524,21 @@ func DeployEnvironments(
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: network.Name,
 				NetworkType: "simulated-geth-non-dev",
-				Values: map[string]interface{}{
-					"geth": map[string]interface{}{
-						"genesis": map[string]interface{}{
+				Values: map[string]any{
+					"geth": map[string]any{
+						"genesis": map[string]any{
 							"networkId": fmt.Sprint(network.ChainID),
 						},
-						"tx": map[string]interface{}{
+						"tx": map[string]any{
 							"replicas":  strconv.Itoa(numOfTxNodes),
 							"resources": testInputs.GethResourceProfile,
 						},
-						"miner": map[string]interface{}{
+						"miner": map[string]any{
 							"replicas":  "0",
 							"resources": testInputs.GethResourceProfile,
 						},
 					},
-					"bootnode": map[string]interface{}{
+					"bootnode": map[string]any{
 						"replicas": "1",
 					},
 				},
@@ -565,7 +565,7 @@ func DeployEnvironments(
 			internalWsURLs = append(internalWsURLs, fmt.Sprintf("ws://%s:8545", networkName))
 			internalHttpURLs = append(internalHttpURLs, fmt.Sprintf("http://%s:8545", networkName))
 		case networkName:
-			for i := 0; i < numOfTxNodes; i++ {
+			for range numOfTxNodes {
 				internalWsURLs = append(internalWsURLs, fmt.Sprintf("ws://%s-ethereum-geth:8546", networkName))
 				internalHttpURLs = append(internalHttpURLs, fmt.Sprintf("http://%s-ethereum-geth:8544", networkName))
 			}

@@ -861,8 +861,8 @@ func (m *mockContractReader) GetLatestValueWithHeadData(
 	_ context.Context,
 	_ string,
 	_ primitives.ConfidenceLevel,
-	_ interface{},
-	result interface{},
+	_ any,
+	result any,
 ) (*types.Head, error) {
 	// Simulate returning allowlisted requests
 	if res, ok := result.(*struct {

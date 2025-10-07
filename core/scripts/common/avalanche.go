@@ -271,7 +271,7 @@ func (h *AvaHeader) UnmarshalJSON(input []byte) error {
 func (h *AvaHeader) Hash() common.Hash {
 	return rlpHash(h)
 }
-func rlpHash(x interface{}) (h common.Hash) {
+func rlpHash(x any) (h common.Hash) {
 	sha := crypto.NewKeccakState()
 	sha.Reset()
 	rlp.Encode(sha, x) //nolint:errcheck

@@ -1,6 +1,7 @@
 package loadfunctions
 
 import (
+	"maps"
 	"testing"
 	"time"
 
@@ -29,9 +30,7 @@ type LoadStats struct {
 func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string, config ctf_config.GlobalTestConfig) {
 	go func() {
 		updatedLabels := make(map[string]string)
-		for k, v := range labels {
-			updatedLabels[k] = v
-		}
+		maps.Copy(updatedLabels, labels)
 		updatedLabels["type"] = LokiTypeLabel
 		updatedLabels["go_test_name"] = t.Name()
 		updatedLabels["gen_name"] = "performance"

@@ -50,7 +50,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, lggr logger.Logger, vars Vars, in
 	if inputs[0].Error != nil {
 		return Result{Error: ErrInputTaskErrored}, runInfo
 	}
-	logValues, ok := inputs[0].Value.(map[string]interface{})
+	logValues, ok := inputs[0].Value.(map[string]any)
 	if !ok {
 		return Result{Error: errors.Wrap(ErrBadInput, "expected map input")}, runInfo
 	}
@@ -144,7 +144,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, lggr logger.Logger, vars Vars, in
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	results := make(map[string]interface{})
+	results := make(map[string]any)
 	output := hexutil.Encode(b)
 	results["output"] = output
 	// RequestID needs to be a [32]byte for EvmTxMeta.

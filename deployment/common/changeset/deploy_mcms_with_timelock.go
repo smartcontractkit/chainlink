@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -84,12 +85,7 @@ func isMCMSContract(contractType string) bool {
 		string(types.CallProxy),
 	}
 
-	for _, mcmsType := range mcmsTypes {
-		if contractType == mcmsType {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(mcmsTypes, contractType)
 }
 
 var (

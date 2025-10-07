@@ -2,6 +2,7 @@ package operations
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -96,9 +97,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				jobLabels := map[string]string{
 					offchain.CapabilityLabel: input.Job.JobName,
 				}
-				for k, v := range input.ExtraLabels {
-					jobLabels[k] = v
-				}
+				maps.Copy(jobLabels, input.ExtraLabels)
 
 				// 1 spec per node, each spec is unique to the node due to the oracle factory config
 				report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
@@ -114,9 +113,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 					return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
 				}
 
-				for k, v := range report.Output.Specs {
-					specs[k] = v
-				}
+				maps.Copy(specs, report.Output.Specs)
 			}
 
 			return ProposeStandardCapabilityJobOutput{Specs: specs}, nil
@@ -171,9 +168,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			jobLabels := map[string]string{
 				offchain.CapabilityLabel: input.Job.JobName,
 			}
-			for k, v := range input.ExtraLabels {
-				jobLabels[k] = v
-			}
+			maps.Copy(jobLabels, input.ExtraLabels)
 
 			// 1 spec per node, each spec is unique to the node due to the oracle factory config
 			report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
@@ -189,9 +184,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to propose consensus job: %w", err)
 			}
 
-			for k, v := range report.Output.Specs {
-				specs[k] = v
-			}
+			maps.Copy(specs, report.Output.Specs)
 		}
 
 		return ProposeStandardCapabilityJobOutput{Specs: specs}, nil

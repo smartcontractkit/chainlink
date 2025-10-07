@@ -22,8 +22,7 @@ import (
 )
 
 func TestJobKVStore(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -111,11 +110,11 @@ func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
 		{"new_key_2", []byte("new_value_2")},
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		require.NoError(t, kvStore1.Store(ctx, testData[i].key, testData[i].value))
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		require.NoError(t, kvStore2.Store(ctx, testData[i].key, testData[i].value))
 	}
 

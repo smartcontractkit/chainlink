@@ -135,7 +135,7 @@ func isRetryableHTTPError(statusCode int, err error) bool {
 
 // Result is the result of a TaskRun
 type Result struct {
-	Value interface{}
+	Value any
 	Error error
 }
 
@@ -155,7 +155,7 @@ func (result Result) ErrorDB() null.String {
 
 // FinalResult is the result of a Run
 type FinalResult struct {
-	Values      []interface{}
+	Values      []any
 	AllErrors   []error
 	FatalErrors []error
 }
@@ -354,13 +354,13 @@ var (
 	nullUint32Type = reflect.TypeOf(cnull.Uint32{})
 )
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) (_ Task, err error) {
 	defer cutils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
 	default:
 		return nil, pkgerrors.Errorf("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got %v (%#v) of type %T", taskMap, taskMap, taskMap)
-	case map[string]interface{}, map[string]string:
+	case map[string]any, map[string]string:
 	}
 
 	taskType = TaskType(strings.ToLower(string(taskType)))
@@ -450,7 +450,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		Metadata:         &metadata,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
-			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+			func(from reflect.Type, to reflect.Type, data any) (any, error) {
 				if from != stringType {
 					return data, nil
 				}
@@ -491,13 +491,13 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 	return task, nil
 }
 
-func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
+func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]any, error) {
 	if minLen >= 0 && len(inputs) < minLen {
 		return nil, pkgerrors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	} else if maxLen >= 0 && len(inputs) > maxLen {
 		return nil, pkgerrors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	}
-	var vals []interface{}
+	var vals []any
 	var errs int
 	for _, input := range inputs {
 		if input.Error != nil {
@@ -561,15 +561,15 @@ type contextKey string
 
 const ctxTelemetryKey contextKey = "telemetry"
 
-func WithTelemetryCh(ctx context.Context, ch chan<- interface{}) context.Context {
+func WithTelemetryCh(ctx context.Context, ch chan<- any) context.Context {
 	if ch == nil {
 		return ctx
 	}
 	return context.WithValue(ctx, ctxTelemetryKey, ch)
 }
 
-func GetTelemetryCh(ctx context.Context) chan<- interface{} {
-	ch, ok := ctx.Value(ctxTelemetryKey).(chan<- interface{})
+func GetTelemetryCh(ctx context.Context) chan<- any {
+	ch, ok := ctx.Value(ctxTelemetryKey).(chan<- any)
 	if !ok {
 		return nil
 	}

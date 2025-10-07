@@ -517,7 +517,7 @@ func (b *EventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 		return fmt.Errorf("%w: not enough topics to decode", commontypes.ErrInvalidType)
 	}
 
-	for i := 0; i < len(topics); i++ {
+	for i := range topics {
 		topics[i] = common.Hash(log.Topics[i+1])
 	}
 

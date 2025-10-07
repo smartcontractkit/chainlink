@@ -201,7 +201,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	lggr := logger.Test(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityPeers[i] = NewP2PPeerID(t)
 	}
 
@@ -219,7 +219,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	}
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeers[i] = NewP2PPeerID(t)
 	}
 
@@ -231,7 +231,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	broker := newTestAsyncMessageBroker(t, 100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeers[i])
 		receiver := newTestServer(capabilityPeers[i], capabilityDispatcher, workflowDonInfo, underlying)
 		broker.RegisterReceiverNode(capabilityPeers[i], receiver)
@@ -240,7 +240,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 
 	callers := make([]commoncap.ExecutableCapability, numWorkflowPeers)
 
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		caller := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
 		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil)

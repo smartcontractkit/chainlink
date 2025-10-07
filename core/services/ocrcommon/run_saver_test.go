@@ -20,7 +20,7 @@ func TestRunSaver(t *testing.T) {
 		100,
 	)
 	servicetest.Run(t, rs)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		d := i
 		pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(nil).

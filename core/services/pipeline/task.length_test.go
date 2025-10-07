@@ -17,7 +17,7 @@ func TestLengthTask(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		input interface{}
+		input any
 		want  decimal.Decimal
 	}{
 		{"normal bytes", []byte{0xaa, 0xbb, 0xcc, 0xdd}, decimal.NewFromInt(4)},
@@ -60,8 +60,8 @@ func TestLengthTask(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
-				vars := pipeline.NewVarsFrom(map[string]interface{}{
-					"foo": map[string]interface{}{"bar": test.input},
+				vars := pipeline.NewVarsFrom(map[string]any{
+					"foo": map[string]any{"bar": test.input},
 				})
 				task := pipeline.LengthTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),

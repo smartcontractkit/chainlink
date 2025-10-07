@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -138,10 +139,8 @@ func (t *transmitter) FromAddress(ctx context.Context) common.Address {
 }
 
 func (t *transmitter) forwarderAddress() common.Address {
-	for _, a := range t.fromAddresses {
-		if a == t.effectiveTransmitterAddress {
-			return common.Address{}
-		}
+	if slices.Contains(t.fromAddresses, t.effectiveTransmitterAddress) {
+		return common.Address{}
 	}
 	return t.effectiveTransmitterAddress
 }

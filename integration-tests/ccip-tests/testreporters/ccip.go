@@ -171,7 +171,7 @@ func (testStats *CCIPLaneStats) Aggregate(phase Phase, durationInSec float64) {
 func (testStats *CCIPLaneStats) Finalize(lane string) {
 	phases := []Phase{E2E, TX, CCIPSendRe, SourceLogFinalized, Commit, ReportBlessed, ExecStateChanged}
 	events := make(map[Phase]*zerolog.Event)
-	testStats.statusByPhaseByRequests.Range(func(key, value interface{}) bool {
+	testStats.statusByPhaseByRequests.Range(func(key, value any) bool {
 		if reqNo, ok := key.(int64); ok {
 			if stat, ok := value.(map[Phase]PhaseStat); ok {
 				for phase, phaseStat := range stat {

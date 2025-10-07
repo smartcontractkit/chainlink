@@ -518,7 +518,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	grp := errgroup.Group{}
 
 	// Start fixed number of workers
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		grp.Go(func() error {
 			for chainSelector := range jobCh {
 				var name string
@@ -610,19 +610,19 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 		AptosChains: make(map[string]view.AptosChainView),
 		TONChains:   make(map[string]tonstate.TONChainView),
 	}
-	m.Range(func(key, value interface{}) bool {
+	m.Range(func(key, value any) bool {
 		stateView.Chains[key.(string)] = value.(view.ChainView)
 		return true
 	})
-	sm.Range(func(key, value interface{}) bool {
+	sm.Range(func(key, value any) bool {
 		stateView.SolChains[key.(string)] = value.(view.SolChainView)
 		return true
 	})
-	am.Range(func(key, value interface{}) bool {
+	am.Range(func(key, value any) bool {
 		stateView.AptosChains[key.(string)] = value.(view.AptosChainView)
 		return true
 	})
-	tm.Range(func(key, value interface{}) bool {
+	tm.Range(func(key, value any) bool {
 		stateView.TONChains[key.(string)] = value.(tonstate.TONChainView)
 		return true
 	})

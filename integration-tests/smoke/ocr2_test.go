@@ -68,7 +68,6 @@ func TestOCRv2Basic(t *testing.T) {
 		{"plugins", plugins, false},
 		{"plugins-chain-reader", plugins, true},
 	} {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)

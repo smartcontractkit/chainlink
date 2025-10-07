@@ -17,7 +17,7 @@ func TestBase64EncodeTask(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		result string
 		error  string
 	}{
@@ -53,8 +53,8 @@ func TestBase64EncodeTask(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("with vars", func(t *testing.T) {
-				vars := pipeline.NewVarsFrom(map[string]interface{}{
-					"foo": map[string]interface{}{"bar": test.input},
+				vars := pipeline.NewVarsFrom(map[string]any{
+					"foo": map[string]any{"bar": test.input},
 				})
 				task := pipeline.Base64EncodeTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -71,7 +71,7 @@ func TestBase64EncodeTaskInputParamLiteral(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		input  interface{}
+		input  any
 		result string
 	}{
 		// Only strings can be passed via input param literals (other types will get converted to strings anyway)

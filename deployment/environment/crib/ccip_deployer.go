@@ -680,7 +680,7 @@ func setupSolEvmLanes(lggr logger.Logger, e *cldf.Environment, state stateview.C
 	}
 
 	for _, solSelector := range solSelectors {
-		solSelector := solSelector // capture range variable
+		// capture range variable
 		solChainSel := solSelector.ChainSelector()
 		relevantLanes := lanesBySolChain[solChainSel]
 
@@ -839,7 +839,6 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 	}
 
 	for src := range evmChains {
-		src := src
 		lanesFromSrc := lanesBySource[src]
 		if len(lanesFromSrc) == 0 {
 			continue // Skip chains that don't have any outgoing lanes
@@ -1253,7 +1252,7 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyIm
 	lggr := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout})
 	rmnNodeConfigs := make([]RMNNodeConfig, rmnNodeCount)
 
-	for i := uint(0); i < rmnNodeCount; i++ {
+	for i := range rmnNodeCount {
 		peerID, rawKeystore, _, err := devenv.GeneratePeerID(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), rageProxyImageURI, rageProxyImageTag, imagePlatform)
 		if err != nil {
 			return nil, err

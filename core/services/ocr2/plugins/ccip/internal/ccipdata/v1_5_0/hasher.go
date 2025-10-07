@@ -48,7 +48,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		return [32]byte{}, err
 	}
 
-	encodedSourceTokenData, err := abi.Arguments{abi.Argument{Type: bytesArray}}.PackValues([]interface{}{message.SourceTokenData})
+	encodedSourceTokenData, err := abi.Arguments{abi.Argument{Type: bytesArray}}.PackValues([]any{message.SourceTokenData})
 	if err != nil {
 		return [32]byte{}, err
 	}

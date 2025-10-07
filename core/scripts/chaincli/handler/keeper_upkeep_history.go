@@ -166,7 +166,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 			panic("unsupported registry version")
 		}
 
-		args := map[string]interface{}{
+		args := map[string]any{
 			"to":   k.cfg.RegistryAddress,
 			"data": hexutil.Bytes(payload),
 		}
@@ -177,7 +177,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		var res string
 		reqs = append(reqs, rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
+			Args: []any{
 				args,
 				// The block at which we want to inspect the upkeep state
 				hexutil.EncodeUint64(block),
@@ -214,7 +214,7 @@ func (k *Keeper) batchProcess(ctx context.Context, reqs []rpc.BatchElem, from ui
 			continue
 		}
 
-		var returnValues []interface{}
+		var returnValues []any
 		var err error
 		if isVersion12 {
 			returnValues, err = checkUpkeepArguments2.UnpackValues(hexutil.MustDecode(*results[i]))

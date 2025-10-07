@@ -205,10 +205,7 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(ctx context.Context, opts *bind.Ca
 		var activeUpkeepIDBatch []*big.Int
 		for int64(len(activeUpkeepIDs)) < upkeepCount.Int64() {
 			startIndex := int64(len(activeUpkeepIDs))
-			maxCount := upkeepCount.Int64() - int64(len(activeUpkeepIDs))
-			if maxCount > ActiveUpkeepIDBatchSize {
-				maxCount = ActiveUpkeepIDBatchSize
-			}
+			maxCount := min(upkeepCount.Int64()-int64(len(activeUpkeepIDs)), ActiveUpkeepIDBatchSize)
 			if rw.Version == RegistryVersion_1_2 {
 				activeUpkeepIDBatch, err = rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
 			} else {

@@ -19,7 +19,7 @@ func Test_CancellingContext_StopsTask(t *testing.T) {
 	var cancelFns []context.CancelFunc
 
 	var counter int32
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancelFns = append(cancelFns, cancel)
 		err := tp.ExecuteTask(ctx, func(ctx context.Context) {
@@ -48,7 +48,7 @@ func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) 
 	tp := newParallelExecutor(3)
 	servicetest.Run(t, tp)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		err := tp.ExecuteTask(context.Background(), func(ctx context.Context) {
 			<-ctx.Done()
 		})
@@ -68,7 +68,7 @@ func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
 	servicetest.Run(t, tp)
 
 	var counter int32
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		err := tp.ExecuteTask(context.Background(), func(ctx context.Context) {
 			atomic.AddInt32(&counter, 1)
 			<-ctx.Done()
@@ -91,7 +91,7 @@ func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
 
 	servicetest.Run(t, tp)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		err := tp.ExecuteTask(context.Background(), func(ctx context.Context) {
 			atomic.AddInt32(&counter, 1)
 			<-ctx.Done()

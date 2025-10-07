@@ -118,7 +118,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns error if task is not the right type", func(t *testing.T) {
-		taskMap := interface{}(nil)
+		taskMap := any(nil)
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskType("http"), taskMap, 0, "foo-dot-id")
 		require.EqualError(t, err, "UnmarshalTaskFromMap: UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got <nil> (<nil>) of type <nil>")
 
@@ -139,7 +139,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 
 	tests := []struct {
 		taskType         pipeline.TaskType
-		expectedTaskType interface{}
+		expectedTaskType any
 	}{
 		{pipeline.TaskTypeHTTP, &pipeline.HTTPTask{}},
 		{pipeline.TaskTypeBridge, &pipeline.BridgeTask{}},

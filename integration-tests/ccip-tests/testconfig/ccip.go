@@ -149,7 +149,7 @@ func (m *MsgProfile) msgDetailsIndexMatrixByFrequency() {
 	}
 	m.matrixByFreq = make([]int, 0)
 	for i, freq := range m.Frequencies {
-		for j := 0; j < freq; j++ {
+		for range freq {
 			m.matrixByFreq = append(m.matrixByFreq, i)
 		}
 	}

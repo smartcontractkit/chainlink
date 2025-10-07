@@ -66,7 +66,7 @@ func (c *reportCodecV1) EncodeReport(requests []*ProcessedRequest) ([]byte, erro
 	errors := make([][]byte, size)
 	onchainMetadata := make([][]byte, size)
 	processingMetadata := make([][]byte, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		var err error
 		ids[i], err = SliceToByte32(requests[i].RequestID)
 		if err != nil {
@@ -82,7 +82,7 @@ func (c *reportCodecV1) EncodeReport(requests []*ProcessedRequest) ([]byte, erro
 }
 
 func (c *reportCodecV1) DecodeReport(raw []byte) ([]*ProcessedRequest, error) {
-	reportElems := map[string]interface{}{}
+	reportElems := map[string]any{}
 	if err := c.reportTypes.UnpackIntoMap(reportElems, raw); err != nil {
 		return nil, errors.WithMessage(err, "unable to unpack elements from raw report")
 	}
@@ -114,7 +114,7 @@ func (c *reportCodecV1) DecodeReport(raw []byte) ([]*ProcessedRequest, error) {
 	}
 
 	decoded := make([]*ProcessedRequest, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		decoded[i] = &ProcessedRequest{
 			RequestID:           ids[i][:],
 			Result:              results[i],

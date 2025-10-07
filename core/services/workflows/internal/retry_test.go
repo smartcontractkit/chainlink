@@ -29,8 +29,7 @@ func TestRetryableZeroMaxRetries(t *testing.T) {
 func TestRetryableSuccessOnFirstAttempt(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	fn := func() error {
 		return nil
@@ -43,8 +42,7 @@ func TestRetryableSuccessOnFirstAttempt(t *testing.T) {
 func TestRetryableSuccessAfterRetries(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	retries := 0
 	fn := func() error {
@@ -63,8 +61,7 @@ func TestRetryableSuccessAfterRetries(t *testing.T) {
 func TestRetryableErrorOnFirstTryNoRetries(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	fn := func() error {
 		return errors.New("immediate failure")
@@ -78,8 +75,7 @@ func TestRetryableErrorOnFirstTryNoRetries(t *testing.T) {
 func TestRetryableErrorAfterMultipleRetries(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	attempts := 0
 	fn := func() error {

@@ -323,7 +323,7 @@ func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backe
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
 	offchainTransmitters := make([][32]byte, nNodes)
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
 	donIDPadded := llo.DonIDToBytes32(donID)
@@ -358,7 +358,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 		onchainPubKeys = append(onchainPubKeys, signer)
 	}
 	offchainTransmitters := make([][32]byte, nNodes)
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
 	donIDPadded := llo.DonIDToBytes32(donID)
@@ -440,7 +440,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		k := big.NewInt(int64(salt + i))
 		key := csakey.MustNewV2XXXTestingOnly(k)
 		clientCSAKeys[i] = key
@@ -504,7 +504,7 @@ lloConfigMode = "mercury"
 						Aggregator: llotypes.AggregatorQuote,
 					},
 				},
-				Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID1, multiplier.String()))),
+				Opts: llotypes.ChannelOpts(fmt.Appendf(nil, `{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID1, multiplier.String())),
 			},
 			2: {
 				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
@@ -522,7 +522,7 @@ lloConfigMode = "mercury"
 						Aggregator: llotypes.AggregatorQuote,
 					},
 				},
-				Opts: llotypes.ChannelOpts([]byte(fmt.Sprintf(`{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID2, multiplier.String()))),
+				Opts: llotypes.ChannelOpts(fmt.Appendf(nil, `{"baseUSDFee":"0.1","expirationWindow":%d,"feedId":"0x%x","multiplier":"%s"}`, expirationWindow, quoteStreamFeedID2, multiplier.String())),
 			},
 		}
 
@@ -569,14 +569,14 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			}
 			for req := range reqs {
 				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
-				v := make(map[string]interface{})
+				v := make(map[string]any)
 				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
 				if !exists {
 					t.Fatalf("expected payload %#v to contain 'report'", v)
 				}
-				reportElems := make(map[string]interface{})
+				reportElems := make(map[string]any)
 				err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 				require.NoError(t, err)
 
@@ -679,7 +679,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		k := big.NewInt(int64(salt + i))
 		key := csakey.MustNewV2XXXTestingOnly(k)
 		clientCSAKeys[i] = key
@@ -1215,7 +1215,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			req := pckt.req
 			switch req.ReportFormat {
 			case uint32(llotypes.ReportFormatEVMABIEncodeUnpacked):
-				v := make(map[string]interface{})
+				v := make(map[string]any)
 				err := mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
@@ -1231,7 +1231,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				assert.Equal(t, [32]byte(digest), reportCtx.([3][32]uint8)[0])                                                                      // config digest
 				assert.Equal(t, "000000000000000000000000000000000000000000000000000d8e0d00000001", fmt.Sprintf("%x", reportCtx.([3][32]uint8)[2])) // extra hash
 
-				reportElems := make(map[string]interface{})
+				reportElems := make(map[string]any)
 				err = lloevm.BaseSchema.UnpackIntoMap(reportElems, report.([]byte))
 				require.NoError(t, err)
 
@@ -1257,7 +1257,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 						{Name: "baseMarketDepth", Type: mustNewType("int192")},
 						{Name: "quoteMarketDepth", Type: mustNewType("int192")},
 					})
-					v := make(map[string]interface{})
+					v := make(map[string]any)
 					err := args.UnpackIntoMap(v, payload)
 					require.NoError(t, err)
 
@@ -1269,7 +1269,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 					args := abi.Arguments([]abi.Argument{
 						{Name: "marketStatus", Type: mustNewType("uint32")},
 					})
-					v := make(map[string]interface{})
+					v := make(map[string]any)
 					err := args.UnpackIntoMap(v, payload)
 					require.NoError(t, err)
 
@@ -1279,7 +1279,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 					args := abi.Arguments([]abi.Argument{
 						{Name: "benchmarkPrice", Type: mustNewType("int192")},
 					})
-					v := make(map[string]interface{})
+					v := make(map[string]any)
 					err := args.UnpackIntoMap(v, payload)
 					require.NoError(t, err)
 
@@ -1290,7 +1290,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 						{Name: "benchmarkPrice", Type: mustNewType("int192")},
 						{Name: "benchmarkPriceTimestamp", Type: mustNewType("uint64")},
 					})
-					v := make(map[string]interface{})
+					v := make(map[string]any)
 					err := args.UnpackIntoMap(v, payload)
 					require.NoError(t, err)
 
@@ -1306,7 +1306,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 						{Name: "deribitFundingTime", Type: mustNewType("int192")},
 						{Name: "deribitFundingIntervalHours", Type: mustNewType("int192")},
 					})
-					v := make(map[string]interface{})
+					v := make(map[string]any)
 					err := args.UnpackIntoMap(v, payload)
 					require.NoError(t, err)
 
@@ -1366,23 +1366,23 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				}
 				delete(feedIDs, pad32bytes(cid))
 			case uint32(llotypes.ReportFormatJSON):
-				v := make(map[string]interface{})
+				v := make(map[string]any)
 				err := json.Unmarshal(req.Payload, &v)
 				require.NoError(t, err)
-				report := v["report"].(map[string]interface{})
+				report := v["report"].(map[string]any)
 				cid := report["ChannelID"].(float64)
 				delete(feedIDs, pad32bytes(uint32(cid)))
-				assert.Len(t, report["Values"].([]interface{}), 3)
+				assert.Len(t, report["Values"].([]any), 3)
 				// default uses provider indicated time
-				tsv1 := report["Values"].([]interface{})[0].(map[string]interface{})
+				tsv1 := report["Values"].([]any)[0].(map[string]any)
 				assert.Equal(t, 2, int(tsv1["t"].(float64)))
 				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713000000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv1["v"].(string))
 				// null provider indicated time - uses data received time fallback
-				tsv2 := report["Values"].([]interface{})[1].(map[string]interface{})
+				tsv2 := report["Values"].([]any)[1].(map[string]any)
 				assert.Equal(t, 2, int(tsv2["t"].(float64)))
 				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713050000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv2["v"].(string))
 				// missing provider indicated time - uses data received time fallback
-				tsv3 := report["Values"].([]interface{})[2].(map[string]interface{})
+				tsv3 := report["Values"].([]any)[2].(map[string]any)
 				assert.Equal(t, 2, int(tsv3["t"].(float64)))
 				assert.Equal(t, `TSV{ObservedAtNanoseconds: 1742314713050000000, StreamValue: {"t":0,"v":"111.22"}}`, tsv3["v"].(string))
 			default:
@@ -1449,7 +1449,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 	const salt = 302
 
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		k := big.NewInt(int64(salt + i))
 		key := csakey.MustNewV2XXXTestingOnly(k)
 		clientCSAKeys[i] = key
@@ -1500,7 +1500,7 @@ lloConfigMode = "bluegreen"
 
 		// Channel definitions
 		channelDefinitions := llotypes.ChannelDefinitions{}
-		for i := uint32(0); i < nChannels; i++ {
+		for i := range uint32(nChannels) {
 			channelDefinitions[i] = llotypes.ChannelDefinition{
 				ReportFormat: llotypes.ReportFormatJSON,
 				Streams: []llotypes.Stream{
@@ -1673,7 +1673,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 	const salt = 301
 
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		k := big.NewInt(int64(salt + i))
 		key := csakey.MustNewV2XXXTestingOnly(k)
 		clientCSAKeys[i] = key
@@ -1725,7 +1725,7 @@ lloConfigMode = "bluegreen"
 
 		// Channel definitions
 		channelDefinitions := llotypes.ChannelDefinitions{}
-		for i := uint32(0); i < nChannels; i++ {
+		for i := range uint32(nChannels) {
 			channelDefinitions[i] = llotypes.ChannelDefinition{
 				ReportFormat: llotypes.ReportFormatJSON,
 				Streams: []llotypes.Stream{
@@ -1838,7 +1838,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 
 	const salt = 300
 
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		k := big.NewInt(int64(salt + i))
 		key := csakey.MustNewV2XXXTestingOnly(k)
 		clientCSAKeys[i] = key
@@ -2174,7 +2174,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
 
 		nodes = append(nodes, Node{
@@ -2221,7 +2221,7 @@ func mustNewType(t string) abi.Type {
 	return result
 }
 
-func mustMarshalJSON(v interface{}) string {
+func mustMarshalJSON(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
@@ -2237,13 +2237,13 @@ func pad32bytes(d uint32) [32]byte {
 
 func newSingleABIEncoder(typ string, multiplier *ubig.Big) (enc lloevm.ABIEncoder) {
 	if multiplier == nil {
-		err := json.Unmarshal([]byte(fmt.Sprintf(`{"type":"%s"}`, typ)), &enc)
+		err := json.Unmarshal(fmt.Appendf(nil, `{"type":"%s"}`, typ), &enc)
 		if err != nil {
 			panic(err)
 		}
 		return
 	}
-	err := json.Unmarshal([]byte(fmt.Sprintf(`{"type":"%s","multiplier":"%s"}`, typ, multiplier.String())), &enc)
+	err := json.Unmarshal(fmt.Appendf(nil, `{"type":"%s","multiplier":"%s"}`, typ, multiplier.String()), &enc)
 	if err != nil {
 		panic(err)
 	}

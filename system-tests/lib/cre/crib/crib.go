@@ -3,6 +3,7 @@ package crib
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -231,7 +232,7 @@ func imageNameAndTag(input *cre.DeployCribDonsInput, j int) (string, string, err
 func cleanToml(tomlStr string) ([]byte, error) {
 	// unmarshall and marshall to conver it into proper multi-line string
 	// that will be correctly serliazed to YAML
-	var data interface{}
+	var data any
 	tomlErr := toml.Unmarshal([]byte(tomlStr), &data)
 	if tomlErr != nil {
 		return nil, errors.Wrapf(tomlErr, "failed to unmarshal toml: %s", tomlStr)
@@ -249,13 +250,13 @@ func cleanToml(tomlStr string) ([]byte, error) {
 // and combines them with the overlay values taking precedence over the base values.
 func mergeToml(tomlOne []byte, tomlTwo []byte) ([]byte, error) {
 	// Parse the first TOML
-	var baseConfig map[string]interface{}
+	var baseConfig map[string]any
 	if err := toml.Unmarshal(tomlOne, &baseConfig); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal first TOML")
 	}
 
 	// Parse the second TOML
-	var overlayConfig map[string]interface{}
+	var overlayConfig map[string]any
 	if err := toml.Unmarshal(tomlTwo, &overlayConfig); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal second TOML")
 	}
@@ -264,12 +265,10 @@ func mergeToml(tomlOne []byte, tomlTwo []byte) ([]byte, error) {
 	for k, v := range overlayConfig {
 		// If both values are maps, merge them recursively
 		if baseVal, ok := baseConfig[k]; ok {
-			if baseMap, isBaseMap := baseVal.(map[string]interface{}); isBaseMap {
-				if overlayMap, isOverlayMap := v.(map[string]interface{}); isOverlayMap {
+			if baseMap, isBaseMap := baseVal.(map[string]any); isBaseMap {
+				if overlayMap, isOverlayMap := v.(map[string]any); isOverlayMap {
 					// Recursively merge nested maps
-					for nestedKey, nestedVal := range overlayMap {
-						baseMap[nestedKey] = nestedVal
-					}
+					maps.Copy(baseMap, overlayMap)
 					continue
 				}
 			}

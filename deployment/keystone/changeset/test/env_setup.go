@@ -3,6 +3,7 @@ package test
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"testing"
 
@@ -429,9 +430,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 				"don": donCfg.Name,
 			}
 			if donCfg.Labels != nil {
-				for k, v := range donCfg.Labels {
-					labels[k] = v
-				}
+				maps.Copy(labels, donCfg.Labels)
 			}
 			cfg := envtest.NodeConfig{
 				ChainSelectors: []uint64{registryChainSel},

@@ -169,20 +169,20 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
-	ContractID                        string                 `json:"contractID"`
-	Relay                             string                 `json:"relay"` // RelayID.Network
-	RelayConfig                       map[string]interface{} `json:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray         `json:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
-	TransmitterID                     null.String            `json:"transmitterID"`
-	ObservationTimeout                sqlutil.Interval       `json:"observationTimeout"`
-	BlockchainTimeout                 sqlutil.Interval       `json:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval sqlutil.Interval       `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16                 `json:"contractConfigConfirmations"`
-	OnchainSigningStrategy            map[string]interface{} `json:"onchainSigningStrategy"`
-	CreatedAt                         time.Time              `json:"createdAt"`
-	UpdatedAt                         time.Time              `json:"updatedAt"`
-	CollectTelemetry                  bool                   `json:"collectTelemetry"`
+	ContractID                        string           `json:"contractID"`
+	Relay                             string           `json:"relay"` // RelayID.Network
+	RelayConfig                       map[string]any   `json:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray   `json:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String      `json:"ocrKeyBundleID"`
+	TransmitterID                     null.String      `json:"transmitterID"`
+	ObservationTimeout                sqlutil.Interval `json:"observationTimeout"`
+	BlockchainTimeout                 sqlutil.Interval `json:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval sqlutil.Interval `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16           `json:"contractConfigConfirmations"`
+	OnchainSigningStrategy            map[string]any   `json:"onchainSigningStrategy"`
+	CreatedAt                         time.Time        `json:"createdAt"`
+	UpdatedAt                         time.Time        `json:"updatedAt"`
+	CollectTelemetry                  bool             `json:"collectTelemetry"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -398,15 +398,15 @@ func NewBlockHeaderFeederSpec(spec *job.BlockHeaderFeederSpec) *BlockHeaderFeede
 
 // BootstrapSpec defines the spec details of a BootstrapSpec Job
 type BootstrapSpec struct {
-	ContractID                             string                 `json:"contractID"`
-	Relay                                  string                 `json:"relay"` // RelayID.Network
-	RelayConfig                            map[string]interface{} `json:"relayConfig"`
-	BlockchainTimeout                      sqlutil.Interval       `json:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval sqlutil.Interval       `json:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      sqlutil.Interval       `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16                 `json:"contractConfigConfirmations"`
-	CreatedAt                              time.Time              `json:"createdAt"`
-	UpdatedAt                              time.Time              `json:"updatedAt"`
+	ContractID                             string           `json:"contractID"`
+	Relay                                  string           `json:"relay"` // RelayID.Network
+	RelayConfig                            map[string]any   `json:"relayConfig"`
+	BlockchainTimeout                      sqlutil.Interval `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval sqlutil.Interval `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      sqlutil.Interval `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16           `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time        `json:"createdAt"`
+	UpdatedAt                              time.Time        `json:"updatedAt"`
 }
 
 // NewBootstrapSpec initializes a new BootstrapSpec from a job.BootstrapSpec
@@ -424,9 +424,9 @@ func NewBootstrapSpec(spec *job.BootstrapSpec) *BootstrapSpec {
 }
 
 type GatewaySpec struct {
-	GatewayConfig map[string]interface{} `json:"gatewayConfig"`
-	CreatedAt     time.Time              `json:"createdAt"`
-	UpdatedAt     time.Time              `json:"updatedAt"`
+	GatewayConfig map[string]any `json:"gatewayConfig"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
 }
 
 func NewGatewaySpec(spec *job.GatewaySpec) *GatewaySpec {
@@ -474,12 +474,12 @@ func NewStandardCapabilitiesSpec(spec *job.StandardCapabilitiesSpec) *StandardCa
 }
 
 type CCIPSpec struct {
-	CreatedAt              time.Time              `json:"createdAt"`
-	UpdatedAt              time.Time              `json:"updatedAt"`
-	CapabilityVersion      string                 `json:"capabilityVersion"`
-	CapabilityLabelledName string                 `json:"capabilityLabelledName"`
-	OCRKeyBundleIDs        map[string]interface{} `json:"ocrKeyBundleIDs"`
-	P2PKeyID               string                 `json:"p2pKeyID"`
+	CreatedAt              time.Time      `json:"createdAt"`
+	UpdatedAt              time.Time      `json:"updatedAt"`
+	CapabilityVersion      string         `json:"capabilityVersion"`
+	CapabilityLabelledName string         `json:"capabilityLabelledName"`
+	OCRKeyBundleIDs        map[string]any `json:"ocrKeyBundleIDs"`
+	P2PKeyID               string         `json:"p2pKeyID"`
 }
 
 func NewCCIPSpec(spec *job.CCIPSpec) *CCIPSpec {
