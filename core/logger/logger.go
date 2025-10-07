@@ -176,6 +176,11 @@ type Config struct {
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
+	return c.NewWithCores()
+}
+
+// NewWithCores is like New, but includes additional zapcore.Cores.
+func (c *Config) NewWithCores(cores ...zapcore.Core) (Logger, func() error) {
 	if c.diskSpaceAvailableFn == nil {
 		c.diskSpaceAvailableFn = diskSpaceAvailable
 	}
@@ -191,9 +196,9 @@ func (c *Config) New() (Logger, func() error) {
 		err         error
 	)
 	if !c.DebugLogsToDisk() {
-		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS)
+		l, closeLogger, err = newDefaultLogger(cfg, c.UnixTS, cores...)
 	} else {
-		l, closeLogger, err = newRotatingFileLogger(cfg, *c)
+		l, closeLogger, err = newRotatingFileLogger(cfg, *c, cores...)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -205,58 +210,6 @@ func (c *Config) New() (Logger, func() error) {
 	l = newPrometheusLogger(l)
 	l = l.With("version", verShaNameStatic())
 	return l, closeLogger
-}
-
-// NewWithAtomicCore creates a logger with an AtomicCore that can be swapped later.
-func (c *Config) NewWithAtomicCore() (Logger, func() error, *AtomicCore) {
-	if c.diskSpaceAvailableFn == nil {
-		c.diskSpaceAvailableFn = diskSpaceAvailable
-	}
-	if !c.diskPollConfig.isSet() {
-		c.diskPollConfig = newDiskPollConfig(diskPollInterval)
-	}
-
-	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
-	cfg.Level.SetLevel(c.LogLevel)
-
-	// Create the standard logging core
-	var standardCore zapcore.Core
-	var closeStandardCore func()
-	var err error
-
-	if !c.DebugLogsToDisk() {
-		standardCore, closeStandardCore, err = newDefaultLoggingCore(cfg, c.UnixTS)
-	} else {
-		standardCore, closeStandardCore, err = newRotatingFileCore(cfg, *c)
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	atomicCore := NewAtomicCore()
-	finalCore := zapcore.NewTee(standardCore, atomicCore)
-
-	l, loggerCloseFn, err := newLoggerForCore(cfg, finalCore)
-	if err != nil {
-		closeStandardCore()
-		log.Fatal(err)
-	}
-
-	// Apply sentry and prometheus wrappers
-	var wrappedLogger Logger = l
-	if c.SentryEnabled {
-		wrappedLogger = newSentryLogger(wrappedLogger)
-	}
-	wrappedLogger = newPrometheusLogger(wrappedLogger)
-	wrappedLogger = wrappedLogger.With("version", verShaNameStatic())
-
-	combinedCloseFunc := func() error {
-		closeStandardCore()
-		loggerCloseFn()
-		return nil
-	}
-
-	return wrappedLogger, combinedCloseFunc, atomicCore
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
@@ -295,10 +248,14 @@ func newZapConfigBase() zap.Config {
 	return cfg
 }
 
-func newDefaultLogger(zcfg zap.Config, unixTS bool) (Logger, func() error, error) {
+func newDefaultLogger(zcfg zap.Config, unixTS bool, cores ...zapcore.Core) (Logger, func() error, error) {
 	core, coreCloseFn, err := newDefaultLoggingCore(zcfg, unixTS)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(cores) > 0 {
+		core = zapcore.NewTee(append([]zapcore.Core{core}, cores...)...)
 	}
 
 	l, loggerCloseFn, err := newLoggerForCore(zcfg, core)

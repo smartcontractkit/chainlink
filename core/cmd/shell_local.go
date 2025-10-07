@@ -20,7 +20,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
@@ -1143,14 +1142,14 @@ func (s *Shell) initStartComponents(c *cli.Context) error {
 
 	// If log streaming is enabled swap core to add Otel
 	if s.Config.Telemetry().LogStreamingEnabled() {
-		if s.OtelCore == nil {
-			return errors.New("Shell.OtelCore is nil")
+		if s.SetOtelCore == nil {
+			return errors.New("Shell.SetOtelCore is nil")
 		}
 		otelLogger := beholder.GetLogger()
-		// TODO: get logging level from s.Logger.Level
-		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(zapcore.DebugLevel))
+		logLevel := s.Config.Log().Level()
+		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(logLevel))
 
-		s.OtelCore.Store(&otelCore)
+		s.SetOtelCore(&otelCore)
 		lggr.Info("Log streaming enabled")
 	}
 

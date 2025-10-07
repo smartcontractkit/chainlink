@@ -261,7 +261,7 @@ func NewApp(s *Shell) *cli.App {
 					return err
 				}
 
-				// Configure a new logger
+				// Configure a new logger with OTel atomic core support
 				lggrCfg := logger.Config{
 					LogLevel:    s.Config.Log().Level(),
 					Dir:         s.Config.Log().File().Dir(),
@@ -274,11 +274,14 @@ func NewApp(s *Shell) *cli.App {
 					SentryEnabled:  s.Config.Sentry().DSN() != "",
 				}
 
-				l, closeFn, otelCore := lggrCfg.NewWithAtomicCore()
+				// Atomic core that can be swapped out later for OTel support
+				atomicCore := logger.NewAtomicCore()
+
+				l, closeFn := lggrCfg.NewWithCores(atomicCore)
 
 				s.Logger = l
 				s.CloseLogger = closeFn
-				s.OtelCore = otelCore
+				s.SetOtelCore = atomicCore.Store
 
 				return nil
 			},

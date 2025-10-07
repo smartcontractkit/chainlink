@@ -131,26 +131,3 @@ func newRotatingFileLogger(zcfg zap.Config, c Config, cores ...zapcore.Core) (*z
 
 	return lggr, closeLogger, err
 }
-
-func newRotatingFileCore(zcfg zap.Config, c Config) (zapcore.Core, func(), error) {
-	// Create default console core
-	defaultCore, defaultCloseFn, err := newDefaultLoggingCore(zcfg, c.UnixTS)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Create disk logging core
-	diskLogLevel := zap.NewAtomicLevelAt(zapcore.DebugLevel)
-	diskCore, err := newDiskCore(diskLogLevel, c)
-	if err != nil {
-		defaultCloseFn()
-		return nil, nil, err
-	}
-
-	combinedCore := zapcore.NewTee(defaultCore, diskCore)
-	combinedCloseFn := func() {
-		defaultCloseFn()
-	}
-
-	return combinedCore, combinedCloseFn, nil
-}
