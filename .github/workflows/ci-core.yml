@@ -188,11 +188,11 @@ jobs:
             os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             setup-solana: "true"
+            install-loopps: "true"
 
           - cmd: go_core_fuzz
             os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            skip-loopps-install: "true"
 
           - cmd: go_core_race_tests
             os: ${{ needs.runner-config.outputs.core-race-tests-runner }}
@@ -271,7 +271,7 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.skip-loopps-install != 'true' }}
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true' }}
         run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
