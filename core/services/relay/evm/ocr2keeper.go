@@ -88,7 +88,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(ctx context.Context, rargs com
 	}
 
 	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
-	contractTransmitter, err := transmitter.newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ethKeystore, cfgWatcher, transmitter.configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI)
+	contractTransmitter, err := transmitter.NewContractTransmitter(ctx, r.lggr, rargs, r.ethKeystore, cfgWatcher.chain, cfgWatcher.contractAddress, transmitter.ConfigTransmitterOpts{PluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI, false)
 	if err != nil {
 		return nil, err
 	}
