@@ -739,6 +739,8 @@ lloConfigMode = "bluegreen"
 		timestampedStonkPriceStreamID := uint32(12)
 		nullTimestampPriceStreamID := uint32(13)
 		missingTimestampPriceStreamID := uint32(14)
+		timestampedStreamValueValueStreamID := uint32(15)
+		timestampedStreamValueTimestampStreamID := uint32(16)
 
 		mustEncodeOpts := func(opts any) []byte {
 			encoded, err := json.Marshal(opts)
@@ -747,14 +749,17 @@ lloConfigMode = "bluegreen"
 		}
 
 		standardMultiplier := ubig.NewI(1e18)
+		millisToNanosMultiplier := ubig.NewI(1e6)
 
 		const simpleStreamlinedChannelID = 5
 		const complexStreamlinedChannelID = 6
 		const sampleTimestampsStockPriceChannelID = 7
+		const sampleTimestampedStreamValueChannelID = 8
 
 		dexBasedAssetFeedID := utils.NewHash()
 		rwaFeedID := utils.NewHash()
 		benchmarkPriceFeedID := utils.NewHash()
+		timestampedStreamValueFeedID := utils.NewHash()
 		fundingRateFeedID := utils.NewHash()
 		simpleStreamlinedFeedID := pad32bytes(simpleStreamlinedChannelID)
 		complexStreamlinedFeedID := pad32bytes(complexStreamlinedChannelID)
@@ -959,6 +964,37 @@ lloConfigMode = "bluegreen"
 					},
 				},
 			},
+			// Sample timestamped stream value schema
+			sampleTimestampedStreamValueChannelID: {
+				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   linkStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   timestampedStreamValueValueStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   timestampedStreamValueTimestampStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+				},
+				Opts: mustEncodeOpts(&lloevm.ReportFormatEVMABIEncodeOpts{
+					BaseUSDFee:       decimal.NewFromFloat32(0.1),
+					ExpirationWindow: expirationWindow,
+					FeedID:           timestampedStreamValueFeedID,
+					ABI: []lloevm.ABIEncoder{
+						newSingleABIEncoder("int192", nil),
+						newSingleABIEncoder("uint64", millisToNanosMultiplier),
+					},
+				}),
+			},
 		}
 		url, sha := newChannelDefinitionsServer(t, channelDefinitions)
 
@@ -981,6 +1017,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	},
 	"result": {
 		"benchmarkPrice": "2976.39",
+		"benchmarkPrice2": "3156.79",
 		"baseMarketDepth": "1000.1212",
 		"quoteMarketDepth": "998.5431",
 		"binanceFundingRate": "1234.5678",
@@ -994,6 +1031,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	},
 	"timestamps": {
 		"providerIndicatedTimeUnixMs": 1742314713000,
+		"providerIndicatedTimeUnixMs2": 1742314717000,
 		"providerIndicatedTimeUnixMs_TestNull": null,
 		"providerDataReceivedUnixMs": 1742314713050
 	}
@@ -1074,6 +1112,33 @@ bp_decimal 					[type=multiply times=1 streamID=%d];
 dp -> bp_parse -> bp_decimal;
 `, bridgeName, benchmarkPriceStreamID)
 
+		timestampedStreamValuePipeline := fmt.Sprintf(`
+ds1_payload [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+ds1_benchmark [type=jsonparse path="result,benchmarkPrice"];
+ds1_payload -> ds1_benchmark -> benchmark_price;
+ds1_provider_indicated_time [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs"];
+ds1_payload -> ds1_provider_indicated_time -> provider_indicated_time;
+ds1_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
+ds1_payload -> ds1_data_received_time -> data_received_time;
+
+ds2_payload [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+ds2_benchmark [type=jsonparse path="result,benchmarkPrice2"];
+ds2_payload -> ds2_benchmark -> benchmark_price;
+ds2_provider_indicated_time [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs2"];
+ds2_payload -> ds2_provider_indicated_time -> provider_indicated_time;
+ds2_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
+ds2_payload -> ds2_data_received_time -> data_received_time;
+
+benchmark_price [type=median allowedFaults=1 streamID=%d index=0];
+
+provider_indicated_time [type=median allowedFaults=1 lax=true];
+data_received_time [type=median allowedFaults=1 lax=true];
+provider_indicated_time -> benchmark_price_timestamp;
+data_received_time -> benchmark_price_timestamp;
+
+benchmark_price_timestamp [type=coalesce streamID=%d index=1];
+`, bridgeName, bridgeName, timestampedStreamValueValueStreamID, timestampedStreamValueTimestampStreamID)
+
 		fundingRatePipeline := fmt.Sprintf(`
 dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 
@@ -1112,6 +1177,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			addStreamSpec(t, node, "dexBasedAssetPipeline", nil, dexBasedAssetPipeline)
 			addStreamSpec(t, node, "rwaPipeline", nil, rwaPipeline)
 			addStreamSpec(t, node, "benchmarkPricePipeline", nil, benchmarkPricePipeline)
+			addStreamSpec(t, node, "timestampedStreamValuePipeline", nil, timestampedStreamValuePipeline)
 			addStreamSpec(t, node, "fundingRatePipeline", nil, fundingRatePipeline)
 
 			addLLOJob(
@@ -1138,6 +1204,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			dexBasedAssetFeedID:              {},
 			rwaFeedID:                        {},
 			benchmarkPriceFeedID:             {},
+			timestampedStreamValueFeedID:     {},
 			fundingRateFeedID:                {},
 			simpleStreamlinedFeedID:          {},
 			complexStreamlinedFeedID:         {},
@@ -1217,6 +1284,18 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 					require.NoError(t, err)
 
 					assert.Equal(t, "2976390000000000000000", v["benchmarkPrice"].(*big.Int).String())
+				case hex.EncodeToString(timestampedStreamValueFeedID[:]):
+					require.Len(t, payload, 64)
+					args := abi.Arguments([]abi.Argument{
+						{Name: "benchmarkPrice", Type: mustNewType("int192")},
+						{Name: "benchmarkPriceTimestamp", Type: mustNewType("uint64")},
+					})
+					v := make(map[string]interface{})
+					err := args.UnpackIntoMap(v, payload)
+					require.NoError(t, err)
+
+					assert.Equal(t, "3066590000000000000000", v["benchmarkPrice"].(*big.Int).String())
+					assert.Equal(t, uint64(1742314715000_000_000), v["benchmarkPriceTimestamp"].(uint64))
 				case hex.EncodeToString(fundingRateFeedID[:]):
 					require.Len(t, payload, 192)
 					args := abi.Arguments([]abi.Argument{
@@ -1313,6 +1392,10 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			if len(feedIDs) == 0 {
 				break
 			}
+		}
+
+		if len(feedIDs) > 0 {
+			t.Fatalf("expected all feedIDs to be processed, got remaining: %d", len(feedIDs))
 		}
 	})
 }
