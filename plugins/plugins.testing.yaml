@@ -17,6 +17,6 @@ plugins:
   capabilitywatcher:
     - enabled: true
       moduleURI: "github.com/smartcontractkit/capabilities/capabilitywatcher"
-      gitRef: "cbc96730964f70f7c09f6d065f9db3265406efec"
+      gitRef: "851a6fc84178efe4e49476ecd5c40f683a1a750d"
       installPath: "github.com/smartcontractkit/capabilities/capabilitywatcher"
 
