@@ -55,24 +55,32 @@ func TestOtelCore(t *testing.T) {
 				LogLevel: zapcore.InfoLevel,
 			}
 
-			atomicCore := NewAtomicCore()
-			logger, closeFn := cfg.NewWithCores()
-			defer func() {
-				err := closeFn()
-				require.NoError(t, err)
-			}()
-			require.NotNil(t, logger)
+			var logger Logger
+			var closeFn func() error
 
 			if tc.enableOtel {
 				// Create a no-op OTel logger for testing
 				noopLogger := noop.NewLoggerProvider().Logger("test")
-
 				otelCore := otelzap.NewCore(noopLogger, otelzap.WithLevel(zapcore.DebugLevel))
-				atomicCore.Store(&otelCore)
+
+				logger, closeFn = cfg.NewWithCores(otelCore)
+				defer func() {
+					err := closeFn()
+					require.NoError(t, err)
+				}()
+				require.NotNil(t, logger)
+
 				// Test that logger works with otel core
 				logger.Info("test log message with otel")
 			} else {
 				// Test that regular logger works
+				logger, closeFn = cfg.NewWithCores()
+				defer func() {
+					err := closeFn()
+					require.NoError(t, err)
+				}()
+				require.NotNil(t, logger)
+
 				logger.Info("test log message without otel")
 			}
 
