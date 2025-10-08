@@ -4145,11 +4145,12 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		}
 	}
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsLBTCDeployment() {
-		// Only one LBTC allowed per chain
-		jobParams.LBTCConfig = &config.LBTCConfig{
-			SourceTokenAddress:           common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
-			AttestationAPI:               mockAdapterURL,
-			AttestationAPITimeoutSeconds: 5,
+		jobParams.LBTCConfigs = []config.LBTCConfig{
+			{
+				SourceTokenAddress:           common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
+				AttestationAPI:               mockAdapterURL,
+				AttestationAPITimeoutSeconds: 5,
+			},
 		}
 	}
 	if !bootstrapAdded.Load() {

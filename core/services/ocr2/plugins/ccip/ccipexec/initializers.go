@@ -136,19 +136,22 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		}
 		tokenDataProviders[cciptypes.Address(pluginConfig.USDCConfig.SourceTokenAddress.String())] = usdcReader
 	}
-	// init lbtc token data provider
-	if pluginConfig.LBTCConfig.AttestationAPI != "" {
-		lggr.Infof("LBTC token data provider enabled")
-		err2 := pluginConfig.LBTCConfig.ValidateLBTCConfig()
-		if err2 != nil {
-			return nil, err2
-		}
+	lbtcConfigs := pluginConfig.LBTCConfigsList()
+	err = ccipconfig.ValidateLBTCConfigs(lbtcConfigs)
+	if err != nil {
+		return nil, err
+	}
 
-		lbtcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccip.EvmAddrToGeneric(pluginConfig.LBTCConfig.SourceTokenAddress))
-		if err2 != nil {
-			return nil, fmt.Errorf("new lbtc reader: %w", err2)
+	for _, lbtcConfig := range lbtcConfigs {
+		// init lbtc token data provider
+		if lbtcConfig.AttestationAPI != "" {
+			lggr.Infof("LBTC token data provider enabled")
+			lbtcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccip.EvmAddrToGeneric(lbtcConfig.SourceTokenAddress))
+			if err2 != nil {
+				return nil, fmt.Errorf("new lbtc reader: %w", err2)
+			}
+			tokenDataProviders[cciptypes.Address(lbtcConfig.SourceTokenAddress.String())] = lbtcReader
 		}
-		tokenDataProviders[cciptypes.Address(pluginConfig.LBTCConfig.SourceTokenAddress.String())] = lbtcReader
 	}
 
 	// Prom wrappers
