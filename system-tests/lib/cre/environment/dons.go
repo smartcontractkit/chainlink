@@ -134,8 +134,6 @@ func StartDONs(
 	var resultMap sync.Map
 
 	for idx, nodeSetInput := range capabilitiesAwareNodeSets {
-		idx := idx
-		nodeSetInput := nodeSetInput
 		errGroup.Go(func() error {
 			startTime := time.Now()
 			lggr.Info().Msgf("Starting DON named %s", nodeSetInput.Name)
