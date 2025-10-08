@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -60,6 +61,72 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	// setup the initial contract state
 	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
+
+	// Add requests to ensure we go above the MaxResultsPerQuery
+	activeAllowlistedRequestsCount := int(MaxResultsPerQuery) + 1
+	for i := 0; i < activeAllowlistedRequestsCount; i++ {
+		createSecretsRequestParams, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       strconv.Itoa(i),
+						Namespace: "active",
+					},
+					EncryptedValue: "encrypted-value",
+				},
+			},
+		})
+		require.NoError(t, err)
+		createSecretsRequest := jsonrpc.Request[json.RawMessage]{
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&createSecretsRequestParams),
+		}
+		require.NoError(t, err)
+
+		createSecretsRequestDigest, err := DigestForRequest(createSecretsRequest)
+		require.NoError(t, err)
+
+		allowlistRequest(t, backendTH, wfRegistryC, RegisterAllowlistedRequestCMDV2{
+			RequestDigest:   createSecretsRequestDigest,
+			Owner:           backendTH.ContractsOwner.From,
+			ExpiryTimestamp: uint32(time.Now().UTC().Add(24 * time.Hour).Unix()), //nolint:gosec // it is a safe conversion
+		})
+	}
+
+	// Also add expired allowlisted requests
+	expiredAllowlistedRequestsCount := 1
+	for i := 0; i < expiredAllowlistedRequestsCount; i++ {
+		createSecretsRequestParams, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       fmt.Sprintf("expired-%d", i),
+						Namespace: "expired",
+					},
+					EncryptedValue: "encrypted-value",
+				},
+			},
+		})
+		require.NoError(t, err)
+		createSecretsRequest := jsonrpc.Request[json.RawMessage]{
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&createSecretsRequestParams),
+		}
+		require.NoError(t, err)
+
+		createSecretsRequestDigest, err := DigestForRequest(createSecretsRequest)
+		require.NoError(t, err)
+
+		allowlistRequest(t, backendTH, wfRegistryC, RegisterAllowlistedRequestCMDV2{
+			RequestDigest:   createSecretsRequestDigest,
+			Owner:           backendTH.ContractsOwner.From,
+			ExpiryTimestamp: uint32(time.Now().UTC().Add(1 * time.Hour).Unix()), //nolint:gosec // it is a safe conversion
+		})
+	}
+	// Advance blockchain time by 2 hours so the requests are expired
+	backendTH.Backend.AdjustTime(2 * time.Hour)
+	backendTH.Backend.Commit()
+
 	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
 	// that the syncer will query the contract multiple times to get the full list of workflows
 	numberWorkflows := 250
@@ -113,6 +180,17 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, WorkflowActivated, event.Name)
 	}
+
+	assert.Equal(t,
+		activeAllowlistedRequestsCount,
+		len(worker.GetAllowlistedRequests(context.Background())),
+		"synced allowlisted requests do not match expectations",
+	)
+	assert.Equal(t,
+		big.NewInt(int64(activeAllowlistedRequestsCount+expiredAllowlistedRequestsCount)),
+		worker.GetLastSeenOnchainAllowlistedRequestsCount(context.Background()),
+		"seen onchain allowlisted requests do not match expectations",
+	)
 }
 
 func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
@@ -501,33 +579,6 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	workflow.ID = workflowID
 	upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
 
-	createSecretsRequestParams, err := json.Marshal(vaultcommon.CreateSecretsRequest{
-		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-			{
-				Id: &vaultcommon.SecretIdentifier{
-					Key:       "a",
-					Namespace: "b",
-				},
-				EncryptedValue: "encrypted-value",
-			},
-		},
-	})
-	require.NoError(t, err)
-	createSecretsRequest := jsonrpc.Request[json.RawMessage]{
-		Method: vaulttypes.MethodSecretsCreate,
-		Params: (*json.RawMessage)(&createSecretsRequestParams),
-	}
-	require.NoError(t, err)
-
-	digest, err := DigestForRequest(createSecretsRequest)
-	require.NoError(t, err)
-
-	allowlistRequest(t, backendTH, wfRegistryC, RegisterAllowlistedRequestCMDV2{
-		RequestDigest:   digest,
-		Owner:           backendTH.ContractsOwner.From,
-		ExpiryTimestamp: uint32(time.Now().UTC().Unix() + 100),
-	})
-
 	var retryCount int
 	testEventHandler := newTestEvtHandler(func() error {
 		if retryCount <= 1 {
@@ -761,7 +812,12 @@ func allowlistRequest(
 	input RegisterAllowlistedRequestCMDV2,
 ) {
 	t.Helper()
-	_, err := wfRegC.AllowlistRequest(
+	totalAllowlistedRequestsBefore, err := wfRegC.TotalAllowlistedRequests(&bind.CallOpts{
+		From: th.ContractsOwner.From,
+	})
+	require.NoError(t, err, "failed to get total allowlisted requests")
+
+	_, err = wfRegC.AllowlistRequest(
 		th.ContractsOwner,
 		input.RequestDigest,
 		input.ExpiryTimestamp,
@@ -769,11 +825,11 @@ func allowlistRequest(
 	require.NoError(t, err, "failed to register allowlisted request")
 	th.Backend.Commit()
 
-	totalAllowlistedRequests, err := wfRegC.TotalAllowlistedRequests(&bind.CallOpts{
+	totalAllowlistedRequestsAfter, err := wfRegC.TotalAllowlistedRequests(&bind.CallOpts{
 		From: th.ContractsOwner.From,
 	})
 	require.NoError(t, err, "failed to get total allowlisted requests")
-	require.Equal(t, totalAllowlistedRequests, big.NewInt(1), "total allowlisted requests mismatch")
+	require.Equal(t, totalAllowlistedRequestsBefore.Uint64()+1, totalAllowlistedRequestsAfter.Uint64(), "total allowlisted requests mismatch")
 }
 
 // Prepare the ABI arguments, in the exact order as expected by the Solidity contract.
