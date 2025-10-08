@@ -1075,7 +1075,6 @@ func newCREServices(
 				}
 
 				wrVersion, vErr := semver.NewVersion(capCfg.WorkflowRegistry().ContractVersion())
-				lggr.Infow("wrVersion: ", wrVersion.String())
 				if vErr != nil {
 					return nil, vErr
 				}

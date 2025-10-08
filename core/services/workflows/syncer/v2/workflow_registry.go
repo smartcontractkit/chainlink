@@ -696,7 +696,6 @@ func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_
 	defer w.allowListedMu.RUnlock()
 	allowListedRequests := make([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, len(w.allowListedRequests))
 	copy(allowListedRequests, w.allowListedRequests)
-	w.lggr.Infow("GetAllowlistedRequests", "len(w.allowListedRequests)", len(w.allowListedRequests), "len(allowListedRequests)", len(allowListedRequests), "allowListedRequests", allowListedRequests)
 	return allowListedRequests
 }
 
@@ -732,7 +731,6 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
 		}
 
-		w.lggr.Infow("onchain call  returned allowlisted requests", "readIdentifier", readIdentifier, "allowListedRequests", results.AllowlistedRequests, "blockHeight", headAtLastRead.Height)
 		allAllowlistedRequests = append(allAllowlistedRequests, results.AllowlistedRequests...)
 
 		// if less results than limit, then we have reached the end of the list

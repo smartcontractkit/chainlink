@@ -268,9 +268,11 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// Note we cache this value quite aggressively so don't need to worry about DoS.
 	if req.Method == vaulttypes.MethodPublicKeyGet {
 		return h.handlePublicKeyGet(ctx, h.newActiveRequest(req, callback))
+	} else if req.Method == vaulttypes.MethodSecretsGet {
+		ar := h.newActiveRequest(req, callback)
+		return h.handleSecretsGet(ctx, ar)
 	}
 
-	h.lggr.Infow("handling vault request", "method", req.Method, "requestID", req.ID)
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
 	if !isAuthorized {
 		h.lggr.Errorw("request not authorized", "requestID", req.ID, "owner", owner, "reason:", err)
@@ -285,8 +287,6 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
 		return h.handleSecretsCreate(ctx, ar)
-	case vaulttypes.MethodSecretsGet:
-		return h.handleSecretsGet(ctx, ar)
 	case vaulttypes.MethodSecretsUpdate:
 		return h.handleSecretsUpdate(ctx, ar)
 	case vaulttypes.MethodSecretsDelete:

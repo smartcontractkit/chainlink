@@ -18,6 +18,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
@@ -50,6 +51,12 @@ var (
 
 func GetSupportedMethods(lggr logger.Logger) []string {
 	methods := slices.Clone(Methods)
+	if build.IsDev() {
+		// Allow secrets get in non-prod environments for testing purposes
+		// This should never be enabled in production
+		methods = append(methods, MethodSecretsGet)
+		lggr.Warnw("enabling vault.secrets.get method since it is not a production build", "build-mode", build.Mode())
+	}
 	return methods
 }
 
@@ -221,16 +228,38 @@ func DigestForRequest(req jsonrpc.Request[json.RawMessage]) ([32]byte, error) {
 		if err := json.Unmarshal(*req.Params, &createSecretsRequests); err != nil {
 			return [32]byte{}, errors.New("error unmarshalling create secrets request: " + err.Error())
 		}
+		secrets := make([]*vaultcommon.EncryptedSecret, len(createSecretsRequests.EncryptedSecrets))
+		for i, s := range createSecretsRequests.EncryptedSecrets {
+			secrets[i] = &vaultcommon.EncryptedSecret{
+				EncryptedValue: s.EncryptedValue,
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       s.Id.Key,
+					Namespace: s.Id.Namespace,
+					Owner:     s.Id.Owner,
+				},
+			}
+		}
 		seed = vaultcommon.CreateSecretsRequest{
-			EncryptedSecrets: createSecretsRequests.EncryptedSecrets,
+			EncryptedSecrets: secrets,
 		}
 	case MethodSecretsUpdate:
 		var updateSecretsRequests vaultcommon.UpdateSecretsRequest
 		if err := json.Unmarshal(*req.Params, &updateSecretsRequests); err != nil {
 			return [32]byte{}, errors.New("error unmarshalling update secrets request: " + err.Error())
 		}
-		seed = vaultcommon.UpdateSecretsRequest{
-			EncryptedSecrets: updateSecretsRequests.EncryptedSecrets,
+		secrets := make([]*vaultcommon.EncryptedSecret, len(updateSecretsRequests.EncryptedSecrets))
+		for i, s := range updateSecretsRequests.EncryptedSecrets {
+			secrets[i] = &vaultcommon.EncryptedSecret{
+				EncryptedValue: s.EncryptedValue,
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       s.Id.Key,
+					Namespace: s.Id.Namespace,
+					Owner:     s.Id.Owner,
+				},
+			}
+		}
+		seed = vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: secrets,
 		}
 	case MethodSecretsList:
 		var listSecretsRequests vaultcommon.ListSecretIdentifiersRequest
@@ -246,35 +275,26 @@ func DigestForRequest(req jsonrpc.Request[json.RawMessage]) ([32]byte, error) {
 		if err := json.Unmarshal(*req.Params, &deleteSecretsRequests); err != nil {
 			return [32]byte{}, errors.New("error unmarshalling delete secrets request: " + err.Error())
 		}
+		ids := make([]*vaultcommon.SecretIdentifier, len(deleteSecretsRequests.Ids))
+		for i, id := range deleteSecretsRequests.Ids {
+			ids[i] = &vaultcommon.SecretIdentifier{
+				Key:       id.Key,
+				Namespace: id.Namespace,
+				Owner:     id.Owner,
+			}
+		}
 		seed = vaultcommon.DeleteSecretsRequest{
-			Ids: deleteSecretsRequests.Ids,
+			Ids: ids,
 		}
 	default:
 		return [32]byte{}, fmt.Errorf("unauthorized method: %s", req.Method)
 	}
 
-	return calculateRequestDigest(seed), nil
-}
-
-// CalculateRequestDigest creates a SHA256 digest of the request for integrity verification
-// This function is shared between client (JWT generation) and server (JWT validation)
-func calculateRequestDigest(req any) [32]byte {
-	var data []byte
-	if m, ok := req.(proto.Message); ok {
-		// Use protobuf canonical serialization
-		serialized, err := proto.Marshal(m)
-		if err == nil {
-			data = serialized
-		} else {
-			// fallback to string representation if marshal fails
-			data = []byte(fmt.Sprintf("%v", req))
-		}
-	} else if s, ok := req.(fmt.Stringer); ok {
-		data = []byte(s.String())
-	} else {
-		data = []byte(fmt.Sprintf("%v", req))
+	// Critical: convert to json, to ensure consistent encoding. Otherwise, different
+	// clients may generate different digests for the same logical request.
+	jsonData, err := json.Marshal(seed)
+	if err != nil {
+		return [32]byte{}, errors.New("error marshalling request for digest: " + err.Error())
 	}
-
-	hash := sha256.Sum256(data)
-	return hash
+	return sha256.Sum256(jsonData), nil
 }
