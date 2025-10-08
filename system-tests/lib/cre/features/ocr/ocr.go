@@ -45,7 +45,7 @@ func (o *OCR) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-	gatewayConfigs map[cre.NodeUUID]config.GatewayConfig,
+	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
 	for donIdx := range topology.DonsMetadataWithFlag(flag) {

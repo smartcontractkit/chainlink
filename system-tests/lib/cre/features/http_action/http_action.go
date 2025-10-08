@@ -3,7 +3,9 @@ package httpaction
 import (
 	"context"
 	"fmt"
+	"strconv"
 
+	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -12,7 +14,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -39,31 +44,33 @@ func (o *HTTPAction) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs, // move to Topology
 	contractVersions map[string]string,
-	gatewayConfigs map[cre.NodeUUID]config.GatewayConfig,
+	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())
 	if len(donsMetadata) == 0 {
 		return nil, nil
 	}
 
-	chainID, chErr := chainselectors.ChainIdFromSelector(registryChainSelector)
+	// use registry chain, because that is the chain we used when generating gateway connector part of node config (check below)
+	registryChainID, chErr := chainselectors.ChainIdFromSelector(registryChainSelector)
 	if chErr != nil {
 		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", registryChainSelector)
 	}
 
-	for _, don := range donsMetadata {
-		workers, wErr := don.Workers()
+	// TODO export in a function, http-trigger will also need it
+	// add gateway handler config to each DON that has this capability
+	for _, donMetadata := range donsMetadata {
+		workers, wErr := donMetadata.Workers()
 		if wErr != nil {
 			return nil, wErr
 		}
-		// use registry chain, because that's chain we use when generating gateway connector part of node config
-		evmKey, ok := workers[0].Keys.EVM[chainID]
+		evmKey, ok := workers[0].Keys.EVM[registryChainID]
 		if !ok {
-			return nil, fmt.Errorf("worker node at index %d does not have EVM key for chainID %d", workers[0].Index, chainID)
+			return nil, fmt.Errorf("worker node at index %d does not have EVM key for chainID %d", workers[0].Index, registryChainID)
 		}
 
 		// for each DON, we need to add a handler config specific for this capability
-		for _, gc := range gatewayConfigs {
+		for nodeUUID, gc := range gatewayConfigs {
 			donFound := false
 			for donIdx, maybeDON := range gc.Dons {
 				// first we try to find DON configuration that matches current don, because it might be already present
@@ -76,60 +83,94 @@ func (o *HTTPAction) PreEnvStartup(
 				}
 
 				if donFound {
-					gc.Dons[donIdx].Handlers = append(gc.Dons[donIdx].Handlers, config.Handler{
-						Name:        "http-capabilities",
-						ServiceName: "workflows",
-						// TODO - figure out correct json syntax
-						Config: []byte(`
-maxTriggerRequestDurationMs = 5_000
-metadataPullIntervalMs = 1_000
-metadataAggregationIntervalMs = 1_000
-[NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10`),
-					})
-
+					gc.Dons[donIdx].Handlers = append(gc.Dons[donIdx].Handlers, gatewayHandlerConfig())
 					break
 				}
 			}
 
-			// TODO make web api gateway also a feature! <--------
+			// if we did not find the DON in the gateway config, we need to add it
 			if !donFound {
 				members := make([]config.NodeConfig, len(workers))
 				for i, worker := range workers {
-					evmKey, ok := worker.Keys.EVM[registryChainSelector]
+					evmKey, ok := worker.Keys.EVM[registryChainID]
 					if !ok {
-						return nil, fmt.Errorf("worker node at index %d does not have EVM key for chain selector %d", worker.Index, registryChainSelector)
+						return nil, fmt.Errorf("worker node at index %d does not have EVM key for chain ID %d", worker.Index, registryChainID)
 					}
 
 					members[i] = config.NodeConfig{
 						Address: evmKey.PublicAddress.Hex(),
-						Name:    fmt.Sprintf("node-%d", worker.Index),
+						Name:    fmt.Sprintf("%s-node-%d", donMetadata.Name, worker.Index),
 					}
 				}
-				gc.Dons = append(gc.Dons, config.DONConfig{
-					DonId:   don.Name,
-					F:       1,
-					Members: members,
-					Handlers: []config.Handler{
-						{
-							Name:        "http-capabilities",
-							ServiceName: "workflows",
-							Config: []byte(`
-maxTriggerRequestDurationMs = 5_000
-metadataPullIntervalMs = 1_000
-metadataAggregationIntervalMs = 1_000
-[NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10`),
-						},
-					},
+
+				gatewayConfigs[nodeUUID].Dons = append(gatewayConfigs[nodeUUID].Dons, config.DONConfig{
+					DonId:    donMetadata.Name,
+					F:        1,
+					Members:  members,
+					Handlers: []config.Handler{gatewayHandlerConfig()},
 				})
 			}
+		}
+	}
+
+	// TODO export in a function, http-trigger will also need it
+	// add gateway connector configuration to node TOML config
+	for _, donMetadata := range donsMetadata {
+		workers, wErr := donMetadata.Workers()
+		if wErr != nil {
+			return nil, wErr
+		}
+
+		for _, workerNode := range workers {
+			currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+
+			var typedConfig corechainlink.Config
+			unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+			if unmarshallErr != nil {
+				return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+			}
+
+			evmKey, ok := workerNode.Keys.EVM[registryChainID]
+			if !ok {
+				return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", registryChainID, workerNode.Index)
+			}
+
+			// if no gateways are configured, then gateway connector config is most probably also not configured
+			if len(typedConfig.Capabilities.GatewayConnector.Gateways) == 0 {
+				typedConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
+					DonID:             ptr.Ptr(donMetadata.Name),
+					ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
+					NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
+				}
+			}
+
+			// make sure that all other gateways are also present in the config
+			for _, gatewayConnector := range topology.GatewayConnectorOutput.Configurations {
+				alreadyPresent := false
+				for _, existingGateway := range typedConfig.Capabilities.GatewayConnector.Gateways {
+					if gatewayConnector.AuthGatewayID == *existingGateway.ID {
+						alreadyPresent = true
+						continue
+					}
+				}
+
+				if !alreadyPresent {
+					typedConfig.Capabilities.GatewayConnector.Gateways = append(typedConfig.Capabilities.GatewayConnector.Gateways, coretoml.ConnectorGateway{
+						ID: ptr.Ptr(gatewayConnector.AuthGatewayID),
+						URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
+							gatewayConnector.Outgoing.Host,
+							gatewayConnector.Outgoing.Port,
+							gatewayConnector.Outgoing.Path)),
+					})
+				}
+			}
+
+			stringifiedConfig, mErr := toml.Marshal(typedConfig)
+			if mErr != nil {
+				return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+			}
+
+			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
 		}
 	}
 
@@ -153,6 +194,22 @@ perSenderRPS = 10`),
 		DONCapabilityWithConfigs: capabilities,
 		GatewayConfigs:           gatewayConfigs,
 	}, nil
+}
+
+func gatewayHandlerConfig() config.Handler {
+	return config.Handler{
+		Name:        "http-capabilities",
+		ServiceName: "workflows",
+		Config: []byte(`
+maxTriggerRequestDurationMs = 5_000
+metadataPullIntervalMs = 1_000
+metadataAggregationIntervalMs = 1_000
+[NodeRateLimiter]
+globalBurst = 10
+globalRPS = 50
+perSenderBurst = 10
+perSenderRPS = 10`),
+	}
 }
 
 const httpActionConfigTemplate = `"""

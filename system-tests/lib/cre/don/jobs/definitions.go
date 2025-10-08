@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -48,134 +47,134 @@ func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, cha
 	}
 }
 
-type GatewayHandler struct {
-	Name   string
-	Config string
-}
+// type GatewayHandler struct {
+// 	Name   string
+// 	Config string
+// }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConfiguration *cre.DonGatewayConfiguration) *jobv1.ProposeJobRequest {
-	var gatewayDons string
+// func AnyGateway(bootstrapNodeID string, chainID uint64, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConfiguration *cre.DonGatewayConfiguration) *jobv1.ProposeJobRequest {
+// 	var gatewayDons string
 
-	for _, don := range gatewayConfiguration.Dons {
-		var gatewayMembers string
+// 	for _, don := range gatewayConfiguration.Dons {
+// 		var gatewayMembers string
 
-		for i := 0; i < len(don.MembersEthAddresses); i++ {
-			gatewayMembers += fmt.Sprintf(`
-	[[gatewayConfig.Dons.Members]]
-	Address = "%s"
-	Name = "Node %d"`,
-				don.MembersEthAddresses[i],
-				i+1,
-			)
-		}
+// 		for i := 0; i < len(don.MembersEthAddresses); i++ {
+// 			gatewayMembers += fmt.Sprintf(`
+// 	[[gatewayConfig.Dons.Members]]
+// 	Address = "%s"
+// 	Name = "Node %d"`,
+// 				don.MembersEthAddresses[i],
+// 				i+1,
+// 			)
+// 		}
 
-		var handlersConfig string
-		for name, config := range don.Handlers {
-			handlersConfig += fmt.Sprintf(`
-	[[gatewayConfig.Dons.Handlers]]
-	Name = "%s"
-	%s
-		`, name, config)
-		}
+// 		var handlersConfig string
+// 		for name, config := range don.Handlers {
+// 			handlersConfig += fmt.Sprintf(`
+// 	[[gatewayConfig.Dons.Handlers]]
+// 	Name = "%s"
+// 	%s
+// 		`, name, config)
+// 		}
 
-		gatewayDons += fmt.Sprintf(`
-	[[gatewayConfig.Dons]]
-	DonId = "%s"
-	F = 1
-	%s
-	%s
-		`, don.ID, gatewayMembers, handlersConfig)
-	}
+// 		gatewayDons += fmt.Sprintf(`
+// 	[[gatewayConfig.Dons]]
+// 	DonId = "%s"
+// 	F = 1
+// 	%s
+// 	%s
+// 		`, don.ID, gatewayMembers, handlersConfig)
+// 	}
 
-	uuid := uuid.NewString()
+// 	uuid := uuid.NewString()
 
-	gatewayJobSpec := fmt.Sprintf(`
-	type = "gateway"
-	schemaVersion = 1
-	externalJobID = "%s"
-	name = "%s"
-	forwardingAllowed = false
-	[gatewayConfig.ConnectionManagerConfig]
-	AuthChallengeLen = 10
-	AuthGatewayId = "%s"
-	AuthTimestampToleranceSec = 5
-	HeartbeatIntervalSec = 20
-	%s
-	[gatewayConfig.NodeServerConfig]
-	HandshakeTimeoutMillis = 1_000
-	MaxRequestBytes = 100_000
-	# this is the path other nodes will use to connect to the gateway
-	Path = "%s"
-	# this is the port other nodes will use to connect to the gateway
-	Port = %d
-	ReadTimeoutMillis = 1_000
-	RequestTimeoutMillis = 10_000
-	WriteTimeoutMillis = 1_000
-	[gatewayConfig.UserServerConfig]
-	ContentTypeHeader = "application/jsonrpc"
-	MaxRequestBytes = 100_000
-	Path = "%s"
-	Port = %d
-	ReadTimeoutMillis = 80_000
-	RequestTimeoutMillis = 80_000
-	WriteTimeoutMillis = 80_000
-	CORSEnabled = false
-	CORSAllowedOrigins = []
-	[gatewayConfig.HTTPClientConfig]
-	MaxResponseBytes = 100_000_000
-`,
-		uuid,
-		"cre-gateway",
-		gatewayConfiguration.AuthGatewayID,
-		gatewayDons,
-		gatewayConfiguration.Outgoing.Path,
-		gatewayConfiguration.Outgoing.Port,
-		gatewayConfiguration.Incoming.Path,
-		gatewayConfiguration.Incoming.InternalPort,
-	)
+// 	gatewayJobSpec := fmt.Sprintf(`
+// 	type = "gateway"
+// 	schemaVersion = 1
+// 	externalJobID = "%s"
+// 	name = "%s"
+// 	forwardingAllowed = false
+// 	[gatewayConfig.ConnectionManagerConfig]
+// 	AuthChallengeLen = 10
+// 	AuthGatewayId = "%s"
+// 	AuthTimestampToleranceSec = 5
+// 	HeartbeatIntervalSec = 20
+// 	%s
+// 	[gatewayConfig.NodeServerConfig]
+// 	HandshakeTimeoutMillis = 1_000
+// 	MaxRequestBytes = 100_000
+// 	# this is the path other nodes will use to connect to the gateway
+// 	Path = "%s"
+// 	# this is the port other nodes will use to connect to the gateway
+// 	Port = %d
+// 	ReadTimeoutMillis = 1_000
+// 	RequestTimeoutMillis = 10_000
+// 	WriteTimeoutMillis = 1_000
+// 	[gatewayConfig.UserServerConfig]
+// 	ContentTypeHeader = "application/jsonrpc"
+// 	MaxRequestBytes = 100_000
+// 	Path = "%s"
+// 	Port = %d
+// 	ReadTimeoutMillis = 80_000
+// 	RequestTimeoutMillis = 80_000
+// 	WriteTimeoutMillis = 80_000
+// 	CORSEnabled = false
+// 	CORSAllowedOrigins = []
+// 	[gatewayConfig.HTTPClientConfig]
+// 	MaxResponseBytes = 100_000_000
+// `,
+// 		uuid,
+// 		"cre-gateway",
+// 		gatewayConfiguration.AuthGatewayID,
+// 		gatewayDons,
+// 		gatewayConfiguration.Outgoing.Path,
+// 		gatewayConfiguration.Outgoing.Port,
+// 		gatewayConfiguration.Incoming.Path,
+// 		gatewayConfiguration.Incoming.InternalPort,
+// 	)
 
-	if len(extraAllowedPorts) != 0 {
-		var allowedPorts string
-		allPorts := make([]int, 0, len(DefaultAllowedPorts)+len(extraAllowedPorts))
-		allPorts = append(allPorts, append(extraAllowedPorts, DefaultAllowedPorts...)...)
-		for _, port := range allPorts {
-			allowedPorts += fmt.Sprintf("%d, ", port)
-		}
+// 	if len(extraAllowedPorts) != 0 {
+// 		var allowedPorts string
+// 		allPorts := make([]int, 0, len(DefaultAllowedPorts)+len(extraAllowedPorts))
+// 		allPorts = append(allPorts, append(extraAllowedPorts, DefaultAllowedPorts...)...)
+// 		for _, port := range allPorts {
+// 			allowedPorts += fmt.Sprintf("%d, ", port)
+// 		}
 
-		// when we pass custom allowed IPs, defaults are not used and we need to
-		// pass HTTP and HTTPS explicitly
-		gatewayJobSpec += fmt.Sprintf(`
-	AllowedPorts = [%s]
-`,
-			allowedPorts,
-		)
-	}
+// 		// when we pass custom allowed IPs, defaults are not used and we need to
+// 		// pass HTTP and HTTPS explicitly
+// 		gatewayJobSpec += fmt.Sprintf(`
+// 	AllowedPorts = [%s]
+// `,
+// 			allowedPorts,
+// 		)
+// 	}
 
-	if len(extraAllowedIps) != 0 {
-		allowedIPs := strings.Join(extraAllowedIps, `", "`)
+// 	if len(extraAllowedIps) != 0 {
+// 		allowedIPs := strings.Join(extraAllowedIps, `", "`)
 
-		gatewayJobSpec += fmt.Sprintf(`
-	AllowedIps = ["%s"]
-`,
-			allowedIPs,
-		)
-	}
+// 		gatewayJobSpec += fmt.Sprintf(`
+// 	AllowedIps = ["%s"]
+// `,
+// 			allowedIPs,
+// 		)
+// 	}
 
-	if len(extrAallowedIPsCIDR) != 0 {
-		allowedIPsCIDR := strings.Join(extrAallowedIPsCIDR, `", "`)
+// 	if len(extrAallowedIPsCIDR) != 0 {
+// 		allowedIPsCIDR := strings.Join(extrAallowedIPsCIDR, `", "`)
 
-		gatewayJobSpec += fmt.Sprintf(`
-	AllowedIPsCIDR = ["%s"]
-`,
-			allowedIPsCIDR,
-		)
-	}
+// 		gatewayJobSpec += fmt.Sprintf(`
+// 	AllowedIPsCIDR = ["%s"]
+// `,
+// 			allowedIPsCIDR,
+// 		)
+// 	}
 
-	return &jobv1.ProposeJobRequest{
-		NodeId: bootstrapNodeID,
-		Spec:   gatewayJobSpec,
-	}
-}
+// 	return &jobv1.ProposeJobRequest{
+// 		NodeId: bootstrapNodeID,
+// 		Spec:   gatewayJobSpec,
+// 	}
+// }
 
 const (
 	EmptyStdCapConfig = "\"\""

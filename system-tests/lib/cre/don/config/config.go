@@ -371,8 +371,10 @@ func addWorkerNodeConfig(
 		}
 	}
 
-	// TODO this should probably be part of Features that require gateway
-	if donMetadata.HasFlag(cre.WorkflowDON) || donMetadata.RequiresGateway() {
+	// if donMetadata.HasFlag(cre.WorkflowDON) || donMetadata.RequiresGateway() {
+	// Add only gateway connector only to workflow DON
+	// Capabilities that require gateways should add gateway connector themselves
+	if donMetadata.HasFlag(cre.WorkflowDON) {
 		evmKey, ok := m.Keys.EVM[commonInputs.registryChainID]
 		if !ok {
 			return existingConfig, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", commonInputs.registryChainID, m.Index)

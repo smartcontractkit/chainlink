@@ -184,7 +184,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
-	gatewayConfig, gErr := donconfig.GatewayConfig(
+	gatewayConfig, gErr := gateway.GatewayConfig(
 		deployKeystoneContractsOutput.Env,
 		startBlockchainsOutput.RegistryChain().BlockchainOutput,
 		topology,
@@ -511,29 +511,6 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 
 	return &configureKeystoneInput, nil
 }
-
-// func waitForLogPollerToBeHealthy(nodeSetInput []*cre.CapabilitiesAwareNodeSet, nodeSetOutput []*cre.WrappedNodeOutput) error {
-// 	for idx, nodeSetOut := range nodeSetOutput {
-// 		if !flags.HasFlag(nodeSetInput[idx].ComputedCapabilities, cre.ConsensusCapability) || !flags.HasFlag(nodeSetInput[idx].ComputedCapabilities, cre.VaultCapability) {
-// 			continue
-// 		}
-// 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
-// 		if cErr != nil {
-// 			return pkgerrors.Wrap(cErr, "failed to create node set clients")
-// 		}
-// 		eg := &errgroup.Group{}
-// 		for _, c := range nsClients {
-// 			eg.Go(func() error {
-// 				return c.WaitHealthy(".*ConfigWatcher", "passing", 100)
-// 			})
-// 		}
-// 		if waitErr := eg.Wait(); waitErr != nil {
-// 			return pkgerrors.Wrap(waitErr, "failed to wait for ConfigWatcher health check")
-// 		}
-// 	}
-
-// 	return nil
-// }
 
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, startBlockchainsOutput StartBlockchainsOutput, jdOutput *jd.Output) {
 	// append the nodeset output, so that later it can be stored in the cached output, so that we can use the environment again without running setup

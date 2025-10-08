@@ -10,15 +10,152 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
-func CreateJobs(ctx context.Context, jd *jd.JobDistributor, donTopology *cre.DonTopology, gatewayConfigs map[cre.NodeUUID]config.GatewayConfig) error {
+var (
+	DefaultAllowedPorts = []int{80, 443}
+)
+
+func GatewayConfig(
+	cldEnvironment *cldf.Environment,
+	blockchainOutput *blockchain.Output,
+	topology *cre.Topology,
+	infraInput infra.Provider,
+	capabilityConfigs map[string]cre.CapabilityConfig,
+	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
+	extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string,
+) (map[cre.NodeUUID]*config.GatewayConfig, error) {
+	if topology == nil {
+		return nil, errors.New("topology is nil")
+	}
+
+	chainID, chErr := strconv.ParseUint(blockchainOutput.ChainID, 10, 64)
+	if chErr != nil {
+		return nil, errors.Wrap(chErr, "failed to parse chain ID")
+	}
+
+	// ALWAYS REQUIRE A GATEWAY
+	// if we don't have a gateway connector outputs, we don't need to create any job specs
+	// if topology.GatewayConnectorOutput == nil || len(topology.GatewayConnectorOutput.Configurations) == 0 {
+	// 	return nil, nil
+	// }
+
+	// for each gateway node prepare GatewayConfig, which will be later used in a job spec
+	// by default we add only add web-api handler to the workflow DON (so that it can download workflows)
+	// all other handlers should be added by capabilities/features that require them
+	result := make(map[string]*config.GatewayConfig)
+	for _, donMetadata := range topology.DonsMetadata.List() {
+		gateway, hasGateway := donMetadata.Gateway()
+		if !hasGateway {
+			continue
+		}
+
+		configuration, cErr := topology.GatewayConnectorOutput.FindByNodeUUID(gateway.UUID)
+		if cErr != nil {
+			return nil, errors.Wrapf(cErr, "failed to find gateway configuration for node UUID %s", gateway.UUID)
+		}
+
+		c := config.GatewayConfig{
+			ConnectionManagerConfig: config.ConnectionManagerConfig{
+				AuthGatewayId:             configuration.AuthGatewayID,
+				AuthChallengeLen:          10,
+				AuthTimestampToleranceSec: 5,
+				HeartbeatIntervalSec:      20,
+			},
+			NodeServerConfig: gw_net.WebSocketServerConfig{
+				HandshakeTimeoutMillis: 1000,
+				HTTPServerConfig: gw_net.HTTPServerConfig{
+					MaxRequestBytes:      100_000,
+					ReadTimeoutMillis:    1_000,
+					RequestTimeoutMillis: 10_000,
+					WriteTimeoutMillis:   1_000,
+					Path:                 configuration.Outgoing.Path,
+					Port:                 uint16(configuration.Outgoing.Port),
+				},
+			},
+			UserServerConfig: gw_net.HTTPServerConfig{
+				ContentTypeHeader:    "application/jsonrpc",
+				MaxRequestBytes:      100_000,
+				ReadTimeoutMillis:    80_000,
+				RequestTimeoutMillis: 80_000,
+				WriteTimeoutMillis:   80_000,
+				CORSEnabled:          false,
+				CORSAllowedOrigins:   []string{},
+				Path:                 configuration.Incoming.Path,
+				Port:                 uint16(configuration.Incoming.InternalPort),
+			},
+			HTTPClientConfig: gw_net.HTTPClientConfig{
+				MaxResponseBytes: 100_000_000,
+				AllowedPorts:     append(extraAllowedPorts, DefaultAllowedPorts...),
+				AllowedIPs:       extraAllowedIPs,
+				AllowedIPsCIDR:   extraAllowedIPsCIDR,
+			},
+		}
+
+		workflowDON, donErr := topology.DonsMetadata.WorkflowDON()
+		if donErr != nil {
+			return nil, errors.Wrap(donErr, "failed to find workflow DON")
+		}
+
+		workerNodes, wErr := workflowDON.Workers()
+		if wErr != nil {
+			return nil, errors.Wrap(wErr, "failed to find worker nodes")
+		}
+
+		donConfig := config.DONConfig{
+			DonId:   workflowDON.Name,
+			F:       1,
+			Members: make([]config.NodeConfig, len(workerNodes)),
+		}
+
+		for i, workerNode := range workerNodes {
+			evmKey, ok := workerNode.Keys.EVM[chainID]
+			if !ok {
+				return nil, fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
+			}
+			donConfig.Members[i] = config.NodeConfig{
+				Address: evmKey.PublicAddress.Hex(),
+				Name:    fmt.Sprintf("%s-node-%d", workflowDON.Name, i),
+			}
+		}
+
+		donConfig.Handlers = []config.Handler{
+			{
+				Name: coregateway.WebAPICapabilitiesType,
+				Config: []byte(`
+maxAllowedMessageAgeSec = 1_000
+[NodeRateLimiter]
+globalBurst = 10
+globalRPS = 50
+perSenderBurst = 10
+perSenderRPS = 10
+`),
+			},
+		}
+		c.Dons = append(c.Dons, donConfig)
+		result[gateway.UUID] = &c
+	}
+
+	if len(result) == 0 {
+		return nil, errors.New("no gateway configurations were created, although at least one is expected")
+	}
+
+	return result, nil
+}
+
+func CreateJobs(ctx context.Context, jd *jd.JobDistributor, donTopology *cre.DonTopology, gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig) error {
 	jobSpecs := make(cre.DonJobs, 0)
 
 	header := `
@@ -41,7 +178,7 @@ forwardingAllowed = false
 			return fmt.Errorf("could not find gateway node with UUID %s in DON topology", nodeUUID)
 		}
 
-		tomlStr, mErr := toml.Marshal(wrapper{GC: gc})
+		tomlStr, mErr := toml.Marshal(wrapper{GC: *gc})
 		if mErr != nil {
 			return fmt.Errorf("failed to marshal gateway config to toml: %w", mErr)
 		}

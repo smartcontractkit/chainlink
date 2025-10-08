@@ -400,11 +400,19 @@ func (c *ConfigureKeystoneInput) Validate() error {
 type GatewayConnectorDons struct {
 	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
 	ID                  string   `toml:"id" json:"id"`
-	Handlers            map[string]string
-	HandlersC           []config.Handler
+	Handlers            []config.Handler
 }
 type GatewayConnectorOutput struct {
 	Configurations []*DonGatewayConfiguration `toml:"configurations" json:"configurations"`
+}
+
+func (g *GatewayConnectorOutput) FindByNodeUUID(uuid string) (*GatewayConfiguration, error) {
+	for _, config := range g.Configurations {
+		if config.NodeUUID == uuid {
+			return config.GatewayConfiguration, nil
+		}
+	}
+	return nil, fmt.Errorf("gateway configuration for node UUID %s not found", uuid)
 }
 
 func NewGatewayConnectorOutput() *GatewayConnectorOutput {
@@ -414,7 +422,7 @@ func NewGatewayConnectorOutput() *GatewayConnectorOutput {
 }
 
 type DonGatewayConfiguration struct {
-	Dons []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
+	// Dons []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
 	*GatewayConfiguration
 }
 
@@ -533,7 +541,7 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration,
 	}
 
 	return &DonGatewayConfiguration{
-		Dons:                 make([]GatewayConnectorDons, 0),
+		// Dons:                 make([]GatewayConnectorDons, 0),
 		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
 	}, nil
 }
@@ -1363,7 +1371,7 @@ type Feature interface {
 		blockchainOutputs []*WrappedBlockchainOutput,
 		capabilityConfigs CapabilityConfigs,
 		contractVersions map[string]string,
-		gatewayConfigs map[NodeUUID]config.GatewayConfig,
+		gatewayConfigs map[NodeUUID]*config.GatewayConfig,
 	) (*PreEnvStartupOutput, error)
 	PostEnvStartup(
 		ctx context.Context,
@@ -1379,5 +1387,5 @@ type Feature interface {
 
 type PreEnvStartupOutput struct {
 	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig
-	GatewayConfigs           map[NodeUUID]config.GatewayConfig
+	GatewayConfigs           map[NodeUUID]*config.GatewayConfig
 }
