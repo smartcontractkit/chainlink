@@ -65,6 +65,7 @@ require (
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20250930221620-ce57bba04eab
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/smartcontractkit/mcms v0.25.0
+	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
 	github.com/subosito/gotenv v1.6.0
