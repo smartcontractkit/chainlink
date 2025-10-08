@@ -465,7 +465,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 			activeAllowlistedRequests := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}
 			expiredRequestsCount := 0
 			for _, request := range w.allowListedRequests {
-				if request.ExpiryTimestamp > uint32(time.Now().Unix()) {
+				if int64(request.ExpiryTimestamp) > time.Now().Unix() {
 					activeAllowlistedRequests = append(activeAllowlistedRequests, request)
 				} else {
 					expiredRequestsCount++
@@ -473,9 +473,7 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 			}
 
 			// Add new requests
-			for _, request := range newAllowListedRequests {
-				activeAllowlistedRequests = append(activeAllowlistedRequests, request)
-			}
+			activeAllowlistedRequests = append(activeAllowlistedRequests, newAllowListedRequests...)
 			w.allowListedRequests = activeAllowlistedRequests
 			w.lastSeenAllowlistedRequestsCount = totalAllowlistedRequests
 			w.lggr.Debugw("synced allowlisted requests",
@@ -671,7 +669,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 		params := GetWorkflowListByDONParams{
 			DonFamily: family,
 			Start:     big.NewInt(0),
-			Limit:     big.NewInt(MaxResultsPerQuery), //nolint:gosec // safe conversion
+			Limit:     big.NewInt(MaxResultsPerQuery),
 		}
 
 		for {

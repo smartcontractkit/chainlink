@@ -66,7 +66,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	activeAllowlistedRequestsCount := int(MaxResultsPerQuery + 1)
 	expiryTimestamp := time.Now().Add(24 * time.Hour)
 	for i := 0; i < activeAllowlistedRequestsCount; i++ {
-		createSecretsRequestParams, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+		createSecretsRequestParams, marshalErr := json.Marshal(vaultcommon.CreateSecretsRequest{
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 				{
 					Id: &vaultcommon.SecretIdentifier{
@@ -77,15 +77,13 @@ func Test_InitialStateSyncV2(t *testing.T) {
 				},
 			},
 		})
-		require.NoError(t, err)
-		createSecretsRequest := jsonrpc.Request[json.RawMessage]{
-			Method: vaulttypes.MethodSecretsCreate,
-			Params: (*json.RawMessage)(&createSecretsRequestParams),
-		}
-		require.NoError(t, err)
+		require.NoError(t, marshalErr)
 
 		allowlistRequest(t, backendTH, wfRegistryC, allowlistRequestParams{
-			Request:         createSecretsRequest,
+			Request: jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsCreate,
+				Params: (*json.RawMessage)(&createSecretsRequestParams),
+			},
 			Owner:           backendTH.ContractsOwner.From,
 			ExpiryTimestamp: expiryTimestamp,
 		})
@@ -145,9 +143,9 @@ func Test_InitialStateSyncV2(t *testing.T) {
 		assert.Equal(t, WorkflowActivated, event.Name)
 	}
 
-	assert.Equal(t,
+	assert.Len(t,
+		worker.GetAllowlistedRequests(context.Background()),
 		activeAllowlistedRequestsCount,
-		len(worker.GetAllowlistedRequests(context.Background())),
 		"synced allowlisted requests do not match expectations",
 	)
 }
@@ -780,7 +778,7 @@ func allowlistRequest(
 	_, err = wfRegC.AllowlistRequest(
 		th.ContractsOwner,
 		requestDigest,
-		uint32(input.ExpiryTimestamp.Unix()),
+		uint32(input.ExpiryTimestamp.Unix()), //nolint:gosec // safe conversion
 	)
 	require.NoError(t, err, "failed to register allowlisted request")
 	th.Backend.Commit()
