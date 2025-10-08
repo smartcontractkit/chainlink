@@ -121,14 +121,14 @@ func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owne
 			},
 		},
 	}
-	secretsCreateRequestBody, err := json.Marshal(secretsCreateRequest)
+	secretsCreateRequestBody, err := json.Marshal(secretsCreateRequest) //nolint:govet // The lock field is not set on this proto
 	require.NoError(t, err, "failed to marshal secrets request")
-	secretsCreateRequestBodyJson := json.RawMessage(secretsCreateRequestBody)
+	secretsCreateRequestBodyJSON := json.RawMessage(secretsCreateRequestBody)
 	jsonRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsCreate,
-		Params:  &secretsCreateRequestBodyJson,
+		Params:  &secretsCreateRequestBodyJSON,
 	}
 	allowlistRequest(t, owner, jsonRequest, opts, wfRegistryContract)
 
@@ -194,14 +194,14 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 			},
 		},
 	}
-	secretsUpdateRequestBody, err := json.Marshal(secretsUpdateRequest)
+	secretsUpdateRequestBody, err := json.Marshal(secretsUpdateRequest) //nolint:govet // The lock field is not set on this proto
 	require.NoError(t, err, "failed to marshal secrets request")
-	secretsUpdateRequestBodyJson := json.RawMessage(secretsUpdateRequestBody)
+	secretsUpdateRequestBodyJSON := json.RawMessage(secretsUpdateRequestBody)
 	jsonRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsUpdate,
-		Params:  &secretsUpdateRequestBodyJson,
+		Params:  &secretsUpdateRequestBodyJSON,
 	}
 	allowlistRequest(t, owner, jsonRequest, opts, wfRegistryContract)
 
@@ -265,7 +265,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 		},
 		ID: uniqueRequestID,
 	}
-	requestBody, err := json.Marshal(secretsGetRequest)
+	requestBody, err := json.Marshal(secretsGetRequest) //nolint:govet // The lock field is not set on this proto
 	require.NoError(t, err, "failed to marshal secrets request")
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
@@ -334,14 +334,14 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 		Owner:     owner,
 		Namespace: "main",
 	}
-	secretsListRequestBody, err := json.Marshal(secretsListRequest)
+	secretsListRequestBody, err := json.Marshal(secretsListRequest) //nolint:govet // The lock field is not set on this proto
 	require.NoError(t, err, "failed to marshal secrets request")
-	secretsUpdateRequestBodyJson := json.RawMessage(secretsListRequestBody)
+	secretsUpdateRequestBodyJSON := json.RawMessage(secretsListRequestBody)
 	jsonRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsList,
-		Params:  &secretsUpdateRequestBodyJson,
+		Params:  &secretsUpdateRequestBodyJSON,
 	}
 	allowlistRequest(t, owner, jsonRequest, opts, wfRegistryContract)
 
@@ -403,14 +403,14 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 			},
 		},
 	}
-	secretsDeleteRequestBody, err := json.Marshal(secretsDeleteRequest)
+	secretsDeleteRequestBody, err := json.Marshal(secretsDeleteRequest) //nolint:govet // The lock field is not set on this proto
 	require.NoError(t, err, "failed to marshal secrets request")
-	secretsDeleteRequestBodyJson := json.RawMessage(secretsDeleteRequestBody)
+	secretsDeleteRequestBodyJSON := json.RawMessage(secretsDeleteRequestBody)
 	jsonRequest := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      uniqueRequestID,
 		Method:  vaulttypes.MethodSecretsDelete,
-		Params:  &secretsDeleteRequestBodyJson,
+		Params:  &secretsDeleteRequestBodyJSON,
 	}
 	allowlistRequest(t, owner, jsonRequest, opts, wfRegistryContract)
 
@@ -457,7 +457,7 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], opts *bind.TransactOpts, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	digest, err := vaulttypes.DigestForRequest(request)
 	require.NoError(t, err, "failed to get digest for request")
-	_, err = wfRegistryContract.AllowlistRequest(opts, digest, uint32(time.Now().Add(1*time.Hour).Unix()))
+	_, err = wfRegistryContract.AllowlistRequest(opts, digest, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
 	require.NoError(t, err, "failed to allowlist request")
 
 	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, hex.EncodeToString(digest[:]))
