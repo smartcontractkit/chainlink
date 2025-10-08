@@ -940,10 +940,8 @@ func newCREServices(
 		srvcs = append(srvcs, gatewayConnectorWrapper)
 	}
 
-	// Create OrgResolver for workflow owner organization resolution
 	var orgResolver orgresolver.OrgResolver
 	if cfg.CRE().Linking().URL() != "" {
-		// Get chain details for workflow registry if available
 		var wrChainDetails chainselectors.ChainDetails
 		if capCfg.WorkflowRegistry().Address() != "" {
 			wrChainDetails, err = chainselectors.GetChainDetailsByChainIDAndFamily(
