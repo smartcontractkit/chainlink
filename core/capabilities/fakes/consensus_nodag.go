@@ -154,15 +154,7 @@ func (fc *fakeConsensusNoDAG) Description() string {
 
 func (fc *fakeConsensusNoDAG) Initialise(
 	_ context.Context,
-	_ string,
-	_ core.TelemetryService,
-	_ core.KeyValueStore,
-	_ core.ErrorLog,
-	_ core.PipelineRunnerService,
-	_ core.RelayerSet,
-	_ core.OracleFactory,
-	_ core.GatewayConnector,
-	_ core.Keystore,
+	_ core.StandardCapabilitiesDependencies,
 ) error {
 	return nil
 }
