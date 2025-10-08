@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -19,7 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -29,6 +32,7 @@ import (
 	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -497,6 +501,33 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	workflow.ID = workflowID
 	upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
 
+	createSecretsRequestParams, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "a",
+					Namespace: "b",
+				},
+				EncryptedValue: "encrypted-value",
+			},
+		},
+	})
+	require.NoError(t, err)
+	createSecretsRequest := jsonrpc.Request[json.RawMessage]{
+		Method: vaulttypes.MethodSecretsCreate,
+		Params: (*json.RawMessage)(&createSecretsRequestParams),
+	}
+	require.NoError(t, err)
+
+	digest, err := DigestForRequest(createSecretsRequest)
+	require.NoError(t, err)
+
+	allowlistRequest(t, backendTH, wfRegistryC, RegisterAllowlistedRequestCMDV2{
+		RequestDigest:   digest,
+		Owner:           backendTH.ContractsOwner.From,
+		ExpiryTimestamp: uint32(time.Now().UTC().Unix() + 100),
+	})
+
 	var retryCount int
 	testEventHandler := newTestEvtHandler(func() error {
 		if retryCount <= 1 {
@@ -531,6 +562,8 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	require.NoError(t, err)
 
 	servicetest.Run(t, worker)
+
+	fmt.Println()
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == 1
@@ -713,6 +746,34 @@ func generateOwnershipProofHash(
 	data := workflowOwnerAddress + organizationID + nonce
 	hash := sha256.Sum256([]byte(data))
 	return hash
+}
+
+type RegisterAllowlistedRequestCMDV2 struct {
+	RequestDigest   [32]byte
+	Owner           common.Address
+	ExpiryTimestamp uint32
+}
+
+func allowlistRequest(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper_v2.WorkflowRegistry,
+	input RegisterAllowlistedRequestCMDV2,
+) {
+	t.Helper()
+	_, err := wfRegC.AllowlistRequest(
+		th.ContractsOwner,
+		input.RequestDigest,
+		input.ExpiryTimestamp,
+	)
+	require.NoError(t, err, "failed to register allowlisted request")
+	th.Backend.Commit()
+
+	totalAllowlistedRequests, err := wfRegC.TotalAllowlistedRequests(&bind.CallOpts{
+		From: th.ContractsOwner.From,
+	})
+	require.NoError(t, err, "failed to get total allowlisted requests")
+	require.Equal(t, totalAllowlistedRequests, big.NewInt(1), "total allowlisted requests mismatch")
 }
 
 // Prepare the ABI arguments, in the exact order as expected by the Solidity contract.

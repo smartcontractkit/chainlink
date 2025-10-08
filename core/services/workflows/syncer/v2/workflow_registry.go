@@ -32,8 +32,10 @@ var (
 	defaultMaxRetryInterval      = 5 * time.Minute
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
-	GetWorkflowsByDONMethodName      = "getWorkflowListByDON"
-	GetAllowlistedRequestsMethodName = "getAllowlistedRequests"
+	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
+	GetAllowlistedRequestsMethodName              = "getAllowlistedRequests"
+	GetActiveAllowlistedRequestsReverseMethodName = "getActiveAllowlistedRequestsReverse"
+	TotalAllowlistedRequestsMethodName            = "totalAllowlistedRequests"
 
 	defaultTickIntervalForAllowlistedRequests = 5 * time.Second
 
@@ -585,6 +587,14 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 						ChainSpecificName: GetAllowlistedRequestsMethodName,
 						ReadType:          config.Method,
 					},
+					GetActiveAllowlistedRequestsReverseMethodName: {
+						ChainSpecificName: GetActiveAllowlistedRequestsReverseMethodName,
+						ReadType:          config.Method,
+					},
+					TotalAllowlistedRequestsMethodName: {
+						ChainSpecificName: TotalAllowlistedRequestsMethodName,
+						ReadType:          config.Method,
+					},
 				},
 			},
 		},
@@ -701,8 +711,18 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 		Name:    WorkflowRegistryContractName,
 	}
 
-	readIdentifier := contractBinding.ReadIdentifier(GetAllowlistedRequestsMethodName)
+	// Read current total allowlisted requests
 	var headAtLastRead *types.Head
+	var totalAllowlistedRequestsResult *big.Int
+	readIdentifier := contractBinding.ReadIdentifier(TotalAllowlistedRequestsMethodName)
+
+	headAtLastRead, err := contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Unconfirmed, nil, &totalAllowlistedRequestsResult)
+	if err != nil {
+		return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
+	}
+
+	w.lggr.Debugw("total allowlisted requests", "total", totalAllowlistedRequestsResult, "blockHeight", headAtLastRead.Height)
+
 	var allAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 	params := GetAllowlistedRequestsParams{
 		Start: big.NewInt(0),

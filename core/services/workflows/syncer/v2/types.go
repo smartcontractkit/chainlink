@@ -39,6 +39,11 @@ type GetAllowlistedRequestsParams struct {
 	Limit *big.Int
 }
 
+type GetActiveAllowlistedRequestsReverseParams struct {
+	EndIndex   *big.Int
+	StartIndex *big.Int
+}
+
 type WorkflowMetadataView struct {
 	WorkflowID   types.WorkflowID
 	Owner        []byte
