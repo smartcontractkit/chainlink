@@ -32,6 +32,7 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	donconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
+	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
@@ -72,6 +73,10 @@ type SetupInput struct {
 	CopyCapabilityBinaries    bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
 	Capabilities              []cre.InstallableCapability
 	Features                  cre.Features
+
+	// Gateway config
+	ExtraAllowedPorts                    []int
+	ExtraAllowedIPs, ExtraAllowedIPsCIDR []string
 
 	// Deprecated: use Capabilities []cre.InstallableCapability instead
 	ConfigFactoryFunctions []cre.NodeConfigTransformerFn
@@ -178,13 +183,28 @@ func SetupTestEnvironment(
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
+
+	gatewayConfig, gErr := donconfig.GatewayConfig(
+		deployKeystoneContractsOutput.Env,
+		startBlockchainsOutput.RegistryChain().BlockchainOutput,
+		topology,
+		input.Provider,
+		input.CapabilityConfigs,
+		updatedNodeSets,
+		input.ExtraAllowedPorts,
+		input.ExtraAllowedIPs,
+		input.ExtraAllowedIPsCIDR,
+	)
+	if gErr != nil {
+		return nil, pkgerrors.Wrap(gErr, "failed to build gateway config")
+	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before DON startup")))
 	var donsCapabilities = make(map[int][]keystone_changeset.DONCapabilityWithConfig)
 	for _, feature := range input.Features.List() {
 		testLogger.Info().Msgf("Executing PreEnvStartup for feature %s", feature.Flag())
-		donCapabilities, preErr := feature.PreEnvStartup(
+		output, preErr := feature.PreEnvStartup(
 			testLogger,
 			startBlockchainsOutput.RegistryChain().ChainSelector,
 			deployKeystoneContractsOutput.Env,
@@ -193,11 +213,13 @@ func SetupTestEnvironment(
 			startBlockchainsOutput.BlockChainOutputs,
 			input.CapabilityConfigs,
 			input.ContractVersions,
+			gatewayConfig,
 		)
 		if preErr != nil {
 			return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), preErr)
 		}
-		maps.Copy(donsCapabilities, donCapabilities.DONCapabilityWithConfigs)
+		maps.Copy(donsCapabilities, output.DONCapabilityWithConfigs)
+		maps.Copy(gatewayConfig, output.GatewayConfigs)
 
 		testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 	}
@@ -251,6 +273,11 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
+
+	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, creEnvironment.DonTopology, gatewayConfig)
+	if gJobErr != nil {
+		return nil, pkgerrors.Wrap(gErr, "failed to create gateway jobs with Job Distributor")
+	}
 
 	jobSpecFactoryFunctions := make([]cre.JobSpecFn, 0)
 	for _, capability := range input.Capabilities {
@@ -359,6 +386,8 @@ func SetupTestEnvironment(
 			startedDONs.NodeOutputs(),
 			startBlockchainsOutput.BlockChainOutputs,
 			input.ContractVersions,
+			input.Provider,
+			input.CapabilityConfigs,
 		); pErr != nil {
 			return nil, fmt.Errorf("failed to execute PostEnvStartup for feature %s: %w", feature.Flag(), pErr)
 		}

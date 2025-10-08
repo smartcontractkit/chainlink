@@ -90,7 +90,7 @@ func (t *Topology) CapabilitiesAwareNodeSets() []*CapabilitiesAwareNodeSet {
 	return sets
 }
 
-func (t *Topology) DonsWithFlag(flag CapabilityFlag) []*DonMetadata {
+func (t *Topology) DonsMetadataWithFlag(flag CapabilityFlag) []*DonMetadata {
 	donsMetadata := make([]*DonMetadata, 0)
 	for _, donMetadata := range t.DonsMetadata.List() {
 		if !donMetadata.HasFlag(flag) {

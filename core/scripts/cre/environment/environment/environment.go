@@ -37,9 +37,9 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	evmv1feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v1"
+	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	ocrfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -320,13 +320,13 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
 			}
 
-			extraJobSpecFunctions := []cre.JobSpecFn{
-				// temporary solution until we figure out where that jobspec should live. Gateway is not a capability, it's more of a role
-				// but we don't have a good expression of that abstraction yet
-				gateway.JobSpec(append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"}),
-			}
+			// extraJobSpecFunctions := []cre.JobSpecFn{
+			// 	// temporary solution until we figure out where that jobspec should live. Gateway is not a capability, it's more of a role
+			// 	// but we don't have a good expression of that abstraction yet
+			// 	gateway.JobSpec(append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"}),
+			// }
 
-			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, defaultCapabilities, extraJobSpecFunctions, envDependencies)
+			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, defaultCapabilities, nil, envDependencies, append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"})
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -644,6 +644,9 @@ func StartCLIEnvironment(
 	capabilities []cre.InstallableCapability,
 	extraJobSpecFunctions []cre.JobSpecFn,
 	env cre.CLIEnvironmentDependencies,
+	// Gateway config
+	extraAllowedPorts []int,
+	extraAllowedIPs, extraAllowedIPsCIDR []string,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
@@ -703,7 +706,10 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
-		Features:                  cre.NewFeatures(&ocrfeature.OCR{}, &evmv1feature.EVM{}),
+		Features:                  cre.NewFeatures(&ocrfeature.OCR{}, &evmv1feature.EVM{}, &http_actions_feature.HTTPAction{}),
+		ExtraAllowedPorts:         extraAllowedPorts,
+		ExtraAllowedIPs:           extraAllowedIPs,
+		ExtraAllowedIPsCIDR:       extraAllowedIPsCIDR,
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

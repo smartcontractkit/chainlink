@@ -114,8 +114,9 @@ type DON struct {
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
-	Flags             []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
-	chainCapabilities map[string]*ChainCapabilityConfig
+	Flags               []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
+	chainCapabilities   map[string]*ChainCapabilityConfig
+	capabilityOverrides map[string]map[string]any
 
 	gh GatewayHelper
 }
@@ -212,17 +213,22 @@ func (d *DON) RequiresWebAPI() bool {
 	return d.gh.RequiresWebAPI(d.Flags)
 }
 
-func (d *DON) ChainCapabilities() map[string]*ChainCapabilityConfig {
+func (d *DON) GetChainCapabilities() map[string]*ChainCapabilityConfig {
 	return d.chainCapabilities
+}
+
+func (d *DON) GetCapabilityOverrides() map[string]map[string]any {
+	return d.capabilityOverrides
 }
 
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*DON, error) {
 	don := &DON{
-		Nodes:             make([]*Node, 0),
-		Name:              donMetadata.Name,
-		ID:                donMetadata.ID,
-		Flags:             donMetadata.Flags,
-		chainCapabilities: donMetadata.ns.ChainCapabilities,
+		Nodes:               make([]*Node, 0),
+		Name:                donMetadata.Name,
+		ID:                  donMetadata.ID,
+		Flags:               donMetadata.Flags,
+		chainCapabilities:   donMetadata.ns.ChainCapabilities,
+		capabilityOverrides: donMetadata.ns.CapabilityOverrides,
 	}
 
 	mu := &sync.Mutex{}
@@ -313,6 +319,7 @@ type Node struct {
 	Name                  string                 `toml:"name" json:"name"`
 	Host                  string                 `toml:"host" json:"host"`
 	Index                 int                    `toml:"index" json:"index"`
+	UUID                  string                 `toml:"uuid" json:"uuid"`
 	Keys                  *secrets.NodeKeys      `toml:"-" json:"-"`
 	Addresses             Addresses              `toml:"addresses" json:"addresses"`
 	JobDistributorDetails *JobDistributorDetails `toml:"job_distributor_details" json:"job_distributor_details"`
@@ -328,6 +335,7 @@ func (n *Node) Metadata() *NodeMetadata {
 		Keys:  n.Keys,
 		Roles: n.Roles.Strings(),
 		Host:  n.Host,
+		UUID:  n.UUID,
 	}
 
 	if node.Keys == nil {
@@ -385,6 +393,7 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		Keys:  nodeMetadata.Keys,
 		Roles: MustNewRoles(nodeMetadata.Roles),
 		Host:  nodeMetadata.Host,
+		UUID:  nodeMetadata.UUID,
 	}
 
 	for i, role := range nodeMetadata.Roles {

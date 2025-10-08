@@ -247,7 +247,7 @@ func jobSpecWithRegistryChainSelector(registryChainSelector uint64) cre.JobSpecF
 		return ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
 			input.DonTopology,
 			input.CldEnvironment.DataStore,
-			input.CapabilitiesAwareNodeSets,
+			input.NodeSets,
 			input.InfraInput,
 			flag,
 			contracts.CapabilityContractIdentifier,

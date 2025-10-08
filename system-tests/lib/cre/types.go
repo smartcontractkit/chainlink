@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -21,6 +22,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 
 	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -399,6 +401,7 @@ type GatewayConnectorDons struct {
 	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
 	ID                  string   `toml:"id" json:"id"`
 	Handlers            map[string]string
+	HandlersC           []config.Handler
 }
 type GatewayConnectorOutput struct {
 	Configurations []*DonGatewayConfiguration `toml:"configurations" json:"configurations"`
@@ -531,7 +534,7 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration,
 
 	return &DonGatewayConfiguration{
 		Dons:                 make([]GatewayConnectorDons, 0),
-		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), m.Name),
+		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
 	}, nil
 }
 
@@ -611,6 +614,26 @@ type Dons struct {
 
 func (d *Dons) List() []*DON {
 	return d.Dons
+}
+
+func (d *Dons) NodeWithUUID(uuid string) (*Node, bool) {
+	for _, don := range d.Dons {
+		for _, node := range don.Nodes {
+			if node.UUID == uuid {
+				return node, true
+			}
+		}
+	}
+
+	return nil, false
+}
+
+func (d *Dons) AsNodeSetWithChainCapabilities() []NodeSetWithChainCapabilities {
+	out := make([]NodeSetWithChainCapabilities, len(d.Dons))
+	for i, don := range d.Dons {
+		out[i] = don
+	}
+	return out
 }
 
 func NewDons(dons []*DON) *Dons {
@@ -731,6 +754,7 @@ type NodeMetadata struct {
 	Host  string            `toml:"host" json:"host"`
 	Roles []string          `toml:"roles" json:"roles"`
 	Index int               `toml:"index" json:"index"` // hopefully we can remove it later, but for now we need it to construct urls in CRIB
+	UUID  string            `toml:"uuid" json:"uuid"`
 }
 
 func (n *NodeMetadata) HasRole(role string) bool {
@@ -763,6 +787,7 @@ func NewNodeMetadata(c NodeMetadataConfig) (*NodeMetadata, error) {
 		Host:  c.Host,
 		Roles: c.Roles,
 		Index: c.Index,
+		UUID:  uuid.NewString(),
 	}, nil
 }
 
@@ -880,6 +905,22 @@ func (c *CapabilitiesAwareNodeSet) Flags() []string {
 	var stringCaps []string
 
 	return append(stringCaps, append(c.ComputedCapabilities, c.DONTypes...)...)
+}
+
+func (c *CapabilitiesAwareNodeSet) GetChainCapabilities() map[string]*ChainCapabilityConfig {
+	return c.ChainCapabilities
+}
+
+func (c *CapabilitiesAwareNodeSet) GetCapabilityOverrides() map[string]map[string]any {
+	return c.CapabilityOverrides
+}
+
+func ConvertToNodeSetWithChainCapabilities(nodeSets []*CapabilitiesAwareNodeSet) []NodeSetWithChainCapabilities {
+	result := make([]NodeSetWithChainCapabilities, len(nodeSets))
+	for i, nodeSet := range nodeSets {
+		result[i] = nodeSet
+	}
+	return result
 }
 
 // EVMChains returns the list of EVM chain IDs that the nodeset supports. If SupportedChains is set, it is returned directly.
@@ -1241,13 +1282,19 @@ type (
 )
 
 type JobSpecInput struct {
-	CldEnvironment            *cldf.Environment
-	BlockchainOutput          *blockchain.Output
-	DonTopology               *DonTopology
-	InfraInput                infra.Provider
-	CapabilityConfigs         map[string]CapabilityConfig
-	Capabilities              []InstallableCapability
-	CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet
+	CldEnvironment *cldf.Environment
+	// BlockchainOutput          *blockchain.Output
+	DonTopology       *DonTopology
+	InfraInput        infra.Provider
+	CapabilityConfigs map[string]CapabilityConfig
+	Capabilities      []InstallableCapability
+	// CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet
+	NodeSets []NodeSetWithChainCapabilities
+}
+
+type NodeSetWithChainCapabilities interface {
+	GetChainCapabilities() map[string]*ChainCapabilityConfig
+	GetCapabilityOverrides() map[string]map[string]any
 }
 
 // InstallableCapability defines the interface for capabilities that can be dynamically
@@ -1303,6 +1350,8 @@ func (s *Features) List() []Feature {
 	return s.fs
 }
 
+type NodeUUID = string
+
 type Feature interface {
 	Flag() CapabilityFlag
 	PreEnvStartup(
@@ -1314,6 +1363,7 @@ type Feature interface {
 		blockchainOutputs []*WrappedBlockchainOutput,
 		capabilityConfigs CapabilityConfigs,
 		contractVersions map[string]string,
+		gatewayConfigs map[NodeUUID]config.GatewayConfig,
 	) (*PreEnvStartupOutput, error)
 	PostEnvStartup(
 		ctx context.Context,
@@ -1322,9 +1372,12 @@ type Feature interface {
 		nodeSetOutput []*WrappedNodeOutput,
 		blockchainOutputs []*WrappedBlockchainOutput,
 		contractVersions map[string]string,
+		provider infra.Provider,
+		capabilityConfigs map[string]CapabilityConfig,
 	) error
 }
 
 type PreEnvStartupOutput struct {
 	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig
+	GatewayConfigs           map[NodeUUID]config.GatewayConfig
 }

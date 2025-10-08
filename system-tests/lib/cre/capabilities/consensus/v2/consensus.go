@@ -94,7 +94,7 @@ func jobSpec(input *cre.JobSpecInput) (cre.DonsToJobSpecs, error) {
 	return ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
 		input.DonTopology,
 		input.CldEnvironment.DataStore,
-		input.CapabilitiesAwareNodeSets,
+		input.NodeSets,
 		input.InfraInput,
 		flag,
 		func(_ uint64) string {

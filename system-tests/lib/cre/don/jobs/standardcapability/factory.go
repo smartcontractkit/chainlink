@@ -27,13 +27,13 @@ type CommandBuilder func(input *cre.JobSpecInput, capabilityConfig cre.Capabilit
 type JobNamer func(chainID uint64, flag cre.CapabilityFlag) string
 
 // CapabilityEnabler determines if a capability is enabled for a given DON.
-type CapabilityEnabler func(capabilities []string, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool
+type CapabilityEnabler func(capabilities []string, nodeSet cre.NodeSetWithChainCapabilities, flag cre.CapabilityFlag) bool
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability.
-type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64
+type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithChainCapabilities, flag cre.CapabilityFlag) []uint64
 
 // ConfigResolver resolves the capability config for a given chain.
-type ConfigResolver func(nodeSetInput *cre.CapabilitiesAwareNodeSet, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error)
+type ConfigResolver func(nodeSet cre.NodeSetWithChainCapabilities, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error)
 
 // NoOpExtractor is a no-operation runtime values extractor for DON-level capabilities
 // that don't need runtime values extraction from node metadata
@@ -112,11 +112,11 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
 		for donIdx, don := range input.DonTopology.Dons.List() {
-			if donIdx >= len(input.CapabilitiesAwareNodeSets) || input.CapabilitiesAwareNodeSets[donIdx] == nil {
+			if donIdx >= len(input.NodeSets) || input.NodeSets[donIdx] == nil {
 				continue
 			}
 
-			if f.capabilityEnabler != nil && !f.capabilityEnabler(don.Flags, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
+			if f.capabilityEnabler != nil && !f.capabilityEnabler(don.Flags, input.NodeSets[donIdx], capabilityFlag) {
 				continue
 			}
 
@@ -136,8 +136,8 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 			}
 
 			// Generate job specs for each enabled chain
-			for _, chainID := range f.enabledChainsProvider(input.DonTopology, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
-				enabled, mergedConfig, rErr := f.configResolver(input.CapabilitiesAwareNodeSets[donIdx], capabilityConfig, chainID, capabilityFlag)
+			for _, chainID := range f.enabledChainsProvider(input.DonTopology, input.NodeSets[donIdx], capabilityFlag) {
+				enabled, mergedConfig, rErr := f.configResolver(input.NodeSets[donIdx], capabilityConfig, chainID, capabilityFlag)
 				if rErr != nil {
 					return nil, errors.Wrap(rErr, "failed to resolve capability config for chain")
 				}

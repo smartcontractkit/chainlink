@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -44,9 +45,10 @@ func (o *OCR) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
+	gatewayConfigs map[cre.NodeUUID]config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-	for donIdx := range topology.DonsWithFlag(flag) {
+	for donIdx := range topology.DonsMetadataWithFlag(flag) {
 		if capabilities[donIdx] == nil {
 			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
 		}
@@ -77,6 +79,8 @@ func (o *OCR) PostEnvStartup(
 	nodeSetOutput []*cre.WrappedNodeOutput,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	contractVersions map[string]string,
+	provider infra.Provider,
+	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	// should we support more than one DON with OCR3 capability? Could there be 0? I guess as long as there's 1 with consensus v2?
 	ocr3DON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)

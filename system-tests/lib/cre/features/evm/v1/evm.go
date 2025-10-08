@@ -30,6 +30,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -62,8 +63,9 @@ func (o *EVM) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
+	gatewayConfigs map[cre.NodeUUID]config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
-	donsMetadata := topology.DonsWithFlag(flag)
+	donsMetadata := topology.DonsMetadataWithFlag(flag)
 	if len(donsMetadata) == 0 {
 		return nil, nil
 	}
@@ -230,6 +232,8 @@ func (o *EVM) PostEnvStartup(
 	nodeSetOutput []*cre.WrappedNodeOutput,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	contractVersions map[string]string,
+	provider infra.Provider,
+	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	dons := creEnv.DonTopology.DonWithFlag(flag)
 	if len(dons) == 0 {

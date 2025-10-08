@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -41,6 +42,7 @@ func (o *DONTime) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
+	gatewayConfigs map[uint64][]config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	// nothing to do
 	return nil, nil
@@ -57,6 +59,8 @@ func (o *DONTime) PostEnvStartup(
 	nodeSetOutput []*cre.WrappedNodeOutput,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	contractVersions map[string]string,
+	provider infra.Provider,
+	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	// should we support more than one DON with DON Time capability?
 	donTimeDON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)

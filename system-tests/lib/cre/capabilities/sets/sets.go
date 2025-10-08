@@ -8,7 +8,6 @@ import (
 	consensusv2capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus/v2"
 	croncapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
 	evmcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
-	httpactioncapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/httpaction"
 	httptriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/httptrigger"
 	logeventtriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logeventtrigger"
 	mockcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
@@ -46,11 +45,11 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 	}
 	capabilities = append(capabilities, evm)
 
-	httpaction, httpactionErr := httpactioncapability.New()
-	if httpactionErr != nil {
-		return nil, errors.Wrap(httpactionErr, "failed to create http action capability")
-	}
-	capabilities = append(capabilities, httpaction)
+	// httpaction, httpactionErr := httpactioncapability.New()
+	// if httpactionErr != nil {
+	// 	return nil, errors.Wrap(httpactionErr, "failed to create http action capability")
+	// }
+	// capabilities = append(capabilities, httpaction)
 
 	httptrigger, httptriggerErr := httptriggercapability.New()
 	if httptriggerErr != nil {
