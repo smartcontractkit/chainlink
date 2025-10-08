@@ -184,10 +184,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer close(initDoneCh)
 
 			ticker := w.getTicker(defaultTickInterval)
-			for {
-				if w.contractReader != nil {
-					break
-				}
+			for w.contractReader == nil {
 				select {
 				case <-ctx.Done():
 					w.lggr.Debug("shutting down workflowregistry, %s", ctx.Err())
@@ -199,7 +196,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 					// as a proxy for a DON and on-chain ready state .
 					reader, err := w.newWorkflowRegistryContractReader(ctx)
 					if err != nil {
-						w.lggr.Errorw("contract reader unavailable : %s", err)
+						w.lggr.Errorw("contract reader unavailable", "error", err.Error())
 						break
 					}
 					w.contractReader = reader
