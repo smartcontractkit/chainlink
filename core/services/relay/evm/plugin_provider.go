@@ -8,13 +8,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 )
 
 type pluginProvider struct {
 	services.Service
 	chainReader         ChainReaderService
 	codec               types.Codec
-	contractTransmitter ContractTransmitter
+	contractTransmitter transmitter.ContractTransmitter
 	configWatcher       *configWatcher
 	lggr                logger.Logger
 	ms                  services.MultiStart
@@ -25,7 +26,7 @@ var _ types.PluginProvider = (*pluginProvider)(nil)
 func NewPluginProvider(
 	chainReader ChainReaderService,
 	codec types.Codec,
-	contractTransmitter ContractTransmitter,
+	contractTransmitter transmitter.ContractTransmitter,
 	configWatcher *configWatcher,
 	lggr logger.Logger,
 ) *pluginProvider {

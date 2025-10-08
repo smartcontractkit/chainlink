@@ -1,5 +1,5 @@
 // TODO: Move this to chainlink-tron once chainlink-evm is fully extracted
-package evm
+package transmitter
 
 import (
 	"context"
@@ -7,12 +7,14 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	tronsdk "github.com/fbsobreira/gotron-sdk/pkg/address"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	tron "github.com/smartcontractkit/chainlink-tron/relayer/ocr2"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // We implement the TRON TXM cache API using EVM's contract transmitter
@@ -41,16 +43,17 @@ type TronContractTransmitterOpts struct {
 	Logger             logger.Logger
 	TransmissionsCache tron.TransmissionsCache
 	Keystore           keys.Store
-	ConfigWatcher      *configWatcher
+	Chain              legacyevm.Chain
+	ContractAddress    common.Address
 	OCRTransmitterOpts []OCRTransmitterOption
 }
 
 // NewTronContractTransmitter creates a new ContractTransmitter for Tron chains
 func NewTronContractTransmitter(ctx context.Context, opts TronContractTransmitterOpts) (ContractTransmitter, error) {
 	// On TRON, get the chain specific txm
-	chain, ok := opts.ConfigWatcher.chain.(legacyevm.ChainTronSupport)
+	chain, ok := opts.Chain.(legacyevm.ChainTronSupport)
 	if !ok {
-		return nil, fmt.Errorf("chain %s does not support TRON", opts.ConfigWatcher.chain.ID())
+		return nil, fmt.Errorf("chain %s does not support TRON", opts.Chain.ID())
 	}
 
 	senderAddress, err := opts.Keystore.GetNextAddress(ctx)
@@ -59,25 +62,15 @@ func NewTronContractTransmitter(ctx context.Context, opts TronContractTransmitte
 	}
 
 	// Construct the Tron contract transmitter, it's slightly different from the EVM contract transmitter and due to mismatching types we have to apply the transmitter options manually
-	transmitter := tron.NewOCRContractTransmitter(ctx, opts.TransmissionsCache, tronsdk.EVMAddressToAddress(opts.ConfigWatcher.contractAddress), tronsdk.EVMAddressToAddress(senderAddress), chain.GetTronTXM(), opts.Logger)
+	transmitterTron := tron.NewOCRContractTransmitter(ctx, opts.TransmissionsCache, tronsdk.EVMAddressToAddress(opts.ContractAddress), tronsdk.EVMAddressToAddress(senderAddress), chain.GetTronTXM(), opts.Logger)
 
 	// Use the EVM keystore for the transmitter
-	transmitter.WithEthereumKeystore()
+	transmitterTron.WithEthereumKeystore()
 
-	transmitterOptions := &transmitterOps{
-		excludeSigs: false,
-		retention:   0,
-		maxLogsKept: 0,
-	}
-
-	for _, opt := range opts.OCRTransmitterOpts {
-		opt(transmitterOptions)
-	}
-
-	if transmitterOptions.excludeSigs {
+	if HasExcludeSignatures(opts.OCRTransmitterOpts) {
 		opts.Logger.Info("Excluding signatures from transmissions")
-		transmitter.WithExcludeSignatures()
+		transmitterTron.WithExcludeSignatures()
 	}
 
-	return transmitter, nil
+	return transmitterTron, nil
 }
