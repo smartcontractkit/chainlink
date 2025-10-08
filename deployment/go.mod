@@ -7,7 +7,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.27.3-0.20250908153844-03478edcd69f
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20251008094352-f74459c46e8c
 
 require (
 	dario.cat/mergo v1.0.2
