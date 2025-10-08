@@ -1016,10 +1016,14 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "84.0000000000",
 					},
 				},
-				AggSpendValue:    "42.0000000000",
-				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
-				AggSpendValueCre: "840.0000000000",
-				CapdonN:          10,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "840.0000000000",
+					},
+				},
+				CapdonN: 10,
 			}
 		}
 
@@ -1074,10 +1078,14 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "24.0000000000",
 					},
 				},
-				AggSpendValue:    "42.0000000000", // median of 42, 44, 12
-				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
-				AggSpendValueCre: "84.0000000000",
-				CapdonN:          1,
+				CapdonN: 1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000", // median of 42, 44, 12
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "84.0000000000",
+					},
+				},
 			}
 		}
 
@@ -1151,10 +1159,19 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "100.0000000000",
 					},
 				},
-				AggSpendValue:    "1000000000000.0000000000", // converted to wei before median is taken
-				AggSpendUnit:     testUnitGas,
-				AggSpendValueCre: "100.0000000000",
-				CapdonN:          1,
+				CapdonN: 1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000", // median of 42, 44, 12
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "84.0000000000",
+					},
+					{
+						SpendValue:    "1000000000000.0000000000", // converted to wei before median is taken
+						SpendUnit:     testUnitGas,
+						SpendValueCre: "100.0000000000",
+					},
+				},
 			}
 		}
 
@@ -1378,10 +1395,14 @@ func Test_Report_EmitReceipt(t *testing.T) {
 			}}))
 
 			expected[stepRef] = &eventspb.MeteringReportStep{
-				AggSpendValue:    "42.0000000000",
-				AggSpendUnit:     "a",
-				AggSpendValueCre: "0.0000000000",
-				CapdonN:          1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000",
+						SpendUnit:     "a",
+						SpendValueCre: "0.0000000000",
+					},
+				},
+				CapdonN: 1,
 				Nodes: []*eventspb.MeteringReportNodeDetail{
 					{
 						Peer_2PeerId:  "xyz",

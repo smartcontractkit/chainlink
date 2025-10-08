@@ -552,9 +552,11 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			}
 
 			if aggregated, ok := step.AggregatedSpends[unit]; ok {
-				stepDetails.AggSpendValue = aggregated.SpendValue.StringFixed(defaultDecimalPrecision)
-				stepDetails.AggSpendUnit = aggregated.SpendUnit
-				stepDetails.AggSpendValueCre = aggregated.CRESpendValue.StringFixed(defaultDecimalPrecision)
+				stepDetails.AggSpend = append(stepDetails.AggSpend, &protoEvents.AggregatedSpendDetail{
+					SpendUnit:     aggregated.SpendUnit,
+					SpendValue:    aggregated.SpendValue.StringFixed(defaultDecimalPrecision),
+					SpendValueCre: aggregated.CRESpendValue.StringFixed(defaultDecimalPrecision),
+				})
 			}
 		}
 
