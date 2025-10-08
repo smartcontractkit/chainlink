@@ -10,7 +10,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -22,11 +21,11 @@ var (
 
 func TestORM(t *testing.T) {
 	ctx := testutils.Context(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	orm := NewORM(db)
 	feedID := sampleFeedID
 
@@ -153,11 +152,11 @@ func TestORM(t *testing.T) {
 
 func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
 	ctx := testutils.Context(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	orm := NewORM(db)
 	feedID := sampleFeedID
 
@@ -198,10 +197,10 @@ func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
 
 func TestORM_PruneTransmitRequests(t *testing.T) {
 	ctx := testutils.Context(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 
 	orm := NewORM(db)
 
@@ -291,10 +290,10 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 
 func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 	ctx := testutils.Context(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	jobID := rand.Int32() // foreign key constraints disabled so value doesn't matter
-	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
-	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	testutils.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 
 	orm := NewORM(db)
 	feedID := sampleFeedID

@@ -42,12 +42,18 @@ const (
 	defaultMaxIdentifierOwnerLengthBytes     = 64
 	defaultMaxIdentifierNamespaceLengthBytes = 64
 
-	defaultLimitsMaxQueryLength                          = 1024   // 1KB
-	defaultLimitsMaxObservationLength                    = 102400 // 100KB
-	defaultLimitsMaxReportsPlusPrecursorLength           = 1024   // 1KB
-	defaultLimitsMaxReportLength                         = 409600 // 400KB
-	defaultLimitsMaxReportCount                          = 10
-	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024        // 1KB
+	// The query is empty in this plugin.
+	defaultLimitsMaxQueryLength = 100
+
+	// Back of the envelope calculation:
+	// - A request can contain 2KB of ciphertext, 192 bytes of metadata (key, owner, namespace),
+	// a UUID (16 bytes) plus some overhead = ~2.5KB per request
+	// There can be 10 such items in a request, and 20 per batch, so 2.5KB * 10 * 20 = 500KB
+	defaultLimitsMaxObservationLength                    = 500 * 1024 // 500KB
+	defaultLimitsMaxReportsPlusPrecursorLength           = 500 * 1024 // 500KB
+	defaultLimitsMaxReportLength                         = 500 * 1024 // 500KB
+	defaultLimitsMaxReportCount                          = 20
+	defaultLimitsMaxKeyValueModifiedKeysPlusValuesLength = 1024 * 1024 // 1MB
 	defaultLimitsMaxBlobPayloadLength                    = 1024 * 1024 // 1MB
 )
 

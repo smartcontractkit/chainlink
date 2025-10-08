@@ -145,10 +145,15 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 
 	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
 
-	// No more draining - let all messages through for processing
-	// The consumer is ready and any messages received are legitimate
-	testLogger.Info().Msg("Beholder listener ready - all messages will be processed")
+	// Fail fast if there is an error from the heartbeat validation subscription
+	select {
+	case err := <-beholderErrChan:
+		require.NoError(t, err, "Beholder subscription failed during initialization")
+	default:
+		// No immediate error, proceed
+	}
 
+	testLogger.Info().Msg("Beholder listener ready")
 	return listenerCtx, beholderMsgChan, beholderErrChan
 }
 
@@ -175,7 +180,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:
-					testLogger.Info().Msg("🎉 Received UserLogs message in test")
+					testLogger.Info().Msg("➡️ Beholder message received in test. Asserting...")
 					receivedUserLogs++
 
 					for _, logLine := range typedMsg.LogLines {
@@ -183,6 +188,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 							testLogger.Info().
 								Str("expected_log", expectedLog).
 								Str("found_message", strings.TrimSpace(logLine.Message)).
+								Str("workflow_id", typedMsg.M.WorkflowExecutionID).
 								Msg("🎯 Found expected user log message!")
 
 							select {
@@ -191,10 +197,11 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 							}
 							return // Exit the processor goroutine
 						}
+
 						testLogger.Warn().
 							Str("expected_log", expectedLog).
 							Str("found_message", strings.TrimSpace(logLine.Message)).
-							Msg("Received UserLogs message, but it does not match expected log")
+							Msg("[soft assertion] Received UserLogs message, but it does not match expected log")
 					}
 				default:
 					// ignore other message types
@@ -242,7 +249,7 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
 	var addressesToRead []common.Address
 
-	for i := 0; i < numberOfAddressesToCreate; i++ {
+	for i := range numberOfAddressesToCreate {
 		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
 		require.NoError(t, addrErr, "failed to generate address to read")
 		orderNum := i + 1

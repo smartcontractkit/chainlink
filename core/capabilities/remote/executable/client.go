@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -27,14 +28,11 @@ import (
 // client communicates with corresponding server on remote nodes.
 type client struct {
 	services.StateMachine
-	lggr                 logger.Logger
-	remoteCapabilityInfo commoncap.CapabilityInfo
-	localDONInfo         commoncap.DON
-	dispatcher           types.Dispatcher
-	requestTimeout       time.Duration
-	// Has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
-	transmissionConfig *transmission.TransmissionConfig
-	capMethodName      string
+	capabilityID  string
+	capMethodName string
+	dispatcher    types.Dispatcher
+	cfg           atomic.Pointer[dynamicConfig]
+	lggr          logger.Logger
 
 	requestIDToCallerRequest map[string]*request.ClientRequest
 	mutex                    sync.Mutex
@@ -42,40 +40,86 @@ type client struct {
 	wg                       sync.WaitGroup
 }
 
+type dynamicConfig struct {
+	remoteCapabilityInfo commoncap.CapabilityInfo
+	localDONInfo         commoncap.DON
+	requestTimeout       time.Duration
+	// Has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
+	transmissionConfig *transmission.TransmissionConfig
+}
+
 type Client interface {
 	commoncap.ExecutableCapability
 	Receive(ctx context.Context, msg *types.MessageBody)
+	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig) error
 }
 
 var _ Client = &client{}
 var _ types.Receiver = &client{}
 var _ services.Service = &client{}
 
-const expiryCheckInterval = 30 * time.Second
+const defaultExpiryCheckInterval = 30 * time.Second
 
 var (
 	ErrRequestExpired                  = errors.New("request expired by executable client")
 	ErrContextDoneBeforeResponseQuorum = errors.New("context done before remote client received a quorum of responses")
 )
 
-// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
-func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string, lggr logger.Logger) *client {
+func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *client {
 	return &client{
-		lggr:                     logger.Named(lggr, "ExecutableCapabilityClient"),
-		remoteCapabilityInfo:     remoteCapabilityInfo,
-		localDONInfo:             localDonInfo,
-		dispatcher:               dispatcher,
-		requestTimeout:           requestTimeout,
-		transmissionConfig:       transmissionConfig,
+		capabilityID:             capabilityID,
 		capMethodName:            capMethodName,
+		dispatcher:               dispatcher,
+		lggr:                     logger.Named(lggr, "ExecutableCapabilityClient"),
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
 		stopCh:                   make(services.StopChan),
 	}
 }
 
+// SetConfig sets the remote capability configuration dynamically
+// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
+func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig) error {
+	if remoteCapabilityInfo.ID == "" || remoteCapabilityInfo.ID != c.capabilityID {
+		return fmt.Errorf("capability info provided does not match the client's capabilityID: %s != %s", remoteCapabilityInfo.ID, c.capabilityID)
+	}
+	if len(localDonInfo.Members) == 0 {
+		return errors.New("empty localDonInfo provided")
+	}
+	if requestTimeout <= 0 {
+		return errors.New("requestTimeout must be positive")
+	}
+
+	// always replace the whole dynamicConfig object to avoid inconsistent state
+	c.cfg.Store(&dynamicConfig{
+		remoteCapabilityInfo: remoteCapabilityInfo,
+		localDONInfo:         localDonInfo,
+		requestTimeout:       requestTimeout,
+		transmissionConfig:   transmissionConfig,
+	})
+	return nil
+}
+
 func (c *client) Start(ctx context.Context) error {
 	return c.StartOnce(c.Name(), func() error {
+		cfg := c.cfg.Load()
+
+		// Validate that all required fields are set before starting
+		if cfg == nil {
+			return errors.New("config not set - call SetConfig() before Start()")
+		}
+		if cfg.remoteCapabilityInfo.ID == "" {
+			return errors.New("remote capability info not set - call SetConfig() before Start()")
+		}
+		if len(cfg.localDONInfo.Members) == 0 {
+			return errors.New("local DON info not set - call SetConfig() before Start()")
+		}
+		if cfg.requestTimeout <= 0 {
+			return errors.New("request timeout not set - call SetConfig() before Start()")
+		}
+		if c.dispatcher == nil {
+			return errors.New("dispatcher set to nil, cannot start client")
+		}
+
 		c.wg.Add(1)
 		go func() {
 			defer c.wg.Done()
@@ -118,20 +162,24 @@ func (c *client) checkDispatcherReady() {
 }
 
 func (c *client) checkForExpiredRequests() {
-	tickerInterval := expiryCheckInterval
-	if c.requestTimeout < tickerInterval {
-		tickerInterval = c.requestTimeout
-	}
-	ticker := time.NewTicker(tickerInterval)
+	ticker := time.NewTicker(getClientTickerInterval(c.cfg.Load()))
 	defer ticker.Stop()
 	for {
 		select {
 		case <-c.stopCh:
 			return
 		case <-ticker.C:
+			ticker.Reset(getClientTickerInterval(c.cfg.Load()))
 			c.expireRequests()
 		}
 	}
+}
+
+func getClientTickerInterval(cfg *dynamicConfig) time.Duration {
+	if cfg != nil && cfg.requestTimeout > 0 {
+		return cfg.requestTimeout
+	}
+	return defaultExpiryCheckInterval
 }
 
 func (c *client) expireRequests() {
@@ -160,7 +208,11 @@ func (c *client) cancelAllRequests(err error) {
 }
 
 func (c *client) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
-	return c.remoteCapabilityInfo, nil
+	cfg := c.cfg.Load()
+	if cfg == nil {
+		return commoncap.CapabilityInfo{}, errors.New("config not set - call SetConfig() before Info()")
+	}
+	return cfg.remoteCapabilityInfo, nil
 }
 
 func (c *client) RegisterToWorkflow(ctx context.Context, registerRequest commoncap.RegisterToWorkflowRequest) error {
@@ -172,8 +224,13 @@ func (c *client) UnregisterFromWorkflow(ctx context.Context, unregisterRequest c
 }
 
 func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
-	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
-		c.requestTimeout, c.transmissionConfig, c.capMethodName)
+	cfg := c.cfg.Load()
+	if cfg == nil {
+		return commoncap.CapabilityResponse{}, errors.New("config not set - call SetConfig() before Execute()")
+	}
+
+	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
+		cfg.requestTimeout, cfg.transmissionConfig, c.capMethodName)
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}

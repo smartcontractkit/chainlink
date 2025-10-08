@@ -446,7 +446,7 @@ func exportTestParams(params testParams) error {
 	}
 
 	// Marshal data to JSON
-	data := map[string]interface{}{
+	data := map[string]any{
 		"workflowName":          params.workflowName,
 		"workflowOwner":         params.workflowOwner,
 		"workflowID":            params.workflowID,
@@ -479,7 +479,7 @@ func importTestParams() (testParams, error) {
 		return params, fmt.Errorf("failed to read test params file: %w", err)
 	}
 
-	var rawData map[string]interface{}
+	var rawData map[string]any
 	if err := json.Unmarshal(data, &rawData); err != nil {
 		return params, fmt.Errorf("failed to unmarshal test params: %w", err)
 	}
@@ -489,7 +489,7 @@ func importTestParams() (testParams, error) {
 	params.workflowID = rawData["workflowID"].(string)
 
 	// Convert interface{} array to []string
-	feedsRaw := rawData["feeds"].([]interface{})
+	feedsRaw := rawData["feeds"].([]any)
 	params.feeds = make([]string, len(feedsRaw))
 	for i, v := range feedsRaw {
 		params.feeds[i] = v.(string)
@@ -507,7 +507,7 @@ type WriterGun struct {
 	capProxy   *mock_capability.Controller
 	keyBundles []ocr2key.KeyBundle
 	triggerID  string
-	waitChans  map[uint8]chan interface{}
+	waitChans  map[uint8]chan any
 	mu         sync.Mutex
 	reportID   uint8
 	seqNr      uint32
@@ -525,7 +525,7 @@ func NewWriterGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Key
 		seqNr:      1,
 		seth:       seth,
 		testParams: params,
-		waitChans:  make(map[uint8]chan interface{}),
+		waitChans:  make(map[uint8]chan any),
 	}
 
 	go func() {
@@ -599,7 +599,7 @@ func (s *WriterGun) Call(l *wasp.Generator) *wasp.Response {
 	}
 
 	s.mu.Lock()
-	ch := make(chan interface{})
+	ch := make(chan any)
 	s.waitChans[s.reportID] = ch
 	s.mu.Unlock()
 	// Create executable request and execute

@@ -1,14 +1,18 @@
 package crib
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	"github.com/rs/zerolog"
 	xerrgroup "golang.org/x/sync/errgroup"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -16,16 +20,16 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
-	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
-	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
@@ -37,15 +41,232 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_token_pool"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 const (
 	tokenApproveCheckedAmount = 1e4 * 1e9
 )
+
+// DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
+// Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
+func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, cldf.AddressBook, error) {
+	lggr.Info("Deploying home chain contracts...")
+	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return deployment.CapabilityRegistryConfig{}, nil, err
+	}
+	if e == nil {
+		return deployment.CapabilityRegistryConfig{}, nil, errors.New("environment is nil")
+	}
+
+	evmChains := e.BlockChains.EVMChains()
+
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
+	}
+
+	// Fund the deployer
+	solChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
+
+	for _, selector := range solChainSelectors {
+		lggr.Infof("Funding solana deployer account %v", e.BlockChains.SolanaChains()[selector].DeployerKey.PublicKey())
+		err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{e.BlockChains.SolanaChains()[selector].DeployerKey.PublicKey()}, 10000, e.BlockChains.SolanaChains()[selector].Client)
+		if err != nil {
+			return deployment.CapabilityRegistryConfig{}, nil, err
+		}
+	}
+
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
+		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{evmChains[chain].DeployerKey.From}, []mcmstypes.Config{})
+		if err != nil {
+			return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to create mcms config: %w", err)
+		}
+		cfg[chain] = commontypes.MCMSWithTimelockConfigV2{
+			Canceller:        mcmsConfig,
+			Bypasser:         mcmsConfig,
+			Proposer:         mcmsConfig,
+			TimelockMinDelay: big.NewInt(0),
+		}
+	}
+	*e, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cfg,
+	), commonchangeset.Configure(
+		cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+		v1_6.DeployHomeChainConfig{
+			HomeChainSel:             homeChainSel,
+			RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
+			RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
+			NodeOperators:            testhelpers.NewTestNodeOperator(evmChains[homeChainSel].DeployerKey.From),
+			NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIDs},
+		},
+	))
+	if err != nil {
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("changeset sequence execution failed with error: %w", err)
+	}
+	state, err := stateview.LoadOnchainState(*e)
+	if err != nil {
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to load on chain state: %w", err)
+	}
+	capRegAddr := state.Chains[homeChainSel].CapabilityRegistry.Address()
+	if capRegAddr == common.HexToAddress("0x") {
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("cap Reg address not found: %w", err)
+	}
+	capRegConfig := deployment.CapabilityRegistryConfig{
+		EVMChainID:  homeChainSel,
+		Contract:    state.Chains[homeChainSel].CapabilityRegistry.Address(),
+		NetworkType: relay.NetworkEVM,
+	}
+	return capRegConfig, e.ExistingAddresses, nil
+}
+
+// DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
+func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig,
+	homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool,
+	evmFundingEth uint64, laneConfig *LaneConfiguration,
+) (DeployCCIPOutput, error) {
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
+	}
+	e.ExistingAddresses = ab
+
+	// ------ Part 1 -----
+	// Setup because we only need to deploy the contracts and distribute job specs
+	lggr.Infow("setting up chains...")
+	*e, err = setupChains(lggr, e, homeChainSel, feedChainSel)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply setting up chain changesets: %w", err)
+	}
+
+	state, err := stateview.LoadOnchainState(*e)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	err = laneConfig.Validate(len(e.BlockChains.ListChainSelectors()))
+	if err != nil {
+		return DeployCCIPOutput{},
+			fmt.Errorf("failed to validate lane configuration against deployed env: %w", err)
+	}
+
+	allChains := e.BlockChains.ListChainSelectors()
+	laneConfig.GenerateLanes(allChains)
+	laneConfig.LogLaneConfigInfo(lggr)
+
+	// Set up lanes
+	lggr.Infow("setting up EVM <> EVM lanes...")
+	*e, err = setupEVM2EVMLanes(e, state, laneConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting evm lanes changesets: %w", err)
+	}
+
+	lggr.Infow("setting up EVM <> Sol lanes...")
+	*e, err = setupSolEvmLanes(lggr, e, state, homeChainSel, feedChainSel, laneConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply connecting lanes changesets: %w", err)
+	}
+	// ------ Part 1 -----
+
+	// ----- Part 2 -----
+	lggr.Infow("setting up ocr...")
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, true, rmnEnabled)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply OCR changesets: %w", err)
+	}
+
+	// distribute funds to transmitters
+	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
+	// populated in the environment variable
+	lggr.Infow("distributing funds...")
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to distribute funds to node transmitters: %w", err)
+	}
+
+	addresses, err := e.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to convert address book to address book map: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *cldf.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
+}
+
+// ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
+func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, rmnEnabled bool, evmFundingEth uint64) (DeployCCIPOutput, error) {
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
+	}
+	e.ExistingAddresses = ab
+
+	lggr.Infow("resetting ocr...")
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, false, rmnEnabled)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+	}
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
+	if err != nil {
+		return DeployCCIPOutput{}, err
+	}
+
+	addresses, err := e.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *cldf.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
+}
+
+// FundCCIPTransmitters is used from CRIB to provide funds to the node transmitters
+// This function sends funds from the deployer key to the chainlink node transmitters
+func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab cldf.AddressBook, evmFundingEth uint64) (DeployCCIPOutput, error) {
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
+	}
+	e.ExistingAddresses = ab
+
+	// distribute funds to transmitters
+	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
+	// populated in the environment variable
+	lggr.Infow("distributing funds...")
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e, evmFundingEth)
+	if err != nil {
+		return DeployCCIPOutput{}, err
+	}
+
+	addresses, err := e.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *cldf.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
+}
 
 func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChainSel uint64) (cldf.Environment, error) {
 	evmChainSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
@@ -785,7 +1006,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 				params.CommitOffChainConfig.MultipleReportsEnabled = true
 				params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
 				params.CommitOffChainConfig.MaxPricesPerReport = 3
-				params.CommitOffChainConfig.MaxMerkleTreeSize = 1
+				params.CommitOffChainConfig.MaxMerkleTreeSize = 10
 				params.CommitOffChainConfig.MerkleRootAsyncObserverDisabled = true
 				return params
 			})
@@ -892,4 +1113,173 @@ type RMNNodeConfig struct {
 	RageProxyKeystore string
 	RMNKeystore       string
 	Passphrase        string
+}
+
+func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab cldf.AddressBook, nodes []RMNNodeConfig) (DeployCCIPOutput, error) {
+	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to create environment: %w", err)
+	}
+
+	e.ExistingAddresses = ab
+
+	allChains := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
+	allUpdates := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+	for _, chainIdx := range allChains {
+		updates := make(map[uint64]v1_6.OffRampSourceUpdate)
+
+		for _, subChainID := range allChains {
+			if subChainID == chainIdx {
+				continue
+			}
+			updates[subChainID] = v1_6.OffRampSourceUpdate{
+				IsRMNVerificationDisabled: false,
+				IsEnabled:                 true,
+			}
+		}
+
+		allUpdates[chainIdx] = updates
+	}
+
+	_, err = v1_6.UpdateOffRampSourcesChangeset(*e, v1_6.UpdateOffRampSourcesConfig{
+		UpdatesByChain: allUpdates,
+	})
+
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to update dynamic off ramp config: %w", err)
+	}
+
+	rmnNodes := make([]rmn_home.RMNHomeNode, len(nodes))
+	bitmap := new(big.Int)
+	for i, node := range nodes {
+		rmnNodes[i] = rmn_home.RMNHomeNode{
+			PeerId:            node.PeerId,
+			OffchainPublicKey: node.OffchainPublicKey,
+		}
+		bitmap.SetBit(bitmap, i, 1)
+	}
+
+	sourceChains := make([]rmn_home.RMNHomeSourceChain, len(allChains))
+	for i, chain := range allChains {
+		sourceChains[i] = rmn_home.RMNHomeSourceChain{
+			ChainSelector:       chain,
+			FObserve:            1,
+			ObserverNodesBitmap: bitmap,
+		}
+	}
+
+	env, err := commonchangeset.Apply(nil, *e,
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains
+			cldf.CreateLegacyChangeSet(v1_6.SetRMNHomeCandidateConfigChangeset),
+			v1_6.SetRMNHomeCandidateConfig{
+				HomeChainSelector: homeChainSel,
+				RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
+					Nodes:          rmnNodes,
+					OffchainConfig: []byte{},
+				},
+				RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
+					OffchainConfig: []byte{},
+					SourceChains:   sourceChains,
+				},
+			},
+		),
+	)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn node candidate: %w", err)
+	}
+
+	state, err := stateview.LoadOnchainState(env)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to load chain state: %w", err)
+	}
+
+	configDigest, err := state.Chains[homeChainSel].RMNHome.GetCandidateDigest(nil)
+
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get rmn home candidate digest: %w", err)
+	}
+
+	env, err = commonchangeset.Apply(nil, *e,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.PromoteRMNHomeCandidateConfigChangeset),
+			v1_6.PromoteRMNHomeCandidateConfig{
+				HomeChainSelector: homeChainSel,
+				DigestToPromote:   configDigest,
+			},
+		),
+	)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to promote rmn node candidate: %w", err)
+	}
+
+	signers := make([]rmn_remote.RMNRemoteSigner, len(nodes))
+	for i, node := range nodes {
+		signers[i] = node.ToRMNRemoteSigner()
+	}
+
+	g, ctx := xerrgroup.WithContext(context.Background())
+	for _, chain := range allChains {
+		g.Go(func() error {
+			rmnRemoteConfig := map[uint64]ccipops.RMNRemoteConfig{
+				chain: {
+					Signers: signers,
+					F:       1,
+				},
+			}
+
+			_, err := v1_6.SetRMNRemoteConfigChangeset(*e, ccipseq.SetRMNRemoteConfig{
+				RMNRemoteConfigs: rmnRemoteConfig,
+			})
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn remote config: %w", err)
+	}
+
+	addresses, err := env.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *cldf.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
+}
+
+func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyImageTag, afn2proxyImageURI,
+	afn2proxyImageTag string, imagePlatform string) ([]RMNNodeConfig, error) {
+	lggr := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout})
+	rmnNodeConfigs := make([]RMNNodeConfig, rmnNodeCount)
+
+	for i := uint(0); i < rmnNodeCount; i++ {
+		peerID, rawKeystore, _, err := devenv.GeneratePeerID(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), rageProxyImageURI, rageProxyImageTag, imagePlatform)
+		if err != nil {
+			return nil, err
+		}
+
+		keys, rawRMNKeystore, afnPassphrase, err := devenv.GenerateRMNKeyStore(lggr, afn2proxyImageURI, afn2proxyImageTag, imagePlatform)
+		if err != nil {
+			return nil, err
+		}
+
+		newPeerID, err := p2pkey.MakePeerID(peerID.String())
+		if err != nil {
+			return nil, err
+		}
+
+		rmnNodeConfigs[i] = RMNNodeConfig{
+			RMNNopConfig: v1_6.RMNNopConfig{
+				NodeIndex:           uint64(i),
+				OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
+				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
+				PeerId:              newPeerID,
+			},
+			RageProxyKeystore: rawKeystore,
+			RMNKeystore:       rawRMNKeystore,
+			Passphrase:        afnPassphrase,
+		}
+	}
+	return rmnNodeConfigs, nil
 }

@@ -538,7 +538,7 @@ type StreamsGun struct {
 	keyBundles  []ocr2key.KeyBundle
 	feeds       [][]FeedWithStreamID
 	triggerID   string
-	waitChans   map[int64]chan interface{}
+	waitChans   map[int64]chan any
 	receiveChan <-chan capabilities.CapabilityRequest
 	mu          sync.Mutex
 	feedLimit   int
@@ -637,12 +637,12 @@ func (s *StreamsGun) createWaitChannelForTimestamp(reportTimestamp int64) error 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.waitChans == nil {
-		s.waitChans = make(map[int64]chan interface{})
+		s.waitChans = make(map[int64]chan any)
 	}
 	if _, exists := s.waitChans[reportTimestamp]; exists {
 		return fmt.Errorf("cannot create wait channel, timestamp  %d already exits", reportTimestamp)
 	}
-	s.waitChans[reportTimestamp] = make(chan interface{})
+	s.waitChans[reportTimestamp] = make(chan any)
 	return nil
 }
 
@@ -929,7 +929,7 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 		panic(err)
 	}
 	var renderedTemplate bytes.Buffer
-	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
+	err = tmpl.Execute(&renderedTemplate, map[string]any{
 		"WorkflowName": workflowName,
 		"Feeds":        feeds,
 		"JobID":        uuid.NewString(),
@@ -975,7 +975,7 @@ func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *
 
 	jobUUID := uuid.NewString()
 	var renderedTemplate bytes.Buffer
-	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
+	err = tmpl.Execute(&renderedTemplate, map[string]any{
 		"JobID":      jobUUID,
 		"ShortID":    jobUUID[0:8],
 		"BinaryPath": binaryPath,

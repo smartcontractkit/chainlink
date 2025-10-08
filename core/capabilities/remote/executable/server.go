@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -27,20 +28,14 @@ import (
 // server communicates with corresponding client on remote nodes.
 type server struct {
 	services.StateMachine
-	lggr logger.Logger
-
-	config       *commoncap.RemoteExecutableConfig
-	hasher       types.MessageHasher
-	peerID       p2ptypes.PeerID
-	underlying   commoncap.ExecutableCapability
-	capInfo      commoncap.CapabilityInfo
-	localDonInfo commoncap.DON
-	workflowDONs map[uint32]commoncap.DON
-	dispatcher   types.Dispatcher
+	capabilityID  string
+	capMethodName string
+	peerID        p2ptypes.PeerID
+	dispatcher    types.Dispatcher
+	cfg           atomic.Pointer[dynamicServerConfig]
+	lggr          logger.Logger
 
 	requestIDToRequest map[string]requestAndMsgID
-	requestTimeout     time.Duration
-	capMethodName      string
 
 	// Used to detect messages with the same message id but different payloads
 	messageIDToRequestIDsCount map[string]map[string]int
@@ -52,6 +47,24 @@ type server struct {
 	parallelExecutor *parallelExecutor
 }
 
+type dynamicServerConfig struct {
+	remoteExecutableConfig *commoncap.RemoteExecutableConfig
+	hasher                 types.MessageHasher
+	underlying             commoncap.ExecutableCapability
+	capInfo                commoncap.CapabilityInfo
+	localDonInfo           commoncap.DON
+	workflowDONs           map[uint32]commoncap.DON
+}
+
+type Server interface {
+	types.Receiver
+	services.Service
+	SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableConfig, underlying commoncap.ExecutableCapability,
+		capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON,
+		messageHasher types.MessageHasher) error
+}
+
+var _ Server = &server{}
 var _ types.Receiver = &server{}
 var _ services.Service = &server{}
 
@@ -60,47 +73,105 @@ type requestAndMsgID struct {
 	messageID string
 }
 
-func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID p2ptypes.PeerID, underlying commoncap.ExecutableCapability,
-	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
-	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	maxParallelRequests int, messageHasher types.MessageHasher, capMethodName string,
-	lggr logger.Logger) *server {
+func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatcher types.Dispatcher, lggr logger.Logger) *server {
+	return &server{
+		capabilityID:               capabilityID,
+		capMethodName:              methodName,
+		peerID:                     peerID,
+		dispatcher:                 dispatcher,
+		lggr:                       logger.Named(lggr, "ExecutableCapabilityServer"),
+		requestIDToRequest:         map[string]requestAndMsgID{},
+		messageIDToRequestIDsCount: map[string]map[string]int{},
+		stopCh:                     make(services.StopChan),
+	}
+}
+
+// SetConfig sets the remote server configuration dynamically
+func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableConfig, underlying commoncap.ExecutableCapability,
+	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, messageHasher types.MessageHasher) error {
+	currCfg := r.cfg.Load()
 	if remoteExecutableConfig == nil {
-		lggr.Info("no remote config provided, using default values")
+		r.lggr.Info("no remote config provided, using default values")
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
 	}
 	if messageHasher == nil {
+		r.lggr.Warn("no message hasher provided, using default V1 hasher")
 		messageHasher = NewV1Hasher(remoteExecutableConfig.RequestHashExcludedAttributes)
 	}
-	return &server{
-		config:       remoteExecutableConfig,
-		hasher:       messageHasher,
-		underlying:   underlying,
-		peerID:       peerID,
-		capInfo:      capInfo,
-		localDonInfo: localDonInfo,
-		workflowDONs: workflowDONs,
-		dispatcher:   dispatcher,
-
-		requestIDToRequest:         map[string]requestAndMsgID{},
-		messageIDToRequestIDsCount: map[string]map[string]int{},
-		requestTimeout:             requestTimeout,
-		capMethodName:              capMethodName,
-
-		lggr:   logger.Named(lggr, "ExecutableCapabilityServer"),
-		stopCh: make(services.StopChan),
-
-		parallelExecutor: newParallelExecutor(maxParallelRequests),
+	if capInfo.ID == "" || capInfo.ID != r.capabilityID {
+		return fmt.Errorf("capability info provided does not match the server's capabilityID: %s != %s", capInfo.ID, r.capabilityID)
 	}
+	if underlying == nil {
+		return errors.New("underlying capability cannot be nil")
+	}
+	if len(localDonInfo.Members) == 0 {
+		return errors.New("empty localDonInfo provided")
+	}
+	if len(workflowDONs) == 0 {
+		return errors.New("empty workflowDONs provided")
+	}
+	if remoteExecutableConfig.RequestTimeout <= 0 {
+		return errors.New("cfg.RequestTimeout must be positive")
+	}
+	if remoteExecutableConfig.ServerMaxParallelRequests <= 0 {
+		return errors.New("cfg.ServerMaxParallelRequests must be positive")
+	}
+
+	if currCfg != nil && currCfg.remoteExecutableConfig != nil &&
+		currCfg.remoteExecutableConfig.ServerMaxParallelRequests > 0 &&
+		remoteExecutableConfig.ServerMaxParallelRequests != currCfg.remoteExecutableConfig.ServerMaxParallelRequests {
+		r.lggr.Warn("ServerMaxParallelRequests changed but it won't be applied until node restart")
+	}
+
+	// always replace the whole dynamicServerConfig object to avoid inconsistent state
+	r.cfg.Store(&dynamicServerConfig{
+		remoteExecutableConfig: remoteExecutableConfig,
+		hasher:                 messageHasher,
+		underlying:             underlying,
+		capInfo:                capInfo,
+		localDonInfo:           localDonInfo,
+		workflowDONs:           workflowDONs,
+	})
+	return nil
 }
 
 func (r *server) Start(ctx context.Context) error {
 	return r.StartOnce(r.Name(), func() error {
+		cfg := r.cfg.Load()
+
+		// Validate that all required fields are set before starting
+		if cfg == nil {
+			return errors.New("config not set - call SetConfig() before Start()")
+		}
+		if cfg.remoteExecutableConfig == nil {
+			return errors.New("remote executable config not set - call SetConfig() before Start()")
+		}
+		if cfg.underlying == nil {
+			return errors.New("underlying capability not set - call SetConfig() before Start()")
+		}
+		if cfg.capInfo.ID == "" {
+			return errors.New("capability info not set - call SetConfig() before Start()")
+		}
+		if len(cfg.localDonInfo.Members) == 0 {
+			return errors.New("local DON info not set - call SetConfig() before Start()")
+		}
+		if cfg.remoteExecutableConfig.RequestTimeout <= 0 {
+			return errors.New("cfg.RequestTimeout not set - call SetConfig() before Start()")
+		}
+		if cfg.remoteExecutableConfig.ServerMaxParallelRequests <= 0 {
+			return errors.New("cfg.ServerMaxParallelRequests not set - call SetConfig() before Start()")
+		}
+		if r.dispatcher == nil {
+			return errors.New("dispatcher set to nil, cannot start server")
+		}
+
+		// Initialize parallel executor with the configured max parallel requests
+		r.parallelExecutor = newParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests))
+
 		r.wg.Add(1)
 		go func() {
 			defer r.wg.Done()
-			tickerInterval := min(r.requestTimeout, expiryCheckInterval)
-			ticker := time.NewTicker(tickerInterval)
+			ticker := time.NewTicker(getServerTickerInterval(cfg))
 			defer ticker.Stop()
 
 			r.lggr.Info("executable capability server started")
@@ -109,6 +180,7 @@ func (r *server) Start(ctx context.Context) error {
 				case <-r.stopCh:
 					return
 				case <-ticker.C:
+					ticker.Reset(getServerTickerInterval(cfg))
 					r.expireRequests()
 				}
 			}
@@ -122,13 +194,22 @@ func (r *server) Start(ctx context.Context) error {
 	})
 }
 
+func getServerTickerInterval(cfg *dynamicServerConfig) time.Duration {
+	if cfg.remoteExecutableConfig.RequestTimeout > 0 {
+		return cfg.remoteExecutableConfig.RequestTimeout
+	}
+	return defaultExpiryCheckInterval
+}
+
 func (r *server) Close() error {
 	return r.StopOnce(r.Name(), func() error {
 		close(r.stopCh)
 		r.wg.Wait()
-		err := r.parallelExecutor.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close parallel executor: %w", err)
+		if r.parallelExecutor != nil {
+			err := r.parallelExecutor.Close()
+			if err != nil {
+				return fmt.Errorf("failed to close parallel executor: %w", err)
+			}
 		}
 
 		r.lggr.Info("executable capability server closed")
@@ -155,6 +236,12 @@ func (r *server) expireRequests() {
 }
 
 func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
+	cfg := r.cfg.Load()
+	if cfg == nil {
+		r.lggr.Errorw("config not set, cannot process request")
+		return
+	}
+
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
@@ -171,7 +258,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	msgHash, err := r.hasher.Hash(msg)
+	msgHash, err := cfg.hasher.Hash(msg)
 	if err != nil {
 		r.lggr.Errorw("failed to get message hash", "err", err)
 		return
@@ -197,14 +284,14 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
-		callingDon, ok := r.workflowDONs[msg.CallerDonId]
+		callingDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {
 			r.lggr.Errorw("received request from unregistered don", "donId", msg.CallerDonId)
 			return
 		}
 
-		sr, ierr := request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, r.requestTimeout, r.capMethodName, r.lggr)
+		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
+			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return
