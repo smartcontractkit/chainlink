@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	slices0 "slices"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,12 +32,12 @@ type BackfillArgs struct {
 	SourceStartBlock, DestStartBlock uint64
 }
 
-func FlattenedAndSortedTokens(slices ...[]cciptypes.Address) (tokens []cciptypes.Address) {
+func FlattenedAndSortedTokens(addressSlices ...[]cciptypes.Address) (tokens []cciptypes.Address) {
 	// fee token can overlap with bridgeable tokens, we need to dedup them to arrive at lane token set
-	tokens = FlattenUniqueSlice(slices...)
+	tokens = FlattenUniqueSlice(addressSlices...)
 
 	// return the tokens in deterministic order to aid with testing and debugging
-	slices0.Sort(tokens)
+	slices.Sort(tokens)
 
 	return tokens
 }
