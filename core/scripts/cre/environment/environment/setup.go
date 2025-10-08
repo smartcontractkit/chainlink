@@ -110,9 +110,7 @@ type capabilityRepository struct {
 	ArtifactsDirs []string `toml:"artifacts_dirs"`
 }
 
-var (
-	ECR = os.Getenv("AWS_ECR") // TODO this can be moved to an env file
-)
+var ECR = os.Getenv("AWS_ECR") // TODO this can be moved to an env file
 
 const DefaultSetupConfigPath = "configs/setup.toml"
 
@@ -332,7 +330,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		logger.Info().Msgf("🔍 %s image not found.", name)
 		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [P]", name)
 
-		var input = "b" // Default to Build; TODO default to Pull when AWS access is sorted
+		input := "b" // Default to Build; TODO default to Pull when AWS access is sorted
 		if !noPrompt {
 			_, err := fmt.Scanln(&input)
 			if err != nil {
@@ -898,7 +896,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 
 	logger.Info().Msg("Would you like to download and install the GitHub CLI now? (y/n) [y]")
 
-	var input = "y" // Default to yes
+	input := "y" // Default to yes
 	if !noPrompt {
 		_, err = fmt.Scanln(&input)
 		if err != nil {
@@ -1007,7 +1005,7 @@ func checkCTF(ctx context.Context, requiredVersion string, noPrompt bool, purge 
 	logger.Info().Msg("✗ CTF CLI is not installed")
 	logger.Info().Msg("  Would you like to download and install the CTF CLI now? (y/n) [y]")
 
-	var input = "y" // Default to yes
+	input := "y" // Default to yes
 	if !noPrompt {
 		_, err = fmt.Scanln(&input)
 		if err != nil {

@@ -2434,6 +2434,7 @@ type Telemetry struct {
 	ChipIngressInsecureConnection *bool
 	HeartbeatInterval             *commonconfig.Duration
 	LogStreamingEnabled           *bool
+	LogLevel                      *string
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2472,6 +2473,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.LogStreamingEnabled; v != nil {
 		b.LogStreamingEnabled = v
+	}
+	if v := f.LogLevel; v != nil {
+		b.LogLevel = v
 	}
 }
 

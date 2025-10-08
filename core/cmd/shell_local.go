@@ -316,7 +316,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
-	if err := utils.EnsureDirAndMaxPerms(s.Config.RootDir(), os.FileMode(0700)); err != nil {
+	if err := utils.EnsureDirAndMaxPerms(s.Config.RootDir(), os.FileMode(0o700)); err != nil {
 		return fmt.Errorf("failed to create root directory %q: %w", s.Config.RootDir(), err)
 	}
 
@@ -1146,7 +1146,7 @@ func (s *Shell) initStartComponents(c *cli.Context) error {
 			return errors.New("Shell.SetOtelCore is nil")
 		}
 		otelLogger := beholder.GetLogger()
-		logLevel := s.Config.Log().Level()
+		logLevel := s.Config.Telemetry().LogLevel()
 		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(logLevel))
 
 		s.SetOtelCore(&otelCore)

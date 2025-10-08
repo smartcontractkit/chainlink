@@ -361,6 +361,7 @@ ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
 LogStreamingEnabled = false
+LogLevel = "info"
 
 [Workflows]
 [Workflows.Limits]
@@ -396,4 +397,3 @@ IgnoreJoblessBridges = false
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty
-

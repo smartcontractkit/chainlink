@@ -402,6 +402,7 @@ ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 HeartbeatInterval = '1s'
 LogStreamingEnabled = false
+LogLevel = "info"
 
 [Workflows]
 [Workflows.Limits]

@@ -846,6 +846,8 @@ ChipIngressInsecureConnection = false # Default
 HeartbeatInterval = '1s' # Default
 # LogStreamingEnabled enables log streaming to the OTel log exporter
 LogStreamingEnabled = false # Default
+# LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
+LogLevel = "info" # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

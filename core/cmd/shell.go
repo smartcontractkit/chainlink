@@ -115,6 +115,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
 				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
+				LogLevel:                       cfgTelemetry.LogLevel(),
 			}
 			// note: due to the OTEL specification, all histogram buckets
 			// must be defined when the beholder client is created
@@ -141,11 +142,9 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 	return err
 }
 
-var (
-	// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
-	// and no API credentials have been provided
-	ErrorNoAPICredentialsAvailable = errors.New("API credentials must be supplied")
-)
+// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
+// and no API credentials have been provided
+var ErrorNoAPICredentialsAvailable = errors.New("API credentials must be supplied")
 
 // Shell for the node, local commands and remote commands.
 type Shell struct {
@@ -722,13 +721,13 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0o600)
 }
 
 // Removes any stored cookie.
 func (d DiskCookieStore) Reset() error {
 	// Write empty bytes
-	return os.WriteFile(d.cookiePath(), []byte(""), 0600)
+	return os.WriteFile(d.cookiePath(), []byte(""), 0o600)
 }
 
 // Retrieve returns any Saved cookies.
@@ -769,7 +768,7 @@ func NewUserCache(subdir string, lggr func() logger.Logger) (*UserCache, error) 
 }
 
 func (cs *UserCache) ensure() {
-	if err := os.MkdirAll(cs.dir, 0700); err != nil {
+	if err := os.MkdirAll(cs.dir, 0o700); err != nil {
 		cs.lggr().Errorw("Failed to make user cache dir", "dir", cs.dir, "err", err)
 	}
 }
@@ -870,7 +869,6 @@ func (t *promptingAPIInitializer) Initialize(ctx context.Context, orm sessions.B
 	// Otherwise, multiple admin users exist, prompt for which to use
 	email := t.prompter.Prompt("Enter email of API user account to assume: ")
 	user, err := orm.FindUser(ctx, email)
-
 	if err != nil {
 		return sessions.User{}, err
 	}
