@@ -12,22 +12,22 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/lbtc"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/lbtc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 )
 
 type SrcExecProvider struct {
@@ -260,7 +260,7 @@ type DstExecProvider struct {
 	client              client.Client
 	lp                  logpoller.LogPoller
 	startBlock          uint64
-	contractTransmitter ContractTransmitter
+	contractTransmitter transmitter.ContractTransmitter
 	configWatcher       *configWatcher
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
@@ -278,7 +278,7 @@ func NewDstExecProvider(
 	client client.Client,
 	lp logpoller.LogPoller,
 	startBlock uint64,
-	contractTransmitter ContractTransmitter,
+	contractTransmitter transmitter.ContractTransmitter,
 	configWatcher *configWatcher,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,

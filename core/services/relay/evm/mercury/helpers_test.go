@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
@@ -145,7 +144,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	require.NoError(t, err)
 	b.Commit()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.Test(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)

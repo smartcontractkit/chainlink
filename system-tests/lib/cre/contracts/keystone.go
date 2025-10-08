@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -74,7 +75,7 @@ func DeployKeystoneContracts(
 				continue
 			}
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
-				if bcOut.CtfOutput.Family == blockchain.FamilyTron {
+				if strings.EqualFold(bcOut.CtfOutput.Family, blockchain.FamilyTron) {
 					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
 					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
 				} else {

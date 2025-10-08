@@ -264,12 +264,8 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 		for _, idB := range allDONIds[i+1:] {
 			donB := localRegistry.IDsToDONs[idB]
 			pairAB := p2ptypes.DonPair{donA.DON, donB.DON}
-			if isBootstrap {
-				donPairs = append(donPairs, pairAB) // bootstrap adds all DON pairs
-				continue
-			}
 			nodeBelongsToB := slices.Contains(donB.Members, myID)
-			if !nodeBelongsToA && !nodeBelongsToB {
+			if !nodeBelongsToA && !nodeBelongsToB && !isBootstrap { // bootstrap adds all allowed DON pairs
 				continue // skip if node doesn't belong to either DON
 			}
 			if donA.AcceptsWorkflows && len(donB.CapabilityConfigurations) > 0 || // add DON pair if A is workflow and B is capability

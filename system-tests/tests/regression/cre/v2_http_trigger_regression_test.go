@@ -296,7 +296,7 @@ func startTestOrderServer(t *testing.T, port int, testID string) (*fake.Output, 
 
 	// Set up a unique endpoint for this test
 	endpoint := "/orders-" + testID
-	response := map[string]interface{}{
+	response := map[string]any{
 		"orderId": "test-order-regression-" + testID,
 		"status":  "success",
 		"message": "Order processed successfully",

@@ -7,6 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
@@ -45,6 +46,7 @@ var TokenPoolTypes = map[cldf.ContractType]struct{}{
 }
 
 var TokenPoolVersions = map[semver.Version]struct{}{
+	deployment.Version1_5_0:      {},
 	deployment.Version1_5_1:      {},
 	FastTransferTokenPoolVersion: {},
 	deployment.Version1_6_0:      {},

@@ -43,7 +43,7 @@ func New() (*capabilities.Capability, error) {
 		capabilities.WithJobSpecFn(perChainJobSpecFactory.BuildJobSpec(
 			flag,
 			configTemplate,
-			func(chainID uint64, _ *cre.NodeMetadata) map[string]any {
+			func(chainID uint64, _ *cre.Node) map[string]any {
 				return map[string]any{
 					"ChainID":       chainID,
 					"NetworkFamily": "evm",

@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
@@ -66,7 +65,7 @@ func Start(
 		outputs = append(outputs, deployedBlockchain)
 	}
 
-	chainsConfigs := make([]devenv.ChainConfig, 0, len(outputs))
+	chainsConfigs := make([]cre.ChainConfig, 0, len(outputs))
 	for _, db := range outputs {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(db)
 		if cfgErr != nil {
@@ -75,7 +74,7 @@ func Start(
 		chainsConfigs = append(chainsConfigs, cfg)
 	}
 
-	cldfBlockchains, err := devenv.NewChains(commonLogger, chainsConfigs)
+	cldfBlockchains, err := cre.NewChains(commonLogger, chainsConfigs)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create chains")
 	}

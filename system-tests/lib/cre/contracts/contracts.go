@@ -352,7 +352,7 @@ func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 			capabilities = append(capabilities, enabledCapabilities...)
 		}
 
-		workerNodes, wErr := donMetadata.WorkerNodes()
+		workerNodes, wErr := donMetadata.Workers()
 		if wErr != nil {
 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
@@ -740,7 +740,7 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 
 	for _, metaDon := range topology.DonsMetadata.List() {
 		if flags.HasFlag(metaDon.Flags, cre.ConsensusCapability) || flags.HasFlag(metaDon.Flags, cre.ConsensusCapabilityV2) {
-			workerNodes, wErr := metaDon.WorkerNodes()
+			workerNodes, wErr := metaDon.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
@@ -812,7 +812,7 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 
 	vaultIndex := -1
 	for i, don := range topology.DonsMetadata.List() {
-		if flags.HasFlag(don.Flags, cre.VaultCapability) {
+		if don.HasFlag(cre.VaultCapability) {
 			vaultIndex = i
 			break
 		}
@@ -1110,7 +1110,7 @@ func configureTronForwarders(env *cldf.Environment, registryChainSelector uint64
 			continue
 		}
 
-		workerNodes, wErr := donMetadata.WorkerNodes()
+		workerNodes, wErr := donMetadata.Workers()
 		if wErr != nil {
 			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)
 		}

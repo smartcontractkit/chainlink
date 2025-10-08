@@ -54,15 +54,7 @@ func (f *ManualHTTPTriggerService) UnregisterTrigger(ctx context.Context, trigge
 	return nil
 }
 
-func (f *ManualHTTPTriggerService) Initialise(ctx context.Context, config string,
-	_ core.TelemetryService,
-	_ core.KeyValueStore,
-	_ core.ErrorLog,
-	_ core.PipelineRunnerService,
-	_ core.RelayerSet,
-	_ core.OracleFactory,
-	_ core.GatewayConnector,
-	_ core.Keystore) error {
+func (f *ManualHTTPTriggerService) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
 	f.lggr.Debugf("Initialising %s", HTTPTriggerServiceName)
 	return f.Start(ctx)
 }

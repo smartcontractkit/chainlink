@@ -39,7 +39,19 @@ func TestStandardCapabilityStart(t *testing.T) {
 				ChainID:            "31337",
 			}}
 
-		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, &telemetryServiceMock{}, &kvstoreMock{}, registry, &errorLogMock{}, &pipelineRunnerServiceMock{}, &relayerSetMock{}, &oracleFactoryMock{}, &gatewayConnectorMock{}, &keystoreMock{})
+		dependencies := core.StandardCapabilitiesDependencies{
+			Config:             spec.Config,
+			TelemetryService:   &telemetryServiceMock{},
+			Store:              &kvstoreMock{},
+			CapabilityRegistry: registry,
+			ErrorLog:           &errorLogMock{},
+			PipelineRunner:     &pipelineRunnerServiceMock{},
+			RelayerSet:         &relayerSetMock{},
+			OracleFactory:      &oracleFactoryMock{},
+			GatewayConnector:   &gatewayConnectorMock{},
+			P2PKeystore:        &keystoreMock{},
+		}
+		standardCapability := NewStandardCapabilities(lggr, spec, pluginRegistrar, dependencies)
 		standardCapability.startTimeout = 1 * time.Second
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)

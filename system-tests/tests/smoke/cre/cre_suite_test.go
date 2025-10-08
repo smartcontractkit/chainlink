@@ -46,7 +46,7 @@ func Test_CRE_V1_Tron(t *testing.T) {
 }
 
 func Test_CRE_V1_SecureMint(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-solana-don.toml"))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
 
 	ExecuteSecureMintTest(t, testEnv)
 }

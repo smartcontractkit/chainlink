@@ -1,4 +1,4 @@
-package evm
+package transmitter
 
 import (
 	"context"
@@ -17,16 +17,15 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 type ContractTransmitter interface {
-	services.ServiceCtx
+	services.Service
 	ocrtypes.ContractTransmitter
 }
 
@@ -62,6 +61,14 @@ func WithExcludeSignatures() OCRTransmitterOption {
 	}
 }
 
+func HasExcludeSignatures(opts []OCRTransmitterOption) bool {
+	transmitterOptions := &transmitterOps{}
+	for _, opt := range opts {
+		opt(transmitterOptions)
+	}
+	return transmitterOptions.excludeSigs
+}
+
 func WithRetention(retention time.Duration) OCRTransmitterOption {
 	return func(ct *transmitterOps) {
 		ct.retention = retention
@@ -89,7 +96,7 @@ type contractTransmitter struct {
 	transmitterOptions *transmitterOps
 }
 
-func transmitterFilterName(addr common.Address) string {
+func FilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR ContractTransmitter", addr.String())
 }
 
@@ -130,7 +137,7 @@ func NewOCRContractTransmitter(
 		opt(newContractTransmitter.transmitterOptions)
 	}
 
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: FilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
 	if err != nil {
 		return nil, err
 	}
