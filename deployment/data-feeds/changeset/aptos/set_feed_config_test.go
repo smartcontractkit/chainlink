@@ -30,6 +30,7 @@ func TestSetFeedConfig(t *testing.T) {
 
 	chain := rt.Environment().BlockChains.AptosChains()[selector]
 
+	// deploy platform
 	platform1, err := aptosCS.DeployPlatform(chain, aptos.AccountAddress{}, []string{})
 	require.NoError(t, err)
 	platform2, err := aptosCS.DeployPlatformSecondary(chain, aptos.AccountAddress{}, []string{})

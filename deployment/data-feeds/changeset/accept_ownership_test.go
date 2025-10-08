@@ -8,6 +8,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -25,6 +27,7 @@ func TestAcceptOwnership(t *testing.T) {
 	selector := chain_selectors.TEST_90000001.Selector
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
 	))
 	require.NoError(t, err)
 
