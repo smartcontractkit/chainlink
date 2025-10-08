@@ -259,7 +259,7 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 		},
 		ID: uniqueRequestID,
 	}
-	requestBody, err := json.Marshal(secretsGetRequest) //nolint:govet // The lock field is not set on this proto
+	requestBody, err := json.Marshal(secretsGetRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
