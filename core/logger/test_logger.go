@@ -42,18 +42,9 @@ func testLogger(tb testing.TB, core zapcore.Core, lvl zapcore.Level) SugaredLogg
 		}))
 	}
 	opts = append(opts, zaptest.WrapOptions(zapOpts...))
-
-	// Get the actual core from the zap logger to initialize AtomicCore
-	zlog := zaptest.NewLogger(tb, opts...)
-	actualCore := zlog.Core()
-
-	// Initialize AtomicCore
-	atomicCore := &AtomicCore{}
-	atomicCore.Store(&actualCore)
-
-	zl := &zapLogger{
+	l := &zapLogger{
 		level:         a,
-		SugaredLogger: zlog.Sugar(),
+		SugaredLogger: zaptest.NewLogger(tb, opts...).Sugar(),
 	}
-	return Sugared(zl.With("version", verShaNameStatic()))
+	return Sugared(l.With("version", verShaNameStatic()))
 }
