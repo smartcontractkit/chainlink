@@ -640,6 +640,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
+		creServices.orgResolver,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -871,6 +872,9 @@ type CREServices struct {
 	srvs []services.ServiceCtx
 
 	workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
+
+	// orgResolver provides realtime workflow owner --> orgID resolution
+	orgResolver orgresolver.OrgResolver
 }
 
 func newCREServices(
@@ -934,6 +938,36 @@ func newCREServices(
 			clockwork.NewRealClock(),
 			globalLogger)
 		srvcs = append(srvcs, gatewayConnectorWrapper)
+	}
+
+	// Create OrgResolver for workflow owner organization resolution
+	var orgResolver orgresolver.OrgResolver
+	if cfg.CRE().Linking().URL() != "" {
+		// Get chain details for workflow registry if available
+		var wrChainDetails chainselectors.ChainDetails
+		if capCfg.WorkflowRegistry().Address() != "" {
+			wrChainDetails, err = chainselectors.GetChainDetailsByChainIDAndFamily(
+				capCfg.WorkflowRegistry().ChainID(),
+				capCfg.WorkflowRegistry().NetworkID(),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
+			}
+		}
+
+		orgResolverConfig := orgresolver.Config{
+			URL:                           cfg.CRE().Linking().URL(),
+			TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
+			WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
+			WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
+		}
+		orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create org resolver: %w", err)
+		}
+		srvcs = append(srvcs, orgResolver)
+	} else {
+		globalLogger.Warn("OrgResolver not created - no linking service URL configured")
 	}
 
 	var workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
@@ -1190,24 +1224,6 @@ func newCREServices(
 
 					engineRegistry := syncerV2.NewEngineRegistry()
 
-					// Create OrgResolver for workflow owner organization resolution
-					var orgResolver orgresolver.OrgResolver
-					if cfg.CRE().Linking().URL() != "" {
-						orgResolverConfig := orgresolver.Config{
-							URL:                           cfg.CRE().Linking().URL(),
-							TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
-							WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
-							WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
-						}
-						orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create org resolver: %w", err)
-						}
-						srvcs = append(srvcs, orgResolver)
-					} else {
-						globalLogger.Warn("OrgResolver not created - no linking service URL configured")
-					}
-
 					eventHandler, err := syncerV2.NewEventHandler(
 						lggr,
 						workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -1264,6 +1280,7 @@ func newCREServices(
 		getPeerID:               getPeerID,
 		srvs:                    srvcs,
 		workflowRegistrySyncer:  workflowRegistrySyncer,
+		orgResolver:             orgResolver,
 	}, nil
 }
 
