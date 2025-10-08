@@ -551,6 +551,11 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			}
 
 			if aggregated, ok := step.AggregatedSpends[unit]; ok {
+				// TODO: remove the inaccurate aggregated fields in favor of the repeated field
+				stepDetails.AggSpendUnit = aggregated.SpendUnit
+				stepDetails.AggSpendValue = aggregated.SpendValue.StringFixed(defaultDecimalPrecision)
+				stepDetails.AggSpendValueCre = aggregated.CRESpendValue.StringFixed(defaultDecimalPrecision)
+
 				stepDetails.AggSpend = append(stepDetails.AggSpend, &protoEvents.AggregatedSpendDetail{
 					SpendUnit:     aggregated.SpendUnit,
 					SpendValue:    aggregated.SpendValue.StringFixed(defaultDecimalPrecision),
