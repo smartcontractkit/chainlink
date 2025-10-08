@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -23,6 +22,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -31,8 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestCloneTransactOptsWithGas(t *testing.T) {
@@ -107,18 +105,18 @@ func TestRetryDeploymentWithGasBoost(t *testing.T) {
 
 func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedN(t, 1),
+	)
+	require.NoError(t, err)
+
 	csOutput := cldf.ChangesetOutput{}
 	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
 	seqErr := errors.New("sequence failed")
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
-		env,
+		*env,
 		csOutput,
 		seqReport,
 		seqErr,
@@ -135,17 +133,17 @@ func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 
 func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedN(t, 1),
+	)
+	require.NoError(t, err)
+
 	csOutput := cldf.ChangesetOutput{}
 	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
-		env,
+		*env,
 		csOutput,
 		seqReport,
 		nil,
@@ -160,18 +158,18 @@ func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 
 func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulatedN(t, 1),
+	)
+	require.NoError(t, err)
+
 	csOutput := cldf.ChangesetOutput{}
 	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
 	mcmsCfg := &proposalutils.TimelockConfig{}
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
-		env,
+		*env,
 		csOutput,
 		seqReport,
 		nil,
@@ -297,7 +295,7 @@ func TestNewEVMCallOperation(t *testing.T) {
 	version, _ := semver.NewVersion("1.0.0")
 
 	t.Run("ChainSelectorMismatch", func(t *testing.T) {
-		op := opsutils.NewEVMCallOperation[string, any](
+		op := opsutils.NewEVMCallOperation(
 			"test",
 			version,
 			"description",

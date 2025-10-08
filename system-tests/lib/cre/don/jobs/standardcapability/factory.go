@@ -10,16 +10,15 @@ import (
 	ptypes "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
 // Type aliases for cleaner function signatures
 
 // RuntimeValuesExtractor extracts runtime values from node metadata for template substitution.
 // chainID is 0 for DON-level capabilities that don't operate on specific chains.
-type RuntimeValuesExtractor func(chainID uint64, nodeMetadata *cre.NodeMetadata) map[string]any
+type RuntimeValuesExtractor func(chainID uint64, node *cre.Node) map[string]any
 
 // CommandBuilder constructs the command string for executing a capability binary or built-in capability.
 type CommandBuilder func(input *cre.JobSpecInput, capabilityConfig cre.CapabilityConfig) (string, error)
@@ -28,7 +27,7 @@ type CommandBuilder func(input *cre.JobSpecInput, capabilityConfig cre.Capabilit
 type JobNamer func(chainID uint64, flag cre.CapabilityFlag) string
 
 // CapabilityEnabler determines if a capability is enabled for a given DON.
-type CapabilityEnabler func(donMetadata *cre.DonMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool
+type CapabilityEnabler func(capabilities []string, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability.
 type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64
@@ -38,7 +37,7 @@ type ConfigResolver func(nodeSetInput *cre.CapabilitiesAwareNodeSet, capabilityC
 
 // NoOpExtractor is a no-operation runtime values extractor for DON-level capabilities
 // that don't need runtime values extraction from node metadata
-var NoOpExtractor RuntimeValuesExtractor = func(chainID uint64, nodeMetadata *cre.NodeMetadata) map[string]any {
+var NoOpExtractor RuntimeValuesExtractor = func(_ uint64, _ *cre.Node) map[string]any {
 	return map[string]any{} // Return empty map - DON-level capabilities typically don't need runtime values
 }
 
@@ -112,12 +111,12 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 
 		donToJobSpecs := make(cre.DonsToJobSpecs)
 
-		for donIdx, donMetadata := range input.DonTopology.ToDonMetadata() {
+		for donIdx, don := range input.DonTopology.Dons.List() {
 			if donIdx >= len(input.CapabilitiesAwareNodeSets) || input.CapabilitiesAwareNodeSets[donIdx] == nil {
 				continue
 			}
 
-			if f.capabilityEnabler != nil && !f.capabilityEnabler(donMetadata, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
+			if f.capabilityEnabler != nil && !f.capabilityEnabler(don.Flags, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
 				continue
 			}
 
@@ -131,14 +130,14 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 				return nil, errors.Wrap(cmdErr, "failed to get capability command")
 			}
 
-			workerNodes, wErr := donMetadata.WorkerNodes()
+			workerNodes, wErr := don.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
 
 			// Generate job specs for each enabled chain
-			for _, chainIDUint64 := range f.enabledChainsProvider(input.DonTopology, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
-				enabled, mergedConfig, rErr := f.configResolver(input.CapabilitiesAwareNodeSets[donIdx], capabilityConfig, chainIDUint64, capabilityFlag)
+			for _, chainID := range f.enabledChainsProvider(input.DonTopology, input.CapabilitiesAwareNodeSets[donIdx], capabilityFlag) {
+				enabled, mergedConfig, rErr := f.configResolver(input.CapabilitiesAwareNodeSets[donIdx], capabilityConfig, chainID, capabilityFlag)
 				if rErr != nil {
 					return nil, errors.Wrap(rErr, "failed to resolve capability config for chain")
 				}
@@ -148,13 +147,8 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 
 				// Create job specs for each worker node
 				for _, workerNode := range workerNodes {
-					nodeID, nodeIDErr := crenode.FindLabelValue(workerNode, crenode.NodeIDKey)
-					if nodeIDErr != nil {
-						return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
-					}
-
 					// Apply runtime values to merged config using the runtime value builder
-					templateData, aErr := don.ApplyRuntimeValues(mergedConfig, runtimeValuesExtractor(chainIDUint64, workerNode))
+					templateData, aErr := credon.ApplyRuntimeValues(mergedConfig, runtimeValuesExtractor(chainID, workerNode))
 					if aErr != nil {
 						return nil, errors.Wrap(aErr, "failed to apply runtime values")
 					}
@@ -171,13 +165,13 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 					}
 					configStr := configBuffer.String()
 
-					if err := don.ValidateTemplateSubstitution(configStr, capabilityFlag); err != nil {
+					if err := credon.ValidateTemplateSubstitution(configStr, capabilityFlag); err != nil {
 						return nil, errors.Wrapf(err, "%s template validation failed", capabilityFlag)
 					}
 
-					jobSpec := jobs.WorkerStandardCapability(nodeID, f.jobNamer(chainIDUint64, capabilityFlag), command, configStr, "")
+					jobSpec := jobs.WorkerStandardCapability(workerNode.JobDistributorDetails.NodeID, f.jobNamer(chainID, capabilityFlag), command, configStr, "")
 					jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &capabilityFlag}}
-					donToJobSpecs[donMetadata.ID] = append(donToJobSpecs[donMetadata.ID], jobSpec)
+					donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobSpec)
 				}
 			}
 		}

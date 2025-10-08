@@ -150,7 +150,7 @@ func validateHTTPWorkflowRequest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	require.Equal(t, "/orders", recordedRequest.Path, "expected /orders endpoint")
 	require.Equal(t, "application/json", recordedRequest.Headers.Get("Content-Type"), "expected JSON content type")
 
-	var workflowRequestBody map[string]interface{}
+	var workflowRequestBody map[string]any
 	err = json.Unmarshal([]byte(recordedRequest.ReqBody), &workflowRequestBody)
 	require.NoError(t, err, "request body should be valid JSON")
 
@@ -207,7 +207,7 @@ func startTestOrderServer(t *testing.T, port int) (*fake.Output, error) {
 	}
 
 	// Set up the /orders endpoint
-	response := map[string]interface{}{
+	response := map[string]any{
 		"orderId": "test-order-" + uuid.New().String()[0:8],
 		"status":  "success",
 		"message": "Order processed successfully",

@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
@@ -303,7 +302,7 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 		return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create blockchains")
 	}
 
-	chainsConfigs := make([]devenv.ChainConfig, 0)
+	chainsConfigs := make([]cre.ChainConfig, 0)
 	for _, bcOut := range blockchainsOutput {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(bcOut)
 		if cfgErr != nil {
@@ -312,7 +311,7 @@ func StartBlockchains(loggers BlockchainLoggers, input BlockchainsInput) (StartB
 		chainsConfigs = append(chainsConfigs, cfg)
 	}
 
-	blockChains, err := devenv.NewChains(loggers.singleFile, chainsConfigs)
+	blockChains, err := cre.NewChains(loggers.singleFile, chainsConfigs)
 	if err != nil {
 		return StartBlockchainsOutput{}, pkgerrors.Wrap(err, "failed to create chains")
 	}

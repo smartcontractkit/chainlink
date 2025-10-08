@@ -127,90 +127,6 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 
 // ANCHOR CLI OPERATIONS
 
-// changeset to upload idl for a program
-func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
-	if err := c.Validate(e); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
-	}
-	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
-	state, _ := stateview.LoadOnchainState(e)
-	chainState := state.SolChains[c.ChainSelector]
-
-	// start uploading
-	if c.Router {
-		err := IdlInit(e, chain.ProgramsPath, chainState.Router.String(), deployment.RouterProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, err
-		}
-	}
-	if c.FeeQuoter {
-		err := IdlInit(e, chain.ProgramsPath, chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-	if c.OffRamp {
-		err := IdlInit(e, chain.ProgramsPath, chainState.OffRamp.String(), deployment.OffRampProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-	if c.RMNRemote {
-		err := IdlInit(e, chain.ProgramsPath, chainState.RMNRemote.String(), deployment.RMNRemoteProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-	for _, bnmMetadata := range c.BurnMintTokenPoolMetadata {
-		tokenPool := chainState.GetActiveTokenPool(shared.BurnMintTokenPool, bnmMetadata)
-		err := IdlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.BurnMintTokenPoolProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-	for _, lrMetadata := range c.LockReleaseTokenPoolMetadata {
-		tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, lrMetadata)
-		err := IdlInit(e, chain.ProgramsPath, tokenPool.String(), deployment.LockReleaseTokenPoolProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-	if c.CCTPTokenPool {
-		err := IdlInit(e, chain.ProgramsPath, chainState.CCTPTokenPool.String(), deployment.CCTPTokenPoolProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-	addresses, err := e.ExistingAddresses.AddressesForChain(c.ChainSelector)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
-	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
-	}
-	if c.MCM {
-		err := IdlInit(e, chain.ProgramsPath, mcmState.McmProgram.String(), deployment.McmProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-	if c.Timelock {
-		err := IdlInit(e, chain.ProgramsPath, mcmState.TimelockProgram.String(), deployment.TimelockProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-	if c.AccessController {
-		err := IdlInit(e, chain.ProgramsPath, mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName)
-		if err != nil {
-			return cldf.ChangesetOutput{}, nil
-		}
-	}
-
-	return cldf.ChangesetOutput{}, nil
-}
-
 // changeset to set idl authority for a program to timelock
 func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err := c.Validate(e); err != nil {
@@ -497,6 +413,8 @@ func SetAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, progra
 // Discriminator to invoke IDL operations
 const IdlIxTag uint64 = 0x0a69e9a778bcf440
 
+const DefaultIDLMaxSize = 512 * 1024 // 512 KB
+
 // Number ids of the operations: copied from https://github.com/solana-foundation/anchor/blob/v0.29.0/lang/src/idl.rs#L36
 const (
 	IdlInstructionCreate       int = iota // One time initializer for creating the program's idl account.
@@ -532,6 +450,34 @@ func SetAuthorityIDLByMCMs(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutpu
 		}
 		if setAuthorityTx != nil {
 			mcmsTxs = append(mcmsTxs, *setAuthorityTx)
+		}
+	}
+
+	return generateProposalIfMCMS(e, c.ChainSelector, c.MCMS, mcmsTxs)
+}
+
+func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
+	if err := c.Validate(e); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("error validating idl config: %w", err)
+	}
+	chain := e.BlockChains.SolanaChains()[c.ChainSelector]
+	state, _ := stateview.LoadOnchainState(e)
+	chainState := state.SolChains[c.ChainSelector]
+
+	mcmsTxs := make([]mcmsTypes.Transaction, 0)
+
+	programs, err := getAffectedPrograms(e, c, chainState, chain)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	for programID, programName := range programs {
+		upgradeTx, err := IdlInitIx(e, chain.ProgramsPath, programID.String(), programName, c)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("error generating idl init tx: %w", err)
+		}
+		if upgradeTx != nil {
+			mcmsTxs = append(mcmsTxs, *upgradeTx)
 		}
 	}
 
@@ -696,6 +642,58 @@ func setBufferIdlInstruction(e cldf.Environment, programID, buffer, authority so
 	return buildIdlInstruction(programID, accounts, IdlInstructionSetBuffer, []byte{})
 }
 
+func createIdlInstruction(e cldf.Environment, programID, authority solana.PublicKey) (solana.GenericInstruction, error) {
+	accounts, instruction, err := getAccountsFoCreateIdlInstruction(e, programID, authority)
+	if err != nil {
+		return instruction, err
+	}
+
+	params := idlCreateParams(uint64(DefaultIDLMaxSize))
+
+	return buildIdlInstruction(programID, accounts, IdlInstructionCreate, params)
+}
+
+func idlCreateParams(dataLen uint64) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, dataLen)
+	return b
+}
+
+// Following the Anchor 0.29.0 Implementation: https://github.com/solana-foundation/anchor/blob/2a050757609a3c59bd77084a259f5ea64fcebfa6/lang/syn/src/codegen/program/idl.rs#L38
+func getAccountsFoCreateIdlInstruction(
+	e cldf.Environment,
+	programID solana.PublicKey,
+	authority solana.PublicKey,
+) (solana.AccountMetaSlice, solana.GenericInstruction, error) {
+	// Derive the IDL account PDA (the "to" account in IdlCreateAccounts)
+	idlAddress, err := getIDLAddress(e, programID)
+	if err != nil {
+		return nil, solana.GenericInstruction{}, fmt.Errorf("error getting idl address for %s: %w", programID.String(), err)
+	}
+
+	// Derive the base PDA with empty seeds ([]), used by the IDL program as signer
+	base, _, err := solana.FindProgramAddress([][]byte{}, programID)
+	if err != nil {
+		return nil, solana.GenericInstruction{}, fmt.Errorf("error deriving base PDA for %s: %w", programID.String(), err)
+	}
+
+	// Build the accounts in the exact order expected by Anchor 0.29's IdlCreateAccounts:
+	//   1. from            -> signer + writable (payer)
+	//   2. to              -> writable (IDL account being created)
+	//   3. base            -> readonly (PDA with seeds=[])
+	//   4. system_program  -> readonly
+	//   5. program         -> readonly (target program)
+	accounts := solana.AccountMetaSlice{
+		solana.Meta(authority).SIGNER().WRITE(), // from (payer)
+		solana.Meta(idlAddress).WRITE(),         // to (IDL account)
+		solana.Meta(base),                       // base PDA (readonly)
+		solana.Meta(solana.SystemProgramID),     // system_program
+		solana.Meta(programID),                  // program (target)
+	}
+
+	return accounts, solana.GenericInstruction{}, nil
+}
+
 func getAccountsFoSetBufferIdlInstruction(e cldf.Environment, programID solana.PublicKey, buffer solana.PublicKey, authority solana.PublicKey) (solana.AccountMetaSlice, solana.GenericInstruction, error) {
 	idlAddress, err := getIDLAddress(e, programID)
 	if err != nil {
@@ -707,6 +705,40 @@ func getAccountsFoSetBufferIdlInstruction(e cldf.Environment, programID solana.P
 		solana.Meta(authority).SIGNER(),
 	}
 	return accounts, solana.GenericInstruction{}, nil
+}
+
+func IdlInitIx(e cldf.Environment, programsPath, programID, programName string, c IDLConfig) (*mcmsTypes.Transaction, error) {
+	timelockSignerPDA, err := FetchTimelockSigner(e, c.ChainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("error loading timelockSignerPDA: %w", err)
+	}
+	buffer, err := writeBuffer(e, programsPath, programID, programName)
+	if err != nil {
+		return nil, fmt.Errorf("error writing buffer: %w", err)
+	}
+	authority := e.BlockChains.SolanaChains()[c.ChainSelector].DeployerKey.PublicKey()
+	if c.MCMS != nil {
+		authority = timelockSignerPDA
+		err = SetAuthorityIDLByCLI(e, timelockSignerPDA.String(), programsPath, programID, programName, buffer.String())
+		if err != nil {
+			return nil, fmt.Errorf("error setting buffer authority: %w", err)
+		}
+	}
+	instruction, err := createIdlInstruction(e, solana.MustPublicKeyFromBase58(programID), authority)
+	if err != nil {
+		return nil, fmt.Errorf("error generating set buffer ix: %w", err)
+	}
+	if c.MCMS != nil {
+		createIdlIx, err := BuildMCMSTxn(&instruction, programID, cldf.ContractType(programName))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create upgrade transaction: %w", err)
+		}
+		return createIdlIx, nil
+	}
+	if err := e.BlockChains.SolanaChains()[c.ChainSelector].Confirm([]solana.Instruction{&instruction}); err != nil {
+		return nil, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	return nil, nil
 }
 
 // generate upgrade IDL ix for a program via timelock

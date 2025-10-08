@@ -33,6 +33,7 @@ import (
 type testFixture struct {
 	env                         cldf.Environment
 	chainSelector               uint64
+	qualifier                   string
 	capabilitiesRegistryAddress string
 	nops                        []CapabilitiesRegistryNodeOperator
 	capabilities                []CapabilitiesRegistryCapability
@@ -53,7 +54,18 @@ const (
 
 func TestConfigureCapabilitiesRegistry(t *testing.T) {
 	fixture := setupCapabilitiesRegistryTest(t)
+	t.Run("select by address", func(t *testing.T) {
+		suite(t, fixture)
+	})
 
+	t.Run("select by qualifier", func(t *testing.T) {
+		fixture.configureInput.CapabilitiesRegistryAddress = ""
+		fixture.configureInput.Qualifier = fixture.qualifier
+		suite(t, fixture)
+	})
+}
+
+func suite(t *testing.T, fixture *testFixture) {
 	t.Run("single configuration", func(t *testing.T) {
 		t.Log("Starting capabilities registry configuration...")
 		configureOutput, err := ConfigureCapabilitiesRegistry{}.Apply(fixture.env, fixture.configureInput)
@@ -568,15 +580,19 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Running deployment changeset...")
+	qualifier := "test-capabilities-registry-v2"
 	deployOutput, err := DeployCapabilitiesRegistry{}.Apply(env, DeployCapabilitiesRegistryInput{
 		ChainSelector: chainSelector,
-		Qualifier:     "test-capabilities-registry-v2",
+		Qualifier:     qualifier,
 	})
 	require.NoError(t, err, "failed to apply deployment changeset")
 	require.NotNil(t, deployOutput, "deployment output should not be nil")
 	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
 
-	capabilitiesRegistryAddress := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-capabilities-registry-v2"))[0].Address
+	capabilitiesRegistryAddress := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))[0].Address
+
+	// Replace the env datastore with the one with deployed contracts
+	env.DataStore = deployOutput.DataStore.Seal()
 
 	// Setup test data
 	nops := []CapabilitiesRegistryNodeOperator{
@@ -706,6 +722,7 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	return &testFixture{
 		env:                         env,
 		chainSelector:               chainSelector,
+		qualifier:                   qualifier,
 		capabilitiesRegistryAddress: capabilitiesRegistryAddress,
 		nops:                        nops,
 		capabilities:                capabilities,
