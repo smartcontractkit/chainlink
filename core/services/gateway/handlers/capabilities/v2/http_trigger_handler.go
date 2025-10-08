@@ -254,7 +254,6 @@ func validateHexInput(input string, expectedLength int) error {
 	return nil
 }
 
-// validatedWorkflowID validates and normalizes the workflowID format and length
 func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
 	if err := validateHexInput(workflowID, workflowIDLength); err != nil {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID "+err.Error(), callback)
@@ -264,7 +263,6 @@ func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID 
 	return nil
 }
 
-// validatedWorkflowOwner validates and normalizes the workflowOwner format and length
 func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner string, requestID string, callback handlers.Callback) error {
 	if err := validateHexInput(workflowOwner, workflowOwnerLength); err != nil {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner "+err.Error(), callback)

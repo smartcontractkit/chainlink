@@ -85,7 +85,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		registerWorkflow(t, handler, workflowID, privateKey)
 		callback := hc.NewCallback()
 
-		triggerReq := createTestTriggerRequest("1234567890abcdef1234567890abcdef12345678901234567890abcdef123456") //missing 0x prefix
+		triggerReq := createTestTriggerRequest("1234567890abcdef1234567890abcdef12345678901234567890abcdef123456") // missing 0x prefix
 		reqBytes, err := json.Marshal(triggerReq)
 		require.NoError(t, err)
 
