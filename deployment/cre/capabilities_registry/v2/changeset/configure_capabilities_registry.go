@@ -22,6 +22,7 @@ var _ cldf.ChangeSetV2[ConfigureCapabilitiesRegistryInput] = ConfigureCapabiliti
 type ConfigureCapabilitiesRegistryInput struct {
 	ChainSelector uint64 `json:"chainSelector" yaml:"chainSelector"`
 	// Deprecated: Use Qualifier instead
+	// TODO(PRODCRE-1030): Remove support for CapabilitiesRegistryAddress
 	CapabilitiesRegistryAddress string                             `json:"capabilitiesRegistryAddress" yaml:"capabilitiesRegistryAddress"`
 	MCMSConfig                  *ocr3.MCMSConfig                   `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
 	Nops                        []CapabilitiesRegistryNodeOperator `json:"nops,omitempty" yaml:"nops,omitempty"`

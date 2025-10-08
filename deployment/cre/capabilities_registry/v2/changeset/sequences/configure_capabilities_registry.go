@@ -28,6 +28,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	MCMSConfig       *ocr3.MCMSConfig
 	Description      string
 	// Deprecated: Use RegistryRef
+	// TODO(PRODCRE-1030): Remove support for ContractAddress
 	ContractAddress string
 	Nops            []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
 	Nodes           []capabilities_registry_v2.CapabilitiesRegistryNodeParams
