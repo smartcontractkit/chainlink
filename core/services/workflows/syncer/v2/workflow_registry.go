@@ -461,14 +461,28 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 				continue
 			}
 			w.allowListedMu.Lock()
-			for _, request := range newAllowListedRequests {
-				w.allowListedRequests = append(w.allowListedRequests, request)
+			// Prune expired requests
+			activeAllowlistedRequests := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}
+			expiredRequestsCount := 0
+			for _, request := range w.allowListedRequests {
+				if request.ExpiryTimestamp > uint32(time.Now().Unix()) {
+					activeAllowlistedRequests = append(activeAllowlistedRequests, request)
+				} else {
+					expiredRequestsCount++
+				}
 			}
+
+			// Add new requests
+			for _, request := range newAllowListedRequests {
+				activeAllowlistedRequests = append(activeAllowlistedRequests, request)
+			}
+			w.allowListedRequests = activeAllowlistedRequests
 			w.lastSeenAllowlistedRequestsCount = totalAllowlistedRequests
-			w.lggr.Debugw("fetched allowlisted requests",
-				"newlyAddedAllowlistedRequestsNum", len(newAllowListedRequests),
-				"currentTotalAllowlistedRequestsNum", len(w.allowListedRequests),
-				"lastSeenAllowlistedRequestsOnchainNum", w.lastSeenAllowlistedRequestsCount,
+			w.lggr.Debugw("synced allowlisted requests",
+				"newRequestsNum", len(newAllowListedRequests),
+				"expiredRequestsNum", expiredRequestsCount,
+				"activeRequestsNum", len(w.allowListedRequests),
+				"lastSeenOnchainRequestsNum", w.lastSeenAllowlistedRequestsCount,
 				"blockHeight", head.Height,
 			)
 			w.allowListedMu.Unlock()
@@ -741,12 +755,13 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 	}
 
 	if w.lastSeenAllowlistedRequestsCount.Cmp(totalAllowlistedRequestsResult) == 0 {
-		w.lggr.Infow("no new allowlisted requests found", "blockHeight", headAtLastRead.Height)
 		return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, totalAllowlistedRequestsResult, headAtLastRead, nil
 	}
 
 	var newAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 	readIdentifier = contractBinding.ReadIdentifier(GetActiveAllowlistedRequestsReverseMethodName)
+	var endIndex = new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1))
+	var startIndex *big.Int
 
 	for {
 		var err error
@@ -756,10 +771,22 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 			err                 error
 		}
 
-		params := GetActiveAllowlistedRequestsReverseParams{
-			EndIndex:   new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1)),
-			StartIndex: w.lastSeenAllowlistedRequestsCount,
+		// Start index should be no more than MaxResultsPerQuery away from end index
+		startIndex = new(big.Int).Sub(endIndex, big.NewInt(MaxResultsPerQuery+1))
+		// If start index is less than last seen allowlisted requests count, set it to last seen allowlisted requests
+		// count to avoid duplicate requests
+		if startIndex.Cmp(w.lastSeenAllowlistedRequestsCount) < 0 {
+			startIndex = w.lastSeenAllowlistedRequestsCount
 		}
+
+		params := GetActiveAllowlistedRequestsReverseParams{
+			EndIndex:   endIndex,
+			StartIndex: startIndex,
+		}
+		w.lggr.Debugw("getting active allowlisted requests",
+			"endIndex", endIndex,
+			"startIndex", startIndex,
+		)
 		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(
 			ctx, readIdentifier, primitives.Unconfirmed, params, &response,
 		)
@@ -768,7 +795,8 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 		}
 
 		w.lggr.Debugw("contract call response",
-			"response", response,
+			"fetchedAllowlistedRequestsNum", len(response.AllowlistedRequests),
+			"searchComplete", response.SearchComplete,
 			"error", response.err,
 			"blockHeight", headAtLastRead.Height)
 
@@ -786,6 +814,10 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 		if response.SearchComplete {
 			break
 		}
+
+		// If search is not complete, set the end index to the start index minus MaxResultsPerQuery
+		// to continue fetching the next batch of allowlisted requests
+		endIndex = endIndex.Sub(endIndex, big.NewInt(MaxResultsPerQuery))
 	}
 
 	return newAllowlistedRequests, totalAllowlistedRequestsResult, headAtLastRead, nil

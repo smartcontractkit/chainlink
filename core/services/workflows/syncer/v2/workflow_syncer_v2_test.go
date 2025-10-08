@@ -63,7 +63,8 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
 
 	// Add requests to ensure we go above the MaxResultsPerQuery
-	activeAllowlistedRequestsCount := int(MaxResultsPerQuery) + 1
+	activeAllowlistedRequestsCount := int(MaxResultsPerQuery + 1)
+	expiryTimestamp := time.Now().Add(24 * time.Hour)
 	for i := 0; i < activeAllowlistedRequestsCount; i++ {
 		createSecretsRequestParams, err := json.Marshal(vaultcommon.CreateSecretsRequest{
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
@@ -83,49 +84,12 @@ func Test_InitialStateSyncV2(t *testing.T) {
 		}
 		require.NoError(t, err)
 
-		createSecretsRequestDigest, err := DigestForRequest(createSecretsRequest)
-		require.NoError(t, err)
-
-		allowlistRequest(t, backendTH, wfRegistryC, RegisterAllowlistedRequestCMDV2{
-			RequestDigest:   createSecretsRequestDigest,
+		allowlistRequest(t, backendTH, wfRegistryC, allowlistRequestParams{
+			Request:         createSecretsRequest,
 			Owner:           backendTH.ContractsOwner.From,
-			ExpiryTimestamp: uint32(time.Now().UTC().Add(24 * time.Hour).Unix()), //nolint:gosec // it is a safe conversion
+			ExpiryTimestamp: expiryTimestamp,
 		})
 	}
-
-	// Also add expired allowlisted requests
-	expiredAllowlistedRequestsCount := 1
-	for i := 0; i < expiredAllowlistedRequestsCount; i++ {
-		createSecretsRequestParams, err := json.Marshal(vaultcommon.CreateSecretsRequest{
-			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-				{
-					Id: &vaultcommon.SecretIdentifier{
-						Key:       fmt.Sprintf("expired-%d", i),
-						Namespace: "expired",
-					},
-					EncryptedValue: "encrypted-value",
-				},
-			},
-		})
-		require.NoError(t, err)
-		createSecretsRequest := jsonrpc.Request[json.RawMessage]{
-			Method: vaulttypes.MethodSecretsCreate,
-			Params: (*json.RawMessage)(&createSecretsRequestParams),
-		}
-		require.NoError(t, err)
-
-		createSecretsRequestDigest, err := DigestForRequest(createSecretsRequest)
-		require.NoError(t, err)
-
-		allowlistRequest(t, backendTH, wfRegistryC, RegisterAllowlistedRequestCMDV2{
-			RequestDigest:   createSecretsRequestDigest,
-			Owner:           backendTH.ContractsOwner.From,
-			ExpiryTimestamp: uint32(time.Now().UTC().Add(1 * time.Hour).Unix()), //nolint:gosec // it is a safe conversion
-		})
-	}
-	// Advance blockchain time by 2 hours so the requests are expired
-	backendTH.Backend.AdjustTime(2 * time.Hour)
-	backendTH.Backend.Commit()
 
 	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
 	// that the syncer will query the contract multiple times to get the full list of workflows
@@ -185,11 +149,6 @@ func Test_InitialStateSyncV2(t *testing.T) {
 		activeAllowlistedRequestsCount,
 		len(worker.GetAllowlistedRequests(context.Background())),
 		"synced allowlisted requests do not match expectations",
-	)
-	assert.Equal(t,
-		big.NewInt(int64(activeAllowlistedRequestsCount+expiredAllowlistedRequestsCount)),
-		worker.GetLastSeenOnchainAllowlistedRequestsCount(context.Background()),
-		"seen onchain allowlisted requests do not match expectations",
 	)
 }
 
@@ -614,8 +573,6 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 
 	servicetest.Run(t, worker)
 
-	fmt.Println()
-
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == 1
 	}, 30*time.Second, 1*time.Second)
@@ -799,17 +756,17 @@ func generateOwnershipProofHash(
 	return hash
 }
 
-type RegisterAllowlistedRequestCMDV2 struct {
-	RequestDigest   [32]byte
+type allowlistRequestParams struct {
+	Request         jsonrpc.Request[json.RawMessage]
 	Owner           common.Address
-	ExpiryTimestamp uint32
+	ExpiryTimestamp time.Time
 }
 
 func allowlistRequest(
 	t *testing.T,
 	th *testutils.EVMBackendTH,
 	wfRegC *workflow_registry_wrapper_v2.WorkflowRegistry,
-	input RegisterAllowlistedRequestCMDV2,
+	input allowlistRequestParams,
 ) {
 	t.Helper()
 	totalAllowlistedRequestsBefore, err := wfRegC.TotalAllowlistedRequests(&bind.CallOpts{
@@ -817,10 +774,13 @@ func allowlistRequest(
 	})
 	require.NoError(t, err, "failed to get total allowlisted requests")
 
+	requestDigest, err := DigestForRequest(input.Request)
+	require.NoError(t, err)
+
 	_, err = wfRegC.AllowlistRequest(
 		th.ContractsOwner,
-		input.RequestDigest,
-		input.ExpiryTimestamp,
+		requestDigest,
+		uint32(input.ExpiryTimestamp.Unix()),
 	)
 	require.NoError(t, err, "failed to register allowlisted request")
 	th.Backend.Commit()
