@@ -897,9 +897,7 @@ func (d *DON) KeystoneDONConfig() ks_contracts_op.ConfigureKeystoneDON {
 			don.NodeIDs = append(don.NodeIDs, node.Keys.P2PKey.PeerID.String())
 		}
 	}
-	// for _, nop := range d.Nops {
-	// 	don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
-	// }
+
 	return don
 }
 

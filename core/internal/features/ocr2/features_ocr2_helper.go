@@ -58,7 +58,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -634,7 +634,7 @@ updateInterval = "1m"
 				store := keys.NewStore(keystore.NewEthSigner(apps[0].KeyStore.Eth(), testutils.SimulatedChainID))
 				mp := mocks.NewLogPoller(t)
 				mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-				ct, err2 := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, b.Client(), contractABI, nil, mp, lggr, store)
+				ct, err2 := transmitter.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, b.Client(), contractABI, nil, mp, lggr, store)
 				require.NoError(t, err2)
 				configDigest, epoch, err2 := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 				require.NoError(t, err2)

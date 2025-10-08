@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -35,14 +36,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
 	require.Eventually(t, func() bool {
 		for _, nodeSet := range testEnv.Config.NodeSets {
-			var vaultFound bool
-			for _, cap := range nodeSet.Capabilities {
-				if cap == cre.VaultCapability {
-					vaultFound = true
-					break
-				}
-			}
-			if vaultFound {
+			if slices.Contains(nodeSet.Capabilities, cre.VaultCapability) {
 				for i := range nodeSet.Nodes {
 					if i != nodeSet.BootstrapNodeIndex {
 						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)

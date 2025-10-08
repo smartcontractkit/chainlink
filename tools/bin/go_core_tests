@@ -33,8 +33,11 @@ echo "Using JUNIT_FLAG: $JUNIT_FLAG"
 echo "Test execution results: ---------------------"
 echo ""
 
+# For matching `go test` output - use --format='standard-quiet' and --hide-summary=skipped
+# For matching `go test -v` output - use only --format='standard-verbose'
 gotestsum \
   --format='standard-quiet' \
+  --hide-summary=skipped \
   $RERUN_FLAGS \
   --packages='./...' \
   --jsonfile "$OUTPUT_FILE" \

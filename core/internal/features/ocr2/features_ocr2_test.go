@@ -37,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -276,7 +276,7 @@ updateInterval = "1m"
 	store := keys.NewStore(keystore.NewEthSigner(apps[0].KeyStore.Eth(), testutils.SimulatedChainID))
 	chain, ok := apps[0].GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
 	require.True(t, ok)
-	ct, err := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, chain.Client(), contractABI, nil, chain.LogPoller(), lggr, store)
+	ct, err := transmitter.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, chain.Client(), contractABI, nil, chain.LogPoller(), lggr, store)
 	require.NoError(t, err)
 	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
