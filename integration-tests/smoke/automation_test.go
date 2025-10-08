@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -1125,6 +1127,7 @@ func TestUpdateCheckData(t *testing.T) {
 }
 
 func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
+	quarantine.Flaky(t, "DX-2058")
 	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		// registry20 also has upkeep offchain config but the max gas price check is not implemented
