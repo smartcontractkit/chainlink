@@ -99,7 +99,6 @@ func generateTransmitterFrom(ctx context.Context, rargs types.RelayArgs, ethKeys
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
 	}
-	var fromAddresses []common.Address
 	sendingKeys := relayConfig.SendingKeys
 	if !relayConfig.EffectiveTransmitterID.Valid {
 		return nil, errors.New("EffectiveTransmitterID must be specified")
@@ -113,6 +112,7 @@ func generateTransmitterFrom(ctx context.Context, rargs types.RelayArgs, ethKeys
 
 	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
 	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
+	var fromAddresses = make([]common.Address, 0, sendingKeysLength)
 	for _, s := range sendingKeys {
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
 			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")

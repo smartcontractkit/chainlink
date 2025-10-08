@@ -87,7 +87,7 @@ func NewOCRDualContractTransmitter(
 		opt(newContractTransmitter.transmitterOptions)
 	}
 
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: TransmitterFilterName(address), EventSigs: []gethcommon.Hash{transmitted.ID}, Addresses: []gethcommon.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: FilterName(address), EventSigs: []gethcommon.Hash{transmitted.ID}, Addresses: []gethcommon.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
 	if err != nil {
 		return nil, err
 	}

@@ -757,7 +757,7 @@ func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string,
 	if relayConfig.FeedID != nil {
 		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
 	} else {
-		filterNames = []string{configPollerFilterName(addr.Address()), transmitter.TransmitterFilterName(addr.Address())}
+		filterNames = []string{configPollerFilterName(addr.Address()), transmitter.FilterName(addr.Address())}
 	}
 	return filterNames, err
 }

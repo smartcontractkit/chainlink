@@ -96,7 +96,7 @@ type contractTransmitter struct {
 	transmitterOptions *transmitterOps
 }
 
-func TransmitterFilterName(addr common.Address) string {
+func FilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR ContractTransmitter", addr.String())
 }
 
@@ -137,7 +137,7 @@ func NewOCRContractTransmitter(
 		opt(newContractTransmitter.transmitterOptions)
 	}
 
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: TransmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: FilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
 	if err != nil {
 		return nil, err
 	}
