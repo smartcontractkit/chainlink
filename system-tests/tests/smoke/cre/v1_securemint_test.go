@@ -153,7 +153,7 @@ func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
 func parsePackedU128(le [16]byte) (amount *big.Int, block uint64, unused uint8) {
 	// Convert LE -> big.Int (big-endian expected by SetBytes)
 	be := make([]byte, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		be[15-i] = le[i]
 	}
 	x := new(big.Int).SetBytes(be)

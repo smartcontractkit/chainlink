@@ -188,6 +188,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 							testLogger.Info().
 								Str("expected_log", expectedLog).
 								Str("found_message", strings.TrimSpace(logLine.Message)).
+								Str("workflow_id", typedMsg.M.WorkflowExecutionID).
 								Msg("🎯 Found expected user log message!")
 
 							select {
@@ -196,6 +197,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 							}
 							return // Exit the processor goroutine
 						}
+
 						testLogger.Warn().
 							Str("expected_log", expectedLog).
 							Str("found_message", strings.TrimSpace(logLine.Message)).
@@ -247,7 +249,7 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
 	var addressesToRead []common.Address
 
-	for i := 0; i < numberOfAddressesToCreate; i++ {
+	for i := range numberOfAddressesToCreate {
 		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
 		require.NoError(t, addrErr, "failed to generate address to read")
 		orderNum := i + 1
