@@ -22,9 +22,9 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -399,10 +399,12 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf_evm.Chain
 }
 
 func testChain(t *testing.T) cldf_evm.Chain {
-	chains := cldf_chain.NewBlockChainsFromSlice(memory.NewMemoryChainsEVM(t, 1, 5))
-	require.NotEmpty(t, chains)
+	chains, err := onchain.NewEVMSimLoaderWithConfig(onchain.EVMSimLoaderConfig{
+		NumAdditionalAccounts: 5,
+	}).LoadN(t, 1)
+	require.NoError(t, err)
 
-	return chains.EVMChains()[chains.ListChainSelectors()[0]]
+	return chains[0].(cldf_evm.Chain)
 }
 
 func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []internal.RegisteredCapability) ([][32]byte, error) {
