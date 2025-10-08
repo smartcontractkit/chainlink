@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	burn_mint_token_pool "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
@@ -28,7 +28,7 @@ type TokenPoolContract interface {
 
 func GetCurrentInboundRateLimiterState(t TokenPoolContract, remoteChainSelector uint64) (token_pool.RateLimiterTokenBucket, error) {
 	switch v := t.(type) {
-	case *burn_mint_token_pool.BurnMintTokenPoolAndProxy:
+	case *burn_mint_token_pool_and_proxy.BurnMintTokenPoolAndProxy:
 		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	default:
@@ -38,7 +38,7 @@ func GetCurrentInboundRateLimiterState(t TokenPoolContract, remoteChainSelector 
 
 func GetCurrentOutboundRateLimiterState(t TokenPoolContract, remoteChainSelector uint64) (token_pool.RateLimiterTokenBucket, error) {
 	switch v := t.(type) {
-	case *burn_mint_token_pool.BurnMintTokenPoolAndProxy:
+	case *burn_mint_token_pool_and_proxy.BurnMintTokenPoolAndProxy:
 		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	default:

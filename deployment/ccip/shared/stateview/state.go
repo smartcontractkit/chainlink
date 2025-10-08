@@ -1133,7 +1133,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintTokenPoolsV1_5 = helpers.AddValueToNestedMap(state.BurnMintTokenPoolsV1_5, metadata.Symbol, metadata.Version, pool)
+			state.BurnMintTokenPoolsAndProxies = helpers.AddValueToNestedMap(state.BurnMintTokenPoolsAndProxies, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1).String():
 			ethAddress := common.HexToAddress(address)

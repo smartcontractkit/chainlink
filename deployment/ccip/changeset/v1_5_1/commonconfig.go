@@ -186,7 +186,7 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 				return tokenPool.Address(), true
 			}
 		}
-		if tokenPools, ok := chainState.BurnMintTokenPoolsV1_5[symbol]; ok {
+		if tokenPools, ok := chainState.BurnMintTokenPoolsAndProxies[symbol]; ok {
 			if tokenPool, ok := tokenPools[version]; ok {
 				return tokenPool.Address(), true
 			}

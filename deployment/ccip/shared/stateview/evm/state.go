@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	burn_mint_token_pool_v1_5 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
+	burn_mint_token_pool_and_proxy "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
@@ -114,7 +114,7 @@ type CCIPChainState struct {
 
 	// Pools
 	BurnMintTokenPools                               map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
-	BurnMintTokenPoolsV1_5                           map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool_v1_5.BurnMintTokenPoolAndProxy
+	BurnMintTokenPoolsAndProxies                     map[shared.TokenSymbol]map[semver.Version]*burn_mint_token_pool_and_proxy.BurnMintTokenPoolAndProxy
 	BurnMintFastTransferTokenPools                   map[shared.TokenSymbol]map[semver.Version]*fast_transfer_token_pool.BurnMintFastTransferTokenPool
 	BurnMintWithExternalMinterFastTransferTokenPools map[shared.TokenSymbol]map[semver.Version]*burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPool
 	HybridWithExternalMinterFastTransferTokenPools   map[shared.TokenSymbol]map[semver.Version]*hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPool
@@ -751,7 +751,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			return nil
 		}
 	}
-	for tokenSymbol, versionToPool := range c.BurnMintTokenPoolsV1_5 {
+	for tokenSymbol, versionToPool := range c.BurnMintTokenPoolsAndProxies {
 		for _, tokenPool := range versionToPool {
 			jobCh <- func() error {
 				tokenPoolView, err := v1_5.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
