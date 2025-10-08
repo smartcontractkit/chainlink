@@ -349,6 +349,43 @@ func Test_Report_MeteringMode(t *testing.T) {
 		balanceAfter := report.balance.balance
 		require.Equal(t, balanceBefore, balanceAfter)
 	})
+
+	t.Run("single execution switches to metering mode for multiple executions", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "10000000000", // 10 gwei per credit
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		stepRef := "ref1"
+
+		_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		balanceBefore := report.balance.balance
+		require.NoError(t, report.Settle(stepRef, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "42"},
+			{Peer2PeerID: "abc", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "44"},
+			{Peer2PeerID: "abc", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
+			{Peer2PeerID: "lmno", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "12"},
+			{Peer2PeerID: "lmno", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
+		}}))
+
+		balanceAfter := report.balance.balance
+
+		assert.Equal(t, balanceBefore.String(), balanceAfter.String())
+		assert.True(t, report.meteringMode)
+		billingClient.AssertExpectations(t)
+	})
 }
 
 func Test_medianSpend(t *testing.T) {

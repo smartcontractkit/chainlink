@@ -426,6 +426,10 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 			}
 
 			deciVals = append(deciVals, value)
+
+			if isGasSpendType(unit) && len(deciVals) > 1 {
+				r.switchToMeteringMode(fmt.Errorf("multiple executions for single execution unit [%s]: %w", unit, err))
+			}
 		}
 
 		// TODO: explicitly ignore RPC_EVM spend types for now -
@@ -524,7 +528,20 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
 		r.stepRefLookup = append(r.stepRefLookup, ref+":"+step.CapabilityID)
 
-		for unit, details := range step.Spends {
+		// since map key order is non-deterministic, order the keys tohelp make tests deterministic
+		// until per-unit aggregation is fixed
+		orderedUnits := make([]string, 0, len(step.Spends))
+		for unit := range step.Spends {
+			orderedUnits = append(orderedUnits, unit)
+		}
+
+		sort.Slice(orderedUnits, func(i, j int) bool {
+			return orderedUnits[i] > orderedUnits[j]
+		})
+
+		for _, unit := range orderedUnits {
+			details := step.Spends[unit]
+
 			for _, detail := range details {
 				nodeDetails = append(nodeDetails, &protoEvents.MeteringReportNodeDetail{
 					Peer_2PeerId:  detail.Peer2PeerID,
