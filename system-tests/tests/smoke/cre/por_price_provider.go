@@ -40,7 +40,7 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 	host := framework.HostDockerInternal()
 	fakeFinalURL := fmt.Sprintf("%s:%d%s", host, input.Port, fakeAPIPath)
 
-	getPriceResponseFn := func(feedID string) (map[string]interface{}, error) {
+	getPriceResponseFn := func(feedID string) (map[string]any, error) {
 		testLogger.Info().Msgf("Preparing response for feedID: %s", feedID)
 		priceIndex, ok := priceIndexes[feedID]
 		if !ok {
@@ -55,7 +55,7 @@ func setupFakeDataProvider(testLogger zerolog.Logger, input *fake.Input, authKey
 		currentPrice := expectedPrices[*priceIndex]
 		testLogger.Info().Msgf("HTTP response for feedID %s - priceIndex: %d, currentPrice: %.10f", feedID, *priceIndex, currentPrice)
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"accountName": "TrueUSD",
 			"totalTrust":  currentPrice,
 			"ripcord":     false,

@@ -56,7 +56,7 @@ func AppendBinariesPathsNodeSpec(nodeSetInput *cre.CapabilitiesAwareNodeSet, don
 				return nil, fmt.Errorf("binary path for capability %s is empty. Make sure you have set the binary path in the TOML config", capabilityFlag)
 			}
 
-			workerNodes, wErr := donMetadata.WorkerNodes()
+			workerNodes, wErr := donMetadata.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}

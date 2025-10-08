@@ -2,6 +2,7 @@ package cre
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -13,19 +14,6 @@ import (
 const (
 	OCRPeeringPort          = 5001
 	CapabilitiesPeeringPort = 6690
-)
-
-var (
-	NodeTypeKey            = "type"
-	IndexKey               = "node_index"
-	ExtraRolesKey          = "extra_roles"
-	NodeIDKey              = "node_id"
-	NodeOCRFamiliesKey     = "node_ocr_families"
-	NodeOCR2KeyBundleIDKey = "ocr2_key_bundle_id"
-	DONIDKey               = "don_id"
-	EnvironmentKey         = "environment"
-	ProductKey             = "product"
-	DONNameKey             = "don_name"
 )
 
 type Topology struct {
@@ -62,10 +50,10 @@ func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provid
 		DonsMetadata:  donsMetadata,
 	}
 
-	if donsMetadata.GatewayRequired() {
+	if donsMetadata.RequiresGateway() {
 		topology.GatewayConnectorOutput = NewGatewayConnectorOutput()
 		for _, d := range donsMetadata.List() {
-			if d.ContainsGatewayNode() {
+			if _, hasGateway := d.Gateway(); hasGateway {
 				gc, err := d.GatewayConfig(provider)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get gateway config for DON %s: %w", d.Name, err)
@@ -77,7 +65,7 @@ func NewTopology(nodeSetInput []*CapabilitiesAwareNodeSet, provider infra.Provid
 
 	bootstrapNodesFound := 0
 	for _, don := range topology.DonsMetadata.List() {
-		if don.ContainsBootstrapNode() {
+		if _, isBootstrap := don.Bootstrap(); isBootstrap {
 			bootstrapNodesFound++
 		}
 	}
@@ -104,22 +92,27 @@ func (t *Topology) CapabilitiesAwareNodeSets() []*CapabilitiesAwareNodeSet {
 
 // BootstrapNode returns the metadata for the node that should be used as the bootstrap node for P2P peering
 // Currently only one bootstrap is supported.
-func (t *Topology) BootstrapNode() (*NodeMetadata, error) {
-	return t.DonsMetadata.BootstrapNode()
+func (t *Topology) Bootstrap() (*NodeMetadata, bool) {
+	return t.DonsMetadata.Bootstrap()
 }
 
-func PeeringCfgs(bt *NodeMetadata) (CapabilitiesPeeringData, OCRPeeringData, error) {
-	p := bt.Keys.CleansedPeerID()
+type PeeringNode interface {
+	GetHost() string
+	PeerID() string
+}
+
+func PeeringCfgs(bt PeeringNode) (CapabilitiesPeeringData, OCRPeeringData, error) {
+	p := strings.TrimPrefix(bt.PeerID(), "p2p_")
 	if p == "" {
 		return CapabilitiesPeeringData{}, OCRPeeringData{}, errors.New("cannot create peering configs, node has no P2P key")
 	}
 	return CapabilitiesPeeringData{
 			GlobalBootstraperPeerID: p,
-			GlobalBootstraperHost:   bt.Host,
+			GlobalBootstraperHost:   bt.GetHost(),
 			Port:                    CapabilitiesPeeringPort,
 		}, OCRPeeringData{
 			OCRBootstraperPeerID: p,
-			OCRBootstraperHost:   bt.Host,
+			OCRBootstraperHost:   bt.GetHost(),
 			Port:                 OCRPeeringPort,
 		}, nil
 }

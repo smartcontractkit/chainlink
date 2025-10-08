@@ -304,8 +304,19 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return services, nil
 	}
 
-	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
-		pr, relayerSet, oracleFactory, connector, ks)
+	dependencies := core.StandardCapabilitiesDependencies{
+		Config:             spec.StandardCapabilitiesSpec.Config,
+		TelemetryService:   telemetryService,
+		Store:              kvStore,
+		CapabilityRegistry: d.registry,
+		ErrorLog:           errorLog,
+		PipelineRunner:     pr,
+		RelayerSet:         relayerSet,
+		OracleFactory:      oracleFactory,
+		GatewayConnector:   connector,
+		P2PKeystore:        ks,
+	}
+	standardCapability := NewStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, dependencies)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }
