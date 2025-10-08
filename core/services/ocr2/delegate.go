@@ -486,6 +486,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		if err2 != nil {
 			return nil, fmt.Errorf("could not get EVM Relayer for chain ID %s: %w", rid.ChainID, err2)
 		}
+		time.Sleep(time.Second * 5)
 		evm, err2 := r.EVM()
 		if err2 != nil {
 			return nil, fmt.Errorf("could not get EVMService for chain %s: %w", rid.ChainID, err2)
