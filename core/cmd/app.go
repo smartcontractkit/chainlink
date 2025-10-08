@@ -274,13 +274,14 @@ func NewApp(s *Shell) *cli.App {
 					SentryEnabled:  s.Config.Sentry().DSN() != "",
 				}
 
-				// Atomic core that can be swapped out later for OTel support
+				// Noop atomic core that can be swapped out later for OTel support
 				atomicCore := logger.NewAtomicCore()
 
 				l, closeFn := lggrCfg.NewWithCores(atomicCore)
 
 				s.Logger = l
 				s.CloseLogger = closeFn
+				// s.SetOtelCore is a hook that can be used to set the OTel core
 				s.SetOtelCore = atomicCore.Store
 
 				return nil
