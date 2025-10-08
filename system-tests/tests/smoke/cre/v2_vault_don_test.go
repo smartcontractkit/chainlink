@@ -87,8 +87,6 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	wfRegistryContract, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(workflowRegistryAddress, sethClient.Client)
 	require.NoError(t, err, "failed to get workflow registry contract wrapper")
 
-	// waitUntilReady(t, ownerAddr, gatewayURL.String())
-
 	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
 	secretValue := "Secret Value to be stored"
 	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
@@ -103,39 +101,6 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	executeVaultSecretsUpdateTest(t, encryptedSecret, secretID, ownerAddr, gatewayURL.String(), sethClient.NewTXOpts(), wfRegistryContract)
 	executeVaultSecretsListTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient.NewTXOpts(), wfRegistryContract)
 	executeVaultSecretsDeleteTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient.NewTXOpts(), wfRegistryContract)
-}
-
-// waitUntilReady tries to list the keys in a loop until it succeeds, indicating that the Vault DON is ready.
-func waitUntilReady(t *testing.T, owner, gatewayURL string) {
-	framework.L.Info().Msg("Polling for vault DON to be ready...")
-
-	uniqueRequestID := uuid.New().String()
-
-	getPublicKeyRequest := jsonrpc.Request[vault_helpers.ListSecretIdentifiersRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsList,
-		Params: &vault_helpers.ListSecretIdentifiersRequest{
-			Owner: owner,
-		},
-	}
-	requestBody, err := json.Marshal(getPublicKeyRequest)
-	require.NoError(t, err, "failed to marshal public key request")
-
-	statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	if statusCode == http.StatusGatewayTimeout {
-		framework.L.Warn().Msg("Received 504 Gateway Timeout. This may be due to the Vault DON not being ready yet. Retrying 1st time in 30 seconds...")
-		time.Sleep(30 * time.Second)
-		statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		if statusCode == http.StatusGatewayTimeout {
-			framework.L.Warn().Msg("Received 504 Gateway Timeout again. This may be due to the Vault DON not being ready yet. Retrying 2nd time in 30 seconds...")
-			time.Sleep(30 * time.Second)
-			statusCode, _ = sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		}
-	}
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-
-	framework.L.Info().Msgf("Received ready response from Vault DON")
 }
 
 func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string, opts *bind.TransactOpts, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
@@ -490,12 +455,12 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], opts *bind.TransactOpts, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	digest, str, err := vaulttypes.DigestForRequest(request)
+	digest, err := vaulttypes.DigestForRequest(request)
 	require.NoError(t, err, "failed to get digest for request")
 	_, err = wfRegistryContract.AllowlistRequest(opts, digest, uint32(time.Now().Add(1*time.Hour).Unix()))
 	require.NoError(t, err, "failed to allowlist request")
 
-	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s, reqJson: %s, reqJsonLen: %d", wfRegistryContract.Address().Hex(), owner, hex.EncodeToString(digest[:]), str, len(str))
+	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, hex.EncodeToString(digest[:]))
 	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
