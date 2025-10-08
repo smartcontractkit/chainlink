@@ -528,8 +528,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
 		r.stepRefLookup = append(r.stepRefLookup, ref+":"+step.CapabilityID)
 
-		// since map key order is non-deterministic, order the keys tohelp make tests deterministic
-		// until per-unit aggregation is fixed
+		// since map key order is non-deterministic, order the keys to help make tests deterministic
 		orderedUnits := make([]string, 0, len(step.Spends))
 		for unit := range step.Spends {
 			orderedUnits = append(orderedUnits, unit)
