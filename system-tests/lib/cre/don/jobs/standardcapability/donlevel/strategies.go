@@ -12,20 +12,20 @@ func JobNamer(_ uint64, flag cre.CapabilityFlag) string {
 	return flag
 }
 
-func CapabilityEnabler(capabilities []string, _ cre.NodeSetWithChainCapabilities, flag cre.CapabilityFlag) bool {
+func CapabilityEnabler(capabilities []string, _ cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) bool {
 	// for DON-level capabilities, we only need to check if the DON has the capability enabled
 	return flags.HasFlag(capabilities, flag)
 }
 
-func EnabledChainsProvider(donTopology *cre.DonTopology, _ cre.NodeSetWithChainCapabilities, _ cre.CapabilityFlag) []uint64 {
+func EnabledChainsProvider(donTopology *cre.DonTopology, _ cre.NodeSetWithCapabilityConfigs, _ cre.CapabilityFlag) []uint64 {
 	// Most DON-level capabilities do not operate on specific chains, so we return the home chain selector to satisfy the interface
 	return []uint64{donTopology.HomeChainSelector}
 }
 
-func ConfigResolver(nodeSet cre.NodeSetWithChainCapabilities, capabilityConfig cre.CapabilityConfig, _ uint64, flag cre.CapabilityFlag) (bool, map[string]any, error) {
+func ConfigResolver(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, _ uint64, flag cre.CapabilityFlag) (bool, map[string]any, error) {
 	if nodeSet == nil {
 		return false, nil, errors.New("node set input is nil")
 	}
 
-	return true, envconfig.ResolveCapabilityConfigForDON(flag, capabilityConfig.Config, nodeSet.GetCapabilityOverrides()), nil
+	return true, envconfig.ResolveCapabilityConfigForDON(flag, capabilityConfig.Config, nodeSet.GetCapabilityConfigOverrides()), nil
 }

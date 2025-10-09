@@ -114,9 +114,9 @@ type DON struct {
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
-	Flags               []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
-	chainCapabilities   map[string]*ChainCapabilityConfig
-	capabilityOverrides map[string]map[string]any
+	Flags                     []CapabilityFlag `toml:"flags" json:"flags"` // capabilities and roles
+	chainCapabilityConfigs    map[string]*ChainCapabilityConfig
+	capabilityConfigOverrides map[string]map[string]any
 
 	gh GatewayHelper
 }
@@ -213,22 +213,22 @@ func (d *DON) RequiresWebAPI() bool {
 	return d.gh.RequiresWebAPI(d.Flags)
 }
 
-func (d *DON) GetChainCapabilities() map[string]*ChainCapabilityConfig {
-	return d.chainCapabilities
+func (d *DON) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
+	return d.chainCapabilityConfigs
 }
 
-func (d *DON) GetCapabilityOverrides() map[string]map[string]any {
-	return d.capabilityOverrides
+func (d *DON) GetCapabilityConfigOverrides() map[string]map[string]any {
+	return d.capabilityConfigOverrides
 }
 
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*DON, error) {
 	don := &DON{
-		Nodes:               make([]*Node, 0),
-		Name:                donMetadata.Name,
-		ID:                  donMetadata.ID,
-		Flags:               donMetadata.Flags,
-		chainCapabilities:   donMetadata.ns.ChainCapabilities,
-		capabilityOverrides: donMetadata.ns.CapabilityOverrides,
+		Nodes:                     make([]*Node, 0),
+		Name:                      donMetadata.Name,
+		ID:                        donMetadata.ID,
+		Flags:                     donMetadata.Flags,
+		chainCapabilityConfigs:    donMetadata.ns.ChainCapabilities,
+		capabilityConfigOverrides: donMetadata.ns.CapabilityOverrides,
 	}
 
 	mu := &sync.Mutex{}

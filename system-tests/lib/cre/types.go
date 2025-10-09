@@ -627,8 +627,8 @@ func (d *Dons) NodeWithUUID(uuid string) (*Node, bool) {
 	return nil, false
 }
 
-func (d *Dons) AsNodeSetWithChainCapabilities() []NodeSetWithChainCapabilities {
-	out := make([]NodeSetWithChainCapabilities, len(d.Dons))
+func (d *Dons) AsNodeSetWithChainCapabilities() []NodeSetWithCapabilityConfigs {
+	out := make([]NodeSetWithCapabilityConfigs, len(d.Dons))
 	for i, don := range d.Dons {
 		out[i] = don
 	}
@@ -906,16 +906,16 @@ func (c *CapabilitiesAwareNodeSet) Flags() []string {
 	return append(stringCaps, append(c.ComputedCapabilities, c.DONTypes...)...)
 }
 
-func (c *CapabilitiesAwareNodeSet) GetChainCapabilities() map[string]*ChainCapabilityConfig {
+func (c *CapabilitiesAwareNodeSet) GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig {
 	return c.ChainCapabilities
 }
 
-func (c *CapabilitiesAwareNodeSet) GetCapabilityOverrides() map[string]map[string]any {
+func (c *CapabilitiesAwareNodeSet) GetCapabilityConfigOverrides() map[string]map[string]any {
 	return c.CapabilityOverrides
 }
 
-func ConvertToNodeSetWithChainCapabilities(nodeSets []*CapabilitiesAwareNodeSet) []NodeSetWithChainCapabilities {
-	result := make([]NodeSetWithChainCapabilities, len(nodeSets))
+func ConvertToNodeSetWithChainCapabilities(nodeSets []*CapabilitiesAwareNodeSet) []NodeSetWithCapabilityConfigs {
+	result := make([]NodeSetWithCapabilityConfigs, len(nodeSets))
 	for i, nodeSet := range nodeSets {
 		result[i] = nodeSet
 	}
@@ -1288,12 +1288,12 @@ type JobSpecInput struct {
 	CapabilityConfigs map[string]CapabilityConfig
 	Capabilities      []InstallableCapability
 	// CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet
-	NodeSets []NodeSetWithChainCapabilities
+	NodeSets []NodeSetWithCapabilityConfigs
 }
 
-type NodeSetWithChainCapabilities interface {
-	GetChainCapabilities() map[string]*ChainCapabilityConfig
-	GetCapabilityOverrides() map[string]map[string]any
+type NodeSetWithCapabilityConfigs interface {
+	GetChainCapabilityConfigs() map[string]*ChainCapabilityConfig
+	GetCapabilityConfigOverrides() map[string]map[string]any
 }
 
 // InstallableCapability defines the interface for capabilities that can be dynamically

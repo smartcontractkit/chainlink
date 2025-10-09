@@ -28,7 +28,7 @@ import (
 func GenerateJobSpecsForStandardCapabilityWithOCR(
 	donTopology *cre.DonTopology,
 	ds datastore.DataStore,
-	nodeSets []cre.NodeSetWithChainCapabilities,
+	nodeSets []cre.NodeSetWithCapabilityConfigs,
 	infraInput infra.Provider,
 	flag cre.CapabilityFlag,
 	contractNamer ContractNamer,
@@ -206,7 +206,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 }
 
 // ConfigMerger merges default config with overrides (either on DON or chain level)
-type ConfigMerger func(flag cre.CapabilityFlag, nodeSet cre.NodeSetWithChainCapabilities, chainIDUint64 uint64, capabilityConfig cre.CapabilityConfig) (map[string]any, bool, error)
+type ConfigMerger func(flag cre.CapabilityFlag, nodeSet cre.NodeSetWithCapabilityConfigs, chainIDUint64 uint64, capabilityConfig cre.CapabilityConfig) (map[string]any, bool, error)
 
 // JobConfigGenerator constains the logic that generates the job-specific part of the job spec
 type JobConfigGenerator = func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error)
@@ -215,7 +215,7 @@ type JobConfigGenerator = func(logger zerolog.Logger, chainID uint64, nodeAddres
 type CapabilityEnabler func(don *cre.DON, flag cre.CapabilityFlag) bool
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability
-type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithChainCapabilities, flag cre.CapabilityFlag) ([]uint64, error)
+type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) ([]uint64, error)
 
 // ContractNamer is a function that returns the name of the OCR3 contract  used in the datastore
 type ContractNamer func(chainID uint64) string

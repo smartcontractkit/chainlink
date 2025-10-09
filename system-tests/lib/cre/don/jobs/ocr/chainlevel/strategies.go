@@ -7,9 +7,9 @@ import (
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
-var ConfigMerger = func(flag cre.CapabilityFlag, nodeSet cre.NodeSetWithChainCapabilities, chainIDUint64 uint64, capabilityConfig cre.CapabilityConfig) (map[string]any, bool, error) {
+var ConfigMerger = func(flag cre.CapabilityFlag, nodeSet cre.NodeSetWithCapabilityConfigs, chainIDUint64 uint64, capabilityConfig cre.CapabilityConfig) (map[string]any, bool, error) {
 	// Build user configuration from defaults + chain overrides
-	enabled, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilities(), capabilityConfig.Config, chainIDUint64)
+	enabled, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(flag, nodeSet.GetChainCapabilityConfigs(), capabilityConfig.Config, chainIDUint64)
 	if rErr != nil {
 		return nil, false, errors.Wrap(rErr, "failed to resolve capability config for chain")
 	}
@@ -21,20 +21,20 @@ var ConfigMerger = func(flag cre.CapabilityFlag, nodeSet cre.NodeSetWithChainCap
 }
 
 var CapabilityEnabler = func(don *cre.DON, flag cre.CapabilityFlag) bool {
-	if don == nil || don.GetChainCapabilities() == nil {
+	if don == nil || don.GetChainCapabilityConfigs() == nil {
 		return false
 	}
-	if cc, ok := don.GetChainCapabilities()[flag]; !ok || cc == nil || len(cc.EnabledChains) == 0 {
+	if cc, ok := don.GetChainCapabilityConfigs()[flag]; !ok || cc == nil || len(cc.EnabledChains) == 0 {
 		return false
 	}
 
 	return true
 }
 
-var EnabledChainsProvider = func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithChainCapabilities, flag cre.CapabilityFlag) ([]uint64, error) {
-	if nodeSet == nil || nodeSet.GetChainCapabilities() == nil {
+var EnabledChainsProvider = func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) ([]uint64, error) {
+	if nodeSet == nil || nodeSet.GetChainCapabilityConfigs() == nil {
 		return []uint64{}, nil
 	}
 
-	return nodeSet.GetChainCapabilities()[flag].EnabledChains, nil
+	return nodeSet.GetChainCapabilityConfigs()[flag].EnabledChains, nil
 }

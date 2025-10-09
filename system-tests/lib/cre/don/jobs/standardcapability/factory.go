@@ -27,13 +27,13 @@ type CommandBuilder func(input *cre.JobSpecInput, capabilityConfig cre.Capabilit
 type JobNamer func(chainID uint64, flag cre.CapabilityFlag) string
 
 // CapabilityEnabler determines if a capability is enabled for a given DON.
-type CapabilityEnabler func(capabilities []string, nodeSet cre.NodeSetWithChainCapabilities, flag cre.CapabilityFlag) bool
+type CapabilityEnabler func(capabilities []string, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) bool
 
 // EnabledChainsProvider provides the list of enabled chains for a given capability.
-type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithChainCapabilities, flag cre.CapabilityFlag) []uint64
+type EnabledChainsProvider func(donTopology *cre.DonTopology, nodeSet cre.NodeSetWithCapabilityConfigs, flag cre.CapabilityFlag) []uint64
 
 // ConfigResolver resolves the capability config for a given chain.
-type ConfigResolver func(nodeSet cre.NodeSetWithChainCapabilities, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error)
+type ConfigResolver func(nodeSet cre.NodeSetWithCapabilityConfigs, capabilityConfig cre.CapabilityConfig, chainID uint64, flag cre.CapabilityFlag) (bool, map[string]any, error)
 
 // NoOpExtractor is a no-operation runtime values extractor for DON-level capabilities
 // that don't need runtime values extraction from node metadata
