@@ -192,11 +192,10 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				case <-ticker:
 					// Async initialization of contract reader because there is an on-chain
 					// call dependency.  Blocking on initialization results in a
-					// deadlock.  Instead wait until the node has identified it's DON
-					// as a proxy for a DON and on-chain ready state .
+					// deadlock. Instead, wait until the contract reader is ready.
 					reader, err := w.newWorkflowRegistryContractReader(ctx)
 					if err != nil {
-						w.lggr.Errorw("contract reader unavailable", "error", err.Error())
+						w.lggr.Infow("contract reader unavailable", "error", err.Error())
 						break
 					}
 					w.contractReader = reader

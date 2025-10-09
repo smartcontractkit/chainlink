@@ -455,7 +455,7 @@ func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.R
 	require.NoError(t, err, "failed to allowlist request")
 
 	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, hex.EncodeToString(digest[:]))
-	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated
+	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated to vault don nodes
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
 	for _, req := range allowedList {
