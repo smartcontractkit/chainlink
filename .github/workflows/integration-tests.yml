@@ -441,7 +441,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e77c336588c4642a825e13b35f381dccfa6a928a # 2025-10-03
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1 # 2025-10-06
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -451,7 +451,7 @@ jobs:
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-      quarantine: true
+      quarantine: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -539,7 +539,7 @@ jobs:
       contents: read
     needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e77c336588c4642a825e13b35f381dccfa6a928a # 2025-10-03
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1 # 2025-10-06
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -550,7 +550,7 @@ jobs:
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       team: "CCIP"
-      quarantine: true
+      quarantine: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

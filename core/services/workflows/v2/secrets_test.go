@@ -169,6 +169,8 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
+		"workflowID",
+		"workflowExecID",
 		workflowEncryptionKey,
 	)
 
@@ -223,6 +225,8 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
+		"workflowID",
+		"workflowExecID",
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 	)
 
@@ -263,6 +267,8 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
+		"workflowID",
+		"workflowExecID",
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 	)
 
@@ -304,6 +310,8 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
+		"workflowID",
+		"workflowExecID",
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 	)
 	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
@@ -367,6 +375,8 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
+		"workflowID",
+		"workflowExecID",
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 	)
 
@@ -460,6 +470,8 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		limits.WorkflowResourcePoolLimiter[int](5),
 		"owner",
 		"workflowName",
+		"workflowID",
+		"workflowExecID",
 		workflowEncryptionKey,
 	)
 
