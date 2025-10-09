@@ -464,28 +464,11 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		BlockchainOutputs:           startBlockchainsOutput.BlockChainOutputs,
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")),
-		VaultOCR3Address:            crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_plugin"),
-		DKGOCR3Address:              crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.VaultOCR3ContractQualifier+"_dkg"),
 		EVMOCR3Addresses:            evmOCR3AddressesFromDataStore(startBlockchainsOutput.BlockChainOutputs, updatedNodeSets, deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector),
 		ConsensusV2OCR3Address:      crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
 		WithV2Registries:            input.WithV2Registries,
 		DONCapabilityWithConfigs:    make(map[int][]keystone_changeset.DONCapabilityWithConfig),
-	}
-
-	if configureKeystoneInput.VaultOCR3Address != nil && configureKeystoneInput.VaultOCR3Address.Cmp(common.Address{}) != 0 {
-		ocr3Config, ocr3ConfigErr := crecontracts.DefaultOCR3Config()
-		if ocr3ConfigErr != nil {
-			return nil, pkgerrors.Wrap(ocr3ConfigErr, "failed to generate default OCR3 config")
-		}
-		configureKeystoneInput.VaultOCR3Config = *ocr3Config
-
-		dkgReportingPluginConfig, err := crecontracts.DKGReportingPluginConfig(topology, input.CapabilitiesAwareNodeSets)
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to generate DKG reporting plugin config")
-		}
-		configureKeystoneInput.DKGReportingPluginConfig = dkgReportingPluginConfig
-		configureKeystoneInput.DKGOCR3Config = *ocr3Config
 	}
 
 	chainOCR3Config, chainOCR3ConfigErr := crecontracts.DefaultChainCapabilityOCR3Config(topology)

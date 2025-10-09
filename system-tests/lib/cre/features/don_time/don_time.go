@@ -42,7 +42,7 @@ func (o *DONTime) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-	gatewayConfigs map[uint64][]*config.GatewayConfig,
+	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	// nothing to do
 	return nil, nil

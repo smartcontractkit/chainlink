@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/deployment"
-	creseq "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
@@ -65,7 +64,6 @@ func DeployKeystoneContracts(
 	for i := range input.CapabilitiesAwareNodeSets {
 		allNodeFlags = append(allNodeFlags, input.CapabilitiesAwareNodeSets[i].Flags()...)
 	}
-	vaultOCR3AddrFlag := flags.HasFlag(allNodeFlags, cre.VaultCapability)
 	evmOCR3AddrFlag := flags.HasFlagForAnyChain(allNodeFlags, cre.EVMCapability)
 	consensusV2AddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapabilityV2)
 
@@ -153,19 +151,6 @@ func DeployKeystoneContracts(
 
 	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
 	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], homeChainSelector, capRegAddr)
-
-	// deploy Vault OCR3 contract
-	if vaultOCR3AddrFlag {
-		report, err := deployVaultContracts(VaultOCR3ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
-		if err != nil {
-			return nil, fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
-		}
-
-		vaultOCR3Addr := report.PluginAddress
-		testLogger.Info().Msgf("Deployed OCR3 %s (Vault) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultOCR3Addr)
-		vaultDKGOCR3Addr := report.DKGAddress
-		testLogger.Info().Msgf("Deployed OCR3 %s (DKG) contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, vaultDKGOCR3Addr)
-	}
 
 	// deploy EVM OCR3 contracts
 	if evmOCR3AddrFlag {
@@ -260,27 +245,6 @@ func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64
 	env.DataStore = memoryDatastore.Seal()
 
 	return &ocr3DeployReport.Output, &address, nil
-}
-
-func deployVaultContracts(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*creseq.DeployVaultOutput, error) {
-	report, err := operations.ExecuteSequence(
-		env.OperationsBundle,
-		creseq.DeployVault,
-		creseq.DeployVaultDeps{
-			Env: env,
-		},
-		creseq.DeployVaultInput{
-			ChainSelector: selector,
-			Qualifier:     qualifier,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	if err = ds.Merge(report.Output.Datastore); err != nil {
-		return nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	return &report.Output, nil
 }
 
 func ChainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, nodeSets []*cre.CapabilitiesAwareNodeSet) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {

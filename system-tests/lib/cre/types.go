@@ -16,8 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -356,13 +354,6 @@ type ConfigureKeystoneInput struct {
 	NodeSets                    []*CapabilitiesAwareNodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
 	BlockchainOutputs           []*WrappedBlockchainOutput
-
-	VaultOCR3Config  keystone_changeset.OracleConfig
-	VaultOCR3Address *common.Address
-
-	DKGReportingPluginConfig *dkgocrtypes.ReportingPluginConfig
-	DKGOCR3Config            keystone_changeset.OracleConfig
-	DKGOCR3Address           *common.Address
 
 	EVMOCR3Config    keystone_changeset.OracleConfig
 	EVMOCR3Addresses map[uint64]common.Address // chain selector to address map

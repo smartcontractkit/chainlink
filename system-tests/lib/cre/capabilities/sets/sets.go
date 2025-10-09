@@ -11,7 +11,6 @@ import (
 	logeventtriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logeventtrigger"
 	mockcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
 	readcontractcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
-	vaultcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
 	writesolanacapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writesolana"
 )
 
@@ -41,12 +40,6 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 		return nil, errors.Wrap(evmErr, "failed to create evm capability")
 	}
 	capabilities = append(capabilities, evm)
-
-	vault, vaultErr := vaultcapability.New(homeChainID)
-	if vaultErr != nil {
-		return nil, errors.Wrap(vaultErr, "failed to create vault capability")
-	}
-	capabilities = append(capabilities, vault)
 
 	mock, mockErr := mockcapability.New()
 	if mockErr != nil {

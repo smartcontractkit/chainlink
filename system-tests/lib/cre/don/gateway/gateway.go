@@ -351,6 +351,18 @@ perSenderBurst = 10
 perSenderRPS = 10
 `),
 		}, nil
+	case coregateway.VaultHandlerType:
+		return config.Handler{
+			Name:        coregateway.VaultHandlerType,
+			ServiceName: "vault",
+			Config: []byte(`
+requestTimeoutSec = 70
+[NodeRateLimiter]
+globalBurst = 10
+globalRPS = 50
+perSenderBurst = 10
+perSenderRPS = 10
+`)}, nil
 	default:
 		return config.Handler{}, fmt.Errorf("unknown handler type: %s", handler)
 	}

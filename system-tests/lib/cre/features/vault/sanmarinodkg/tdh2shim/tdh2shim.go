@@ -4,7 +4,7 @@ package tdh2shim
 import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault/sanmarinodkg/dkg"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault/sanmarinodkg/dkg"
 )
 
 // Shim for extracting the public TDH2 public key from a DKG result.
