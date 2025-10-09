@@ -8,12 +8,12 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	latest_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fee_quoter"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	latest_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
