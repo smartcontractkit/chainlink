@@ -18,6 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq" // PostgreSQL driver
+	pkgtypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -34,6 +37,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
+	crConfig "github.com/smartcontractkit/chainlink-sui/relayer/chainreader/config"
+	"github.com/smartcontractkit/chainlink-sui/relayer/client"
+	"github.com/smartcontractkit/chainlink-sui/relayer/testutils"
+	suistateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/sui"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
@@ -173,8 +180,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	evmSenders, err := fundAdditionalKeys(lggr, *env, destinationChains)
 	require.NoError(t, err)
 
-	// Sui doesn't have nonce concept, so we can use deployer keys directly like Solana
-
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	state, err := stateview.LoadOnchainState(*env)
@@ -203,11 +208,24 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
 
-	// Discover lanes from deployed state
+	// Load Sui state and merge it into main state BEFORE lane discovery
+	var suiState map[uint64]suistateview.CCIPChainState
+	if len(suiChains) > 0 {
+		suiState, err = suistateview.LoadOnchainStatesui(*env)
+		require.NoError(t, err)
+
+		// Merge Sui state into main state for lane discovery
+		state.SuiChains = suiState
+	}
+
+	// Discover lanes from deployed state (now includes Sui chains!)
 	laneConfig := &crib.LaneConfiguration{}
 	err = laneConfig.DiscoverLanesFromDeployedState(*env, &state)
 	require.NoError(t, err)
 	laneConfig.LogLaneConfigInfo(lggr)
+
+	// Prepare chain readers
+	chainReaders := make(map[uint64]pkgtypes.ContractReader)
 
 	// potential source chains need a subscription
 	for _, cs := range env.BlockChains.ListChainSelectors() {
@@ -257,14 +275,66 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			checkpoint, err := suiClient.SuiGetLatestCheckpointSequenceNumber(ctx)
 			require.NoError(t, err)
 			startBlocks[cs] = &checkpoint
+
+			suiKeystore := testutils.NewTestKeystore(t)
+			ptbClient, err := client.NewPTBClient(env.Logger, env.BlockChains.SuiChains()[cs].URL, nil, 10*time.Second, suiKeystore, 5, "WaitForLocalExecution")
+			require.NoError(t, err)
+
+			chainReaderConfig := crConfig.ChainReaderConfig{
+				Modules: map[string]*crConfig.ChainReaderModule{
+					"OnRamp": {
+						Name: "onramp",
+						Events: map[string]*crConfig.ChainReaderEvent{
+							"CCIPMessageSent": {
+								Name:      "onramp",
+								EventType: "CCIPMessageSent",
+								EventSelector: client.EventSelector{
+									Package: suiState[cs].OnRampAddress,
+									Module:  "onramp",
+									Event:   "CCIPMessageSent",
+								},
+							},
+						},
+					},
+					"OffRamp": {
+						Name: "offramp",
+						Events: map[string]*crConfig.ChainReaderEvent{
+							"CommitReportAccepted": {
+								Name:      "offramp",
+								EventType: "CommitReportAccepted",
+								EventSelector: client.EventSelector{
+									Package: suiState[cs].OffRampAddress,
+									Module:  "offramp",
+									Event:   "CommitReportAccepted",
+								},
+							},
+							"ExecutionStateChanged": {
+								Name:      "offramp",
+								EventType: "ExecutionStateChanged",
+								EventSelector: client.EventSelector{
+									Package: suiState[cs].OffRampAddress,
+									Module:  "offramp",
+									Event:   "ExecutionStateChanged",
+								},
+							},
+						},
+					},
+				},
+			}
+			databaseURL := os.Getenv("CL_DATABASE_URL")
+			require.NotEmpty(t, databaseURL)
+			db, err := sqlx.Open("postgres", databaseURL)
+			require.NoError(t, err)
+			defer db.Close()
+			chainReaders[cs], err = NewChainReaderFromLatestBlock(ctx, env.Logger, ptbClient, chainReaderConfig, db)
+			require.NoError(t, err)
+			wg.Add(1)
 			go subscribeSuiTransmitEvents(
 				ctx,
-				t,
 				lggr,
-				env.BlockChains.SuiChains()[cs],
-				state.SuiChains[cs],
+				chainReaders[cs],
+				suiState[cs].OnRampAddress,
 				destChains,
-				checkpoint,
 				cs,
 				loadFinished,
 				&wg,
@@ -318,6 +388,69 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}
 	}
 
+	// Ensure Sui destination chains have chain readers
+	for _, cs := range destinationChains {
+		selectorFamily, err := selectors.GetSelectorFamily(cs)
+		require.NoError(t, err)
+		if selectorFamily == selectors.FamilySui {
+			// Check if chain reader already exists (from source chain setup)
+			if _, exists := chainReaders[cs]; !exists {
+				suiKeystore := testutils.NewTestKeystore(t)
+				ptbClient, err := client.NewPTBClient(env.Logger, env.BlockChains.SuiChains()[cs].URL, nil, 10*time.Second, suiKeystore, 5, "WaitForLocalExecution")
+				require.NoError(t, err)
+
+				chainReaderConfig := crConfig.ChainReaderConfig{
+					Modules: map[string]*crConfig.ChainReaderModule{
+						"OnRamp": {
+							Name: "onramp",
+							Events: map[string]*crConfig.ChainReaderEvent{
+								"CCIPMessageSent": {
+									Name:      "onramp",
+									EventType: "CCIPMessageSent",
+									EventSelector: client.EventSelector{
+										Package: suiState[cs].OnRampAddress,
+										Module:  "onramp",
+										Event:   "CCIPMessageSent",
+									},
+								},
+							},
+						},
+						"OffRamp": {
+							Name: "offramp",
+							Events: map[string]*crConfig.ChainReaderEvent{
+								"CommitReportAccepted": {
+									Name:      "offramp",
+									EventType: "CommitReportAccepted",
+									EventSelector: client.EventSelector{
+										Package: suiState[cs].OffRampAddress,
+										Module:  "offramp",
+										Event:   "CommitReportAccepted",
+									},
+								},
+								"ExecutionStateChanged": {
+									Name:      "offramp",
+									EventType: "ExecutionStateChanged",
+									EventSelector: client.EventSelector{
+										Package: suiState[cs].OffRampAddress,
+										Module:  "offramp",
+										Event:   "ExecutionStateChanged",
+									},
+								},
+							},
+						},
+					},
+				}
+				databaseURL := os.Getenv("CL_DATABASE_URL")
+				require.NotEmpty(t, databaseURL)
+				db, err := sqlx.Open("postgres", databaseURL)
+				require.NoError(t, err)
+				defer db.Close()
+				chainReaders[cs], err = NewChainReaderFromLatestBlock(ctx, env.Logger, ptbClient, chainReaderConfig, db)
+				require.NoError(t, err)
+			}
+		}
+	}
+
 	// confirmed dest chains need a subscription
 	for _, cs := range destinationChains {
 		srcChains := laneConfig.GetSourceChainsForDestination(cs)
@@ -347,9 +480,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			})
 		}
 		require.NoError(t, g.Wait())
-
-		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
-		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
 
 		selectorFamily, err := selectors.GetSelectorFamily(cs)
 		require.NoError(t, err)
@@ -475,15 +605,14 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
 				t.Fatal(err)
 			}
+
 			wg.Add(2)
 			go subscribeSuiCommitEvents(
 				ctx,
-				t,
 				lggr,
-				env.BlockChains.SuiChains()[cs],
-				state.SuiChains[cs],
+				chainReaders[cs],
+				suiState[cs].OffRampAddress,
 				srcChains,
-				*startBlocks[cs],
 				cs,
 				finalSeqNrCommitChannels[cs],
 				&wg,
@@ -491,12 +620,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 			go subscribeSuiExecutionEvents(
 				ctx,
-				t,
 				lggr,
-				env.BlockChains.SuiChains()[cs],
-				state.SuiChains[cs],
+				chainReaders[cs],
+				suiState[cs].OffRampAddress,
 				srcChains,
-				*startBlocks[cs],
 				cs,
 				finalSeqNrExecChannels[cs],
 				&wg,
