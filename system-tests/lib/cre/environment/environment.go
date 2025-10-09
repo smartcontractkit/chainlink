@@ -218,8 +218,10 @@ func SetupTestEnvironment(
 		if preErr != nil {
 			return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), preErr)
 		}
-		maps.Copy(donsCapabilities, output.DONCapabilityWithConfigs)
-		maps.Copy(gatewayConfig, output.GatewayConfigs)
+		if output != nil {
+			maps.Copy(donsCapabilities, output.DONCapabilityWithConfigs)
+			maps.Copy(gatewayConfig, output.GatewayConfigs)
+		}
 
 		testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 	}

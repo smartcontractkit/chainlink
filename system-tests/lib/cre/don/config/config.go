@@ -371,7 +371,6 @@ func addWorkerNodeConfig(
 		}
 	}
 
-	// if donMetadata.HasFlag(cre.WorkflowDON) || donMetadata.RequiresGateway() {
 	// Add only gateway connector only to workflow DON
 	// Capabilities that require gateways should add gateway connector themselves
 	if donMetadata.HasFlag(cre.WorkflowDON) {
