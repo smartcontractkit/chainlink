@@ -56,9 +56,11 @@ func NewSecretsFetcher(
 	phaseID string,
 	workflowEncryptionKey workflowkey.Key,
 ) *secretsFetcher {
+	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
+	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
 	return &secretsFetcher{
 		capRegistry:           capRegistry,
-		lggr:                  logger.Named(lggr, "SecretsFetcher"),
+		lggr:                  lggr,
 		semaphore:             semaphore,
 		workflowOwner:         workflowOwner,
 		workflowName:          workflowName,
@@ -166,7 +168,7 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
 	}
 
-	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "owner", s.workflowOwner, "workflow", s.workflowName)
+	lggr := logger.With(s.lggr, "requestedKeys", logKeys)
 	lggr.Debug("fetching secrets...")
 
 	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
