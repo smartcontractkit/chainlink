@@ -43,18 +43,18 @@ Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 
-	defaultAutomationSettings = map[string]interface{}{
+	defaultAutomationSettings = map[string]any{
 		"replicas": 6,
 		"toml":     "",
-		"db": map[string]interface{}{
+		"db": map[string]any{
 			"stateful": true,
 			"capacity": "1Gi",
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
+			"resources": map[string]any{
+				"requests": map[string]any{
 					"cpu":    "250m",
 					"memory": "256Mi",
 				},
-				"limits": map[string]interface{}{
+				"limits": map[string]any{
 					"cpu":    "250m",
 					"memory": "256Mi",
 				},
@@ -63,25 +63,25 @@ ListenAddresses = ["0.0.0.0:6690"]`
 	}
 
 	defaultEthereumSettings = ethereum.Props{
-		Values: map[string]interface{}{
-			"resources": map[string]interface{}{
-				"requests": map[string]interface{}{
+		Values: map[string]any{
+			"resources": map[string]any{
+				"requests": map[string]any{
 					"cpu":    "4000m",
 					"memory": "4Gi",
 				},
-				"limits": map[string]interface{}{
+				"limits": map[string]any{
 					"cpu":    "4000m",
 					"memory": "4Gi",
 				},
 			},
-			"geth": map[string]interface{}{
+			"geth": map[string]any{
 				"blocktime": "1",
 			},
 		},
 	}
 )
 
-func getDefaultAutomationSettings(config *tc.TestConfig) map[string]interface{} {
+func getDefaultAutomationSettings(config *tc.TestConfig) map[string]any {
 	defaultAutomationSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.Pyroscope, networks.MustGetSelectedNetworkConfig(config.Network)[0])
 	return defaultAutomationSettings
 }
@@ -126,7 +126,7 @@ func TestAutomationChaos(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var overrideFn = func(_ interface{}, target interface{}) {
+			var overrideFn = func(_ any, target any) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
 				ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 			}
@@ -191,8 +191,6 @@ func TestAutomationChaos(t *testing.T) {
 			}
 
 			for name, testCase := range testCases {
-				name := name
-				testCase := testCase
 				t.Run(fmt.Sprintf("Automation_%s", name), func(t *testing.T) {
 					t.Parallel()
 					network := networks.MustGetSelectedNetworkConfig(config.Network)[0] // Need a new copy of the network for each test

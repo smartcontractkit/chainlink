@@ -195,7 +195,7 @@ func (k *KeeperBenchmarkTest) Run() {
 		float64(u.BlockInterval)) * float64(u.PerformGasToBurn))
 	k.TestReporter.Summary.Load.AverageExpectedPerformsPerBlock = float64(u.NumberOfUpkeeps) /
 		float64(u.BlockInterval)
-	k.TestReporter.Summary.TestInputs = map[string]interface{}{
+	k.TestReporter.Summary.TestInputs = map[string]any{
 		"NumberOfUpkeeps":     u.NumberOfUpkeeps,
 		"CheckGasLimit":       k.Inputs.KeeperRegistrySettings.CheckGasLimit,
 		"MaxPerformGas":       k.Inputs.KeeperRegistrySettings.MaxPerformGas,

@@ -19,7 +19,7 @@
 # Services
 /core/services/directrequest @smartcontractkit/foundations
 /core/services/feeds @smartcontractkit/core @smartcontractkit/devex-tooling
-/core/services/synchronization/telem @smartcontractkit/data-tooling @smartcontractkit/core
+/core/services/synchronization/telem @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 /core/capabilities/ccip/ccipsolana @smartcontractkit/bix-build
@@ -34,7 +34,7 @@
 /core/services/periodicbackup @smartcontractkit/foundations @smartcontractkit/core
 /core/services/pg @smartcontractkit/foundations @smartcontractkit/core
 /core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
-/core/services/telemetry @smartcontractkit/data-tooling @smartcontractkit/core
+/core/services/telemetry @smartcontractkit/core
 /core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers @smartcontractkit/core
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
 /core/services/llo @smartcontractkit/data-streams-engineers @smartcontractkit/core

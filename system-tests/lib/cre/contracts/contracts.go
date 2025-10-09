@@ -299,10 +299,7 @@ func generateAdminAddresses(count int) ([]common.Address, error) {
 
 	// Determine the number of hex digits needed for padding based on the count.
 	// We use the count + 1 to account for the loop range and a safe margin.
-	hexDigits := int(math.Ceil(math.Log10(float64(count+1)) / math.Log10(16)))
-	if hexDigits < 1 {
-		hexDigits = 1
-	}
+	hexDigits := max(int(math.Ceil(math.Log10(float64(count+1))/math.Log10(16))), 1)
 
 	// The total length of the address after the "0x" prefix must be 40.
 	baseHexLen := 40 - hexDigits
@@ -314,7 +311,7 @@ func generateAdminAddresses(count int) ([]common.Address, error) {
 	baseString := strings.Repeat("f", baseHexLen)
 
 	addresses := make([]common.Address, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		format := fmt.Sprintf("%s%%0%dx", baseString, hexDigits)
 		fullAddress := fmt.Sprintf(format, i)
 		addresses[i] = common.HexToAddress("0x" + fullAddress)
@@ -352,7 +349,7 @@ func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 			capabilities = append(capabilities, enabledCapabilities...)
 		}
 
-		workerNodes, wErr := donMetadata.WorkerNodes()
+		workerNodes, wErr := donMetadata.Workers()
 		if wErr != nil {
 			return nil, errors.Wrap(wErr, "failed to find worker nodes")
 		}
@@ -740,7 +737,7 @@ func DefaultOCR3Config(topology *cre.Topology) (*keystone_changeset.OracleConfig
 
 	for _, metaDon := range topology.DonsMetadata.List() {
 		if flags.HasFlag(metaDon.Flags, cre.ConsensusCapability) || flags.HasFlag(metaDon.Flags, cre.ConsensusCapabilityV2) {
-			workerNodes, wErr := metaDon.WorkerNodes()
+			workerNodes, wErr := metaDon.Workers()
 			if wErr != nil {
 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
 			}
@@ -812,7 +809,7 @@ func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.Capabiliti
 
 	vaultIndex := -1
 	for i, don := range topology.DonsMetadata.List() {
-		if flags.HasFlag(don.Flags, cre.VaultCapability) {
+		if don.HasFlag(cre.VaultCapability) {
 			vaultIndex = i
 			break
 		}
@@ -1110,7 +1107,7 @@ func configureTronForwarders(env *cldf.Environment, registryChainSelector uint64
 			continue
 		}
 
-		workerNodes, wErr := donMetadata.WorkerNodes()
+		workerNodes, wErr := donMetadata.Workers()
 		if wErr != nil {
 			return fmt.Errorf("failed to find worker nodes for Tron configuration: %w", wErr)
 		}

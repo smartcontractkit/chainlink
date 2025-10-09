@@ -482,11 +482,15 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 		mrErr := meteringReport.Settle(computeUnit,
-			[]capabilities.MeteringNodeDetail{{
-				Peer2PeerID: e.localNode.PeerID.String(),
-				SpendUnit:   computeUnit,
-				SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
-			}})
+			capabilities.ResponseMetadata{
+				Metering: []capabilities.MeteringNodeDetail{{
+					Peer2PeerID: e.localNode.PeerID.String(),
+					SpendUnit:   computeUnit,
+					SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
+				}},
+				CapDON_N: 1,
+			},
+		)
 		if mrErr != nil {
 			e.lggr.Errorw("could not set metering for compute", "err", mrErr)
 		}

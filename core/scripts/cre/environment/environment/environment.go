@@ -446,8 +446,8 @@ func startCmd() *cobra.Command {
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
-				for idx, donMetadata := range output.DonTopology.ToDonMetadata() {
-					if flags.HasFlag(donMetadata.Flags, cre.WorkflowDON) {
+				for idx, don := range output.DonTopology.Dons.List() {
+					if don.HasFlag(cre.WorkflowDON) {
 						workflowDonID = libc.MustSafeUint32(idx + 1)
 						break
 					}
@@ -511,7 +511,7 @@ func setupDashboards(setupCfg SetupConfig) error {
 	// Wait for grafana at localhost:3000 to be available
 	fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
 	grafanaContacted := false
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		time.Sleep(1 * time.Second)
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
 		_, err = http.DefaultClient.Do(req)

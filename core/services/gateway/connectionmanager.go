@@ -91,7 +91,6 @@ type connAttempt struct {
 func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, lggr logger.Logger) (ConnectionManager, error) {
 	dons := make(map[string]*donConnectionManager)
 	for _, donConfig := range gwConfig.Dons {
-		donConfig := donConfig
 		if donConfig.DonId == "" {
 			return nil, errors.New("empty DON ID")
 		}

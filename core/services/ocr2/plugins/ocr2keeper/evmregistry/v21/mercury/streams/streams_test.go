@@ -49,21 +49,21 @@ func (m *MockMercuryConfigProvider) Credentials() *types.MercuryCredentials {
 	return mc
 }
 
-func (m *MockMercuryConfigProvider) IsUpkeepAllowed(s string) (interface{}, bool) {
+func (m *MockMercuryConfigProvider) IsUpkeepAllowed(s string) (any, bool) {
 	args := m.Called(s)
 	return args.Get(0), args.Bool(1)
 }
 
-func (m *MockMercuryConfigProvider) SetUpkeepAllowed(s string, i interface{}, d time.Duration) {
+func (m *MockMercuryConfigProvider) SetUpkeepAllowed(s string, i any, d time.Duration) {
 	m.Called(s, i, d)
 }
 
-func (m *MockMercuryConfigProvider) GetPluginRetry(s string) (interface{}, bool) {
+func (m *MockMercuryConfigProvider) GetPluginRetry(s string) (any, bool) {
 	args := m.Called(s)
 	return args.Get(0), args.Bool(1)
 }
 
-func (m *MockMercuryConfigProvider) SetPluginRetry(s string, i interface{}, d time.Duration) {
+func (m *MockMercuryConfigProvider) SetPluginRetry(s string, i any, d time.Duration) {
 	m.Called(s, i, d)
 }
 
@@ -243,7 +243,7 @@ func TestStreams_CheckErrorHandler(t *testing.T) {
 			payload, err := s.abi.Pack("executeCallback", tt.lookup.UpkeepId, userPayload)
 			require.NoError(t, err)
 
-			args := map[string]interface{}{
+			args := map[string]any{
 				"from": zeroAddress,
 				"to":   s.registry.Address().Hex(),
 				"data": hexutil.Bytes(payload),
@@ -398,7 +398,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 			defer s.Close()
 			payload, err := s.abi.Pack("checkCallback", tt.lookup.UpkeepId, values, tt.lookup.ExtraData)
 			require.NoError(t, err)
-			args := map[string]interface{}{
+			args := map[string]any{
 				"from": zeroAddress,
 				"to":   s.registry.Address().Hex(),
 				"data": hexutil.Bytes(payload),
@@ -545,13 +545,13 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 
 			if !tt.cached {
 				if tt.err != nil {
-					bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{tt.config})
+					bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]any{tt.config})
 					require.NoError(t, err)
 
 					payload, err := s.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
 					require.NoError(t, err)
 
-					args := map[string]interface{}{
+					args := map[string]any{
 						"to":   s.registry.Address().Hex(),
 						"data": hexutil.Bytes(payload),
 					}
@@ -567,13 +567,13 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 					bCfg, err := json.Marshal(cfg)
 					require.NoError(t, err)
 
-					bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{bCfg})
+					bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]any{bCfg})
 					require.NoError(t, err)
 
 					payload, err := s.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
 					require.NoError(t, err)
 
-					args := map[string]interface{}{
+					args := map[string]any{
 						"to":   s.registry.Address().Hex(),
 						"data": hexutil.Bytes(payload),
 					}
@@ -888,13 +888,13 @@ func TestStreams_StreamsLookup(t *testing.T) {
 				bCfg, err := json.Marshal(cfg)
 				require.NoError(t, err)
 
-				bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{bCfg})
+				bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]any{bCfg})
 				require.NoError(t, err)
 
 				payload, err := s.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
 				require.NoError(t, err)
 
-				args := map[string]interface{}{
+				args := map[string]any{
 					"to":   s.registry.Address().Hex(),
 					"data": hexutil.Bytes(payload),
 				}
@@ -954,7 +954,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 			if tt.callbackNeeded {
 				payload, err := s.abi.Pack("checkCallback", upkeepId, tt.values, tt.extraData)
 				require.NoError(t, err)
-				args := map[string]interface{}{
+				args := map[string]any{
 					"from": zeroAddress,
 					"to":   s.registry.Address().Hex(),
 					"data": hexutil.Bytes(payload),

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math/big"
 	"sort"
 	"strings"
@@ -1205,7 +1206,7 @@ func requireEqualRoots(
 	ccipReaderRoots []cciptypes.MerkleRootChain,
 ) {
 	require.Len(t, ccipReaderRoots, len(onchainRoots))
-	for i := 0; i < len(onchainRoots); i++ {
+	for i := range onchainRoots {
 		require.Equal(t,
 			onchainRoots[i].SourceChainSelector,
 			uint64(ccipReaderRoots[i].ChainSel),
@@ -1516,9 +1517,7 @@ func testSetup(
 	require.NoError(t, err)
 
 	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{params.ReaderChain: extendedCrReaderChain}
-	for chain, cr := range otherCrs {
-		contractReaders[chain] = cr
-	}
+	maps.Copy(contractReaders, otherCrs)
 
 	mokAddrCodec := newMockAddressCodec(t)
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(

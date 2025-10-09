@@ -54,12 +54,12 @@ import (
 )
 
 var (
-	GethResourceProfile = map[string]interface{}{
-		"requests": map[string]interface{}{
+	GethResourceProfile = map[string]any{
+		"requests": map[string]any{
 			"cpu":    "4",
 			"memory": "6Gi",
 		},
-		"limits": map[string]interface{}{
+		"limits": map[string]any{
 			"cpu":    "4",
 			"memory": "6Gi",
 		},
@@ -93,7 +93,7 @@ type CCIPTestConfig struct {
 	SelectedNetworks    []blockchain.EVMNetwork
 	NetworkPairs        []NetworkPair
 	LeaderLanes         []LeaderLane
-	GethResourceProfile map[string]interface{}
+	GethResourceProfile map[string]any
 }
 
 func (c *CCIPTestConfig) useExistingDeployment() bool {
@@ -891,7 +891,6 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates() {
 	t := o.Cfg.Test
 	priceUpdateGrp, _ := errgroup.WithContext(o.SetUpContext)
 	for _, lanes := range o.ReadLanes() {
-		lanes := lanes
 		forwardLane := lanes.ForwardLane
 		reverseLane := lanes.ReverseLane
 		waitForUpdate := func(lane *actions.CCIPLane) error {

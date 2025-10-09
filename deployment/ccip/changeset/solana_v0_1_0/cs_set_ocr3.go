@@ -217,7 +217,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 				e.Logger.Infof("OCR3 config signers length mismatch")
 				return false, nil
 			}
-			for i := 0; i < len(existingState.Signers); i++ {
+			for i := range len(existingState.Signers) {
 				if existingState.Signers[i] != newState.Signers[i] {
 					e.Logger.Infof("OCR3 config signers mismatch")
 					return false, nil
@@ -228,7 +228,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 			e.Logger.Infof("OCR3 config transmitters length mismatch")
 			return false, nil
 		}
-		for i := 0; i < len(existingState.Transmitters); i++ {
+		for i := range len(existingState.Transmitters) {
 			if existingState.Transmitters[i] != newState.Transmitters[i] {
 				e.Logger.Infof("OCR3 config transmitters mismatch")
 				return false, nil

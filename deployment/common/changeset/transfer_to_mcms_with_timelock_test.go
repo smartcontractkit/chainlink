@@ -1,114 +1,108 @@
 package changeset_test
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestTransferToMCMSWithTimelockV2(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  1,
-	})
-	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	evmChains := e.BlockChains.EVMChains()
-	e, err := changeset.Apply(t, e, changeset.Configure(
-		cldf.CreateLegacyChangeSet(changeset.DeployLinkToken),
-		[]uint64{chain1},
-	), changeset.Configure(
-		cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
-		map[uint64]types.MCMSWithTimelockConfigV2{
-			chain1: proposalutils.SingleGroupTimelockConfigV2(t),
-		},
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
 	))
 	require.NoError(t, err)
-	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
-	require.NoError(t, err)
-	state, err := changeset.MaybeLoadMCMSWithTimelockChainState(evmChains[chain1], addrs)
-	require.NoError(t, err)
-	link, err := changeset.MaybeLoadLinkTokenChainState(evmChains[chain1], addrs)
-	require.NoError(t, err)
-	e, err = changeset.Apply(t, e,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.TransferToMCMSWithTimelockV2),
-			changeset.TransferToMCMSWithTimelockConfig{
-				ContractsByChain: map[uint64][]common.Address{
-					chain1: {link.LinkToken.Address()},
-				},
-				MCMSConfig: proposalutils.TimelockConfig{
-					MinDelay: 0,
-				},
-			},
-		),
+
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
+
+	// Setup contracts
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
+			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		}),
 	)
 	require.NoError(t, err)
-	// We expect now that the link token is owned by the MCMS timelock.
-	link, err = changeset.MaybeLoadLinkTokenChainState(evmChains[chain1], addrs)
+
+	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
+
+	state, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+	require.NoError(t, err)
+
+	link, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
+	require.NoError(t, err)
+
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.TransferToMCMSWithTimelockV2), changeset.TransferToMCMSWithTimelockConfig{
+			ContractsByChain: map[uint64][]common.Address{
+				selector: {link.LinkToken.Address()},
+			},
+			MCMSConfig: proposalutils.TimelockConfig{
+				MinDelay: 0,
+			},
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err)
+	require.Len(t, rt.State().Proposals, 1)
+	require.True(t, rt.State().Proposals[0].IsExecuted)
+
+	// We expect now that the link token is owned by the MCMS timelock.
+	link, err = changeset.MaybeLoadLinkTokenChainState(chain, addrs)
+	require.NoError(t, err)
+
 	o, err := link.LinkToken.Owner(nil)
 	require.NoError(t, err)
 	require.Equal(t, state.Timelock.Address(), o)
 
 	// Try a rollback to the deployer.
-	e, err = changeset.Apply(t, e,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.TransferToDeployer),
-			changeset.TransferToDeployerConfig{
-				ContractAddress: link.LinkToken.Address(),
-				ChainSel:        chain1,
-			},
-		),
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.TransferToDeployer), changeset.TransferToDeployerConfig{
+			ContractAddress: link.LinkToken.Address(),
+			ChainSel:        selector,
+		}),
 	)
 	require.NoError(t, err)
 
 	o, err = link.LinkToken.Owner(nil)
 	require.NoError(t, err)
-	require.Equal(t, evmChains[chain1].DeployerKey.From, o)
+	require.Equal(t, chain.DeployerKey.From, o)
 }
 
 func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-724")
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  1,
-	})
-	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	e, err := changeset.Apply(t, e,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
-	)
+
+	selector1 := chain_selectors.TEST_90000001.Selector
+	selector2 := chain_selectors.TEST_90000002.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector1, selector2}),
+	))
 	require.NoError(t, err)
 
-	envWithNoMCMS := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  1,
-	})
-	chain2 := envWithNoMCMS.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
+	// Deploy MCMS to selector 1 only, so we have a chain without MCMS
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
+			selector1: proposalutils.SingleGroupTimelockConfigV2(t),
+		}),
+	)
+	require.NoError(t, err)
 
 	for _, test := range []struct {
 		name   string
@@ -118,14 +112,14 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 	}{
 		{
 			name: "valid config",
-			env:  e,
+			env:  rt.Environment(),
 			config: changeset.RenounceTimelockDeployerConfig{
-				ChainSel: chain1,
+				ChainSel: selector1,
 			},
 		},
 		{
 			name: "invalid chain selector",
-			env:  e,
+			env:  rt.Environment(),
 			config: changeset.RenounceTimelockDeployerConfig{
 				ChainSel: 0,
 			},
@@ -133,7 +127,7 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 		},
 		{
 			name: "chain does not exists on env",
-			env:  e,
+			env:  rt.Environment(),
 			config: changeset.RenounceTimelockDeployerConfig{
 				ChainSel: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
 			},
@@ -141,12 +135,12 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 		},
 		{
 			name: "no MCMS deployed",
-			env:  envWithNoMCMS,
+			env:  rt.Environment(),
 			config: changeset.RenounceTimelockDeployerConfig{
-				ChainSel: chain2,
+				ChainSel: selector2,
 			},
 			// chain does not match any existing addresses
-			err: "chain selector 909606746561742123: chain not found",
+			err: "timelock not found on chain 5548718428018410741",
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -162,25 +156,25 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 }
 
 func TestRenounceTimelockDeployer(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, 0, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  1,
-	})
-	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	e, err := changeset.Apply(t, e,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
-			},
-		),
-	)
-	require.NoError(t, err)
-	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+	))
 	require.NoError(t, err)
 
-	state, err := changeset.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.EVMChains()[chain1], addrs)
+	chain := rt.Environment().BlockChains.EVMChains()[selector]
+
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
+			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		}),
+	)
+	require.NoError(t, err)
+
+	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
+	require.NoError(t, err)
+
+	state, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
 
 	tl := state.Timelock
@@ -194,13 +188,10 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	require.Equal(t, int64(2), r.Int64())
 
 	// Revoke Deployer
-	e, err = changeset.Apply(t, e,
-		changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.RenounceTimelockDeployer),
-			changeset.RenounceTimelockDeployerConfig{
-				ChainSel: chain1,
-			},
-		),
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.RenounceTimelockDeployer), changeset.RenounceTimelockDeployerConfig{
+			ChainSel: selector,
+		}),
 	)
 	require.NoError(t, err)
 

@@ -58,7 +58,7 @@ func (k keccakCtx) HashInternal(a, b [32]byte) [32]byte {
 // This value is chosen since it is unlikely to be the result of a hash, and cannot match any internal node preimage.
 func (k keccakCtx) ZeroHash() [32]byte {
 	var zeroes [32]byte
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		zeroes[i] = 0xFF
 	}
 	return zeroes
@@ -89,7 +89,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		return [32]byte{}, err
 	}
 
-	encodedSourceTokenData, err := abi.Arguments{abi.Argument{Type: bytesArray}}.PackValues([]interface{}{event.Message.SourceTokenData})
+	encodedSourceTokenData, err := abi.Arguments{abi.Argument{Type: bytesArray}}.PackValues([]any{event.Message.SourceTokenData})
 	if err != nil {
 		return [32]byte{}, err
 	}
@@ -180,7 +180,7 @@ func ConcatBytes(bufs ...[]byte) []byte {
 
 // ABIEncode is the equivalent of abi.encode.
 // See a full set of examples https://github.com/ethereum/go-ethereum/blob/420b78659bef661a83c5c442121b13f13288c09f/accounts/abi/packing_test.go#L31
-func ABIEncode(abiStr string, values ...interface{}) ([]byte, error) {
+func ABIEncode(abiStr string, values ...any) ([]byte, error) {
 	// Create a dummy method with arguments
 	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "inputs": %s}]`, abiStr)
 	inAbi, err := abi.JSON(strings.NewReader(inDef))
@@ -316,7 +316,7 @@ func proveSingleLayer[H Hash](layer []H, indices []int) singleLayerProof[H] {
 // encoded number.
 func ProofFlagsToBits(proofFlags []bool) *big.Int {
 	encodedFlags := big.NewInt(0)
-	for i := 0; i < len(proofFlags); i++ {
+	for i := range proofFlags {
 		if proofFlags[i] {
 			encodedFlags.SetBit(encodedFlags, i, 1)
 		}

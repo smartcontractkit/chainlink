@@ -39,7 +39,7 @@ func TestShortSchnorr_SignAndVerify(t *testing.T) {
 	if printTests {
 		t.Log("tests = [\n")
 	}
-	for i := 0; i < numSignatures; i++ {
+	for range numSignatures {
 		rand := mrand.New(mrand.NewSource(0))
 		msg, err := crand.Int(rand, maxUint256)
 		require.NoError(t, err)

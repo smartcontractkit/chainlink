@@ -929,7 +929,7 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 		KeyBundle:   bootstrapKb,
 	}
 	// Set up the minimum 4 oracles all funded with destination ETH
-	for i := int64(0); i < 4; i++ {
+	for i := range int64(4) {
 		app, peerID, transmitter, kb := setupNodeCCIP(
 			t,
 			c.Dest.User,

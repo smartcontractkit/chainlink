@@ -531,7 +531,7 @@ func EncodeExecutionReport(ctx context.Context, args abi.Arguments, report ccipt
 		Proofs:            report.Proofs,
 		ProofFlagBits:     report.ProofFlagBits,
 	}
-	return args.PackValues([]interface{}{&rep})
+	return args.PackValues([]any{&rep})
 }
 
 func (o *OffRamp) EncodeExecutionReport(ctx context.Context, report cciptypes.ExecReport) ([]byte, error) {

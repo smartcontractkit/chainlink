@@ -287,9 +287,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	result := make(map[types.RelayID]loop.Relayer)
-	for id, relayer := range rs.loopRelayers {
-		result[id] = relayer
-	}
+	maps.Copy(result, rs.loopRelayers)
 
 	return result
 }

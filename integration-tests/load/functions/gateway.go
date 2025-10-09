@@ -156,7 +156,7 @@ func ListS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 		return err
 	}
 	log.Debug().Interface("Request", msgdec).Msg("Sending RPC request")
-	var result map[string]interface{}
+	var result map[string]any
 	resp, err := rc.R().
 		SetBody(rawMsg).
 		Post(s4Cfg.GatewayURL)
@@ -209,7 +209,7 @@ func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, 
 	if err != nil {
 		return "", fmt.Errorf("failed to encrypt with DON key: %w", err)
 	}
-	ct0xFormat, err := json.Marshal(map[string]interface{}{"0x0": base64.StdEncoding.EncodeToString(ct)})
+	ct0xFormat, err := json.Marshal(map[string]any{"0x0": base64.StdEncoding.EncodeToString(ct)})
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal DON key encrypted format: %w", err)
 	}
@@ -221,7 +221,7 @@ func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, 
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal TDH2 encrypted msg: %w", err)
 	}
-	finalMsg, err := json.Marshal(map[string]interface{}{
+	finalMsg, err := json.Marshal(map[string]any{
 		"encryptedSecrets": "0x" + hex.EncodeToString(tdh2Message),
 	})
 	if err != nil {

@@ -33,12 +33,12 @@ type Argument interface {
 
 // Analyzer is an extension point of proposal decoding.
 // You can implement your own Analyzer which returns your own Argument instance.
-type Analyzer func(argName string, argAbi *abi.Type, argVal interface{}, analyzers []Analyzer) Argument
+type Analyzer func(argName string, argAbi *abi.Type, argVal any, analyzers []Analyzer) Argument
 
 // ArgumentContext is a storage for context that may need to Argument during its description.
 // Refer to BytesAndAddressAnalyzer and ChainSelectorAnalyzer for usage examples
 type ArgumentContext struct {
-	Ctx map[string]interface{}
+	Ctx map[string]any
 }
 
 func ContextGet[T any](ctx *ArgumentContext, key string) (T, error) {
@@ -55,7 +55,7 @@ func ContextGet[T any](ctx *ArgumentContext, key string) (T, error) {
 
 func NewArgumentContext(addresses cldf.AddressesByChain) *ArgumentContext {
 	return &ArgumentContext{
-		Ctx: map[string]interface{}{
+		Ctx: map[string]any{
 			"AddressesByChain": addresses,
 		},
 	}
@@ -278,12 +278,12 @@ func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (*Dec
 	if err != nil {
 		return nil, err
 	}
-	outs := make(map[string]interface{})
+	outs := make(map[string]any)
 	err = method.Outputs.UnpackIntoMap(outs, methodData)
 	if err != nil {
 		return nil, err
 	}
-	args := make(map[string]interface{})
+	args := make(map[string]any)
 	err = method.Inputs.UnpackIntoMap(args, methodData)
 	if err != nil {
 		return nil, err
@@ -291,7 +291,7 @@ func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (*Dec
 	return p.analyzeMethodCall(address, method, args, outs)
 }
 
-func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args map[string]interface{}, outs map[string]interface{}) (*DecodedCall, error) {
+func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args map[string]any, outs map[string]any) (*DecodedCall, error) {
 	inputs := make([]NamedArgument, len(method.Inputs))
 	for i, input := range method.Inputs {
 		arg, ok := args[input.Name]
@@ -322,7 +322,7 @@ func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, ar
 	}, nil
 }
 
-func (p *TxCallDecoder) analyzeArg(argName string, argAbi *abi.Type, argVal interface{}) Argument {
+func (p *TxCallDecoder) analyzeArg(argName string, argAbi *abi.Type, argVal any) Argument {
 	if len(p.Analyzers) > 0 {
 		for _, analyzer := range p.Analyzers {
 			arg := analyzer(argName, argAbi, argVal, p.Analyzers)
@@ -343,7 +343,7 @@ func (p *TxCallDecoder) analyzeArg(argName string, argAbi *abi.Type, argVal inte
 	return SimpleArgument{Value: fmt.Sprintf("%v", argVal)}
 }
 
-func (p *TxCallDecoder) analyzeStruct(argAbi *abi.Type, argVal interface{}) StructArgument {
+func (p *TxCallDecoder) analyzeStruct(argAbi *abi.Type, argVal any) StructArgument {
 	argTyp := argAbi.GetType()
 	fields := make([]NamedArgument, argTyp.NumField())
 	for i := 0; i < argTyp.NumField(); i++ {
@@ -364,7 +364,7 @@ func (p *TxCallDecoder) analyzeStruct(argAbi *abi.Type, argVal interface{}) Stru
 	}
 }
 
-func (p *TxCallDecoder) analyzeArray(argName string, argAbi *abi.Type, argVal interface{}) ArrayArgument {
+func (p *TxCallDecoder) analyzeArray(argName string, argAbi *abi.Type, argVal any) ArrayArgument {
 	argTyp := reflect.ValueOf(argVal)
 	elements := make([]Argument, argTyp.Len())
 	for i := 0; i < argTyp.Len(); i++ {
@@ -377,7 +377,7 @@ func (p *TxCallDecoder) analyzeArray(argName string, argAbi *abi.Type, argVal in
 	}
 }
 
-func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal interface{}, _ []Analyzer) Argument {
+func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal any, _ []Analyzer) Argument {
 	if argAbi.T == abi.FixedBytesTy || argAbi.T == abi.BytesTy || argAbi.T == abi.AddressTy {
 		argArrTyp := reflect.ValueOf(argVal)
 		argArr := make([]byte, argArrTyp.Len())
@@ -392,7 +392,7 @@ func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal interface{}, _ [
 	return nil
 }
 
-func ChainSelectorAnalyzer(argName string, argAbi *abi.Type, argVal interface{}, _ []Analyzer) Argument {
+func ChainSelectorAnalyzer(argName string, argAbi *abi.Type, argVal any, _ []Analyzer) Argument {
 	if argAbi.GetType().Kind() == reflect.Uint64 && chainSelectorRegex.MatchString(argName) {
 		return ChainSelectorArgument{Value: argVal.(uint64)}
 	}

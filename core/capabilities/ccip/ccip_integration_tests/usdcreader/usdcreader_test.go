@@ -93,7 +93,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 31)
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 41)
 	// Finalize events
-	for i := 0; i < finalityDepth; i++ {
+	for range finalityDepth {
 		ts.sb.Commit()
 	}
 	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 51)
@@ -302,7 +302,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				hashes, err := usdcReader.MessagesByTokenID(ctx, sourceChain, destChain, tokens)
 				require.NoError(b, err)
 				require.Len(b, hashes, tc.tokenCount) // Ensure the number of matches is as expected
@@ -329,7 +329,7 @@ func populateDatabase(b *testing.B,
 	require.NoError(b, err)
 	messageTransmitterAddress := testEnv.contractAddr
 
-	for i := 0; i < numOfMessages; i++ {
+	for i := range numOfMessages {
 		// Create topics array with just the event signature
 		topics := [][]byte{
 			messageSentEventSig[:], // Topic[0] is event signature

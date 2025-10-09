@@ -36,9 +36,9 @@ func (t *LookupTask) Run(_ context.Context, _ logger.Logger, _ Vars, inputs []Re
 		return Result{Error: err}, runInfo
 	}
 
-	var val interface{}
+	var val any
 	switch m := inputs[0].Value.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		val = m[(string)(key)]
 	default:
 		return Result{Error: errors.Errorf("unexpected input type: %T", inputs[0].Value)}, runInfo

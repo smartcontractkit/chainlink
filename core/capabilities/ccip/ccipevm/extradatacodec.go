@@ -2,6 +2,7 @@ package ccipevm
 
 import (
 	"fmt"
+	"maps"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -22,13 +23,13 @@ const (
 type ExtraDataDecoder struct{}
 
 // DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
-func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
 	destGasAmount, err := abiDecodeUint32(destExecData)
 	if err != nil {
 		return nil, fmt.Errorf("decode dest gas amount: %w", err)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		evmDestExecDataKey: destGasAmount,
 	}, nil
 }
@@ -56,7 +57,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 	}
 
 	output := make(map[string]any)
-	args := make(map[string]interface{})
+	args := make(map[string]any)
 	err := messageHasherABI.Methods[method].Inputs.UnpackIntoMap(args, extraArgs[extraByteOffset:])
 	if err != nil {
 		return nil, fmt.Errorf("abi decode extra args %v: %w", method, err)
@@ -64,9 +65,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 
 	switch method {
 	case evmV1DecodeName, evmV2DecodeName:
-		for k, val := range args {
-			output[k] = val
-		}
+		maps.Copy(output, args)
 	case svmV1DecodeStructName:
 		// NOTE: the cast only works with this particular struct definition, including the json tags
 		extraArgsStruct, ok := args["extraArgs"].(struct {

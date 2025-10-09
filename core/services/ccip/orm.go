@@ -88,9 +88,9 @@ func (o *orm) UpsertGasPricesForDestChain(ctx context.Context, destChainSelector
 		uniqueGasUpdates[key] = gasPrice
 	}
 
-	insertData := make([]map[string]interface{}, 0, len(uniqueGasUpdates))
+	insertData := make([]map[string]any, 0, len(uniqueGasUpdates))
 	for _, price := range uniqueGasUpdates {
-		insertData = append(insertData, map[string]interface{}{
+		insertData = append(insertData, map[string]any{
 			"chain_selector":        destChainSelector,
 			"source_chain_selector": price.SourceChainSelector,
 			"gas_price":             price.GasPrice,
@@ -123,9 +123,9 @@ func (o *orm) UpsertTokenPricesForDestChain(ctx context.Context, destChainSelect
 		return 0, err
 	}
 
-	insertData := make([]map[string]interface{}, 0, len(tokensToUpdate))
+	insertData := make([]map[string]any, 0, len(tokensToUpdate))
 	for _, price := range tokensToUpdate {
-		insertData = append(insertData, map[string]interface{}{
+		insertData = append(insertData, map[string]any{
 			"chain_selector": destChainSelector,
 			"token_addr":     price.TokenAddr,
 			"token_price":    price.TokenPrice,
@@ -167,7 +167,7 @@ func (o *orm) pickOnlyRelevantTokensForUpdate(
 	`
 
 	pgInterval := fmt.Sprintf("%d milliseconds", interval.Milliseconds())
-	args := []interface{}{destChainSelector, tokenAddrsToBytes(tokenPricesByAddress), pgInterval}
+	args := []any{destChainSelector, tokenAddrsToBytes(tokenPricesByAddress), pgInterval}
 	var dbTokensToIgnore []string
 	if err := o.ds.SelectContext(ctx, &dbTokensToIgnore, stmt, args...); err != nil {
 		return nil, err

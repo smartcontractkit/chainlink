@@ -43,3 +43,20 @@ type Incoming struct {
 	InternalPort int    `toml:"internal_port" json:"internal_port"`
 	ExternalPort int    `toml:"external_port" json:"external_port"`
 }
+
+type GatewayHelper struct{}
+
+func (g *GatewayHelper) RequiresGateway(flags []CapabilityFlag) bool {
+	return HasFlag(flags, CustomComputeCapability) ||
+		HasFlag(flags, WebAPITriggerCapability) ||
+		HasFlag(flags, WebAPITargetCapability) ||
+		HasFlag(flags, VaultCapability) ||
+		HasFlag(flags, HTTPActionCapability) ||
+		HasFlag(flags, HTTPTriggerCapability)
+}
+
+func (g *GatewayHelper) RequiresWebAPI(flags []CapabilityFlag) bool {
+	return HasFlag(flags, CustomComputeCapability) ||
+		HasFlag(flags, WebAPITriggerCapability) ||
+		HasFlag(flags, WebAPITargetCapability)
+}

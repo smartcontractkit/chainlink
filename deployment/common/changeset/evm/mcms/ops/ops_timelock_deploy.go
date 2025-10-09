@@ -33,8 +33,8 @@ var OpEVMDeployTimelock = opsutils.NewEVMDeployOperation(
 		EVMBytecode: common.FromHex(bindings.RBACTimelockBin),
 		// ZkSyncVMBytecode not supported
 	},
-	func(input OpEVMDeployTimelockInput) []interface{} {
-		return []interface{}{
+	func(input OpEVMDeployTimelockInput) []any {
+		return []any{
 			input.TimelockMinDelay,
 			input.Admin,
 			input.Proposers,

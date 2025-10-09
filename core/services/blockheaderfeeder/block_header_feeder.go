@@ -151,10 +151,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 	}
 
 	for i := 0; i < len(blocks); i += int(f.storeBlockhashesBatchSize) {
-		j := i + int(f.storeBlockhashesBatchSize)
-		if j > len(blocks) {
-			j = len(blocks)
-		}
+		j := min(i+int(f.storeBlockhashesBatchSize), len(blocks))
 		blockRange := blocks[i:j]
 		blockHeaders, err := f.blockHeaderProvider.RlpHeadersBatch(ctx, blockRange)
 		if err != nil {
@@ -222,10 +219,7 @@ func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Co
 // and returns the first block that has blockhash already stored. Returns nil if no blockhashes are found
 func (f *BlockHeaderFeeder) findEarliestBlockNumberWithBlockhash(ctx context.Context, lggr logger.Logger, startBlock, toBlock uint64) (*big.Int, error) {
 	for i := startBlock; i < toBlock; i += uint64(f.getBlockhashesBatchSize) {
-		j := i + uint64(f.getBlockhashesBatchSize)
-		if j > toBlock {
-			j = toBlock
-		}
+		j := min(i+uint64(f.getBlockhashesBatchSize), toBlock)
 
 		lggr.Debug(fmt.Sprintf("Looking for earliest block number with blockhash %v thru %v", i, j))
 

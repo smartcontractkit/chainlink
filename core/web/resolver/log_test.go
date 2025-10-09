@@ -25,8 +25,8 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
-		"input": map[string]interface{}{
+	variables := map[string]any{
+		"input": map[string]any{
 			"enabled": true,
 		},
 	}
@@ -164,7 +164,7 @@ func TestResolver_SetGlobalLogLevel(t *testing.T) {
 				}
 			}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"level": LogLevelError,
 	}
 
@@ -206,7 +206,7 @@ func TestResolver_SetGlobalLogLevel(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"setGlobalLogLevel"},
+					Path:          []any{"setGlobalLogLevel"},
 					Message:       gError.Error(),
 				},
 			},

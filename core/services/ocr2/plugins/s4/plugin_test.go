@@ -35,7 +35,7 @@ func createPluginConfig(maxEntries uint) *s4.PluginConfig {
 func generateTestRows(t *testing.T, n int, ttl time.Duration) []*s4.Row {
 	ormRows := generateTestOrmRows(t, n, ttl)
 	rows := make([]*s4.Row, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		rows[i] = &s4.Row{
 			Address:    ormRows[i].Address.Bytes(),
 			Slotid:     uint32(ormRows[i].SlotId),
@@ -73,7 +73,7 @@ func generateTestOrmRow(t *testing.T, ttl time.Duration, version uint64, confime
 
 func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_svc.Row {
 	rows := make([]*s4_svc.Row, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		rows[i] = generateTestOrmRow(t, ttl, 0, false)
 	}
 	return rows
@@ -81,7 +81,7 @@ func generateTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_svc.Row {
 
 func generateConfirmedTestOrmRows(t *testing.T, n int, ttl time.Duration) []*s4_svc.Row {
 	rows := make([]*s4_svc.Row, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		rows[i] = generateTestOrmRow(t, ttl, uint64(i), true)
 	}
 	return rows
@@ -292,7 +292,7 @@ func TestPlugin_Query(t *testing.T) {
 		config.NSnapshotShards = 16
 
 		ormRows := generateTestOrmRows(t, 256, time.Minute)
-		for i := 0; i < 256; i++ {
+		for i := range 256 {
 			var thisAddress common.Address
 			thisAddress[0] = byte(i)
 			ormRows[i].Address = big.New(thisAddress.Big())
@@ -401,10 +401,10 @@ func TestPlugin_Observation(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, rows.Rows, numUnconfirmed+numHigherVersion)
 
-		for i := 0; i < numUnconfirmed; i++ {
+		for i := range numUnconfirmed {
 			assert.Equal(t, ormRows[numUnconfirmed+i].Version, rows.Rows[i].Version)
 		}
-		for i := 0; i < numHigherVersion; i++ {
+		for i := range numHigherVersion {
 			assert.Equal(t, ormRows[i].Version, rows.Rows[numUnconfirmed+i].Version)
 		}
 	})

@@ -36,10 +36,10 @@ type EnableBigBlocksConfig struct {
 
 // Payload to be sent in the HTTP POST request
 type enableBigBlocksRequestPayload struct {
-	Action       map[string]interface{} `json:"action"`       // Action details
-	Nonce        int64                  `json:"nonce"`        // Unique nonce for the request
-	Signature    ecdsaSignature         `json:"signature"`    // ECDSA signature of the action
-	VaultAddress *string                `json:"vaultAddress"` // Vault address (null for most cases)
+	Action       map[string]any `json:"action"`       // Action details
+	Nonce        int64          `json:"nonce"`        // Unique nonce for the request
+	Signature    ecdsaSignature `json:"signature"`    // ECDSA signature of the action
+	VaultAddress *string        `json:"vaultAddress"` // Vault address (null for most cases)
 }
 
 type ecdsaSignature struct {
@@ -65,7 +65,7 @@ func enableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig
 func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf.ChangesetOutput, error) {
 	out := cldf.ChangesetOutput{}
 
-	action := map[string]interface{}{
+	action := map[string]any{
 		"type":           "evmUserModify",
 		"usingBigBlocks": true,
 	}
@@ -107,7 +107,7 @@ func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf
 	return out, nil
 }
 
-func signL1Action(action map[string]interface{}, nonce int64, isMainnet bool, config enableBigBlocksDetailConfig, chain chain.BlockChain) (ecdsaSignature, error) {
+func signL1Action(action map[string]any, nonce int64, isMainnet bool, config enableBigBlocksDetailConfig, chain chain.BlockChain) (ecdsaSignature, error) {
 	// Compute the action hash
 	actionHash, err := actionHash(action, "", nonce, nil)
 	if err != nil {
@@ -119,7 +119,7 @@ func signL1Action(action map[string]interface{}, nonce int64, isMainnet bool, co
 	if !isMainnet {
 		source = "b"
 	}
-	phantomAgent := map[string]interface{}{
+	phantomAgent := map[string]any{
 		"source":       source,
 		"connectionId": "0x" + hex.EncodeToString(actionHash),
 	}

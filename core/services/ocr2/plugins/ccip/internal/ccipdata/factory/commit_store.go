@@ -94,7 +94,7 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 func commitReportToEthTxMeta(commitReport cciptypes.CommitStoreReport) (*txmgr.TxMeta, error) {
 	n := (commitReport.Interval.Max - commitReport.Interval.Min) + 1
 	seqRange := make([]uint64, n)
-	for i := uint64(0); i < n; i++ {
+	for i := range n {
 		seqRange[i] = i + commitReport.Interval.Min
 	}
 	return &txmgr.TxMeta{

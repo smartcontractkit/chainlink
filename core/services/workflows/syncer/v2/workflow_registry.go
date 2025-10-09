@@ -142,6 +142,7 @@ func NewWorkflowRegistry(
 		lggr:                    lggr,
 		contractReaderFn:        contractReaderFn,
 		workflowRegistryAddress: addr,
+		allowListedRequests:     []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{},
 		config:                  config,
 		stopCh:                  make(services.StopChan),
 		handler:                 handler,
@@ -178,30 +179,29 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 
 		w.wg.Add(1)
 		go func() {
+			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer w.wg.Done()
+			defer close(initDoneCh)
 
-			w.lggr.Debugw("Waiting for DON...")
-			if _, err := w.workflowDonNotifier.WaitForDon(ctx); err != nil {
-				w.lggr.Errorw("failed to wait for don", "err", err)
-				w.hooks.OnStartFailure(err)
-				return
+			ticker := w.getTicker(defaultTickInterval)
+			for w.contractReader == nil {
+				select {
+				case <-ctx.Done():
+					w.lggr.Debug("shutting down workflowregistry, %s", ctx.Err())
+					return
+				case <-ticker:
+					// Async initialization of contract reader because there is an on-chain
+					// call dependency.  Blocking on initialization results in a
+					// deadlock.  Instead wait until the node has identified it's DON
+					// as a proxy for a DON and on-chain ready state .
+					reader, err := w.newWorkflowRegistryContractReader(ctx)
+					if err != nil {
+						w.lggr.Errorw("contract reader unavailable", "error", err.Error())
+						break
+					}
+					w.contractReader = reader
+				}
 			}
-
-			// Async initialization of contract reader because there is an on-chain
-			// call dependency.  Blocking on initialization results in a
-			// deadlock.  Instead wait until the node has identified it's DON
-			// as a proxy for a DON and on-chain ready state .
-			reader, err := w.newWorkflowRegistryContractReader(ctx)
-			if err != nil {
-				w.lggr.Criticalf("contract reader unavailable : %s", err)
-				w.hooks.OnStartFailure(err)
-				cancel()
-				return
-			}
-
-			w.contractReader = reader
-			close(initDoneCh)
-			w.lggr.Debugw("Received DON and set ContractReader")
 		}()
 
 		w.wg.Add(1)
@@ -455,9 +455,12 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 				continue
 			}
 			w.allowListedMu.Lock()
-			w.allowListedRequests = allowListedRequests
+			w.allowListedRequests = []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}
+			w.allowListedRequests = append(w.allowListedRequests, allowListedRequests...)
+			if len(w.allowListedRequests) > 0 {
+				w.lggr.Infow("fetched allowlisted requests", "allowListedRequests", w.allowListedRequests, "blockHeight", head.Height)
+			}
 			w.allowListedMu.Unlock()
-			w.lggr.Debugw("fetched allowlisted requests", "numRequests", len(allowListedRequests), "blockHeight", head.Height)
 		}
 	}
 }
@@ -688,7 +691,9 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
 	w.allowListedMu.RLock()
 	defer w.allowListedMu.RUnlock()
-	return w.allowListedRequests
+	allowListedRequests := make([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, len(w.allowListedRequests))
+	copy(allowListedRequests, w.allowListedRequests)
+	return allowListedRequests
 }
 
 // GetAllowlistedRequests uses contract reader to query the contract for all allowlisted requests
@@ -712,33 +717,26 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 	for {
 		var err error
 		var results struct {
-			Requests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
-			err      error
+			AllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 		}
 
 		// Read at confidenceLevel Unconfirmed, since we want to see new allowlisted requests asap, even if awaiting finalization.
 		// The delay in detecting allowlisted requests will directly affect user experience.
 		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Unconfirmed, params, &results)
 		if err != nil {
+			w.lggr.Infow("onchain call GetLatestValueWithHeadData failed ", "err", err)
 			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
 		}
 
-		for _, request := range results.Requests {
-			// TODO: https://smartcontract-it.atlassian.net/browse/CAPPL-1021 load balance across workflow nodes in DON Family
-			allAllowlistedRequests = append(allAllowlistedRequests, workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
-				RequestDigest:   request.RequestDigest,
-				Owner:           request.Owner,
-				ExpiryTimestamp: request.ExpiryTimestamp,
-			})
-		}
+		allAllowlistedRequests = append(allAllowlistedRequests, results.AllowlistedRequests...)
 
 		// if less results than limit, then we have reached the end of the list
-		if uint64(len(results.Requests)) < MaxResultsPerQuery {
+		if uint64(len(results.AllowlistedRequests)) < MaxResultsPerQuery {
 			break
 		}
 
 		// otherwise, increment the start parameter and continue to fetch more workflows
-		params.Start = params.Start.Add(params.Start, big.NewInt(int64(len(results.Requests))))
+		params.Start = params.Start.Add(params.Start, big.NewInt(int64(len(results.AllowlistedRequests))))
 	}
 
 	if headAtLastRead == nil {

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum"
@@ -134,10 +135,8 @@ func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddre
 }
 
 func (oc *contractTransmitter) forwarderAddress() common.Address {
-	for _, a := range oc.fromAddresses {
-		if a == oc.effectiveTransmitterAddress {
-			return common.Address{}
-		}
+	if slices.Contains(oc.fromAddresses, oc.effectiveTransmitterAddress) {
+		return common.Address{}
 	}
 	return oc.effectiveTransmitterAddress
 }
@@ -229,7 +228,7 @@ func parseTransmitted(log []byte) ([32]byte, uint32, error) {
 	return configDigest, epoch, err
 }
 
-func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []interface{}, caller contractReader) ([]interface{}, error) {
+func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []any, caller contractReader) ([]any, error) {
 	input, err := contractABI.Pack(method, args...)
 	if err != nil {
 		return nil, err

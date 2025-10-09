@@ -193,7 +193,6 @@ func TestUSDCValidate(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		tc := tc
 		t.Run("error = "+tc.err, func(t *testing.T) {
 			t.Parallel()
 			err := tc.config.ValidateUSDCConfig()

@@ -356,7 +356,7 @@ func (p *priceService) observeTokenPriceUpdates(
 			destTokens = append(destTokens, tokenID.TokenAddress)
 		}
 	}
-	sort.Slice(destTokens, func(i, j int) bool { return destTokens[i] < destTokens[j] })
+	slices.Sort(destTokens)
 	destTokensDecimals, err := p.destPriceRegistryReader.GetTokensDecimals(ctx, destTokens)
 	if err != nil {
 		return nil, fmt.Errorf("get tokens decimals: %w", err)

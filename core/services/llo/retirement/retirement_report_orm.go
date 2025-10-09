@@ -78,7 +78,7 @@ type Config struct {
 
 type scannableConfigDigest [32]byte
 
-func (s *scannableConfigDigest) Scan(src interface{}) error {
+func (s *scannableConfigDigest) Scan(src any) error {
 	b, ok := src.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")

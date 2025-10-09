@@ -126,7 +126,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 	require.NoError(t, err)
 
 	ccipTokenAmounts := make([]cciptypes.RampTokenAmount, 5)
-	for z := 0; z < 5; z++ {
+	for z := range 5 {
 		ccipTokenAmounts[z] = cciptypes.RampTokenAmount{
 			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
 			DestTokenAddress:  receiver.Bytes(),
@@ -136,7 +136,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 	}
 
 	solTokenAmounts := make([]ccip_offramp.Any2SVMTokenTransfer, 5)
-	for z := 0; z < 5; z++ {
+	for z := range 5 {
 		solTokenAmounts[z] = ccip_offramp.Any2SVMTokenTransfer{
 			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
 			DestTokenAddress:  receiver,

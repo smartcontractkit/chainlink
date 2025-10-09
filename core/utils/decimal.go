@@ -12,7 +12,7 @@ import (
 // TODO: Currently this function does not handle hex string as the input.
 // Draft PR to add hex string handling to utils.ToDecimal (review if this breaks other services):
 // https://github.com/smartcontractkit/chainlink/pull/14841
-func ToDecimal(input interface{}) (decimal.Decimal, error) {
+func ToDecimal(input any) (decimal.Decimal, error) {
 	switch v := input.(type) {
 	case string:
 		return decimal.NewFromString(v)

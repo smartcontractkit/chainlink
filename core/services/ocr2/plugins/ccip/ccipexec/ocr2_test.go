@@ -1238,7 +1238,7 @@ func Test_selectReportsToFillBatch(t *testing.T) {
 			nbMsgPerRoot := 200
 
 			var reports []cciptypes.CommitStoreReport
-			for i := 0; i < nbCommitStoreReports; i++ {
+			for i := range nbCommitStoreReports {
 				reports = append(reports, cciptypes.CommitStoreReport{Interval: cciptypes.CommitStoreInterval{Min: uint64(i * nbMsgPerRoot), Max: uint64((i+1)*nbMsgPerRoot - 1)}})
 			}
 
