@@ -355,12 +355,6 @@ type ConfigureKeystoneInput struct {
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
 	BlockchainOutputs           []*WrappedBlockchainOutput
 
-	EVMOCR3Config    keystone_changeset.OracleConfig
-	EVMOCR3Addresses map[uint64]common.Address // chain selector to address map
-
-	ConsensusV2OCR3Config  keystone_changeset.OracleConfig // v2 consensus contract config
-	ConsensusV2OCR3Address *common.Address
-
 	CapabilitiesRegistryAddress *common.Address
 
 	WithV2Registries bool

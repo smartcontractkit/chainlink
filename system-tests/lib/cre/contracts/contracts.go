@@ -461,7 +461,7 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 		return errors.Wrap(err, "failed to map input to dons")
 	}
 
-	capReg, err := ConfigureCapabilityRegistry(input, dons)
+	_, err = ConfigureCapabilityRegistry(input, dons)
 	if err != nil {
 		return errors.Wrap(err, "failed to configure capability registry")
 	}
@@ -520,53 +520,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 		}
 	}
 
-	if input.ConsensusV2OCR3Address != nil && input.ConsensusV2OCR3Address.Cmp(common.Address{}) != 0 {
-		v2ConsensusDON, err := dons.shouldBeOneDon(cre.ConsensusCapabilityV2)
-		if err != nil {
-			return fmt.Errorf("failed to get consensus v2 DON: %w", err)
-		}
-		_, err = operations.ExecuteOperation(
-			input.CldEnv.OperationsBundle,
-			ks_contracts_op.ConfigureOCR3Op,
-			ks_contracts_op.ConfigureOCR3OpDeps{
-				Env: input.CldEnv,
-			},
-			ks_contracts_op.ConfigureOCR3OpInput{
-				ContractAddress: input.ConsensusV2OCR3Address,
-				ChainSelector:   input.ChainSelector,
-				DON:             v2ConsensusDON.keystoneDonConfig(),
-				Config:          v2ConsensusDON.resolveOcr3Config(input.ConsensusV2OCR3Config),
-				DryRun:          false,
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "failed to configure Consensus OCR3 contract")
-		}
-
-		// configure EVM forwarders only if we have some
-		if len(evmChainsWithForwarders) > 0 {
-			forwarderCfg, err := newDonConfiguration(v2ConsensusDON.Name, v2ConsensusDON.id, input.CldEnv, capReg)
-			if err != nil {
-				return errors.Wrap(err, "failed to get DON configuration for forwarder configuration")
-			}
-			fout, err := operations.ExecuteSequence(
-				input.CldEnv.OperationsBundle,
-				forwarder.ConfigureSeq,
-				forwarder.ConfigureSeqDeps{
-					Env: input.CldEnv,
-				},
-				forwarder.ConfigureSeqInput{
-					DON:    forwarderCfg,
-					Chains: evmChainsWithForwarders,
-				},
-			)
-			if err != nil {
-				return errors.Wrap(err, "failed to configure forwarders")
-			}
-			// TODO pass this up the call stack to save in the env artifacts
-			framework.L.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
-		}
-	}
 	return nil
 }
 

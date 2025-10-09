@@ -1,4 +1,4 @@
-package features
+package v1
 
 import (
 	"bytes"
@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -19,13 +19,11 @@ import (
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	chainlinkbig "github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -269,13 +267,21 @@ func (o *EVM) PostEnvStartup(
 		}
 	}
 
-	ocr3DON, oneErr := creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapability)
+	consensusVersion := "v1"
+	consensusDON, oneErr := creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapability)
 	if oneErr != nil {
-		return oneErr
+		// if v1 consensus DON is not found, let's try v2. We should have exactly one DON with either v1 or v2 consensus
+		consensusDON, oneErr = creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapabilityV2)
+		consensusVersion = "v2"
+		if oneErr != nil {
+			return errors.New("failed to find DON with consensus v1 or v2 capability")
+		}
 	}
 
+	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
+	// it doesn't create any issues, but ideally we wouldn't do that
 	if len(evmChainsWithForwarders) > 0 {
-		if evmErr := configureEVMForwarders(testLogger, creEnv.CldfEnvironment, creEnv.DonTopology.HomeChainSelector, evmChainsWithForwarders, ocr3DON); evmErr != nil {
+		if evmErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, consensusDON, consensusVersion); evmErr != nil {
 			return errors.Wrap(evmErr, "failed to configure EVM forwarders")
 		}
 	}
@@ -331,33 +337,33 @@ func deployTronForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, 
 	return nil
 }
 
-func configureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, registryChainSelector uint64, chainsWithForwarders map[uint64]struct{}, ocr3DON *cre.DON) error {
-	forwarderCfg := forwarder.DonConfiguration{
-		Name:    ocr3DON.Name,
-		ID:      libc.MustSafeUint32FromUint64(ocr3DON.ID),
-		F:       ocr3DON.F,
-		Version: 1, // TODO this should be dynamic, but we don't have cap reg configured at this point
-		NodeIDs: ocr3DON.KeystoneDONConfig().NodeIDs,
-	}
-	fout, err3 := operations.ExecuteSequence(
-		cldfEnv.OperationsBundle,
-		forwarder.ConfigureSeq,
-		forwarder.ConfigureSeqDeps{
-			Env: cldfEnv,
-		},
-		forwarder.ConfigureSeqInput{
-			DON:    forwarderCfg,
-			Chains: chainsWithForwarders,
-		},
-	)
-	if err3 != nil {
-		return errors.Wrap(err3, "failed to configure forwarders")
-	}
+// func configureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainsWithForwarders map[uint64]struct{}, ocr3DON *cre.DON) error {
+// 	forwarderCfg := forwarder.DonConfiguration{
+// 		Name:    ocr3DON.Name,
+// 		ID:      libc.MustSafeUint32FromUint64(ocr3DON.ID),
+// 		F:       ocr3DON.F,
+// 		Version: 1, // TODO this should be dynamic, but we don't have cap reg configured at this point
+// 		NodeIDs: ocr3DON.KeystoneDONConfig().NodeIDs,
+// 	}
+// 	fout, err3 := operations.ExecuteSequence(
+// 		cldfEnv.OperationsBundle,
+// 		forwarder.ConfigureSeq,
+// 		forwarder.ConfigureSeqDeps{
+// 			Env: cldfEnv,
+// 		},
+// 		forwarder.ConfigureSeqInput{
+// 			DON:    forwarderCfg,
+// 			Chains: chainsWithForwarders,
+// 		},
+// 	)
+// 	if err3 != nil {
+// 		return errors.Wrap(err3, "failed to configure forwarders")
+// 	}
 
-	testLogger.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
+// 	testLogger.Info().Msgf("Configured forwarders for v1 consensus: %+v", fout.Output.Config)
 
-	return nil
-}
+// 	return nil
+// }
 
 func configureTronForwarders(testLogger zerolog.Logger, env *cldf.Environment, registryChainSelector uint64, dons []*cre.DON) error {
 	triggerOptions := cldf_tron.DefaultTriggerOptions()

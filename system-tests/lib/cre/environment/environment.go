@@ -456,24 +456,10 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		BlockchainOutputs:           startBlockchainsOutput.BlockChainOutputs,
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")),
-		ConsensusV2OCR3Address:      crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
 		WithV2Registries:            input.WithV2Registries,
 		DONCapabilityWithConfigs:    make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
 	}
-
-	chainOCR3Config, chainOCR3ConfigErr := crecontracts.DefaultChainCapabilityOCR3Config(topology)
-	if chainOCR3ConfigErr != nil {
-		return nil, pkgerrors.Wrap(chainOCR3ConfigErr, "failed to generate default Chain OCR3 config")
-	}
-
-	configureKeystoneInput.EVMOCR3Config = *chainOCR3Config
-
-	defaultOcr3Config, defaultOcr3ConfigErr := crecontracts.DefaultOCR3Config()
-	if defaultOcr3ConfigErr != nil {
-		return nil, pkgerrors.Wrap(defaultOcr3ConfigErr, "failed to generate default OCR3 config for EVM")
-	}
-	configureKeystoneInput.ConsensusV2OCR3Config = *defaultOcr3Config
 
 	for _, capability := range input.Capabilities {
 		configFn := capability.CapabilityRegistryV1ConfigFn()

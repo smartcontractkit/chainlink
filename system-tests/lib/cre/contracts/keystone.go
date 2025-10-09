@@ -22,12 +22,6 @@ import (
 	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
 	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-)
-
-const (
-	VaultOCR3ContractQualifier   = "capability_vault"
-	ConsensusV2ContractQualifier = "capability_consensus"
 )
 
 type DeployKeystoneContractsInput struct {
@@ -59,12 +53,6 @@ func DeployKeystoneContracts(
 			continue
 		}
 	}
-
-	var allNodeFlags []string
-	for i := range input.CapabilitiesAwareNodeSets {
-		allNodeFlags = append(allNodeFlags, input.CapabilitiesAwareNodeSets[i].Flags()...)
-	}
-	consensusV2AddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapabilityV2)
 
 	homeChainOutput := input.CtfBlockchains[0]
 
@@ -150,46 +138,12 @@ func DeployKeystoneContracts(
 	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
 	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], homeChainSelector, capRegAddr)
 
-	// deploy Consensus V2 OCR3 contract
-	if consensusV2AddrFlag {
-		_, seqErr = deployOCR3Contract(ConsensusV2ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
-		if seqErr != nil {
-			return nil, fmt.Errorf("failed to deploy Consensus V2 OCR3 contract %w", seqErr)
-		}
-		consensusV2OCR3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], ConsensusV2ContractQualifier)
-		testLogger.Info().Msgf("Deployed Consensus V2 OCR3 %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.OCR3Capability.String()], homeChainSelector, consensusV2OCR3Addr)
-	}
 	input.CldfEnvironment.DataStore = memoryDatastore.Seal()
 
 	return &DeployKeystoneContractsOutput{
 		Env:             input.CldfEnvironment,
 		MemoryDataStore: memoryDatastore,
 	}, nil
-}
-
-func deployOCR3Contract(qualifier string, selector uint64, env *cldf.Environment, ds datastore.MutableDataStore) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, error) {
-	ocr3DeployReport, err := operations.ExecuteSequence(
-		env.OperationsBundle,
-		ks_contracts_op.DeployOCR3ContractsSequence,
-		ks_contracts_op.DeployOCR3ContractSequenceDeps{
-			Env: env,
-		},
-		ks_contracts_op.DeployOCR3ContractSequenceInput{
-			ChainSelector: selector,
-			Qualifier:     qualifier,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	// TODO: CRE-742 remove address book
-	if err = env.ExistingAddresses.Merge(ocr3DeployReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-		return nil, fmt.Errorf("failed to merge address book with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	if err = ds.Merge(ocr3DeployReport.Output.Datastore); err != nil {
-		return nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	return &ocr3DeployReport.Output, nil
 }
 
 func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64, env *cldf.Environment, contractVersions map[string]string) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, *common.Address, error) {

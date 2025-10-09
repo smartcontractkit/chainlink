@@ -1,4 +1,4 @@
-package evm
+package v2
 
 import (
 	"bytes"
@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"cosmossdk.io/errors"
-	"github.com/BurntSushi/toml"
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -209,7 +209,14 @@ func (o *EVM) PostEnvStartup(
 	}
 
 	// create jobs
-	jobsErr := createJobs(ctx, creEnv.CldfEnvironment, creEnv.DonTopology.HomeChainSelector, creEnv.DonTopology, provider, capabilityConfigs)
+	jobsErr := createJobs(
+		ctx,
+		creEnv.CldfEnvironment,
+		creEnv.DonTopology.HomeChainSelector,
+		creEnv.DonTopology,
+		provider,
+		capabilityConfigs,
+	)
 	if jobsErr != nil {
 		return jobsErr
 	}
@@ -217,18 +224,11 @@ func (o *EVM) PostEnvStartup(
 	// TODO should we make sure that log poller is listening before we try to configure contracts?
 
 	// configure contracts
-	// evmOCR3CommonAddresses := make(map[uint64]common.Address)
 	for chainID := range chainsWithEVMCapability {
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
 		// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
 		// because that violates a DB constraint for offchain reporting jobs
 		evmOCR3Addr := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.DonTopology.HomeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
-		// evmOCR3CommonAddresses[creEnv.DonTopology.HomeChainSelector] = evmOCR3Addr
-
-		// evmDON, err := dons.shouldBeOneDon(cre.EVMCapability)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to get EVM DON: %w", err)
-		// }
 		var evmDON *cre.DON
 		for _, don := range creEnv.DonTopology.DonsWithFlag(cre.EVMCapability) {
 			if flags.HasFlagForChain(don.Flags, cre.EVMCapability, uint64(chainID)) {
@@ -263,35 +263,31 @@ func (o *EVM) PostEnvStartup(
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to configure EVM OCR3 contract for chainID: %d, address:%s", uint64(chainID), evmOCR3Addr))
 		}
-		// }
 	}
 
-	// for chainSelector, evmOCR3Address := range evmOCR3CommonAddresses {
-	// not sure how to map EVM chains to DONs, so for now we assume that there's only one DON that supports EVM chains
-	// evmDON, err := dons.shouldBeOneDon(cre.EVMCapability)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get EVM DON: %w", err)
-	// }
+	// configure EVM forwarders
+	consensusVersion := "v1"
+	consensusDON, oneErr := creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapability)
+	if oneErr != nil {
+		// if v1 consensus DON is not found, let's try v2. We should have exactly one DON with either v1 or v2 consensus
+		consensusDON, oneErr = creEnv.DonTopology.OneDonWithFlag(cre.ConsensusCapabilityV2)
+		consensusVersion = "v2"
+		if oneErr != nil {
+			return errors.New("failed to find DON with consensus v1 or v2 capability")
+		}
+	}
 
-	// if evmOCR3Address.Cmp(common.Address{}) != 0 {
-	// 	_, err = operations.ExecuteOperation(
-	// 		input.CldEnv.OperationsBundle,
-	// 		ks_contracts_op.ConfigureOCR3Op,
-	// 		ks_contracts_op.ConfigureOCR3OpDeps{
-	// 			Env: input.CldEnv,
-	// 		},
-	// 		ks_contracts_op.ConfigureOCR3OpInput{
-	// 			ContractAddress: &evmOCR3Address,
-	// 			ChainSelector:   chainSelector,
-	// 			DON:             evmDON.keystoneDonConfig(),
-	// 			Config:          evmDON.resolveOcr3Config(input.EVMOCR3Config),
-	// 			DryRun:          false,
-	// 		},
-	// 	)
-	// 	if err != nil {
-	// 		return errors.Wrap(err, fmt.Sprintf("failed to configure EVM OCR3 contract for chain selector: %d, address:%s", chainSelector, evmOCR3Address.Hex()))
-	// 	}
-	// }
+	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
+	// it doesn't create any issues, but ideally we wouldn't do that
+	if len(chainsWithEVMCapability) > 0 {
+		evmChainsWithForwarders := make(map[uint64]struct{})
+		for chainID := range chainsWithEVMCapability {
+			evmChainsWithForwarders[uint64(chainID)] = struct{}{}
+		}
+		if evmErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, consensusDON, consensusVersion); evmErr != nil {
+			return errors.Wrap(evmErr, "failed to configure EVM forwarders")
+		}
+	}
 
 	return nil
 }

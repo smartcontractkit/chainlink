@@ -3,6 +3,7 @@ package sets
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
+	consensus_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v2"
 	custom_compute_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/custom_compute"
 	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
 	evm_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v1"
@@ -17,6 +18,7 @@ import (
 func New() cre.Features {
 	return cre.NewFeatures(
 		&consensus_v1_feature.Consensus{},
+		&consensus_v2_feature.Consensus{},
 		&custom_compute_feature.CustomCompute{},
 		&don_time_feature.DONTime{},
 		&evm_v1_feature.EVM{},

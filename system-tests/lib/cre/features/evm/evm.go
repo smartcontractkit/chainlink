@@ -11,6 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
@@ -51,6 +53,34 @@ func DeployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, c
 	}
 
 	cldfEnv.DataStore = memoryDatastore.Seal()
+
+	return nil
+}
+
+func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainsWithForwarders map[uint64]struct{}, ocr3DON *cre.DON, consensusVersion string) error {
+	forwarderCfg := forwarder.DonConfiguration{
+		Name:    ocr3DON.Name,
+		ID:      libc.MustSafeUint32FromUint64(ocr3DON.ID),
+		F:       ocr3DON.F,
+		Version: 1, // TODO this should be dynamic, but we don't have cap reg configured at this point
+		NodeIDs: ocr3DON.KeystoneDONConfig().NodeIDs,
+	}
+	fout, err3 := operations.ExecuteSequence(
+		cldfEnv.OperationsBundle,
+		forwarder.ConfigureSeq,
+		forwarder.ConfigureSeqDeps{
+			Env: cldfEnv,
+		},
+		forwarder.ConfigureSeqInput{
+			DON:    forwarderCfg,
+			Chains: chainsWithForwarders,
+		},
+	)
+	if err3 != nil {
+		return errors.Wrap(err3, "failed to configure forwarders")
+	}
+
+	testLogger.Info().Msgf("Configured forwarders for %s consensus: %+v", consensusVersion, fout.Output.Config)
 
 	return nil
 }

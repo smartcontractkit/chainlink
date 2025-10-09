@@ -1,21 +1,20 @@
-package v1
+package v2
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
@@ -23,12 +22,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr/donlevel"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-const flag = cre.ConsensusCapability
+const flag = cre.ConsensusCapabilityV2
 
 type Consensus struct{}
 
@@ -54,8 +56,8 @@ func (o *Consensus) PreEnvStartup(
 		}
 		capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "offchain_reporting",
-				Version:        "1.0.0",
+				LabelledName:   "consensus",
+				Version:        "1.0.0-alpha",
 				CapabilityType: 2, // CONSENSUS
 				ResponseType:   0, // REPORT
 			},
@@ -68,9 +70,7 @@ func (o *Consensus) PreEnvStartup(
 	}, nil
 }
 
-const (
-	OCR3ContractQualifier = "capability_ocr3"
-)
+const ConsensusV2ContractQualifier = "capability_consensus"
 
 func (o *Consensus) PostEnvStartup(
 	ctx context.Context,
@@ -83,41 +83,30 @@ func (o *Consensus) PostEnvStartup(
 	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	// should we support more than one DON with OCR3 capability? Could there be 0? I guess as long as there's 1 with consensus v2?
-	consensusDON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)
+	consensusV2DON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)
 	if oneErr != nil {
 		return oneErr
 	}
 
-	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, OCR3ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
+	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, ConsensusV2ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if ocrErr != nil {
-		return fmt.Errorf("failed to deploy OCR3 contract %w", ocrErr)
+		return fmt.Errorf("failed to deploy OCR3 (consensus v2) contract %w", ocrErr)
 	}
 
-	chainID, chErr := chainselectors.ChainIdFromSelector(creEnv.DonTopology.HomeChainSelector)
-	if chErr != nil {
-		return errors.Wrapf(chErr, "failed to get chain ID from chain selector %d", creEnv.DonTopology.HomeChainSelector)
-	}
-
-	bootstrap, isBootstrap := creEnv.DonTopology.Bootstrap()
-	if !isBootstrap {
-		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
-	}
-
-	jobErr := createJobs(
+	jobsErr := createJobs(
 		ctx,
-		chainID,
-		ocr3ContractAddr,
-		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
-		consensusDON,
+		creEnv.CldfEnvironment,
+		// creEnv.DonTopology.HomeChainSelector,
 		creEnv.DonTopology,
-		bootstrap,
+		provider,
+		capabilityConfigs,
 	)
-	if jobErr != nil {
-		return fmt.Errorf("failed to create OCR3 jobs: %w", jobErr)
+	if jobsErr != nil {
+		return fmt.Errorf("failed to create OCR3 jobs: %w", jobsErr)
 	}
 
 	// wait for LP to be started (otherwise it won't pick up contract's configuration events)
-	if err := consensus.WaitForLogPollerToBeHealthy(consensusDON); err != nil {
+	if err := consensus.WaitForLogPollerToBeHealthy(consensusV2DON); err != nil {
 		return errors.Wrap(err, "failed while waiting for Log Poller to become healthy")
 	}
 
@@ -135,8 +124,8 @@ func (o *Consensus) PostEnvStartup(
 		ks_contracts_op.ConfigureOCR3OpInput{
 			ContractAddress: ocr3ContractAddr,
 			ChainSelector:   creEnv.DonTopology.HomeChainSelector,
-			DON:             consensusDON.KeystoneDONConfig(),
-			Config:          consensusDON.ResolveORC3Config(ocr3Config),
+			DON:             consensusV2DON.KeystoneDONConfig(),
+			Config:          consensusV2DON.ResolveORC3Config(ocr3Config),
 			DryRun:          false,
 		},
 	)
@@ -148,44 +137,86 @@ func (o *Consensus) PostEnvStartup(
 	return nil
 }
 
+const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}","nodeAddress":"{{.NodeAddress}}"}'`
+
 func createJobs(
 	ctx context.Context,
-	chainID uint64,
-	ocr3ContractAddr *common.Address,
-	jdClient *jd.JobDistributor,
-	consensusDON *cre.DON,
+	cldfEnv *cldf.Environment,
+	// registryChainSelector uint64,
 	donTopology *cre.DonTopology,
-	bootstrap *cre.Node,
+	provider infra.Provider,
+	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
-	workerNodes, wErr := consensusDON.Workers()
-	if wErr != nil {
-		return errors.Wrap(wErr, "failed to find worker nodes")
-	}
+	var generateJobSpec = func(logger zerolog.Logger, chainID uint64, nodeAddress string, mergedConfig map[string]any) (string, error) {
+		runtimeFallbacks := buildRuntimeValues(chainID, "evm", nodeAddress)
 
-	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
-	if err != nil {
-		return errors.Wrap(err, "failed to get peering configs")
-	}
-
-	jobSpecs := []*job.ProposeJobRequest{}
-	jobSpecs = append(jobSpecs, jobs.BootstrapOCR3(bootstrap.JobDistributorDetails.NodeID, "ocr3-capability", ocr3ContractAddr.Hex(), chainID))
-
-	for _, workerNode := range workerNodes {
-		evmKey, ok := workerNode.Keys.EVM[chainID]
-		if !ok {
-			return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
+		templateData, aErr := don.ApplyRuntimeValues(mergedConfig, runtimeFallbacks)
+		if aErr != nil {
+			return "", errors.Wrap(aErr, "failed to apply runtime values")
 		}
 
-		// we need the OCR2 key bundle for the EVM chain, because OCR jobs currently run only on EVM chains
-		evmOCR2KeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM]
-		if !ok {
-			return fmt.Errorf("node %s does not have OCR2 key bundle for evm", workerNode.Name)
+		tmpl, err := template.New("consensusConfig").Parse(configTemplate)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to parse consensus config template")
 		}
 
-		// we pass here bundles for all chains to enable multi-chain signing
-		jobSpecs = append(jobSpecs, jobs.WorkerOCR3(workerNode.JobDistributorDetails.NodeID, ocr3ContractAddr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringCfg, chainID))
+		var configBuffer bytes.Buffer
+		if err := tmpl.Execute(&configBuffer, templateData); err != nil {
+			return "", errors.Wrap(err, "failed to execute consensus config template")
+		}
+
+		return configBuffer.String(), nil
 	}
 
-	// pass whole topology, since some jobs might need to be created on multiple DONs
-	return jobs.Create(ctx, jdClient, donTopology, jobSpecs)
+	var dataStoreOCR3ContractKeyProvider = func(contractName string, chainSelector uint64) datastore.AddressRefKey {
+		return datastore.NewAddressRefKey(
+			chainSelector,
+			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
+			semver.MustParse("1.0.0"),
+			contractName,
+		)
+	}
+
+	donsToJobSpecs, jErr := ocr.GenerateJobSpecsForStandardCapabilityWithOCR(
+		donTopology,
+		cldfEnv.DataStore,
+		donTopology.Dons.AsNodeSetWithChainCapabilities(),
+		provider,
+		flag,
+		func(_ uint64) string {
+			return ConsensusV2ContractQualifier
+		},
+		dataStoreOCR3ContractKeyProvider,
+		donlevel.CapabilityEnabler,
+		donlevel.EnabledChainsProvider,
+		generateJobSpec,
+		donlevel.ConfigMerger,
+		capabilityConfigs,
+	)
+
+	if jErr != nil {
+		return errors.Wrap(jErr, "failed to generate EVM OCR3 job specs")
+	}
+
+	for _, don := range donTopology.Dons.List() {
+		jobSpecs, ok := donsToJobSpecs[don.ID]
+		if !ok {
+			continue
+		}
+		jobErr := jobs.Create(ctx, cldfEnv.Offchain, donTopology, jobSpecs)
+
+		if jobErr != nil {
+			return fmt.Errorf("failed to create EVM OCR3 jobs for don %s: %w", don.Name, jobErr)
+		}
+	}
+
+	return nil
+}
+
+func buildRuntimeValues(chainID uint64, networkFamily, nodeAddress string) map[string]any {
+	return map[string]any{
+		"ChainID":       chainID,
+		"NetworkFamily": networkFamily,
+		"NodeAddress":   nodeAddress,
+	}
 }
