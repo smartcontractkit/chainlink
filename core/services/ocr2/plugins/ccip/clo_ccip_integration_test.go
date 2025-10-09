@@ -11,8 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/quarantine"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -23,6 +24,7 @@ import (
 )
 
 func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
+	quarantine.Flaky(t, "DX-1807")
 	t.Parallel()
 
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
