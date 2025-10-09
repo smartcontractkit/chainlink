@@ -13,9 +13,9 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	latest_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -47,8 +47,8 @@ var (
 		shared.FeeQuoter,
 		fee_quoter.FeeQuoterMetaData,
 		&opsutil.ContractOpts{
-			Version:          semver.MustParse("1.6.0-latest"),
-			EVMBytecode:      common.FromHex(latest_fee_quoter.FeeQuoterBin),
+			Version:          &deployment.Version1_6_0,
+			EVMBytecode:      common.FromHex(fee_quoter.FeeQuoterBin),
 			ZkSyncVMBytecode: fee_quoter.ZkBytecode,
 		},
 		func(input DeployFeeQInput) []any {
