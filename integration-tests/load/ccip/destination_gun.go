@@ -290,7 +290,8 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 		}
 	case selectors.FamilySui:
 		rcv = common.LeftPadBytes(m.receiver, 32)
-		extraArgs = []byte{}
+		// OOO always true for Sui
+		extraArgs = testhelpers.MakeSuiExtraArgs(0, true, [][32]byte{})
 	}
 
 	message := router.ClientEVM2AnyMessage{
@@ -394,10 +395,6 @@ func (m *DestinationGun) GetEVMMessage(src uint64) (router.ClientEVM2AnyMessage,
 			return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("error encoding extra args for sol dest: %w", err)
 		}
 		message.ExtraArgs = extraArgs
-	}
-
-	if dstSelFamily == selectors.FamilySui {
-		message.ExtraArgs = []byte{}
 	}
 
 	return message, gasLimit, nil
