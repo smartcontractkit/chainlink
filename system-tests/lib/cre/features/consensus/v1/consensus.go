@@ -30,13 +30,13 @@ import (
 
 const flag = cre.ConsensusCapability
 
-type OCR struct{}
+type Consensus struct{}
 
-func (o *OCR) Flag() cre.CapabilityFlag {
+func (o *Consensus) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *OCR) PreEnvStartup(
+func (o *Consensus) PreEnvStartup(
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
 	cldfEnv *cldf.Environment,
@@ -72,7 +72,7 @@ const (
 	OCR3ContractQualifier = "capability_ocr3"
 )
 
-func (o *OCR) PostEnvStartup(
+func (o *Consensus) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,

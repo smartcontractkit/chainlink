@@ -16,9 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -131,19 +134,12 @@ func GatewayConfig(
 			}
 		}
 
-		donConfig.Handlers = []config.Handler{
-			{
-				Name: coregateway.WebAPICapabilitiesType,
-				Config: []byte(`
-maxAllowedMessageAgeSec = 1_000
-[NodeRateLimiter]
-globalBurst = 10
-globalRPS = 50
-perSenderBurst = 10
-perSenderRPS = 10
-`),
-			},
+		handlerConfig, hErr := HandlerConfig(coregateway.WebAPICapabilitiesType)
+		if hErr != nil {
+			return nil, errors.Wrap(hErr, "failed to get web-api capability handler config")
 		}
+
+		donConfig.Handlers = []config.Handler{handlerConfig}
 		c.Dons = append(c.Dons, donConfig)
 		result[gateway.UUID] = &c
 	}
@@ -197,6 +193,167 @@ forwardingAllowed = false
 	}
 
 	return jobs.Create(ctx, jd, donTopology, jobSpecs)
+}
+
+func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig, handlerConfigs []config.Handler) error {
+	workers, wErr := donMetadata.Workers()
+	if wErr != nil {
+		return wErr
+	}
+	evmKey, ok := workers[0].Keys.EVM[registryChainID]
+	if !ok {
+		return fmt.Errorf("worker node at index %d does not have EVM key for chainID %d", workers[0].Index, registryChainID)
+	}
+
+	// for each DON, we need to add a handler config specific for this capability
+	for nodeUUID, gc := range gatewayConfigs {
+		donFound := false
+		for donIdx, maybeDON := range gc.Dons {
+			// first we try to find DON configuration that matches current don, because it might be already present
+			for _, member := range maybeDON.Members {
+				// if any of the member's address matches the EVM key of the worker node, we found the right DON
+				if member.Address == evmKey.PublicAddress.Hex() {
+					donFound = true
+					break
+				}
+			}
+
+			if donFound {
+				for _, newHandler := range handlerConfigs {
+					alreadyPresent := false
+					for _, existingHandlers := range gc.Dons[donIdx].Handlers {
+						if strings.EqualFold(existingHandlers.Name, newHandler.Name) {
+							alreadyPresent = true
+							continue
+						}
+					}
+					if !alreadyPresent {
+						gc.Dons[donIdx].Handlers = append(gc.Dons[donIdx].Handlers, newHandler)
+					}
+				}
+				break
+			}
+		}
+
+		// if we did not find the DON in the gateway config, we need to add it
+		if !donFound {
+			members := make([]config.NodeConfig, len(workers))
+			for i, worker := range workers {
+				evmKey, ok := worker.Keys.EVM[registryChainID]
+				if !ok {
+					return fmt.Errorf("worker node at index %d does not have EVM key for chain ID %d", worker.Index, registryChainID)
+				}
+
+				members[i] = config.NodeConfig{
+					Address: evmKey.PublicAddress.Hex(),
+					Name:    fmt.Sprintf("%s-node-%d", donMetadata.Name, worker.Index),
+				}
+			}
+
+			gatewayConfigs[nodeUUID].Dons = append(gatewayConfigs[nodeUUID].Dons, config.DONConfig{
+				DonId:    donMetadata.Name,
+				F:        1,
+				Members:  members,
+				Handlers: handlerConfigs,
+			})
+		}
+	}
+
+	return nil
+}
+
+func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, output *cre.GatewayConnectorOutput) error {
+	workers, wErr := donMetadata.Workers()
+	if wErr != nil {
+		return wErr
+	}
+
+	for _, workerNode := range workers {
+		currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+
+		var typedConfig corechainlink.Config
+		unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+		if unmarshallErr != nil {
+			return errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+		}
+
+		evmKey, ok := workerNode.Keys.EVM[registryChainID]
+		if !ok {
+			return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", registryChainID, workerNode.Index)
+		}
+
+		// if no gateways are configured, then gateway connector config is most probably also not configured
+		if len(typedConfig.Capabilities.GatewayConnector.Gateways) == 0 {
+			typedConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
+				DonID:             ptr.Ptr(donMetadata.Name),
+				ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
+				NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
+			}
+		}
+
+		// make sure that all other gateways are also present in the config
+		for _, gatewayConnector := range output.Configurations {
+			alreadyPresent := false
+			for _, existingGateway := range typedConfig.Capabilities.GatewayConnector.Gateways {
+				if gatewayConnector.AuthGatewayID == *existingGateway.ID {
+					alreadyPresent = true
+					continue
+				}
+			}
+
+			if !alreadyPresent {
+				typedConfig.Capabilities.GatewayConnector.Gateways = append(typedConfig.Capabilities.GatewayConnector.Gateways, coretoml.ConnectorGateway{
+					ID: ptr.Ptr(gatewayConnector.AuthGatewayID),
+					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
+						gatewayConnector.Outgoing.Host,
+						gatewayConnector.Outgoing.Port,
+						gatewayConnector.Outgoing.Path)),
+				})
+			}
+		}
+
+		stringifiedConfig, mErr := toml.Marshal(typedConfig)
+		if mErr != nil {
+			return errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+		}
+
+		donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
+	}
+
+	return nil
+}
+
+func HandlerConfig(handler string) (config.Handler, error) {
+	switch handler {
+	case coregateway.HTTPCapabilityType:
+		return config.Handler{
+			Name:        coregateway.HTTPCapabilityType,
+			ServiceName: "workflows",
+			Config: []byte(`
+maxTriggerRequestDurationMs = 5_000
+metadataPullIntervalMs = 1_000
+metadataAggregationIntervalMs = 1_000
+[NodeRateLimiter]
+globalBurst = 10
+globalRPS = 50
+perSenderBurst = 10
+perSenderRPS = 10`),
+		}, nil
+	case coregateway.WebAPICapabilitiesType:
+		return config.Handler{
+			Name: coregateway.WebAPICapabilitiesType,
+			Config: []byte(`
+maxAllowedMessageAgeSec = 1_000
+[NodeRateLimiter]
+globalBurst = 10
+globalRPS = 50
+perSenderBurst = 10
+perSenderRPS = 10
+`),
+		}, nil
+	default:
+		return config.Handler{}, fmt.Errorf("unknown handler type: %s", handler)
+	}
 }
 
 // ExpandConfigByteArray finds lines like `Config = [10, 109, ...]` and replaces them

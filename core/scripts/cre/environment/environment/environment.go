@@ -38,9 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	evmv1feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v1"
-	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
-	ocrfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/ocr"
+	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
@@ -710,7 +708,7 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
-		Features:                  cre.NewFeatures(&ocrfeature.OCR{}, &evmv1feature.EVM{}, &http_actions_feature.HTTPAction{}),
+		Features:                  feature_set.New(),
 		ExtraAllowedPorts:         extraAllowedPorts,
 		ExtraAllowedIPs:           extraAllowedIPs,
 		ExtraAllowedIPsCIDR:       extraAllowedIPsCIDR,

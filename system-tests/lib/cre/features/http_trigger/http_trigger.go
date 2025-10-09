@@ -1,4 +1,4 @@
-package httpaction
+package httptrigger
 
 import (
 	"context"
@@ -24,15 +24,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
-const flag = cre.HTTPActionCapability
+const flag = cre.HTTPTriggerCapability
 
-type HTTPAction struct{}
+type HTTPTrigger struct{}
 
-func (o *HTTPAction) Flag() cre.CapabilityFlag {
+func (o *HTTPTrigger) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *HTTPAction) PreEnvStartup(
+func (o *HTTPTrigger) PreEnvStartup(
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
 	cldfEnv *cldf.Environment,
@@ -55,7 +55,7 @@ func (o *HTTPAction) PreEnvStartup(
 	}
 
 	// add 'http-capabilities' handler to gateway config (future jobspec)
-	// add gateway connector to to node TOML config, so that node can route http action requests to the gateway
+	// add gateway connector to to node TOML config, so that node can route http trigger requests to the gateway
 	for idx, donMetadata := range donsMetadata {
 		handlerConfig, confErr := gateway.HandlerConfig(coregateway.HTTPCapabilityType)
 		if confErr != nil {
@@ -82,9 +82,9 @@ func (o *HTTPAction) PreEnvStartup(
 
 		capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "http-actions",
+				LabelledName:   "http-trigger",
 				Version:        "1.0.0-alpha",
-				CapabilityType: 1, // ACTION
+				CapabilityType: 0, // TRIGGER
 			},
 			Config: &capabilitiespb.CapabilityConfig{},
 		})
@@ -98,7 +98,6 @@ func (o *HTTPAction) PreEnvStartup(
 
 const configTemplate = `"""
 {
-	"proxyMode": "{{.ProxyMode}}",
 	"incomingRateLimiter": {
 		"globalBurst": {{.IncomingGlobalBurst}},
 		"globalRPS": {{.IncomingGlobalRPS}},
@@ -114,7 +113,7 @@ const configTemplate = `"""
 }
 """`
 
-func (o *HTTPAction) PostEnvStartup(
+func (o *HTTPTrigger) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,

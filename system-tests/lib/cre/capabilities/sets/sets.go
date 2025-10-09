@@ -8,13 +8,10 @@ import (
 	consensusv2capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus/v2"
 	croncapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
 	evmcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
-	httptriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/httptrigger"
 	logeventtriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logeventtrigger"
 	mockcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
 	readcontractcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
 	vaultcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
-	webapitargetcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapitarget"
-	webapitriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/webapitrigger"
 	writesolanacapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writesolana"
 )
 
@@ -44,30 +41,6 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 		return nil, errors.Wrap(evmErr, "failed to create evm capability")
 	}
 	capabilities = append(capabilities, evm)
-
-	// httpaction, httpactionErr := httpactioncapability.New()
-	// if httpactionErr != nil {
-	// 	return nil, errors.Wrap(httpactionErr, "failed to create http action capability")
-	// }
-	// capabilities = append(capabilities, httpaction)
-
-	httptrigger, httptriggerErr := httptriggercapability.New()
-	if httptriggerErr != nil {
-		return nil, errors.Wrap(httptriggerErr, "failed to create http trigger capability")
-	}
-	capabilities = append(capabilities, httptrigger)
-
-	webapitrigger, webapitriggerErr := webapitriggercapability.New()
-	if webapitriggerErr != nil {
-		return nil, errors.Wrap(webapitriggerErr, "failed to create web api trigger capability")
-	}
-	capabilities = append(capabilities, webapitrigger)
-
-	webapitarget, webapitargetErr := webapitargetcapability.New()
-	if webapitargetErr != nil {
-		return nil, errors.Wrap(webapitargetErr, "failed to create web api target capability")
-	}
-	capabilities = append(capabilities, webapitarget)
 
 	vault, vaultErr := vaultcapability.New(homeChainID)
 	if vaultErr != nil {

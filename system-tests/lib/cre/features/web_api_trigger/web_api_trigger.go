@@ -1,4 +1,4 @@
-package httpaction
+package webapitrigger
 
 import (
 	"context"
@@ -24,15 +24,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
-const flag = cre.HTTPActionCapability
+const flag = cre.WebAPITriggerCapability
 
-type HTTPAction struct{}
+type WebAPITrigger struct{}
 
-func (o *HTTPAction) Flag() cre.CapabilityFlag {
+func (o *WebAPITrigger) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *HTTPAction) PreEnvStartup(
+func (o *WebAPITrigger) PreEnvStartup(
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
 	cldfEnv *cldf.Environment,
@@ -54,12 +54,12 @@ func (o *HTTPAction) PreEnvStartup(
 		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", registryChainSelector)
 	}
 
-	// add 'http-capabilities' handler to gateway config (future jobspec)
-	// add gateway connector to to node TOML config, so that node can route http action requests to the gateway
+	// add 'web-api' handler to gateway config (future jobspec)
+	// add gateway connector to to node TOML config, so that node can route http requests to the gateway
 	for idx, donMetadata := range donsMetadata {
-		handlerConfig, confErr := gateway.HandlerConfig(coregateway.HTTPCapabilityType)
+		handlerConfig, confErr := gateway.HandlerConfig(coregateway.WebAPICapabilitiesType)
 		if confErr != nil {
-			return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.HTTPCapabilityType, donMetadata.Name)
+			return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.WebAPICapabilitiesType, donMetadata.Name)
 		}
 		hErr := gateway.AddHandlers(donMetadata, registryChainID, gatewayConfigs, []config.Handler{handlerConfig})
 		if hErr != nil {
@@ -82,9 +82,9 @@ func (o *HTTPAction) PreEnvStartup(
 
 		capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "http-actions",
-				Version:        "1.0.0-alpha",
-				CapabilityType: 1, // ACTION
+				LabelledName:   "web-api-trigger",
+				Version:        "1.0.0",
+				CapabilityType: 0, // TRIGGER
 			},
 			Config: &capabilitiespb.CapabilityConfig{},
 		})
@@ -96,25 +96,9 @@ func (o *HTTPAction) PreEnvStartup(
 	}, nil
 }
 
-const configTemplate = `"""
-{
-	"proxyMode": "{{.ProxyMode}}",
-	"incomingRateLimiter": {
-		"globalBurst": {{.IncomingGlobalBurst}},
-		"globalRPS": {{.IncomingGlobalRPS}},
-		"perSenderBurst": {{.IncomingPerSenderBurst}},
-		"perSenderRPS": {{.IncomingPerSenderRPS}}
-	},
-	"outgoingRateLimiter": {
-		"globalBurst": {{.OutgoingGlobalBurst}},
-		"globalRPS": {{.OutgoingGlobalRPS}},
-		"perSenderBurst": {{.OutgoingPerSenderBurst}},
-		"perSenderRPS": {{.OutgoingPerSenderRPS}}
-	}
-}
-"""`
+const configTemplate = `""`
 
-func (o *HTTPAction) PostEnvStartup(
+func (o *WebAPITrigger) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
@@ -135,6 +119,7 @@ func (o *HTTPAction) PostEnvStartup(
 		donlevel.ConfigResolver,
 		donlevel.JobNamer,
 	)
+
 	if fErr != nil {
 		return errors.Wrap(fErr, "failed to create capability job spec factory")
 	}
@@ -147,8 +132,10 @@ func (o *HTTPAction) PostEnvStartup(
 	donsToJobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
 		flag,
 		configTemplate,
-		factory.NoOpExtractor,
-		factory.BinaryPathBuilder,
+		factory.NoOpExtractor, // No runtime values extraction needed
+		func(_ *cre.JobSpecInput, _ cre.CapabilityConfig) (string, error) {
+			return "__builtin_web-api-trigger", nil
+		},
 	)(&cre.JobSpecInput{
 		CldEnvironment: creEnv.CldfEnvironment,
 		DonTopology:    creEnv.DonTopology,
