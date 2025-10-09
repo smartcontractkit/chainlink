@@ -177,6 +177,7 @@ jobs:
       test_log_upload_on_failure: true
       test_log_upload_retention_days: 7
       team: ${{ inputs.team }}
+      test_image_suites: benchmark load
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

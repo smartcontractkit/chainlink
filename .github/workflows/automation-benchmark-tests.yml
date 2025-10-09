@@ -37,6 +37,7 @@ jobs:
       SLACK_CHANNEL: C03KJ5S7KEK
       team: ${{ inputs.team }}
       test_secrets_override_key: ${{ github.event.inputs.test_secrets_override_key }}
+      test_image_suites: benchmark load
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
