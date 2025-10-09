@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -41,6 +42,8 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	latest_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
@@ -69,6 +72,7 @@ import (
 	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -1031,11 +1035,24 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
+	// Use 1.6.0 latest FeeQuoter when TON chains present in environment.
+	// The 1.6.0 latest FeeQuoter version is required on EVM chains to calculate fees for TON destinations.
+	// TODO: remove this once we have a released version of FeeQuoter for TON destinations.
+	useLatestFeeQuoter := len(tonChains) > 0
+
 	for _, chain := range evmChains {
-		evmContractParams[chain] = ccipseq.ChainContractParams{
+		params := ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
 			OffRampParams:   ccipops.DefaultOffRampParams(),
 		}
+		if useLatestFeeQuoter {
+			params.FeeQuoterOpts = &opsutil.ContractOpts{
+				Version:          semver.MustParse("1.6.0-latest"),
+				EVMBytecode:      common.FromHex(latest_fee_quoter.FeeQuoterBin),
+				ZkSyncVMBytecode: latest_fee_quoter.ZkBytecode,
+			}
+		}
+		evmContractParams[chain] = params
 	}
 
 	apps = append(apps, []commonchangeset.ConfiguredChangeSet{
