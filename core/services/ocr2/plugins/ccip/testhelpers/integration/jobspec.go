@@ -328,6 +328,8 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		}
 		ocrSpec.PluginConfig["LBTCConfigs"] = lbtcConfigs
 	}
+	// Always put some random config in PluginConfig to test forward compatibility
+	ocrSpec.PluginConfig["ConfigFromTheFuture.Value"] = fmt.Sprintf("\"%s\"", utils.RandomAddress().String())
 	return &OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,
 		JobType:        "offchainreporting2",
