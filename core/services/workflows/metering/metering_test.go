@@ -1023,7 +1023,10 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "840.0000000000",
 					},
 				},
-				CapdonN: 10,
+				AggSpendValue:    "42.0000000000",
+				AggSpendUnit:     "RESOURCE_TYPE_COMPUTE",
+				AggSpendValueCre: "840.0000000000",
+				CapdonN:          10,
 			}
 		}
 
@@ -1078,7 +1081,10 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "24.0000000000",
 					},
 				},
-				CapdonN: 1,
+				AggSpendValue:    "42.0000000000",
+				AggSpendUnit:     "RESOURCE_TYPE_COMPUTE",
+				AggSpendValueCre: "84.0000000000",
+				CapdonN:          1,
 				AggSpend: []*eventspb.AggregatedSpendDetail{
 					{
 						SpendValue:    "42.0000000000", // median of 42, 44, 12
@@ -1159,7 +1165,10 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "100.0000000000",
 					},
 				},
-				CapdonN: 1,
+				AggSpendValue:    "1000000000000.0000000000",
+				AggSpendUnit:     "GAS.5009297550715157269",
+				AggSpendValueCre: "100.0000000000",
+				CapdonN:          1,
 				AggSpend: []*eventspb.AggregatedSpendDetail{
 					{
 						SpendValue:    "42.0000000000", // median of 42, 44, 12
@@ -1402,7 +1411,10 @@ func Test_Report_EmitReceipt(t *testing.T) {
 						SpendValueCre: "0.0000000000",
 					},
 				},
-				CapdonN: 1,
+				AggSpendValue:    "42.0000000000",
+				AggSpendUnit:     "a",
+				AggSpendValueCre: "0.0000000000",
+				CapdonN:          1,
 				Nodes: []*eventspb.MeteringReportNodeDetail{
 					{
 						Peer_2PeerId:  "xyz",
