@@ -75,7 +75,10 @@ func (r *requestAuthorizer) clearExpiredAuthorizedRequests() {
 		expiryStr := strings.Split(request, "-->")[1]
 		expiry, err := strconv.Atoi(expiryStr)
 		if err != nil {
-			panic("could not parse expiry timestamp: " + err.Error())
+			r.lggr.Errorw("AuthorizeRequest could not parse expiry timestamp", "request", request, "error", err)
+			// To avoid this error being logged repeatedly, we delete the request from the map
+			delete(r.alreadyAuthorizedRequests, request)
+			continue
 		}
 		if time.Now().UTC().Unix() > int64(expiry) {
 			delete(r.alreadyAuthorizedRequests, request)
