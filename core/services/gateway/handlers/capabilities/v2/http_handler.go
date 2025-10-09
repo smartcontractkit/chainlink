@@ -347,7 +347,9 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to start HTTP auth handler: %w", err)
 		}
+		h.wg.Add(1)
 		go func() {
+			defer h.wg.Done()
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {

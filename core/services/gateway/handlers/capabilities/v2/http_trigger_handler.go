@@ -55,6 +55,7 @@ type httpTriggerHandler struct {
 	workflowMetadataHandler *WorkflowMetadataHandler
 	userRateLimiter         *ratelimit.RateLimiter
 	metrics                 *metrics.Metrics
+	wg                      sync.WaitGroup
 }
 
 type HTTPTriggerHandler interface {
@@ -427,7 +428,9 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 func (h *httpTriggerHandler) Start(ctx context.Context) error {
 	return h.StartOnce("HTTPTriggerHandler", func() error {
 		h.lggr.Info("Starting HTTPTriggerHandler")
+		h.wg.Add(1)
 		go func() {
+			defer h.wg.Done()
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {
@@ -447,6 +450,7 @@ func (h *httpTriggerHandler) Close() error {
 	return h.StopOnce("HTTPTriggerHandler", func() error {
 		h.lggr.Info("Closing HTTPTriggerHandler")
 		close(h.stopCh)
+		h.wg.Wait()
 		return nil
 	})
 }
