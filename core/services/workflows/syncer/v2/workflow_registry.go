@@ -33,7 +33,6 @@ var (
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
 	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
-	GetAllowlistedRequestsMethodName              = "getAllowlistedRequests"
 	GetActiveAllowlistedRequestsReverseMethodName = "getActiveAllowlistedRequestsReverse"
 	TotalAllowlistedRequestsMethodName            = "totalAllowlistedRequests"
 
@@ -606,10 +605,6 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 						ChainSpecificName: GetWorkflowsByDONMethodName,
 						ReadType:          config.Method,
 					},
-					GetAllowlistedRequestsMethodName: {
-						ChainSpecificName: GetAllowlistedRequestsMethodName,
-						ReadType:          config.Method,
-					},
 					GetActiveAllowlistedRequestsReverseMethodName: {
 						ChainSpecificName: GetActiveAllowlistedRequestsReverseMethodName,
 						ReadType:          config.Method,
@@ -729,7 +724,10 @@ func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_
 func (w *workflowRegistry) GetLastSeenOnchainAllowlistedRequestsCount(_ context.Context) *big.Int {
 	w.allowListedMu.RLock()
 	defer w.allowListedMu.RUnlock()
-	return w.lastSeenAllowlistedRequestsCount
+	if w.lastSeenAllowlistedRequestsCount == nil {
+		return nil
+	}
+	return new(big.Int).Set(w.lastSeenAllowlistedRequestsCount)
 }
 
 // GetAllowlistedRequests uses contract reader to query the contract for all allowlisted requests
