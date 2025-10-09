@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -22,7 +20,7 @@ type RequestAuthorizer interface {
 }
 type requestAuthorizer struct {
 	workflowRegistrySyncer    workflowsyncerv2.WorkflowRegistrySyncer
-	alreadyAuthorizedRequests map[string]bool
+	alreadyAuthorizedRequests map[string]int64
 	alreadyAuthorizedMutex    sync.Mutex
 	lggr                      logger.Logger
 }
@@ -50,37 +48,28 @@ func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Re
 		r.lggr.Infow("AuthorizeRequest fetchAllowlistedItem request not allowlisted", "method", req.Method, "requestID", req.ID, "digestHexStr", hex.EncodeToString(digest[:]), "allowedRequestDigestHexStrs", requestDigests)
 		return false, "", errors.New("request not allowlisted")
 	}
-	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:]) + "-->" + strconv.FormatUint(uint64(allowlistedRequest.ExpiryTimestamp), 10)
+	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:])
 
 	r.alreadyAuthorizedMutex.Lock()
 	defer r.alreadyAuthorizedMutex.Unlock()
-	if r.alreadyAuthorizedRequests[authorizedRequestStr] {
+	if r.alreadyAuthorizedRequests[authorizedRequestStr] > 0 {
 		r.lggr.Infow("AuthorizeRequest already authorized previously", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request already authorized previously")
 	}
-	currentTimestamp := time.Now().UTC().Unix()
-	if currentTimestamp > int64(allowlistedRequest.ExpiryTimestamp) {
+	if time.Now().UTC().Unix() > int64(allowlistedRequest.ExpiryTimestamp) {
 		r.lggr.Infow("AuthorizeRequest expired authorization", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request authorization expired")
 	}
 	r.lggr.Infow("AuthorizeRequest success in auth", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
-	r.alreadyAuthorizedRequests[authorizedRequestStr] = true
+	r.alreadyAuthorizedRequests[authorizedRequestStr] = int64(allowlistedRequest.ExpiryTimestamp)
 	return true, allowlistedRequest.Owner.Hex(), nil
 }
 
 func (r *requestAuthorizer) clearExpiredAuthorizedRequests() {
 	r.alreadyAuthorizedMutex.Lock()
 	defer r.alreadyAuthorizedMutex.Unlock()
-	for request := range r.alreadyAuthorizedRequests {
-		expiryStr := strings.Split(request, "-->")[1]
-		expiry, err := strconv.Atoi(expiryStr)
-		if err != nil {
-			r.lggr.Errorw("AuthorizeRequest could not parse expiry timestamp", "request", request, "error", err)
-			// To avoid this error being logged repeatedly, we delete the request from the map
-			delete(r.alreadyAuthorizedRequests, request)
-			continue
-		}
-		if time.Now().UTC().Unix() > int64(expiry) {
+	for request, expiry := range r.alreadyAuthorizedRequests {
+		if time.Now().UTC().Unix() > expiry {
 			delete(r.alreadyAuthorizedRequests, request)
 		}
 	}
@@ -99,6 +88,6 @@ func NewRequestAuthorizer(lggr logger.Logger, workflowRegistrySyncer workflowsyn
 	return &requestAuthorizer{
 		workflowRegistrySyncer:    workflowRegistrySyncer,
 		lggr:                      logger.Named(lggr, "VaultRequestAuthorizer"),
-		alreadyAuthorizedRequests: make(map[string]bool),
+		alreadyAuthorizedRequests: make(map[string]int64),
 	}
 }
