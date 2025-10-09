@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -51,10 +52,8 @@ type TestBHS struct {
 }
 
 func (t *TestBHS) Store(_ context.Context, blockNum uint64) error {
-	for _, e := range t.ErrorsStore {
-		if e == blockNum {
-			return errors.New("error storing")
-		}
+	if slices.Contains(t.ErrorsStore, blockNum) {
+		return errors.New("error storing")
 	}
 
 	t.Stored = append(t.Stored, blockNum)
@@ -72,16 +71,12 @@ func (t *TestBHS) StoreTrusted(
 }
 
 func (t *TestBHS) IsStored(_ context.Context, blockNum uint64) (bool, error) {
-	for _, e := range t.ErrorsIsStored {
-		if e == blockNum {
-			return false, errors.New("error checking if stored")
-		}
+	if slices.Contains(t.ErrorsIsStored, blockNum) {
+		return false, errors.New("error checking if stored")
 	}
 
-	for _, s := range t.Stored {
-		if s == blockNum {
-			return true, nil
-		}
+	if slices.Contains(t.Stored, blockNum) {
+		return true, nil
 	}
 	return false, nil
 }

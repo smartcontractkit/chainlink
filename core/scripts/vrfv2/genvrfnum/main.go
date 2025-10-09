@@ -245,10 +245,7 @@ func preseed(keyHash common.Hash, sender common.Address, subID, nonce uint64) [3
 func nonceRanges(start, end, numWorkers uint64) (ranges [][]uint64) {
 	rangeSize := (end - start) / numWorkers
 	for i := start; i <= end; i += rangeSize + 1 {
-		j := i + rangeSize
-		if j > end {
-			j = end
-		}
+		j := min(i+rangeSize, end)
 
 		ranges = append(ranges, []uint64{i, j})
 	}

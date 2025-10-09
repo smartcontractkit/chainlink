@@ -34,8 +34,8 @@ func TestStartHeartbeats(t *testing.T) {
 	// generate n BHS keys to make sure BHS job rotates sending keys
 	var bhsKeyAddresses []string
 	var keySpecificOverrides []toml.KeySpecific
-	var keys []interface{}
-	for i := 0; i < len(consumers); i++ {
+	var keys []any
+	for range consumers {
 		bhsKey := cltest.MustGenerateRandomKey(t)
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
 		keys = append(keys, bhsKey)
@@ -80,7 +80,7 @@ func TestStartHeartbeats(t *testing.T) {
 
 		initTxns := 260
 		// Wait 260 blocks.
-		for i := 0; i < initTxns; i++ {
+		for range initTxns {
 			uni.backend.Commit()
 		}
 		diff := heartbeatPeriod + 1*time.Second

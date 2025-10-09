@@ -91,7 +91,6 @@ func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte 
 	queryProto := encoding.Query{}
 	queryProto.RequestIDs = [][]byte{}
 	for _, id := range reqIDs {
-		id := id
 		queryProto.RequestIDs = append(queryProto.RequestIDs, id[:])
 	}
 	marshalled, err := proto.Marshal(&queryProto)
@@ -417,7 +416,6 @@ func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {
 func getReportBytes(t *testing.T, codec encoding.ReportCodec, reqs ...functions_srv.Request) []byte {
 	var report []*encoding.ProcessedRequest
 	for _, req := range reqs {
-		req := req
 		report = append(report, &encoding.ProcessedRequest{
 			RequestID:           req.RequestID[:],
 			Result:              req.Result,

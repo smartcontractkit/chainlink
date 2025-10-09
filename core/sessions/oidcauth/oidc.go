@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -210,7 +211,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	var claims map[string]interface{}
+	var claims map[string]any
 	if err = idToken.Claims(&claims); err != nil {
 		oi.lggr.Errorf("Failed to parse OIDC return claims: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to parse OIDC return claims")
@@ -432,7 +433,7 @@ func (oi *oidcAuthenticator) CreateSession(ctx context.Context, sr clsessions.Se
 		return "", fmt.Errorf("error creating local OIDC session: %w", err)
 	}
 
-	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
+	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": sr.Email})
 
 	return session.ID, nil
 }
@@ -538,7 +539,7 @@ func (oi *oidcAuthenticator) SetAuthToken(ctx context.Context, user *clsessions.
 		return errors.New("error creating API token")
 	}
 
-	oi.auditLogger.Audit(audit.APITokenCreated, map[string]interface{}{"user": user.Email})
+	oi.auditLogger.Audit(audit.APITokenCreated, map[string]any{"user": user.Email})
 	return nil
 }
 
@@ -579,12 +580,12 @@ func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessio
 		return user, err
 	}
 	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
-		oi.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
+		oi.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]any{"email": sr.Email})
 		return user, errors.New("invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		oi.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
+		oi.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]any{"email": sr.Email})
 		return user, errors.New("invalid password")
 	}
 
@@ -593,35 +594,27 @@ func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessio
 
 func (oi *oidcAuthenticator) IDClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, runClaim string, readClaim string) (clsessions.UserRole, error) {
 	// If defined Admin group name is present in id claims, return UserRoleAdmin
-	for _, group := range idClaims {
-		if group == adminClaim {
-			return clsessions.UserRoleAdmin, nil
-		}
+	if slices.Contains(idClaims, adminClaim) {
+		return clsessions.UserRoleAdmin, nil
 	}
 	// Check edit role
-	for _, group := range idClaims {
-		if group == editClaim {
-			return clsessions.UserRoleEdit, nil
-		}
+	if slices.Contains(idClaims, editClaim) {
+		return clsessions.UserRoleEdit, nil
 	}
 	// Check run role
-	for _, group := range idClaims {
-		if group == runClaim {
-			return clsessions.UserRoleRun, nil
-		}
+	if slices.Contains(idClaims, runClaim) {
+		return clsessions.UserRoleRun, nil
 	}
 	// Check view role
-	for _, group := range idClaims {
-		if group == readClaim {
-			return clsessions.UserRoleView, nil
-		}
+	if slices.Contains(idClaims, readClaim) {
+		return clsessions.UserRoleView, nil
 	}
 	// No role group found, error
 	return clsessions.UserRoleView, ErrUserNoOIDCGroups
 }
 
 // extractIDClaimValues extracts groups from the claims using the specified key
-func (oi *oidcAuthenticator) ExtractIDClaimValues(claims map[string]interface{}, key string) ([]string, error) {
+func (oi *oidcAuthenticator) ExtractIDClaimValues(claims map[string]any, key string) ([]string, error) {
 	claimValues, ok := claims[key]
 	if !ok {
 		return nil, fmt.Errorf("claim '%s' not found in ID token", key)
@@ -629,7 +622,7 @@ func (oi *oidcAuthenticator) ExtractIDClaimValues(claims map[string]interface{},
 
 	// Handle different types of claim values
 	switch v := claimValues.(type) {
-	case []interface{}:
+	case []any:
 		val := make([]string, 0, len(v))
 		for _, item := range v {
 			str, ok := item.(string)

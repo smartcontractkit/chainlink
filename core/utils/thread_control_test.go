@@ -17,7 +17,7 @@ func TestThreadControl_Close(t *testing.T) {
 
 	finished := atomic.Int32{}
 
-	for i := 0; i < n; i++ {
+	for range n {
 		tc.Go(func(ctx context.Context) {
 			<-ctx.Done()
 			finished.Add(1)

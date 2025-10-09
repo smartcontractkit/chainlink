@@ -129,7 +129,7 @@ func GetTxFromAddress(tx *types.Transaction) (string, error) {
 }
 
 // todo - move to CTF
-func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, error) {
+func DecodeTxInputData(abiString string, data []byte) (map[string]any, error) {
 	jsonABI, err := abi.JSON(strings.NewReader(abiString))
 	if err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 	if err != nil {
 		return nil, err
 	}
-	inputsMap := make(map[string]interface{})
+	inputsMap := make(map[string]any)
 	if err := method.Inputs.UnpackIntoMap(inputsMap, inputsSigData); err != nil {
 		return nil, err
 	}
@@ -496,7 +496,7 @@ func DeployForwarderContracts(
 	require.NoError(t, err, "failed to create new instance of operator factory")
 	operatorFactoryInstance = &instance
 
-	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
+	for range numberOfOperatorForwarderPairs {
 		tx, deployErr := operatorFactoryInstance.DeployNewOperatorAndForwarder()
 		decodedTx, err := seth.Decode(tx, deployErr)
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
@@ -544,7 +544,7 @@ func WatchNewOCRRound(
 		case <-timeoutC:
 			return fmt.Errorf("timeout waiting for round %d to be confirmed. %d/%d nodes confirmed it", roundNumber, len(confirmed), len(ocrInstances))
 		case <-ticker.C:
-			for i := 0; i < len(ocrInstances); i++ {
+			for i := range ocrInstances {
 				if confirmed[ocrInstances[i].Address()] {
 					continue
 				}
@@ -854,7 +854,7 @@ func DeleteAllJobs(chainlinkNodes []*nodeclient.ChainlinkK8sClient) error {
 func StartNewRound(
 	ocrInstances []contracts.OffChainAggregatorWithRounds,
 ) error {
-	for i := 0; i < len(ocrInstances); i++ {
+	for i := range ocrInstances {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
 			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)

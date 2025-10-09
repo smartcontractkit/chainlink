@@ -59,7 +59,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
 	// that the syncer will query the contract multiple times to get the full list of workflows
 	numberWorkflows := 250
-	for i := 0; i < numberWorkflows; i++ {
+	for i := range numberWorkflows {
 		var workflowID [32]byte
 		_, err = rand.Read((workflowID)[:])
 		require.NoError(t, err)
@@ -414,7 +414,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 		// Use a high number of workflows
 		// Tested up to 7_000
 		numberWorkflows := 1_000
-		for i := 0; i < numberWorkflows; i++ {
+		for i := range numberWorkflows {
 			var workflowID [32]byte
 			_, err = rand.Read((workflowID)[:])
 			require.NoError(t, err)

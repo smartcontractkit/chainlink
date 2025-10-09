@@ -61,7 +61,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 	cache := common.NewRequestCache[requestState](time.Hour, 1000)
 	cbs := make([]*common.Callback, nRequests)
 	reqs := make([]*api.Message, nRequests)
-	for i := 0; i < nRequests; i++ {
+	for i := range nRequests {
 		cb := common.NewCallback()
 		cbs[i] = cb
 		reqs[i] = &api.Message{Body: api.MessageBody{MessageId: "abcd", Sender: fmt.Sprintf("sender_%d", i)}}
@@ -69,10 +69,10 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 		require.NoError(t, cache.NewRequest(lggr, reqs[i], cbs[i], initialState))
 	}
 
-	for i := 0; i < nRequests; i++ {
+	for i := range nRequests {
 		resp := &api.Message{Body: api.MessageBody{MessageId: "abcd"}}
 		resp.Body.Receiver = reqs[i].Body.Sender
-		for j := 0; j < nResponsesPerRequest; j++ {
+		for range nResponsesPerRequest {
 			go func() {
 				n := rand.Intn(maxDelayMillis) + 1
 				time.Sleep(time.Duration(n) * time.Millisecond)
@@ -92,7 +92,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < nRequests; i++ {
+	for i := range nRequests {
 		resp, err := cbs[i].Wait(t.Context())
 		require.NoError(t, err)
 		var msg api.Message

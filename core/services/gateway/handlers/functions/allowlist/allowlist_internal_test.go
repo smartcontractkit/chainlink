@@ -39,7 +39,7 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 		expectedAllowlist := make(map[common.Address]struct{}, 0)
 
 		// we load both the expectedAllowlist and the allowlist the contract will return with some new addresses
-		for i := 0; i < allowlistSize; i++ {
+		for range allowlistSize {
 			addr := testutils.NewAddress()
 			allowlist = append(allowlist, addr)
 			expectedAllowlist[addr] = struct{}{}
@@ -96,7 +96,7 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 		expectedAllowlist := make(map[common.Address]struct{}, 0)
 
 		// we load both the expectedAllowlist and the allowlist the contract will return with some new addresses
-		for i := 0; i < allowlistSize; i++ {
+		for range allowlistSize {
 			addr := testutils.NewAddress()
 			allowlist = append(allowlist, addr)
 			expectedAllowlist[addr] = struct{}{}
@@ -162,7 +162,7 @@ func TestUpdateAllowedSendersInBatches(t *testing.T) {
 		expectedAllowlist := make(map[common.Address]struct{}, 0)
 
 		// we load both the expectedAllowlist and the allowlist the contract will return with some new addresses
-		for i := 0; i < allowlistSize; i++ {
+		for range allowlistSize {
 			addr := testutils.NewAddress()
 			allowlist = append(allowlist, addr)
 			expectedAllowlist[addr] = struct{}{}

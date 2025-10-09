@@ -150,7 +150,7 @@ type Application interface {
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
-	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+	RunJobV2(ctx context.Context, jobID int32, meta map[string]any) (int64, error)
 
 	// Feeds
 	GetFeedsService() feeds.Service
@@ -640,6 +640,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
+		creServices.orgResolver,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -871,6 +872,9 @@ type CREServices struct {
 	srvs []services.ServiceCtx
 
 	workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
+
+	// orgResolver provides realtime workflow owner --> orgID resolution
+	orgResolver orgresolver.OrgResolver
 }
 
 func newCREServices(
@@ -934,6 +938,34 @@ func newCREServices(
 			clockwork.NewRealClock(),
 			globalLogger)
 		srvcs = append(srvcs, gatewayConnectorWrapper)
+	}
+
+	var orgResolver orgresolver.OrgResolver
+	if cfg.CRE().Linking().URL() != "" {
+		var wrChainDetails chainselectors.ChainDetails
+		if capCfg.WorkflowRegistry().Address() != "" {
+			wrChainDetails, err = chainselectors.GetChainDetailsByChainIDAndFamily(
+				capCfg.WorkflowRegistry().ChainID(),
+				capCfg.WorkflowRegistry().NetworkID(),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
+			}
+		}
+
+		orgResolverConfig := orgresolver.Config{
+			URL:                           cfg.CRE().Linking().URL(),
+			TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
+			WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
+			WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
+		}
+		orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create org resolver: %w", err)
+		}
+		srvcs = append(srvcs, orgResolver)
+	} else {
+		globalLogger.Warn("OrgResolver not created - no linking service URL configured")
 	}
 
 	var workflowRegistrySyncerV2 syncerV2.WorkflowRegistrySyncer
@@ -1189,24 +1221,6 @@ func newCREServices(
 					}
 
 					engineRegistry := syncerV2.NewEngineRegistry()
-
-					// Create OrgResolver for workflow owner organization resolution
-					var orgResolver orgresolver.OrgResolver
-					if cfg.CRE().Linking().URL() != "" {
-						orgResolverConfig := orgresolver.Config{
-							URL:                           cfg.CRE().Linking().URL(),
-							TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
-							WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
-							WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
-						}
-						orgResolver, err = orgresolver.NewOrgResolver(orgResolverConfig, globalLogger)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create org resolver: %w", err)
-						}
-						srvcs = append(srvcs, orgResolver)
-					} else {
-						globalLogger.Warn("OrgResolver not created - no linking service URL configured")
-					}
 
 					eventHandler, err := syncerV2.NewEventHandler(
 						lggr,
@@ -1482,7 +1496,7 @@ func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uu
 func (app *ChainlinkApplication) RunJobV2(
 	ctx context.Context,
 	jobID int32,
-	meta map[string]interface{},
+	meta map[string]any,
 ) (int64, error) {
 	if build.IsProd() {
 		return 0, errors.New("manual job runs not supported on secure builds")
@@ -1496,7 +1510,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	// Some jobs are special in that they do not have a task graph.
 	isBootstrap := jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil && jb.OCROracleSpec.IsBootstrapPeer
 	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
-		var vars map[string]interface{}
+		var vars map[string]any
 		var saveTasks bool
 		if jb.Type == job.VRF {
 			saveTasks = true
@@ -1514,15 +1528,15 @@ func (app *ChainlinkApplication) RunJobV2(
 				BlockNumber: 10,
 				BlockHash:   evmutils.NewHash(),
 			}
-			vars = map[string]interface{}{
-				"jobSpec": map[string]interface{}{
+			vars = map[string]any{
+				"jobSpec": map[string]any{
 					"databaseID":    jb.ID,
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
 					"publicKey":     jb.VRFSpec.PublicKey[:],
 					"evmChainID":    jb.VRFSpec.EVMChainID.String(),
 				},
-				"jobRun": map[string]interface{}{
+				"jobRun": map[string]any{
 					"meta":           meta,
 					"logBlockHash":   testLog.BlockHash[:],
 					"logBlockNumber": testLog.BlockNumber,
@@ -1532,8 +1546,8 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 			}
 		} else {
-			vars = map[string]interface{}{
-				"jobRun": map[string]interface{}{
+			vars = map[string]any{
+				"jobRun": map[string]any{
 					"meta": meta,
 				},
 			}

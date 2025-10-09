@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	stderrors "errors"
+	"maps"
 
 	"github.com/pkg/errors"
 
@@ -44,9 +45,7 @@ func (t *MergeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 
 	// clobber lMap with rMap values
 	// "nil" values on the right will clobber
-	for key, value := range rMap {
-		lMap[key] = value
-	}
+	maps.Copy(lMap, rMap)
 
 	return Result{Value: lMap.Map()}, runInfo
 }

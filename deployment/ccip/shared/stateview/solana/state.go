@@ -152,7 +152,7 @@ func (s CCIPChainState) ValidatePoolDeployment(
 	chain := e.BlockChains.SolanaChains()[selector]
 
 	var tokenPool solana.PublicKey
-	var poolConfigAccount interface{}
+	var poolConfigAccount any
 
 	if _, err := s.TokenToTokenProgram(tokenPubKey); err != nil {
 		return fmt.Errorf("token %s not found in existing state, deploy the token first", tokenPubKey.String())

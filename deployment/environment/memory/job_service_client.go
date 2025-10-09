@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
@@ -134,8 +135,6 @@ func (m *mapNodeStore) asMap() map[string]*Node {
 		return nil
 	}
 	nodes := make(map[string]*Node)
-	for k, v := range m.nodes {
-		nodes[k] = v
-	}
+	maps.Copy(nodes, m.nodes)
 	return nodes
 }

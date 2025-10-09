@@ -185,7 +185,7 @@ func (c *defaultEvmBatchCaller) createBatchCalls(
 		rpcBatchCalls[idx] = rpc.BatchElem{
 			Method: "eth_call",
 			Args: []any{
-				map[string]interface{}{
+				map[string]any{
 					"from": common.Address{},
 					"to":   call.ContractAddress,
 					"data": hexutil.Bytes(data),
@@ -282,12 +282,9 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 }
 
 func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context, blockNumber uint64, calls BatchCall) (BatchResult, error) {
-	lim := c.batchSizeLimit
-
-	// Limit the batch size to the number of calls
-	if uint(len(calls)) < lim {
-		lim = uint(len(calls))
-	}
+	lim := min(
+		// Limit the batch size to the number of calls
+		uint(len(calls)), c.batchSizeLimit)
 
 	for {
 		results, err := c.batchCallLimit(ctx, blockNumber, calls, lim)
@@ -337,10 +334,7 @@ func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber 
 	for i := 0; i < len(calls); i += int(batchSizeLimit) {
 		idxFrom := i
 
-		idxTo := idxFrom + int(batchSizeLimit)
-		if idxTo > len(calls) {
-			idxTo = len(calls)
-		}
+		idxTo := min(idxFrom+int(batchSizeLimit), len(calls))
 
 		jobs = append(jobs, job{blockNumber: blockNumber, calls: calls[idxFrom:idxTo], results: nil})
 	}
@@ -350,7 +344,6 @@ func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber 
 		eg.SetLimit(int(c.parallelRpcCallsLimit))
 
 		for jobIdx := range jobs {
-			jobIdx := jobIdx
 
 			eg.Go(func() error {
 				res, err := c.batchCall(ctx, jobs[jobIdx].blockNumber, jobs[jobIdx].calls)

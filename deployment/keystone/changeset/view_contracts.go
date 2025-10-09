@@ -235,9 +235,9 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, 
 			return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 		}
 		for lbl := range tv.Labels {
-			if strings.HasPrefix(lbl, lblPrefix) {
+			if after, ok := strings.CutPrefix(lbl, lblPrefix); ok {
 				// Extract the block number part after the prefix
-				blockStr := strings.TrimPrefix(lbl, lblPrefix)
+				blockStr := after
 				blockNum, err := strconv.ParseUint(blockStr, 10, 64)
 				if err == nil {
 					deploymentBlock = blockNum

@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -54,9 +55,7 @@ func (b *telemetryConfig) ResourceAttributes() map[string]string {
 		"service.shortversion": fmt.Sprintf("%s@%s", ver, sha),
 	}
 
-	for k, v := range b.s.ResourceAttributes {
-		defaults[k] = v
-	}
+	maps.Copy(defaults, b.s.ResourceAttributes)
 
 	return defaults
 }

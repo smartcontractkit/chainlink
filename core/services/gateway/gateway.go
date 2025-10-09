@@ -67,7 +67,6 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 	serviceNameToDonID := make(map[string]string)
 
 	for _, donConfig := range cfg.Dons {
-		donConfig := donConfig
 		_, ok := handlerMap[donConfig.DonId]
 		if ok {
 			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)

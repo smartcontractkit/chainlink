@@ -28,7 +28,7 @@ const adapterLWBAErrorName = "AdapterLWBAError"
 
 type Telemeter interface {
 	EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error)
-	MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{})
+	MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any)
 	GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry
 	GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry
 	CaptureEATelemetry() bool
@@ -164,7 +164,7 @@ func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.Task
 }
 
 type telemetryCollectionContext struct {
-	in   <-chan interface{}
+	in   <-chan any
 	opts llo.DSOpts
 }
 
@@ -177,11 +177,11 @@ type telemetryCollectionContext struct {
 //
 // It is necessary to make a new channel for every Observation call because it
 // closes over DSOpts which is scoped to that call only.
-func (t *telemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) chan<- interface{} {
+func (t *telemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) chan<- any {
 	if !(t.captureObservationTelemetry || t.captureEATelemetry) {
 		return nil
 	}
-	ch := make(chan interface{}, size)
+	ch := make(chan any, size)
 	tcc := telemetryCollectionContext{
 		in:   ch,
 		opts: opts,
@@ -331,7 +331,7 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 	}
 }
 
-func (t *telemeter) prepareObservationTelemetry(p interface{}, opts llo.DSOpts) {
+func (t *telemeter) prepareObservationTelemetry(p any, opts llo.DSOpts) {
 	var telemType synchronization.TelemetryType
 	var msg proto.Message
 	switch v := p.(type) {
@@ -440,7 +440,7 @@ func (t *telemeter) TrackSeqNr(digest types.ConfigDigest, seqNr uint64) {
 
 type TelemetryObserve struct {
 	Opts      llo.DSOpts
-	Telemetry interface{}
+	Telemetry any
 }
 
 type TelemetryPipeline struct {
@@ -458,7 +458,7 @@ type nullTelemeter struct{}
 
 func (t *nullTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
 }
-func (t *nullTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{}) {
+func (t *nullTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any) {
 	return nil
 }
 func (t *nullTelemeter) GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry {

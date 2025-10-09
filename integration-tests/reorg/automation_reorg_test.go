@@ -173,7 +173,7 @@ func TestAutomationReorg(t *testing.T) {
 			)
 
 			if isLogTrigger {
-				for i := 0; i < len(upkeepIDs); i++ {
+				for i := range upkeepIDs {
 					if err := consumers[i].Start(); err != nil {
 						l.Error().Msg("Error when starting consumer")
 						return
@@ -187,7 +187,7 @@ func TestAutomationReorg(t *testing.T) {
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 5
-				for i := 0; i < len(upkeepIDs); i++ {
+				for i := range upkeepIDs {
 					counter, err := consumers[i].Counter(testcontext.Get(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 5
@@ -212,7 +212,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 10
-				for i := 0; i < len(upkeepIDs); i++ {
+				for i := range upkeepIDs {
 					counter, err := consumers[i].Counter(testcontext.Get(t))
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 					expect := 10

@@ -37,8 +37,8 @@ var (
 			EVMBytecode:      common.FromHex(router.RouterBin),
 			ZkSyncVMBytecode: router.RouterZkBytecode,
 		},
-		func(input DeployRouterInput) []interface{} {
-			return []interface{}{input.WethAddress, input.RMNProxy}
+		func(input DeployRouterInput) []any {
+			return []any{input.WethAddress, input.RMNProxy}
 		},
 	)
 
@@ -53,8 +53,8 @@ var (
 			EVMBytecode:      common.FromHex(router.RouterBin),
 			ZkSyncVMBytecode: router.RouterZkBytecode,
 		},
-		func(input DeployRouterInput) []interface{} {
-			return []interface{}{input.WethAddress, input.RMNProxy}
+		func(input DeployRouterInput) []any {
+			return []any{input.WethAddress, input.RMNProxy}
 		},
 	)
 

@@ -136,7 +136,7 @@ func (c *Config) Validate() error {
 
 	// validate keepers env vars
 	keepersFields := [][]string{c.KeeperURLs, c.KeeperEmails, c.KeeperPasswords, c.KeeperKeys}
-	for i := 0; i < len(keepersFields); i++ {
+	for i := range keepersFields {
 		if len(keepersFields[i]) != 0 && len(keepersFields[i]) != c.KeepersCount {
 			return errors.New("keepers config length doesn't match expected keeper count, check keeper env vars")
 		}

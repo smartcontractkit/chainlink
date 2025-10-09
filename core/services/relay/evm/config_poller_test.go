@@ -342,7 +342,7 @@ func TestConfigPoller(t *testing.T) {
 func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *ocr2aggregator.OCR2Aggregator, user *bind.TransactOpts) ocrtypes2.ContractConfig {
 	// Create minimum number of nodes.
 	var oracles []confighelper2.OracleIdentityExtra
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  evmutils.RandomAddress().Bytes(),

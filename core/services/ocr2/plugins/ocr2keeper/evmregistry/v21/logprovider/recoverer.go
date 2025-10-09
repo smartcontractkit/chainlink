@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -607,9 +608,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get latest block: %w", err)
 	}
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i] < ids[j]
-	})
+	slices.Sort(ids)
 	states, err := r.states.SelectByWorkIDs(ctx, ids...)
 	if err != nil {
 		return fmt.Errorf("failed to get states: %w", err)

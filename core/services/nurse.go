@@ -58,7 +58,7 @@ type gatherRequest struct {
 	meta   Meta
 }
 
-type Meta map[string]interface{}
+type Meta map[string]any
 
 const (
 	cpuProfName   = "cpu"
@@ -237,10 +237,10 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	wc := utils.NewDeferableWriteCloser(file)
 	defer wc.Close()
 
-	if _, err = wc.Write([]byte(fmt.Sprintf("==== %v\n", now))); err != nil {
+	if _, err = wc.Write(fmt.Appendf(nil, "==== %v\n", now)); err != nil {
 		return err
 	}
-	if _, err = wc.Write([]byte(fmt.Sprintf("reason: %v\n", reason))); err != nil {
+	if _, err = wc.Write(fmt.Appendf(nil, "reason: %v\n", reason)); err != nil {
 		return err
 	}
 	ks := make([]string, len(meta))
@@ -251,7 +251,7 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	}
 	sort.Strings(ks)
 	for _, k := range ks {
-		if _, err = wc.Write([]byte(fmt.Sprintf("- %v: %v\n", k, meta[k]))); err != nil {
+		if _, err = wc.Write(fmt.Appendf(nil, "- %v: %v\n", k, meta[k])); err != nil {
 			return err
 		}
 	}

@@ -39,7 +39,7 @@ func GetCCIPDonsFromCapRegistry(ctx context.Context, capRegistry *capabilities_r
 	return ccipDons, nil
 }
 
-func MustABIEncode(abiString string, args ...interface{}) []byte {
+func MustABIEncode(abiString string, args ...any) []byte {
 	encoded, err := utils.ABIEncode(abiString, args...)
 	if err != nil {
 		panic(err)

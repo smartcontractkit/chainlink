@@ -12,7 +12,7 @@ func BenchmarkProofValidation(b *testing.B) {
 	key, err := NewV2()
 	require.NoError(b, err)
 	var proofs []Proof
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		p, err := key.GenerateProof(big.NewInt(int64(i)))
 		require.NoError(b, err, "failed to generate proof number %d", i)
 		proofs = append(proofs, p)

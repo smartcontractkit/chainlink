@@ -17,7 +17,7 @@ type mockGetter struct {
 	err     error
 }
 
-func (m *mockGetter) Get(dest interface{}, query string, args ...interface{}) error {
+func (m *mockGetter) Get(dest any, query string, args ...any) error {
 	if m.err != nil {
 		return m.err
 	}

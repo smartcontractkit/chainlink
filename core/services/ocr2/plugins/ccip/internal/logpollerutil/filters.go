@@ -2,6 +2,7 @@ package logpollerutil
 
 import (
 	"context"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -62,10 +63,5 @@ func containsFilter(filters []logpoller.Filter, f logpoller.Filter) bool {
 }
 
 func filterContainsZeroAddress(addrs []common.Address) bool {
-	for _, addr := range addrs {
-		if addr == utils.ZeroAddress {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(addrs, utils.ZeroAddress)
 }

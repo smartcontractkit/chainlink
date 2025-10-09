@@ -546,7 +546,7 @@ func TestService_PollAllBridges_3000Bridges(t *testing.T) {
 
 	numBridges := 3000
 	var allBridges []bridges.BridgeType
-	for i := 0; i < numBridges; i++ {
+	for i := range numBridges {
 		u, _ := url.Parse(fmt.Sprintf("http://bridge%d.example.com", i))
 		bridge := bridges.BridgeType{
 			Name: bridges.MustParseBridgeName(fmt.Sprintf("bridge%d", i)),
@@ -590,7 +590,7 @@ func TestService_PollAllBridges_ContextTimeout(t *testing.T) {
 
 	numBridges := 5
 	var allBridges []bridges.BridgeType
-	for i := 0; i < numBridges; i++ {
+	for i := range numBridges {
 		u, _ := url.Parse(fmt.Sprintf("http://bridge%d.example.com", i))
 		bridge := bridges.BridgeType{
 			Name: bridges.MustParseBridgeName(fmt.Sprintf("bridge%d", i)),
@@ -602,7 +602,7 @@ func TestService_PollAllBridges_ContextTimeout(t *testing.T) {
 	mockORM.On("BridgeTypes", mock.Anything, 0, bridgePollPageSize).Return(allBridges, numBridges, nil).Once()
 
 	// Mock job ORM calls for each bridge
-	for i := 0; i < numBridges; i++ {
+	for i := range numBridges {
 		bridgeName := fmt.Sprintf("bridge%d", i)
 		jobORM.On("FindJobIDsWithBridge", mock.Anything, bridgeName).Return([]int32{}, nil)
 	}

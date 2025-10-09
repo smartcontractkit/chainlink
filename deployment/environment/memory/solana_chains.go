@@ -278,7 +278,7 @@ func generateChainsSol(t *testing.T, numChains int, commitSha string) []cldf_cha
 	}
 
 	chains := make([]cldf_chain.BlockChain, 0, numChains)
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		selector := testSolanaChainSelectors[i]
 
 		c, err := cldf_solana_provider.NewCTFChainProvider(t, selector,

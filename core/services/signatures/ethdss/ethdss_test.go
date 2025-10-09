@@ -34,7 +34,7 @@ var randomStream = cryptotest.NewStream(&testing.T{}, 0)
 func init() {
 	partPubs = make([]kyber.Point, nbParticipants)
 	partSec = make([]kyber.Scalar, nbParticipants)
-	for i := 0; i < nbParticipants; i++ {
+	for i := range nbParticipants {
 		kp := secp256k1.Generate(randomStream)
 		partPubs[i] = kp.Public
 		partSec[i] = kp.Private
@@ -150,7 +150,7 @@ func printTest(t *testing.T, msg *big.Int, public kyber.Point,
 func TestDSSSignature(t *testing.T) {
 	dsss := make([]*DSS, nbParticipants)
 	pss := make([]*PartialSig, nbParticipants)
-	for i := 0; i < nbParticipants; i++ {
+	for i := range nbParticipants {
 		dsss[i] = getDSS(i)
 		ps, err := dsss[i].PartialSig()
 		require.NoError(t, err)
@@ -180,7 +180,7 @@ func TestDSSSignature(t *testing.T) {
 
 func TestPartialSig_Hash(t *testing.T) {
 	observedHashes := make(map[*big.Int]bool)
-	for i := 0; i < nbParticipants; i++ {
+	for i := range nbParticipants {
 		psig, err := getDSS(i).PartialSig()
 		require.NoError(t, err)
 		hash := psig.Hash()
@@ -200,7 +200,7 @@ func getDSS(i int) *DSS {
 
 func _genDistSecret() []*dkg.DistKeyShare {
 	dkgs := make([]*dkg.DistKeyGenerator, nbParticipants)
-	for i := 0; i < nbParticipants; i++ {
+	for i := range nbParticipants {
 		dkg, err := dkg.NewDistKeyGenerator(suite, partSec[i], partPubs, nbParticipants/2+1)
 		if err != nil {
 			panic(err)

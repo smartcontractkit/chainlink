@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/gagliardetto/solana-go"
@@ -347,13 +348,7 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bo
 			continue
 		}
 		// Ensure uniqueness
-		duplicate := false
-		for _, added := range grouped[s.ChainSelector] {
-			if added == s.SubjectToCurse {
-				duplicate = true
-				break
-			}
-		}
+		duplicate := slices.Contains(grouped[s.ChainSelector], s.SubjectToCurse)
 		if !duplicate {
 			grouped[s.ChainSelector] = append(grouped[s.ChainSelector], s.SubjectToCurse)
 		}
@@ -728,22 +723,22 @@ func parseSolanaErrorCode(err error) (int64, error) {
 		return 0, fmt.Errorf("not a jsonrpc.RPCError: %w", err)
 	}
 
-	data, ok := rpcErr.Data.(map[string]interface{})
+	data, ok := rpcErr.Data.(map[string]any)
 	if !ok {
 		return 0, fmt.Errorf("invalid data format: %w", err)
 	}
 
-	errData, ok := data["err"].(map[string]interface{})
+	errData, ok := data["err"].(map[string]any)
 	if !ok {
 		return 0, fmt.Errorf("no err field found: %w", err)
 	}
 
-	instrErr, ok := errData["InstructionError"].([]interface{})
+	instrErr, ok := errData["InstructionError"].([]any)
 	if !ok || len(instrErr) < 2 {
 		return 0, fmt.Errorf("invalid InstructionError format: %w", err)
 	}
 
-	customErr, ok := instrErr[1].(map[string]interface{})
+	customErr, ok := instrErr[1].(map[string]any)
 	if !ok {
 		return 0, fmt.Errorf("invalid custom error format: %w", err)
 	}

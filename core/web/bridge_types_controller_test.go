@@ -136,8 +136,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	app := cltest.NewApplication(b)
 	client := app.NewHTTPClient(nil)
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		resp, cleanup := client.Get("/v2/bridge_types")
 		b.Cleanup(cleanup)
 		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")

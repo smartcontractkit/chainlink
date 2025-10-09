@@ -92,7 +92,7 @@ func testMonitoring(t *testing.T, name string, server *httptest.Server, requests
 	tokenDataReader := usdc.NewUSDCTokenDataReaderWithHttpClient(*tokenDataReaderDefault, observedHttpClient, usdcTokenAddr, usdc.APIIntervalRateLimitDisabled)
 	require.NotNil(t, tokenDataReader)
 
-	for i := 0; i < requests; i++ {
+	for range requests {
 		_, _ = tokenDataReader.ReadTokenData(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 			EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 				TokenAmounts: []cciptypes.TokenAmount{

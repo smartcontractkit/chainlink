@@ -69,14 +69,14 @@ func Test_Queue(t *testing.T) {
 
 		t.Run("transmit queue is full and evicts the oldest transmission", func(t *testing.T) {
 			// add 5 more transmissions to overflow the queue by 1
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				tq.Push(testTransmissions[1])
 			}
 
 			// expecting testTransmissions[0] to get evicted and not present in the queue anymore
 			testutils.WaitForLogMessage(t, observedLogs, "Transmit queue is full; dropping oldest transmission (reached max length of 7)")
 			var transmissions []*Transmission
-			for i := 0; i < 7; i++ {
+			for range 7 {
 				tr := tq.BlockingPop()
 				transmissions = append(transmissions, tr)
 			}

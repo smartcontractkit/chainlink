@@ -56,7 +56,7 @@ func DeployCache(chain cldf_tron.Chain, deployOptions *cldf_tron.DeployOptions, 
 }
 
 func DeployAggregatorProxy(chain cldf_tron.Chain, aggregator address.Address, accessController address.Address, deployOptions *cldf_tron.DeployOptions, labels []string) (*types.DeployTronResponse, error) {
-	proxyAddress, txInfo, err := chain.DeployContractAndConfirm(context.Background(), "AggregatorProxy", proxy.AggregatorProxyABI, proxy.AggregatorProxyBin, []interface{}{aggregator.EthAddress(), accessController.EthAddress()}, deployOptions)
+	proxyAddress, txInfo, err := chain.DeployContractAndConfirm(context.Background(), "AggregatorProxy", proxy.AggregatorProxyABI, proxy.AggregatorProxyBin, []any{aggregator.EthAddress(), accessController.EthAddress()}, deployOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm AggregatorProxy: %+v, %w", txInfo, err)
 	}

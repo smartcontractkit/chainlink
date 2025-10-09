@@ -214,7 +214,7 @@ func (r *mercuryChainReader) LatestHeads(ctx context.Context, k int) ([]mercuryt
 	}
 
 	blocks := make([]mercurytypes.Head, len(evmBlocks))
-	for x := 0; x < len(evmBlocks); x++ {
+	for x := range evmBlocks {
 		blocks[x] = mercurytypes.Head{
 			Number:    uint64(evmBlocks[x].BlockNumber()),
 			Hash:      evmBlocks[x].Hash.Bytes(),

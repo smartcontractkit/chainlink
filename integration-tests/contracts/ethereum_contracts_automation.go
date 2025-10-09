@@ -1649,7 +1649,7 @@ func loadRegistry2_1(client *seth.Client, address common.Address) (*EthereumKeep
 	client.ContractStore.AddABI("KeeperRegistry2_1", *abi)
 	client.ContractStore.AddBIN("KeeperRegistry2_1", common.FromHex(ac.IAutomationV21PlusCommonMetaData.Bin))
 
-	var instance interface{}
+	var instance any
 
 	instance, err = ac.NewIAutomationV21PlusCommon(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {

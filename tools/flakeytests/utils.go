@@ -10,11 +10,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-func DigString(mp map[string]interface{}, path []string) (string, error) {
-	var val interface{}
+func DigString(mp map[string]any, path []string) (string, error) {
+	var val any
 	val = mp
 	for _, p := range path {
-		v, ok := val.(map[string]interface{})[p]
+		v, ok := val.(map[string]any)[p]
 		if !ok {
 			return "", errors.New("could not find string")
 		}
@@ -36,7 +36,7 @@ func getGithubMetadata(repo string, eventName string, sha string, e io.Reader, r
 		log.Fatal("Error reading gh event into string")
 	}
 
-	event := map[string]interface{}{}
+	event := map[string]any{}
 	err = json.Unmarshal(d, &event)
 	if err != nil {
 		log.Fatalf("Error unmarshaling gh event at path")

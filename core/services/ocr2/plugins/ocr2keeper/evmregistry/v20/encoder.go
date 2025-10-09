@@ -98,7 +98,7 @@ func (enc EVMAutomationEncoder20) EncodeReport(toReport []ocr2keepers.UpkeepResu
 }
 
 func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	if err := unpackIntoMapFn(m, report); err != nil {
 		return nil, err
 	}

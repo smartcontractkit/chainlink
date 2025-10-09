@@ -72,7 +72,7 @@ func initRestyClient(url string, email string, password string, headers map[stri
 	var resp *resty.Response
 	var err error
 	retryCount := 20
-	for i := 0; i < retryCount; i++ {
+	for range retryCount {
 		resp, err = rc.R().SetBody(session).Post("/sessions")
 		if err != nil {
 			log.Warn().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
