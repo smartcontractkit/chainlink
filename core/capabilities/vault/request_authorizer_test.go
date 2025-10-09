@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	syncerv2mocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 )
 
@@ -163,7 +162,7 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	require.False(t, isAuthorized)
 
 	// Happy path
-	digest, err := workflowsyncerv2.DigestForRequest(allowlistedRequest)
+	digest, err := vaulttypes.DigestForRequest(allowlistedRequest)
 	require.NoError(t, err)
 	expiry := uint64(time.Now().UTC().Unix() + 100) //nolint:gosec // it is a safe conversion
 	allowlisted := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{

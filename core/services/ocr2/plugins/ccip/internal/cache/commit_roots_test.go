@@ -276,7 +276,7 @@ func createReportAcceptedLog(t testing.TB, chainID *big.Int, address common.Addr
 	gasPriceUpdates := make([]commit_store_1_2_0.InternalGasPriceUpdate, 100)
 	tokenPriceUpdates := make([]commit_store_1_2_0.InternalTokenPriceUpdate, 100)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		gasPriceUpdates[i] = commit_store_1_2_0.InternalGasPriceUpdate{
 			DestChainSelector: uint64(i),
 			UsdPerUnitGas:     big.NewInt(int64(i)),

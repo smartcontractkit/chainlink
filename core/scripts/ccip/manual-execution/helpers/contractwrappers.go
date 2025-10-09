@@ -23,7 +23,7 @@ func DecodeEvents(
 	ethC *ethclient.Client,
 	opts *bind.FilterOpts,
 	address, contractABI, eventName string,
-	query ...[]interface{},
+	query ...[]any,
 ) (*bind.BoundContract, chan types.Log, event.Subscription, error) {
 	contractAddress := common.HexToAddress(address)
 	abi, err := abi.JSON(strings.NewReader(contractABI))
@@ -137,11 +137,11 @@ func FilterExecutionStateChanged(
 	sequenceNumber []uint64,
 	messageID [][32]byte,
 ) (int, error) {
-	sequenceNumberRule := make([]interface{}, 0, len(sequenceNumber))
+	sequenceNumberRule := make([]any, 0, len(sequenceNumber))
 	for _, sequenceNumberItem := range sequenceNumber {
 		sequenceNumberRule = append(sequenceNumberRule, sequenceNumberItem)
 	}
-	messageIDRule := make([]interface{}, 0, len(messageID))
+	messageIDRule := make([]any, 0, len(messageID))
 	for _, messageIDItem := range messageID {
 		messageIDRule = append(messageIDRule, messageIDItem)
 	}

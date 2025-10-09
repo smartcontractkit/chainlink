@@ -3,7 +3,7 @@ package view
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -34,9 +34,7 @@ func Vault(e cldf.Environment, _ json.Marshaler) (json.Marshaler, error) {
 	for chainSel := range e.BlockChains.EVMChains() {
 		chainSelectors = append(chainSelectors, chainSel)
 	}
-	sort.Slice(chainSelectors, func(i, j int) bool {
-		return chainSelectors[i] < chainSelectors[j]
-	})
+	slices.Sort(chainSelectors)
 
 	if len(chainSelectors) == 0 {
 		lggr.Warn("No EVM chains found in environment")

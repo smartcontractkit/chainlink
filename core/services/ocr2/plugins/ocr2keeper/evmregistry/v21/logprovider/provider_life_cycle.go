@@ -127,15 +127,13 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 		// already registered in DB before, no need to backfill
 		return nil
 	}
-	backfillBlock := latest.BlockNumber - int64(LogBackfillBuffer)
-	if backfillBlock < 1 {
+	backfillBlock := max(
 		// New chain, backfill from start
-		backfillBlock = 1
-	}
-	if int64(ufilter.configUpdateBlock) > backfillBlock {
+		int64(ufilter.configUpdateBlock),
 		// backfill from config update block in case it is not too old
-		backfillBlock = int64(ufilter.configUpdateBlock)
-	}
+		max(latest.BlockNumber-int64(LogBackfillBuffer),
+
+			1))
 	// NOTE: replys are planned to be done as part of RegisterFilter within logpoller
 	lggr.Debugw("Backfilling logs for new upkeep filter", "backfillBlock", backfillBlock)
 	p.poller.ReplayAsync(backfillBlock)

@@ -59,7 +59,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 // contract at address to, on the given backend, with the given args, and given
 // that the transaction is sent from the from address.
 func estimateGas(t *testing.T, client simulated.Client,
-	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
+	from, to common.Address, abi *abi.ABI, method string, args ...any,
 ) uint64 {
 	rawData, err := abi.Pack(method, args...)
 	require.NoError(t, err, "failed to construct raw %s transaction with args %s",
@@ -93,7 +93,7 @@ func HashToCurveGasCostBound(numOrdinates uint64) uint64 {
 func TestMeasureHashToCurveGasCost(t *testing.T) {
 	contract, owner := deployVRFContract(t)
 	numSamples := int64(numSamples())
-	for i := int64(0); i < numSamples; i++ {
+	for i := range numSamples {
 		gasCost, numOrdinates := measureHashToCurveGasCost(t, contract, owner, i)
 		assert.Less(t, gasCost, HashToCurveGasCostBound(numOrdinates),
 			"on-chain hashToCurve gas cost exceeded estimate function")

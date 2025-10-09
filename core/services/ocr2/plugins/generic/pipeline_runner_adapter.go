@@ -34,8 +34,8 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 		JobType:         string(p.job.Type),
 	}
 
-	defaultVars := map[string]interface{}{
-		"jb": map[string]interface{}{
+	defaultVars := map[string]any{
+		"jb": map[string]any{
 			"databaseID":    p.job.ID,
 			"externalJobID": p.job.ExternalJobID,
 			"name":          p.job.Name.ValueOrZero(),
@@ -75,14 +75,14 @@ func NewPipelineRunnerAdapter(logger logger.Logger, job job.Job, runner pipeline
 }
 
 // merge merges mapTwo into mapOne, modifying mapOne in the process.
-func merge(mapOne, mapTwo map[string]interface{}) {
+func merge(mapOne, mapTwo map[string]any) {
 	for k, v := range mapTwo {
 		// if `mapOne` doesn't have `k`, then nothing to do, just assign v to `mapOne`.
 		if _, ok := mapOne[k]; !ok {
 			mapOne[k] = v
 		} else {
-			vAsMap, vOK := v.(map[string]interface{})
-			mapOneVAsMap, moOK := mapOne[k].(map[string]interface{})
+			vAsMap, vOK := v.(map[string]any)
+			mapOneVAsMap, moOK := mapOne[k].(map[string]any)
 			if vOK && moOK {
 				merge(mapOneVAsMap, vAsMap)
 			} else {

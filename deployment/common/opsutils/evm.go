@@ -265,7 +265,7 @@ func NewEVMDeployOperation[IN any](
 	contractType cldf.ContractType,
 	contractMetadata *bind.MetaData,
 	defaultContractOpts *ContractOpts,
-	makeArgs func(IN) []interface{},
+	makeArgs func(IN) []any,
 ) *operations.Operation[EVMDeployInput[IN], EVMDeployOutput, cldf_evm.Chain] {
 	return operations.NewOperation(
 		name,
@@ -453,7 +453,7 @@ func deployZkContract(
 	client *clients.Client,
 	wallet *accounts.Wallet,
 	parsedABI *abi.ABI,
-	args ...interface{},
+	args ...any,
 ) (common.Address, error) {
 	var calldata []byte
 	var err error

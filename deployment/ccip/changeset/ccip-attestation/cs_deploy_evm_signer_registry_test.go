@@ -39,7 +39,7 @@ func findSignerRegistryAddress(e cldf.Environment, selector uint64) (common.Addr
 // Helper function to create test signers
 func makeSigners(n int) []signer_registry.ISignerRegistrySigner {
 	signers := make([]signer_registry.ISignerRegistrySigner, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		signers[i] = signer_registry.ISignerRegistrySigner{
 			EvmAddress: utils.RandomAddress(),
 			// Alternate between zero and non-zero NewEVMAddress

@@ -50,7 +50,7 @@ func (t *ETHABIEncodeTask) Run(_ context.Context, _ logger.Logger, vars Vars, in
 	}
 	method := abi.NewMethod(methodName, methodName, abi.Function, "", false, false, args, nil)
 
-	var vals []interface{}
+	var vals []any
 	for _, arg := range args {
 		val, exists := inputValues[arg.Name]
 		if !exists {

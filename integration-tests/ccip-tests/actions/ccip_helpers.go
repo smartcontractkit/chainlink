@@ -2072,10 +2072,7 @@ func (destCCIP *DestCCIPModule) SyncTokensAndPools(srcTokens []*contracts.ERC20T
 	// otherwise the tx gets too large and we will get out of gas error
 	if len(sourceTokens) > 10 {
 		for i := 0; i < len(sourceTokens); i += 10 {
-			end := i + 10
-			if end > len(sourceTokens) {
-				end = len(sourceTokens)
-			}
+			end := min(i+10, len(sourceTokens))
 			err := destCCIP.OffRamp.SyncTokensAndPools(sourceTokens[i:end], pools[i:end])
 			if err != nil {
 				return err
@@ -2110,10 +2107,7 @@ func (destCCIP *DestCCIPModule) AddRateLimitTokens(srcTokens, destTokens []*cont
 	// otherwise the tx gets too large and we will get out of gas error
 	if len(sourceTokenAddresses) > 10 {
 		for i := 0; i < len(sourceTokenAddresses); i += 10 {
-			end := i + 10
-			if end > len(sourceTokenAddresses) {
-				end = len(sourceTokenAddresses)
-			}
+			end := min(i+10, len(sourceTokenAddresses))
 			err := destCCIP.OffRamp.AddRateLimitTokens(sourceTokenAddresses[i:end], destTokenAddresses[i:end])
 			if err != nil {
 				return err
@@ -3048,7 +3042,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, multiSendAddr common.Address) 
 	for i := 1; i <= noOfRequests; i++ {
 		// form the message for transfer
 		msg := genericMsg
-		msg.Data = []byte(fmt.Sprintf("msg %d", i))
+		msg.Data = fmt.Appendf(nil, "msg %d", i)
 		sendData := contracts.CCIPMsgData{
 			Msg:           msg,
 			RouterAddr:    lane.Source.Common.Router.EthAddress,
@@ -4381,8 +4375,6 @@ func CreateOCR2CCIPCommitJobs(
 		OCR2OracleSpec: ocr2SpecCommit.OCR2OracleSpec,
 	}
 	for i, node := range commitNodes {
-		node := node
-		i := i
 		group.Go(func() error {
 			return createJob(i, node, testSpec, mutexes[i])
 		})
@@ -4416,8 +4408,6 @@ func CreateOCR2CCIPExecutionJobs(
 	}
 	if ocr2SpecExec != nil {
 		for i, node := range execNodes {
-			node := node
-			i := i
 			group.Go(func() error {
 				return createJob(i, node, nodeclient.OCR2TaskJobSpec{
 					Name:              ocr2SpecExec.Name,
@@ -4546,7 +4536,7 @@ func (c *CCIPTestEnv) ConnectToExistingNodes(envConfig *testconfig.Common) error
 	noOfNodes := pointer.GetInt(envConfig.ExistingCLCluster.NoOfNodes)
 	namespace := pointer.GetString(envConfig.ExistingCLCluster.Name)
 
-	for i := 0; i < noOfNodes; i++ {
+	for i := range noOfNodes {
 		cfg := envConfig.ExistingCLCluster.NodeConfigs[i]
 		if cfg == nil {
 			return fmt.Errorf("node %d config is nil", i+1)
@@ -4672,7 +4662,6 @@ func (c *CCIPTestEnv) SetUpNodeKeysAndFund(
 		}
 	}
 	for _, chain := range chains {
-		chain := chain
 		grp.Go(func() error {
 			return fund(chain)
 		})

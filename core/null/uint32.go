@@ -33,7 +33,7 @@ func Uint32From(i uint32) Uint32 {
 // 0 will not be considered a null Int.
 func (i *Uint32) UnmarshalJSON(data []byte) error {
 	var err error
-	var v interface{}
+	var v any
 	if err = json.Unmarshal(data, &v); err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (i Uint32) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (i *Uint32) Scan(value interface{}) error {
+func (i *Uint32) Scan(value any) error {
 	if value == nil {
 		*i = Uint32{}
 		return nil

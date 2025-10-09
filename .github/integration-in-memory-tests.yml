@@ -49,7 +49,20 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana_LOOPP
+    path: integration-tests/smoke/ccip/ccip_messaging_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
+    test_go_project_path: integration-tests
     install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
@@ -61,7 +74,20 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=4 -count=1 -json
     test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM_LOOPP
+    path: integration-tests/smoke/ccip/ccip_messaging_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=4 -count=1 -json
+    test_go_project_path: integration-tests
     install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_MultiExecReports_EVM2Solana
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
@@ -224,7 +250,20 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
+
+  - id: smoke/ccip/ccip_token_transfer_test.go:*_LOOPP
+    path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=2 -count=1 -json
+    test_go_project_path: integration-tests
     install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_cs_update_rmn_config_test.go:*
     path: integration-tests/smoke/ccip/ccip_cs_update_rmn_config_test.go

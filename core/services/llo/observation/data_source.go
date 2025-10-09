@@ -104,7 +104,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	}
 
 	if opts.VerboseLogging() {
-		sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
+		slices.Sort(streamIDs)
 		lggr = logger.With(lggr, "streamIDs", streamIDs)
 		lggr.Debugw("Observing streams")
 	}

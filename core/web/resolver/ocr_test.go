@@ -31,7 +31,7 @@ func TestResolver_GetOCRKeyBundles(t *testing.T) {
 
 	fakeKeys := []ocrkey.KeyV2{}
 	expectedBundles := []map[string]string{}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		k := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 		fakeKeys = append(fakeKeys, k)
 		expectedBundles = append(expectedBundles, map[string]string{
@@ -42,8 +42,8 @@ func TestResolver_GetOCRKeyBundles(t *testing.T) {
 		})
 	}
 
-	d, err := json.Marshal(map[string]interface{}{
-		"ocrKeyBundles": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"ocrKeyBundles": map[string]any{
 			"results": expectedBundles,
 		},
 	})
@@ -88,9 +88,9 @@ func TestResolver_OCRCreateBundle(t *testing.T) {
 
 	fakeKey := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
-	d, err := json.Marshal(map[string]interface{}{
-		"createOCRKeyBundle": map[string]interface{}{
-			"bundle": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"createOCRKeyBundle": map[string]any{
+			"bundle": map[string]any{
 				"id":                    fakeKey.ID(),
 				"configPublicKey":       ocrkey.ConfigPublicKey(fakeKey.PublicKeyConfig()).String(),
 				"offChainPublicKey":     fakeKey.OffChainSigning.PublicKey().String(),
@@ -142,13 +142,13 @@ func TestResolver_OCRDeleteBundle(t *testing.T) {
 			}
 		}
 	`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": fakeKey.ID(),
 	}
 
-	d, err := json.Marshal(map[string]interface{}{
-		"deleteOCRKeyBundle": map[string]interface{}{
-			"bundle": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"deleteOCRKeyBundle": map[string]any{
+			"bundle": map[string]any{
 				"id":                    fakeKey.ID(),
 				"configPublicKey":       ocrkey.ConfigPublicKey(fakeKey.PublicKeyConfig()).String(),
 				"offChainPublicKey":     fakeKey.OffChainSigning.PublicKey().String(),

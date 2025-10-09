@@ -63,7 +63,7 @@ func TestResolver_TronKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"tronKeys"},
+					Path:          []any{"tronKeys"},
 					Message:       gError.Error(),
 				},
 			},

@@ -16,7 +16,7 @@ var SetFeedAdminChangeset = cldf.CreateChangeSet(setFeedAdminLogic, setFeedAdmin
 func setFeedAdminLogic(env cldf.Environment, c types.SetFeedAdminTronConfig) (cldf.ChangesetOutput, error) {
 	chain := env.BlockChains.TronChains()[c.ChainSelector]
 
-	txInfo, err := chain.TriggerContractAndConfirm(context.Background(), c.CacheAddress, "setFeedAdmin(address,bool)", []interface{}{"address", c.AdminAddress, "bool", c.IsAdmin}, c.TriggerOptions)
+	txInfo, err := chain.TriggerContractAndConfirm(context.Background(), c.CacheAddress, "setFeedAdmin(address,bool)", []any{"address", c.AdminAddress, "bool", c.IsAdmin}, c.TriggerOptions)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", txInfo.ID, err)
 	}

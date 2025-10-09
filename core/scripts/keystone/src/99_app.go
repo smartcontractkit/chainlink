@@ -147,7 +147,7 @@ func (c *nodeAPI) exec(clientMethod ...func(*cli.Context) error) ([]byte, error)
 	}
 
 	retryCount := 3
-	for i := 0; i < retryCount; i++ {
+	for i := range retryCount {
 		c.logger.Tracew("Attempting API request", "attempt", i+1, "maxAttempts", retryCount)
 		c.output.Reset()
 		ctx := cli.NewContext(c.app, c.fs, nil)
@@ -198,7 +198,7 @@ func (c *nodeAPI) mustExec(clientMethod ...func(*cli.Context) error) []byte {
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
 //
 // Taken from: https://github.com/smartcontractkit/chainlink/blob/develop/core/cmd/shell_test.go#L590
-func flagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
+func flagSetApplyFromAction(action any, flagSet *flag.FlagSet, parentCommand string) {
 	cliApp := cmd.Shell{}
 	app := cmd.NewApp(&cliApp)
 
@@ -234,7 +234,7 @@ func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, pare
 	return nil
 }
 
-func getFuncName(i interface{}) string {
+func getFuncName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
@@ -347,7 +347,7 @@ func (h *retryableAuthenticatedHTTPClient) Delete(ctx context.Context, path stri
 
 func (h *retryableAuthenticatedHTTPClient) doRequestWithRetry(_ context.Context, req func() (*http.Response, error)) (*http.Response, error) {
 	retryCount := 3
-	for i := 0; i < retryCount; i++ {
+	for i := range retryCount {
 		h.logger.Tracew("Attempting request", "attempt", i+1, "maxAttempts", retryCount)
 
 		response, err := req()

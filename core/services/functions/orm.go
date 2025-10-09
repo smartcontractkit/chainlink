@@ -237,10 +237,7 @@ func (o *orm) PruneOldestRequests(ctx context.Context, maxStoredRequests uint32,
 			return nil
 		}
 
-		pruneLimit := total - maxStoredRequests
-		if pruneLimit > batchSize {
-			pruneLimit = batchSize
-		}
+		pruneLimit := min(total-maxStoredRequests, batchSize)
 
 		with := fmt.Sprintf(`WITH ids AS (SELECT request_id FROM %s WHERE contract_address = $1 ORDER BY received_at LIMIT $2)`, tableName)
 		deleteStmt := fmt.Sprintf(`%s DELETE FROM %s WHERE contract_address = $1 AND request_id IN (SELECT request_id FROM ids);`, with, tableName)

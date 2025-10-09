@@ -256,7 +256,7 @@ func validateEnv() (err error) {
 			err = fmt.Errorf("invalid environment: %w", err)
 		}
 	}()
-	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
+	for kv := range strings.SplitSeq(emptyStringsEnv, "\n") {
 		if strings.TrimSpace(kv) == "" {
 			continue
 		}

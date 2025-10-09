@@ -16,7 +16,7 @@ func TestConditionalTask(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		input     interface{}
+		input     any
 		expectErr bool
 	}{
 		{"true string", "true", false},
@@ -47,8 +47,8 @@ func TestConditionalTask(t *testing.T) {
 				}
 			})
 			t.Run("with vars", func(t *testing.T) {
-				vars := pipeline.NewVarsFrom(map[string]interface{}{
-					"foo": map[string]interface{}{"bar": test.input},
+				vars := pipeline.NewVarsFrom(map[string]any{
+					"foo": map[string]any{"bar": test.input},
 				})
 				task := pipeline.ConditionalTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),

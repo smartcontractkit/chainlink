@@ -1,6 +1,7 @@
 package config
 
 import (
+	"maps"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -139,9 +140,7 @@ func setEVMSourceUpdates(
 	if feeQuoterPriceUpdatesOnSource.TokenPrices == nil {
 		feeQuoterPriceUpdatesOnSource.TokenPrices = make(map[common.Address]*big.Int)
 	}
-	for tokenAddr, price := range source.TokenPrices {
-		feeQuoterPriceUpdatesOnSource.TokenPrices[tokenAddr] = price
-	}
+	maps.Copy(feeQuoterPriceUpdatesOnSource.TokenPrices, source.TokenPrices)
 }
 
 // setEVMSourceUpdates requires Source: Aptos -> Destination: EVM

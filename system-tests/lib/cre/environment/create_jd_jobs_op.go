@@ -1,8 +1,6 @@
 package environment
 
 import (
-	"time"
-
 	"github.com/Masterminds/semver/v3"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -12,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -60,15 +58,15 @@ var CreateJobsWithJdOp = operations.NewOperation(
 			mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
 		}
 
-		createJobsInput := cre.CreateJobsInput{
-			CldEnv:        deps.CreEnvironment.CldfEnvironment,
-			DonTopology:   deps.CreEnvironment.DonTopology,
-			DonToJobSpecs: donToJobSpecs,
-		}
-
-		jobsErr := libdon.CreateJobs(b.GetContext(), deps.Logger, createJobsInput)
-		if jobsErr != nil {
-			return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobsErr, "failed to create jobs")
+		for _, don := range deps.CreEnvironment.DonTopology.Dons.List() {
+			if jobSpecs, ok := donToJobSpecs[don.ID]; ok {
+				createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.CreEnvironment.DonTopology, jobSpecs)
+				if createErr != nil {
+					return CreateJobsWithJdOpOutput{}, pkgerrors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
+				}
+			} else {
+				deps.Logger.Warn().Msgf("No job specs found for DON %d", don.ID)
+			}
 		}
 
 		return CreateJobsWithJdOpOutput{}, nil
@@ -82,7 +80,6 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 		semver.MustParse(version),
 		"Create Jobs",
 		func(b operations.Bundle, deps CreateJobsWithJdOpDeps, input CreateJobsWithJdOpInput) (CreateJobsWithJdOpOutput, error) {
-			createJobsStartTime := time.Now()
 			donToJobSpecs := make(cre.DonsToJobSpecs)
 
 			for _, jobSpecGeneratingFn := range deps.JobSpecFactoryFunctions {
@@ -100,18 +97,16 @@ func CreateJobsWithJdOpFactory(id string, version string) *operations.Operation[
 				mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
 			}
 
-			createJobsInput := cre.CreateJobsInput{
-				CldEnv:        deps.CreEnvironment.CldfEnvironment,
-				DonTopology:   deps.CreEnvironment.DonTopology,
-				DonToJobSpecs: donToJobSpecs,
+			for _, don := range deps.CreEnvironment.DonTopology.Dons.List() {
+				if jobSpecs, ok := donToJobSpecs[don.ID]; ok {
+					createErr := jobs.Create(b.GetContext(), deps.CreEnvironment.CldfEnvironment.Offchain, deps.CreEnvironment.DonTopology, jobSpecs)
+					if createErr != nil {
+						return CreateJobsWithJdOpOutput{}, pkgerrors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
+					}
+				} else {
+					deps.Logger.Warn().Msgf("No job specs found for DON %d", don.ID)
+				}
 			}
-
-			jobsErr := libdon.CreateJobs(b.GetContext(), deps.Logger, createJobsInput)
-			if jobsErr != nil {
-				return CreateJobsWithJdOpOutput{}, pkgerrors.Wrap(jobsErr, "failed to create jobs")
-			}
-
-			deps.Logger.Info().Msgf("Jobs created in %.2f seconds", time.Since(createJobsStartTime).Seconds())
 
 			return CreateJobsWithJdOpOutput{}, nil
 		},

@@ -236,7 +236,7 @@ func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplication(t testing.TB, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 
 	c := configtest.NewGeneralConfig(t, nil)
@@ -246,7 +246,7 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 
 	config := configtest.NewGeneralConfig(t, nil)
@@ -255,7 +255,7 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	ctx := testutils.Context(t)
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
@@ -288,7 +288,7 @@ const (
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
-func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 	testutils.SkipShortDB(t)
 
@@ -925,7 +925,7 @@ func ParseResponseBody(t testing.TB, resp *http.Response) []byte {
 }
 
 // ParseJSONAPIResponse parses the response and returns the JSONAPI resource.
-func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource interface{}) {
+func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource any) {
 	t.Helper()
 
 	input := ParseResponseBody(t, resp)
@@ -1231,7 +1231,7 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 }
 
 func DecodeSessionCookie(value string) (string, error) {
-	var decrypted map[interface{}]interface{}
+	var decrypted map[any]any
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	err := securecookie.DecodeMulti(webauth.SessionName, value, &decrypted, codecs...)
 	if err != nil {
@@ -1245,7 +1245,7 @@ func DecodeSessionCookie(value string) (string, error) {
 }
 
 func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
-	decrypted := map[interface{}]interface{}{webauth.SessionIDKey: value}
+	decrypted := map[any]any{webauth.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	encoded, err := securecookie.EncodeMulti(webauth.SessionName, decrypted, codecs...)
 	if err != nil {
@@ -1363,7 +1363,7 @@ type EthereumLogIterator interface{ Next() bool }
 // It returns the logs as a slice of blank interface{}s, and if rv is non-nil,
 // it must be a pointer to a slice for elements of the same type as the logs,
 // in which case GetLogs will append the logs to it.
-func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface{} {
+func GetLogs(t *testing.T, rv any, logs EthereumLogIterator) []any {
 	v := reflect.ValueOf(rv)
 	require.True(t, rv == nil ||
 		v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Slice,
@@ -1372,7 +1372,7 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	if rv != nil {
 		e = v.Elem()
 	}
-	var irv []interface{}
+	var irv []any
 	for logs.Next() {
 		log := reflect.Indirect(reflect.ValueOf(logs)).FieldByName("Event")
 		if v.Kind() == reflect.Ptr {
@@ -1445,7 +1445,7 @@ func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, wan
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertRecordEventually(t *testing.T, ds sqlutil.DataSource, model interface{}, stmt string, check func() bool) {
+func AssertRecordEventually(t *testing.T, ds sqlutil.DataSource, model any, stmt string, check func() bool) {
 	t.Helper()
 	ctx := testutils.Context(t)
 	require.Eventually(t, func() bool {

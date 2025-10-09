@@ -70,7 +70,7 @@ func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 	defer server.Close()
 
 	longString := "abcdefgh"
-	for i := 0; i < 6; i++ {
+	for range 6 {
 		longString += longString
 	}
 	authHeader := base64.StdEncoding.EncodeToString([]byte(longString))

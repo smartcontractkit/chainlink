@@ -27,7 +27,7 @@ func generateChainsTron(t *testing.T, numChains int) []cldf_chain.BlockChain {
 	}
 
 	chains := make([]cldf_chain.BlockChain, 0, numChains)
-	for i := 0; i < numChains; i++ {
+	for i := range numChains {
 		selector := testTronChainSelectors[i]
 
 		ctfDefault, err := cldf_tron_provider.SignerGenCTFDefault()

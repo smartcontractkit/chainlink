@@ -731,13 +731,23 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	// peer (not bootstrap) that doesn't belong to any DON connects to nobody
 	require.Empty(t, launcher.donPairsToUpdate(other, localRegistry))
 
-	// bootstrap node adds all DON pairs
+	// bootstrap node adds all 3 DON pairs
 	sharedPeer.On("IsBootstrap").Return(true).Once()
 	res = launcher.donPairsToUpdate(pid, localRegistry)
 	require.Len(t, res, 3)
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[capDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[2])
+
+	// bootstrap node adds only allowed DON pairs
+	mixedDON := localRegistry.IDsToDONs[mixedDONID]
+	mixedDON.AcceptsWorkflows = false
+	localRegistry.IDsToDONs[mixedDONID] = mixedDON
+	sharedPeer.On("IsBootstrap").Return(true).Once()
+	res = launcher.donPairsToUpdate(pid, localRegistry)
+	require.Len(t, res, 2)
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[capDONID].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[wfDONID].DON, localRegistry.IDsToDONs[mixedDONID].DON}, res[1])
 }
 
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {

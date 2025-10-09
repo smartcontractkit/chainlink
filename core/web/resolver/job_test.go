@@ -318,22 +318,22 @@ func TestResolver_CreateJob(t *testing.T) {
 		}`
 	uuid := uuid.New()
 	spec := fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid, testutils.FixtureChainID.String())
-	variables := map[string]interface{}{
-		"input": map[string]interface{}{
+	variables := map[string]any{
+		"input": map[string]any{
 			"TOML": spec,
 		},
 	}
-	invalid := map[string]interface{}{
-		"input": map[string]interface{}{
+	invalid := map[string]any{
+		"input": map[string]any{
 			"TOML": "some wrong value",
 		},
 	}
 	jb, err := directrequest.ValidatedDirectRequestSpec(spec)
 	assert.NoError(t, err)
 
-	d, err := json.Marshal(map[string]interface{}{
-		"createJob": map[string]interface{}{
-			"job": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"createJob": map[string]any{
+			"job": map[string]any{
 				"id":              "0",
 				"maxTaskDuration": "0s",
 				"name":            jb.Name,
@@ -391,7 +391,7 @@ func TestResolver_CreateJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"createJob"},
+					Path:          []any{"createJob"},
 					Message:       gError.Error(),
 				},
 			},
@@ -425,15 +425,15 @@ func TestResolver_DeleteJob(t *testing.T) {
 					}
 				}
 		}`
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": "123",
 	}
-	invalidVariables := map[string]interface{}{
+	invalidVariables := map[string]any{
 		"id": "asdadada",
 	}
-	d, err := json.Marshal(map[string]interface{}{
-		"deleteJob": map[string]interface{}{
-			"job": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"deleteJob": map[string]any{
+			"job": map[string]any{
 				"id":              "123",
 				"maxTaskDuration": "2s",
 				"name":            "test-job",
@@ -520,7 +520,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"deleteJob"},
+					Path:          []any{"deleteJob"},
 					Message:       gError.Error(),
 				},
 			},
@@ -540,7 +540,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"deleteJob"},
+					Path:          []any{"deleteJob"},
 					Message:       gError.Error(),
 				},
 			},
@@ -555,7 +555,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: idError,
-					Path:          []interface{}{"deleteJob"},
+					Path:          []any{"deleteJob"},
 					Message:       idError.Error(),
 				},
 			},

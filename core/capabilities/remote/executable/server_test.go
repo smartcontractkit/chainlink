@@ -61,7 +61,7 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 	}
 
 	for _, caller := range callers {
-		for i := 0; i < numCapabilityPeers; i++ {
+		for range numCapabilityPeers {
 			msg := <-caller.receivedMessages
 			assert.Equal(t, remotetypes.Error_OK, msg.Error)
 
@@ -108,7 +108,7 @@ func Test_Server_DefaultExcludedAttributes(t *testing.T) {
 	}
 
 	for _, caller := range callers {
-		for i := 0; i < numCapabilityPeers; i++ {
+		for range numCapabilityPeers {
 			msg := <-caller.receivedMessages
 			assert.Equal(t, remotetypes.Error_OK, msg.Error)
 		}
@@ -144,7 +144,7 @@ func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 	}
 
 	for _, caller := range callers {
-		for i := 0; i < numCapabilityPeers; i++ {
+		for range numCapabilityPeers {
 			msg := <-caller.receivedMessages
 			assert.Equal(t, remotetypes.Error_OK, msg.Error)
 		}
@@ -171,7 +171,7 @@ func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
 	}
 
 	for _, caller := range callers {
-		for i := 0; i < numCapabilityPeers; i++ {
+		for range numCapabilityPeers {
 			msg := <-caller.receivedMessages
 			assert.Equal(t, remotetypes.Error_OK, msg.Error)
 		}
@@ -198,7 +198,7 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 	}
 
 	for _, caller := range callers {
-		for i := 0; i < numCapabilityPeers; i++ {
+		for range numCapabilityPeers {
 			msg := <-caller.receivedMessages
 			assert.Equal(t, remotetypes.Error_TIMEOUT, msg.Error)
 		}
@@ -225,7 +225,7 @@ func Test_Server_CapabilityError(t *testing.T) {
 	}
 
 	for _, caller := range callers {
-		for i := 0; i < numCapabilityPeers; i++ {
+		for range numCapabilityPeers {
 			msg := <-caller.receivedMessages
 			assert.Equal(t, remotetypes.Error_INTERNAL_ERROR, msg.Error)
 		}
@@ -324,7 +324,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	}
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityPeerID := NewP2PPeerID(t)
 		capabilityPeers[i] = capabilityPeerID
 	}
@@ -343,7 +343,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	}
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeers[i] = NewP2PPeerID(t)
 	}
 
@@ -365,7 +365,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
 
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, lggr)
@@ -377,7 +377,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	}
 
 	workflowNodes := make([]*serverTestClient, numWorkflowPeers)
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		workflowNode := newServerTestClient(workflowPeers[i], capDonInfo, workflowPeerDispatcher)
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)

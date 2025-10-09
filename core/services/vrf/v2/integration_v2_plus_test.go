@@ -86,7 +86,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	)
 
 	// Create consumer contract deployer identities
-	for i := 0; i < numConsumers; i++ {
+	for range numConsumers {
 		vrfConsumers = append(vrfConsumers, evmtestutils.MustNewSimTransactor(t))
 	}
 
@@ -289,7 +289,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
 
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		backend.Commit()
 	}
 
@@ -893,7 +893,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 		uni.backend.Commit()
 		// Ensure even with large number of consumers its still cheap
 		var addrs []common.Address
-		for i := 0; i < 99; i++ {
+		for range 99 {
 			addrs = append(addrs, testutils.NewAddress())
 		}
 		_, err = carolContract.UpdateSubscription(carol, addrs)
@@ -960,7 +960,7 @@ func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
 	subId, err := carolContract.SSubId(nil)
 	require.NoError(t, err)
 	var addrs []common.Address
-	for i := 0; i < 98; i++ {
+	for range 98 {
 		addrs = append(addrs, testutils.NewAddress())
 	}
 	_, err = carolContract.UpdateSubscription(carol, addrs)

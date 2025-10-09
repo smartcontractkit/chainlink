@@ -8,13 +8,13 @@ import (
 )
 
 func TestMerge(t *testing.T) {
-	vars := map[string]interface{}{
-		"jb": map[string]interface{}{
+	vars := map[string]any{
+		"jb": map[string]any{
 			"databaseID": "some-job-id",
 		},
 	}
-	addedVars := map[string]interface{}{
-		"jb": map[string]interface{}{
+	addedVars := map[string]any{
+		"jb": map[string]any{
 			"some-other-var": "foo",
 		},
 		"val": 0,
@@ -22,8 +22,8 @@ func TestMerge(t *testing.T) {
 
 	merge(vars, addedVars)
 
-	assert.True(t, reflect.DeepEqual(vars, map[string]interface{}{
-		"jb": map[string]interface{}{
+	assert.True(t, reflect.DeepEqual(vars, map[string]any{
+		"jb": map[string]any{
 			"databaseID":     "some-job-id",
 			"some-other-var": "foo",
 		},

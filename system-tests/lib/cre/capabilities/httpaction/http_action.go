@@ -61,9 +61,9 @@ func New() (*capabilities.Capability, error) {
 	)
 }
 
-func handlerConfig(donMetadata *cre.DonMetadata) (cre.HandlerTypeToConfig, error) {
+func handlerConfig(don *cre.DON) (cre.HandlerTypeToConfig, error) {
 	// if any of the DONs have http action or http trigger capability, we need to add a http handler to the jobspec for the gateway node
-	if !flags.HasFlag(donMetadata.Flags, flag) {
+	if !don.HasFlag(flag) {
 		return nil, nil
 	}
 

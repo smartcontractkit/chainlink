@@ -29,7 +29,7 @@ func TestStreamsConsensusAggregator(t *testing.T) {
 	triggerNodes := newNodes(t, Nt)
 	feeds := newFeedsWithSignedReports(t, triggerNodes, Nt, P, 1)
 	allowedSigners := make([][]byte, Nt)
-	for i := 0; i < Nt; i++ {
+	for i := range Nt {
 		allowedSigners[i] = triggerNodes[i].bundle.PublicKey() // bad name - see comment on evmKeyring.PublicKey
 	}
 
@@ -53,7 +53,7 @@ func TestStreamsConsensusAggregator(t *testing.T) {
 	// run test aggregations
 	startTs := time.Now().UnixMilli()
 	processingTime := int64(0)
-	for c := 0; c < T; c++ {
+	for range T {
 		obs := newObservations(t, Nw, feeds, Ft+1, allowedSigners)
 		processingStart := time.Now().UnixMilli()
 		outcome, err = agg.Aggregate(lggr, outcome, obs, Fw)
@@ -84,9 +84,9 @@ func newAggConfig(t *testing.T, feeds []feed) *values.Map {
 
 func newObservations(t *testing.T, nNodes int, feeds []feed, minRequiredSignatures int, allowedSigners [][]byte) map[commontypes.OracleID][]values.Value {
 	observations := map[commontypes.OracleID][]values.Value{}
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		reportList := []datastreams.FeedReport{}
-		for j := 0; j < len(feeds); j++ {
+		for j := range feeds {
 			reportIdx := 0
 			signedStreamsReport := datastreams.FeedReport{
 				FeedID:        feeds[j].feedIDStr,

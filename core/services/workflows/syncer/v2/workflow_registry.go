@@ -184,30 +184,29 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 
 		w.wg.Add(1)
 		go func() {
+			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer w.wg.Done()
+			defer close(initDoneCh)
 
-			w.lggr.Debugw("Waiting for DON...")
-			if _, err := w.workflowDonNotifier.WaitForDon(ctx); err != nil {
-				w.lggr.Errorw("failed to wait for don", "err", err)
-				w.hooks.OnStartFailure(err)
-				return
+			ticker := w.getTicker(defaultTickInterval)
+			for w.contractReader == nil {
+				select {
+				case <-ctx.Done():
+					w.lggr.Debug("shutting down workflowregistry, %s", ctx.Err())
+					return
+				case <-ticker:
+					// Async initialization of contract reader because there is an on-chain
+					// call dependency.  Blocking on initialization results in a
+					// deadlock.  Instead wait until the node has identified it's DON
+					// as a proxy for a DON and on-chain ready state .
+					reader, err := w.newWorkflowRegistryContractReader(ctx)
+					if err != nil {
+						w.lggr.Errorw("contract reader unavailable", "error", err.Error())
+						break
+					}
+					w.contractReader = reader
+				}
 			}
-
-			// Async initialization of contract reader because there is an on-chain
-			// call dependency.  Blocking on initialization results in a
-			// deadlock.  Instead wait until the node has identified it's DON
-			// as a proxy for a DON and on-chain ready state .
-			reader, err := w.newWorkflowRegistryContractReader(ctx)
-			if err != nil {
-				w.lggr.Criticalf("contract reader unavailable : %s", err)
-				w.hooks.OnStartFailure(err)
-				cancel()
-				return
-			}
-
-			w.contractReader = reader
-			close(initDoneCh)
-			w.lggr.Debugw("Received DON and set ContractReader")
 		}()
 
 		w.wg.Add(1)
@@ -722,7 +721,9 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
 	w.allowListedMu.RLock()
 	defer w.allowListedMu.RUnlock()
-	return w.allowListedRequests
+	allowListedRequests := make([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, len(w.allowListedRequests))
+	copy(allowListedRequests, w.allowListedRequests)
+	return allowListedRequests
 }
 
 func (w *workflowRegistry) GetLastSeenOnchainAllowlistedRequestsCount(_ context.Context) *big.Int {
@@ -770,7 +771,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 		}
 
 		// Start index should be no more than MaxResultsPerQuery away from end index
-		startIndex = new(big.Int).Sub(endIndex, big.NewInt(MaxResultsPerQuery+1))
+		startIndex = new(big.Int).Sub(endIndex, big.NewInt(MaxResultsPerQuery-1))
 		// If start index is less than last seen allowlisted requests count, set it to last seen allowlisted requests
 		// count to avoid duplicate requests
 		if startIndex.Cmp(w.lastSeenAllowlistedRequestsCount) < 0 {

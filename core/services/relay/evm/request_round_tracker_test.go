@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config/configtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -24,9 +25,6 @@ import (
 	logmocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
@@ -52,7 +50,7 @@ type contractTrackerUni struct {
 	requestRoundTracker *evm.RequestRoundTracker
 }
 
-func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
+func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 	var filterer *ocr2aggregator.OCR2AggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator
 	for _, opt := range opts {
@@ -65,8 +63,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 			t.Fatalf("unrecognised option type %T", v)
 		}
 	}
-	config := configtest.NewTestGeneralConfig(t)
-	chain := evmtest.NewChainScopedConfig(t, config)
+	chain := configtest.NewChainScopedConfig(t, nil)
 	if filterer == nil {
 		filterer = mustNewFilterer(t, testutils.NewAddress())
 	}
@@ -78,7 +75,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.hb = headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = clienttest.NewClient(t)
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	lggr := logger.Test(t)
 	uni.requestRoundTracker = evm.NewRequestRoundTracker(
 		contract,

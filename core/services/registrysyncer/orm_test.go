@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -30,7 +31,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	orm := registrysyncer.NewORM(db, lggr)
 
 	var states []registrysyncer.LocalRegistry
-	for i := 0; i < 11; i++ {
+	for range 11 {
 		state := generateState(t)
 		err := orm.AddLocalRegistry(ctx, state)
 		require.NoError(t, err)
@@ -173,15 +174,10 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that latest ID hasn't changed (no new insertion)
-		var currentID int
-		var currentHash string
-		err = db.Get(&currentID, `SELECT id FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
-		require.NoError(t, err)
-		err = db.Get(&currentHash, `SELECT data_hash FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
-		require.NoError(t, err)
+		id, hash := latestHashAndID(t, db)
 
-		assert.Equal(t, initialID, currentID, "ID should not change when inserting duplicate data")
-		assert.Equal(t, initialHash, currentHash, "Hash should not change when inserting duplicate data")
+		assert.Equal(t, initialID, id, "ID should not change when inserting duplicate data")
+		assert.Equal(t, initialHash, hash, "Hash should not change when inserting duplicate data")
 
 		// Generate new state with different data
 		newState := generateState(t)
@@ -191,27 +187,16 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that latest ID is incremented and hash is new
-		var newID int
-		var newHash string
-		err = db.Get(&newID, `SELECT id FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
-		require.NoError(t, err)
-		err = db.Get(&newHash, `SELECT data_hash FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
-		require.NoError(t, err)
-
-		assert.Greater(t, newID, currentID, "ID should increment when inserting new data")
-		assert.NotEqual(t, newHash, currentHash, "Hash should change when inserting new data")
+		newID, newHash := latestHashAndID(t, db)
+		assert.Greater(t, newID, id, "ID should increment when inserting new data")
+		assert.NotEqual(t, newHash, hash, "Hash should change when inserting new data")
 
 		// Fourth insertion with original data again - should succeed and increment ID
 		err = orm.AddLocalRegistry(ctx, originalState)
 		require.NoError(t, err)
 
 		// Check that latest ID is incremented again and hash is back to original
-		var finalID int
-		var finalHash string
-		err = db.Get(&finalID, `SELECT id FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
-		require.NoError(t, err)
-		err = db.Get(&finalHash, `SELECT data_hash FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
-		require.NoError(t, err)
+		finalID, finalHash := latestHashAndID(t, db)
 
 		assert.Greater(t, finalID, newID, "ID should increment when re-inserting original data")
 		assert.Equal(t, finalHash, initialHash, "Hash should match original data hash when re-inserting original data")
@@ -222,4 +207,14 @@ func TestRegistrySyncerORM_AddLocalRegistry_DuplicateHandling(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 3, totalCount, "Should have exactly 3 records")
 	})
+}
+
+func latestHashAndID(t *testing.T, db *sqlx.DB) (int, string) {
+	var id int
+	var hash string
+	err := db.Get(&id, `SELECT id FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+	require.NoError(t, err)
+	err = db.Get(&hash, `SELECT data_hash FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
+	require.NoError(t, err)
+	return id, hash
 }

@@ -17,7 +17,7 @@ var RemoveFeedProxyMappingChangeset = cldf.CreateChangeSet(removeFeedProxyMappin
 func removeFeedProxyMappingLogic(env cldf.Environment, c types.RemoveFeedProxyTronConfig) (cldf.ChangesetOutput, error) {
 	chain := env.BlockChains.TronChains()[c.ChainSelector]
 
-	txInfo, err := chain.TriggerContractAndConfirm(context.Background(), c.CacheAddress, "removeDataIdMappingsForProxies(address[])", []interface{}{"address[]", c.ProxyAddresses}, c.TriggerOptions)
+	txInfo, err := chain.TriggerContractAndConfirm(context.Background(), c.CacheAddress, "removeDataIdMappingsForProxies(address[])", []any{"address[]", c.ProxyAddresses}, c.TriggerOptions)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", txInfo.ID, err)
 	}

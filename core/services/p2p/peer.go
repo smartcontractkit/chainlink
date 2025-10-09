@@ -142,7 +142,6 @@ func (p *peer) UpdateConnections(peers map[ragetypes.PeerID]p2ptypes.StreamConfi
 
 func (p *peer) recreateStreams(peers map[ragetypes.PeerID]p2ptypes.StreamConfig) error {
 	for pid, cfg := range peers {
-		pid := pid
 		if pid == p.myID { // don't create a self-stream
 			continue
 		}

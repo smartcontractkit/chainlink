@@ -18,7 +18,7 @@ func SendingKeysForJob(spec *OCR2OracleSpec) ([]string, error) {
 		return nil, fmt.Errorf("%w: sendingKeys must be provided in relay config", ErrNoSendingKeysFromSpec)
 	}
 
-	sendingKeysInterfaceSlice, ok := sendingKeysInterface.([]interface{})
+	sendingKeysInterfaceSlice, ok := sendingKeysInterface.([]any)
 	if !ok {
 		return nil, errors.New("sending keys should be an array")
 	}

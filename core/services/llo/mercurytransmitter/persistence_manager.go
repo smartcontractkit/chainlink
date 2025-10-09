@@ -174,10 +174,7 @@ func (pm *persistenceManager) deleteTransmissions(ctx context.Context, hashes []
 	}
 
 	for i := 0; i < len(hashes); i += batchSize { // batch deletes to avoid large transactions
-		end := i + batchSize
-		if end > len(hashes) {
-			end = len(hashes)
-		}
+		end := min(i+batchSize, len(hashes))
 		deleteBatch := hashes[i:end]
 		for {
 			if err := pm.orm.Delete(ctx, deleteBatch); err != nil {

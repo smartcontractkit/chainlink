@@ -211,7 +211,7 @@ func TestNewServices(t *testing.T) {
 			assert.Len(t, got, tt.wantServiceCnt)
 			if tt.loopMode {
 				foundLoopFactory := false
-				for i := 0; i < len(got); i++ {
+				for i := range got {
 					if reflect.TypeOf(got[i]) == reflect.TypeOf(tt.wantLoopFactory) {
 						foundLoopFactory = true
 						break

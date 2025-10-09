@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/big"
 	"slices"
@@ -348,10 +349,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 	// as configured in parallel. Then we can combine into fulfillment
 	// batches afterwards.
 	for chunkStart := 0; chunkStart < len(ready); chunkStart += int(lsn.job.VRFSpec.ChunkSize) {
-		chunkEnd := chunkStart + int(lsn.job.VRFSpec.ChunkSize)
-		if chunkEnd > len(ready) {
-			chunkEnd = len(ready)
-		}
+		chunkEnd := min(chunkStart+int(lsn.job.VRFSpec.ChunkSize), len(ready))
 		chunk := ready[chunkStart:chunkEnd]
 
 		// Get unfulfilled requests, and mark the already fulfilled ones as processed.
@@ -549,12 +547,8 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	}()
 	wg.Wait()
 	// combine the processed link and native requests into the processed map
-	for k, v := range nativeProcessed {
-		processed[k] = v
-	}
-	for k, v := range linkProcessed {
-		processed[k] = v
-	}
+	maps.Copy(processed, nativeProcessed)
+	maps.Copy(processed, linkProcessed)
 
 	return processed
 }
@@ -690,10 +684,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 	// Process requests in chunks
 	for chunkStart := 0; chunkStart < len(ready); chunkStart += int(lsn.job.VRFSpec.ChunkSize) {
-		chunkEnd := chunkStart + int(lsn.job.VRFSpec.ChunkSize)
-		if chunkEnd > len(ready) {
-			chunkEnd = len(ready)
-		}
+		chunkEnd := min(chunkStart+int(lsn.job.VRFSpec.ChunkSize), len(ready))
 		chunk := ready[chunkStart:chunkEnd]
 
 		var unfulfilled []pendingRequest
@@ -948,12 +939,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 	}()
 	wg.Wait()
 	// combine the native and link processed requests into the processed map
-	for k, v := range nativeProcessed {
-		processed[k] = v
-	}
-	for k, v := range linkProcessed {
-		processed[k] = v
-	}
+	maps.Copy(processed, nativeProcessed)
+	maps.Copy(processed, linkProcessed)
 
 	return processed
 }
@@ -994,8 +981,8 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 		var result string
 		calls[i] = rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
+			Args: []any{
+				map[string]any{
 					"to":   lsn.coordinator.Address(),
 					"data": hexutil.Bytes(payload),
 				},
@@ -1124,8 +1111,8 @@ func (lsn *listenerV2) simulateFulfillment(
 		res.fundsNeeded = big.NewInt(0)
 	}
 
-	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"jobSpec": map[string]any{
 			"databaseID":    lsn.job.ID,
 			"externalJobID": lsn.job.ExternalJobID,
 			"name":          lsn.job.Name.ValueOrZero(),
@@ -1133,7 +1120,7 @@ func (lsn *listenerV2) simulateFulfillment(
 			"maxGasPrice":   maxGasPriceWei.ToInt().String(),
 			"evmChainID":    lsn.job.VRFSpec.EVMChainID.String(),
 		},
-		"jobRun": map[string]interface{}{
+		"jobRun": map[string]any{
 			"logBlockHash":   req.req.Raw().BlockHash.Bytes(),
 			"logBlockNumber": req.req.Raw().BlockNumber,
 			"logTxHash":      req.req.Raw().TxHash,
@@ -1205,14 +1192,14 @@ func (lsn *listenerV2) simulateFulfillment(
 
 	for _, trr := range trrs {
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
-			m := trr.Result.Value.(map[string]interface{})
+			m := trr.Result.Value.(map[string]any)
 			res.payload = m["output"].(string)
 			res.proof = FromV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
 			res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 		}
 
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2Plus {
-			m := trr.Result.Value.(map[string]interface{})
+			m := trr.Result.Value.(map[string]any)
 			res.payload = m["output"].(string)
 			res.proof = FromV2PlusProof(m["proof"].(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof))
 			res.reqCommitment = NewRequestCommitment(m["requestCommitment"])

@@ -147,14 +147,7 @@ func (fh *DirectHTTPAction) Description() string {
 	return directHTTPActionInfo.Description
 }
 
-func (fh *DirectHTTPAction) Initialise(ctx context.Context, config string, _ core.TelemetryService,
-	_ core.KeyValueStore,
-	_ core.ErrorLog,
-	_ core.PipelineRunnerService,
-	_ core.RelayerSet,
-	_ core.OracleFactory,
-	_ core.GatewayConnector,
-	_ core.Keystore) error {
+func (fh *DirectHTTPAction) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
 	// TODO: do validation of config here
 
 	err := fh.Start(ctx)

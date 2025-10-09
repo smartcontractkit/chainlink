@@ -102,7 +102,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.BridgeCreated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.BridgeCreated, map[string]any{
 		"bridgeName":                   bta.Name,
 		"bridgeConfirmations":          bta.Confirmations,
 		"bridgeMinimumContractPayment": bta.MinimumContractPayment,
@@ -126,7 +126,7 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.CSAKeyCreated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.CSAKeyCreated, map[string]any{
 		"CSAPublicKey": key.PublicKey,
 		"CSVersion":    key.Version,
 	})
@@ -150,7 +150,7 @@ func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.CSAKeyDeleted, map[string]interface{}{"id": args.ID})
+	r.App.GetAuditLogger().Audit(audit.CSAKeyDeleted, map[string]any{"id": args.ID})
 
 	return NewDeleteCSAKeyPayload(key, nil), nil
 }
@@ -257,7 +257,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	fmj, _ := json.Marshal(ccfg)
-	r.App.GetAuditLogger().Audit(audit.FeedsManChainConfigCreated, map[string]interface{}{"feedsManager": fmj})
+	r.App.GetAuditLogger().Audit(audit.FeedsManChainConfigCreated, map[string]any{"feedsManager": fmj})
 
 	return NewCreateFeedsManagerChainConfigPayload(ccfg, nil, nil), nil
 }
@@ -293,7 +293,7 @@ func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struc
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.FeedsManChainConfigDeleted, map[string]interface{}{"id": args.ID})
+	r.App.GetAuditLogger().Audit(audit.FeedsManChainConfigDeleted, map[string]any{"id": args.ID})
 
 	return NewDeleteFeedsManagerChainConfigPayload(ccfg, nil), nil
 }
@@ -391,7 +391,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 	}
 
 	fmj, _ := json.Marshal(ccfg)
-	r.App.GetAuditLogger().Audit(audit.FeedsManChainConfigUpdated, map[string]interface{}{"feedsManager": fmj})
+	r.App.GetAuditLogger().Audit(audit.FeedsManChainConfigUpdated, map[string]any{"feedsManager": fmj})
 
 	return NewUpdateFeedsManagerChainConfigPayload(ccfg, nil, nil), nil
 }
@@ -442,7 +442,7 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 	}
 
 	mgrj, _ := json.Marshal(mgr)
-	r.App.GetAuditLogger().Audit(audit.FeedsManCreated, map[string]interface{}{"mgrj": mgrj})
+	r.App.GetAuditLogger().Audit(audit.FeedsManCreated, map[string]any{"mgrj": mgrj})
 
 	return NewCreateFeedsManagerPayload(mgr, nil, nil), nil
 }
@@ -506,7 +506,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.BridgeUpdated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.BridgeUpdated, map[string]any{
 		"bridgeName":                   bridge.Name,
 		"bridgeConfirmations":          bridge.Confirmations,
 		"bridgeMinimumContractPayment": bridge.MinimumContractPayment,
@@ -565,7 +565,7 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 	}
 
 	mgrj, _ := json.Marshal(mgr)
-	r.App.GetAuditLogger().Audit(audit.FeedsManUpdated, map[string]interface{}{"mgrj": mgrj})
+	r.App.GetAuditLogger().Audit(audit.FeedsManUpdated, map[string]any{"mgrj": mgrj})
 
 	return NewUpdateFeedsManagerPayload(mgr, nil, nil), nil
 }
@@ -588,7 +588,7 @@ func (r *Resolver) EnableFeedsManager(ctx context.Context, args struct {
 	mgr, err := feedsService.EnableManager(ctx, id)
 
 	mgrj, _ := json.Marshal(mgr)
-	r.App.GetAuditLogger().Audit(audit.FeedsManEnabled, map[string]interface{}{"mgrj": mgrj})
+	r.App.GetAuditLogger().Audit(audit.FeedsManEnabled, map[string]any{"mgrj": mgrj})
 	return NewEnableFeedsManagerPayload(mgr, err), nil
 }
 
@@ -610,7 +610,7 @@ func (r *Resolver) DisableFeedsManager(ctx context.Context, args struct {
 	mgr, err := feedsService.DisableManager(ctx, id)
 
 	mgrj, _ := json.Marshal(mgr)
-	r.App.GetAuditLogger().Audit(audit.FeedsManDisabled, map[string]interface{}{"mgrj": mgrj})
+	r.App.GetAuditLogger().Audit(audit.FeedsManDisabled, map[string]any{"mgrj": mgrj})
 	return NewDisableFeedsManagerPayload(mgr, err), nil
 }
 
@@ -624,7 +624,7 @@ func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundleP
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.OCRKeyBundleCreated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.OCRKeyBundleCreated, map[string]any{
 		"ocrKeyBundleID":                      key.ID(),
 		"ocrKeyBundlePublicKeyAddressOnChain": key.PublicKeyAddressOnChain(),
 	})
@@ -647,7 +647,7 @@ func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.OCRKeyBundleDeleted, map[string]interface{}{"id": args.ID})
+	r.App.GetAuditLogger().Audit(audit.OCRKeyBundleDeleted, map[string]any{"id": args.ID})
 	return NewDeleteOCRKeyBundlePayloadResolver(deletedKey, nil), nil
 }
 
@@ -685,7 +685,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.BridgeDeleted, map[string]interface{}{"name": bt.Name})
+	r.App.GetAuditLogger().Audit(audit.BridgeDeleted, map[string]any{"name": bt.Name})
 	return NewDeleteBridgePayload(&bt, nil), nil
 }
 
@@ -700,7 +700,7 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 	}
 
 	const keyType = "Ed25519"
-	r.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]any{
 		"type":         "p2p",
 		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
@@ -731,7 +731,7 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]any{
 		"type": "p2p",
 		"id":   args.ID,
 	})
@@ -749,7 +749,7 @@ func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolv
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]any{
 		"type":                "vrf",
 		"id":                  key.ID(),
 		"vrfPublicKey":        key.PublicKey,
@@ -774,7 +774,7 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]any{
 		"type": "vrf",
 		"id":   args.ID,
 	})
@@ -817,7 +817,7 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 	}
 
 	specj, _ := json.Marshal(spec)
-	r.App.GetAuditLogger().Audit(audit.JobProposalSpecApproved, map[string]interface{}{"spec": specj})
+	r.App.GetAuditLogger().Audit(audit.JobProposalSpecApproved, map[string]any{"spec": specj})
 
 	return NewApproveJobProposalSpecPayload(spec, err), nil
 }
@@ -852,7 +852,7 @@ func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 	}
 
 	specj, _ := json.Marshal(spec)
-	r.App.GetAuditLogger().Audit(audit.JobProposalSpecCanceled, map[string]interface{}{"spec": specj})
+	r.App.GetAuditLogger().Audit(audit.JobProposalSpecCanceled, map[string]any{"spec": specj})
 
 	return NewCancelJobProposalSpecPayload(spec, err), nil
 }
@@ -887,7 +887,7 @@ func (r *Resolver) RejectJobProposalSpec(ctx context.Context, args struct {
 	}
 
 	specj, _ := json.Marshal(spec)
-	r.App.GetAuditLogger().Audit(audit.JobProposalSpecRejected, map[string]interface{}{"spec": specj})
+	r.App.GetAuditLogger().Audit(audit.JobProposalSpecRejected, map[string]any{"spec": specj})
 
 	return NewRejectJobProposalSpecPayload(spec, err), nil
 }
@@ -925,7 +925,7 @@ func (r *Resolver) UpdateJobProposalSpecDefinition(ctx context.Context, args str
 	}
 
 	specj, _ := json.Marshal(spec)
-	r.App.GetAuditLogger().Audit(audit.JobProposalSpecUpdated, map[string]interface{}{"spec": specj})
+	r.App.GetAuditLogger().Audit(audit.JobProposalSpecUpdated, map[string]any{"spec": specj})
 
 	return NewUpdateJobProposalSpecDefinitionPayload(spec, err), nil
 }
@@ -948,7 +948,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 	}
 
 	if !utils.CheckPasswordHash(args.Input.OldPassword, dbUser.HashedPassword) {
-		r.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]interface{}{"user": dbUser.Email})
+		r.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]any{"user": dbUser.Email})
 
 		return NewUpdatePasswordPayload(nil, map[string]string{
 			"oldPassword": "old password does not match",
@@ -964,7 +964,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, failedPasswordUpdateError{}
 	}
 
-	r.App.GetAuditLogger().Audit(audit.PasswordResetSuccess, map[string]interface{}{"user": dbUser.Email})
+	r.App.GetAuditLogger().Audit(audit.PasswordResetSuccess, map[string]any{"user": dbUser.Email})
 	return NewUpdatePasswordPayload(session.User, nil), nil
 }
 
@@ -978,9 +978,9 @@ func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 	r.App.GetConfig().SetLogSQL(args.Input.Enabled)
 
 	if args.Input.Enabled {
-		r.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingEnabled, map[string]interface{}{})
+		r.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingEnabled, map[string]any{})
 	} else {
-		r.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingDisabled, map[string]interface{}{})
+		r.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingDisabled, map[string]any{})
 	}
 
 	return NewSetSQLLoggingPayload(args.Input.Enabled), nil
@@ -1004,7 +1004,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 
 	err = r.App.AuthenticationProvider().TestPassword(ctx, dbUser.Email, args.Input.Password)
 	if err != nil {
-		r.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": dbUser.Email})
+		r.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]any{"user": dbUser.Email})
 
 		return NewCreateAPITokenPayload(nil, map[string]string{
 			"password": "incorrect password",
@@ -1016,7 +1016,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.APITokenCreated, map[string]interface{}{"user": dbUser.Email})
+	r.App.GetAuditLogger().Audit(audit.APITokenCreated, map[string]any{"user": dbUser.Email})
 	return NewCreateAPITokenPayload(newToken, nil), nil
 }
 
@@ -1038,7 +1038,7 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 
 	err = r.App.AuthenticationProvider().TestPassword(ctx, dbUser.Email, args.Input.Password)
 	if err != nil {
-		r.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": dbUser.Email})
+		r.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]any{"user": dbUser.Email})
 
 		return NewDeleteAPITokenPayload(nil, map[string]string{
 			"password": "incorrect password",
@@ -1050,7 +1050,7 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.APITokenDeleted, map[string]interface{}{"user": dbUser.Email})
+	r.App.GetAuditLogger().Audit(audit.APITokenDeleted, map[string]any{"user": dbUser.Email})
 
 	return NewDeleteAPITokenPayload(&auth.Token{
 		AccessKey: dbUser.TokenKey.String,
@@ -1132,7 +1132,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	}
 
 	jbj, _ := json.Marshal(jb)
-	r.App.GetAuditLogger().Audit(audit.JobCreated, map[string]interface{}{"job": string(jbj)})
+	r.App.GetAuditLogger().Audit(audit.JobCreated, map[string]any{"job": string(jbj)})
 
 	return NewCreateJobPayload(r.App, &jb, nil), nil
 }
@@ -1167,7 +1167,7 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.JobDeleted, map[string]interface{}{"id": args.ID})
+	r.App.GetAuditLogger().Audit(audit.JobDeleted, map[string]any{"id": args.ID})
 	return NewDeleteJobPayload(r.App, &j, nil), nil
 }
 
@@ -1201,7 +1201,7 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.JobErrorDismissed, map[string]interface{}{"id": args.ID})
+	r.App.GetAuditLogger().Audit(audit.JobErrorDismissed, map[string]any{"id": args.ID})
 	return NewDismissJobErrorPayload(&specErr, nil), nil
 }
 
@@ -1231,7 +1231,7 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.JobRunSet, map[string]interface{}{"jobID": args.ID, "jobRunID": jobRunID, "planRunID": plnRun})
+	r.App.GetAuditLogger().Audit(audit.JobRunSet, map[string]any{"jobID": args.ID, "jobRunID": jobRunID, "planRunID": plnRun})
 	return NewRunJobPayload(&plnRun, r.App, nil), nil
 }
 
@@ -1256,7 +1256,7 @@ func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.GlobalLogLevelSet, map[string]interface{}{"logLevel": args.Level})
+	r.App.GetAuditLogger().Audit(audit.GlobalLogLevelSet, map[string]any{"logLevel": args.Level})
 	return NewSetGlobalLogLevelPayload(args.Level, nil), nil
 }
 
@@ -1276,7 +1276,7 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.OCR2KeyBundleCreated, map[string]interface{}{
+	r.App.GetAuditLogger().Audit(audit.OCR2KeyBundleCreated, map[string]any{
 		"ocrKeyID":                        key.ID(),
 		"ocrKeyChainType":                 key.ChainType(),
 		"ocrKeyConfigEncryptionPublicKey": key.ConfigEncryptionPublicKey(),
@@ -1307,6 +1307,6 @@ func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	r.App.GetAuditLogger().Audit(audit.OCR2KeyBundleDeleted, map[string]interface{}{"id": id})
+	r.App.GetAuditLogger().Audit(audit.OCR2KeyBundleDeleted, map[string]any{"id": id})
 	return NewDeleteOCR2KeyBundlePayloadResolver(&key, nil), nil
 }

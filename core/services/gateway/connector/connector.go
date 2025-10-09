@@ -124,7 +124,6 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
 	for _, gw := range config.Gateways {
-		gw := gw
 		if _, exists := gateways[gw.Id]; exists {
 			return nil, fmt.Errorf("duplicate Gateway ID %s", gw.Id)
 		}
@@ -288,7 +287,6 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 	return c.StartOnce("GatewayConnector", func() error {
 		c.lggr.Info("starting gateway connector")
 		for _, gatewayState := range c.gateways {
-			gatewayState := gatewayState
 			if err := gatewayState.conn.Start(ctx); err != nil {
 				return err
 			}

@@ -3,6 +3,7 @@ package internal
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -75,9 +76,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 		// see: https://smartcontract-it.atlassian.net/browse/CRE-363
 		filtered := deployment.LabeledAddresses(addrs).And(req.Labels...)
 
-		for addr, tv := range forwarderAddrs {
-			filtered[addr] = tv
-		}
+		maps.Copy(filtered, forwarderAddrs)
 
 		cs, err := loadContractSet(lggr, chain, filtered)
 		if err != nil {

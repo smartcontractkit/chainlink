@@ -24,7 +24,7 @@ type OffRampView struct {
 	EnableManualExecutionAfter int64                               `json:"enableManualExecutionAfter,omitempty"`
 	Owner                      string                              `json:"owner,omitempty"`
 	ProposedOwner              string                              `json:"proposedOwner,omitempty"`
-	ReferenceAddresses         OffRampReferenceAddresses           `json:"referenceAddresses,omitempty"`
+	ReferenceAddresses         OffRampReferenceAddresses           `json:"referenceAddresses"`
 	SourceChains               map[uint64]OffRampSourceChainConfig `json:"sourceChains,omitempty"`
 }
 

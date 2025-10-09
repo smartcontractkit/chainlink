@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"sort"
+	slices0 "slices"
 	"strings"
 	"time"
 
@@ -37,9 +37,7 @@ func FlattenedAndSortedTokens(slices ...[]cciptypes.Address) (tokens []cciptypes
 	tokens = FlattenUniqueSlice(slices...)
 
 	// return the tokens in deterministic order to aid with testing and debugging
-	sort.Slice(tokens, func(i, j int) bool {
-		return tokens[i] < tokens[j]
-	})
+	slices0.Sort(tokens)
 
 	return tokens
 }

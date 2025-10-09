@@ -11,7 +11,7 @@ import (
 
 func TestValueScanIdentityPointSet(t *testing.T) {
 	randomStream := cryptotest.NewStream(t, 0)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		p := NewBlakeKeccackSecp256k1().Point().Pick(randomStream)
 		var pk, nPk, nnPk PublicKey
 		marshaledKey, err := p.MarshalBinary()

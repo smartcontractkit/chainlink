@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
@@ -27,31 +28,42 @@ type requestAuthorizer struct {
 }
 
 func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error) {
-	// TODO(https://smartcontract-it.atlassian.net/browse/PRIV-175): Remove this bypass once we have a Vault DON e2e tests setup in local CRE.
-	if build.IsDev() {
-		r.lggr.Warnw("bypassing RequestAuthorizer since it is not a production build", "build-mode", build.Mode())
-		// returning owner as Owner1, since that's used in vault e2e tests.
-		return true, "Owner1", nil
-	}
 	defer r.clearExpiredAuthorizedRequests()
-	digest, err := workflowsyncerv2.DigestForRequest(req)
+	r.lggr.Infow("AuthorizeRequest", "method", req.Method, "requestID", req.ID)
+	digest, err := vaulttypes.DigestForRequest(req)
 	if err != nil {
+		r.lggr.Infow("AuthorizeRequest failed to create digest", "method", req.Method, "requestID", req.ID)
 		return false, "", err
 	}
-	allowlistedRequest := r.fetchAllowlistedItem(r.workflowRegistrySyncer.GetAllowlistedRequests(ctx), digest)
+	if r.workflowRegistrySyncer == nil {
+		r.lggr.Errorw("AuthorizeRequest workflowRegistrySyncer is nil", "method", req.Method, "requestID", req.ID)
+		return false, "", errors.New("internal error: workflowRegistrySyncer is nil")
+	}
+	allowedRequests := r.workflowRegistrySyncer.GetAllowlistedRequests(ctx)
+	requestDigests := make([]string, 0, len(allowedRequests))
+	for _, allowedRequest := range allowedRequests {
+		requestDigests = append(requestDigests, hex.EncodeToString(allowedRequest.RequestDigest[:]))
+	}
+	r.lggr.Infow("AuthorizeRequest GetAllowlistedRequests", "method", req.Method, "requestID", req.ID, "allowedRequests", allowedRequests, "requestDigestHexStrs", requestDigests)
+	allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, digest)
 	if allowlistedRequest == nil {
+		r.lggr.Infow("AuthorizeRequest fetchAllowlistedItem request not allowlisted", "method", req.Method, "requestID", req.ID, "digestHexStr", hex.EncodeToString(digest[:]), "allowedRequestDigestHexStrs", requestDigests)
 		return false, "", errors.New("request not allowlisted")
 	}
 	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:]) + "-->" + strconv.FormatUint(uint64(allowlistedRequest.ExpiryTimestamp), 10)
+
 	r.alreadyAuthorizedMutex.Lock()
 	defer r.alreadyAuthorizedMutex.Unlock()
 	if r.alreadyAuthorizedRequests[authorizedRequestStr] {
+		r.lggr.Infow("AuthorizeRequest already authorized previously", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request already authorized previously")
 	}
 	currentTimestamp := time.Now().UTC().Unix()
 	if currentTimestamp > int64(allowlistedRequest.ExpiryTimestamp) {
+		r.lggr.Infow("AuthorizeRequest expired authorization", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request authorization expired")
 	}
+	r.lggr.Infow("AuthorizeRequest success in auth", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 	r.alreadyAuthorizedRequests[authorizedRequestStr] = true
 	return true, allowlistedRequest.Owner.Hex(), nil
 }

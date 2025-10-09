@@ -138,6 +138,7 @@ func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry
 			return err
 		}
 		hash := sha256.Sum256(localRegistryJSON)
+		// update if and only if the hash does not match the latest value
 		r, err := tx.ExecContext(
 			ctx,
 			`INSERT INTO registry_syncer_states (data, data_hash) 
@@ -149,7 +150,7 @@ func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry
 			localRegistryJSON, hex.EncodeToString(hash[:]),
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to insert into registry_syncer: %w", err)
 		}
 
 		n, _ := r.RowsAffected()

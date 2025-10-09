@@ -120,7 +120,7 @@ func (m *mockOpts) OutcomeCodec() llo.OutcomeCodec {
 type mockTelemeter struct {
 	mu                     sync.Mutex
 	v3PremiumLegacyPackets []v3PremiumLegacyPacket
-	ch                     chan interface{}
+	ch                     chan any
 }
 
 type v3PremiumLegacyPacket struct {
@@ -139,8 +139,8 @@ func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.
 	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
 }
-func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{}) {
-	m.ch = make(chan interface{}, size)
+func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any) {
+	m.ch = make(chan any, size)
 	return m.ch
 }
 func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *llo.LLOOutcomeTelemetry {
@@ -227,7 +227,7 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, "2181", pkt.val.(*llo.Decimal).String())
 			require.NoError(t, pkt.err)
 
-			telems := []interface{}{}
+			telems := []any{}
 			for p := range tm.ch {
 				telems = append(telems, p)
 			}
@@ -383,7 +383,7 @@ func Test_DataSource(t *testing.T) {
 
 			// Run multiple observations concurrently
 			var wg sync.WaitGroup
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
@@ -456,8 +456,7 @@ func BenchmarkObserve(b *testing.B) {
 	)
 
 	r := streams.NewRegistry(lggr, runner)
-	for i := uint32(0); i < n; i++ {
-		i := i
+	for i := range n {
 		jb := job.Job{
 			ID:       int32(i), //nolint:gosec // G115 // overflow impossible
 			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),

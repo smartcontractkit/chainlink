@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -36,6 +37,7 @@ type StandardCapabilities struct {
 	keystore             core.Keystore
 	oracleFactory        core.OracleFactory
 	gatewayConnector     core.GatewayConnector
+	orgResolver          orgresolver.OrgResolver
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 
@@ -49,29 +51,22 @@ func NewStandardCapabilities(
 	log logger.Logger,
 	spec *job.StandardCapabilitiesSpec,
 	pluginRegistrar plugins.RegistrarConfig,
-	telemetryService core.TelemetryService,
-	store core.KeyValueStore,
-	CapabilitiesRegistry core.CapabilitiesRegistry,
-	errorLog core.ErrorLog,
-	pipelineRunner core.PipelineRunnerService,
-	relayerSet core.RelayerSet,
-	oracleFactory core.OracleFactory,
-	gatewayConnector core.GatewayConnector,
-	keystore core.Keystore,
+	dependencies core.StandardCapabilitiesDependencies,
 ) *StandardCapabilities {
 	return &StandardCapabilities{
 		log:                  log,
 		spec:                 spec,
 		pluginRegistrar:      pluginRegistrar,
-		telemetryService:     telemetryService,
-		store:                store,
-		CapabilitiesRegistry: CapabilitiesRegistry,
-		errorLog:             errorLog,
-		pipelineRunner:       pipelineRunner,
-		relayerSet:           relayerSet,
-		oracleFactory:        oracleFactory,
-		gatewayConnector:     gatewayConnector,
-		keystore:             keystore,
+		telemetryService:     dependencies.TelemetryService,
+		store:                dependencies.Store,
+		CapabilitiesRegistry: dependencies.CapabilityRegistry,
+		errorLog:             dependencies.ErrorLog,
+		pipelineRunner:       dependencies.PipelineRunner,
+		relayerSet:           dependencies.RelayerSet,
+		oracleFactory:        dependencies.OracleFactory,
+		gatewayConnector:     dependencies.GatewayConnector,
+		keystore:             dependencies.P2PKeystore,
+		orgResolver:          dependencies.OrgResolver,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
 	}
@@ -112,8 +107,20 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				return
 			}
 
-			if err = s.capabilitiesLoop.Service.Initialise(cctx, s.spec.Config, s.telemetryService, s.store, s.CapabilitiesRegistry, s.errorLog,
-				s.pipelineRunner, s.relayerSet, s.oracleFactory, s.gatewayConnector, s.keystore); err != nil {
+			dependencies := core.StandardCapabilitiesDependencies{
+				Config:             s.spec.Config,
+				TelemetryService:   s.telemetryService,
+				Store:              s.store,
+				CapabilityRegistry: s.CapabilitiesRegistry,
+				ErrorLog:           s.errorLog,
+				PipelineRunner:     s.pipelineRunner,
+				RelayerSet:         s.relayerSet,
+				OracleFactory:      s.oracleFactory,
+				GatewayConnector:   s.gatewayConnector,
+				P2PKeystore:        s.keystore,
+				OrgResolver:        s.orgResolver,
+			}
+			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
 				return
 			}

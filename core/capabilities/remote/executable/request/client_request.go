@@ -141,10 +141,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	if ok {
 		originalTimeout = time.Until(dl)
 	}
-	effectiveTimeout := originalTimeout
-	if originalTimeout < maxDelayDuration {
-		effectiveTimeout = maxDelayDuration
-	}
+	effectiveTimeout := max(originalTimeout, maxDelayDuration)
 
 	// Now let's create a new context based on the adjusted timeout value.
 	// By calling WithoutCancel, we ensure that this context can only be cancelled in

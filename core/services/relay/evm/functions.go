@@ -20,6 +20,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 )
 
 type functionsProvider struct {
@@ -27,11 +28,11 @@ type functionsProvider struct {
 	eng *services.Engine
 
 	configWatcher       *configWatcher
-	contractTransmitter ContractTransmitter
+	contractTransmitter transmitter.ContractTransmitter
 	logPollerWrapper    evmconfig.LogPollerWrapper
 }
 
-func newFunctionsProvider(lggr logger.Logger, cw *configWatcher, ct ContractTransmitter, lpw evmconfig.LogPollerWrapper) *functionsProvider {
+func newFunctionsProvider(lggr logger.Logger, cw *configWatcher, ct transmitter.ContractTransmitter, lpw evmconfig.LogPollerWrapper) *functionsProvider {
 	p := &functionsProvider{
 		configWatcher:       cw,
 		contractTransmitter: ct,
@@ -107,7 +108,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	if err != nil {
 		return nil, err
 	}
-	var contractTransmitter ContractTransmitter
+	var contractTransmitter transmitter.ContractTransmitter
 	if relayConfig.SendingKeys != nil {
 		contractTransmitter, err = newFunctionsContractTransmitter(ctx, pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
 		if err != nil {
@@ -138,7 +139,7 @@ func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.F
 	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
-func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keys.Store, logPollerWrapper evmconfig.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
+func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keys.Store, logPollerWrapper evmconfig.LogPollerWrapper, lggr logger.Logger) (transmitter.ContractTransmitter, error) {
 	var relayConfig evmconfig.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err

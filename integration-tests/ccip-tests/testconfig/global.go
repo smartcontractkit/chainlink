@@ -55,7 +55,7 @@ func GlobalTestConfig() *Config {
 // GenericConfig is an interface for all product based config types to implement
 type GenericConfig interface {
 	Validate() error
-	ApplyOverrides(from interface{}) error
+	ApplyOverrides(from any) error
 }
 
 // Config is the top level config struct. It contains config for all product based tests.
@@ -116,7 +116,7 @@ func NewConfig() (*Config, error) {
 	// there can be multiple overrides separated by comma
 	rawConfigs, _ := osutil.GetEnv(OVERIDECONFIG)
 	if rawConfigs != "" {
-		for _, rawConfig := range strings.Split(rawConfigs, ",") {
+		for rawConfig := range strings.SplitSeq(rawConfigs, ",") {
 			err = DecodeConfig(rawConfig, &override)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode override config: %w", err)
