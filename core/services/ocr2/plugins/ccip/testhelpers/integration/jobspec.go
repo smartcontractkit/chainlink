@@ -307,12 +307,11 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		ocrSpec.PluginConfig["USDCConfig.SourceMessageTransmitterAddress"] = fmt.Sprintf(`"%s"`, params.USDCConfig.SourceMessageTransmitterAddress)
 		ocrSpec.PluginConfig["USDCConfig.AttestationAPITimeoutSeconds"] = params.USDCConfig.AttestationAPITimeoutSeconds
 	}
-	if len(params.LBTCConfigs) == 1 {
+	if len(params.LBTCConfigs) >= 1 {
+		// duplicate LBTC configs in singular (first element) and in plural field
 		ocrSpec.PluginConfig["LBTCConfig.AttestationAPI"] = fmt.Sprintf(`"%s"`, params.LBTCConfigs[0].AttestationAPI)
 		ocrSpec.PluginConfig["LBTCConfig.SourceTokenAddress"] = fmt.Sprintf(`"%s"`, params.LBTCConfigs[0].SourceTokenAddress)
 		ocrSpec.PluginConfig["LBTCConfig.AttestationAPITimeoutSeconds"] = params.LBTCConfigs[0].AttestationAPITimeoutSeconds
-	}
-	if len(params.LBTCConfigs) > 1 {
 		// Write toml arrays in format
 		// [pluginConfig]
 		// LBTCConfigs = [
@@ -329,7 +328,7 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		ocrSpec.PluginConfig["LBTCConfigs"] = lbtcConfigs
 	}
 	// Always put some random config in PluginConfig to test forward compatibility
-	ocrSpec.PluginConfig["ConfigFromTheFuture.Value"] = fmt.Sprintf("\"%s\"", utils.RandomAddress().String())
+	ocrSpec.PluginConfig["ConfigsFromTheFuture"] = fmt.Sprintf("[ { Value = \"%s\" }, ]", utils.RandomAddress().String())
 	return &OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,
 		JobType:        "offchainreporting2",

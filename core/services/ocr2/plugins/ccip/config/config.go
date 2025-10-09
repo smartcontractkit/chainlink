@@ -203,18 +203,20 @@ func (c *DynamicPriceGetterConfig) UnmarshalJSON(data []byte) error {
 type ExecPluginJobSpecConfig struct {
 	SourceStartBlock, DestStartBlock uint64 // Only for first time job add.
 	USDCConfig                       USDCConfig
-	// Deprecated: store config in LBTCConfigs, read using LBTCConfigsList. This is kept for backward compatibility
+	// Deprecated: store config in LBTCConfigs, read using GetLBTCConfigs. This is kept for backward compatibility
 	LBTCConfig  LBTCConfig
 	LBTCConfigs []LBTCConfig
 }
 
-func (c *ExecPluginJobSpecConfig) LBTCConfigsList() []LBTCConfig {
-	lbtcConfigs := make([]LBTCConfig, 0, len(c.LBTCConfigs)+1)
-	if c.LBTCConfig != (LBTCConfig{}) {
-		lbtcConfigs = append(lbtcConfigs, c.LBTCConfig)
+func (c *ExecPluginJobSpecConfig) GetLBTCConfigs() []LBTCConfig {
+	// prioritize plural LBTC configs field over singular
+	if len(c.LBTCConfigs) > 0 {
+		return c.LBTCConfigs
 	}
-	lbtcConfigs = append(lbtcConfigs, c.LBTCConfigs...)
-	return lbtcConfigs
+	if c.LBTCConfig != (LBTCConfig{}) {
+		return []LBTCConfig{c.LBTCConfig}
+	}
+	return []LBTCConfig{}
 }
 
 type USDCConfig struct {

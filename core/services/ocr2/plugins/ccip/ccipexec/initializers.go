@@ -137,7 +137,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		tokenDataProviders[cciptypes.Address(pluginConfig.USDCConfig.SourceTokenAddress.String())] = usdcReader
 	}
 
-	lbtcConfigs := pluginConfig.LBTCConfigsList()
+	lbtcConfigs := pluginConfig.GetLBTCConfigs()
 	err = ccipconfig.ValidateLBTCConfigs(lbtcConfigs)
 	if err != nil {
 		return nil, err
