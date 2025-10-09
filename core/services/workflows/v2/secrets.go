@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -37,6 +38,8 @@ type secretsFetcher struct {
 
 	workflowOwner         string
 	workflowName          string
+	workflowID            string
+	phaseID               string
 	workflowEncryptionKey workflowkey.Key
 
 	metrics *monitoring.WorkflowsMetricLabeler
@@ -49,6 +52,8 @@ func NewSecretsFetcher(
 	semaphore limits.ResourcePoolLimiter[int],
 	workflowOwner string,
 	workflowName string,
+	workflowID string,
+	phaseID string,
 	workflowEncryptionKey workflowkey.Key,
 ) *secretsFetcher {
 	return &secretsFetcher{
@@ -57,6 +62,7 @@ func NewSecretsFetcher(
 		semaphore:             semaphore,
 		workflowOwner:         workflowOwner,
 		workflowName:          workflowName,
+		phaseID:               phaseID,
 		workflowEncryptionKey: workflowEncryptionKey,
 		metrics:               metrics,
 	}
@@ -88,6 +94,14 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	).RecordGetSecretsDuration(ctx, time.Since(start).Milliseconds())
 
 	return resp, err
+}
+
+func sha(strs ...string) string {
+	h := sha256.New()
+	for _, s := range strs {
+		h.Write([]byte(s))
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
@@ -160,8 +174,11 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		Method:       vault.MethodGetSecrets,
 		CapabilityId: vault.CapabilityID,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner: s.workflowOwner,
-			WorkflowName:  s.workflowName,
+			WorkflowID:          s.workflowID,
+			WorkflowOwner:       s.workflowOwner,
+			WorkflowName:        s.workflowName,
+			WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
+			ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
 		},
 	})
 	if err != nil {
