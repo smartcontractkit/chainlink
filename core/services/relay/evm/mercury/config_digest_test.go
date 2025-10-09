@@ -101,14 +101,14 @@ func TestConfigCalculationMatches(t *testing.T) {
 
 func GenHash(t *testing.T) gopter.Gen {
 	var byteGens []gopter.Gen
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		byteGens = append(byteGens, gen.UInt8())
 	}
 	return gopter.CombineGens(byteGens...).Map(
-		func(byteArray interface{}) (rv common.Hash) {
+		func(byteArray any) (rv common.Hash) {
 			array, ok := byteArray.(*gopter.GenResult).Retrieve()
 			require.True(t, ok, "failed to retrieve gen result")
-			for i, byteVal := range array.([]interface{}) {
+			for i, byteVal := range array.([]any) {
 				rv[i] = byteVal.(uint8)
 			}
 			return rv
@@ -118,16 +118,16 @@ func GenHash(t *testing.T) gopter.Gen {
 
 func GenHashArray(t *testing.T) gopter.Gen {
 	return gen.UInt8Range(0, 31).FlatMap(
-		func(length interface{}) gopter.Gen {
+		func(length any) gopter.Gen {
 			var hashGens []gopter.Gen
 			for i := uint8(0); i < length.(uint8); i++ {
 				hashGens = append(hashGens, GenHash(t))
 			}
 			return gopter.CombineGens(hashGens...).Map(
-				func(hashArray interface{}) (rv []common.Hash) {
+				func(hashArray any) (rv []common.Hash) {
 					array, ok := hashArray.(*gopter.GenResult).Retrieve()
 					require.True(t, ok, "could not extract hash array")
-					for _, hashVal := range array.([]interface{}) {
+					for _, hashVal := range array.([]any) {
 						rv = append(rv, hashVal.(common.Hash))
 					}
 					return rv
@@ -140,7 +140,7 @@ func GenHashArray(t *testing.T) gopter.Gen {
 
 func GenAddress(t *testing.T) gopter.Gen {
 	return GenHash(t).Map(
-		func(hash interface{}) common.Address {
+		func(hash any) common.Address {
 			iHash, ok := hash.(*gopter.GenResult).Retrieve()
 			require.True(t, ok, "failed to retrieve hash")
 			return common.BytesToAddress(iHash.(common.Hash).Bytes())
@@ -150,7 +150,7 @@ func GenAddress(t *testing.T) gopter.Gen {
 
 func GenAddressArray(t *testing.T) gopter.Gen {
 	return GenHashArray(t).Map(
-		func(hashes interface{}) (rv []common.Address) {
+		func(hashes any) (rv []common.Address) {
 			hashArray, ok := hashes.(*gopter.GenResult).Retrieve()
 			require.True(t, ok, "failed to retrieve hashes")
 			for _, hash := range hashArray.([]common.Hash) {
@@ -163,7 +163,7 @@ func GenAddressArray(t *testing.T) gopter.Gen {
 
 func GenClientPubKeyArray(t *testing.T) gopter.Gen {
 	return GenHashArray(t).Map(
-		func(hashes interface{}) (rv [][32]byte) {
+		func(hashes any) (rv [][32]byte) {
 			hashArray, ok := hashes.(*gopter.GenResult).Retrieve()
 			require.True(t, ok, "failed to retrieve hashes")
 			for _, hash := range hashArray.([]common.Hash) {
@@ -178,16 +178,16 @@ func GenClientPubKeyArray(t *testing.T) gopter.Gen {
 
 func GenBytes(t *testing.T) gopter.Gen {
 	return gen.UInt16Range(0, 2000).FlatMap(
-		func(length interface{}) gopter.Gen {
+		func(length any) gopter.Gen {
 			var byteGens []gopter.Gen
 			for i := uint16(0); i < length.(uint16); i++ {
 				byteGens = append(byteGens, gen.UInt8())
 			}
 			return gopter.CombineGens(byteGens...).Map(
-				func(byteArray interface{}) []byte {
+				func(byteArray any) []byte {
 					array, ok := byteArray.(*gopter.GenResult).Retrieve()
 					require.True(t, ok, "failed to retrieve gen result")
-					iArray := array.([]interface{})
+					iArray := array.([]any)
 					rv := make([]byte, len(iArray))
 					for i, byteVal := range iArray {
 						rv[i] = byteVal.(uint8)

@@ -207,7 +207,7 @@ func randomWait(minMilliseconds, maxMilliseconds int) {
 // getIntSlice returns a slice of ints of the provided length
 func getIntSlice(length int) []int {
 	result := make([]int, length)
-	for i := 0; i < length; i++ {
+	for i := range length {
 		result[i] = i
 	}
 
@@ -217,7 +217,7 @@ func getIntSlice(length int) []int {
 // getStringSlice returns a slice of strings of the provided length
 func getStringSlice(length int) []string {
 	result := make([]string, length)
-	for i := 0; i < length; i++ {
+	for i := range length {
 		result[i] = "amazing event"
 	}
 
@@ -484,7 +484,7 @@ func GetMissingLogs(
 				defer db.Close()
 				logs := make([]logpoller.Log, 0)
 
-				for j := 0; j < len(logEmitters); j++ {
+				for j := range logEmitters {
 					address := (*logEmitters[j]).Address()
 
 					for _, event := range cfg.General.EventsToEmit {
@@ -679,7 +679,7 @@ func PrintMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Log
 // which are present in the EVM node to which the provided evm client is connected
 func getEVMLogs(ctx context.Context, startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, client *seth.Client, l zerolog.Logger, cfg *lp_config.Config) ([]geth_types.Log, error) {
 	allLogsInEVMNode := make([]geth_types.Log, 0)
-	for j := 0; j < len(logEmitters); j++ {
+	for j := range logEmitters {
 		address := (*logEmitters[j]).Address()
 		for _, event := range cfg.General.EventsToEmit {
 			l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching logs from EVM node")
@@ -1177,7 +1177,7 @@ func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 	uniqueFilters := make(map[string]bool)
 
 	upkeepIdIndex := 0
-	for i := 0; i < len(logEmitters); i++ {
+	for i := range logEmitters {
 		for j := 0; j < len(cfg.General.EventsToEmit); j++ {
 			emitterAddress := (*logEmitters[i]).Address()
 			topicId := cfg.General.EventsToEmit[j].ID

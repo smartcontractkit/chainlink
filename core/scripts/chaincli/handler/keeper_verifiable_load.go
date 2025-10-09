@@ -97,7 +97,7 @@ func (k *Keeper) PrintVerifiableLoadStats(ctx context.Context, csv bool) {
 	var wg sync.WaitGroup
 
 	// create a number of workers to process the upkeep ids in batch
-	for i := 0; i < workerNum; i++ {
+	for range workerNum {
 		wg.Add(1)
 		go k.fetchUpkeepInfo(idChan, resultsChan, v, opts, &wg, csv)
 	}
@@ -201,7 +201,7 @@ func (k *Keeper) fetchBucketData(v verifiableLoad, opts *bind.CallOpts, id *big.
 
 	var bucketDelays []*big.Int
 	var err error
-	for i := 0; i < retryNum; i++ {
+	for range retryNum {
 		bucketDelays, err = v.GetBucketedDelays(opts, id, bucketNum)
 		if err == nil {
 			break

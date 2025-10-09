@@ -170,7 +170,7 @@ func P2pIDsFromInts(ints []int64) [][32]byte {
 		p2pIDs = append(p2pIDs, p2pID)
 	}
 	sort.Slice(p2pIDs, func(i, j int) bool {
-		for k := 0; k < 32; k++ {
+		for k := range 32 {
 			if p2pIDs[i][k] < p2pIDs[j][k] {
 				return true
 			} else if p2pIDs[i][k] > p2pIDs[j][k] {
@@ -198,7 +198,7 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 	ccipCapabilityID, err := t.CapReg.GetHashedCapabilityId(nil, CcipCapabilityLabelledName, CcipCapabilityVersion)
 	require.NoError(t.TestingT, err)
 
-	for i := 0; i < len(p2pIDs); i++ {
+	for i := range p2pIDs {
 		_, err = t.CapReg.AddNodeOperators(t.Transactor, []kcr.CapabilitiesRegistryNodeOperator{
 			{
 				Admin: t.Transactor.From,

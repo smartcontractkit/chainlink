@@ -331,7 +331,7 @@ func validateTronPrices(t *testing.T, testEnv *ttypes.TestEnvironment, bcOutput 
 			tronChain.Address,          // caller address
 			cacheAddr,                  // contract address
 			"getLatestAnswer(bytes16)", // function signature
-			[]interface{}{"bytes16", [16]byte(common.Hex2Bytes(feedID))}, // parameters
+			[]any{"bytes16", [16]byte(common.Hex2Bytes(feedID))}, // parameters
 		)
 		if err != nil {
 			testEnv.Logger.Error().Err(err).Msgf("FAILED to call getLatestAnswer on Tron chain %d", bcOutput.ChainSelector)

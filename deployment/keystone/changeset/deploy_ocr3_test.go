@@ -9,18 +9,17 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -28,32 +27,35 @@ import (
 
 func TestDeployOCR3(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1, // nodes unused but required in config
-		Chains: 2,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+
+	registrySel := chain_selectors.TEST_90000001.Selector
+	otherSel := chain_selectors.TEST_90000002.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{registrySel, otherSel}),
+	))
+	require.NoError(t, err)
+
 	qualifier := "test-ocr3-qualifier"
 
-	registrySel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-
-	resp, err := changeset.DeployOCR3V2(env, &changeset.DeployRequestV2{
-		ChainSel: registrySel, Qualifier: qualifier,
-	})
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployOCR3V2), &changeset.DeployRequestV2{
+			ChainSel:  registrySel,
+			Qualifier: qualifier,
+		}),
+	)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
-	// OCR3 should be deployed on chain 0
-	addrs, err := resp.AddressBook.AddressesForChain(registrySel)
+
+	// OCR3 should be deployed on registry chain
+	addrs, err := rt.State().AddressBook.AddressesForChain(registrySel)
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
 
-	dsAddrs := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier), datastore.AddressRefByChainSelector(registrySel))
+	dsAddrs := rt.State().DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier), datastore.AddressRefByChainSelector(registrySel))
 	require.Len(t, dsAddrs, 1)
 
-	// nothing on chain 1
-	require.NotEqual(t, registrySel, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
-	oaddrs, _ := resp.AddressBook.AddressesForChain(env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1])
+	// nothing on other chain
+	require.NotEqual(t, registrySel, otherSel)
+	oaddrs, _ := rt.State().AddressBook.AddressesForChain(otherSel)
 	assert.Empty(t, oaddrs)
 }
 

@@ -78,7 +78,7 @@ func TestAdapter_Integration(t *testing.T) {
 	err = jobORM.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 	pra := generic.NewPipelineRunnerAdapter(logger, jb, pr)
-	results, err := pra.ExecuteRun(testutils.Context(t), spec, core.Vars{Vars: map[string]interface{}{"val": 1}}, core.Options{})
+	results, err := pra.ExecuteRun(testutils.Context(t), spec, core.Vars{Vars: map[string]any{"val": 1}}, core.Options{})
 	require.NoError(t, err)
 
 	finalResult := results[0].Value.Val.(decimal.Decimal)

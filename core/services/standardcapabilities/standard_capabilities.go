@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -36,6 +37,7 @@ type StandardCapabilities struct {
 	keystore             core.Keystore
 	oracleFactory        core.OracleFactory
 	gatewayConnector     core.GatewayConnector
+	orgResolver          orgresolver.OrgResolver
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 
@@ -64,6 +66,7 @@ func NewStandardCapabilities(
 		oracleFactory:        dependencies.OracleFactory,
 		gatewayConnector:     dependencies.GatewayConnector,
 		keystore:             dependencies.P2PKeystore,
+		orgResolver:          dependencies.OrgResolver,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
 	}
@@ -115,6 +118,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				OracleFactory:      s.oracleFactory,
 				GatewayConnector:   s.gatewayConnector,
 				P2PKeystore:        s.keystore,
+				OrgResolver:        s.orgResolver,
 			}
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)

@@ -53,10 +53,10 @@ func TestLogEventBufferV1_SyncFilters(t *testing.T) {
 
 type readableLogger struct {
 	logger.Logger
-	DebugwFn func(msg string, keysAndValues ...interface{})
+	DebugwFn func(msg string, keysAndValues ...any)
 }
 
-func (l *readableLogger) Debugw(msg string, keysAndValues ...interface{}) {
+func (l *readableLogger) Debugw(msg string, keysAndValues ...any) {
 	l.DebugwFn(msg, keysAndValues...)
 }
 
@@ -64,7 +64,7 @@ func (l *readableLogger) Named(name string) logger.Logger {
 	return l
 }
 
-func (l *readableLogger) With(args ...interface{}) logger.Logger {
+func (l *readableLogger) With(args ...any) logger.Logger {
 	return l
 }
 
@@ -73,7 +73,7 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 		logReceived := false
 		readableLogger := &readableLogger{
 			Logger: logger.TestLogger(t),
-			DebugwFn: func(msg string, keysAndValues ...interface{}) {
+			DebugwFn: func(msg string, keysAndValues ...any) {
 				if msg == "enqueuing logs from a block older than latest seen block" {
 					logReceived = true
 					assert.Equal(t, "logBlock", keysAndValues[0])
@@ -103,7 +103,7 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 		logReceived := false
 		readableLogger := &readableLogger{
 			Logger: logger.TestLogger(t),
-			DebugwFn: func(msg string, keysAndValues ...interface{}) {
+			DebugwFn: func(msg string, keysAndValues ...any) {
 				if msg == "enqueuing logs again for a previously seen block" {
 					logReceived = true
 					assert.Equal(t, "blockNumber", keysAndValues[0])
@@ -532,7 +532,7 @@ func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int)
 
 func createDummyLogSequence(n, startIndex int, block int64, tx common.Hash) []logpoller.Log {
 	logs := make([]logpoller.Log, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		logs[i] = logpoller.Log{
 			BlockNumber: block,
 			TxHash:      tx,

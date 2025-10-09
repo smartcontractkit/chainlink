@@ -13,13 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	deployment_devenv "github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -92,9 +91,24 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		}
 	}
 
-	allNodeInfo := make([]deployment_devenv.NodeInfo, 0)
 	allNodeIDs := make([]string, 0)
-	devenvDons := make([]*deployment_devenv.DON, 0, len(envArtifact.DONs))
+	dons := make([]*cre.DON, 0, len(envArtifact.DONs))
+
+	jdConfig := jd.JDConfig{
+		GRPC:  envArtifact.JdConfig.ExternalGRPCUrl,
+		WSRPC: envArtifact.JdConfig.ExternalGRPCUrl,
+		Creds: insecure.NewCredentials(),
+	}
+
+	offChain, offChainErr := jd.NewJDClient(jdConfig)
+	if offChainErr != nil {
+		return nil, nil, errors.Wrap(offChainErr, "failed to create offchain client")
+	}
+
+	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra)
+	if tErr != nil {
+		return nil, nil, errors.Wrap(tErr, "failed to recreate topology from artifact")
+	}
 
 	for idx, don := range envArtifact.DONs {
 		_, ok := envArtifact.Nodes[don.DonName]
@@ -106,60 +120,14 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 			allNodeIDs = append(allNodeIDs, id)
 		}
 
-		// a maximum of 1 bootstrap is supported due to environment constraints
-		bootstrapNodesCount := 0
-		if envArtifact.Topology.ToDonMetadata()[idx].ContainsBootstrapNode() {
-			bootstrapNodesCount = 1
-		}
-
-		nodeInfo, err := crenode.GetNodeInfo(cachedInput.NodeSets[idx].Out, cachedInput.NodeSets[idx].Name, don.DonID, bootstrapNodesCount)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to get node info for don %s", don.DonName)
-		}
-		offChain, offChainErr := deployment_devenv.NewJDClient(ctx, deployment_devenv.JDConfig{
-			WSRPC:    envArtifact.JdConfig.ExternalGRPCUrl,
-			GRPC:     envArtifact.JdConfig.ExternalGRPCUrl,
-			Creds:    insecure.NewCredentials(),
-			NodeInfo: nodeInfo,
-		})
-		if offChainErr != nil {
-			return nil, nil, errors.Wrapf(offChainErr, "failed to create offchain client for don %s", don.DonName)
-		}
-
-		jd, ok := offChain.(*deployment_devenv.JobDistributor)
-		if !ok {
-			return nil, nil, errors.Errorf("offchain client is not a JobDistributor for don %s", don.DonName)
-		}
-		registeredDon, donErr := deployment_devenv.NewRegisteredDON(ctx, nodeInfo, *jd)
+		startedDON, donErr := cre.NewDON(ctx, topology.DonsMetadata.List()[idx], cachedInput.NodeSets[idx].Out.CLNodes)
 		if donErr != nil {
 			return nil, nil, errors.Wrapf(donErr, "failed to create DON for don %s", don.DonName)
 		}
-
-		devenvDons = append(devenvDons, registeredDon)
-		allNodeInfo = append(allNodeInfo, nodeInfo...)
+		dons = append(dons, startedDON)
 	}
 
-	donsMetadata, metaErr := cre.NewDonsMetadata(envArtifact.Topology.ToDonMetadata(), *cachedInput.Infra)
-	if metaErr != nil {
-		return nil, nil, errors.Wrapf(metaErr, "failed to recreate dons metadata from artifact")
-	}
-
-	dons, donsErr := cre.NewDons(donsMetadata, devenvDons)
-	if donsErr != nil {
-		return nil, nil, errors.Wrapf(donsErr, "failed to create Dons from metadata")
-	}
-
-	offChain, offChainErr := deployment_devenv.NewJDClient(ctx, deployment_devenv.JDConfig{
-		WSRPC:    envArtifact.JdConfig.ExternalGRPCUrl,
-		GRPC:     envArtifact.JdConfig.ExternalGRPCUrl,
-		Creds:    insecure.NewCredentials(),
-		NodeInfo: allNodeInfo,
-	})
-	if offChainErr != nil {
-		return nil, nil, errors.Wrapf(offChainErr, "failed to create offchain client")
-	}
-
-	chainConfigs := make([]deployment_devenv.ChainConfig, 0, len(wrappedBlockchainOutputs))
+	chainConfigs := make([]cre.ChainConfig, 0, len(wrappedBlockchainOutputs))
 	for _, output := range wrappedBlockchainOutputs {
 		cfg, cfgErr := cre.ChainConfigFromWrapped(output)
 		if cfgErr != nil {
@@ -168,7 +136,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		chainConfigs = append(chainConfigs, cfg)
 	}
 
-	blockChains, chainErr := deployment_devenv.NewChains(cldLogger, chainConfigs)
+	blockChains, chainErr := cre.NewChains(cldLogger, chainConfigs)
 	if chainErr != nil {
 		return nil, nil, errors.Wrapf(chainErr, "failed to create block chains")
 	}
@@ -187,14 +155,22 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		blockChains,
 	)
 
-	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra)
-	if tErr != nil {
-		return nil, nil, errors.Wrap(tErr, "failed to recreate topology from artifact")
+	linkDonsToJDInput := &cre.LinkDonsToJDInput{
+		JDClient:          offChain,
+		BlockchainOutputs: wrappedBlockchainOutputs,
+		CldfEnvironment:   cldEnv,
+		Topology:          topology,
+		DONs:              dons,
+	}
+	var linkErr error
+	cldEnv, linkErr = cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	if linkErr != nil {
+		return nil, nil, errors.Wrap(linkErr, "failed to link dons to JD")
 	}
 
 	return &cre.Environment{
 		CldfEnvironment: cldEnv,
-		DonTopology:     cre.NewDonTopology(envArtifact.Topology.HomeChainSelector, topology, dons),
+		DonTopology:     cre.NewDonTopology(envArtifact.RegistryChainSelector, topology, cre.NewDons(dons)),
 	}, wrappedBlockchainOutputs, nil
 }
 

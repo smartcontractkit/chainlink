@@ -26,8 +26,8 @@ var OpEVMDeployCallProxy = opsutils.NewEVMDeployOperation(
 		EVMBytecode: common.FromHex(bindings.CallProxyBin),
 		// ZkSyncVMBytecode not supported
 	},
-	func(input OpEVMDeployCallProxyInput) []interface{} {
-		return []interface{}{
+	func(input OpEVMDeployCallProxyInput) []any {
+		return []any{
 			input.Timelock,
 		}
 	},

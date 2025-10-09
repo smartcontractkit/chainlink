@@ -10,6 +10,10 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
+
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
@@ -18,11 +22,15 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*jd.Output, error) {
+type StartedJD struct {
+	JDOutput *jd.Output
+	Client   *cldf_jd.JobDistributor
+}
+
+func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (*StartedJD, error) {
 	startTime := time.Now()
 	lggr.Info().Msg("Starting Job Distributor")
 
-	var jdOutput *jd.Output
 	if infraInput.Type == infra.CRIB {
 		deployCribJdInput := &cre.DeployCribJdInput{
 			JDInput:        jdInput,
@@ -37,8 +45,27 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 		}
 	}
 
-	var jdErr error
-	jdOutput, jdErr = CreateJobDistributor(jdInput)
+	if os.Getenv("CI") == "true" {
+		jdImage := ctfconfig.MustReadEnvVar_String(E2eJobDistributorImageEnvVarName)
+		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
+		jdInput.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
+	}
+
+	jdOutput, err := jd.NewJD(&jdInput)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
+	}
+
+	jdConfig := cldf_jd.JDConfig{
+		GRPC:  jdOutput.ExternalGRPCUrl,
+		WSRPC: jdOutput.InternalWSRPCUrl,
+		Creds: insecure.NewCredentials(),
+	}
+
+	jdClient, jdErr := cldf_jd.NewJDClient(jdConfig)
+	if jdErr != nil {
+		return nil, pkgerrors.Wrap(jdErr, "failed to create JD client")
+	}
 	if jdErr != nil {
 		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", jdInput.Image, jdErr)
 
@@ -51,20 +78,8 @@ func StartJD(lggr zerolog.Logger, jdInput jd.Input, infraInput infra.Provider) (
 
 	lggr.Info().Msgf("Job Distributor started in %.2f seconds", time.Since(startTime).Seconds())
 
-	return jdOutput, nil
-}
-
-func CreateJobDistributor(input jd.Input) (*jd.Output, error) {
-	if os.Getenv("CI") == "true" {
-		jdImage := ctfconfig.MustReadEnvVar_String(E2eJobDistributorImageEnvVarName)
-		jdVersion := os.Getenv(E2eJobDistributorVersionEnvVarName)
-		input.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
-	}
-
-	jdOutput, err := jd.NewJD(&input)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
-	}
-
-	return jdOutput, nil
+	return &StartedJD{
+		JDOutput: jdOutput,
+		Client:   jdClient,
+	}, nil
 }

@@ -32,7 +32,7 @@ type MockConn struct {
 	State   grpc_connectivity.State
 	Ready   bool
 	Closed  bool
-	InvokeF func(ctx context.Context, method string, args interface{}, reply interface{}) error
+	InvokeF func(ctx context.Context, method string, args any, reply any) error
 }
 
 func (m *MockConn) Close() error {
@@ -44,6 +44,6 @@ func (m MockConn) WaitForReady(ctx context.Context) bool {
 }
 func (m MockConn) GetState() grpc_connectivity.State { return m.State }
 
-func (m MockConn) Invoke(ctx context.Context, method string, args interface{}, reply interface{}) error {
+func (m MockConn) Invoke(ctx context.Context, method string, args any, reply any) error {
 	return m.InvokeF(ctx, method, args, reply)
 }

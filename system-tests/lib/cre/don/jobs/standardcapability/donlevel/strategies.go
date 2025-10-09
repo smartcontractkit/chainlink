@@ -12,9 +12,9 @@ func JobNamer(chainID uint64, flag cre.CapabilityFlag) string {
 	return flag
 }
 
-func CapabilityEnabler(donMetadata *cre.DonMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
+func CapabilityEnabler(capabilities []string, _ *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
 	// for DON-level capabilities, we only need to check if the DON has the capability enabled
-	return flags.HasFlag(donMetadata.Flags, flag)
+	return flags.HasFlag(capabilities, flag)
 }
 
 func EnabledChainsProvider(donTopology *cre.DonTopology, nodeSetInput *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) []uint64 {

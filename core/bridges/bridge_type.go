@@ -127,12 +127,12 @@ type BridgeMetaDataJSON struct {
 	Meta BridgeMetaData
 }
 
-func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[string]interface{}, error) {
+func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[string]any, error) {
 	b, err := json.Marshal(&BridgeMetaData{LatestAnswer: latestAnswer, UpdatedAt: updatedAt})
 	if err != nil {
 		return nil, err
 	}
-	var mp map[string]interface{}
+	var mp map[string]any
 	err = json.Unmarshal(b, &mp)
 	if err != nil {
 		return nil, err
@@ -190,7 +190,7 @@ func (t BridgeName) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (t *BridgeName) Scan(value interface{}) error {
+func (t *BridgeName) Scan(value any) error {
 	temp, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("unable to convert %v of %T to BridgeName", value, value)

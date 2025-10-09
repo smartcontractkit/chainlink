@@ -3,6 +3,7 @@ package load
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"math/big"
 	"strings"
@@ -240,7 +241,6 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 	// i.e no execution state changed or commit report accepted event is generated
 	errGrp := &errgroup.Group{}
 	for _, lane := range lanes {
-		lane := lane
 		curseTimeStamp, exists := curseTimeStamps[lane.SourceNetworkName]
 		// if curse timestamp does not exist for source, it will exist for destination
 		if !exists {
@@ -291,9 +291,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 		lane.Dest.Common.PriceRegistry = nil
 		lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 		labels := make(map[string]string)
-		for k, v := range l.Labels {
-			labels[k] = v
-		}
+		maps.Copy(labels, l.Labels)
 		labels["source_chain"] = lane.SourceNetworkName
 		labels["dest_chain"] = lane.DestNetworkName
 		waspCfg := &wasp.Config{
@@ -319,7 +317,6 @@ func (l *LoadArgs) TriggerLoadByLane() {
 	}
 
 	for _, lane := range l.TestSetupArgs.Lanes {
-		lane := lane
 		l.LoadStarterWg.Add(1)
 		go func() {
 			defer l.LoadStarterWg.Done()
@@ -432,8 +429,6 @@ func (l *LoadArgs) TriggerLoadBySource() {
 		}
 	}
 	for source, lanes := range laneBySource {
-		source := source
-		lanes := lanes
 		l.LoadStarterWg.Add(1)
 		go func() {
 			defer l.LoadStarterWg.Done()
@@ -441,9 +436,7 @@ func (l *LoadArgs) TriggerLoadBySource() {
 				Str("Source Network", source).
 				Msg("Starting load for source")
 			allLabels := make(map[string]string)
-			for k, v := range l.Labels {
-				allLabels[k] = v
-			}
+			maps.Copy(allLabels, l.Labels)
 			allLabels["source_chain"] = source
 			multiCallGen, err := NewMultiCallLoadGenerator(l.TestCfg, lanes, l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime[0], allLabels)
 			require.NoError(l.t, err)

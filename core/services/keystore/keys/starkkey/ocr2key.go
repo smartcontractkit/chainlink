@@ -46,7 +46,7 @@ func ReportToSigData(reportCtx types.ReportContext, report types.Report) (*big.I
 	if err != nil {
 		return &big.Int{}, err
 	}
-	for i := 0; i < len(splitReport); i++ {
+	for i := range splitReport {
 		dataArray = append(dataArray, new(big.Int).SetBytes(splitReport[i]))
 	}
 

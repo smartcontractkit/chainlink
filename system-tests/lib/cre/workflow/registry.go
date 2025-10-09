@@ -233,12 +233,12 @@ func ConfigureWorkflowRegistry(
 
 // waitForAllNodesToHaveExpectedFiltersRegistered manually checks if all WorkflowRegistry filters used by the LogPoller are registered for all nodes. We want to see if this will help with the flakiness.
 func waitForAllNodesToHaveExpectedFiltersRegistered(singeFileLogger logger.Logger, testLogger zerolog.Logger, homeChainID uint64, donTopology *cre.DonTopology, nodeSetInput []*cre.CapabilitiesAwareNodeSet) error {
-	for donIdx, don := range donTopology.ToDonMetadata() {
+	for donIdx, don := range donTopology.Dons.List() {
 		if !flags.HasFlag(don.Flags, cre.WorkflowDON) {
 			continue
 		}
 
-		workerNodes, wErr := don.WorkerNodes()
+		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return errors.Wrap(wErr, "failed to find worker nodes")
 		}

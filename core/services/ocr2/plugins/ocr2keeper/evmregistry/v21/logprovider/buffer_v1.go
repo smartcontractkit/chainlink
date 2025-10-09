@@ -2,6 +2,7 @@ package logprovider
 
 import (
 	"math/big"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -267,7 +268,7 @@ func (b *logBuffer) getUpkeepQueue(uid *big.Int) (*upkeepLogQueue, bool) {
 func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	if _, ok := b.queues[uid.String()]; !ok {
 		b.queueIDs = append(b.queueIDs, uid.String())
-		sort.Slice(b.queueIDs, func(i, j int) bool { return b.queueIDs[i] < b.queueIDs[j] })
+		slices.Sort(b.queueIDs)
 	}
 	b.queues[uid.String()] = buf
 }
@@ -405,7 +406,7 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 		} else {
 			q.logs[log.BlockNumber] = []logpoller.Log{log}
 			q.blockNumbers = append(q.blockNumbers, log.BlockNumber)
-			sort.Slice(q.blockNumbers, func(i, j int) bool { return q.blockNumbers[i] < q.blockNumbers[j] })
+			slices.Sort(q.blockNumbers)
 		}
 	}
 

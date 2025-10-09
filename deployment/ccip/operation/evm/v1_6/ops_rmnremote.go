@@ -43,8 +43,8 @@ var (
 			EVMBytecode:      common.FromHex(rmn_remote.RMNRemoteBin),
 			ZkSyncVMBytecode: rmn_remote.ZkBytecode,
 		},
-		func(input DeployRMNRemoteInput) []interface{} {
-			return []interface{}{
+		func(input DeployRMNRemoteInput) []any {
+			return []any{
 				input.ChainSelector,
 				input.RMNLegacyAddr,
 			}

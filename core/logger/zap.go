@@ -13,7 +13,7 @@ var _ Logger = &zapLogger{}
 type zapLogger struct {
 	*zap.SugaredLogger
 	level      zap.AtomicLevel
-	fields     []interface{}
+	fields     []any
 	callerSkip int
 }
 
@@ -33,7 +33,7 @@ func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
 	l.level.SetLevel(lvl)
 }
 
-func (l *zapLogger) With(args ...interface{}) Logger {
+func (l *zapLogger) With(args ...any) Logger {
 	newLogger := *l
 	newLogger.SugaredLogger = l.SugaredLogger.With(args...)
 	newLogger.fields = copyFields(l.fields, args...)
@@ -41,8 +41,8 @@ func (l *zapLogger) With(args ...interface{}) Logger {
 }
 
 // copyFields returns a copy of fields with add appended.
-func copyFields(fields []interface{}, add ...interface{}) []interface{} {
-	f := make([]interface{}, 0, len(fields)+len(add))
+func copyFields(fields []any, add ...any) []any {
+	f := make([]any, 0, len(fields)+len(add))
 	f = append(f, fields...)
 	f = append(f, add...)
 	return f
@@ -89,6 +89,6 @@ func (l *zapLogger) Sync() error {
 	return err
 }
 
-func (l *zapLogger) Recover(panicErr interface{}) {
+func (l *zapLogger) Recover(panicErr any) {
 	l.Criticalw("Recovered goroutine panic", "panic", panicErr)
 }

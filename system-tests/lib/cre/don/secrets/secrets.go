@@ -3,7 +3,6 @@ package secrets
 import (
 	"encoding/hex"
 	"encoding/json"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -56,19 +55,22 @@ type nodeSolKeyWrapper struct {
 	SolKeys []nodeSolKey `toml:"Keys"`
 }
 
+type ChainFamily = string
+
 type NodeKeys struct {
-	EVM    map[uint64]*crypto.EVMKey
-	Solana map[string]*crypto.SolKey
-	P2PKey *crypto.P2PKey
-	DKGKey *crypto.DKGRecipientKey
+	CSAKey        *crypto.CSAKey
+	EVM           map[uint64]*crypto.EVMKey
+	Solana        map[string]*crypto.SolKey
+	P2PKey        *crypto.P2PKey
+	DKGKey        *crypto.DKGRecipientKey
+	OCR2BundleIDs map[ChainFamily]string
 }
 
-// CleansedPeerID returns the PeerID without the "p2p_" prefix, or an empty string if P2PKey is nil
-func (n NodeKeys) CleansedPeerID() string {
+func (n NodeKeys) PeerID() string {
 	if n.P2PKey == nil {
 		return ""
 	}
-	return strings.TrimPrefix(n.P2PKey.PeerID.String(), "p2p_")
+	return n.P2PKey.PeerID.String()
 }
 
 func (n *NodeKeys) ToNodeSecretsTOML() (string, error) {

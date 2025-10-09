@@ -121,12 +121,12 @@ func TestPersistenceManagerPrune(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	reports := make([][]byte, 25)
-	for i := 0; i < 25; i++ {
+	for i := range 25 {
 		reports[i] = buildSampleV2Report(int64(i))
 	}
 
 	pm2 := bootstrapPersistenceManager(t, jobID2, db)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		err := pm2.Insert(ctx, &pb.TransmitRequest{Payload: reports[i]}, ocrtypes.ReportContext{ReportTimestamp: ocrtypes.ReportTimestamp{Epoch: uint32(i)}}) //nolint:gosec // G115
 		require.NoError(t, err)
 	}

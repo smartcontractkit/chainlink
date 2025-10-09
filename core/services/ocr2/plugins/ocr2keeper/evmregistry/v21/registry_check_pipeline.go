@@ -234,8 +234,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		indices[len(checkReqs)] = i
 		results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false)
 
-		args := []interface{}{
-			map[string]interface{}{
+		args := []any{
+			map[string]any{
 				"from": zeroAddress,
 				"to":   r.addr.Hex(),
 				"data": hexutil.Bytes(payload),
@@ -341,8 +341,8 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		opts := r.buildCallOpts(ctx, block)
 
-		args := []interface{}{
-			map[string]interface{}{
+		args := []any{
+			map[string]any{
 				"from": zeroAddress,
 				"to":   r.addr.Hex(),
 				"data": hexutil.Bytes(payload),

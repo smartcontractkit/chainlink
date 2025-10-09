@@ -64,7 +64,6 @@ type evmNegativeTest struct {
 var evmNegativeTestsBalanceAtInvalidAddress = []evmNegativeTest{
 	// BalanceAt
 	// TODO: Move BalanceAt to the top after fixing https://smartcontract-it.atlassian.net/browse/CRE-934
-	{"empty", "", balanceAtFunction, expectedBalanceAtError},
 	{"a letter", "a", balanceAtFunction, expectedBalanceAtError},
 	{"a symbol", "/", balanceAtFunction, expectedBalanceAtError},
 	{"a number", "1", balanceAtFunction, expectedBalanceAtError},

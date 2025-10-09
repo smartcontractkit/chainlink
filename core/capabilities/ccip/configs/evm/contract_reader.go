@@ -3,6 +3,7 @@ package evm
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -55,9 +56,7 @@ var (
 func MergeReaderConfigs(configs ...config.ChainReaderConfig) config.ChainReaderConfig {
 	allContracts := make(map[string]config.ChainContractReader)
 	for _, c := range configs {
-		for contractName, contractReader := range c.Contracts {
-			allContracts[contractName] = contractReader
-		}
+		maps.Copy(allContracts, c.Contracts)
 	}
 
 	return config.ChainReaderConfig{Contracts: allContracts}
@@ -476,7 +475,7 @@ var HomeChainReaderConfigRaw = config.ChainReaderConfig{
 
 var HomeChainReaderConfig = mustMarshal(HomeChainReaderConfigRaw)
 
-func mustMarshal(v interface{}) []byte {
+func mustMarshal(v any) []byte {
 	b, err := json.Marshal(v)
 	if err != nil {
 		panic(err)

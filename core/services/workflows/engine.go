@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -837,7 +838,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	if meteringOK {
-		err := meteringReport.Settle(stepState.Ref, response.Metadata.Metering)
+		err := meteringReport.Settle(stepState.Ref, response.Metadata)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
@@ -872,9 +873,7 @@ func merge(baseConfig *values.Map, capConfig capabilities.CapabilityConfiguratio
 	m := values.EmptyMap()
 
 	if capConfig.DefaultConfig != nil {
-		for k, v := range capConfig.DefaultConfig.Underlying {
-			m.Underlying[k] = v
-		}
+		maps.Copy(m.Underlying, capConfig.DefaultConfig.Underlying)
 	}
 
 	// Add in user-provided config, but skipping any restricted keys
@@ -889,9 +888,7 @@ func merge(baseConfig *values.Map, capConfig capabilities.CapabilityConfiguratio
 	}
 
 	// Then overwrite the config with any restricted settings.
-	for k, v := range capConfig.RestrictedConfig.Underlying {
-		m.Underlying[k] = v
-	}
+	maps.Copy(m.Underlying, capConfig.RestrictedConfig.Underlying)
 
 	return m
 }

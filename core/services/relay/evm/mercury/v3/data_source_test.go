@@ -79,7 +79,7 @@ func Test_Datasource(t *testing.T) {
 		Type: job.Type(pipeline.OffchainReporting2JobType),
 		OCR2OracleSpec: &job.OCR2OracleSpec{
 			CaptureEATelemetry: true,
-			PluginConfig: map[string]interface{}{
+			PluginConfig: map[string]any{
 				"serverURL": "a",
 			},
 		},

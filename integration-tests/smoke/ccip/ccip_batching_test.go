@@ -435,7 +435,7 @@ func sendMessagesAsync(
 
 	// we retry a bunch of times just in case there is a race b/w the prices being
 	// posted and the messages being sent.
-	for i := 0; i < numRetries; i++ {
+	for range numRetries {
 		err = sendMessages(
 			ctx,
 			t,
@@ -520,7 +520,7 @@ func sendMessages(
 	}()
 
 	// there should be numMessages messages emitted
-	for i := 0; i < numMessages; i++ {
+	for i := range numMessages {
 		if !iter.Next() {
 			return fmt.Errorf("expected %d messages, got %d", numMessages, i)
 		}

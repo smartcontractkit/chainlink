@@ -259,6 +259,10 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to unmarshal capability response: %w", err)
 	}
 
+	if c.cfg.Load() != nil {
+		capabilityResponse.Metadata.CapDON_N = uint32(len(c.cfg.Load().localDONInfo.Members)) //nolint:gosec // G115
+	}
+
 	return capabilityResponse, nil
 }
 

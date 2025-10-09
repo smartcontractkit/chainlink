@@ -50,7 +50,7 @@ type streamRegistry interface {
 }
 
 type contextCaller interface {
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	CallContext(ctx context.Context, result any, method string, args ...any) error
 }
 
 type streams struct {
@@ -221,7 +221,7 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 // eth_call to checkCallback and checkErrorHandler and update checkResults[i] accordingly
 func (s *streams) makeCallbackEthCall(ctx context.Context, payload []byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
 	var responseBytes hexutil.Bytes
-	args := map[string]interface{}{
+	args := map[string]any{
 		"from": zeroAddress,
 		"to":   s.registry.Address().Hex(),
 		"data": hexutil.Bytes(payload),
@@ -325,7 +325,7 @@ func (s *streams) AllowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (s
 	}
 
 	var resultBytes hexutil.Bytes
-	args := map[string]interface{}{
+	args := map[string]any{
 		"to":   s.registry.Address().Hex(),
 		"data": hexutil.Bytes(payload),
 	}

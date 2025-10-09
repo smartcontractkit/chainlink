@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
@@ -128,9 +129,7 @@ func (r AddDonsRequest) convertInternal(registry *kcr.CapabilitiesRegistry) (don
 		}
 		donsToRegister[i] = dr
 		donToCapabilities[don.Name] = dc
-		for id, node := range nodes {
-			nodeIDToP2PID[id] = node
-		}
+		maps.Copy(nodeIDToP2PID, nodes)
 	}
 	return
 }

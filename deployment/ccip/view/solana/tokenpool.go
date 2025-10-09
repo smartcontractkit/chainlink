@@ -50,8 +50,8 @@ type TokenPoolChainConfig struct {
 	PoolAddresses     []string                      `json:"poolAddresses,omitempty"`
 	TokenAddress      string                        `json:"tokenAddress,omitempty"`
 	Decimals          uint8                         `json:"decimals,omitempty"`
-	InboundRateLimit  TokenPoolRateLimitTokenBucket `json:"inboundRateLimit,omitempty"`
-	OutboundRateLimit TokenPoolRateLimitTokenBucket `json:"outboundRateLimit,omitempty"`
+	InboundRateLimit  TokenPoolRateLimitTokenBucket `json:"inboundRateLimit"`
+	OutboundRateLimit TokenPoolRateLimitTokenBucket `json:"outboundRateLimit"`
 	CCTPChainConfig   *cctp_token_pool.CctpChain    `json:"cctpChainConfig,omitempty"`
 }
 

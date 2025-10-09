@@ -38,7 +38,7 @@ import (
 type MockSubscription struct {
 	t            testing.TB
 	mut          sync.Mutex
-	channel      interface{}
+	channel      any
 	unsubscribed bool
 	Errors       chan error
 }
@@ -75,11 +75,11 @@ func (mes *MockSubscription) Unsubscribe() {
 
 // RendererMock a mock renderer
 type RendererMock struct {
-	Renders []interface{}
+	Renders []any
 }
 
 // Render appends values to renderer mock
-func (rm *RendererMock) Render(v interface{}, headers ...string) error {
+func (rm *RendererMock) Render(v any, headers ...string) error {
 	rm.Renders = append(rm.Renders, v)
 	return nil
 }

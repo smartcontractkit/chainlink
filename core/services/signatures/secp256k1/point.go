@@ -120,7 +120,7 @@ func (P *secp256k1Point) Embed(data []byte, r cipher.Stream) kyber.Point {
 	maxAttempts := 10000
 	// Try random x ordinates satisfying the constraints, until one provides
 	// a point on secp256k1
-	for numAttempts := 0; numAttempts < maxAttempts; numAttempts++ {
+	for range maxAttempts {
 		// Fill the rest of the x ordinate with random data
 		r.XORKeyStream(x[randStart:], x[randStart:])
 		xOrdinate := newFieldZero().SetBytes(x)

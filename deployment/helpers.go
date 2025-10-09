@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -82,12 +83,7 @@ func IsAddressListUnique(addresses []common.Address) bool {
 }
 
 func AddressListContainsEmptyAddress(addresses []common.Address) bool {
-	for _, address := range addresses {
-		if address == (common.Address{}) {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(addresses, (common.Address{}))
 }
 
 func MigrateAddressBook(addrBook cldf.AddressBook) (datastore.MutableDataStore, error) {

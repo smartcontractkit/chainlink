@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -79,15 +80,11 @@ func (f FillerAllowlistConfig) Validate(contract *bindings.FastTransferTokenPool
 	if len(f.AddFillers) == 0 && len(f.RemoveFillers) == 0 {
 		return errors.New("at least one filler must be added or removed")
 	}
-	for _, filler := range f.AddFillers {
-		if filler == (common.Address{}) {
-			return errors.New("filler address cannot be empty")
-		}
+	if slices.Contains(f.AddFillers, (common.Address{})) {
+		return errors.New("filler address cannot be empty")
 	}
-	for _, filler := range f.RemoveFillers {
-		if filler == (common.Address{}) {
-			return errors.New("filler address cannot be empty")
-		}
+	if slices.Contains(f.RemoveFillers, (common.Address{})) {
+		return errors.New("filler address cannot be empty")
 	}
 
 	allowedFillers, err := contract.GetAllowedFillers(nil)
@@ -95,20 +92,12 @@ func (f FillerAllowlistConfig) Validate(contract *bindings.FastTransferTokenPool
 		return fmt.Errorf("failed to get allowed fillers: %w", err)
 	}
 	for _, filler := range f.AddFillers {
-		for _, allowedFiller := range allowedFillers {
-			if filler == allowedFiller {
-				return fmt.Errorf("filler %s is already in the allowlist", filler.Hex())
-			}
+		if slices.Contains(allowedFillers, filler) {
+			return fmt.Errorf("filler %s is already in the allowlist", filler.Hex())
 		}
 	}
 	for _, filler := range f.RemoveFillers {
-		found := false
-		for _, allowedFiller := range allowedFillers {
-			if filler == allowedFiller {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(allowedFillers, filler)
 		if !found {
 			return fmt.Errorf("filler %s is not in the allowlist", filler.Hex())
 		}

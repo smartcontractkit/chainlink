@@ -241,7 +241,6 @@ func TestPriceRegistryReader(t *testing.T) {
 	th := setupPriceRegistryReaderTH(t)
 	// Assert all readers produce the same expected results.
 	for version, pr := range th.readers {
-		pr := pr
 		t.Run("PriceRegistryReader"+version, func(t *testing.T) {
 			testPriceRegistryReader(t, th, pr)
 		})
