@@ -18,7 +18,6 @@ import (
 
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -30,6 +29,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -87,18 +88,18 @@ func (o *EVM) PreEnvStartup(
 					testLogger.Info().Msgf("Preparing Tron Keystone Forwarder deployment for chain %d", bcOut.ChainID)
 					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
 				} else {
-					evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
+					// deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
+					forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+					if forwarderAddr == nil {
+						evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
+					}
 				}
 			}
 		}
 	}
 
-	if len(evmForwardersSelectors) == 0 && len(tronForwardersSelectors) == 0 {
-		return nil, fmt.Errorf("no forwarders to deploy, but write-evm capability was requested by %d DONs", len(donsMetadata))
-	}
-
 	if len(evmForwardersSelectors) > 0 {
-		deployErr := deployEVMForwarders(testLogger, cldfEnv, evmForwardersSelectors, contractVersions)
+		deployErr := evm.DeployEVMForwarders(testLogger, cldfEnv, evmForwardersSelectors, contractVersions)
 		if deployErr != nil {
 			return nil, errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
 		}
@@ -198,16 +199,16 @@ func (o *EVM) PreEnvStartup(
 		}
 	}
 
-	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-	for donIdx, donMetadata := range donsMetadata {
-		if capabilities[donIdx] == nil {
-			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
+	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
+	for _, donMetadata := range donsMetadata {
+		if capabilities[donMetadata.ID] == nil {
+			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
 		}
 		for _, chainID := range donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities[flag].EnabledChains {
 			fullName := corevm.GenerateWriteTargetName(chainID)
 			splitName := strings.Split(fullName, "@")
 
-			capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
+			capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   splitName[0],
 					Version:        splitName[1],
@@ -235,12 +236,11 @@ func (o *EVM) PostEnvStartup(
 	provider infra.Provider,
 	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
-	dons := creEnv.DonTopology.DonWithFlag(flag)
+	dons := creEnv.DonTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
 
-	// configure forwarders contracts
 	allAddresses, addrErr := creEnv.CldfEnvironment.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
 	if addrErr != nil {
 		return errors.Wrap(addrErr, "failed to get addresses from address book")
@@ -286,47 +286,6 @@ func (o *EVM) PostEnvStartup(
 			return errors.Wrap(tErr, "failed to configure TRON forwarders")
 		}
 	}
-
-	return nil
-}
-
-func deployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[string]string) error {
-	memoryDatastore := datastore.NewMemoryDataStore()
-
-	// load all existing addresses into memory datastore
-	mergeErr := memoryDatastore.Merge(cldfEnv.DataStore)
-	if mergeErr != nil {
-		return fmt.Errorf("failed to merge existing datastore into memory datastore: %w", mergeErr)
-	}
-
-	evmForwardersReport, deployErr := operations.ExecuteSequence(
-		cldfEnv.OperationsBundle,
-		forwarder.DeploySequence,
-		forwarder.DeploySequenceDeps{
-			Env: cldfEnv,
-		},
-		forwarder.DeploySequenceInput{
-			Targets: chainSelectors,
-		},
-	)
-	if deployErr != nil {
-		return errors.Wrap(deployErr, "failed to deploy evm forwarder")
-	}
-
-	if err := cldfEnv.ExistingAddresses.Merge(evmForwardersReport.Output.AddressBook); err != nil { //nolint:staticcheck // won't migrate now
-		return errors.Wrap(err, "failed to merge address book with Keystone contracts addresses")
-	}
-
-	if err := memoryDatastore.Merge(evmForwardersReport.Output.Datastore); err != nil {
-		return errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
-	}
-
-	for _, selector := range chainSelectors {
-		forwarderAddr := contracts.MustGetAddressFromMemoryDataStore(memoryDatastore, selector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-		testLogger.Info().Msgf("Deployed EVM Forwarder %s contract on chain %d at %s", contractVersions[keystone_changeset.KeystoneForwarder.String()], selector, forwarderAddr)
-	}
-
-	cldfEnv.DataStore = memoryDatastore.Seal()
 
 	return nil
 }
@@ -452,7 +411,7 @@ func findForwarderAddress(chain chain_selectors.Chain, addressBook cldf.AddressB
 func mergeDefaultAndRuntimeConfigValues(data writeEVMData, defaultCapabilityConfigs cre.CapabilityConfigs, nodeSetChainCapabilities map[string]*cre.ChainCapabilityConfig, chainID uint64) (writeEVMData, error) {
 	if writeEvmConfig, ok := defaultCapabilityConfigs[flag]; ok {
 		_, mergedConfig, rErr := envconfig.ResolveCapabilityForChain(
-			cre.WriteEVMCapability,
+			flag,
 			nodeSetChainCapabilities,
 			writeEvmConfig.Config,
 			chainID,

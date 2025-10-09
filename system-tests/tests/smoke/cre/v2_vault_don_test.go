@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/vault"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 

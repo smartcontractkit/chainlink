@@ -120,7 +120,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			ocr3Key := dataStoreOCR3ContractKeyProvider(contractName, cs)
 			ocr3ConfigContractAddress, err := ds.Addresses().Get(ocr3Key)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to get EVM capability address")
+				return nil, errors.Wrapf(err, "failed contract address for key %s and chainID %d", ocr3Key, chainID)
 			}
 
 			if _, ok := donToJobSpecs[don.ID]; !ok {

@@ -21,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -349,8 +347,8 @@ func toDons(input cre.ConfigureKeystoneInput) (*dons, error) {
 		}
 
 		// add capabilities that were passed directly via the input (from the PostDONStartup of features)
-		if input.DONCapabilityWithConfigs != nil && input.DONCapabilityWithConfigs[donIdx] != nil {
-			capabilities = append(capabilities, input.DONCapabilityWithConfigs[donIdx]...)
+		if input.DONCapabilityWithConfigs != nil && input.DONCapabilityWithConfigs[donMetadata.ID] != nil {
+			capabilities = append(capabilities, input.DONCapabilityWithConfigs[donMetadata.ID]...)
 		}
 
 		workerNodes, wErr := donMetadata.Workers()
@@ -522,34 +520,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 		}
 	}
 
-	for chainSelector, evmOCR3Address := range input.EVMOCR3Addresses {
-		// not sure how to map EVM chains to DONs, so for now we assume that there's only one DON that supports EVM chains
-		evmDON, err := dons.shouldBeOneDon(cre.EVMCapability)
-		if err != nil {
-			return fmt.Errorf("failed to get EVM DON: %w", err)
-		}
-
-		if evmOCR3Address.Cmp(common.Address{}) != 0 {
-			_, err = operations.ExecuteOperation(
-				input.CldEnv.OperationsBundle,
-				ks_contracts_op.ConfigureOCR3Op,
-				ks_contracts_op.ConfigureOCR3OpDeps{
-					Env: input.CldEnv,
-				},
-				ks_contracts_op.ConfigureOCR3OpInput{
-					ContractAddress: &evmOCR3Address,
-					ChainSelector:   chainSelector,
-					DON:             evmDON.keystoneDonConfig(),
-					Config:          evmDON.resolveOcr3Config(input.EVMOCR3Config),
-					DryRun:          false,
-				},
-			)
-			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed to configure EVM OCR3 contract for chain selector: %d, address:%s", chainSelector, evmOCR3Address.Hex()))
-			}
-		}
-	}
-
 	if input.ConsensusV2OCR3Address != nil && input.ConsensusV2OCR3Address.Cmp(common.Address{}) != 0 {
 		v2ConsensusDON, err := dons.shouldBeOneDon(cre.ConsensusCapabilityV2)
 		if err != nil {
@@ -648,35 +618,6 @@ func DefaultChainCapabilityOCR3Config(_ *cre.Topology) (*keystone_changeset.Orac
 		MaxReportCount:            1000,
 		MaxBatchSize:              200,
 	}
-	return cfg, nil
-}
-
-func DKGReportingPluginConfig(topology *cre.Topology, nodeSets []*cre.CapabilitiesAwareNodeSet) (*dkgocrtypes.ReportingPluginConfig, error) {
-	cfg := &dkgocrtypes.ReportingPluginConfig{
-		T: 1,
-	}
-
-	vaultIndex := -1
-	for i, don := range topology.DonsMetadata.List() {
-		if don.HasFlag(cre.VaultCapability) {
-			vaultIndex = i
-			break
-		}
-	}
-	if vaultIndex == -1 {
-		return nil, errors.New("no vault DON found in the topology")
-	}
-
-	for i, nmd := range topology.DonsMetadata.List()[vaultIndex].NodesMetadata {
-		if i == nodeSets[vaultIndex].BootstrapNodeIndex {
-			continue
-		}
-
-		pubKey := nmd.Keys.DKGKey.PubKey
-		cfg.DealerPublicKeys = append(cfg.DealerPublicKeys, pubKey)
-		cfg.RecipientPublicKeys = append(cfg.RecipientPublicKeys, pubKey)
-	}
-
 	return cfg, nil
 }
 

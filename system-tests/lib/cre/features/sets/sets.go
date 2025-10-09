@@ -6,6 +6,7 @@ import (
 	custom_compute_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/custom_compute"
 	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
 	evm_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v1"
+	evm_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
 	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
@@ -19,6 +20,7 @@ func New() cre.Features {
 		&custom_compute_feature.CustomCompute{},
 		&don_time_feature.DONTime{},
 		&evm_v1_feature.EVM{},
+		&evm_v2_feature.EVM{},
 		&http_actions_feature.HTTPAction{},
 		&http_trigger_feature.HTTPTrigger{},
 		&web_api_target_feature.WebAPITarget{},

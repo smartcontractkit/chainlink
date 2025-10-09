@@ -91,12 +91,12 @@ func (o *Vault) PreEnvStartup(
 		donsMetadata[idx] = donMetadata
 	}
 
-	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-	for donIdx := range topology.DonsMetadataWithFlag(flag) {
-		if capabilities[donIdx] == nil {
-			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
+	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
+	for _, donMetadata := range topology.DonsMetadataWithFlag(flag) {
+		if capabilities[donMetadata.ID] == nil {
+			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
 		}
-		capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
+		capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "vault",
 				Version:        "1.0.0",
@@ -149,6 +149,7 @@ func (o *Vault) PostEnvStartup(
 		vaultDKGOCR3Addr,
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		vaultDON,
+		creEnv.DonTopology,
 		bootstrap,
 	)
 	if jobErr != nil {
@@ -230,6 +231,7 @@ func createJobs(
 	vaultDKGOCR3Addr *common.Address,
 	jdClient *jd.JobDistributor,
 	don *cre.DON,
+	donTopology *cre.DonTopology,
 	bootstrap *cre.Node,
 ) error {
 	workerNodes, wErr := don.Workers()
@@ -261,7 +263,8 @@ func createJobs(
 		jobSpecs = append(jobSpecs, jobs.WorkerVaultOCR3(workerNode.JobDistributorDetails.NodeID, vaultOCR3Addr.Hex(), vaultDKGOCR3Addr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
 	}
 
-	return jobs.CreateForDON(ctx, jdClient, don, jobSpecs)
+	// pass whole topology, since some jobs might need to be created on multiple DONs
+	return jobs.Create(ctx, jdClient, donTopology, jobSpecs)
 }
 
 func deployVaultContracts(testLogger zerolog.Logger, qualifier string, homeChainSelector uint64, env *cldf.Environment, contractVersions map[string]string) (*common.Address, *common.Address, error) {

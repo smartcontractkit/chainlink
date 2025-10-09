@@ -6,7 +6,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	consensusv2capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/consensus/v2"
 	croncapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/cron"
-	evmcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/evm"
 	logeventtriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logeventtrigger"
 	mockcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
 	readcontractcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
@@ -27,12 +26,6 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 		return nil, errors.Wrap(c2Err, "failed to create consensus capability v2")
 	}
 	capabilities = append(capabilities, c2)
-
-	evm, evmErr := evmcapability.New(homeChainID)
-	if evmErr != nil {
-		return nil, errors.Wrap(evmErr, "failed to create evm capability")
-	}
-	capabilities = append(capabilities, evm)
 
 	mock, mockErr := mockcapability.New()
 	if mockErr != nil {

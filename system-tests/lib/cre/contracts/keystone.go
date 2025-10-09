@@ -64,10 +64,8 @@ func DeployKeystoneContracts(
 	for i := range input.CapabilitiesAwareNodeSets {
 		allNodeFlags = append(allNodeFlags, input.CapabilitiesAwareNodeSets[i].Flags()...)
 	}
-	evmOCR3AddrFlag := flags.HasFlagForAnyChain(allNodeFlags, cre.EVMCapability)
 	consensusV2AddrFlag := flags.HasFlag(allNodeFlags, cre.ConsensusCapabilityV2)
 
-	chainsWithEVMCapability := ChainsWithEVMCapability(input.CtfBlockchains, input.CapabilitiesAwareNodeSets)
 	homeChainOutput := input.CtfBlockchains[0]
 
 	// use CLD to deploy the registry contracts, which are required before constructing the node TOML configs
@@ -152,20 +150,6 @@ func DeployKeystoneContracts(
 	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
 	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], homeChainSelector, capRegAddr)
 
-	// deploy EVM OCR3 contracts
-	if evmOCR3AddrFlag {
-		for chainID, selector := range chainsWithEVMCapability {
-			qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
-			_, seqErr = deployOCR3Contract(qualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
-			if seqErr != nil {
-				return nil, fmt.Errorf("failed to deploy EVM OCR3 contract for chainID %d, selector %d: %w", chainID, selector, seqErr)
-			}
-
-			evmOCR3Addr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
-			testLogger.Info().Msgf("Deployed EVM OCR3 contract (chainID %d) on chainID: %d, selector: %d, at: %s", chainID, homeChainOutput.ChainID, homeChainSelector, evmOCR3Addr)
-		}
-	}
-
 	// deploy Consensus V2 OCR3 contract
 	if consensusV2AddrFlag {
 		_, seqErr = deployOCR3Contract(ConsensusV2ContractQualifier, homeChainSelector, input.CldfEnvironment, memoryDatastore)
@@ -240,27 +224,11 @@ func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64
 	}
 
 	address := MustGetAddressFromMemoryDataStore(memoryDatastore, selector, keystone_changeset.OCR3Capability.String(), contractVersions[keystone_changeset.OCR3Capability.String()], qualifier)
-	logger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s", contractVersions[keystone_changeset.OCR3Capability.String()], selector, address)
+	logger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s [qualifier: %s]", contractVersions[keystone_changeset.OCR3Capability.String()], selector, address, qualifier)
 
 	env.DataStore = memoryDatastore.Seal()
 
 	return &ocr3DeployReport.Output, &address, nil
-}
-
-func ChainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, nodeSets []*cre.CapabilitiesAwareNodeSet) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
-	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
-	for _, chain := range chains {
-		for _, donMetadata := range nodeSets {
-			if flags.HasFlagForChain(donMetadata.ComputedCapabilities, cre.EVMCapability, chain.ChainID) {
-				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] != 0 {
-					continue
-				}
-				chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] = ks_contracts_op.Selector(chain.ChainSelector)
-			}
-		}
-	}
-
-	return chainsWithEVMCapability
 }
 
 func MustGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, chainSel uint64, contractType string, version string, qualifier string) common.Address {
@@ -290,6 +258,21 @@ func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, ch
 		return nil
 	}
 
+	return ptr.Ptr(common.HexToAddress(addrRef.Address))
+}
+
+func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version string, qualifier string) *common.Address {
+	key := datastore.NewAddressRefKey(
+		chainSel,
+		datastore.ContractType(contractType),
+		semver.MustParse(version),
+		qualifier,
+	)
+
+	addrRef, err := dataStore.Addresses().Get(key)
+	if err != nil {
+		return nil
+	}
 	return ptr.Ptr(common.HexToAddress(addrRef.Address))
 }
 

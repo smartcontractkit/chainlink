@@ -74,13 +74,13 @@ func (o *WebAPITrigger) PreEnvStartup(
 		donsMetadata[idx] = donMetadata
 	}
 
-	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-	for donIdx := range donsMetadata {
-		if capabilities[donIdx] == nil {
-			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
+	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
+	for _, donMetadata := range donsMetadata {
+		if capabilities[donMetadata.ID] == nil {
+			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
 		}
 
-		capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
+		capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "web-api-trigger",
 				Version:        "1.0.0",
@@ -108,7 +108,7 @@ func (o *WebAPITrigger) PostEnvStartup(
 	provider infra.Provider,
 	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
-	dons := creEnv.DonTopology.DonWithFlag(flag)
+	dons := creEnv.DonTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
@@ -153,7 +153,8 @@ func (o *WebAPITrigger) PostEnvStartup(
 		if !ok {
 			continue
 		}
-		jobErr := jobs.CreateForDON(ctx, creEnv.CldfEnvironment.Offchain, don, jobSpecs)
+		// pass whole topology, since some jobs might need to be created on multiple DONs
+		jobErr := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, creEnv.DonTopology, jobSpecs)
 		if jobErr != nil {
 			return fmt.Errorf("failed to create http action jobs for don %s: %w", don.Name, jobErr)
 		}

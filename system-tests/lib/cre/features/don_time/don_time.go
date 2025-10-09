@@ -89,6 +89,7 @@ func (o *DONTime) PostEnvStartup(
 		donTimeContractAddr,
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		donTimeDON,
+		creEnv.DonTopology,
 		bootstrap,
 	)
 	if jobErr != nil {
@@ -126,10 +127,11 @@ func createJobs(
 	chainID uint64,
 	donTimeAddress *common.Address,
 	jdClient *jd.JobDistributor,
-	don *cre.DON,
+	donTimeDON *cre.DON,
+	donTopology *cre.DonTopology,
 	bootstrap *cre.Node,
 ) error {
-	workerNodes, wErr := don.Workers()
+	workerNodes, wErr := donTimeDON.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
 	}
@@ -156,7 +158,8 @@ func createJobs(
 		jobSpecs = append(jobSpecs, donTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
 	}
 
-	return jobs.CreateForDON(ctx, jdClient, don, jobSpecs)
+	// pass whole topology, since some jobs might need to be created on multiple DONs
+	return jobs.Create(ctx, jdClient, donTopology, jobSpecs)
 }
 
 func donTimeJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {

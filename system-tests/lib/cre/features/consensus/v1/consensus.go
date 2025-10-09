@@ -47,12 +47,12 @@ func (o *Consensus) PreEnvStartup(
 	contractVersions map[string]string,
 	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
-	capabilities := make(map[int][]keystone_changeset.DONCapabilityWithConfig)
-	for donIdx := range topology.DonsMetadataWithFlag(flag) {
-		if capabilities[donIdx] == nil {
-			capabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
+	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
+	for _, donMetadata := range topology.DonsMetadataWithFlag(flag) {
+		if capabilities[donMetadata.ID] == nil {
+			capabilities[donMetadata.ID] = []keystone_changeset.DONCapabilityWithConfig{}
 		}
-		capabilities[donIdx] = append(capabilities[donIdx], keystone_changeset.DONCapabilityWithConfig{
+		capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "offchain_reporting",
 				Version:        "1.0.0",
@@ -109,6 +109,7 @@ func (o *Consensus) PostEnvStartup(
 		ocr3ContractAddr,
 		creEnv.CldfEnvironment.Offchain.(*jd.JobDistributor),
 		ocr3DON,
+		creEnv.DonTopology,
 		bootstrap,
 	)
 	if jobErr != nil {
@@ -152,10 +153,11 @@ func createJobs(
 	chainID uint64,
 	ocr3ContractAddr *common.Address,
 	jdClient *jd.JobDistributor,
-	don *cre.DON,
+	consensusDON *cre.DON,
+	donTopology *cre.DonTopology,
 	bootstrap *cre.Node,
 ) error {
-	workerNodes, wErr := don.Workers()
+	workerNodes, wErr := consensusDON.Workers()
 	if wErr != nil {
 		return errors.Wrap(wErr, "failed to find worker nodes")
 	}
@@ -184,7 +186,8 @@ func createJobs(
 		jobSpecs = append(jobSpecs, jobs.WorkerOCR3(workerNode.JobDistributorDetails.NodeID, ocr3ContractAddr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringCfg, chainID))
 	}
 
-	return jobs.CreateForDON(ctx, jdClient, don, jobSpecs)
+	// pass whole topology, since some jobs might need to be created on multiple DONs
+	return jobs.Create(ctx, jdClient, donTopology, jobSpecs)
 }
 
 func waitForLogPollerToBeHealthy(don *cre.DON) error {

@@ -27,7 +27,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
@@ -201,7 +200,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before DON startup")))
-	var donsCapabilities = make(map[int][]keystone_changeset.DONCapabilityWithConfig)
+	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	for _, feature := range input.Features.List() {
 		testLogger.Info().Msgf("Executing PreEnvStartup for feature %s", feature.Flag())
 		output, preErr := feature.PreEnvStartup(
@@ -219,7 +218,12 @@ func SetupTestEnvironment(
 			return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), preErr)
 		}
 		if output != nil {
-			maps.Copy(donsCapabilities, output.DONCapabilityWithConfigs)
+			for donIdx, caps := range output.DONCapabilityWithConfigs {
+				if donsCapabilities[donIdx] == nil {
+					donsCapabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
+				}
+				donsCapabilities[donIdx] = append(donsCapabilities[donIdx], caps...)
+			}
 			maps.Copy(gatewayConfig, output.GatewayConfigs)
 		}
 
@@ -436,20 +440,6 @@ func SetupTestEnvironment(
 	}, nil
 }
 
-func evmOCR3AddressesFromDataStore(blockchains []*cre.WrappedBlockchainOutput, nodeSets []*cre.CapabilitiesAwareNodeSet, ds *datastore.MemoryDataStore, homeChainSelector uint64) map[uint64]common.Address {
-	chainsWithEVMCapability := crecontracts.ChainsWithEVMCapability(blockchains, nodeSets)
-	evmOCR3CommonAddresses := make(map[uint64]common.Address)
-	for chainID := range chainsWithEVMCapability {
-		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
-		// we have deployed OCR3 contract for each EVM chain on the registry chain to avoid a situation when more than 1 OCR contract (of any type) has the same address
-		// because that violates a DB constraint for offchain reporting jobs
-		evmOCR3Addr := crecontracts.MustGetAddressFromMemoryDataStore(ds, homeChainSelector, keystone_changeset.OCR3Capability.String(), "1.0.0", qualifier)
-		evmOCR3CommonAddresses[homeChainSelector] = evmOCR3Addr
-	}
-
-	return evmOCR3CommonAddresses
-}
-
 func mergeJobSpecSlices(from, to cre.DonsToJobSpecs) {
 	for fromDonID, fromJobSpecs := range from {
 		if _, ok := to[fromDonID]; !ok {
@@ -466,11 +456,10 @@ func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint6
 		BlockchainOutputs:           startBlockchainsOutput.BlockChainOutputs,
 		Topology:                    topology,
 		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")),
-		EVMOCR3Addresses:            evmOCR3AddressesFromDataStore(startBlockchainsOutput.BlockChainOutputs, updatedNodeSets, deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector),
 		ConsensusV2OCR3Address:      crecontracts.MightGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.OCR3Capability.String(), input.ContractVersions[keystone_changeset.OCR3Capability.String()], crecontracts.ConsensusV2ContractQualifier),
 		NodeSets:                    input.CapabilitiesAwareNodeSets,
 		WithV2Registries:            input.WithV2Registries,
-		DONCapabilityWithConfigs:    make(map[int][]keystone_changeset.DONCapabilityWithConfig),
+		DONCapabilityWithConfigs:    make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
 	}
 
 	chainOCR3Config, chainOCR3ConfigErr := crecontracts.DefaultChainCapabilityOCR3Config(topology)

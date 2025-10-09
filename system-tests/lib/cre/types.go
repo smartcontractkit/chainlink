@@ -365,7 +365,7 @@ type ConfigureKeystoneInput struct {
 
 	WithV2Registries bool
 
-	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig
+	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
 }
 
 func (c *ConfigureKeystoneInput) Validate() error {
@@ -842,7 +842,7 @@ func (d *DonTopology) Gateway() (*Node, bool) {
 	return nil, false
 }
 
-func (d *DonTopology) DonWithFlag(flag CapabilityFlag) []*DON {
+func (d *DonTopology) DonsWithFlag(flag CapabilityFlag) []*DON {
 	found := make([]*DON, 0)
 	for _, don := range d.Dons.List() {
 		if don.HasFlag(flag) {
@@ -854,7 +854,7 @@ func (d *DonTopology) DonWithFlag(flag CapabilityFlag) []*DON {
 }
 
 func (d *DonTopology) OneDonWithFlag(flag CapabilityFlag) (*DON, error) {
-	found := d.DonWithFlag(flag)
+	found := d.DonsWithFlag(flag)
 
 	if len(found) != 1 {
 		return nil, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(found))
@@ -1377,6 +1377,6 @@ type Feature interface {
 }
 
 type PreEnvStartupOutput struct {
-	DONCapabilityWithConfigs map[int][]keystone_changeset.DONCapabilityWithConfig
+	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
 	GatewayConfigs           map[NodeUUID]*config.GatewayConfig
 }
