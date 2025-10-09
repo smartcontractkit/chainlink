@@ -4149,8 +4149,13 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsLBTCDeployment() {
 		jobParams.LBTCConfigs = make([]config.LBTCConfig, testConf.LBTCNoOfTokens)
 		for i := 0; i < testConf.LBTCNoOfTokens; i++ {
+			token := common.HexToAddress(lane.Source.Common.BridgeTokens[i].Address())
+			lane.Logger.Info().Str("attestationAPI", mockAdapterURL).
+				Str("token", token.String()).
+				Int("i", i).
+				Msg("Setting lbtc config")
 			jobParams.LBTCConfigs[i] = config.LBTCConfig{
-				SourceTokenAddress:           common.HexToAddress(lane.Source.Common.BridgeTokens[i].Address()),
+				SourceTokenAddress:           token,
 				AttestationAPI:               mockAdapterURL,
 				AttestationAPITimeoutSeconds: 5,
 			}

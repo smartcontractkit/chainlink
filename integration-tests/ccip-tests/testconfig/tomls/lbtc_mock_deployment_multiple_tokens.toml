@@ -9,4 +9,4 @@ LBTCNoOfTokens = 2
 NoOfTokensPerChain = 2
 
 [CCIP.Groups.smoke.MsgDetails]
-NoOfTokens = 1
+NoOfTokens = 2
