@@ -307,7 +307,12 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		ocrSpec.PluginConfig["USDCConfig.SourceMessageTransmitterAddress"] = fmt.Sprintf(`"%s"`, params.USDCConfig.SourceMessageTransmitterAddress)
 		ocrSpec.PluginConfig["USDCConfig.AttestationAPITimeoutSeconds"] = params.USDCConfig.AttestationAPITimeoutSeconds
 	}
-	if len(params.LBTCConfigs) > 0 {
+	if len(params.LBTCConfigs) == 1 {
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPI"] = fmt.Sprintf(`"%s"`, params.LBTCConfigs[0].AttestationAPI)
+		ocrSpec.PluginConfig["LBTCConfig.SourceTokenAddress"] = fmt.Sprintf(`"%s"`, params.LBTCConfigs[0].SourceTokenAddress)
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPITimeoutSeconds"] = params.LBTCConfigs[0].AttestationAPITimeoutSeconds
+	}
+	if len(params.LBTCConfigs) > 1 {
 		// Write toml arrays in format
 		// [pluginConfig]
 		// LBTCConfigs = [
