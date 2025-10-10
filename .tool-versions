@@ -1,9 +1,9 @@
-golang 1.24.4
-mockery 2.53.0
-nodejs 20.13.1
-pnpm 10.6.5
-postgres 15.1
-helm 3.10.3
+golang        1.24.4
+mockery       2.53.0
+nodejs        20.13.1
+pnpm          10.6.5
+postgres      15.1
+helm          3.10.3
 golangci-lint 2.1.6
-protoc 29.3
-python 3.10.5
+protoc        29.3
+python        3.10.5
