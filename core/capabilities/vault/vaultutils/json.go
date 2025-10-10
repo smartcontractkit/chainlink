@@ -1,4 +1,4 @@
-package utils
+package vaultutils
 
 import (
 	"crypto/sha256"

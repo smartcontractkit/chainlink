@@ -22,8 +22,8 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgrecipientkey"
 )
@@ -2174,7 +2174,7 @@ func TestPlugin_Reports(t *testing.T) {
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := utils.ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
@@ -2828,7 +2828,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := utils.ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -3306,7 +3306,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := utils.ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -3613,7 +3613,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))
 
-	expectedBytes, err := utils.ToCanonicalJSON(resp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }

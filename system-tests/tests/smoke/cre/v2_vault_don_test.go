@@ -23,8 +23,8 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
-	vaultutils "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
