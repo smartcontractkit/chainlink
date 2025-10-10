@@ -106,6 +106,7 @@ func Test_CRE_V2_Suite(t *testing.T) {
 	})
 
 	t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
+		t.Skip("PRIV-233: Quarantined")
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v2RegistriesFlags...)
 
 		ExecuteVaultTest(t, testEnv)
