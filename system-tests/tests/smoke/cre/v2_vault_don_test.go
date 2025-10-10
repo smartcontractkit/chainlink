@@ -449,17 +449,20 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], opts *bind.TransactOpts, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	digest, err := vaulttypes.DigestForRequest(request)
+	requestDigest, err := request.Digest()
 	require.NoError(t, err, "failed to get digest for request")
-	_, err = wfRegistryContract.AllowlistRequest(opts, digest, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
+	requestDigestBytes, err := hex.DecodeString(requestDigest)
+	require.NoError(t, err, "failed to decode digest")
+	reqDigestBytes := [32]byte(requestDigestBytes)
+	_, err = wfRegistryContract.AllowlistRequest(opts, reqDigestBytes, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
 	require.NoError(t, err, "failed to allowlist request")
 
-	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, hex.EncodeToString(digest[:]))
+	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, requestDigest)
 	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
 	for _, req := range allowedList {
-		if req.RequestDigest == digest {
+		if req.RequestDigest == reqDigestBytes {
 			framework.L.Info().Msgf("Request digest found in allowlist")
 		}
 		framework.L.Info().Msgf("Allowlisted request digestHexStr: %s, owner: %s, expiry: %d", hex.EncodeToString(req.RequestDigest[:]), req.Owner.Hex(), req.ExpiryTimestamp)

@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"testing"
 	"time"
@@ -162,12 +163,14 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	require.False(t, isAuthorized)
 
 	// Happy path
-	digest, err := vaulttypes.DigestForRequest(allowlistedRequest)
+	digest, err := allowlistedRequest.Digest()
+	require.NoError(t, err)
+	digestBytes, err := hex.DecodeString(digest)
 	require.NoError(t, err)
 	expiry := uint64(time.Now().UTC().Unix() + 100) //nolint:gosec // it is a safe conversion
 	allowlisted := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
 		{
-			RequestDigest:   digest,
+			RequestDigest:   [32]byte(digestBytes),
 			Owner:           owner,
 			ExpiryTimestamp: uint32(expiry), //nolint:gosec // it is a safe conversion
 		},
