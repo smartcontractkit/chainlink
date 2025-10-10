@@ -347,7 +347,7 @@ type SolChain struct {
 	ArtifactsDir  string
 }
 
-type ConfigureKeystoneInput struct {
+type ConfigureCapabilityRegistryInput struct {
 	ChainSelector               uint64
 	Topology                    *Topology
 	CldEnv                      *cldf.Environment
@@ -362,7 +362,7 @@ type ConfigureKeystoneInput struct {
 	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
 }
 
-func (c *ConfigureKeystoneInput) Validate() error {
+func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	if c.ChainSelector == 0 {
 		return errors.New("chain selector not set")
 	}

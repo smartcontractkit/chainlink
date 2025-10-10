@@ -148,25 +148,24 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Deploying Keystone contracts")))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Deploying Workflow and Capability Registry contracts")))
 
 	deployKeystoneContractsOutput, deployErr := crecontracts.DeployKeystoneContracts(
 		ctx,
 		testLogger,
 		singleFileLogger,
 		crecontracts.DeployKeystoneContractsInput{
-			CldfEnvironment:           newCldfEnvironment(ctx, singleFileLogger, startBlockchainsOutput.BlockChains),
-			CtfBlockchains:            startBlockchainsOutput.BlockChainOutputs,
-			ContractVersions:          input.ContractVersions,
-			WithV2Registries:          input.WithV2Registries,
-			CapabilitiesAwareNodeSets: input.CapabilitiesAwareNodeSets,
+			CldfEnvironment:  newCldfEnvironment(ctx, singleFileLogger, startBlockchainsOutput.BlockChains),
+			CtfBlockchains:   startBlockchainsOutput.BlockChainOutputs,
+			ContractVersions: input.ContractVersions,
+			WithV2Registries: input.WithV2Registries,
 		},
 	)
 	if deployErr != nil {
 		return nil, pkgerrors.Wrap(deployErr, "failed to deploy Keystone contracts")
 	}
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Keystone contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
 	topology, updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
@@ -381,15 +380,35 @@ func SetupTestEnvironment(
 		}
 	})
 
-	configureKeystoneInput, ksErr := prepareKeystoneConfigurationInput(*input, startBlockchainsOutput.RegistryChain().ChainSelector, topology, updatedNodeSets, creEnvironment.CldfEnvironment, deployKeystoneContractsOutput, startBlockchainsOutput)
-	if ksErr != nil {
-		return nil, pkgerrors.Wrap(ksErr, "failed to prepare keystone configuration input")
+	capRegInput := cre.ConfigureCapabilityRegistryInput{
+		ChainSelector:     startBlockchainsOutput.RegistryChain().ChainSelector,
+		CldEnv:            creEnvironment.CldfEnvironment,
+		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
+		Topology:          topology,
+		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(
+			deployKeystoneContractsOutput.MemoryDataStore,
+			startBlockchainsOutput.RegistryChain().ChainSelector,
+			keystone_changeset.CapabilitiesRegistry.String(),
+			input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
+			""),
+		),
+		NodeSets:                 input.CapabilitiesAwareNodeSets,
+		WithV2Registries:         input.WithV2Registries,
+		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
 	}
-	maps.Copy(configureKeystoneInput.DONCapabilityWithConfigs, donsCapabilities)
 
-	keystoneErr := crecontracts.ConfigureKeystone(*configureKeystoneInput)
-	if keystoneErr != nil {
-		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
+	for _, capability := range input.Capabilities {
+		configFn := capability.CapabilityRegistryV1ConfigFn()
+		capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, configFn)
+	}
+
+	capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
+
+	maps.Copy(capRegInput.DONCapabilityWithConfigs, donsCapabilities)
+
+	_, capRegErr := crecontracts.ConfigureCapabilityRegistry(capRegInput)
+	if capRegErr != nil {
+		return nil, pkgerrors.Wrap(capRegErr, "failed to configure Capability Registry contracts")
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -445,29 +464,6 @@ func mergeJobSpecSlices(from, to cre.DonsToJobSpecs) {
 		}
 		to[fromDonID] = append(to[fromDonID], fromJobSpecs...)
 	}
-}
-
-func prepareKeystoneConfigurationInput(input SetupInput, homeChainSelector uint64, topology *cre.Topology, updatedNodeSets []*cre.CapabilitiesAwareNodeSet, cldEnvironment *cldf.Environment, deployKeystoneContractsOutput *crecontracts.DeployKeystoneContractsOutput, startBlockchainsOutput StartBlockchainsOutput) (*cre.ConfigureKeystoneInput, error) {
-	configureKeystoneInput := cre.ConfigureKeystoneInput{
-		ChainSelector:               homeChainSelector,
-		CldEnv:                      cldEnvironment,
-		BlockchainOutputs:           startBlockchainsOutput.BlockChainOutputs,
-		Topology:                    topology,
-		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(deployKeystoneContractsOutput.MemoryDataStore, homeChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")),
-		NodeSets:                    input.CapabilitiesAwareNodeSets,
-		WithV2Registries:            input.WithV2Registries,
-		DONCapabilityWithConfigs:    make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
-	}
-
-	for _, capability := range input.Capabilities {
-		configFn := capability.CapabilityRegistryV1ConfigFn()
-		configureKeystoneInput.CapabilityRegistryConfigFns = append(configureKeystoneInput.CapabilityRegistryConfigFns, configFn)
-	}
-
-	// Deprecated, use Capabilities instead
-	configureKeystoneInput.CapabilityRegistryConfigFns = append(configureKeystoneInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
-
-	return &configureKeystoneInput, nil
 }
 
 func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOutput, startBlockchainsOutput StartBlockchainsOutput, jdOutput *jd.Output) {
