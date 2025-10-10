@@ -5,12 +5,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
@@ -25,7 +28,7 @@ var SetTokenTransferFeeConfigChangeset = cldf.CreateChangeSet(setTokenTransferFe
 
 type SetTokenTransferFeeConfig struct {
 	// A map of chain selector => token transfer fee input which describes the updates to make on each chain
-	InputsByChain map[uint64]SetTokenTransferFeeArgs `json:"inputsByChain"`
+	InputsByChain map[uint64]map[uint64]SetTokenTransferFeeArgs `json:"inputsByChain"`
 
 	// The timelock config - all updates can be merged into one MCMS proposal with this setting
 	MCMS *proposalutils.TimelockConfig `json:"mcms"`
@@ -68,54 +71,66 @@ func (args TokenTransferFeeArgs) HasMissingFields() bool {
 		args.AggregateRateLimitEnabled == nil
 }
 
-func setTokenTransferFeeConfigPrecondition(e cldf.Environment, cfg SetTokenTransferFeeConfig) error {
+func setTokenTransferFeeConfigPrecondition(env cldf.Environment, cfg SetTokenTransferFeeConfig) error {
 	if len(cfg.InputsByChain) == 0 {
-		e.Logger.Warn("no inputs were provided - exiting precondition stage gracefully")
+		env.Logger.Warn("no inputs were provided - exiting precondition stage gracefully")
 		return nil
 	}
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	for selector, input := range cfg.InputsByChain {
-		chainState, ok := state.EVMChainState(selector)
+	for srcSelector, inputs := range cfg.InputsByChain {
+		err := stateview.ValidateChain(env, state, srcSelector, cfg.MCMS)
+		if err != nil {
+			return fmt.Errorf("failed to validate src chain (src = %d): %w", srcSelector, err)
+		}
+		chainState, ok := state.EVMChainState(srcSelector)
 		if !ok {
-			return fmt.Errorf("selector %d does not exist in state", selector)
-		}
-		if onramp := chainState.EVM2EVMOnRamp[selector]; onramp == nil {
-			return fmt.Errorf("missing EVM2EVMOnRamp on chain with selector %d", selector)
-		}
-		if err := stateview.ValidateChain(e, state, selector, cfg.MCMS); err != nil {
-			return fmt.Errorf("failed to validate chain %d: %w", selector, err)
+			return fmt.Errorf("selector does not exist in EVM chain state (src = %d)", srcSelector)
 		}
 
-		tokensToReset := map[common.Address]bool{}
-		for _, address := range input.TokensToUseDefaultFeeConfigs {
-			if _, exists := tokensToReset[address]; exists {
-				return fmt.Errorf("found duplicate address (%s) in TokensToUseDefaultFeeConfigs for chain with selector %d", address.Hex(), selector)
+		for dstSelector, input := range inputs {
+			if err := stateview.ValidateChain(env, state, dstSelector, cfg.MCMS); err != nil {
+				return fmt.Errorf("failed to validate dst chain (src = %d, dst = %d): %w", srcSelector, dstSelector, err)
 			}
-			if address == utils.ZeroAddress {
-				return fmt.Errorf("for selector %d - zero address is not allowed in TokensToUseDefaultFeeConfigs", selector)
+			if _, exists := chainState.EVM2EVMOnRamp[dstSelector]; !exists {
+				return fmt.Errorf("no EVM2EVMOnRamp exists (src = %d, dst = %d)", srcSelector, dstSelector)
 			}
-			tokensToReset[address] = true
-		}
 
-		tokensToSetup := map[common.Address]bool{}
-		for _, args := range input.TokenTransferFeeConfigArgs {
-			if _, exists := tokensToSetup[args.Token]; exists {
-				return fmt.Errorf("found duplicate token address (%s) in TokenTransferFeeConfigArgs for chain with selector %d", args.Token.Hex(), selector)
+			tokensToReset := map[common.Address]bool{}
+			for _, address := range input.TokensToUseDefaultFeeConfigs {
+				if _, exists := tokensToReset[address]; exists {
+					return fmt.Errorf("duplicate address in TokensToUseDefaultFeeConfigs (src = %d, dst = %d, addr = %s)", srcSelector, dstSelector, address.Hex())
+				}
+				if address == utils.ZeroAddress {
+					return fmt.Errorf("zero address not allowed in TokensToUseDefaultFeeConfigs (src = %d, dst = %d)", srcSelector, dstSelector)
+				}
+				tokensToReset[address] = true
 			}
-			if args.Token == utils.ZeroAddress {
-				return fmt.Errorf("for selector %d - zero address is not allowed in TokenTransferFeeConfigArgs", selector)
-			}
-			tokensToSetup[args.Token] = true
-		}
 
-		for addr := range tokensToSetup {
-			if _, exists := tokensToReset[addr]; exists {
-				return fmt.Errorf("for selector %d - TokensToUseDefaultFeeConfigs and TokenTransferFeeConfigArgs must not reference the same address (%s)", selector, addr.Hex())
+			tokensToSetup := map[common.Address]bool{}
+			for _, args := range input.TokenTransferFeeConfigArgs {
+				if _, exists := tokensToSetup[args.Token]; exists {
+					return fmt.Errorf("duplicate token in TokenTransferFeeConfigArgs (src = %d, dst = %d, token = %s)", srcSelector, dstSelector, args.Token.Hex())
+				}
+				if args.Token == utils.ZeroAddress {
+					return fmt.Errorf("zero address not allowed in TokenTransferFeeConfigArgs (src = %d, dst = %d)", srcSelector, dstSelector)
+				}
+				tokensToSetup[args.Token] = true
+			}
+
+			for addr := range tokensToSetup {
+				if _, exists := tokensToReset[addr]; exists {
+					return fmt.Errorf(
+						"the same address cannot be referenced in both TokensToUseDefaultFeeConfigs and TokenTransferFeeConfigArgs (src = %d, dst = %d, addr = %s)",
+						srcSelector,
+						dstSelector,
+						addr.Hex(),
+					)
+				}
 			}
 		}
 	}
@@ -123,107 +138,124 @@ func setTokenTransferFeeConfigPrecondition(e cldf.Environment, cfg SetTokenTrans
 	return nil
 }
 
-func setTokenTransferFeeConfigLogic(e cldf.Environment, cfg SetTokenTransferFeeConfig) (cldf.ChangesetOutput, error) {
+func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFeeConfig) (cldf.ChangesetOutput, error) {
 	if len(cfg.InputsByChain) == 0 {
-		e.Logger.Warn("no inputs were provided - exiting apply stage gracefully")
+		env.Logger.Warn("no inputs were provided - exiting apply stage gracefully")
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	state, err := stateview.LoadOnchainState(e)
+	state, err := stateview.LoadOnchainState(env, stateview.WithLoadLegacyContracts(true))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	e.Logger.Info("preparing deployer group transactions")
-	deployerGroup := deployergroup.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("SetTokenTransferFeeConfig")
-	for selector, input := range cfg.InputsByChain {
-		e.Logger.Infof("processing chain with selector %d", selector)
+	deployerGroup := deployergroup.
+		NewDeployerGroup(env, state, cfg.MCMS).
+		WithDeploymentContext("SetTokenTransferFeeConfig")
 
-		blockChain, exists := e.BlockChains.EVMChains()[selector]
-		if !exists {
-			return cldf.ChangesetOutput{}, fmt.Errorf("could not find EVM chain with selector %d in environment", selector)
-		}
-
-		chainState, exists := state.Chains[selector]
-		if !exists {
-			return cldf.ChangesetOutput{}, fmt.Errorf("could not find chain %s in state", blockChain.String())
-		}
-
-		opts, err := deployerGroup.GetDeployer(selector)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %s: %w", blockChain.String(), err)
-		}
-
-		onramp, exists := chainState.EVM2EVMOnRamp[selector]
-		if !exists {
-			return cldf.ChangesetOutput{}, fmt.Errorf("could not find EVM2EVMOnRamp for chain %s", blockChain.String())
-		}
-
-		tokenTransferFeeConfigArgs := []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{}
-		for _, args := range input.TokenTransferFeeConfigArgs {
-			// This gets the token transfer fee config for the given token - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
-			e.Logger.Infof("getting token transfer fee config for token %s on chain %s", args.Token.Hex(), blockChain.String())
-			curConfig, err := onramp.GetTokenTransferFeeConfig(&bind.CallOpts{Context: e.GetContext()}, args.Token)
-			if err != nil {
-				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get TokenTransferFeeConfig for token %s on chain %s: %w", args.Token.Hex(), blockChain.String(), err)
-			}
-
-			// If no custom config already exists on-chain for the token, then we have no fallback values to use - in this case the caller must explicitly provide all fields
-			if !curConfig.IsEnabled && args.HasMissingFields() {
-				return cldf.ChangesetOutput{}, fmt.Errorf("token %s on %s: when enabling a new token, all fields must be provided", args.Token.Hex(), blockChain.String())
-			}
-
-			// At this point, we're either using fallback values from the chain or the caller has explicitly provided the inputs
-			newConfig := evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-				Token:                     args.Token,
-				MinFeeUSDCents:            pointer.Coalesce(args.MinFeeUSDCents, curConfig.MinFeeUSDCents),
-				MaxFeeUSDCents:            pointer.Coalesce(args.MaxFeeUSDCents, curConfig.MaxFeeUSDCents),
-				DeciBps:                   pointer.Coalesce(args.DeciBps, curConfig.DeciBps),
-				DestGasOverhead:           pointer.Coalesce(args.DestGasOverhead, curConfig.DestGasOverhead),
-				DestBytesOverhead:         pointer.Coalesce(args.DestBytesOverhead, curConfig.DestBytesOverhead),
-				AggregateRateLimitEnabled: pointer.Coalesce(args.AggregateRateLimitEnabled, curConfig.AggregateRateLimitEnabled),
-			}
-
-			// Check if the new config is different from the on-chain config
-			isDifferent := !curConfig.IsEnabled
-			if curConfig.IsEnabled {
-				isDifferent = newConfig.MinFeeUSDCents != curConfig.MinFeeUSDCents ||
-					newConfig.MaxFeeUSDCents != curConfig.MaxFeeUSDCents ||
-					newConfig.DeciBps != curConfig.DeciBps ||
-					newConfig.DestGasOverhead != curConfig.DestGasOverhead ||
-					newConfig.DestBytesOverhead != curConfig.DestBytesOverhead ||
-					newConfig.AggregateRateLimitEnabled != curConfig.AggregateRateLimitEnabled
-			}
-
-			// Only perform an update if the new config is different from the on-chain config
-			if isDifferent {
-				tokenTransferFeeConfigArgs = append(tokenTransferFeeConfigArgs, newConfig)
-			} else {
-				e.Logger.Infof("token %s on %s: input config is the same as on-chain config (%+v) - skipping", args.Token.Hex(), blockChain.String(), curConfig)
-			}
-		}
-
-		resetsCount := len(input.TokensToUseDefaultFeeConfigs)
-		updateCount := len(tokenTransferFeeConfigArgs)
-		if updateCount == 0 && resetsCount == 0 {
-			e.Logger.Infof("detected no changes for chain %s - skipping", blockChain.String())
+	env.Logger.Info("preparing deployer group transactions")
+	for srcSelector, inputs := range cfg.InputsByChain {
+		env.Logger.Infof("processing src %d", srcSelector)
+		if len(inputs) == 0 {
+			env.Logger.Infof("no inputs were detected for src %d - skipping", srcSelector)
 			continue
 		}
 
-		e.Logger.Infof("setting token transfer fee config for chain %s (updates = %d, resets = %d)", blockChain.String(), updateCount, resetsCount)
-		_, err = onramp.SetTokenTransferFeeConfig(opts,
-			tokenTransferFeeConfigArgs,
-			input.TokensToUseDefaultFeeConfigs,
-		)
+		srcChain, exists := env.BlockChains.EVMChains()[srcSelector]
+		if !exists {
+			return cldf.ChangesetOutput{}, fmt.Errorf("could not find src EVM chain in environment (src = %d)", srcSelector)
+		}
+
+		chainState, exists := state.Chains[srcSelector]
+		if !exists {
+			return cldf.ChangesetOutput{}, fmt.Errorf("could not find chain in state (src = %s)", srcChain.String())
+		}
+
+		opts, err := deployerGroup.GetDeployer(srcSelector)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf(
-				"failed to create SetTokenTransferFeeConfig transaction on chain %s: %w",
-				blockChain.String(),
-				err,
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get deployer (src = %s): %w", srcChain.String(), err)
+		}
+
+		for dstSelector, input := range inputs {
+			dstChain, exists := env.BlockChains.EVMChains()[dstSelector]
+			if !exists {
+				return cldf.ChangesetOutput{}, fmt.Errorf("could not find dst EVM chain in environment (src = %s, dst = %d)", srcChain.String(), dstSelector)
+			}
+
+			onramp, exists := chainState.EVM2EVMOnRamp[dstSelector]
+			if !exists {
+				return cldf.ChangesetOutput{}, fmt.Errorf("no EVM2EVMOnRamp (src = %s, dst = %s)", srcChain.String(), dstChain.String())
+			}
+
+			tokenTransferFeeConfigArgs := []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{}
+			for _, args := range input.TokenTransferFeeConfigArgs {
+				// This gets the token transfer fee config for the given token - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
+				env.Logger.Infof("fetching token transfer fee config (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), args.Token.Hex())
+				curConfig, err := onramp.GetTokenTransferFeeConfig(&bind.CallOpts{Context: env.GetContext()}, args.Token)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch token transfer fee config (src = %s, dst = %s, token = %s): %w", srcChain.String(), dstChain.String(), args.Token.Hex(), err)
+				}
+
+				// If no custom config already exists on-chain for the token, then we have no fallback values to use - in this case the caller must explicitly provide all fields
+				env.Logger.Infof("fetched token transfer fee config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), args.Token.Hex(), curConfig)
+				if !curConfig.IsEnabled && args.HasMissingFields() {
+					return cldf.ChangesetOutput{}, fmt.Errorf("invalid args - when enabling a new token, all fields must be provided (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), args.Token.Hex())
+				}
+
+				// At this point, we're either using fallback values from the chain or the caller has explicitly provided the inputs
+				newConfig := evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
+					Token:                     args.Token,
+					MinFeeUSDCents:            pointer.Coalesce(args.MinFeeUSDCents, curConfig.MinFeeUSDCents),
+					MaxFeeUSDCents:            pointer.Coalesce(args.MaxFeeUSDCents, curConfig.MaxFeeUSDCents),
+					DeciBps:                   pointer.Coalesce(args.DeciBps, curConfig.DeciBps),
+					DestGasOverhead:           pointer.Coalesce(args.DestGasOverhead, curConfig.DestGasOverhead),
+					DestBytesOverhead:         pointer.Coalesce(args.DestBytesOverhead, curConfig.DestBytesOverhead),
+					AggregateRateLimitEnabled: pointer.Coalesce(args.AggregateRateLimitEnabled, curConfig.AggregateRateLimitEnabled),
+				}
+
+				// Check if the new config is different from the on-chain config
+				isDifferent := !curConfig.IsEnabled
+				if curConfig.IsEnabled {
+					isDifferent = newConfig.MinFeeUSDCents != curConfig.MinFeeUSDCents ||
+						newConfig.MaxFeeUSDCents != curConfig.MaxFeeUSDCents ||
+						newConfig.DeciBps != curConfig.DeciBps ||
+						newConfig.DestGasOverhead != curConfig.DestGasOverhead ||
+						newConfig.DestBytesOverhead != curConfig.DestBytesOverhead ||
+						newConfig.AggregateRateLimitEnabled != curConfig.AggregateRateLimitEnabled
+				}
+
+				// Only perform an update if the new config is different from the on-chain config
+				env.Logger.Infof("constructed token transfer fee config (src = %s, dst = %s, token = %s, new_cfg = %+v)", srcChain.String(), dstChain.String(), args.Token.Hex(), newConfig)
+				if isDifferent {
+					tokenTransferFeeConfigArgs = append(tokenTransferFeeConfigArgs, newConfig)
+				} else {
+					env.Logger.Infof("skipping update since input config is the same as on-chain config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), args.Token.Hex(), curConfig)
+				}
+			}
+
+			resetsCount := len(input.TokensToUseDefaultFeeConfigs)
+			updateCount := len(tokenTransferFeeConfigArgs)
+			if updateCount == 0 && resetsCount == 0 {
+				env.Logger.Infof("no changes detected (src = %s, dst = %s) - skipping", srcChain.String(), dstChain.String())
+				continue
+			}
+
+			env.Logger.Infof("setting token transfer fee configs (src = %s, dst = %s, updates = %d, resets = %d)", srcChain.String(), dstChain.String(), updateCount, resetsCount)
+			_, err = onramp.SetTokenTransferFeeConfig(opts,
+				tokenTransferFeeConfigArgs,
+				input.TokensToUseDefaultFeeConfigs,
 			)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf(
+					"failed to create SetTokenTransferFeeConfig transaction (src = %s, dst = %s): %w",
+					srcChain.String(),
+					dstChain.String(),
+					err,
+				)
+			}
 		}
 	}
 
-	e.Logger.Info("running deployer group")
+	env.Logger.Info("running deployer group")
 	return deployerGroup.Enact()
 }
