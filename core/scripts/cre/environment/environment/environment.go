@@ -26,6 +26,7 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -306,8 +307,12 @@ func startCmd() *cobra.Command {
 			}
 
 			features := feature_set.New()
-
-			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, nil, features, nil, envDependencies, append(extraAllowedGatewayPorts, in.Fake.Port), []string{}, []string{"0.0.0.0/0"})
+			gatewayWhitelistConfig := gateway.WhitelistConfig{
+				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port),
+				ExtraAllowedIPs:     []string{},
+				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
+			}
+			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, topology, withPluginsDockerImage, nil, features, nil, envDependencies, gatewayWhitelistConfig)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -630,9 +635,7 @@ func StartCLIEnvironment(
 	features cre.Features,
 	extraJobSpecFunctions []cre.JobSpecFn,
 	env cre.CLIEnvironmentDependencies,
-	// Gateway config
-	extraAllowedPorts []int,
-	extraAllowedIPs, extraAllowedIPsCIDR []string,
+	gatewayWhitelistConfig gateway.WhitelistConfig,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
 
@@ -693,9 +696,7 @@ func StartCLIEnvironment(
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
 		Features:                  features,
-		ExtraAllowedPorts:         extraAllowedPorts,
-		ExtraAllowedIPs:           extraAllowedIPs,
-		ExtraAllowedIPsCIDR:       extraAllowedIPsCIDR,
+		GatewayWhitelistConfig:    gatewayWhitelistConfig,
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

@@ -72,11 +72,7 @@ type SetupInput struct {
 	CopyCapabilityBinaries    bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
 	Capabilities              []cre.InstallableCapability
 	Features                  cre.Features
-
-	// Gateway config
-	// TODO wrap in a struct
-	ExtraAllowedPorts                    []int
-	ExtraAllowedIPs, ExtraAllowedIPsCIDR []string
+	GatewayWhitelistConfig    gateway.WhitelistConfig
 
 	// allow to pass custom transformers for extensibility
 	ConfigFactoryFunctions               []cre.NodeConfigTransformerFn
@@ -189,9 +185,7 @@ func SetupTestEnvironment(
 		input.Provider,
 		input.CapabilityConfigs,
 		updatedNodeSets,
-		input.ExtraAllowedPorts,
-		input.ExtraAllowedIPs,
-		input.ExtraAllowedIPsCIDR,
+		input.GatewayWhitelistConfig,
 	)
 	if gErr != nil {
 		return nil, pkgerrors.Wrap(gErr, "failed to build gateway job config")

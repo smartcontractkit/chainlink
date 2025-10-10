@@ -31,6 +31,11 @@ var (
 	DefaultAllowedPorts = []int{80, 443}
 )
 
+type WhitelistConfig struct {
+	ExtraAllowedPorts                    []int
+	ExtraAllowedIPs, ExtraAllowedIPsCIDR []string
+}
+
 func JobConfigs(
 	cldEnvironment *cldf.Environment,
 	registryChainOutput *blockchain.Output,
@@ -38,7 +43,7 @@ func JobConfigs(
 	infraInput infra.Provider,
 	capabilityConfigs map[string]cre.CapabilityConfig,
 	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
-	extraAllowedPorts []int, extraAllowedIPs, extraAllowedIPsCIDR []string,
+	whitelistConfig WhitelistConfig,
 ) (map[cre.NodeUUID]*config.GatewayConfig, error) {
 	if topology == nil {
 		return nil, errors.New("topology is nil")
@@ -102,9 +107,9 @@ func JobConfigs(
 			},
 			HTTPClientConfig: gw_net.HTTPClientConfig{
 				MaxResponseBytes: 100_000_000,
-				AllowedPorts:     append(extraAllowedPorts, DefaultAllowedPorts...),
-				AllowedIPs:       extraAllowedIPs,
-				AllowedIPsCIDR:   extraAllowedIPsCIDR,
+				AllowedPorts:     append(whitelistConfig.ExtraAllowedPorts, DefaultAllowedPorts...),
+				AllowedIPs:       whitelistConfig.ExtraAllowedIPs,
+				AllowedIPsCIDR:   whitelistConfig.ExtraAllowedIPsCIDR,
 			},
 		}
 
