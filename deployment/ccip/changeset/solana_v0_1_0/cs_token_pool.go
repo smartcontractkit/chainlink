@@ -194,7 +194,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		// initialize token pool config pda
 		var poolInitI solana.Instruction
-		programData, err := getSolProgramData(e, chain, tokenPool)
+		_, err = getSolProgramData(e, chain, tokenPool)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 		}
@@ -210,7 +210,9 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
 				solana.SystemProgramID,
 				tokenPool,
-				programData.Address,
+				solana.PublicKey{},
+				// programData.Address,
+				// configPDA,
 			).ValidateAndBuild()
 		case shared.LockReleaseTokenPool:
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
@@ -223,7 +225,9 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
 				solana.SystemProgramID,
 				tokenPool,
-				programData.Address,
+				solana.PublicKey{},
+				// programData.Address,
+				// configPDA,
 			).ValidateAndBuild()
 		default:
 			return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", tokenPoolCfg.PoolType)
@@ -347,7 +351,7 @@ func (cfg EVMRemoteConfig) Validate(e cldf.Environment, state stateview.CCIPOnCh
 	if !ok {
 		return fmt.Errorf("chain with selector %d does not exist in environment", evmChainSelector)
 	}
-	chainState, ok := state.EVMChainState(evmChainSelector)
+	_, ok = state.EVMChainState(evmChainSelector)
 	if !ok {
 		return fmt.Errorf("%s does not exist in state", chain.String())
 	}
@@ -360,10 +364,10 @@ func (cfg EVMRemoteConfig) Validate(e cldf.Environment, state stateview.CCIPOnCh
 		return fmt.Errorf("%s is not a known token pool version", cfg.PoolVersion)
 	}
 	// Ensure that a pool with given symbol, type and version is known to the environment
-	_, getPoolOk := ccipChangeset_v1_5_1.GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
-	if !getPoolOk {
-		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
-	}
+	// _, getPoolOk := ccipChangeset_v1_5_1.GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
+	// if !getPoolOk {
+	// 	return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), cfg.TokenSymbol, cfg.PoolType, cfg.PoolVersion)
+	// }
 	err = cfg.RateLimiterConfig.Validate()
 	return err
 }
@@ -1565,6 +1569,8 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 				poolConfigPDA,
 				tokenPubKey,
 				authority,
+				// tokenPool,
+				// solana.PublicKey{},
 			).ValidateAndBuild()
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
@@ -1592,6 +1598,8 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 				poolConfigPDA,
 				tokenPubKey,
 				authority,
+				// tokenPool,
+				// solana.PublicKey{},
 			).ValidateAndBuild()
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)

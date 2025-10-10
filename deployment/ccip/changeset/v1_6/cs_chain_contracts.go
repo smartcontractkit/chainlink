@@ -23,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -59,12 +59,15 @@ const (
 					bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
 					// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
 		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+					// bytes4(keccak256("CCIP ChainFamilySelector Sui"))
+				bytes4(keccak256("CCIP ChainFamilySelector Sui")) = 0xc4e05953
 				```
 	*/
 	EVMFamilySelector   = "2812d52c"
 	SVMFamilySelector   = "1e10bdc4"
 	AptosFamilySelector = "ac77ffec"
 	TVMFamilySelector   = "647e2ba9"
+	SuiFamilySelector   = "c4e05953"
 )
 
 var (
@@ -345,6 +348,7 @@ func (cfg UpdateOnRampDestsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
 func UpdateOnRampsDestsChangeset(e cldf.Environment, cfg UpdateOnRampDestsConfig) (cldf.ChangesetOutput, error) {
+	fmt.Println("UPDATING ONRAMP EVM")
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -841,6 +845,7 @@ func (cfg UpdateFeeQuoterPricesConfig) ToSequenceInput(state stateview.CCIPOnCha
 		updates[chainSel] = opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
+			// Address: common.HexToAddress("0x5fDC703aFc9A124E5B2e60d2f87E706DbE4c5F57"),
 			CallInput: fee_quoter.InternalPriceUpdates{
 				TokenPriceUpdates: tokenPriceUpdates,
 				GasPriceUpdates:   gasPriceUpdates,
@@ -855,6 +860,7 @@ func (cfg UpdateFeeQuoterPricesConfig) ToSequenceInput(state stateview.CCIPOnCha
 }
 
 func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPricesConfig) (cldf.ChangesetOutput, error) {
+	fmt.Println("UPDATING FEEQUOTER EVM")
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -964,6 +970,7 @@ func (cfg UpdateFeeQuoterDestsConfig) ToSequenceInput(state stateview.CCIPOnChai
 }
 
 func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsConfig) (cldf.ChangesetOutput, error) {
+	fmt.Println("UPDATE FEEQUOTER AGAIN")
 	output := cldf.ChangesetOutput{}
 
 	if err := cfg.Validate(e); err != nil {
@@ -1339,6 +1346,7 @@ func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
 func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig) (cldf.ChangesetOutput, error) {
+	fmt.Println("APPLY ROUTER RAMP UPDATE")
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -1346,7 +1354,6 @@ func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig)
 	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.RouterApplyRampUpdatesSequence,
@@ -1412,6 +1419,13 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *cldf.Environment, state *st
 		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
+	case chain_selectors.FamilySui:
+		_, ok := state.SuiChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+		return nil
+
 	case chain_selectors.FamilyTon:
 		_, ok := state.TonChains[chainSelector]
 		if !ok {
@@ -1724,6 +1738,8 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
 		} else if destFamily == chain_selectors.FamilyTon {
 			familySelector, _ = hex.DecodeString(TVMFamilySelector) // ton
+		} else if destFamily == chain_selectors.FamilySui {
+			familySelector, _ = hex.DecodeString(SuiFamilySelector) // Sui
 		}
 	}
 	return fee_quoter.FeeQuoterDestChainConfig{

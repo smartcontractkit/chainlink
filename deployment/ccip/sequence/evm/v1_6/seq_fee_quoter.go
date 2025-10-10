@@ -5,7 +5,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -40,6 +40,7 @@ var (
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract across multiple EVM chains",
 		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterApplyDestChainConfigUpdatesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
 			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+			fmt.Println("INPUTT: ", input.UpdatesByChain)
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {

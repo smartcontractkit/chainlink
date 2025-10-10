@@ -19,7 +19,7 @@ import (
 type EVMChain struct {
 	Backend     *simulated.Backend
 	DeployerKey *bind.TransactOpts
-	Users       []*bind.TransactOpts
+	Users       []*bind.TransactOpts 
 }
 
 // evmTestChainSelectors returns the selectors for the test EVM chains. We arbitrarily

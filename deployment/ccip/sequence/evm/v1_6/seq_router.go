@@ -28,6 +28,7 @@ var (
 		"Updates OnRamps and OffRamps on Router contracts across multiple EVM chains",
 		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input RouterApplyRampUpdatesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
 			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+			fmt.Println("APPLY DEST CHAIN UPDATE: ", input.UpdatesByChain)
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
