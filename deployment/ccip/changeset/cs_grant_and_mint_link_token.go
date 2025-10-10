@@ -133,7 +133,7 @@ func GrantMintRoleAndMintLogic(e cldf.Environment, cfg GrantMintRoleAndMintConfi
 		return cldf.ChangesetOutput{}, fmt.Errorf("insufficient balance after minting: expected %s, got %s", cfg.Amount.String(), balance.String())
 	}
 
-	// Check if we need to revoke mint role
+	// Check if we need to revoke mint/burn roles
 	isMinter, err := linkState.LinkToken.IsMinter(&bind.CallOpts{}, chain.DeployerKey.From)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if deployer is minter: %w", err)
@@ -145,7 +145,7 @@ func GrantMintRoleAndMintLogic(e cldf.Environment, cfg GrantMintRoleAndMintConfi
 	}
 
 	if isMinter {
-		// Mint tokens to the given faucet address and verify the balance
+		// Revoke Mint Role
 		_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.RevokeMintRoleERC677Op, chain, opsutil.EVMCallInput[common.Address]{
 			Address:       linkState.LinkToken.Address(),
 			ChainSelector: chain.ChainSelector(),
@@ -157,7 +157,7 @@ func GrantMintRoleAndMintLogic(e cldf.Environment, cfg GrantMintRoleAndMintConfi
 	}
 
 	if isBurner {
-		// Mint tokens to the given faucet address and verify the balance
+		// Revoke Burn Role
 		_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.RevokeBurnRoleERC677Op, chain, opsutil.EVMCallInput[common.Address]{
 			Address:       linkState.LinkToken.Address(),
 			ChainSelector: chain.ChainSelector(),
