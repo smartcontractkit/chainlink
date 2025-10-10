@@ -49,6 +49,6 @@ build_command = "pnpm install && ./nx run-many -t build"
 artifacts_dirs = ["./bin/amd64", "./chain_capabilities/bin/amd64"]
 
 [observability]
-repository = "/home/ec2-user/chainlink-observability"
+repository = "https://github.com/smartcontractkit/chainlink-observability"
 branch = "main"
 target_path = "./observability"
