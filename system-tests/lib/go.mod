@@ -15,7 +15,6 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 // replace github.com/smartcontractkit/crib-sdk => ../../../crib-sdk
 
 require (
-	cosmossdk.io/errors v1.0.1
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/alitto/pond/v2 v2.5.0
@@ -72,6 +71,7 @@ require (
 	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/core v0.11.0 // indirect
 	cosmossdk.io/depinject v1.1.0 // indirect
+	cosmossdk.io/errors v1.0.1 // indirect
 	cosmossdk.io/log v1.4.1 // indirect
 	cosmossdk.io/math v1.4.0 // indirect
 	cosmossdk.io/store v1.1.1 // indirect

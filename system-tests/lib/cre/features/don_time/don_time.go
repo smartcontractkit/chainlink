@@ -149,14 +149,14 @@ func createJobs(
 		}
 
 		// we pass here bundles for all chains to enable multi-chain signing
-		jobSpecs = append(jobSpecs, DonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
+		jobSpecs = append(jobSpecs, WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
 	}
 
 	// pass whole topology, since some jobs might need to be created on multiple DONs
 	return jobs.Create(ctx, jdClient, donTopology, jobSpecs)
 }
 
-func DonTimeJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func WorkerJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,

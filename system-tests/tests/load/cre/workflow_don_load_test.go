@@ -1196,8 +1196,8 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 					return nil, fmt.Errorf("node %s does not have OCR2 key bundle for EVM", workerNode.Name)
 				}
 
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], consensus_v1_feature.WorkerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], don_time_feature.DonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], consensus_v1_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
+				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], don_time_feature.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
 			}
 		}
 

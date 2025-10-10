@@ -306,7 +306,7 @@ func createJobs(
 		}
 
 		// we pass here bundles for all chains to enable multi-chain signing
-		jobSpecs = append(jobSpecs, workerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, vaultOCR3Addr.Hex(), vaultDKGOCR3Addr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
+		jobSpecs = append(jobSpecs, workerJobSpec(workerNode.JobDistributorDetails.NodeID, vaultOCR3Addr.Hex(), vaultDKGOCR3Addr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
 	}
 
 	// pass whole topology, since some jobs might need to be created on multiple DONs
@@ -390,7 +390,7 @@ func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 	return hex.EncodeToString(cipherBytes), nil
 }
 
-func workerOCR3JobSpec(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func workerJobSpec(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{
