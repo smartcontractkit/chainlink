@@ -27,13 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
-	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
+	donconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -167,7 +166,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Keystone contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
-	topology, updatedNodeSets, topoErr := PrepareNodeTOMLConfigurations(
+	topology, updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		startBlockchainsOutput.RegistryChain().ChainSelector,
 		input.CapabilitiesAwareNodeSets,
 		input.Provider,
@@ -203,31 +202,31 @@ func SetupTestEnvironment(
 	})
 
 	// First wait for JD to start, because it will be faster than DONs
-	jdOutput, jdStartErr := worker.AwaitAs[*jd.Output](ctx, jdStartedFuture)
+	startedJD, jdStartErr := worker.AwaitAs[*StartedJD](ctx, jdStartedFuture)
 	if jdStartErr != nil {
 		return nil, pkgerrors.Wrap(jdStartErr, "failed to start Job Distributor")
 	}
 
-	nodeSetOutput, donStartErr := worker.AwaitAs[[]*cre.WrappedNodeOutput](ctx, donsStartedFuture)
+	startedDONs, donStartErr := worker.AwaitAs[*StartedDONs](ctx, donsStartedFuture)
 	if donStartErr != nil {
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
-		JdOutput:          jdOutput,
+		JDClient:          startedJD.Client,
 		BlockchainOutputs: startBlockchainsOutput.BlockChainOutputs,
-		NodeSetOutput:     nodeSetOutput,
 		CldfEnvironment:   deployKeystoneContractsOutput.Env,
 		Topology:          topology,
+		DONs:              startedDONs.DONs(),
 	}
 
-	cldfEnvironment, dons, cldErr := libdon.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	cldfEnvironment, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
-	creEnvironment, creErr := newCreEnvironment(startBlockchainsOutput.RegistryChain().ChainSelector, cldfEnvironment, dons, topology)
-	if creErr != nil {
-		return nil, pkgerrors.Wrap(creErr, "failed to create CRE environment")
+	creEnvironment := &cre.Environment{
+		CldfEnvironment: cldfEnvironment,
+		DonTopology:     cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(startedDONs.DONs())),
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -298,7 +297,7 @@ func SetupTestEnvironment(
 
 	// Wait for Log Poller to be up and running. If it misses the ConfigSet event, OCR protocol will not start.
 	// TODO: we might want to add similar checks for other OCR3 contracts.
-	if err := waitForLogPollerToBeHealthy(updatedNodeSets, nodeSetOutput); err != nil {
+	if err := waitForLogPollerToBeHealthy(updatedNodeSets, startedDONs.NodeOutputs()); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed while waiting for Log Poller to become healthy")
 	}
 
@@ -364,7 +363,7 @@ func SetupTestEnvironment(
 	}
 	queue.StopAndWait()
 
-	appendOutputsToInput(input, nodeSetOutput, startBlockchainsOutput, jdOutput)
+	appendOutputsToInput(input, startedDONs.NodeOutputs(), startBlockchainsOutput, startedJD.JDOutput)
 
 	if err := workflowRegistryConfigurationOutput.Store(config.MustWorkflowRegistryStateFileAbsPath(relativePathToRepoRoot)); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to store workflow registry configuration output")
@@ -374,7 +373,7 @@ func SetupTestEnvironment(
 		WorkflowRegistryConfigurationOutput: workflowRegistryConfigurationOutput, // pass to caller, so that it can be optionally attached to TestConfig and saved to disk
 		BlockchainOutput:                    startBlockchainsOutput.BlockChainOutputs,
 		DonTopology:                         creEnvironment.DonTopology,
-		NodeOutput:                          nodeSetOutput,
+		NodeOutput:                          startedDONs.NodeOutputs(),
 		CldEnvironment:                      creEnvironment.CldfEnvironment,
 		S3ProviderOutput:                    s3Output,
 	}, nil
@@ -515,18 +514,6 @@ func appendOutputsToInput(input *SetupInput, nodeSetOutput []*cre.WrappedNodeOut
 
 	// append the jd output, so that later it can be stored in the cached output, so that we can use the environment again without running setup
 	input.JdInput.Out = jdOutput
-}
-
-func newCreEnvironment(registryChainSelector uint64, cldfEnv *cldf.Environment, dons []*devenv.DON, topology *cre.Topology) (*cre.Environment, error) {
-	creDons, donsErr := cre.NewDons(topology.DonsMetadata, dons)
-	if donsErr != nil {
-		return nil, pkgerrors.Wrap(donsErr, "failed to create CRE Dons")
-	}
-
-	return &cre.Environment{
-		CldfEnvironment: cldfEnv,
-		DonTopology:     cre.NewDonTopology(registryChainSelector, topology, creDons),
-	}, nil
 }
 
 func newCldfEnvironment(ctx context.Context, singleFileLogger logger.Logger, cldfBlockchains map[uint64]cldf_chain.BlockChain) *cldf.Environment {

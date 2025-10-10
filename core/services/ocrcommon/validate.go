@@ -2,6 +2,7 @@ package ocrcommon
 
 import (
 	stderrors "errors"
+	"maps"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -10,9 +11,7 @@ import (
 // CloneSet returns a copy of the input map.
 func CloneSet(in map[string]struct{}) map[string]struct{} {
 	out := make(map[string]struct{}, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
+	maps.Copy(out, in)
 	return out
 }
 

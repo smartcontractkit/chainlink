@@ -264,7 +264,7 @@ func TestIntegration_CCIP(t *testing.T) {
 				// a single tx. This means that when batching is turned off, and we simply include
 				// all txs without checking gas, this also fails.
 				n := 15
-				for i := 0; i < n; i++ {
+				for i := range n {
 					txGasLimit := new(big.Int).Mul(gasLimit, big.NewInt(int64(i+1)))
 
 					// interleave ordered and non-ordered messages.
@@ -305,7 +305,7 @@ func TestIntegration_CCIP(t *testing.T) {
 
 				// Send a batch of requests in a single block
 				testhelpers.ConfirmTxs(t, txs, ccipTH.Source.Chain)
-				for i := 0; i < n; i++ {
+				for i := range n {
 					ccipTH.AllNodesHaveReqSeqNum(t, currentSeqNum+i)
 				}
 				// Should see a report with the full range

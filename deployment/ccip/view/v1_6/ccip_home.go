@@ -31,8 +31,8 @@ type DonView struct {
 }
 
 type GetAllConfigs struct {
-	ActiveConfig    CCIPHomeVersionedConfig `json:",omitempty"`
-	CandidateConfig CCIPHomeVersionedConfig `json:",omitempty"`
+	ActiveConfig    CCIPHomeVersionedConfig
+	CandidateConfig CCIPHomeVersionedConfig
 }
 
 type OracleIdentity struct {
@@ -77,9 +77,9 @@ type CCIPHomeOCR3Node struct {
 }
 
 type CCIPHomeVersionedConfig struct {
-	Version      uint32             `json:",omitempty"`
-	ConfigDigest []byte             `json:",omitempty"`
-	Config       CCIPHomeOCR3Config `json:",omitempty"`
+	Version      uint32 `json:",omitempty"`
+	ConfigDigest []byte `json:",omitempty"`
+	Config       CCIPHomeOCR3Config
 }
 
 type CCIPHomeView struct {

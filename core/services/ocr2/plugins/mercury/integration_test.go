@@ -222,7 +222,7 @@ func integration_MercuryV2(t *testing.T) {
 		nodes   []Node
 	)
 	ports := freeport.GetN(t, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
@@ -331,7 +331,7 @@ func integration_MercuryV2(t *testing.T) {
 	require.NoError(t, err)
 
 	offchainTransmitters := make([][32]byte, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
 
@@ -360,14 +360,14 @@ func integration_MercuryV2(t *testing.T) {
 		}
 
 		for req := range reqs {
-			v := make(map[string]interface{})
+			v := make(map[string]any)
 			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 			require.NoError(t, err)
 			report, exists := v["report"]
 			if !exists {
 				t.Fatalf("expected payload %#v to contain 'report'", v)
 			}
-			reportElems := make(map[string]interface{})
+			reportElems := make(map[string]any)
 			err = reportcodecv2.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
@@ -474,7 +474,7 @@ func integration_MercuryV3(t *testing.T) {
 	const nSrvs = 3
 	reqChs := make([]chan request, nSrvs)
 	servers := make(map[string]string)
-	for i := 0; i < nSrvs; i++ {
+	for i := range nSrvs {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
 		srv := NewMercuryServer(t, k, reqs, func() []byte {
@@ -510,7 +510,7 @@ func integration_MercuryV3(t *testing.T) {
 		nodes   []Node
 	)
 	ports := freeport.GetN(t, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
@@ -622,7 +622,7 @@ func integration_MercuryV3(t *testing.T) {
 	require.NoError(t, err)
 
 	offchainTransmitters := make([][32]byte, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
 
@@ -651,14 +651,14 @@ func integration_MercuryV3(t *testing.T) {
 		}
 
 		for req := range reqs {
-			v := make(map[string]interface{})
+			v := make(map[string]any)
 			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 			require.NoError(t, err)
 			report, exists := v["report"]
 			if !exists {
 				t.Fatalf("expected payload %#v to contain 'report'", v)
 			}
-			reportElems := make(map[string]interface{})
+			reportElems := make(map[string]any)
 			err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
@@ -697,7 +697,7 @@ func integration_MercuryV3(t *testing.T) {
 	}
 
 	t.Run("receives at least one report per feed for every server from each oracle when EAs are at 100% reliability", func(t *testing.T) {
-		for i := 0; i < nSrvs; i++ {
+		for i := range nSrvs {
 			reqs := reqChs[i]
 			runTestSetup(reqs)
 		}
@@ -768,7 +768,7 @@ func integration_MercuryV4(t *testing.T) {
 	const nSrvs = 3
 	reqChs := make([]chan request, nSrvs)
 	servers := make(map[string]string)
-	for i := 0; i < nSrvs; i++ {
+	for i := range nSrvs {
 		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
 		reqs := make(chan request, 100)
 		srv := NewMercuryServer(t, k, reqs, func() []byte {
@@ -804,7 +804,7 @@ func integration_MercuryV4(t *testing.T) {
 		nodes   []Node
 	)
 	ports := freeport.GetN(t, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
@@ -921,7 +921,7 @@ func integration_MercuryV4(t *testing.T) {
 	require.NoError(t, err)
 
 	offchainTransmitters := make([][32]byte, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
 
@@ -950,14 +950,14 @@ func integration_MercuryV4(t *testing.T) {
 		}
 
 		for req := range reqs {
-			v := make(map[string]interface{})
+			v := make(map[string]any)
 			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 			require.NoError(t, err)
 			report, exists := v["report"]
 			if !exists {
 				t.Fatalf("expected payload %#v to contain 'report'", v)
 			}
-			reportElems := make(map[string]interface{})
+			reportElems := make(map[string]any)
 			err = reportcodecv4.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
@@ -995,7 +995,7 @@ func integration_MercuryV4(t *testing.T) {
 	}
 
 	t.Run("receives at least one report per feed for every server from each oracle when EAs are at 100% reliability", func(t *testing.T) {
-		for i := 0; i < nSrvs; i++ {
+		for i := range nSrvs {
 			reqs := reqChs[i]
 			runTestSetup(reqs)
 		}

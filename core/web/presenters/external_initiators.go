@@ -12,7 +12,7 @@ import (
 // ExternalInitiatorAuthentication includes initiator and authentication details.
 type ExternalInitiatorAuthentication struct {
 	Name           string        `json:"name,omitempty"`
-	URL            models.WebURL `json:"url,omitempty"`
+	URL            models.WebURL `json:"url"`
 	AccessKey      string        `json:"incomingAccessKey,omitempty"`
 	Secret         string        `json:"incomingSecret,omitempty"`
 	OutgoingToken  string        `json:"outgoingToken,omitempty"`

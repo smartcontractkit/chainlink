@@ -82,7 +82,6 @@ Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 	}
 
 	for name, config := range invalidCases {
-		config := config
 		t.Run(name, func(t *testing.T) {
 			fullConfig := `
 [nodeServerConfig]
@@ -108,7 +107,7 @@ DonId = "my_don_1"
 HandlerName = "dummy"
 `
 
-	for i := 0; i < nNodes; i++ {
+	for i := range nNodes {
 		config += `[[dons.members]]` + "\n"
 		config += fmt.Sprintf(`Name = "node_%d"`, i) + "\n"
 		config += fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n"

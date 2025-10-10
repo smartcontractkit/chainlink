@@ -49,7 +49,7 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 
 	feedCount := 3
 	var feedIDs []string
-	for i := 0; i < feedCount; i++ {
+	for range feedCount {
 		feedIDs = append(feedIDs, newFeedID(t))
 	}
 

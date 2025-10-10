@@ -65,7 +65,6 @@ func (d *ocr3CapabilityLogDecoder) Decode(rawLog []byte) (ocrtypes.ContractConfi
 	var signers []ocrtypes.OnchainPublicKey
 	allPubKeys := map[string]any{}
 	for _, pubKey := range unpacked.Signers {
-		pubKey := pubKey
 
 		// validate uniqueness of each individual key
 		pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(pubKey)

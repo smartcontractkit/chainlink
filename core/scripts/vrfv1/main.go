@@ -236,8 +236,8 @@ func main() {
 }
 
 func parseRequestIDs(arg string) (ret [][32]byte) {
-	split := strings.Split(arg, ",")
-	for _, rid := range split {
+	split := strings.SplitSeq(arg, ",")
+	for rid := range split {
 		if strings.HasPrefix(rid, "0x") {
 			rid = strings.Replace(rid, "0x", "", 1)
 		}

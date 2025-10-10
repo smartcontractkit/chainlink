@@ -229,7 +229,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	rounds := 8
-	for i := 0; i < rounds; i++ {
+	for range rounds {
 		poll(backend.Commit())
 		triggerEvents(ctx, t, backend.Commit, carrol, n, poll, contracts...)
 		poll(backend.Commit())
@@ -287,7 +287,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	rounds := 8
-	for i := 0; i < rounds; i++ {
+	for range rounds {
 		triggerEvents(ctx, t, backend.Commit, carrol, n, poll, contracts...)
 		poll(backend.Commit())
 	}
@@ -418,7 +418,7 @@ func deployUpkeepCounter(
 	contractsAddrs []common.Address,
 	contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter,
 ) {
-	for i := 0; i < n; i++ {
+	for range n {
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			account, backend.Client(),
 			big.NewInt(100000),

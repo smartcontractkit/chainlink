@@ -16,7 +16,7 @@ type FeeQuoterView struct {
 	types.ContractMetaData
 	AuthorizedCallers                       []string                                 `json:"authorizedCallers,omitempty"`
 	FeeTokens                               []string                                 `json:"feeTokens,omitempty"`
-	StaticConfig                            FeeQuoterStaticConfig                    `json:"staticConfig,omitempty"`
+	StaticConfig                            FeeQuoterStaticConfig                    `json:"staticConfig"`
 	DestinationChainConfigBasedOnTestRouter map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfigBasedOnTestRouter,omitempty"`
 	DestinationChainConfig                  map[uint64]FeeQuoterDestChainConfig      `json:"destinationChainConfig,omitempty"`
 	TokenPriceFeedConfig                    map[string]FeeQuoterTokenPriceFeedConfig `json:"tokenPriceFeedConfig,omitempty"`

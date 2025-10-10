@@ -53,7 +53,7 @@ func (t *ETHABIEncodeTask2) Run(_ context.Context, _ logger.Logger, vars Vars, i
 
 	method := abi.NewMethod(inputMethod.Name, inputMethod.Name, abi.Function, "", false, false, inputMethod.Inputs, nil)
 
-	var vals []interface{}
+	var vals []any
 	for _, arg := range method.Inputs {
 		if len(arg.Name) == 0 {
 			return Result{Error: errors.Wrapf(ErrBadInput, "ETHABIEncode: bad ABI specification, missing argument name")}, RunInfo{}

@@ -57,7 +57,7 @@ func TestNewScalar(t *testing.T) {
 
 func TestScalar_SmokeTestPick(t *testing.T) {
 	f := newScalar(scalarZero).Clone()
-	for i := 0; i < numScalarSamples; i++ {
+	for range numScalarSamples {
 		f.Pick(randomStreamScalar)
 		observedScalar(t, f)
 		require.Equal(t, ToInt(f).Cmp(big.NewInt(1000000000)), 1,
@@ -67,7 +67,7 @@ func TestScalar_SmokeTestPick(t *testing.T) {
 
 func TestScalar_Neg(t *testing.T) {
 	f := newScalar(scalarZero).Clone()
-	for i := 0; i < numScalarSamples; i++ {
+	for range numScalarSamples {
 		f.Pick(randomStreamScalar)
 		observedScalar(t, f)
 		g := f.Clone()
@@ -78,7 +78,7 @@ func TestScalar_Neg(t *testing.T) {
 
 func TestScalar_Sub(t *testing.T) {
 	f := newScalar(scalarZero).Clone()
-	for i := 0; i < numScalarSamples; i++ {
+	for range numScalarSamples {
 		f.Pick(randomStreamScalar)
 		observedScalar(t, f)
 		require.True(t, f.Sub(f, f).Equal(newScalar(scalarZero)),
@@ -98,7 +98,7 @@ func TestScalar_Clone(t *testing.T) {
 func TestScalar_Marshal(t *testing.T) {
 	f := newScalar(scalarZero)
 	g := newScalar(scalarZero)
-	for i := 0; i < numFieldSamples; i++ {
+	for range numFieldSamples {
 		f.Pick(randomStreamScalar)
 		observedScalar(t, f)
 		data, err := f.MarshalBinary()
@@ -126,7 +126,7 @@ func TestScalar_MulDivInv(t *testing.T) {
 	h := newScalar(scalarZero)
 	j := newScalar(scalarZero)
 	k := newScalar(scalarZero)
-	for i := 0; i < numFieldSamples; i++ {
+	for range numFieldSamples {
 		f.Pick(randomStreamScalar)
 		observedScalar(t, f)
 		g.Inv(f)

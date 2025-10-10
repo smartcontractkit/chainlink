@@ -31,7 +31,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	orm := registrysyncer.NewORM(db, lggr)
 
 	var states []registrysyncer.LocalRegistry
-	for i := 0; i < 11; i++ {
+	for range 11 {
 		state := generateState(t)
 		err := orm.AddLocalRegistry(ctx, state)
 		require.NoError(t, err)

@@ -40,7 +40,7 @@ func makeErroringPipeline() *mockPipeline {
 	}
 }
 
-func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results []interface{}) *mockPipeline {
+func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results []any) *mockPipeline {
 	if len(streamIDs) != len(results) {
 		panic("streamIDs and results must have the same length")
 	}
@@ -74,7 +74,7 @@ func TestObservationContext_Observe(t *testing.T) {
 	streamID7 := streams.StreamID(7)
 	streamID8 := streams.StreamID(8)
 
-	multiPipelineDecimal := makePipelineWithMultipleStreamResults([]streams.StreamID{streamID4, streamID5, streamID6}, []interface{}{decimal.NewFromFloat(12.34), decimal.NewFromFloat(56.78), decimal.NewFromFloat(90.12)})
+	multiPipelineDecimal := makePipelineWithMultipleStreamResults([]streams.StreamID{streamID4, streamID5, streamID6}, []any{decimal.NewFromFloat(12.34), decimal.NewFromFloat(56.78), decimal.NewFromFloat(90.12)})
 
 	r.pipelines = map[streams.StreamID]*mockPipeline{
 		streamID1: &mockPipeline{},
@@ -156,7 +156,7 @@ func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
 	r.pipelines = make(map[streams.StreamID]*mockPipeline)
 	r.pipelines[streamID] = makePipelineWithSingleResult[decimal.Decimal](0, val, nil)
 	g, ctx := errgroup.WithContext(ctx)
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		g.Go(func() error {
 			_, err := oc.Observe(ctx, streamID, opts)
 			return err
@@ -323,8 +323,7 @@ func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStre
 
 	r := streams.NewRegistry(lggr, runner)
 
-	for i := uint32(0); i < n; i++ {
-		i := i
+	for i := range n {
 		jb := job.Job{
 			ID:       int32(i), //nolint:gosec // G115 // overflow impossible
 			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),
@@ -361,7 +360,7 @@ result3 -> result3_parse -> multiply3;
 	// concurrency stress test
 	b.ResetTimer()
 	g, ctx := errgroup.WithContext(ctx)
-	for i := uint32(0); i < n; i++ {
+	for i := range n {
 		for _, strmID := range []uint32{i, i + n, i + 2*n, i + 3*n} {
 			g.Go(func() error {
 				// ignore errors, only care about races

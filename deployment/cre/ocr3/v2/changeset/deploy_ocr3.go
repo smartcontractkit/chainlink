@@ -13,7 +13,7 @@ import (
 var _ cldf.ChangeSetV2[DeployOCR3Input] = DeployOCR3{}
 
 type DeployOCR3Input struct {
-	ChainSelector uint64   `json:"chain_selector" yaml:"chain_selector"`
+	ChainSelector uint64   `json:"chainSelector" yaml:"chainSelector"`
 	Qualifier     string   `json:"qualifier" yaml:"qualifier"`
 	Labels        []string `json:"labels" yaml:"labels"`
 }

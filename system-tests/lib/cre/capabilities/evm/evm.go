@@ -276,7 +276,7 @@ func transformNodeConfig(input cre.GenerateConfigsInput, existingConfigs cre.Nod
 		return nil, errors.New("additional capabilities configs are nil, but are required to configure the evm capability")
 	}
 
-	workerNodes, wErr := input.DonMetadata.WorkerNodes()
+	workerNodes, wErr := input.DonMetadata.Workers()
 	if wErr != nil {
 		return nil, errors.Wrap(wErr, "failed to find worker nodes")
 	}

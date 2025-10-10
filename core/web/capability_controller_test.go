@@ -106,12 +106,12 @@ func TestCapabilityController_ExecuteCapability(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
-	inputsMap, err := values.NewMap(map[string]interface{}{
+	inputsMap, err := values.NewMap(map[string]any{
 		"test": "input",
 	})
 	require.NoError(t, err)
 
-	configMap, err := values.NewMap(map[string]interface{}{
+	configMap, err := values.NewMap(map[string]any{
 		"config": "value",
 	})
 	require.NoError(t, err)
@@ -141,7 +141,7 @@ func TestCapabilityController_ExecuteCapability(t *testing.T) {
 	controller.ExecuteCapability(c)
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response map[string]interface{}
+	var response map[string]any
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.Contains(t, response, "capabilityResponse")

@@ -410,10 +410,7 @@ func (b *Beholder) consume(
 		// Calculate backoff with jitter
 		attempt++
 		jitter := time.Duration(rand.Float64() * float64(backoff) * 0.1) // 10% jitter
-		sleepDuration := backoff + jitter
-		if sleepDuration > maxBackoffTimeout {
-			sleepDuration = maxBackoffTimeout
-		}
+		sleepDuration := min(backoff+jitter, maxBackoffTimeout)
 
 		b.lggr.Warn().
 			Dur("backoff", sleepDuration).
@@ -428,10 +425,7 @@ func (b *Beholder) consume(
 		case <-time.After(sleepDuration):
 			b.lggr.Info().Int("attempt", attempt).Msg("Attempting to reconnect Kafka consumer...")
 			// Increase backoff for next iteration
-			backoff = time.Duration(float64(backoff) * backoffFactor)
-			if backoff > maxBackoffTimeout {
-				backoff = maxBackoffTimeout
-			}
+			backoff = min(time.Duration(float64(backoff)*backoffFactor), maxBackoffTimeout)
 		}
 	}
 }

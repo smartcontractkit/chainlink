@@ -49,7 +49,7 @@ func MustParseABI(abiStr string) abi.ABI {
 // encoded number.
 func ProofFlagsToBits(proofFlags []bool) *big.Int {
 	encodedFlags := big.NewInt(0)
-	for i := 0; i < len(proofFlags); i++ {
+	for i := range proofFlags {
 		if proofFlags[i] {
 			encodedFlags.SetBit(encodedFlags, i, 1)
 		}
@@ -66,7 +66,7 @@ type AbiDefinedValid interface {
 	Validate() error
 }
 
-func ABIEncode(abiStr string, values ...interface{}) ([]byte, error) {
+func ABIEncode(abiStr string, values ...any) ([]byte, error) {
 	inAbi, err := getABI(abiStr, ENCODE)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func ABIEncode(abiStr string, values ...interface{}) ([]byte, error) {
 	return res[4:], nil
 }
 
-func ABIDecode(abiStr string, data []byte) ([]interface{}, error) {
+func ABIDecode(abiStr string, data []byte) ([]any, error) {
 	inAbi, err := getABI(abiStr, DECODE)
 	if err != nil {
 		return nil, err

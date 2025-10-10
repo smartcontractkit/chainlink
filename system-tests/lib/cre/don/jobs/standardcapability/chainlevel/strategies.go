@@ -13,7 +13,7 @@ func JobNamer(chainID uint64, flag cre.CapabilityFlag) string {
 	return fmt.Sprintf("%s-%d", flag, chainID)
 }
 
-func CapabilityEnabler(_ *cre.DonMetadata, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
+func CapabilityEnabler(_ []string, nodeSet *cre.CapabilitiesAwareNodeSet, flag cre.CapabilityFlag) bool {
 	// for chain-level capabilities, we need to check which chains the capability is enabled for
 	if nodeSet == nil || nodeSet.ChainCapabilities == nil {
 		return false

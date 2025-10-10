@@ -451,7 +451,7 @@ func (l *ldapAuthenticator) CreateSession(ctx context.Context, sr sessions.Sessi
 		return "", fmt.Errorf("error creating local LDAP session: %w", err)
 	}
 
-	l.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
+	l.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": sr.Email})
 
 	return session.ID, nil
 }
@@ -583,7 +583,7 @@ func (l *ldapAuthenticator) SetAuthToken(ctx context.Context, user *sessions.Use
 		return errors.New("error creating API token")
 	}
 
-	l.auditLogger.Audit(audit.APITokenCreated, map[string]interface{}{"user": user.Email})
+	l.auditLogger.Audit(audit.APITokenCreated, map[string]any{"user": user.Email})
 	return nil
 }
 
@@ -625,12 +625,12 @@ func (l *ldapAuthenticator) localLoginFallback(ctx context.Context, sr sessions.
 		return user, err
 	}
 	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
-		l.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
+		l.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]any{"email": sr.Email})
 		return user, errors.New("invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		l.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
+		l.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]any{"email": sr.Email})
 		return user, errors.New("invalid password")
 	}
 

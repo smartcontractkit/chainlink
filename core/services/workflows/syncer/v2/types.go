@@ -34,9 +34,9 @@ type Config struct {
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
 type FetcherFunc func(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error)
 
-type GetAllowlistedRequestsParams struct {
-	Start *big.Int
-	Limit *big.Int
+type GetActiveAllowlistedRequestsReverseParams struct {
+	EndIndex   *big.Int
+	StartIndex *big.Int
 }
 
 type WorkflowMetadataView struct {

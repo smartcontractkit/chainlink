@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"fmt"
+	"slices"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -119,10 +120,5 @@ func checkCapabilityPresence(
 
 // isMemberOfDON returns true if and only if the given p2pID is a member of the given DON.
 func isMemberOfDON(don registrysyncer.DON, p2pID ragep2ptypes.PeerID) bool {
-	for _, node := range don.Members {
-		if node == p2pID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(don.Members, p2pID)
 }

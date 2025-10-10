@@ -51,8 +51,8 @@ var (
 			EVMBytecode:      common.FromHex(fee_quoter.FeeQuoterBin),
 			ZkSyncVMBytecode: fee_quoter.ZkBytecode,
 		},
-		func(input DeployFeeQInput) []interface{} {
-			return []interface{}{
+		func(input DeployFeeQInput) []any {
+			return []any{
 				fee_quoter.FeeQuoterStaticConfig{
 					MaxFeeJuelsPerMsg:            input.Params.MaxFeeJuelsPerMsg,
 					LinkToken:                    input.LinkAddr,

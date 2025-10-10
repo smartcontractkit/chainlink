@@ -61,7 +61,7 @@ func (o *orm) InsertTransmitRequest(ctx context.Context, serverURLs []string, re
 		defer wg.Done()
 
 		values := make([]string, len(serverURLs))
-		args := []interface{}{
+		args := []any{
 			req.Payload,
 			hashPayload(req.Payload),
 			reportCtx.ConfigDigest[:],

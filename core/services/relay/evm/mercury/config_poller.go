@@ -66,7 +66,6 @@ func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
-		addr := addr
 		signers = append(signers, addr[:])
 	}
 

@@ -442,10 +442,7 @@ func main() {
 		batchNum := 1
 
 		for i := 0; i < len(blockRange); i += int(*batchSize) {
-			j := i + int(*batchSize)
-			if j > len(blockRange) {
-				j = len(blockRange)
-			}
+			j := min(i+int(*batchSize), len(blockRange))
 
 			fmt.Printf("[%d/%d]\n", batchNum, numBatches)
 			batchNum++

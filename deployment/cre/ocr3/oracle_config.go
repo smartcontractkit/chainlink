@@ -38,7 +38,7 @@ type OracleConfig struct {
 
 func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
 	// ensure that caller migrated to new OracleConfig structure, where ConsensusCapOffchainConfig is not embedded
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return fmt.Errorf("failed to unmarshal OracleConfig into map[string]interface{}: %w", err)
 	}
@@ -54,7 +54,7 @@ func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
 	return err
 }
 
-func ensureNoLegacyFields(legacyFields []string, raw map[string]interface{}) error {
+func ensureNoLegacyFields(legacyFields []string, raw map[string]any) error {
 	for _, f := range legacyFields {
 		if _, exists := raw[f]; exists {
 			return fmt.Errorf("not supported config format detected: field %s is not supported. All %v must be moved into ConsensusCapOffchainConfig", f, legacyFields)
@@ -66,7 +66,7 @@ func ensureNoLegacyFields(legacyFields []string, raw map[string]interface{}) err
 
 func (oc *OracleConfig) UnmarshalYAML(value *yaml.Node) error {
 	// ensure that caller migrated to new OracleConfig structure, where ConsensusCapOffchainConfig is not embedded
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := value.Decode(&raw); err != nil {
 		return fmt.Errorf("failed to decode OracleConfig into map[string]interface{}: %w", err)
 	}

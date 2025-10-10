@@ -107,11 +107,7 @@ func (r *JobResolver) Runs(ctx context.Context, args struct {
 	Limit  *int32
 }) (*JobRunsPayloadResolver, error) {
 	offset := pageOffset(args.Offset)
-	limit := pageLimit(args.Limit)
-
-	if limit > 100 {
-		limit = 100
-	}
+	limit := min(pageLimit(args.Limit), 100)
 
 	ids, err := r.app.JobORM().FindPipelineRunIDsByJobID(ctx, r.j.ID, offset, limit)
 	if err != nil {

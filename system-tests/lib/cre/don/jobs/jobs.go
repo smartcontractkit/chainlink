@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func Create(ctx context.Context, offChainClient cldf_offchain.Client, jobSpecs cre.DonJobs) error {
+func Create(ctx context.Context, offChainClient cldf_offchain.Client, donTopology *cre.DonTopology, jobSpecs cre.DonJobs) error {
 	if len(jobSpecs) == 0 {
 		return nil
 	}
@@ -29,19 +29,34 @@ func Create(ctx context.Context, offChainClient cldf_offchain.Client, jobSpecs c
 			timeout := time.Second * 60
 			ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
-			_, err := offChainClient.ProposeJob(ctxWithTimeout, jobReq)
-			if err != nil {
-				// Workflow specs get auto approved
-				// TODO: Narrow down scope by checking type == workflow
-				if strings.Contains(err.Error(), "cannot approve an approved spec") {
-					return nil
-				}
-				fmt.Println("Failed jobspec proposal:")
-				fmt.Println(jobReq)
-				return errors.Wrapf(err, "failed to propose job for node %s", jobReq.NodeId)
+			_, pErr := offChainClient.ProposeJob(ctxWithTimeout, jobReq)
+			if pErr != nil {
+				return fmt.Errorf("failed to propose job for node %s: %w", jobReq.NodeId, pErr)
 			}
+
+			for _, don := range donTopology.Dons.List() {
+				for _, node := range don.Nodes {
+					if node.JobDistributorDetails.NodeID != jobReq.NodeId {
+						continue
+					}
+
+					// TODO: is there a way to accept the job with proposal id?
+					if err := node.AcceptJob(ctx, jobReq.Spec); err != nil {
+						// Workflow specs get auto approved
+						// TODO: Narrow down scope by checking type == workflow
+						if strings.Contains(err.Error(), "cannot approve an approved spec") {
+							return nil
+						}
+						fmt.Println("Failed jobspec proposal:")
+						fmt.Println(jobReq)
+
+						return fmt.Errorf("failed to accept job. err: %w", err)
+					}
+				}
+			}
+
 			if ctx.Err() != nil {
-				return errors.Wrapf(err, "timed out after %s proposing job for node %s", timeout.String(), jobReq.NodeId)
+				return errors.Wrapf(pErr, "timed out after %s proposing job for node %s", timeout.String(), jobReq.NodeId)
 			}
 
 			return nil

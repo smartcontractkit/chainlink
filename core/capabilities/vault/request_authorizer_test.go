@@ -162,7 +162,7 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	require.False(t, isAuthorized)
 
 	// Happy path
-	digest, err := auth.digestForRequest(allowlistedRequest)
+	digest, err := vaulttypes.DigestForRequest(allowlistedRequest)
 	require.NoError(t, err)
 	expiry := uint64(time.Now().UTC().Unix() + 100) //nolint:gosec // it is a safe conversion
 	allowlisted := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{

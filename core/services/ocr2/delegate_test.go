@@ -80,7 +80,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = tc.sendingKeys
 		jb.ForwardingAllowed = tc.forwardingEnabled
 
-		args := []interface{}{mock.Anything, tc.getForwarderForEOAArg}
+		args := []any{mock.Anything, tc.getForwarderForEOAArg}
 		getForwarderMethodName := "GetForwarderForEOA"
 		if tc.pluginType == types.Median {
 			getForwarderMethodName = "GetForwarderForEOAOCR2Feeds"

@@ -190,9 +190,9 @@ func testMultipleConsumersNeedBHS(
 	// generate n BHS keys to make sure BHS job rotates sending keys
 	var bhsKeyAddresses []string
 	var keySpecificOverrides []v2.KeySpecific
-	var keys []interface{}
+	var keys []any
 	gasLanePriceWei := assets.GWei(10)
-	for i := 0; i < nConsumers; i++ {
+	for range nConsumers {
 		bhsKey := cltest.MustGenerateRandomKey(t)
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
 		keys = append(keys, bhsKey)
@@ -255,7 +255,7 @@ func testMultipleConsumersNeedBHS(
 	require.NoError(t, chain.LogPoller().Ready())
 	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
 
-	for i := 0; i < nConsumers; i++ {
+	for i := range nConsumers {
 		consumer := consumers[i]
 		consumerContract := consumerContracts[i]
 
@@ -271,13 +271,13 @@ func testMultipleConsumersNeedBHS(
 		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend, nativePayment)
 
 		// Wait 101 blocks.
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			uni.backend.Commit()
 		}
 		verifyBlockhashStored(t, uni, requestBlock)
 
 		// Wait another 160 blocks so that the request is outside of the 256 block window
-		for i := 0; i < 160; i++ {
+		for range 160 {
 			uni.backend.Commit()
 		}
 
@@ -332,9 +332,9 @@ func testMultipleConsumersNeedTrustedBHS(
 	var bhsKeyAddresses []common.Address
 	var bhsKeyAddressesStrings []string
 	var keySpecificOverrides []v2.KeySpecific
-	var keys []interface{}
+	var keys []any
 	gasLanePriceWei := assets.GWei(10)
-	for i := 0; i < nConsumers; i++ {
+	for range nConsumers {
 		bhsKey := cltest.MustGenerateRandomKey(t)
 		bhsKeyAddressesStrings = append(bhsKeyAddressesStrings, bhsKey.Address.String())
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address)
@@ -410,7 +410,7 @@ func testMultipleConsumersNeedTrustedBHS(
 	require.NoError(t, chain.LogPoller().Ready())
 	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
 
-	for i := 0; i < nConsumers; i++ {
+	for i := range nConsumers {
 		consumer := consumers[i]
 		consumerContract := consumerContracts[i]
 
@@ -426,13 +426,13 @@ func testMultipleConsumersNeedTrustedBHS(
 		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend, nativePayment)
 
 		// Wait 101 blocks.
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			uni.backend.Commit()
 		}
 
 		// For an added delay, we even go beyond the EVM lookback limit. This is not a problem in a trusted BHS setup.
 		if addedDelay {
-			for i := 0; i < 300; i++ {
+			for range 300 {
 				uni.backend.Commit()
 			}
 		}
@@ -440,7 +440,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		verifyBlockhashStoredTrusted(t, uni, requestBlock)
 
 		// Wait another 160 blocks so that the request is outside of the 256 block window
-		for i := 0; i < 160; i++ {
+		for range 160 {
 			uni.backend.Commit()
 		}
 
@@ -581,7 +581,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	// Make some randomness requests.
 	numWords := uint32(2)
 	var reqIDs []*big.Int
-	for i := 0; i < numRequests; i++ {
+	for range numRequests {
 		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend, nativePayment)
 		reqIDs = append(reqIDs, requestID)
 	}
@@ -804,7 +804,7 @@ func testBlockHeaderFeeder(
 	require.NoError(t, chain.LogPoller().Ready())
 	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
 
-	for i := 0; i < nConsumers; i++ {
+	for i := range nConsumers {
 		consumer := consumers[i]
 		consumerContract := consumerContracts[i]
 
@@ -820,7 +820,7 @@ func testBlockHeaderFeeder(
 		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend, nativePayment)
 
 		// Wait 256 blocks.
-		for i := 0; i < 256; i++ {
+		for range 256 {
 			uni.backend.Commit()
 		}
 		verifyBlockhashStored(t, uni, requestBlock)
@@ -1817,7 +1817,7 @@ func testReplayOldRequestsOnStartUp(
 
 	// number of blocks to mine before restarting the node
 	nBlocks := 100
-	for i := 0; i < nBlocks; i++ {
+	for range nBlocks {
 		uni.backend.Commit()
 	}
 

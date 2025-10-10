@@ -29,14 +29,14 @@ const (
 )
 
 type EnvArtifact struct {
-	AddressRefs   []datastore.AddressRef                               `json:"address_refs"`
-	AddressBook   map[uint64]map[string]cldf_deployment.TypeAndVersion `json:"address_book"`
-	JdConfig      jd.Output                                            `json:"jd_config"`
-	Nodes         map[string]NodesArtifact                             `json:"nodes"`
-	DONs          []DonArtifact                                        `json:"dons"`
-	Bootstrappers []BootstrapNodeArtifact                              `json:"bootstrappers"`
-	NOPs          []NOPArtifact                                        `json:"nops"`
-	Topology      cre.DonTopology                                      `json:"topology"`
+	RegistryChainSelector uint64                                               `json:"home_chain_selector"`
+	AddressRefs           []datastore.AddressRef                               `json:"address_refs"`
+	AddressBook           map[uint64]map[string]cldf_deployment.TypeAndVersion `json:"address_book"`
+	JdConfig              jd.Output                                            `json:"jd_config"`
+	Nodes                 map[string]NodesArtifact                             `json:"nodes"`
+	DONs                  []DonArtifact                                        `json:"dons"`
+	Bootstrappers         []BootstrapNodeArtifact                              `json:"bootstrappers"`
+	NOPs                  []NOPArtifact                                        `json:"nops"`
 }
 
 type NodesArtifact struct {
@@ -237,17 +237,17 @@ func GenerateArtifact(
 	}
 
 	artifact := EnvArtifact{
-		JdConfig:      jdOutput,
-		AddressBook:   addresses,
-		AddressRefs:   addressRecords,
-		Nodes:         make(map[string]NodesArtifact),
-		DONs:          make([]DonArtifact, 0),
-		Bootstrappers: make([]BootstrapNodeArtifact, 0),
-		NOPs:          make([]NOPArtifact, 0),
-		Topology:      donTopology,
+		RegistryChainSelector: donTopology.HomeChainSelector,
+		JdConfig:              jdOutput,
+		AddressBook:           addresses,
+		AddressRefs:           addressRecords,
+		Nodes:                 make(map[string]NodesArtifact),
+		DONs:                  make([]DonArtifact, 0),
+		Bootstrappers:         make([]BootstrapNodeArtifact, 0),
+		NOPs:                  make([]NOPArtifact, 0),
 	}
 
-	for donIdx, don := range donTopology.ToDonMetadata() {
+	for donIdx, don := range donTopology.Dons.List() {
 		donArtifact := DonArtifact{
 			DonName:        don.Name,
 			DonID:          don.ID,
@@ -257,7 +257,7 @@ func GenerateArtifact(
 			Capabilities:   make([]DONCapabilityArtifact, 0),
 		}
 
-		workerNodes, wErr := don.WorkerNodes()
+		workerNodes, wErr := don.Workers()
 		if wErr != nil {
 			return nil, pkgerrors.Wrap(wErr, "failed to find worker nodes")
 		}
@@ -293,7 +293,7 @@ func GenerateArtifact(
 
 		var nodeIDs []string
 		for _, node := range donTopology.Dons.List()[donIdx].Nodes {
-			nodeIDs = append(nodeIDs, node.NodeID)
+			nodeIDs = append(nodeIDs, node.JobDistributorDetails.NodeID)
 		}
 
 		artifact.Nodes[don.Name] = NodesArtifact{

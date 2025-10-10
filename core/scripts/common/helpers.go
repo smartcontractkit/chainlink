@@ -361,8 +361,8 @@ func ParseBigIntSlice(arg string) (ret []*big.Int) {
 // ParseIntSlice parses the given comma-separated string of integers into a slice
 // of int.
 func ParseIntSlice(arg string) (ret []int) {
-	parts := strings.Split(arg, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(arg, ",")
+	for part := range parts {
 		num, err := strconv.Atoi(part)
 		PanicErr(err)
 		ret = append(ret, num)
@@ -393,8 +393,8 @@ func ParseHashSlice(arg string) (ret []common.Hash) {
 }
 
 func ParseHexSlice(arg string) (ret [][]byte) {
-	parts := strings.Split(arg, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(arg, ",")
+	for part := range parts {
 		ret = append(ret, hexutil.MustDecode(part))
 	}
 	return
@@ -503,7 +503,7 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
 			batchElems[i] = rpc.BatchElem{
 				Method: "eth_getBlockByNumber",
-				Args:   []interface{}{"0x" + nextBlockNum.Text(16), false},
+				Args:   []any{"0x" + nextBlockNum.Text(16), false},
 				Result: &hs[i],
 			}
 		}
@@ -547,7 +547,7 @@ func getRlpHeaders[HEADER Hashable](env Environment, blockNumbers []*big.Int, of
 		nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
 		batchElems[i] = rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{hexutil.EncodeBig(nextBlockNum), false},
+			Args:   []any{hexutil.EncodeBig(nextBlockNum), false},
 			Result: &hs[i],
 		}
 	}
@@ -581,10 +581,7 @@ func batchCallContext(ctx context.Context, client *rpc.Client, batchElems []rpc.
 		hiBatchSize := len(batchElems)
 		for start := 1; start < len(batchElems); {
 			batchSize := (hiBatchSize + loBatchSize) / 2
-			end := start + batchSize
-			if end > len(batchElems) {
-				end = len(batchElems)
-			}
+			end := min(start+batchSize, len(batchElems))
 			err = client.BatchCallContext(ctx, batchElems[start:end])
 			if err != nil {
 				hiBatchSize = batchSize

@@ -32,8 +32,8 @@ var (
 			EVMBytecode:      common.FromHex(token_pool_factory.TokenPoolFactoryBin),
 			ZkSyncVMBytecode: token_pool_factory.ZkBytecode,
 		},
-		func(input DeployTokenPoolFactoryInput) []interface{} {
-			return []interface{}{
+		func(input DeployTokenPoolFactoryInput) []any {
+			return []any{
 				input.TokenAdminRegistry,
 				input.RegistryModule1_6Addresses,
 				input.RMNProxy,

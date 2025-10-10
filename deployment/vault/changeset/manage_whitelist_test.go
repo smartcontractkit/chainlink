@@ -1,12 +1,13 @@
 package changeset
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -266,9 +267,7 @@ func TestValidateWhitelist(t *testing.T) {
 	}
 	require.Len(t, chainSelectors, 2)
 
-	sort.Slice(chainSelectors, func(i, j int) bool {
-		return chainSelectors[i] < chainSelectors[j]
-	})
+	slices.Sort(chainSelectors)
 
 	chain1 := chainSelectors[0]
 	chain2 := chainSelectors[1]

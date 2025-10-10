@@ -18,7 +18,7 @@ type mockStreamValue struct {
 	value []byte
 }
 
-func (m *mockStreamValue) Value() interface{} {
+func (m *mockStreamValue) Value() any {
 	return m.value
 }
 
@@ -35,7 +35,7 @@ func (m *mockStreamValue) UnmarshalBinary(data []byte) error {
 }
 
 func (m *mockStreamValue) MarshalText() ([]byte, error) {
-	return []byte(fmt.Sprintf("%d", m.value)), nil
+	return fmt.Appendf(nil, "%d", m.value), nil
 }
 
 func (m *mockStreamValue) UnmarshalText(data []byte) error {
@@ -171,10 +171,10 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	// Test concurrent Add operations
-	for i := uint32(0); i < numGoroutines; i++ {
+	for i := range uint32(numGoroutines) {
 		go func(id uint32) {
 			defer wg.Done()
-			for j := uint32(0); j < numOperations; j++ {
+			for j := range numOperations {
 				streamID := id*numOperations + j
 				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, 1)
 			}
@@ -183,8 +183,8 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// Verify all values were added correctly
-	for i := uint32(0); i < numGoroutines; i++ {
-		for j := uint32(0); j < numOperations; j++ {
+	for i := range uint32(numGoroutines) {
+		for j := range numOperations {
 			streamID := i*numOperations + j
 			assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, cache.Get(streamID))
 		}
@@ -200,10 +200,10 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 	wg.Add(numGoroutines * 2) // Double for read and write goroutines
 
 	// Start write goroutines
-	for i := uint32(0); i < numGoroutines; i++ {
+	for i := range uint32(numGoroutines) {
 		go func(id uint32) {
 			defer wg.Done()
-			for j := uint32(0); j < numOperations; j++ {
+			for j := range numOperations {
 				streamID := id*numOperations + j
 				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, uint64(j))
 			}
@@ -211,10 +211,10 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 	}
 
 	// Start read goroutines
-	for i := uint32(0); i < numGoroutines; i++ {
+	for i := range uint32(numGoroutines) {
 		go func(id uint32) {
 			defer wg.Done()
-			for j := uint32(0); j < numOperations; j++ {
+			for j := range numOperations {
 				streamID := id*numOperations + j
 				cache.Get(streamID)
 			}
@@ -233,10 +233,10 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
 	wg.Add(numGoroutines * 2) // Double for Add and Get goroutines
 
 	// Start Add goroutines
-	for i := uint32(0); i < numGoroutines; i++ {
+	for i := range uint32(numGoroutines) {
 		go func(id uint32) {
 			defer wg.Done()
-			for j := uint32(0); j < numOperations; j++ {
+			for j := range numOperations {
 				streamID := id*numOperations + j
 				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, 1)
 			}
@@ -244,10 +244,10 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
 	}
 
 	// Start Get goroutines
-	for i := uint32(0); i < numGoroutines; i++ {
+	for i := range uint32(numGoroutines) {
 		go func(id uint32) {
 			defer wg.Done()
-			for j := uint32(0); j < numOperations; j++ {
+			for j := range numOperations {
 				streamID := id*numOperations + j
 				cache.Get(streamID)
 			}

@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
@@ -517,7 +518,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	grp := errgroup.Group{}
 
 	// Start fixed number of workers
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		grp.Go(func() error {
 			for chainSelector := range jobCh {
 				var name string
@@ -609,19 +610,19 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 		AptosChains: make(map[string]view.AptosChainView),
 		TONChains:   make(map[string]tonstate.TONChainView),
 	}
-	m.Range(func(key, value interface{}) bool {
+	m.Range(func(key, value any) bool {
 		stateView.Chains[key.(string)] = value.(view.ChainView)
 		return true
 	})
-	sm.Range(func(key, value interface{}) bool {
+	sm.Range(func(key, value any) bool {
 		stateView.SolChains[key.(string)] = value.(view.SolChainView)
 		return true
 	})
-	am.Range(func(key, value interface{}) bool {
+	am.Range(func(key, value any) bool {
 		stateView.AptosChains[key.(string)] = value.(view.AptosChainView)
 		return true
 	})
-	tm.Range(func(key, value interface{}) bool {
+	tm.Range(func(key, value any) bool {
 		stateView.TONChains[key.(string)] = value.(tonstate.TONChainView)
 		return true
 	})
@@ -1125,6 +1126,14 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
 			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
+		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_5_0).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool_and_proxy.NewBurnMintTokenPoolAndProxy, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.BurnMintTokenPoolsAndProxies = helpers.AddValueToNestedMap(state.BurnMintTokenPoolsAndProxies, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1).String():
 			ethAddress := common.HexToAddress(address)

@@ -1,4 +1,4 @@
-package evm
+package transmitter
 
 import (
 	"context"
@@ -12,9 +12,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -25,32 +28,28 @@ import (
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 )
 
-var sampleAddressPrimary = testutils.NewAddress()
+var sampleAddress = testutils.NewAddress()
 
-type mockDualTransmitter struct {
-	lastPrimaryPayload   []byte
-	lastSecondaryPayload []byte
+type mockTransmitter struct {
+	lastPayload []byte
 }
 
-func (m *mockDualTransmitter) SecondaryFromAddress(ctx context.Context) (gethcommon.Address, error) {
+func (m *mockTransmitter) SecondaryFromAddress(ctx context.Context) (gethcommon.Address, error) {
 	return gethcommon.Address{}, nil
 }
 
-func (*mockDualTransmitter) FromAddress(ctx context.Context) gethcommon.Address {
-	return sampleAddressPrimary
-}
-
-func (m *mockDualTransmitter) CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, _ *txmgr.TxMeta) error {
-	m.lastPrimaryPayload = payload
+func (m *mockTransmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
 	return nil
 }
 
-func (m *mockDualTransmitter) CreateSecondaryEthTransaction(ctx context.Context, payload []byte, _ *txmgr.TxMeta) error {
-	m.lastSecondaryPayload = payload
+func (m *mockTransmitter) CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, _ *txmgr.TxMeta) error {
+	m.lastPayload = payload
 	return nil
 }
 
-func TestDualContractTransmitter(t *testing.T) {
+func (*mockTransmitter) FromAddress(ctx context.Context) gethcommon.Address { return sampleAddress }
+
+func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -68,7 +67,8 @@ func TestDualContractTransmitter(t *testing.T) {
 	reportToEvmTxMeta := func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
 	}
-	ot, err := NewOCRDualContractTransmitter(ctx, gethcommon.Address{}, c, contractABI, &mockDualTransmitter{}, lp, lggr, &keystest.FakeChainStore{}, WithReportToEthMetadata(reportToEvmTxMeta))
+	ot, err := NewOCRContractTransmitter(ctx, gethcommon.Address{}, c, contractABI, &mockTransmitter{}, lp, lggr, &keystest.FakeChainStore{},
+		WithReportToEthMetadata(reportToEvmTxMeta))
 	require.NoError(t, err)
 	digest, epoch, err := ot.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
@@ -94,20 +94,20 @@ func TestDualContractTransmitter(t *testing.T) {
 	assert.Equal(t, uint32(2), epoch)
 	from, err := ot.FromAccount(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, sampleAddressPrimary.String(), string(from))
+	assert.Equal(t, sampleAddress.String(), string(from))
 }
 
-func Test_dualContractTransmitterNoSignatures_Transmit_SignaturesAreNotTransmitted(t *testing.T) {
+func Test_contractTransmitterNoSignatures_Transmit_SignaturesAreNotTransmitted(t *testing.T) {
 	t.Parallel()
 
-	transmitter := &mockDualTransmitter{}
+	transmitter := &mockTransmitter{}
 
 	ctx := context.Background()
 	reportCtx := types.ReportContext{}
 	report := types.Report{}
 	var signatures = oneSignature()
 
-	oc := createDualContractTransmitter(ctx, t, transmitter, WithExcludeSignatures())
+	oc := createContractTransmitter(ctx, t, transmitter, WithExcludeSignatures())
 
 	err := oc.Transmit(ctx, reportCtx, report, signatures)
 	require.NoError(t, err)
@@ -115,44 +115,57 @@ func Test_dualContractTransmitterNoSignatures_Transmit_SignaturesAreNotTransmitt
 	var emptyRs [][32]byte
 	var emptySs [][32]byte
 	var emptyVs [32]byte
-	emptySignaturesPayloadPrimary, err := oc.contractABI.Pack("transmit", evmutil.RawReportContext(reportCtx), []byte(report), emptyRs, emptySs, emptyVs)
+	emptySignaturesPayload, err := oc.contractABI.Pack("transmit", evmutil.RawReportContext(reportCtx), []byte(report), emptyRs, emptySs, emptyVs)
 	require.NoError(t, err)
-	emptySignaturesPayloadSecondary, err := oc.dualTransmissionABI.Pack("transmitSecondary", evmutil.RawReportContext(reportCtx), []byte(report), emptyRs, emptySs, emptyVs)
-	require.NoError(t, err)
-	require.Equal(t, transmitter.lastPrimaryPayload, emptySignaturesPayloadPrimary, "primary payload not equal")
-	require.Equal(t, transmitter.lastSecondaryPayload, emptySignaturesPayloadSecondary, "secondary payload not equal")
+	require.Equal(t, transmitter.lastPayload, emptySignaturesPayload)
 }
 
-func Test_dualContractTransmitter_Transmit_SignaturesAreTransmitted(t *testing.T) {
+func Test_contractTransmitter_Transmit_SignaturesAreTransmitted(t *testing.T) {
 	t.Parallel()
 
-	transmitter := &mockDualTransmitter{}
+	transmitter := &mockTransmitter{}
 
 	ctx := context.Background()
 	reportCtx := types.ReportContext{}
 	report := types.Report{}
 	var signatures = oneSignature()
 
-	oc := createDualContractTransmitter(ctx, t, transmitter)
+	oc := createContractTransmitter(ctx, t, transmitter)
 
 	err := oc.Transmit(ctx, reportCtx, report, signatures)
 	require.NoError(t, err)
 
 	rs, ss, vs := signaturesAsPayload(t, signatures)
-	withSignaturesPayloadPrimary, err := oc.contractABI.Pack("transmit", evmutil.RawReportContext(reportCtx), []byte(report), rs, ss, vs)
+	withSignaturesPayload, err := oc.contractABI.Pack("transmit", evmutil.RawReportContext(reportCtx), []byte(report), rs, ss, vs)
 	require.NoError(t, err)
-	withSignaturesPayloadSecondary, err := oc.dualTransmissionABI.Pack("transmitSecondary", evmutil.RawReportContext(reportCtx), []byte(report), rs, ss, vs)
-	require.NoError(t, err)
-	require.Equal(t, transmitter.lastPrimaryPayload, withSignaturesPayloadPrimary, "primary payload not equal")
-	require.Equal(t, transmitter.lastSecondaryPayload, withSignaturesPayloadSecondary, "secondary payload not equal")
+	require.Equal(t, transmitter.lastPayload, withSignaturesPayload)
 }
 
-func createDualContractTransmitter(ctx context.Context, t *testing.T, transmitter Transmitter, ops ...OCRTransmitterOption) *dualContractTransmitter {
+func signaturesAsPayload(t *testing.T, signatures []ocrtypes.AttributedOnchainSignature) ([][32]byte, [][32]byte, [32]byte) {
+	var rs [][32]byte
+	var ss [][32]byte
+	var vs [32]byte
+	r, s, v, err := evmutil.SplitSignature(signatures[0].Signature)
+	require.NoError(t, err)
+	rs = append(rs, r)
+	ss = append(ss, s)
+	vs[0] = v
+	return rs, ss, vs
+}
+
+func oneSignature() []ocrtypes.AttributedOnchainSignature {
+	signaturesData := make([]byte, 65)
+	signaturesData[9] = 8
+	signaturesData[7] = 6
+	return []libocr.AttributedOnchainSignature{{Signature: signaturesData, Signer: commontypes.OracleID(54)}}
+}
+
+func createContractTransmitter(ctx context.Context, t *testing.T, transmitter Transmitter, ops ...OCRTransmitterOption) *contractTransmitter {
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	require.NoError(t, err)
 	lp := lpmocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	contractTransmitter, err := NewOCRDualContractTransmitter(
+	contractTransmitter, err := NewOCRContractTransmitter(
 		ctx,
 		gethcommon.Address{},
 		clienttest.NewClient(t),

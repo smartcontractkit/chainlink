@@ -109,7 +109,6 @@ func CCIPCapabilityJobspecChangeset(env cldf.Environment, args any) (cldf.Change
 	// Now we propose the job specs to the offchain system.
 	var Jobs []cldf.ProposedJob
 	for nodeID, jobs := range nodesToJobSpecs {
-		nodeID := nodeID
 		for _, job := range jobs {
 			Jobs = append(Jobs, cldf.ProposedJob{
 				Node: nodeID,

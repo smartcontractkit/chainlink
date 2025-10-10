@@ -28,8 +28,8 @@ var (
 			EVMBytecode:      common.FromHex(offramp.OffRampBin),
 			ZkSyncVMBytecode: offramp.ZkBytecode,
 		},
-		func(input DeployOffRampInput) []interface{} {
-			return []interface{}{
+		func(input DeployOffRampInput) []any {
+			return []any{
 				offramp.OffRampStaticConfig{
 					ChainSelector:        input.Chain,
 					GasForCallExactCheck: input.Params.GasForCallExactCheck,

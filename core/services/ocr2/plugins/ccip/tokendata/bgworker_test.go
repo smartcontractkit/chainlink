@@ -38,7 +38,7 @@ func TestBackgroundWorker(t *testing.T) {
 		readers[tokens[i]] = tokendata.NewMockReader(t)
 		if rand.Intn(100) >= percentOfTokensWithoutTokenData {
 			tokenDataReaders[tokens[i]] = readers[tokens[i]]
-			tokenData[tokens[i]] = []byte(fmt.Sprintf("...token %x data...", tokens[i]))
+			tokenData[tokens[i]] = fmt.Appendf(nil, "...token %x data...", tokens[i])
 		}
 
 		// specify a random latency for the reader implementation

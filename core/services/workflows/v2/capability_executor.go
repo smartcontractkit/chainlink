@@ -147,7 +147,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, nil)
 
 	if meterReport != nil {
-		if err = meterReport.Settle(meteringRef, capResp.Metadata.Metering); err != nil {
+		if err = meterReport.Settle(meteringRef, capResp.Metadata); err != nil {
 			c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		}
 	}

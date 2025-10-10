@@ -66,7 +66,6 @@ func TestDeviationChecker_OutsideDeviation(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		// Checks on relative threshold
 		t.Run(tc.name, func(t *testing.T) { c(tc) })
 		// Check corresponding absolute threshold tests; make relative threshold

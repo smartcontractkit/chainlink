@@ -815,7 +815,6 @@ func runBatchingStrategyTests(t *testing.T, strategy BatchingStrategy, available
 	destNative := ccipcalc.HexToAddress("0xb")
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
