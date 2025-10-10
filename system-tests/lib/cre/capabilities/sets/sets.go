@@ -8,7 +8,6 @@ import (
 	logeventtriggercapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/logeventtrigger"
 	mockcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/mock"
 	readcontractcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/readcontract"
-	writesolanacapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/writesolana"
 )
 
 func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
@@ -25,12 +24,6 @@ func NewDefaultSet(homeChainID uint64) ([]cre.InstallableCapability, error) {
 		return nil, errors.Wrap(mockErr, "failed to create mock capability")
 	}
 	capabilities = append(capabilities, mock)
-
-	writesol, writeSolErr := writesolanacapability.New()
-	if writeSolErr != nil {
-		return nil, errors.Wrap(writeSolErr, "failed to create write solana capability")
-	}
-	capabilities = append(capabilities, writesol)
 
 	readContract, readContractErr := readcontractcapability.New()
 	if readContractErr != nil {

@@ -347,7 +347,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink Node funding prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Workflow Registry Contract configuration")))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Workflow and Capability Registry contracts")))
 	wfRegVersion := *semver.MustParse(input.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 	workflowRegistryConfigurationOutput, wfErr := workflow.ConfigureWorkflowRegistry(
 		ctx,
@@ -366,7 +366,6 @@ func SetupTestEnvironment(
 	if wfErr != nil {
 		return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
 	}
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow Registry Contract configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	wfFiltersFuture := queue.SubmitErr(func() error {
 		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Waiting for Workflow Registry filters registration\n\n"))
@@ -381,6 +380,19 @@ func SetupTestEnvironment(
 			return workflow.WaitForWorkflowRegistryFiltersRegistration(testLogger, singleFileLogger, input.Provider.Type, startBlockchainsOutput.RegistryChain().ChainID, creEnvironment.DonTopology, updatedNodeSets)
 		}
 	})
+
+	configureKeystoneInput, ksErr := prepareKeystoneConfigurationInput(*input, startBlockchainsOutput.RegistryChain().ChainSelector, topology, updatedNodeSets, creEnvironment.CldfEnvironment, deployKeystoneContractsOutput, startBlockchainsOutput)
+	if ksErr != nil {
+		return nil, pkgerrors.Wrap(ksErr, "failed to prepare keystone configuration input")
+	}
+	maps.Copy(configureKeystoneInput.DONCapabilityWithConfigs, donsCapabilities)
+
+	keystoneErr := crecontracts.ConfigureKeystone(*configureKeystoneInput)
+	if keystoneErr != nil {
+		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
+	}
+
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after DON startup")))
 	for _, feature := range input.Features.List() {
@@ -400,20 +412,6 @@ func SetupTestEnvironment(
 		testLogger.Info().Msgf("PostEnvStartup for feature %s executed successfully", feature.Flag())
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring OCR3 and Keystone contracts")))
-	configureKeystoneInput, ksErr := prepareKeystoneConfigurationInput(*input, startBlockchainsOutput.RegistryChain().ChainSelector, topology, updatedNodeSets, creEnvironment.CldfEnvironment, deployKeystoneContractsOutput, startBlockchainsOutput)
-	if ksErr != nil {
-		return nil, pkgerrors.Wrap(ksErr, "failed to prepare keystone configuration input")
-	}
-	maps.Copy(configureKeystoneInput.DONCapabilityWithConfigs, donsCapabilities)
-
-	keystoneErr := crecontracts.ConfigureKeystone(*configureKeystoneInput)
-	if keystoneErr != nil {
-		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
-	}
-
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("OCR3 and Keystone contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	if err := worker.AwaitErr(ctx, fundNodesFuture); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to fund chainlink nodes")

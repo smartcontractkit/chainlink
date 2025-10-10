@@ -14,13 +14,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
-	ks_sol_seq "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence"
-	ks_sol_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana/sequence/operation"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
@@ -83,53 +78,6 @@ func DeployKeystoneContracts(
 
 	if err := memoryDatastore.Merge(registryContractsReport.Output.Datastore); err != nil {
 		return nil, errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
-	}
-
-	// deploy solana forwarders
-	for _, sel := range solForwardersSelectors {
-		populateContracts := map[string]datastore.ContractType{
-			deployment.KeystoneForwarderProgramName: ks_sol.ForwarderContract,
-		}
-		version := semver.MustParse(input.ContractVersions[ks_sol.ForwarderContract.String()])
-
-		// Forwarder for solana is predeployed on chain spin-up. We jus need to add it to memory datastore here
-		errp := memory.PopulateDatastore(memoryDatastore.AddressRefStore, populateContracts,
-			version, ks_sol.DefaultForwarderQualifier, sel)
-		if errp != nil {
-			return nil, errors.Wrap(errp, "failed to populate datastore with predeployed contracts")
-		}
-		out, err := operations.ExecuteSequence(
-			input.CldfEnvironment.OperationsBundle,
-			ks_sol_seq.DeployForwarderSeq,
-			ks_sol_op.Deps{
-				Env:       *input.CldfEnvironment,
-				Chain:     input.CldfEnvironment.BlockChains.SolanaChains()[sel],
-				Datastore: memoryDatastore.Seal(),
-			},
-			ks_sol_seq.DeployForwarderSeqInput{
-				ChainSel:     sel,
-				ProgramName:  deployment.KeystoneForwarderProgramName,
-				Qualifier:    ks_sol.DefaultForwarderQualifier,
-				ContractType: ks_sol.ForwarderContract,
-				Version:      version,
-			},
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to deploy sol forwarder")
-		}
-
-		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
-			Address:       out.Output.State.String(),
-			ChainSelector: sel,
-			Version:       semver.MustParse(input.ContractVersions[ks_sol.ForwarderState.String()]),
-			Qualifier:     ks_sol.DefaultForwarderQualifier,
-			Type:          ks_sol.ForwarderState,
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
-		}
-
-		testLogger.Info().Msgf("Deployed Forwarder %s contract on Solana chain chain %d programID: %s state: %s", input.ContractVersions[ks_sol.ForwarderContract.String()], sel, out.Output.ProgramID.String(), out.Output.State.String())
 	}
 
 	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, homeChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")

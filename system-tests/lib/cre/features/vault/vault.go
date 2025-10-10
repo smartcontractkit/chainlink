@@ -122,10 +122,14 @@ func (o *Vault) PostEnvStartup(
 	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	// should we support more than one DON with OCR3 capability? Could there be 0? I guess as long as there's 1 with consensus v2?
-	vaultDON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)
-	if oneErr != nil {
-		return oneErr
+	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	if len(dons) == 0 {
+		return nil
 	}
+	if len(dons) > 1 {
+		return fmt.Errorf("more than one DON with vault capability is not supported yet")
+	}
+	vaultDON := dons[0]
 
 	vaultOCR3Addr, vaultDKGOCR3Addr, err := deployVaultContracts(testLogger, VaultOCR3ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if err != nil {

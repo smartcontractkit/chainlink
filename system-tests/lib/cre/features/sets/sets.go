@@ -10,6 +10,7 @@ import (
 	evm_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
 	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
+	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	web_api_target_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/web_api_target"
 	web_api_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/web_api_trigger"
@@ -28,5 +29,6 @@ func New() cre.Features {
 		&web_api_target_feature.WebAPITarget{},
 		&web_api_trigger_feature.WebAPITrigger{},
 		&vault_feature.Vault{},
+		&solana_feature.Solana{},
 	)
 }

@@ -1100,7 +1100,7 @@ func allEnvironmentStateFiles() ([]string, error) {
 }
 
 func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
-	stages := 10
+	stages := 9
 	if in.S3ProviderInput != nil {
 		stages++
 	}

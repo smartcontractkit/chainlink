@@ -63,10 +63,14 @@ func (o *DONTime) PostEnvStartup(
 	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	// should we support more than one DON with DON Time capability?
-	donTimeDON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)
-	if oneErr != nil {
-		return oneErr
+	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	if len(dons) == 0 {
+		return nil
 	}
+	if len(dons) > 1 {
+		return fmt.Errorf("more than one DON with DON Time capability is not supported yet")
+	}
+	donTimeDON := dons[0]
 
 	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, DONTimeContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if timeErr != nil {

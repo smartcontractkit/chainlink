@@ -18,21 +18,17 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	ks_solana "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
-	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -55,21 +51,6 @@ type donConfig struct {
 	flags []cre.CapabilityFlag
 }
 
-func (d *donConfig) resolveOcr3Config(c keystone_changeset.OracleConfig) *keystone_changeset.OracleConfig {
-	c.TransmissionSchedule = []int{d.N()}
-	return &c
-}
-
-func (d *donConfig) keystoneDonConfig() ks_contracts_op.ConfigureKeystoneDON {
-	don := ks_contracts_op.ConfigureKeystoneDON{
-		Name: d.Name,
-	}
-	for _, nop := range d.Nops {
-		don.NodeIDs = append(don.NodeIDs, nop.Nodes...)
-	}
-	return don
-}
-
 type dons struct {
 	c        map[string]donConfig
 	offChain offchain.Client
@@ -86,62 +67,6 @@ func (d *dons) donsOrderedByID() []donConfig {
 		return out[i].id < out[j].id
 	})
 
-	return out
-}
-
-func (d *dons) GetByName(name string) (donConfig, error) {
-	c, ok := d.c[name]
-	if !ok {
-		return donConfig{}, fmt.Errorf("don with name %s not found", name)
-	}
-	return c, nil
-}
-
-func (d *dons) ListByFlag(flag cre.CapabilityFlag) ([]donConfig, error) {
-	out := make([]donConfig, 0)
-	for _, don := range d.donsOrderedByID() {
-		if flags.HasFlag(don.flags, flag) {
-			out = append(out, don)
-		}
-	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("don with flag %s not found", flag)
-	}
-	return out, nil
-}
-
-func (d *dons) ListByCapability(capName, capVersion string) ([]donConfig, error) {
-	out := make([]donConfig, 0)
-	for _, don := range d.donsOrderedByID() {
-		for _, cap := range don.Capabilities {
-			if strings.EqualFold(cap.Capability.LabelledName, capName) && strings.EqualFold(cap.Capability.Version, capVersion) {
-				out = append(out, don)
-				break
-			}
-		}
-	}
-	if len(out) == 0 {
-		return nil, fmt.Errorf("don with capability %s v%s not found", capName, capVersion)
-	}
-	return out, nil
-}
-
-func (d *dons) shouldBeOneDon(flag cre.CapabilityFlag) (donConfig, error) {
-	dons, err := d.ListByFlag(flag)
-	if err != nil {
-		return donConfig{}, err
-	}
-	if len(dons) != 1 {
-		return donConfig{}, fmt.Errorf("expected exactly one DON with flag %s, found %d", flag, len(dons))
-	}
-	return dons[0], nil
-}
-
-func (d *dons) donNodesets() []ks_contracts_op.ConfigureKeystoneDON {
-	out := make([]ks_contracts_op.ConfigureKeystoneDON, 0, len(d.c))
-	for _, don := range d.donsOrderedByID() {
-		out = append(out, don.keystoneDonConfig())
-	}
 	return out
 }
 
@@ -466,60 +391,6 @@ func ConfigureKeystone(input cre.ConfigureKeystoneInput) error {
 		return errors.Wrap(err, "failed to configure capability registry")
 	}
 
-	// remove chains that do not require any configurations ('read-only' chains that do not have forwarders deployed)
-	allAddresses, addrErr := input.CldEnv.ExistingAddresses.Addresses() //nolint:staticcheck // ignore SA1019 as ExistingAddresses is deprecated but still used
-	if addrErr != nil {
-		return errors.Wrap(addrErr, "failed to get addresses from address book")
-	}
-
-	evmChainsWithForwarders := make(map[uint64]struct{})
-	tronChainsWithForwarders := make(map[uint64]struct{})
-	for chainSelector, addresses := range allAddresses {
-		for _, typeAndVersion := range addresses {
-			if typeAndVersion.Type == keystone_changeset.KeystoneForwarder {
-				// Check if any of the blockchain outputs indicate this is a TRON chain
-				isTronChain := false
-				for _, bcOut := range input.BlockchainOutputs {
-					if bcOut.ChainSelector == chainSelector && strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
-						tronChainsWithForwarders[chainSelector] = struct{}{}
-						isTronChain = true
-						break
-					}
-				}
-				if !isTronChain {
-					evmChainsWithForwarders[chainSelector] = struct{}{}
-				}
-			}
-		}
-	}
-
-	solChainsWithForwarder := make(map[uint64]struct{})
-	solForwarders := input.CldEnv.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(ks_solana.DefaultForwarderQualifier))
-	for _, forwarder := range solForwarders {
-		solChainsWithForwarder[forwarder.ChainSelector] = struct{}{}
-	}
-
-	// configure Solana forwarder only if we have some
-	if len(solChainsWithForwarder) > 0 {
-		for _, don := range dons.donNodesets() {
-			cs := commonchangeset.Configure(ks_solana.ConfigureForwarders{},
-				&ks_solana.ConfigureForwarderRequest{
-					WFDonName:        don.Name,
-					WFNodeIDs:        don.NodeIDs,
-					RegistryChainSel: input.ChainSelector,
-					Chains:           solChainsWithForwarder,
-					Qualifier:        ks_solana.DefaultForwarderQualifier,
-					Version:          "1.0.0",
-				},
-			)
-
-			_, err = cs.Apply(*input.CldEnv)
-			if err != nil {
-				return errors.Wrap(err, "failed to configure Solana forwarders")
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -553,7 +424,7 @@ func DefaultOCR3Config() (*keystone_changeset.OracleConfig, error) {
 	return oracleConfig, nil
 }
 
-func DefaultChainCapabilityOCR3Config(_ *cre.Topology) (*keystone_changeset.OracleConfig, error) {
+func DefaultChainCapabilityOCR3Config() (*keystone_changeset.OracleConfig, error) {
 	cfg, err := DefaultOCR3Config()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate default OCR3 config: %w", err)
@@ -801,41 +672,4 @@ func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, e
 	}
 
 	return DonInfo{}, errors.New("no valid capabilities registry contract")
-}
-
-func newDonConfiguration(name string, donID uint32, _ *cldf.Environment, capReg CapabilitiesRegistry) (forwarder.DonConfiguration, error) {
-	if capReg == nil {
-		return forwarder.DonConfiguration{}, errors.New("nil capabilities registry contract")
-	}
-	d, err := capReg.GetDON(nil, donID)
-	if err != nil {
-		return forwarder.DonConfiguration{}, fmt.Errorf("failed to get don info for id %d: %w", donID, err)
-	}
-
-	return forwarder.DonConfiguration{
-		Name:    name,
-		ID:      donID,
-		F:       d.F,
-		Version: d.ConfigCount,
-		NodeIDs: p2pStrings(d.NodeP2PIds),
-	}, nil
-}
-
-func p2pIDs(rawIDs [][32]byte) []p2pkey.PeerID {
-	out := make([]p2pkey.PeerID, 0, len(rawIDs))
-	for _, id := range rawIDs {
-		out = append(out, p2pkey.PeerID(id))
-	}
-	return out
-}
-
-func p2pStrings(b [][32]byte) []string {
-	x := p2pIDs(b)
-	out := make([]string, 0, len(x))
-	for _, id := range x {
-		s := id.String()
-
-		out = append(out, s)
-	}
-	return out
 }

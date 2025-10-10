@@ -83,10 +83,14 @@ func (o *Consensus) PostEnvStartup(
 	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	// should we support more than one DON with OCR3 capability? Could there be 0? I guess as long as there's 1 with consensus v2?
-	consensusDON, oneErr := creEnv.DonTopology.OneDonWithFlag(flag)
-	if oneErr != nil {
-		return oneErr
+	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	if len(dons) == 0 {
+		return nil
 	}
+	if len(dons) > 1 {
+		return fmt.Errorf("more than one DON with consensus v1 capability is not supported yet")
+	}
+	consensusDON := dons[0]
 
 	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, OCR3ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if ocrErr != nil {

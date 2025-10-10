@@ -198,7 +198,12 @@ func (o *EVM) PostEnvStartup(
 	provider infra.Provider,
 	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
-	chainsWithEVMCapability := chainsWithEVMCapability(blockchainOutputs, creEnv.DonTopology.Dons)
+	dons := creEnv.DonTopology.DonsWithFlag(flag)
+	if len(dons) == 0 {
+		return nil
+	}
+
+	chainsWithEVMCapability := chainsWithEVMCapability(blockchainOutputs, dons)
 
 	for chainID, selector := range chainsWithEVMCapability {
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
@@ -241,7 +246,7 @@ func (o *EVM) PostEnvStartup(
 			return fmt.Errorf("failed to find DON for EVM chainID %d. This should never happen", chainID)
 		}
 
-		ocr3Config, ocr3confErr := contracts.DefaultOCR3Config()
+		ocr3Config, ocr3confErr := contracts.DefaultChainCapabilityOCR3Config()
 		if ocr3confErr != nil {
 			return fmt.Errorf("failed to get default OCR3 config: %w", ocr3confErr)
 		}
@@ -292,10 +297,10 @@ func (o *EVM) PostEnvStartup(
 	return nil
 }
 
-func chainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, dons *cre.Dons) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
+func chainsWithEVMCapability(chains []*cre.WrappedBlockchainOutput, dons []*cre.DON) map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector {
 	chainsWithEVMCapability := make(map[ks_contracts_op.EVMChainID]ks_contracts_op.Selector)
 	for _, chain := range chains {
-		for _, don := range dons.List() {
+		for _, don := range dons {
 			if flags.HasFlagForChain(don.Flags, cre.EVMCapability, chain.ChainID) {
 				if chainsWithEVMCapability[ks_contracts_op.EVMChainID(chain.ChainID)] != 0 {
 					continue
