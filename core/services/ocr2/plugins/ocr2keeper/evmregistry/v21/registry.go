@@ -152,19 +152,19 @@ func (c *MercuryConfig) Credentials() *types.MercuryCredentials {
 	return c.cred
 }
 
-func (c *MercuryConfig) IsUpkeepAllowed(k string) (interface{}, bool) {
+func (c *MercuryConfig) IsUpkeepAllowed(k string) (any, bool) {
 	return c.AllowListCache.Get(k)
 }
 
-func (c *MercuryConfig) SetUpkeepAllowed(k string, v interface{}, d time.Duration) {
+func (c *MercuryConfig) SetUpkeepAllowed(k string, v any, d time.Duration) {
 	c.AllowListCache.Set(k, v, d)
 }
 
-func (c *MercuryConfig) GetPluginRetry(k string) (interface{}, bool) {
+func (c *MercuryConfig) GetPluginRetry(k string) (any, bool) {
 	return c.pluginRetryCache.Get(k)
 }
 
-func (c *MercuryConfig) SetPluginRetry(k string, v interface{}, d time.Duration) {
+func (c *MercuryConfig) SetPluginRetry(k string, v any, d time.Duration) {
 	c.pluginRetryCache.Set(k, v, d)
 }
 
@@ -318,10 +318,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps(ctx context.Context) error {
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ctx context.Context, ids []*big.Int) error {
 	var err error
 	for i := 0; i < len(ids); i += logTriggerRefreshBatchSize {
-		end := i + logTriggerRefreshBatchSize
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(i+logTriggerRefreshBatchSize, len(ids))
 		idBatch := ids[i:end]
 
 		if batchErr := r.refreshLogTriggerUpkeepsBatch(ctx, idBatch); batchErr != nil {

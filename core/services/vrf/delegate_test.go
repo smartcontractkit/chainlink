@@ -313,7 +313,6 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 	consumed := make(chan struct{})
 	for i, tc := range tt {
-		tc := tc
 		ctx := testutils.Context(t)
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -515,7 +514,7 @@ decode_log->vrf->encode_tx->submit_tx
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
 		var fromAddresses []string
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
@@ -542,7 +541,7 @@ decode_log->vrf->encode_tx->submit_tx
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
 		var fromAddresses []string
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
@@ -578,7 +577,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			k, err := ks.Eth().Create(testutils.Context(t), big.NewInt(1337))
 			assert.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
@@ -606,7 +605,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
 		var fromAddresses []string
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			k, err := ks.Eth().Create(testutils.Context(t), big.NewInt(1337))
 			assert.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())

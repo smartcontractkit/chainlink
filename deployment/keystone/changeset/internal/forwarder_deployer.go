@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/ethereum/go-ethereum/common"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -54,9 +55,7 @@ func configureForwardContracts(env *cldf.Environment, req configureForwarderCont
 			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
 		configs[chain.Selector] = r.Config
-		for k, op := range r.Ops {
-			opPerChain[k] = op
-		}
+		maps.Copy(opPerChain, r.Ops)
 		forwarderAddresses[chain.Selector] = contracts.Forwarder.Address()
 	}
 	return &configureForwarderContractsResponse{

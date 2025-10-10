@@ -1477,7 +1477,7 @@ func (cfg TokenPoolOpsCfg) Validate(e cldf.Environment, state stateview.CCIPOnCh
 		return err
 	}
 	if cfg.DeleteChainCfg != nil {
-		var remoteChainConfigAccount interface{}
+		var remoteChainConfigAccount any
 
 		tokenPool := chainState.GetActiveTokenPool(cfg.PoolType, cfg.Metadata)
 		switch cfg.PoolType {

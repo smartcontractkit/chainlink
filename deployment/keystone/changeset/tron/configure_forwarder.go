@@ -110,7 +110,7 @@ func configureForwarder(lggr logger.Logger, chain cldf_tron.Chain, fwdrAddress a
 		chainFamily := determineTronChainFamily(dn)
 		signers := dn.Signers(chainFamily)
 
-		txInfo, err := chain.TriggerContractAndConfirm(context.Background(), fwdrAddress, "setConfig(uint32,uint32,uint8,address[])", []interface{}{"uint32", dn.Info.Id, "uint32", ver, "uint8", dn.Info.F, "address[]", signers}, triggerOpts)
+		txInfo, err := chain.TriggerContractAndConfirm(context.Background(), fwdrAddress, "setConfig(uint32,uint32,uint8,address[])", []any{"uint32", dn.Info.Id, "uint32", ver, "uint8", dn.Info.F, "address[]", signers}, triggerOpts)
 		if err != nil {
 			return fmt.Errorf("failed to setConfig for donId %d, err: %w", dn.Info.Id, err)
 		}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"testing"
 	"time"
 
@@ -435,9 +434,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		for _, delay := range event.PeerTransmissionDelays {
 			delays = append(delays, delay)
 		}
-		sort.Slice(delays, func(i, j int) bool {
-			return delays[i] < delays[j]
-		})
+		slices.Sort(delays)
 
 		// Verify delays are sorted and increment by 1000ms
 		for i := 1; i < len(delays); i++ {

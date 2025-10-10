@@ -122,7 +122,7 @@ func (o *orm) Get(ctx context.Context, serverURL string, limit int, maxAge time.
 	// The priority queue uses seqnr to sort transmissions so order by
 	// the same fields here for optimal insertion into the pq.
 	maxAgeClause := ""
-	params := []interface{}{o.donID, serverURL, limit}
+	params := []any{o.donID, serverURL, limit}
 	if maxAge > 0 {
 		maxAgeClause = "\nAND inserted_at >= NOW() - ($4 * INTERVAL '1 MICROSECOND')"
 		params = append(params, maxAge.Microseconds())

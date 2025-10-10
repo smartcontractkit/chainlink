@@ -49,9 +49,9 @@ type ChainView struct {
 	// be more than one per env.
 	CCIPHome           map[string]v1_6.CCIPHomeView                  `json:"ccipHome,omitempty"`
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
-	MCMSWithTimelock   common_v1_0.MCMSWithTimelockView              `json:"mcmsWithTimelock,omitempty"`
-	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken,omitempty"`
-	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken,omitempty"`
+	MCMSWithTimelock   common_v1_0.MCMSWithTimelockView              `json:"mcmsWithTimelock"`
+	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken"`
+	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken"`
 
 	UpdateMu *sync.Mutex `json:"-"`
 }
@@ -95,9 +95,9 @@ type SolChainView struct {
 	OffRamp          map[string]solana.OffRampView   `json:"offRamp,omitempty"`
 	RMNRemote        map[string]solana.RMNRemoteView `json:"rmnRemote,omitempty"`
 	TokenPool        map[string]solana.TokenPoolView `json:"tokenPool,omitempty"`
-	LinkToken        solana.TokenView                `json:"linkToken,omitempty"`
+	LinkToken        solana.TokenView                `json:"linkToken"`
 	Tokens           map[string]solana.TokenView     `json:"tokens,omitempty"`
-	MCMSWithTimelock solana.MCMSWithTimelockView     `json:"mcmsWithTimelock,omitempty"`
+	MCMSWithTimelock solana.MCMSWithTimelockView     `json:"mcmsWithTimelock"`
 }
 
 func NewSolChain() SolChainView {
@@ -131,12 +131,12 @@ type AptosChainView struct {
 	ChainSelector uint64 `json:"chainSelector,omitempty"`
 	ChainID       string `json:"chainID,omitempty"`
 
-	MCMSWithTimelock aptos.MCMSWithTimelockView `json:"mcmsWithTimelock,omitempty"`
+	MCMSWithTimelock aptos.MCMSWithTimelockView `json:"mcmsWithTimelock"`
 
-	LinkToken aptos.TokenView            `json:"linkToken,omitempty"`
+	LinkToken aptos.TokenView            `json:"linkToken"`
 	Tokens    map[string]aptos.TokenView `json:"tokens,omitempty"`
 
-	CCIP    aptos.CCIPView               `json:"ccip,omitempty"`
+	CCIP    aptos.CCIPView               `json:"ccip"`
 	Router  map[string]aptos.RouterView  `json:"router,omitempty"`
 	OnRamp  map[string]aptos.OnRampView  `json:"onRamp,omitempty"`
 	OffRamp map[string]aptos.OffRampView `json:"offRamp,omitempty"`

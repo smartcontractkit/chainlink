@@ -2,6 +2,7 @@ package keystore
 
 import (
 	"encoding/json"
+	"slices"
 
 	"github.com/pkg/errors"
 )
@@ -30,12 +31,7 @@ func (rlk *rawLegacyKeys) has(name string) bool {
 }
 
 func (rlk *rawLegacyKeys) hasValueInField(fieldName, value string) bool {
-	for _, v := range (*rlk)[fieldName] {
-		if v == value {
-			return true
-		}
-	}
-	return false
+	return slices.Contains((*rlk)[fieldName], value)
 }
 
 // StoreUnsupported will store the raw keys that no longer have support in the node

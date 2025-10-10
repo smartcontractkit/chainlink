@@ -171,7 +171,7 @@ func (m *externalInitiatorManager) FindExternalInitiatorByName(ctx context.Conte
 type JobSpecNotice struct {
 	JobID  uuid.UUID   `json:"jobId"`
 	Type   string      `json:"type"`
-	Params models.JSON `json:"params,omitempty"`
+	Params models.JSON `json:"params"`
 }
 
 func newNotifyHTTPRequest(ctx context.Context, buf []byte, ei bridges.ExternalInitiator) (*http.Request, error) {

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"strconv"
 	"testing"
@@ -435,13 +436,7 @@ func TestUpdateDon_ChangeComposition(t *testing.T) {
 			}
 
 			// Verify node_6 is in the DON
-			foundNode6 := false
-			for _, actualP2PID := range actualP2PIDs {
-				if actualP2PID == p2p6.PeerID() {
-					foundNode6 = true
-					break
-				}
-			}
+			foundNode6 := slices.Contains(actualP2PIDs, p2p6.PeerID())
 			require.True(t, foundNode6, "Node 6 should be in the DON")
 		})
 	})

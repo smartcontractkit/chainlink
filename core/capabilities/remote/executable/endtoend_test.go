@@ -248,7 +248,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	lggr := logger.Test(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityPeerID := p2ptypes.PeerID{}
 		require.NoError(t, capabilityPeerID.UnmarshalText([]byte(NewPeerID())))
 		capabilityPeers[i] = capabilityPeerID
@@ -271,7 +271,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	}
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeerID := p2ptypes.PeerID{}
 		require.NoError(t, workflowPeerID.UnmarshalText([]byte(NewPeerID())))
 		workflowPeers[i] = workflowPeerID
@@ -290,7 +290,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	}
 
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, lggr)
@@ -306,7 +306,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	}
 
 	workflowNodes := make([]commoncap.ExecutableCapability, numWorkflowPeers)
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		workflowNode := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
 		err := workflowNode.SetConfig(capInfo, workflowDonInfo, workflowNodeTimeout, nil)

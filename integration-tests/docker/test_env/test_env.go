@@ -163,7 +163,7 @@ func (te *CLClusterTestEnv) StartClCluster(
 		}
 		opts = append(opts, WithSecrets(secretsConfig))
 		te.ClCluster = &ClCluster{}
-		for i := 0; i < count; i++ {
+		for range count {
 			ocrNode, err := NewClNode(
 				[]string{te.DockerNetwork.Name},
 				*testconfig.GetChainlinkImageConfig().Image,

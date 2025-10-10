@@ -27,7 +27,7 @@ func (t *AnyTask) Run(_ context.Context, _ logger.Logger, _ Vars, inputs []Resul
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "AnyTask requires at least 1 input")}, runInfo
 	}
 
-	var answers []interface{}
+	var answers []any
 
 	for _, input := range inputs {
 		if input.Error != nil {

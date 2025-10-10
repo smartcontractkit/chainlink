@@ -25,8 +25,8 @@ var (
 			EVMBytecode:      common.FromHex(onramp.OnRampBin),
 			ZkSyncVMBytecode: onramp.ZkBytecode,
 		},
-		func(input DeployOnRampInput) []interface{} {
-			return []interface{}{
+		func(input DeployOnRampInput) []any {
+			return []any{
 				onramp.OnRampStaticConfig{
 					ChainSelector:      input.ChainSelector,
 					RmnRemote:          input.RmnRemote,

@@ -73,7 +73,7 @@ func CreateOCRv2JobsLocal(
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
 				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
+				RelayConfig: map[string]any{
 					"chainID": chainId,
 				},
 				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valPath)),
@@ -122,7 +122,7 @@ func CreateOCRv2JobsLocal(
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
 					Relay:      "evm",
-					RelayConfig: map[string]interface{}{
+					RelayConfig: map[string]any{
 						"chainID": chainId,
 					},
 					PluginConfig: map[string]any{
@@ -238,7 +238,7 @@ func BuildMedianOCR2ConfigLocal(workerNodes []*nodeclient.ChainlinkClient, ocrOf
 		F:                     f_,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        []byte(fmt.Sprintf("0x%s", offchainConfig)),
+		OffchainConfig:        fmt.Appendf(nil, "0x%s", offchainConfig),
 	}, err
 }
 

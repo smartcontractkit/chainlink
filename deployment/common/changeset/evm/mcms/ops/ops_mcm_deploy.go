@@ -27,8 +27,8 @@ var OpEVMDeployProposerMCM = opsutils.NewEVMDeployOperation(
 		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
 		// ZkSyncVMBytecode not supported
 	},
-	func(input any) []interface{} {
-		return []interface{}{}
+	func(input any) []any {
+		return []any{}
 	},
 )
 
@@ -43,8 +43,8 @@ var OpEVMDeployBypasserMCM = opsutils.NewEVMDeployOperation(
 		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
 		// ZkSyncVMBytecode not supported
 	},
-	func(input any) []interface{} {
-		return []interface{}{}
+	func(input any) []any {
+		return []any{}
 	},
 )
 
@@ -59,7 +59,7 @@ var OpEVMDeployCancellerMCM = opsutils.NewEVMDeployOperation(
 		EVMBytecode: common.FromHex(bindings.ManyChainMultiSigBin),
 		// ZkSyncVMBytecode not supported
 	},
-	func(input any) []interface{} {
-		return []interface{}{}
+	func(input any) []any {
+		return []any{}
 	},
 )

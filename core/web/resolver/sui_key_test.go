@@ -65,7 +65,7 @@ func TestResolver_SuiKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"suiKeys"},
+					Path:          []any{"suiKeys"},
 					Message:       gError.Error(),
 				},
 			},

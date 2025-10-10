@@ -80,7 +80,7 @@ func TestField_SmokeTestPick(t *testing.T) {
 
 func TestField_Neg(t *testing.T) {
 	f := newFieldZero()
-	for i := 0; i < numFieldSamples; i++ {
+	for range numFieldSamples {
 		f.Pick(randomStream)
 		observedFieldElt(t, f)
 		g := f.Clone()
@@ -93,7 +93,7 @@ func TestField_Neg(t *testing.T) {
 
 func TestField_Sub(t *testing.T) {
 	f := newFieldZero()
-	for i := 0; i < numFieldSamples; i++ {
+	for range numFieldSamples {
 		f.Pick(randomStream)
 		observedFieldElt(t, f)
 		require.True(t, f.Sub(f, f).Equal(fieldZero),
@@ -114,7 +114,7 @@ func TestField_Clone(t *testing.T) {
 func TestField_SetBytesAndBytes(t *testing.T) {
 	f := newFieldZero()
 	g := newFieldZero()
-	for i := 0; i < numFieldSamples; i++ {
+	for range numFieldSamples {
 		f.Pick(randomStream)
 		observedFieldElt(t, f)
 		g.SetBytes(f.Bytes())
@@ -128,7 +128,7 @@ func TestField_MaybeSquareRootInField(t *testing.T) {
 	f := newFieldZero()
 	minusOne := fieldEltFromInt(-1)
 	assert.Nil(t, maybeSqrtInField(minusOne), "-1 is not a square, in this field")
-	for i := 0; i < numFieldSamples; i++ {
+	for range numFieldSamples {
 		f.Pick(randomStream)
 		observedFieldElt(t, f)
 		require.Equal(t, f.int().Cmp(q), -1, "picked larger value than q: %s", f)

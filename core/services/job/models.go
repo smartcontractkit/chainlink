@@ -311,7 +311,7 @@ func (s *OCROracleSpec) SetID(value string) error {
 
 // JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
 // sql.Scanner and driver.Valuer.
-type JSONConfig map[string]interface{}
+type JSONConfig map[string]any
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
@@ -325,7 +325,7 @@ func (r JSONConfig) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (r *JSONConfig) Scan(value interface{}) error {
+func (r *JSONConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("expected bytes got %T", b)
@@ -831,7 +831,7 @@ func (s *GatewaySpec) SetID(value string) error {
 func (s *GatewaySpec) AuthGatewayID() string {
 	// not using config.GatewayConfig directly to avoid import cycle
 	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
-		if nscMap, ok := nsc.(map[string]interface{}); ok {
+		if nscMap, ok := nsc.(map[string]any); ok {
 			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
 				if authGatewayIDStr, ok := authGatewayID.(string); ok {
 					return authGatewayIDStr
@@ -1033,7 +1033,7 @@ func (ofc OracleFactoryConfig) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (ofc *OracleFactoryConfig) Scan(value interface{}) error {
+func (ofc *OracleFactoryConfig) Scan(value any) error {
 	if value == nil {
 		return nil // field is nullable
 	}

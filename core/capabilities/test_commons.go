@@ -17,7 +17,7 @@ func RandomUTF8BytesWord() [32]byte {
 	var result [32]byte
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
 		if err != nil {
 			panic(err)

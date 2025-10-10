@@ -67,13 +67,7 @@ func NewRole(role string) (Role, error) {
 type Roles []Role
 
 func (r Roles) Contains(role Role) bool {
-	for _, r := range r {
-		if r == role {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(r, role)
 }
 
 func (r Roles) Strings() []string {
@@ -354,13 +348,7 @@ func (n *Node) PeerID() string {
 }
 
 func (n *Node) HasRole(role Role) bool {
-	for _, r := range n.Roles {
-		if r == role {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(n.Roles, role)
 }
 
 func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNode *clnode.Output) (*Node, error) {

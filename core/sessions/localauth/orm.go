@@ -152,12 +152,12 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	// Do email and password check first to prevent extra database look up
 	// for MFA tokens leaking if an account has MFA tokens or not.
 	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
-		o.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
+		o.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]any{"email": sr.Email})
 		return "", pkgerrors.New("Invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		o.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
+		o.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]any{"email": sr.Email})
 		return "", pkgerrors.New("Invalid password")
 	}
 
@@ -174,7 +174,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 		lggr.Infof("No MFA for user. Creating Session")
 		session := sessions.NewSession()
 		_, err = o.ds.ExecContext(ctx, "INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
-		o.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
+		o.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": sr.Email})
 		return session.ID, err
 	}
 
@@ -205,7 +205,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 
 	if err != nil {
 		// The user does have WebAuthn enabled but failed the check
-		o.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]interface{}{"email": sr.Email, "error": err})
+		o.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": sr.Email, "error": err})
 		lggr.Errorf("User sent an invalid attestation: %v", err)
 		return "", pkgerrors.New("MFA Error")
 	}
@@ -223,7 +223,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	if err != nil {
 		lggr.Errorf("error in Marshal credentials: %s", err)
 	} else {
-		o.auditLogger.Audit(audit.AuthLoginSuccessWith2FA, map[string]interface{}{"email": sr.Email, "credential": string(uwasj)})
+		o.auditLogger.Audit(audit.AuthLoginSuccessWith2FA, map[string]any{"email": sr.Email, "credential": string(uwasj)})
 	}
 
 	return session.ID, nil

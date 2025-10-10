@@ -64,7 +64,7 @@ func (o ObjectParam) String() string {
 	return value
 }
 
-func (o *ObjectParam) UnmarshalPipelineParam(val interface{}) error {
+func (o *ObjectParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case nil:
 		o.Type = NilType
@@ -89,7 +89,7 @@ func (o *ObjectParam) UnmarshalPipelineParam(val interface{}) error {
 		o.MapValue = v
 		return nil
 
-	case map[string]interface{}:
+	case map[string]any:
 		o.Type = MapType
 		return o.MapValue.UnmarshalPipelineParam(v)
 
@@ -99,7 +99,7 @@ func (o *ObjectParam) UnmarshalPipelineParam(val interface{}) error {
 		o.SliceValue = v
 		return nil
 
-	case []interface{}:
+	case []any:
 		o.Type = SliceType
 		return o.SliceValue.UnmarshalPipelineParam(v)
 

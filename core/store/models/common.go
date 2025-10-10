@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"regexp"
 	"strings"
@@ -47,7 +48,7 @@ func (j JSON) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (j *JSON) Scan(value interface{}) error {
+func (j *JSON) Scan(value any) error {
 	switch v := value.(type) {
 	case string:
 		*j = JSON{Result: gjson.Parse(v)}
@@ -89,7 +90,7 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 	return []byte("{}"), nil
 }
 
-func (j *JSON) UnmarshalTOML(val interface{}) error {
+func (j *JSON) UnmarshalTOML(val any) error {
 	var bs []byte
 	switch v := val.(type) {
 	case string:
@@ -151,7 +152,7 @@ func (w WebURL) Value() (driver.Value, error) {
 }
 
 // Scan reads the database value and returns an instance.
-func (w *WebURL) Scan(value interface{}) error {
+func (w *WebURL) Scan(value any) error {
 	s, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("unable to convert %v of %T to WebURL", value, value)
@@ -229,7 +230,7 @@ func (r AddressCollection) Value() (driver.Value, error) {
 }
 
 // Scan parses the database value as a string.
-func (r *AddressCollection) Scan(value interface{}) error {
+func (r *AddressCollection) Scan(value any) error {
 	str, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("unable to convert %v of %T to AddressCollection", value, value)
@@ -251,14 +252,12 @@ func (r *AddressCollection) Scan(value interface{}) error {
 // Merge returns a new map with all keys merged from left to right
 // On conflicting keys, rightmost inputs will clobber leftmost inputs
 func Merge(inputs ...JSON) (JSON, error) {
-	output := make(map[string]interface{})
+	output := make(map[string]any)
 
 	for _, input := range inputs {
 		switch v := input.Result.Value().(type) {
-		case map[string]interface{}:
-			for key, value := range v {
-				output[key] = value
-			}
+		case map[string]any:
+			maps.Copy(output, v)
 		case nil:
 		default:
 			return JSON{}, errors.New("can only merge JSON objects")
@@ -332,7 +331,7 @@ func (s *Sha256Hash) UnmarshalText(bs []byte) (err error) {
 	return
 }
 
-func (s *Sha256Hash) Scan(value interface{}) error {
+func (s *Sha256Hash) Scan(value any) error {
 	bytes, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("Failed to unmarshal Sha256Hash value: %v", value)
@@ -382,8 +381,8 @@ func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
 
 	var parsedHeaders []ServiceHeader
 	if headers != "" {
-		headerLines := strings.Split(headers, "\\")
-		for _, header := range headerLines {
+		headerLines := strings.SplitSeq(headers, "\\")
+		for header := range headerLines {
 			keyValue := strings.Split(header, "||")
 			if len(keyValue) != 2 {
 				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)

@@ -18,11 +18,11 @@ import (
 )
 
 type PipelineParamUnmarshaler interface {
-	UnmarshalPipelineParam(val interface{}) error
+	UnmarshalPipelineParam(val any) error
 }
 
 func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
-	var val interface{}
+	var val any
 	var err error
 	var found bool
 	for _, get := range getters {
@@ -48,7 +48,7 @@ func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
 
 type StringParam string
 
-func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
+func (s *StringParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case string:
 		*s = StringParam(v)
@@ -79,7 +79,7 @@ func (s *StringParam) String() string {
 
 type StringSliceParam []string
 
-func (s *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
+func (s *StringSliceParam) UnmarshalPipelineParam(val any) error {
 	var ssp StringSliceParam
 	switch v := val.(type) {
 	case nil:
@@ -97,7 +97,7 @@ func (s *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
 		return nil
 	case []string:
 		ssp = v
-	case []interface{}:
+	case []any:
 		return s.UnmarshalPipelineParam(SliceParam(v))
 	case SliceParam:
 		for _, x := range v {
@@ -117,7 +117,7 @@ func (s *StringSliceParam) UnmarshalPipelineParam(val interface{}) error {
 
 type BytesParam []byte
 
-func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
+func (b *BytesParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case string:
 		// first check if this is a valid hex-encoded string
@@ -154,7 +154,7 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 
 type Uint64Param uint64
 
-func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
+func (u *Uint64Param) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case uint:
 		*u = Uint64Param(v)
@@ -221,7 +221,7 @@ func NewMaybeUint64Param(n uint64, isSet bool) MaybeUint64Param {
 	}
 }
 
-func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
+func (p *MaybeUint64Param) UnmarshalPipelineParam(val any) error {
 	var n uint64
 	switch v := val.(type) {
 	case uint:
@@ -300,7 +300,7 @@ func NewMaybeInt32Param(n int32, isSet bool) MaybeInt32Param {
 	}
 }
 
-func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
+func (p *MaybeInt32Param) UnmarshalPipelineParam(val any) error {
 	var n int32
 	switch v := val.(type) {
 	case uint:
@@ -368,7 +368,7 @@ func (p MaybeInt32Param) Int32() (int32, bool) {
 
 type BoolParam bool
 
-func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
+func (b *BoolParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case string:
 		theBool, err := strconv.ParseBool(v)
@@ -397,7 +397,7 @@ func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
 
 type DecimalParam decimal.Decimal
 
-func (d *DecimalParam) UnmarshalPipelineParam(val interface{}) error {
+func (d *DecimalParam) UnmarshalPipelineParam(val any) error {
 	if v, ok := val.(ObjectParam); ok && v.Type == DecimalType {
 		*d = v.DecimalValue
 		return nil
@@ -424,7 +424,7 @@ func (d DecimalParam) Decimal() decimal.Decimal {
 
 type URLParam url.URL
 
-func (u *URLParam) UnmarshalPipelineParam(val interface{}) error {
+func (u *URLParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case string:
 		theURL, err := url.ParseRequestURI(v)
@@ -444,7 +444,7 @@ func (u *URLParam) String() string {
 
 type AddressParam common.Address
 
-func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
+func (a *AddressParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case string:
 		return a.UnmarshalPipelineParam([]byte(v))
@@ -469,9 +469,9 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 }
 
 // MapParam accepts maps or JSON-encoded strings
-type MapParam map[string]interface{}
+type MapParam map[string]any
 
-func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
+func (m *MapParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case nil:
 		*m = nil
@@ -481,7 +481,7 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 		*m = v
 		return nil
 
-	case map[string]interface{}:
+	case map[string]any:
 		*m = MapParam(v)
 		return nil
 
@@ -489,7 +489,7 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 		return m.UnmarshalPipelineParam([]byte(v))
 
 	case []byte:
-		var theMap map[string]interface{}
+		var theMap map[string]any
 		err := json.Unmarshal(v, &theMap)
 		if err != nil {
 			return err
@@ -513,25 +513,25 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 	return errors.Wrapf(ErrBadInput, "expected map, got %T", val)
 }
 
-func (m MapParam) Map() map[string]interface{} {
-	return (map[string]interface{})(m)
+func (m MapParam) Map() map[string]any {
+	return (map[string]any)(m)
 }
 
-type SliceParam []interface{}
+type SliceParam []any
 
-func (s *SliceParam) UnmarshalPipelineParam(val interface{}) error {
+func (s *SliceParam) UnmarshalPipelineParam(val any) error {
 	switch v := val.(type) {
 	case nil:
 		*s = nil
 		return nil
-	case []interface{}:
+	case []any:
 		*s = v
 		return nil
 	case string:
 		return s.UnmarshalPipelineParam([]byte(v))
 
 	case []byte:
-		var theSlice []interface{}
+		var theSlice []any
 		err := json.Unmarshal(v, &theSlice)
 		if err != nil {
 			return err
@@ -571,14 +571,14 @@ func (s SliceParam) FilterNils() (SliceParam, int) {
 
 type DecimalSliceParam []decimal.Decimal
 
-func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}) error {
+func (s *DecimalSliceParam) UnmarshalPipelineParam(val any) error {
 	var dsp DecimalSliceParam
 	switch v := val.(type) {
 	case nil:
 		dsp = nil
 	case []decimal.Decimal:
 		dsp = v
-	case []interface{}:
+	case []any:
 		return s.UnmarshalPipelineParam(SliceParam(v))
 	case SliceParam:
 		for _, x := range v {
@@ -593,7 +593,7 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}) error {
 		return s.UnmarshalPipelineParam([]byte(v))
 
 	case []byte:
-		var theSlice []interface{}
+		var theSlice []any
 		err := json.Unmarshal(v, &theSlice)
 		if err != nil {
 			return err
@@ -609,7 +609,7 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val interface{}) error {
 
 type HashSliceParam []common.Hash
 
-func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
+func (s *HashSliceParam) UnmarshalPipelineParam(val any) error {
 	var dsp HashSliceParam
 	switch v := val.(type) {
 	case nil:
@@ -626,7 +626,7 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 		if err != nil {
 			return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 		}
-	case []interface{}:
+	case []any:
 		for _, h := range v {
 			if s, is := h.(string); is {
 				var hash common.Hash
@@ -658,7 +658,7 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 
 type AddressSliceParam []common.Address
 
-func (s *AddressSliceParam) UnmarshalPipelineParam(val interface{}) error {
+func (s *AddressSliceParam) UnmarshalPipelineParam(val any) error {
 	var asp AddressSliceParam
 	switch v := val.(type) {
 	case nil:
@@ -675,7 +675,7 @@ func (s *AddressSliceParam) UnmarshalPipelineParam(val interface{}) error {
 		if err != nil {
 			return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
 		}
-	case []interface{}:
+	case []any:
 		for _, a := range v {
 			var addr AddressParam
 			err := addr.UnmarshalPipelineParam(a)
@@ -704,7 +704,7 @@ func NewJSONPathParam(sep string) JSONPathParam {
 // UnmarshalPipelineParam unmarshals a slice of strings from val.
 // If val is a string or []byte, it is split on a separator.
 // The default separator is ',' but can be overridden by initializing via NewJSONPathParam.
-func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
+func (p *JSONPathParam) UnmarshalPipelineParam(val any) error {
 	sep := ","
 	if len(*p) > 0 {
 		// custom separator
@@ -716,7 +716,7 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 		ssp = nil
 	case []string:
 		ssp = v
-	case []interface{}:
+	case []any:
 		for _, x := range v {
 			as, is := x.(string)
 			if !is {
@@ -752,7 +752,7 @@ func NewMaybeBigIntParam(n *big.Int) MaybeBigIntParam {
 	}
 }
 
-func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
+func (p *MaybeBigIntParam) UnmarshalPipelineParam(val any) error {
 	var n *big.Int
 	switch v := val.(type) {
 	case uint:

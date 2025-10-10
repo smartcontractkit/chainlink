@@ -66,7 +66,7 @@ func (p Plugins) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 
-func (p *Plugins) Scan(value interface{}) error {
+func (p *Plugins) Scan(value any) error {
 	b, ok := value.(string)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -156,7 +156,7 @@ func (c FluxMonitorConfig) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *FluxMonitorConfig) Scan(value interface{}) error {
+func (c *FluxMonitorConfig) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -178,7 +178,7 @@ func (c OCR1Config) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *OCR1Config) Scan(value interface{}) error {
+func (c *OCR1Config) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -202,7 +202,7 @@ func (c OCR2ConfigModel) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *OCR2ConfigModel) Scan(value interface{}) error {
+func (c *OCR2ConfigModel) Scan(value any) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")

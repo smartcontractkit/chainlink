@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -575,11 +576,8 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 				var newCapIDs [][32]byte
 				for _, proposedCapID := range hashedCapabilityIDs {
 					shouldAdd := true
-					for _, existingCapID := range params.HashedCapabilityIds {
-						if existingCapID == proposedCapID {
-							shouldAdd = false
-							break
-						}
+					if slices.Contains(params.HashedCapabilityIds, proposedCapID) {
+						shouldAdd = false
 					}
 					if shouldAdd {
 						newCapIDs = append(newCapIDs, proposedCapID)
@@ -920,7 +918,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	// occasionally the registry does not return the expected number of DONS immediately after the txns above
 	// so we retry a few times. while crude, it is effective
 	foundAll := false
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		lggr.Debugw("attempting to get DONs from registry", "attempt#", i)
 		donInfos, err = registry.GetDONs(&bind.CallOpts{})
 		if !containsAllDONs(donInfos, p2pIdsToDon) {

@@ -467,13 +467,13 @@ func TestResolver_OCR2Spec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	relayConfig := map[string]interface{}{
+	relayConfig := map[string]any{
 		"chainID": 1337,
 	}
-	pluginConfig := map[string]interface{}{
+	pluginConfig := map[string]any{
 		"juelsPerFeeCoinSource": 100000000,
 	}
-	onchainSigningStrategy := map[string]interface{}{
+	onchainSigningStrategy := map[string]any{
 		"strategyName": "multi-chain",
 		"config": map[string]any{
 			"evm": "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed",
@@ -962,7 +962,7 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 						ID:                                id,
 						ContractID:                        "0x613a38AC1659769640aaE063C651F48E0250454C",
 						Relay:                             "evm",
-						RelayConfig:                       map[string]interface{}{},
+						RelayConfig:                       map[string]any{},
 						MonitoringEndpoint:                null.String{},
 						BlockchainTimeout:                 sqlutil.Interval(2 * time.Minute),
 						ContractConfigTrackerPollInterval: sqlutil.Interval(2 * time.Minute),
@@ -1076,8 +1076,8 @@ func TestResolver_GatewaySpec(t *testing.T) {
 		id = int32(1)
 	)
 
-	gatewayConfig := map[string]interface{}{
-		"NodeServerConfig": map[string]interface{}{},
+	gatewayConfig := map[string]any{
+		"NodeServerConfig": map[string]any{},
 	}
 
 	testCases := []GQLTestCase{

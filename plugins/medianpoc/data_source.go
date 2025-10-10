@@ -33,7 +33,7 @@ func (d *DataSource) Observe(ctx context.Context, reportTimestamp ocrtypes.Repor
 
 	// NOTE: job metadata is automatically attached by the pipeline runner service
 	vars := core.Vars{
-		Vars: map[string]interface{}{
+		Vars: map[string]any{
 			"jobRun": md,
 		},
 	}

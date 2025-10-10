@@ -237,12 +237,10 @@ func (l *functionsListener) processOracleEventsV1() {
 			}
 			l.logger.Debugw("processOracleEventsV1: processing v1 events", "nRequests", len(requests), "nResponses", len(responses))
 			for _, request := range requests {
-				request := request
 				l.shutdownWaitGroup.Add(1)
 				go l.handleOracleRequestV1(&request)
 			}
 			for _, response := range responses {
-				response := response
 				l.shutdownWaitGroup.Add(1)
 				go l.handleOracleResponseV1(&response)
 			}

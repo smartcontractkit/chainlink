@@ -62,7 +62,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 		t.Run("an error is returned when unpacking into a map fails", func(t *testing.T) {
 			oldUnpackIntoMapFn := unpackIntoMapFn
-			unpackIntoMapFn = func(v map[string]interface{}, data []byte) error {
+			unpackIntoMapFn = func(v map[string]any, data []byte) error {
 				return errors.New("failed to unpack into map")
 			}
 			defer func() {
@@ -112,7 +112,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 		t.Run("an error is returned when the upkeep ids and performDatas are of different lengths", func(t *testing.T) {
 			oldUnpackIntoMapFn := unpackIntoMapFn
-			unpackIntoMapFn = func(v map[string]interface{}, data []byte) error {
+			unpackIntoMapFn = func(v map[string]any, data []byte) error {
 				v["fastGasWei"] = 1
 				v["linkNative"] = 2
 				v["upkeepIds"] = []*big.Int{big.NewInt(123), big.NewInt(456)}
@@ -195,7 +195,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 	t.Run("an error is returned when pack fails", func(t *testing.T) {
 		oldPackFn := packFn
-		packFn = func(args ...interface{}) ([]byte, error) {
+		packFn = func(args ...any) ([]byte, error) {
 			return nil, errors.New("pack failed")
 		}
 		defer func() {

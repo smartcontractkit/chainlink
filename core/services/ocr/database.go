@@ -169,11 +169,9 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTime
 	// Note: p.Rs and p.Ss are of type [][32]byte.
 	// See last example of https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
 	for _, v := range p.Rs {
-		v := v
 		rs = append(rs, v[:])
 	}
 	for _, v := range p.Ss {
-		v := v
 		ss = append(ss, v[:])
 	}
 

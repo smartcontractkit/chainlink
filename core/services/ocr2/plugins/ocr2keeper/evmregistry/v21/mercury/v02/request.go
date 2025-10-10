@@ -64,7 +64,6 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	ch := make(chan mercury.MercuryData, resultLen)
 	for i := range streamsLookup.Feeds {
 		// TODO (AUTO-7209): limit the number of concurrent requests
-		i := i
 		c.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 			c.singleFeedRequest(ctx, ch, i, streamsLookup)
 		})
@@ -83,7 +82,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	// in v0.2, when combining results for multiple feed requests
 	// if any request resulted in pipeline execution error then use the last execution error as the state
 	// if no execution errors, then check if any feed returned an error code, if so use the last error code
-	for i := 0; i < resultLen; i++ {
+	for range resultLen {
 		select {
 		case <-ctx.Done():
 			// Request Timed out, return timeout error

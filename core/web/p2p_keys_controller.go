@@ -42,7 +42,7 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	p2pkc.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]interface{}{
+	p2pkc.App.GetAuditLogger().Audit(audit.KeyCreated, map[string]any{
 		"type":         "p2p",
 		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
@@ -74,7 +74,7 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 		return
 	}
 
-	p2pkc.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]interface{}{
+	p2pkc.App.GetAuditLogger().Audit(audit.KeyDeleted, map[string]any{
 		"type": "p2p",
 		"id":   keyID,
 	})
@@ -101,7 +101,7 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	p2pkc.App.GetAuditLogger().Audit(audit.KeyImported, map[string]interface{}{
+	p2pkc.App.GetAuditLogger().Audit(audit.KeyImported, map[string]any{
 		"type":         "p2p",
 		"id":           key.ID(),
 		"p2pPublicKey": key.PublicKeyHex(),
@@ -131,7 +131,7 @@ func (p2pkc *P2PKeysController) Export(c *gin.Context) {
 		return
 	}
 
-	p2pkc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]interface{}{
+	p2pkc.App.GetAuditLogger().Audit(audit.KeyExported, map[string]any{
 		"type": "p2p",
 		"id":   keyID,
 	})

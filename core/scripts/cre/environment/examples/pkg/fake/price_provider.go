@@ -32,7 +32,7 @@ func DeployPriceProvider(authKey string, port int, feedIDs []string, containerNa
 
 		// Generate 3 random prices between 50.00 and 150.00
 		prices := make([]float64, 3)
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			prices[i] = math.Round((rand.Float64()*100+50)*100) / 100 //nolint:gosec // this is a fake price generator
 		}
 		priceData[cleanFeedID] = prices

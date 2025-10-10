@@ -342,18 +342,13 @@ func (lsn *listenerV2) getConfirmedAt(req RandomWordsRequested, nodeMinConfs uin
 	// Take the max(nodeMinConfs, requestedConfs + requestedConfsDelay).
 	// Add the requested confs delay if provided in the jobspec so that we avoid an edge case
 	// where the primary and backup VRF v2 nodes submit a proof at the same time.
-	minConfs := nodeMinConfs
-	if uint32(req.MinimumRequestConfirmations())+uint32(lsn.job.VRFSpec.RequestedConfsDelay) > nodeMinConfs {
-		minConfs = uint32(req.MinimumRequestConfirmations()) + uint32(lsn.job.VRFSpec.RequestedConfsDelay)
-	}
-	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestID().String()])
-	// We cap this at 200 because solidity only supports the most recent 256 blocks
-	// in the contract so if it was older than that, fulfillments would start failing
-	// without the blockhash store feeder. We use 200 to give the node plenty of time
-	// to fulfill even on fast chains.
-	if newConfs > 200 {
-		newConfs = 200
-	}
+	minConfs := max(uint32(req.MinimumRequestConfirmations())+uint32(lsn.job.VRFSpec.RequestedConfsDelay), nodeMinConfs)
+	newConfs := min(
+		// We cap this at 200 because solidity only supports the most recent 256 blocks
+		// in the contract so if it was older than that, fulfillments would start failing
+		// without the blockhash store feeder. We use 200 to give the node plenty of time
+		// to fulfill even on fast chains.
+		uint64(minConfs)*(1<<lsn.respCount[req.RequestID().String()]), 200)
 	if lsn.respCount[req.RequestID().String()] > 0 {
 		lsn.l.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw().TxHash,

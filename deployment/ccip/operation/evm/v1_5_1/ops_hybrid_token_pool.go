@@ -34,10 +34,10 @@ var (
 		"Update groups on HybridWithExternalMinter token pool contract",
 		hybrid_external.HybridWithExternalMinterFastTransferTokenPoolABI,
 		shared.HybridWithExternalMinterFastTransferTokenPool,
-		func(address common.Address, backend bind.ContractBackend) (interface{}, error) {
+		func(address common.Address, backend bind.ContractBackend) (any, error) {
 			return hybrid_external.NewHybridWithExternalMinterFastTransferTokenPool(address, backend)
 		},
-		func(pool interface{}, opts *bind.TransactOpts, input UpdateGroupsInput) (*types.Transaction, error) {
+		func(pool any, opts *bind.TransactOpts, input UpdateGroupsInput) (*types.Transaction, error) {
 			hybridPool := pool.(*hybrid_external.HybridWithExternalMinterFastTransferTokenPool)
 
 			// Convert our GroupUpdate struct to the contract's expected format

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -20,8 +21,8 @@ import (
 
 type MethodCall struct {
 	MethodName string
-	Arguments  []interface{}
-	Returns    []interface{}
+	Arguments  []any
+	Returns    []any
 }
 
 // The class expected to override the observed methods.
@@ -42,33 +43,33 @@ func TestOnRampObservedMethods(t *testing.T) {
 	methodCalls := make(map[string]MethodCall)
 	methodCalls["GetDynamicConfig"] = MethodCall{
 		MethodName: "GetDynamicConfig",
-		Arguments:  []interface{}{testutils.Context(t)},
-		Returns:    []interface{}{cciptypes.OnRampDynamicConfig{}, nil},
+		Arguments:  []any{testutils.Context(t)},
+		Returns:    []any{cciptypes.OnRampDynamicConfig{}, nil},
 	}
 	methodCalls["GetSendRequestsBetweenSeqNums"] = MethodCall{
 		MethodName: "GetSendRequestsBetweenSeqNums",
-		Arguments:  []interface{}{testutils.Context(t), uint64(0), uint64(100), true},
-		Returns:    []interface{}{nil, nil},
+		Arguments:  []any{testutils.Context(t), uint64(0), uint64(100), true},
+		Returns:    []any{nil, nil},
 	}
 	methodCalls["IsSourceChainHealthy"] = MethodCall{
 		MethodName: "IsSourceChainHealthy",
-		Arguments:  []interface{}{testutils.Context(t)},
-		Returns:    []interface{}{false, nil},
+		Arguments:  []any{testutils.Context(t)},
+		Returns:    []any{false, nil},
 	}
 	methodCalls["IsSourceCursed"] = MethodCall{
 		MethodName: "IsSourceCursed",
-		Arguments:  []interface{}{testutils.Context(t)},
-		Returns:    []interface{}{false, nil},
+		Arguments:  []any{testutils.Context(t)},
+		Returns:    []any{false, nil},
 	}
 	methodCalls["RouterAddress"] = MethodCall{
 		MethodName: "RouterAddress",
-		Arguments:  []interface{}{testutils.Context(t)},
-		Returns:    []interface{}{cciptypes.Address("0x0"), nil},
+		Arguments:  []any{testutils.Context(t)},
+		Returns:    []any{cciptypes.Address("0x0"), nil},
 	}
 	methodCalls["SourcePriceRegistryAddress"] = MethodCall{
 		MethodName: "SourcePriceRegistryAddress",
-		Arguments:  []interface{}{testutils.Context(t)},
-		Returns:    []interface{}{cciptypes.Address("0x0"), nil},
+		Arguments:  []any{testutils.Context(t)},
+		Returns:    []any{cciptypes.Address("0x0"), nil},
 	}
 
 	// Test each method defined in the embedded type.
@@ -83,11 +84,9 @@ func TestOnRampObservedMethods(t *testing.T) {
 func testMethod(t *testing.T, method reflect.Method, methodCalls map[string]MethodCall, excludedMethods []string, reader *mocks.OnRampReader, observed ObservedOnRampReader) {
 	t.Run("observability_wrapper_"+method.Name, func(t *testing.T) {
 		// Skip excluded methods.
-		for _, em := range excludedMethods {
-			if method.Name == em {
-				// Skipping ignore method (not an error).
-				return
-			}
+		if slices.Contains(excludedMethods, method.Name) {
+			// Skipping ignore method (not an error).
+			return
 		}
 
 		// Retrieve method call from definition (fail if not present).
