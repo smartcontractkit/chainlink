@@ -249,19 +249,6 @@ func NewMemoryEnvironment(
 		nodeIDs = append(nodeIDs, id)
 	}
 
-	// blockChains := map[uint64]cldf_chain.BlockChain{}
-	// for _, c := range chains {
-	// 	blockChains[c.Selector] = c
-	// }
-	// for _, c := range solChains {
-	// 	blockChains[c.ChainSelector()] = c
-	// }
-	// for _, c := range aptosChains {
-	// 	blockChains[c.ChainSelector()] = c
-	// }
-	// for _, c := range suiChains {
-	// 	blockChains[c.Selector] = c
-	// }
 	return *cldf.NewEnvironment(
 		Memory,
 		lggr,

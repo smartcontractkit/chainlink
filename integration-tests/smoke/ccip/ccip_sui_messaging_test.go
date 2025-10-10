@@ -6,28 +6,33 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
-	// ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -93,9 +98,6 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 	)
 
 	t.Run("Message to EVM", func(t *testing.T) {
-		// _, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
-		// require.NoError(t, err)
-
 		require.NoError(t, err)
 		out = messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -107,17 +109,6 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 				Replayed:               true,
 				FeeToken:               outputMap.Objects.MintedLinkTokenObjectId,
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) {
-						// iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
-						// 	Context: ctx,
-						// 	Start:   latestHead,
-						// })
-						// require.NoError(t, err)
-						// require.True(t, iter.Next())
-						// MessageReceived doesn't emit the data unfortunately, so can't check that.
-					},
-				},
 			},
 		)
 	})
@@ -214,19 +205,6 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 				MsgData:                message,
 				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, recieverObjectIds, [32]byte{}),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				// ExtraAssertions: []func(t *testing.T){
-				// 	func(t *testing.T) {
-				// 		// TODO: check dummy receiver events
-				// 		// dummyReceiver := state.AptosChains[destChain].ReceiverAddress
-				// 		// events, err := e.Env.AptosChains[destChain].Client.EventsByHandle(dummyReceiver, fmt.Sprintf("%s::dummy_receiver::CCIPReceiverState", dummyReceiver), "received_message_events", nil, nil)
-				// 		// require.NoError(t, err)
-				// 		// require.Len(t, events, 1)
-				// 		// var receivedMessage module_dummy_receiver.ReceivedMessage
-				// 		// err = codec.DecodeAptosJsonValue(events[0].Data, &receivedMessage)
-				// 		// require.NoError(t, err)
-				// 		// require.Equal(t, message, receivedMessage.Data)
-				// 	},
-				// },
 			},
 		)
 	})

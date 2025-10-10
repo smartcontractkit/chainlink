@@ -348,7 +348,6 @@ func (cfg UpdateOnRampDestsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
 func UpdateOnRampsDestsChangeset(e cldf.Environment, cfg UpdateOnRampDestsConfig) (cldf.ChangesetOutput, error) {
-	fmt.Println("UPDATING ONRAMP EVM")
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -845,7 +844,6 @@ func (cfg UpdateFeeQuoterPricesConfig) ToSequenceInput(state stateview.CCIPOnCha
 		updates[chainSel] = opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
-			// Address: common.HexToAddress("0x5fDC703aFc9A124E5B2e60d2f87E706DbE4c5F57"),
 			CallInput: fee_quoter.InternalPriceUpdates{
 				TokenPriceUpdates: tokenPriceUpdates,
 				GasPriceUpdates:   gasPriceUpdates,
@@ -860,7 +858,6 @@ func (cfg UpdateFeeQuoterPricesConfig) ToSequenceInput(state stateview.CCIPOnCha
 }
 
 func UpdateFeeQuoterPricesChangeset(e cldf.Environment, cfg UpdateFeeQuoterPricesConfig) (cldf.ChangesetOutput, error) {
-	fmt.Println("UPDATING FEEQUOTER EVM")
 	if err := cfg.Validate(e); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -970,7 +967,6 @@ func (cfg UpdateFeeQuoterDestsConfig) ToSequenceInput(state stateview.CCIPOnChai
 }
 
 func UpdateFeeQuoterDestsChangeset(e cldf.Environment, cfg UpdateFeeQuoterDestsConfig) (cldf.ChangesetOutput, error) {
-	fmt.Println("UPDATE FEEQUOTER AGAIN")
 	output := cldf.ChangesetOutput{}
 
 	if err := cfg.Validate(e); err != nil {
@@ -1346,7 +1342,6 @@ func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
 func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig) (cldf.ChangesetOutput, error) {
-	fmt.Println("APPLY ROUTER RAMP UPDATE")
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err

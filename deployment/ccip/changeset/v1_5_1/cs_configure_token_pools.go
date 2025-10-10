@@ -204,7 +204,7 @@ type TokenPoolConfig struct {
 	// AptosChainUpdates defines the Aptos chains and corresponding rate limits that should be defined on the token pool.
 	AptosChainUpdates map[uint64]AptosChainUpdate
 
-	// SuiChainUpdate defines the Aptos chains and corresponding rate limits that should be defined on the token pool.
+	// SuiChainUpdate defines the Sui chains and corresponding rate limits that should be defined on the token pool.
 	SuiChainUpdates map[uint64]SuiChainUpdate
 
 	// Type is the type of the token pool.
@@ -565,7 +565,7 @@ func configureTokenPool(
 
 	// Handle new chain support
 	if len(chainAdditions) > 0 {
-		_, err = tokenPool.ApplyChainUpdates(opts, []uint64{}, chainAdditions)
+		_, err := tokenPool.ApplyChainUpdates(opts, chainRemovals, chainAdditions)
 		if err != nil {
 			return fmt.Errorf("failed to create applyChainUpdates transaction for token pool with address %s: %w", tokenPool.Address(), err)
 		}

@@ -7,19 +7,25 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
@@ -283,6 +289,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 
 	recieverObjectIds := [][32]byte{clockObj, stateObj}
 
+	// TODO: might be needed for validation
 	// getPoolBySourceToken
 	// onRamp, err := onramp.NewOnRamp(state.Chains[sourceChain].OnRamp.Address(), e.Env.BlockChains.EVMChains()[sourceChain].Client)
 	// require.NoError(t, err)

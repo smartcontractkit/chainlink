@@ -1571,8 +1571,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
 
-	// TODO: Fix this, currently getting stuck
-	// ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
+	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 
 	state, err = stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
@@ -1597,9 +1596,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NotNil(t, state.MustGetEVMChainState(chain).OnRamp)
 	}
 
-	if len(solChains) > 0 {
-		ValidateSolanaState(e.Env, solChains)
-	}
+	err = ValidateSolanaState(e.Env, solChains)
+	require.NoError(t, err)
+
+	// TODO(ton): Validate TON state
+
 	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }

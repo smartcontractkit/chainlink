@@ -1085,7 +1085,6 @@ func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
 		if err := cldf.IsValidChainSelector(remove); err != nil {
 			return fmt.Errorf("chain remove selector invalid: %w", err)
 		}
-		fmt.Println("SUPPORTED CHAINS: ", state.SupportedChains())
 		if _, ok := state.SupportedChains()[remove]; !ok {
 			return fmt.Errorf("chain to remove %d is not supported", remove)
 		}

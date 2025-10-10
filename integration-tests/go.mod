@@ -7,14 +7,6 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
-// replace github.com/smartcontractkit/chainlink-sui => ../../chainlink-sui
-
-// replace github.com/smartcontractkit/chainlink-sui/deployment => ../../chainlink-sui/deployment
-
-// replace github.com/smartcontractkit/chainlink-ccip => ../../chainlink-ccip
-
-// replace github.com/smartcontractkit/chainlink-deployments-framework => ../../chainlink-deployments-framework
-
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
@@ -528,7 +520,6 @@ require (
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/test-go/testify v1.1.4 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

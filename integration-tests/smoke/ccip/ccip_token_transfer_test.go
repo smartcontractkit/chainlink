@@ -18,7 +18,7 @@ import (
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
-	msg_hasher160 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
+	msg_hasher163 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -299,7 +299,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	require.NoError(t, ferr)
 	t.Logf("Token receiver ATA: %s\n", tokenReceiverATA.String())
 
-	extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher160.ClientSVMExtraArgsV1{
+	extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
 		TokenReceiver: tokenReceiver,
 	})
 	require.NoError(t, err)

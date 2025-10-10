@@ -161,7 +161,6 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, valida
 	onRampsBySelector := make(map[uint64]common.Address)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
 
-	fmt.Println("EVM CHAINS: ", c.EVMChains())
 	for _, selector := range c.EVMChains() {
 		chainState := c.MustGetEVMChainState(selector)
 		if chainState.OnRamp == nil {
@@ -170,7 +169,7 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, valida
 		onRampsBySelector[selector] = chainState.OnRamp.Address()
 		offRampsBySelector[selector] = chainState.OffRamp
 	}
-	_, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return fmt.Errorf("failed to get node info from env: %w", err)
 	}
@@ -179,10 +178,9 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, valida
 		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	homeChainState := c.MustGetEVMChainState(homeChain)
-	// TODO: Validation currently failing for SUI Chain, look into it
-	// if err := homeChainState.ValidateHomeChain(e, nodes, offRampsBySelector); err != nil {
-	// 	return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
-	// }
+	if err := homeChainState.ValidateHomeChain(e, nodes, offRampsBySelector); err != nil {
+		return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
+	}
 	rmnHomeActiveDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{
 		Context: e.GetContext(),
 	})
@@ -794,13 +792,13 @@ func (c CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType cldf.Contr
 
 	case chain_selectors.FamilySui:
 		// no-op right now
-		_, exists := c.SuiChains[chainSelector]
+		chainState, exists := c.SuiChains[chainSelector]
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
-		// if chainState.CCIPAddress == (sui.Address{}) {
-		// 	return fmt.Errorf("ccip package does not exist on sui chain %d", chainSelector)
-		// }
+		if chainState.CCIPAddress == "" {
+			return fmt.Errorf("ccip package does not exist on sui chain %d", chainSelector)
+		}
 	case chain_selectors.FamilyTon:
 		chainState, exists := c.TonChains[chainSelector]
 		if !exists {

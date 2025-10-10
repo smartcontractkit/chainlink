@@ -25,7 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	msg_hasher160 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
+	msg_hasher163 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -275,7 +275,7 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 		solana.SystemProgramID,
 	}
 
-	extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher160.ClientSVMExtraArgsV1{
+	extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
 		AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 		Accounts:                 accounts,
 		ComputeUnits:             80_000,
@@ -415,7 +415,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			solana.SystemProgramID,
 		}
 
-		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher160.ClientSVMExtraArgsV1{
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
 			ComputeUnits:             80_000,
@@ -467,7 +467,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		accountsFailure[1] = receiverTargetAccountPDA
 		accountsFailure[2] = solana.SystemProgramID
 
-		extraArgsFailure, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher160.ClientSVMExtraArgsV1{
+		extraArgsFailure, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes(writableIndexes),
 			Accounts:                 accountsFailure,
 			ComputeUnits:             80_000,
@@ -497,7 +497,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			solana.SystemProgramID,
 		}
 
-		extraArgsSuccess, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher160.ClientSVMExtraArgsV1{
+		extraArgsSuccess, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}), // Mark relevant accounts as writable
 			Accounts:                 accountsSuccess,
 			ComputeUnits:             80_000,
@@ -538,7 +538,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			solana.SystemProgramID,
 		}
 
-		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher160.ClientSVMExtraArgsV1{
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
 			ComputeUnits:             1_000_000,
@@ -575,7 +575,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			solana.SystemProgramID,
 		}
 
-		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher160.ClientSVMExtraArgsV1{
+		extraArgs, err := ccipevm.SerializeClientSVMExtraArgsV1(msg_hasher163.ClientSVMExtraArgsV1{
 			AccountIsWritableBitmap:  solccip.GenerateBitMapForIndexes([]int{0, 1}),
 			Accounts:                 accounts,
 			ComputeUnits:             1_000_000,

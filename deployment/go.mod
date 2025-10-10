@@ -9,14 +9,6 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 // creating potential merge conflicts.
 require github.com/smartcontractkit/chainlink/v2 v2.0.0-20251008094352-f74459c46e8c
 
-// replace github.com/smartcontractkit/chainlink-sui => ../../chainlink-sui
-
-// replace github.com/smartcontractkit/chainlink-sui/deployment => ../../chainlink-sui/deployment
-
-// replace github.com/smartcontractkit/chainlink-ccip => ../../chainlink-ccip
-
-// replace github.com/smartcontractkit/chainlink-deployments-framework => ../../chainlink-deployments-framework
-
 require (
 	dario.cat/mergo v1.0.2
 	github.com/AlekSi/pointer v1.1.0
@@ -438,7 +430,6 @@ require (
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/test-go/testify v1.1.4 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

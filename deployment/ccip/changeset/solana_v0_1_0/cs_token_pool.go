@@ -194,7 +194,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 
 		// initialize token pool config pda
 		var poolInitI solana.Instruction
-		_, err = getSolProgramData(e, chain, tokenPool)
+		programData, err := getSolProgramData(e, chain, tokenPool)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 		}
@@ -210,9 +210,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
 				solana.SystemProgramID,
 				tokenPool,
-				solana.PublicKey{},
-				// programData.Address,
-				// configPDA,
+				programData.Address,
 			).ValidateAndBuild()
 		case shared.LockReleaseTokenPool:
 			solLockReleaseTokenPool.SetProgramID(tokenPool)
@@ -225,9 +223,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
 				solana.SystemProgramID,
 				tokenPool,
-				solana.PublicKey{},
-				// programData.Address,
-				// configPDA,
+				programData.Address,
 			).ValidateAndBuild()
 		default:
 			return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", tokenPoolCfg.PoolType)

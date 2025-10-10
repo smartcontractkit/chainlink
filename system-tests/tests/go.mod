@@ -13,12 +13,6 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../lib
 
-// replace github.com/smartcontractkit/chainlink-sui => ../../../chainlink-sui
-
-// replace github.com/smartcontractkit/chainlink-deployments-framework => ../../../chainlink-deployments-framework
-
-// replace github.com/smartcontractkit/chainlink-ccip => ../../../chainlink-ccip
-
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based => ../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based => ../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
