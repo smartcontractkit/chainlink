@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
-VERSION=v1.18.26
-SHASUM=cec72cde1cf36eb35cd8326245d23af0b6791fab68337c2953e2ca2a40af2c50
 
-echo "Installing solana@${VERSION}"
-curl -sSfL https://release.anza.xyz/$VERSION/install --output install_solana.sh \
+if [ -z "${SOLANA_CLI_VERSION:-}" ] || [ -z "${SOLANA_CLI_INSTALLER_CHECKSUM:-}" ]; then
+    if [ -n "${CI:-}" ]; then
+        # if in CI and variables are not set, fail
+        echo "SOLANA_CLI_VERSION and SOLANA_CLI_INSTALLER_CHECKSUM must be set in CI"
+        exit 1
+    else
+        echo "SOLANA_CLI_VERSION and SOLANA_CLI_INSTALLER_CHECKSUM not set, using defaults"
+        SOLANA_CLI_VERSION="v1.18.26"
+        SOLANA_CLI_INSTALLER_CHECKSUM="cec72cde1cf36eb35cd8326245d23af0b6791fab68337c2953e2ca2a40af2c50"
+    fi
+fi
+
+echo "Using SOLANA_CLI_VERSION=${SOLANA_CLI_VERSION} and SOLANA_CLI_INSTALLER_CHECKSUM=${SOLANA_CLI_INSTALLER_CHECKSUM}"
+
+echo "Installing solana@${SOLANA_CLI_VERSION}"
+curl -sSfL https://release.anza.xyz/$SOLANA_CLI_VERSION/install --output install_solana.sh \
     && echo "Checking shasum of Solana install script." \
-    && echo "${SHASUM} install_solana.sh" | sha256sum --check
+    && echo "${SOLANA_CLI_INSTALLER_CHECKSUM} install_solana.sh" | sha256sum --check
 chmod +x install_solana.sh
 sh -c ./install_solana.sh
