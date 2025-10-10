@@ -25,6 +25,7 @@ import (
 )
 
 func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
+	quarantine.Flaky(t, "DX-1805")
 	t.Parallel()
 
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
