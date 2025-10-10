@@ -181,7 +181,7 @@ type CCIPJobSpecParams struct {
 	DestStartBlock         uint64
 	USDCAttestationAPI     string
 	USDCConfig             *config.USDCConfig
-	LBTCConfig             *config.LBTCConfig
+	LBTCConfigs            []config.LBTCConfig
 	P2PV2Bootstrappers     pq.StringArray
 }
 
@@ -307,11 +307,28 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		ocrSpec.PluginConfig["USDCConfig.SourceMessageTransmitterAddress"] = fmt.Sprintf(`"%s"`, params.USDCConfig.SourceMessageTransmitterAddress)
 		ocrSpec.PluginConfig["USDCConfig.AttestationAPITimeoutSeconds"] = params.USDCConfig.AttestationAPITimeoutSeconds
 	}
-	if params.LBTCConfig != nil {
-		ocrSpec.PluginConfig["LBTCConfig.AttestationAPI"] = fmt.Sprintf(`"%s"`, params.LBTCConfig.AttestationAPI)
-		ocrSpec.PluginConfig["LBTCConfig.SourceTokenAddress"] = fmt.Sprintf(`"%s"`, params.LBTCConfig.SourceTokenAddress)
-		ocrSpec.PluginConfig["LBTCConfig.AttestationAPITimeoutSeconds"] = params.LBTCConfig.AttestationAPITimeoutSeconds
+	if len(params.LBTCConfigs) >= 1 {
+		// duplicate LBTC configs in singular (first element) and in plural field
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPI"] = fmt.Sprintf(`"%s"`, params.LBTCConfigs[0].AttestationAPI)
+		ocrSpec.PluginConfig["LBTCConfig.SourceTokenAddress"] = fmt.Sprintf(`"%s"`, params.LBTCConfigs[0].SourceTokenAddress)
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPITimeoutSeconds"] = params.LBTCConfigs[0].AttestationAPITimeoutSeconds
+		// Write toml arrays in format
+		// [pluginConfig]
+		// LBTCConfigs = [
+		// 	{ AttestationAPI = "http://lbtc.com", AttestationAPITimeoutSeconds = 5, SourceTokenAddress = "0x32b...EBd" },
+		//  { AttestationAPI = "http://lbtc-second.com", AttestationAPITimeoutSeconds = 5, SourceTokenAddress = "0x58f...372" },
+		// ]
+		lbtcConfigs := make([]string, len(params.LBTCConfigs))
+		for i, lbtcConfig := range params.LBTCConfigs {
+			lbtcConfigs[i] = fmt.Sprintf(
+				"{ AttestationAPI = \"%s\", AttestationAPITimeoutSeconds = %d, SourceTokenAddress = \"%s\" },",
+				lbtcConfig.AttestationAPI, lbtcConfig.AttestationAPITimeoutSeconds, lbtcConfig.SourceTokenAddress,
+			)
+		}
+		ocrSpec.PluginConfig["LBTCConfigs"] = lbtcConfigs
 	}
+	// Always put some random config in PluginConfig to test forward compatibility
+	ocrSpec.PluginConfig["ConfigsFromTheFuture"] = fmt.Sprintf("[ { Value = \"%s\" }, ]", utils.RandomAddress().String())
 	return &OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,
 		JobType:        "offchainreporting2",
@@ -336,7 +353,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec
 	}
 }
 
-func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline string, priceGetterConfig string, configBlock uint64, usdcAttestationAPI string) CCIPJobSpecParams {
+func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline string, priceGetterConfig string, configBlock uint64) CCIPJobSpecParams {
 	return CCIPJobSpecParams{
 		CommitStore:            c.Dest.CommitStore.Address(),
 		OffRamp:                c.Dest.OffRamp.Address(),
@@ -346,7 +363,6 @@ func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline
 		TokenPricesUSDPipeline: tokenPricesUSDPipeline,
 		PriceGetterConfig:      priceGetterConfig,
 		DestStartBlock:         configBlock,
-		USDCAttestationAPI:     usdcAttestationAPI,
 	}
 }
 

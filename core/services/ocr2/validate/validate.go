@@ -344,7 +344,7 @@ func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
 	if cfg.USDCConfig != (config.USDCConfig{}) {
 		return cfg.USDCConfig.ValidateUSDCConfig()
 	}
-	return nil
+	return config.ValidateLBTCConfigs(cfg.LBTCConfigs)
 }
 
 func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {

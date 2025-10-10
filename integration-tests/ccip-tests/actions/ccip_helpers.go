@@ -189,6 +189,7 @@ type CCIPCommon struct {
 	USDCMockDeployment            *bool
 	LBTCMockDeployment            *bool
 	LBTCDestPoolDataAs32Bytes     *bool
+	LBTCNoOfTokens                int
 	TokenMessenger                *common.Address
 	TokenTransmitter              *contracts.TokenTransmitter
 	IsConnectionRestoredRecently  *atomic.Bool
@@ -945,7 +946,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 					if err != nil {
 						return fmt.Errorf("granting minter role to token transmitter shouldn't fail %w", err)
 					}
-				} else if ccipModule.IsLBTCDeployment() && i == 0 {
+				} else if ccipModule.IsLBTCDeployment() && i < ccipModule.LBTCNoOfTokens {
 					// if it's LBTC deployment, we deploy the burn mint token 677 with decimal 8 and cast it to ERC20Token
 					lbtcToken, err := ccipModule.tokenDeployer.DeployCustomBurnMintERC677Token("Lombard LBTC", "LBTC", uint8(8), new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
 					if err != nil {
@@ -1019,7 +1020,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 				}
 
 				ccipModule.BridgeTokenPools = append(ccipModule.BridgeTokenPools, usdcPool)
-			} else if ccipModule.IsLBTCDeployment() && i == 0 {
+			} else if ccipModule.IsLBTCDeployment() && i < ccipModule.LBTCNoOfTokens {
 				if ccipModule.RMNContract == nil {
 					return errors.New("RMNContract is not initialized")
 				}
@@ -1372,6 +1373,7 @@ func DefaultCCIPModule(
 		USDCMockDeployment:            testGroupConf.USDCMockDeployment,
 		LBTCMockDeployment:            testGroupConf.LBTCMockDeployment,
 		LBTCDestPoolDataAs32Bytes:     testGroupConf.LBTCDestPoolDataAs32Bytes,
+		LBTCNoOfTokens:                testGroupConf.LBTCNoOfTokens,
 		NoOfTokensNeedingDynamicPrice: pointer.GetInt(testGroupConf.TokenConfig.NoOfTokensWithDynamicPrice),
 		poolFunds:                     testhelpers.Link(5),
 		gasUpdateWatcherMu:            &sync.Mutex{},
@@ -4158,11 +4160,18 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		}
 	}
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsLBTCDeployment() {
-		// Only one LBTC allowed per chain
-		jobParams.LBTCConfig = &config.LBTCConfig{
-			SourceTokenAddress:           common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
-			AttestationAPI:               mockAdapterURL,
-			AttestationAPITimeoutSeconds: 5,
+		jobParams.LBTCConfigs = make([]config.LBTCConfig, testConf.LBTCNoOfTokens)
+		for i := 0; i < testConf.LBTCNoOfTokens; i++ {
+			token := common.HexToAddress(lane.Source.Common.BridgeTokens[i].Address())
+			lane.Logger.Info().Str("attestationAPI", mockAdapterURL).
+				Str("token", token.String()).
+				Int("i", i).
+				Msg("Setting lbtc config")
+			jobParams.LBTCConfigs[i] = config.LBTCConfig{
+				SourceTokenAddress:           token,
+				AttestationAPI:               mockAdapterURL,
+				AttestationAPITimeoutSeconds: 5,
+			}
 		}
 	}
 	if !bootstrapAdded.Load() {

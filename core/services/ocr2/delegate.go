@@ -1932,7 +1932,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 
 	// PROVIDER BASED ARG CONSTRUCTION
 	// Write PluginConfig bytes to send source/dest relayer provider + info outside of top level rargs/pargs over the wire
-	dstConfigBytes, err := newExecPluginConfig(false, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.LBTCConfig, string(jb.ID)).Encode()
+	dstConfigBytes, err := newExecPluginConfig(false, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.GetLBTCConfigs(), string(jb.ID)).Encode()
 	if err != nil {
 		return nil, err
 	}
@@ -1965,7 +1965,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 
 func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, pluginJobSpecConfig ccipconfig.ExecPluginJobSpecConfig, transmitterID string, dstProvider types.CCIPExecProvider) (srcProvider types.CCIPExecProvider, srcChainID uint64, err error) {
 	spec := jb.OCR2OracleSpec
-	srcConfigBytes, err := newExecPluginConfig(true, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.LBTCConfig, string(jb.ID)).Encode()
+	srcConfigBytes, err := newExecPluginConfig(true, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.GetLBTCConfigs(), string(jb.ID)).Encode()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2014,13 +2014,13 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 	return
 }
 
-func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfig ccipconfig.LBTCConfig, jobID string) config.ExecPluginConfig {
+func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfigs []ccipconfig.LBTCConfig, jobID string) config.ExecPluginConfig {
 	return config.ExecPluginConfig{
 		IsSourceProvider: isSourceProvider,
 		SourceStartBlock: srcStartBlock,
 		DestStartBlock:   dstStartBlock,
 		USDCConfig:       usdcConfig,
-		LBTCConfig:       lbtcConfig,
+		LBTCConfigs:      lbtcConfigs,
 		JobID:            jobID,
 	}
 }

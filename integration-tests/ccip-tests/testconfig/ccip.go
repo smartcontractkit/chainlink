@@ -286,6 +286,7 @@ type CCIPTestGroupConfig struct {
 	USDCMockDeployment                         *bool                                 `toml:",omitempty"`
 	LBTCMockDeployment                         *bool                                 `toml:",omitempty"`
 	LBTCDestPoolDataAs32Bytes                  *bool                                 `toml:",omitempty"`
+	LBTCNoOfTokens                             int                                   `toml:",omitempty"`
 	CommitOCRParams                            *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
 	ExecOCRParams                              *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
 	OffRampConfig                              *OffRampConfig                        `toml:",omitempty"`

@@ -596,7 +596,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 			execPluginConfig.SourceStartBlock,
 			execPluginConfig.JobID,
 			execPluginConfig.USDCConfig,
-			execPluginConfig.LBTCConfig,
+			execPluginConfig.LBTCConfigs,
 			feeEstimatorConfig,
 		)
 	}
