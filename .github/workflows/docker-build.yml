@@ -247,7 +247,9 @@ jobs:
     secrets: inherit
 
   call-cre-workflow-don-benchmark:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    if: false
+    # temporarily disabled CRE-962
+    # if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [docker-core-plugins-testing]
     permissions:
       contents: read

@@ -17,14 +17,14 @@ import (
 var _ cldf.ChangeSetV2[ConfigureOCR3Input] = ConfigureOCR3{}
 
 type ConfigureOCR3Input struct {
-	ContractChainSelector uint64 `json:"contract_chain_selector" yaml:"contract_chain_selector"`
-	ContractQualifier     string `json:"contract_qualifier" yaml:"contract_qualifier"`
+	ContractChainSelector uint64 `json:"contractChainSelector" yaml:"contractChainSelector"`
+	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
 	DON          contracts.DonNodeSet `json:"don" yaml:"don"`
-	OracleConfig *ocr3.OracleConfig   `json:"oracle_config" yaml:"oracle_config"`
-	DryRun       bool                 `json:"dry_run" yaml:"dry_run"`
+	OracleConfig *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
+	DryRun       bool                 `json:"dryRun" yaml:"dryRun"`
 
-	MCMSConfig *ocr3.MCMSConfig `json:"mcms_config" yaml:"mcms_config"`
+	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type ConfigureOCR3 struct{}

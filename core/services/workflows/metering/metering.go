@@ -528,8 +528,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
 		r.stepRefLookup = append(r.stepRefLookup, ref+":"+step.CapabilityID)
 
-		// since map key order is non-deterministic, order the keys tohelp make tests deterministic
-		// until per-unit aggregation is fixed
+		// since map key order is non-deterministic, order the keys to help make tests deterministic
 		orderedUnits := make([]string, 0, len(step.Spends))
 		for unit := range step.Spends {
 			orderedUnits = append(orderedUnits, unit)
@@ -552,9 +551,16 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			}
 
 			if aggregated, ok := step.AggregatedSpends[unit]; ok {
-				stepDetails.AggSpendValue = aggregated.SpendValue.StringFixed(defaultDecimalPrecision)
+				// TODO: remove the inaccurate aggregated fields in favor of the repeated field
 				stepDetails.AggSpendUnit = aggregated.SpendUnit
+				stepDetails.AggSpendValue = aggregated.SpendValue.StringFixed(defaultDecimalPrecision)
 				stepDetails.AggSpendValueCre = aggregated.CRESpendValue.StringFixed(defaultDecimalPrecision)
+
+				stepDetails.AggSpend = append(stepDetails.AggSpend, &protoEvents.AggregatedSpendDetail{
+					SpendUnit:     aggregated.SpendUnit,
+					SpendValue:    aggregated.SpendValue.StringFixed(defaultDecimalPrecision),
+					SpendValueCre: aggregated.CRESpendValue.StringFixed(defaultDecimalPrecision),
+				})
 			}
 		}
 

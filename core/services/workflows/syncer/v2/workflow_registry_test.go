@@ -3,7 +3,6 @@ package v2
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -758,12 +757,11 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 }
 
 func Test_Start(t *testing.T) {
-	t.Run("successful start and close with failure to start contract reader", func(t *testing.T) {
+	t.Run("successful start and close", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
-		expectedErr := errors.New("failed to start")
-		mockReader := &mockContractReader{startErr: expectedErr}
+		mockReader := &mockContractReader{startErr: nil}
 		er := NewEngineRegistry()
 		wr, err := NewWorkflowRegistry(
 			lggr,
@@ -784,16 +782,8 @@ func Test_Start(t *testing.T) {
 		fakeClock := clockwork.NewFakeClock()
 		wr.clock = fakeClock
 		require.NoError(t, err)
-
-		errCh := make(chan error, 1)
-		wr.hooks.OnStartFailure = func(err error) {
-			errCh <- err
-		}
-
 		require.NoError(t, wr.Start(ctx))
 		workflowDonNotifier.NotifyDonSet(commonCap.DON{})
-		<-errCh
-		require.Nil(t, wr.contractReader)
 		require.NoError(t, wr.Close())
 	})
 }

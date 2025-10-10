@@ -21,21 +21,21 @@ import (
 var _ cldf.ChangeSetV2[ConfigureVaultPluginInput] = ConfigureVaultPlugin{}
 
 type InstanceIDComponents struct {
-	DKGContractQualifier string `json:"dkg_contract_qualifier" yaml:"dkg_contract_qualifier"`
-	ConfigDigest         string `json:"config_digest" yaml:"config_digest"`
+	DKGContractQualifier string `json:"dkgContractQualifier" yaml:"dkgContractQualifier"`
+	ConfigDigest         string `json:"configDigest" yaml:"configDigest"`
 }
 
 type ConfigureVaultPluginInput struct {
-	ContractChainSelector uint64 `json:"contract_chain_selector" yaml:"contract_chain_selector"`
-	ContractQualifier     string `json:"contract_qualifier" yaml:"contract_qualifier"`
+	ContractChainSelector uint64 `json:"contractChainSelector" yaml:"contractChainSelector"`
+	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
 	DON                   contracts.DonNodeSet         `json:"don" yaml:"don"`
-	OracleConfig          *ocr3.OracleConfig           `json:"oracle_config" yaml:"oracle_config"`
-	DryRun                bool                         `json:"dry_run" yaml:"dry_run"`
-	InstanceID            InstanceIDComponents         `json:"instance_id" yaml:"instance_id"`
-	ReportingPluginConfig *vault.ReportingPluginConfig `json:"reporting_plugin_config,omitempty" yaml:"reporting_plugin_config,omitempty"`
+	OracleConfig          *ocr3.OracleConfig           `json:"oracleConfig" yaml:"oracleConfig"`
+	DryRun                bool                         `json:"dryRun" yaml:"dryRun"`
+	InstanceID            InstanceIDComponents         `json:"instanceID" yaml:"instanceID"`
+	ReportingPluginConfig *vault.ReportingPluginConfig `json:"reportingPluginConfig,omitempty" yaml:"reportingPluginConfig,omitempty"`
 
-	MCMSConfig *ocr3.MCMSConfig `json:"mcms_config" yaml:"mcms_config"`
+	MCMSConfig *ocr3.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
 type ConfigureVaultPlugin struct{}
@@ -57,17 +57,17 @@ func (l ConfigureVaultPlugin) VerifyPreconditions(_ cldf.Environment, input Conf
 		return errors.New("oracle config is required")
 	}
 	if input.InstanceID.DKGContractQualifier == "" {
-		return errors.New("instanceID.dkg_contract_qualifier is required")
+		return errors.New("instanceID.dkgContractQualifier is required")
 	}
 	if input.InstanceID.ConfigDigest == "" {
 		return errors.New("instanceID.config_digest is required")
 	}
 	cd, err := hex.DecodeString(input.InstanceID.ConfigDigest)
 	if err != nil {
-		return fmt.Errorf("failed to decode instanceID.config_digest: %w", err)
+		return fmt.Errorf("failed to decode instanceID.configDigest: %w", err)
 	}
 	if len(cd) != 32 {
-		return fmt.Errorf("instanceID.config_digest must be 32 bytes, got %d", len(cd))
+		return fmt.Errorf("instanceID.configDigest must be 32 bytes, got %d", len(cd))
 	}
 	return nil
 }

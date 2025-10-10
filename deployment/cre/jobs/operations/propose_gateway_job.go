@@ -21,7 +21,7 @@ type ProposeGatewayJobInput struct {
 	Domain                  string
 	DONFilters              []offchain.TargetDONFilter
 	DONs                    []DON             `yaml:"dons"`
-	GatewayKeyChainSelector pkg.ChainSelector `yaml:"gateway_key_chain_selector"`
+	GatewayKeyChainSelector pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
 	JobLabels               map[string]string
 }
 
