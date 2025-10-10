@@ -228,11 +228,6 @@ func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
-	nodeSetOutput []*cre.WrappedNodeOutput,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	contractVersions map[string]string,
-	provider infra.Provider,
-	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	dons := creEnv.DonTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
@@ -249,7 +244,7 @@ func (o *EVM) PostEnvStartup(
 	for chainSelector, addresses := range allAddresses {
 		for _, typeAndVersion := range addresses {
 			if typeAndVersion.Type == keystone_changeset.KeystoneForwarder {
-				for _, bcOut := range blockchainOutputs {
+				for _, bcOut := range creEnv.Blockchains {
 					if bcOut.ChainSelector == chainSelector {
 						if !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) && !strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyEVM) {
 							continue

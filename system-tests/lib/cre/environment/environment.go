@@ -260,8 +260,12 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
 	}
 	creEnvironment := &cre.Environment{
-		CldfEnvironment: cldfEnvironment,
-		DonTopology:     cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(startedDONs.DONs())),
+		CldfEnvironment:   cldfEnvironment,
+		DonTopology:       cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(startedDONs.DONs())),
+		Blockchains:       startBlockchainsOutput.BlockChainOutputs,
+		ContractVersions:  input.ContractVersions,
+		Provider:          input.Provider,
+		CapabilityConfigs: input.CapabilityConfigs,
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -408,11 +412,6 @@ func SetupTestEnvironment(
 			ctx,
 			testLogger,
 			creEnvironment,
-			startedDONs.NodeOutputs(),
-			startBlockchainsOutput.BlockChainOutputs,
-			input.ContractVersions,
-			input.Provider,
-			input.CapabilityConfigs,
 		); pErr != nil {
 			return nil, fmt.Errorf("failed to execute PostEnvStartup for feature %s: %w", feature.Flag(), pErr)
 		}

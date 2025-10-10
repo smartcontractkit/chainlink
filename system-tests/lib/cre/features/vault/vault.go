@@ -118,11 +118,6 @@ func (o *Vault) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
-	nodeSetOutput []*cre.WrappedNodeOutput,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	contractVersions map[string]string,
-	provider infra.Provider,
-	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	// should we support more than one DON with OCR3 capability? Could there be 0? I guess as long as there's 1 with consensus v2?
 	dons := creEnv.DonTopology.DonsWithFlag(flag)
@@ -134,7 +129,7 @@ func (o *Vault) PostEnvStartup(
 	}
 	vaultDON := dons[0]
 
-	vaultOCR3Addr, vaultDKGOCR3Addr, err := deployVaultContracts(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
+	vaultOCR3Addr, vaultDKGOCR3Addr, err := deployVaultContracts(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
 	}

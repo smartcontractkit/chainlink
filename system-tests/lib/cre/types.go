@@ -195,7 +195,7 @@ type (
 	NodeIndexToSecretsOverride = map[int]string
 )
 
-type CapabilityConfigs = map[string]CapabilityConfig
+type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 
 type CapabilityConfig struct {
 	BinaryPath   string         `toml:"binary_path"`
@@ -1203,8 +1203,12 @@ func (f *LinkDonsToJDInput) Validate() error {
 }
 
 type Environment struct {
-	CldfEnvironment *cldf.Environment
-	DonTopology     *DonTopology
+	CldfEnvironment   *cldf.Environment
+	DonTopology       *DonTopology
+	Blockchains       []*WrappedBlockchainOutput
+	ContractVersions  map[string]string
+	Provider          infra.Provider
+	CapabilityConfigs map[CapabilityFlag]CapabilityConfig
 }
 
 type DeployCribDonsInput struct {
@@ -1353,11 +1357,6 @@ type Feature interface {
 		ctx context.Context,
 		testLogger zerolog.Logger,
 		creEnv *Environment,
-		nodeSetOutput []*WrappedNodeOutput,
-		blockchainOutputs []*WrappedBlockchainOutput,
-		contractVersions map[string]string,
-		provider infra.Provider,
-		capabilityConfigs map[string]CapabilityConfig,
 	) error
 }
 

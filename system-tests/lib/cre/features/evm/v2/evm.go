@@ -192,35 +192,29 @@ func (o *EVM) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
-	nodeSetOutput []*cre.WrappedNodeOutput,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	contractVersions map[string]string,
-	provider infra.Provider,
-	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	dons := creEnv.DonTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
 		return nil
 	}
 
-	chainsWithEVMCapability := chainsWithEVMCapability(blockchainOutputs, dons)
+	chainsWithEVMCapability := chainsWithEVMCapability(creEnv.Blockchains, dons)
 
 	for chainID, selector := range chainsWithEVMCapability {
 		qualifier := ks_contracts_op.CapabilityContractIdentifier(uint64(chainID))
-		_, _, seqErr := contracts.DeployOCR3Contract(testLogger, qualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
+		_, _, seqErr := contracts.DeployOCR3Contract(testLogger, qualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 		if seqErr != nil {
 			return fmt.Errorf("failed to deploy EVM OCR3 contract for chainID %d, selector %d: %w", chainID, selector, seqErr)
 		}
 	}
 
-	// create jobs
 	jobsErr := createJobs(
 		ctx,
 		creEnv.CldfEnvironment,
 		creEnv.DonTopology.HomeChainSelector,
 		creEnv.DonTopology,
-		provider,
-		capabilityConfigs,
+		creEnv.Provider,
+		creEnv.CapabilityConfigs,
 	)
 	if jobsErr != nil {
 		return jobsErr

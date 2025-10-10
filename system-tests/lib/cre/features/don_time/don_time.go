@@ -56,11 +56,6 @@ func (o *DONTime) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
-	nodeSetOutput []*cre.WrappedNodeOutput,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	contractVersions map[string]string,
-	provider infra.Provider,
-	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	// should we support more than one DON with DON Time capability?
 	dons := creEnv.DonTopology.DonsWithFlag(flag)
@@ -72,7 +67,7 @@ func (o *DONTime) PostEnvStartup(
 	}
 	donTimeDON := dons[0]
 
-	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
+	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
 	if timeErr != nil {
 		return fmt.Errorf("failed to deploy DONTime contract %w", timeErr)
 	}

@@ -72,11 +72,6 @@ func (o *Cron) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
-	nodeSetOutput []*cre.WrappedNodeOutput,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	contractVersions map[string]string,
-	provider infra.Provider,
-	capabilityConfigs map[string]cre.CapabilityConfig,
 ) error {
 	dons := creEnv.DonTopology.DonsWithFlag(flag)
 	if len(dons) == 0 {
@@ -94,8 +89,8 @@ func (o *Cron) PostEnvStartup(
 		return errors.Wrap(fErr, "failed to create capability job spec factory")
 	}
 
-	bcOuts := make([]*blockchain.Output, len(blockchainOutputs))
-	for i, b := range blockchainOutputs {
+	bcOuts := make([]*blockchain.Output, len(creEnv.Blockchains))
+	for i, b := range creEnv.Blockchains {
 		bcOuts[i] = b.BlockchainOutput
 	}
 
@@ -107,10 +102,10 @@ func (o *Cron) PostEnvStartup(
 	)(&cre.JobSpecInput{
 		CldEnvironment: creEnv.CldfEnvironment,
 		DonTopology:    creEnv.DonTopology,
-		InfraInput:     provider,
+		InfraInput:     creEnv.Provider,
 		/// Capabilities:  // not needed,
 		NodeSets:          creEnv.DonTopology.Dons.AsNodeSetWithChainCapabilities(),
-		CapabilityConfigs: capabilityConfigs,
+		CapabilityConfigs: creEnv.CapabilityConfigs,
 	})
 	if specErr != nil {
 		return fmt.Errorf("failed to build job spec for http action capability: %w", specErr)
