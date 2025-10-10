@@ -253,7 +253,13 @@ func (r *Report) Reserve(ctx context.Context) error {
 		return ErrInsufficientFunding
 	}
 
-	credits, err := decimal.NewFromString(resp.GetCredits())
+	creditsStr := "10000"
+	if resp.GetCredits() != "" {
+		r.lggr.Debug("empty credits; setting temporary default of 10000")
+		creditsStr = resp.GetCredits()
+	}
+
+	credits, err := decimal.NewFromString(creditsStr)
 	if err != nil {
 		r.switchToMeteringMode(fmt.Errorf("%w: failed to parse credits %s", err, resp.GetCredits()))
 
