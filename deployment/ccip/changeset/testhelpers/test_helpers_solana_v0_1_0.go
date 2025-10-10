@@ -1,6 +1,6 @@
 package testhelpers
 
-import (
+import {
 	"context"
 	"encoding/json"
 	"errors"
