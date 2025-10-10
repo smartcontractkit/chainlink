@@ -134,7 +134,6 @@ func Test_CRE_V2_Suite(t *testing.T) {
 
 		ExecuteConsensusTest(t, testEnv)
 	})
-
 }
 
 func Test_CRE_V2_EVM_Suite(t *testing.T) {
