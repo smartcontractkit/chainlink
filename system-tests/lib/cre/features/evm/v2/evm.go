@@ -60,14 +60,11 @@ func (o *EVM) Flag() cre.CapabilityFlag {
 }
 
 func (o *EVM) PreEnvStartup(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
-	cldfEnv *cldf.Environment,
-	provider infra.Provider,
 	topology *cre.Topology,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs,
-	contractVersions map[string]string,
+	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
@@ -76,8 +73,9 @@ func (o *EVM) PreEnvStartup(
 	}
 
 	// deploy EVM forwarders if needed
+	cldfEnv := creEnv.CldfEnvironment
 	evmForwardersSelectors := make([]uint64, 0)
-	for _, bcOut := range blockchainOutputs {
+	for _, bcOut := range creEnv.Blockchains {
 		for _, donMetadata := range topology.CapabilitiesAwareNodeSets() {
 			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
 				continue
@@ -92,7 +90,7 @@ func (o *EVM) PreEnvStartup(
 					continue
 				} else {
 					// deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
-					forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+					forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 					if forwarderAddr == nil {
 						evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
 					}
@@ -102,7 +100,7 @@ func (o *EVM) PreEnvStartup(
 	}
 
 	if len(evmForwardersSelectors) > 0 {
-		deployErr := evm.DeployEVMForwarders(testLogger, cldfEnv, evmForwardersSelectors, contractVersions)
+		deployErr := evm.DeployEVMForwarders(testLogger, cldfEnv, evmForwardersSelectors, creEnv.ContractVersions)
 		if deployErr != nil {
 			return nil, errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
 		}

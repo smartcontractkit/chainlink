@@ -12,14 +12,12 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -37,11 +35,8 @@ type WhitelistConfig struct {
 }
 
 func JobConfigs(
-	cldEnvironment *cldf.Environment,
 	registryChainOutput *blockchain.Output,
 	topology *cre.Topology,
-	infraInput infra.Provider,
-	capabilityConfigs map[string]cre.CapabilityConfig,
 	capabilitiesAwareNodeSets []*cre.CapabilitiesAwareNodeSet,
 	whitelistConfig WhitelistConfig,
 ) (map[cre.NodeUUID]*config.GatewayConfig, error) {

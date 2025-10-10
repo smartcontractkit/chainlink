@@ -13,7 +13,6 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
@@ -22,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const flag = cre.DONTimeCapability
@@ -34,14 +32,11 @@ func (o *DONTime) Flag() cre.CapabilityFlag {
 }
 
 func (o *DONTime) PreEnvStartup(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
-	cldfEnv *cldf.Environment,
-	provider infra.Provider,
 	topology *cre.Topology,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs,
-	contractVersions map[string]string,
+	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	// nothing to do

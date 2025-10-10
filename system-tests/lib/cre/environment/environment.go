@@ -142,6 +142,13 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(bcOutErr, "failed to start blockchains")
 	}
 
+	creEnvironment := &cre.Environment{
+		Blockchains:       startBlockchainsOutput.BlockChainOutputs,
+		ContractVersions:  input.ContractVersions,
+		Provider:          input.Provider,
+		CapabilityConfigs: input.CapabilityConfigs,
+	}
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Deploying Workflow and Capability Registry contracts")))
 
@@ -159,31 +166,25 @@ func SetupTestEnvironment(
 	if deployErr != nil {
 		return nil, pkgerrors.Wrap(deployErr, "failed to deploy Keystone contracts")
 	}
+	creEnvironment.CldfEnvironment = deployKeystoneContractsOutput.Env
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
 	topology, updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		startBlockchainsOutput.RegistryChain().ChainSelector,
+		creEnvironment,
 		input.CapabilitiesAwareNodeSets,
-		input.Provider,
-		startBlockchainsOutput.BlockChainOutputs,
-		deployKeystoneContractsOutput.Env.ExistingAddresses, //nolint:staticcheck // won't migrate now
-		deployKeystoneContractsOutput.Env.DataStore,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
-		input.CapabilityConfigs,
 	)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
 	gatewayJobConfigs, gErr := gateway.JobConfigs(
-		deployKeystoneContractsOutput.Env,
 		startBlockchainsOutput.RegistryChain().BlockchainOutput,
 		topology,
-		input.Provider,
-		input.CapabilityConfigs,
 		updatedNodeSets,
 		input.GatewayWhitelistConfig,
 	)
@@ -197,14 +198,11 @@ func SetupTestEnvironment(
 	for _, feature := range input.Features.List() {
 		testLogger.Info().Msgf("Executing PreEnvStartup for feature %s", feature.Flag())
 		output, preErr := feature.PreEnvStartup(
+			ctx,
 			testLogger,
 			startBlockchainsOutput.RegistryChain().ChainSelector,
-			deployKeystoneContractsOutput.Env,
-			input.Provider,
 			topology,
-			startBlockchainsOutput.BlockChainOutputs,
-			input.CapabilityConfigs,
-			input.ContractVersions,
+			creEnvironment,
 			gatewayJobConfigs,
 		)
 		if preErr != nil {
@@ -246,6 +244,7 @@ func SetupTestEnvironment(
 	if donStartErr != nil {
 		return nil, pkgerrors.Wrap(donStartErr, "failed to start DONs")
 	}
+	creEnvironment.DonTopology = cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(startedDONs.DONs()))
 
 	linkDonsToJDInput := &cre.LinkDonsToJDInput{
 		JDClient:          startedJD.Client,
@@ -255,17 +254,9 @@ func SetupTestEnvironment(
 		DONs:              startedDONs.DONs(),
 	}
 
-	cldfEnvironment, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
+	_, cldErr := cre.LinkToJobDistributor(ctx, linkDonsToJDInput)
 	if cldErr != nil {
 		return nil, pkgerrors.Wrap(cldErr, "failed to link DONs to Job Distributor")
-	}
-	creEnvironment := &cre.Environment{
-		CldfEnvironment:   cldfEnvironment,
-		DonTopology:       cre.NewDonTopology(startBlockchainsOutput.RegistryChain().ChainSelector, topology, cre.NewDons(startedDONs.DONs())),
-		Blockchains:       startBlockchainsOutput.BlockChainOutputs,
-		ContractVersions:  input.ContractVersions,
-		Provider:          input.Provider,
-		CapabilityConfigs: input.CapabilityConfigs,
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))

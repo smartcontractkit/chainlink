@@ -18,7 +18,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -35,23 +34,18 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const TronEVMChainID = 3360022319
 
 func PrepareNodeTOMLs(
 	registryChainSelector uint64,
+	creEnv *cre.Environment,
 	nodeSets []*cre.CapabilitiesAwareNodeSet,
-	provider infra.Provider,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	addressBook cldf.AddressBook,
-	datastore datastore.DataStore,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
-	capabilityConfigs cre.CapabilityConfigs,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
-	topology, tErr := cre.NewTopology(nodeSets, provider)
+	topology, tErr := cre.NewTopology(nodeSets, creEnv.Provider)
 	if tErr != nil {
 		return nil, nil, errors.Wrap(tErr, "failed to create topology")
 	}
@@ -68,7 +62,7 @@ func PrepareNodeTOMLs(
 
 	localNodeSets := topology.CapabilitiesAwareNodeSets()
 	chainPerSelector := make(map[uint64]*cre.WrappedBlockchainOutput)
-	for _, bcOut := range blockchainOutputs {
+	for _, bcOut := range creEnv.Blockchains {
 		if bcOut.SolChain != nil {
 			sel := bcOut.SolChain.ChainSelector
 			chainPerSelector[sel] = bcOut
@@ -120,8 +114,8 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					AddressBook:             addressBook,
-					Datastore:               datastore,
+					AddressBook:             creEnv.CldfEnvironment.ExistingAddresses,
+					Datastore:               creEnv.CldfEnvironment.DataStore,
 					DonMetadata:             donMetadata,
 					BlockchainOutput:        chainPerSelector,
 					Flags:                   donMetadata.Flags,
@@ -130,7 +124,7 @@ func PrepareNodeTOMLs(
 					HomeChainSelector:       registryChainSelector,
 					GatewayConnectorOutput:  topology.GatewayConnectorOutput,
 					NodeSet:                 localNodeSets[i],
-					CapabilityConfigs:       capabilityConfigs,
+					CapabilityConfigs:       creEnv.CapabilityConfigs,
 				},
 				configFactoryFunctions,
 			)

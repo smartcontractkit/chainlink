@@ -39,14 +39,11 @@ func (o *Consensus) Flag() cre.CapabilityFlag {
 }
 
 func (o *Consensus) PreEnvStartup(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
-	cldfEnv *cldf.Environment,
-	provider infra.Provider,
 	topology *cre.Topology,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs,
-	contractVersions map[string]string,
+	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)

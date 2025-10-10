@@ -15,7 +15,6 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -27,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const flag = cre.ConsensusCapability
@@ -39,14 +37,11 @@ func (o *Consensus) Flag() cre.CapabilityFlag {
 }
 
 func (o *Consensus) PreEnvStartup(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
-	cldfEnv *cldf.Environment,
-	provider infra.Provider,
 	topology *cre.Topology,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs,
-	contractVersions map[string]string,
+	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)

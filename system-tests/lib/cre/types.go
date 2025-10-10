@@ -1343,14 +1343,11 @@ type NodeUUID = string
 type Feature interface {
 	Flag() CapabilityFlag
 	PreEnvStartup(
+		ctx context.Context,
 		testLogger zerolog.Logger,
 		registryChainSelector uint64,
-		cldfEnv *cldf.Environment,
-		provider infra.Provider,
 		topology *Topology,
-		blockchainOutputs []*WrappedBlockchainOutput,
-		capabilityConfigs CapabilityConfigs,
-		contractVersions map[string]string,
+		creEnv *Environment,
 		gatewayJobConfigs map[NodeUUID]*config.GatewayConfig,
 	) (*PreEnvStartupOutput, error)
 	PostEnvStartup(

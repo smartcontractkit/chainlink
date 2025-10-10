@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -17,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
@@ -30,14 +28,11 @@ func (o *Cron) Flag() cre.CapabilityFlag {
 }
 
 func (o *Cron) PreEnvStartup(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
-	cldfEnv *cldf.Environment,
-	provider infra.Provider,
 	topology *cre.Topology,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs, // move to Topology
-	contractVersions map[string]string,
+	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())

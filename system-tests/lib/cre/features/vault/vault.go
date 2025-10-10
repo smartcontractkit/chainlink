@@ -40,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
@@ -57,14 +56,11 @@ func (o *Vault) Flag() cre.CapabilityFlag {
 }
 
 func (o *Vault) PreEnvStartup(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
-	cldfEnv *cldf.Environment,
-	provider infra.Provider,
 	topology *cre.Topology,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs,
-	contractVersions map[string]string,
+	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())
@@ -98,7 +94,7 @@ func (o *Vault) PreEnvStartup(
 		donsMetadata[idx] = donMetadata
 	}
 
-	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(cldfEnv.ExistingAddresses, registryChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(creEnv.CldfEnvironment.ExistingAddresses, registryChainSelector, keystone_changeset.WorkflowRegistry.String())
 	if wfErr != nil {
 		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
 	}
@@ -125,7 +121,7 @@ func (o *Vault) PreEnvStartup(
 				NetworkID:       ptr.Ptr("evm"),
 				ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
 				SyncStrategy:    ptr.Ptr("reconciliation"),
-				ContractVersion: ptr.Ptr(wfRegTypeVersion.String()),
+				ContractVersion: ptr.Ptr(wfRegTypeVersion.Version.String()),
 			}
 
 			stringifiedConfig, mErr := toml.Marshal(typedConfig)

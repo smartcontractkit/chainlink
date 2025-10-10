@@ -42,7 +42,6 @@ import (
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const flag = cre.WriteEVMCapability
@@ -54,14 +53,11 @@ func (o *EVM) Flag() cre.CapabilityFlag {
 }
 
 func (o *EVM) PreEnvStartup(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
-	cldfEnv *cldf.Environment,
-	provider infra.Provider,
 	topology *cre.Topology,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs,
-	contractVersions map[string]string,
+	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
@@ -69,9 +65,10 @@ func (o *EVM) PreEnvStartup(
 		return nil, nil
 	}
 
+	cldfEnv := creEnv.CldfEnvironment
 	evmForwardersSelectors := make([]uint64, 0)
 	tronForwardersSelectors := make([]uint64, 0)
-	for _, bcOut := range blockchainOutputs {
+	for _, bcOut := range creEnv.Blockchains {
 		for _, donMetadata := range topology.CapabilitiesAwareNodeSets() {
 			if slices.Contains(evmForwardersSelectors, bcOut.ChainSelector) {
 				continue
@@ -87,7 +84,7 @@ func (o *EVM) PreEnvStartup(
 					tronForwardersSelectors = append(tronForwardersSelectors, bcOut.ChainSelector)
 				} else {
 					// deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
-					forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+					forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 					if forwarderAddr == nil {
 						evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
 					}
@@ -97,14 +94,14 @@ func (o *EVM) PreEnvStartup(
 	}
 
 	if len(evmForwardersSelectors) > 0 {
-		deployErr := evm.DeployEVMForwarders(testLogger, cldfEnv, evmForwardersSelectors, contractVersions)
+		deployErr := evm.DeployEVMForwarders(testLogger, cldfEnv, evmForwardersSelectors, creEnv.ContractVersions)
 		if deployErr != nil {
 			return nil, errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
 		}
 	}
 
 	if len(tronForwardersSelectors) > 0 {
-		deployErr := deployTronForwarders(testLogger, cldfEnv, tronForwardersSelectors, contractVersions)
+		deployErr := deployTronForwarders(testLogger, cldfEnv, tronForwardersSelectors, creEnv.ContractVersions)
 		if deployErr != nil {
 			return nil, errors.Wrap(deployErr, "failed to deploy Tron Keystone forwarder")
 		}
@@ -145,7 +142,7 @@ func (o *EVM) PreEnvStartup(
 				evmData.FromAddress = evmKey.PublicAddress
 
 				var mergeErr error
-				evmData, mergeErr = mergeDefaultAndRuntimeConfigValues(evmData, capabilityConfigs, donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities, chainID)
+				evmData, mergeErr = mergeDefaultAndRuntimeConfigValues(evmData, creEnv.CapabilityConfigs, donMetadata.CapabilitiesAwareNodeSet().ChainCapabilities, chainID)
 				if mergeErr != nil {
 					return nil, errors.Wrap(mergeErr, "failed to merge default and runtime write-evm config values")
 				}

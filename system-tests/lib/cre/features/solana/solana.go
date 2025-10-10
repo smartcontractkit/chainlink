@@ -18,7 +18,6 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -34,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
@@ -47,14 +45,11 @@ func (o *Solana) Flag() cre.CapabilityFlag {
 }
 
 func (o *Solana) PreEnvStartup(
+	ctx context.Context,
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
-	cldfEnv *cldf.Environment,
-	provider infra.Provider,
 	topology *cre.Topology,
-	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs,
-	contractVersions map[string]string,
+	creEnv *cre.Environment,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(flag)
@@ -71,7 +66,7 @@ func (o *Solana) PreEnvStartup(
 
 	// deploy forwarders
 	solForwardersSelectors := make([]uint64, 0)
-	for _, bcOut := range blockchainOutputs {
+	for _, bcOut := range creEnv.Blockchains {
 		// consider we have just 1 solana chain
 		if bcOut.SolChain != nil {
 			solForwardersSelectors = append(solForwardersSelectors, bcOut.SolChain.ChainSelector)
@@ -79,6 +74,7 @@ func (o *Solana) PreEnvStartup(
 		}
 	}
 
+	cldfEnv := creEnv.CldfEnvironment
 	memoryDatastore := datastore.NewMemoryDataStore()
 	// load all existing addresses into memory datastore
 	mergeErr := memoryDatastore.Merge(cldfEnv.DataStore)
@@ -90,7 +86,7 @@ func (o *Solana) PreEnvStartup(
 		populateContracts := map[string]datastore.ContractType{
 			deployment.KeystoneForwarderProgramName: ks_sol.ForwarderContract,
 		}
-		version := semver.MustParse(contractVersions[ks_sol.ForwarderContract.String()])
+		version := semver.MustParse(creEnv.ContractVersions[ks_sol.ForwarderContract.String()])
 
 		// Forwarder for solana is predeployed on chain spin-up. We jus need to add it to memory datastore here
 		errp := memory.PopulateDatastore(memoryDatastore.AddressRefStore, populateContracts,
@@ -121,7 +117,7 @@ func (o *Solana) PreEnvStartup(
 		err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
 			Address:       out.Output.State.String(),
 			ChainSelector: sel,
-			Version:       semver.MustParse(contractVersions[ks_sol.ForwarderState.String()]),
+			Version:       semver.MustParse(creEnv.ContractVersions[ks_sol.ForwarderState.String()]),
 			Qualifier:     ks_sol.DefaultForwarderQualifier,
 			Type:          ks_sol.ForwarderState,
 		})
@@ -129,14 +125,14 @@ func (o *Solana) PreEnvStartup(
 			return nil, errors.Wrap(err, "failed to add address to the datastore for Solana Forwarder state")
 		}
 
-		testLogger.Info().Msgf("Deployed Forwarder %s contract on Solana chain chain %d programID: %s state: %s", contractVersions[ks_sol.ForwarderContract.String()], sel, out.Output.ProgramID.String(), out.Output.State.String())
+		testLogger.Info().Msgf("Deployed Forwarder %s contract on Solana chain chain %d programID: %s state: %s", creEnv.ContractVersions[ks_sol.ForwarderContract.String()], sel, out.Output.ProgramID.String(), out.Output.State.String())
 	}
 
 	cldfEnv.DataStore = memoryDatastore.Seal()
 
 	// add solana configuration to node's TOML config
 	data := solanaInput{}
-	for _, bcOut := range blockchainOutputs {
+	for _, bcOut := range creEnv.Blockchains {
 		if bcOut.SolChain == nil {
 			continue
 		}
@@ -171,11 +167,11 @@ func (o *Solana) PreEnvStartup(
 		}
 		data.FromAddress = key.PublicAddress
 
-		if capabilityConfigs == nil {
+		if creEnv.CapabilityConfigs == nil {
 			return nil, errors.New("additional capabilities configs are nil, but are required to configure the write-solana capability")
 		}
 
-		if writeSolConfig, ok := capabilityConfigs[cre.WriteSolanaCapability]; ok {
+		if writeSolConfig, ok := creEnv.CapabilityConfigs[cre.WriteSolanaCapability]; ok {
 			mergedConfig := envconfig.ResolveCapabilityConfigForDON(
 				cre.WriteSolanaCapability,
 				writeSolConfig.Config,
