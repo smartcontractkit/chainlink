@@ -203,6 +203,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
             setup-aptos: "true"
+            install-loopps: "true"
             trunk-auto-quarantine: "true"
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
