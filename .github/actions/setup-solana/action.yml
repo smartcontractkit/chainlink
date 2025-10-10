@@ -1,27 +1,64 @@
 name: Setup Solana CLI
 description: Setup solana CLI
 inputs:
-  base-path:
-    description: Path to the base of the repo
+
+
+  # version and installer checksum default values should
+  # be kept in sync with the values in tools/ci/install_solana
+  cli-version:
+    description: Version of solana CLI to install (e.g. v1.18.26)
     required: false
-    default: .
+    default: "v1.18.26"
+  installer-checksum:
+    description: Checksum of the solana CLI installer script
+    required: false
+    default: "cec72cde1cf36eb35cd8326245d23af0b6791fab68337c2953e2ca2a40af2c50"
+
+
 runs:
   using: composite
   steps:
-      - uses: actions/cache@v4
-        id: cache
-        name: Cache solana CLI
-        with:
-          path: |
-            ~/.local/share/solana/install/active_release/bin
-          key: ${{ runner.os }}-${{ runner.arch }}-solana-cli-${{ hashFiles('${{ inputs.base-path }}tools/ci/install_solana') }}
+    - uses: actions/cache@v4
+      id: cache
+      name: Cache solana CLI
+      with:
+        path: |
+          ~/.local/share/solana/install/active_release/bin
+        key: ${{ runner.os }}-${{ runner.arch }}-solana-cli-${{ hashFiles('tools/ci/install_solana') }}
 
-      - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        name: Install solana cli
-        shell: bash
-        working-directory: ${{ inputs.base-path }}
-        run: ./tools/ci/install_solana
+    - if: ${{ steps.cache.outputs.cache-hit != 'true' && runner.arch != 'ARM64' }}
+      name: Install solana cli
+      shell: bash
+      env:
+        SOLANA_CLI_VERSION: ${{ inputs.cli-version }}
+        SOLANA_CLI_INSTALLER_CHECKSUM: ${{ inputs.installer-checksum }}
+      run: ./tools/ci/install_solana
 
-      - name: Export solana path to env
-        shell: bash
-        run: echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >> $GITHUB_ENV
+    - if: ${{ steps.cache.outputs.cache-hit != 'true' && runner.arch == 'ARM64' }}
+      name: Build solana cli (arm64)
+      uses: ./.github/actions/setup-solana/build-solana-cli
+      with:
+        cli-version: ${{ inputs.cli-version }}
+
+    - name: Export solana path to env
+      shell: bash
+      env:
+        INSTALL_DIR: /home/runner/.local/share/solana/install/active_release/bin
+      run: |
+        if [ -d "$INSTALL_DIR" ]; then
+          ls -la "$INSTALL_DIR"
+        else
+          echo "Directory $INSTALL_DIR does not exist"
+          exit 1
+        fi
+
+        echo "PATH=$INSTALL_DIR:$PATH" >> $GITHUB_ENV
+
+    - name: Verify installation
+      shell: bash
+      run: |
+        if ! command -v solana &> /dev/null
+        then
+          echo "solana could not be found"
+          exit 1
+        fi

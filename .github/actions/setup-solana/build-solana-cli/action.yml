@@ -1,0 +1,47 @@
+name: Solana build CLI (arm64)
+description: Build Solana CLI
+inputs:
+  cli-version:
+    description: |
+      The version of solana CLI to build (e.g. v1.14.18).
+      Should refer to a git tag/release from the anza-xyz/agave repository.
+    required: true
+
+  install-path:
+    description: The path to install the built solana CLI binaries
+    required: true
+    default: "/home/runner/.local/share/solana/install/active_release/bin"
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout anza-xyz/agave
+      uses: actions/checkout@v5
+      with:
+        repository: anza-xyz/agave
+        path: agave
+        fetch-depth: 1
+        ref: ${{ inputs.cli-version }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: agave
+      run: |
+        sudo apt-get update
+        # https://github.com/anza-xyz/agave/blob/v1.18.26/docs/src/cli/install.md#build-from-source
+        sudo apt-get install -y \
+          build-essential \
+          pkg-config \
+          libudev-dev llvm libclang-dev \
+          protobuf-compiler
+
+    - name: Build solana CLI
+      shell: bash
+      env:
+        INSTALL_PATH: ${{ inputs.install-path }}
+      working-directory: agave
+      run: |
+        ./scripts/cargo-install-all.sh .
+        ls -la bin
+        mkdir -p $INSTALL_PATH
+        mv bin/* $INSTALL_PATH
