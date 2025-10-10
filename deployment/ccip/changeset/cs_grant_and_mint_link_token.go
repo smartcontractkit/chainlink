@@ -38,7 +38,7 @@ type GrantMintRoleInput struct {
 }
 
 type GrantMintRoleConfig struct {
-	ToAddress common.Address `json:"mintToAddress"`
+	ToAddress common.Address `json:"toAddress"`
 }
 
 func (cfg GrantMintRoleAndMintConfig) Validate(e cldf.Environment) error {
