@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -42,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 const chainID = 1337
@@ -55,7 +55,7 @@ func NewReader(
 	headTracker logpoller.HeadTracker,
 	client client.Client,
 	address common.Address,
-	chainReaderConfig evmrelaytypes.ChainReaderConfig,
+	chainReaderConfig config.ChainReaderConfig,
 ) types.ContractReader {
 	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Test(t), logPoller, headTracker, client, chainReaderConfig)
 	require.NoError(t, err)
@@ -157,7 +157,7 @@ func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) Test
 }
 
 func (t TestUniverse) NewContractReader(ctx context.Context, cfg []byte) (types.ContractReader, error) {
-	var config evmrelaytypes.ChainReaderConfig
+	var config config.ChainReaderConfig
 	err := json.Unmarshal(cfg, &config)
 	require.NoError(t.TestingT, err)
 	return evm.NewChainReaderService(ctx, logger.Test(t.TestingT), t.LogPoller, t.HeadTracker, t.SimClient, config)
@@ -170,7 +170,7 @@ func P2pIDsFromInts(ints []int64) [][32]byte {
 		p2pIDs = append(p2pIDs, p2pID)
 	}
 	sort.Slice(p2pIDs, func(i, j int) bool {
-		for k := 0; k < 32; k++ {
+		for k := range 32 {
 			if p2pIDs[i][k] < p2pIDs[j][k] {
 				return true
 			} else if p2pIDs[i][k] > p2pIDs[j][k] {
@@ -198,7 +198,7 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 	ccipCapabilityID, err := t.CapReg.GetHashedCapabilityId(nil, CcipCapabilityLabelledName, CcipCapabilityVersion)
 	require.NoError(t.TestingT, err)
 
-	for i := 0; i < len(p2pIDs); i++ {
+	for i := range p2pIDs {
 		_, err = t.CapReg.AddNodeOperators(t.Transactor, []kcr.CapabilitiesRegistryNodeOperator{
 			{
 				Admin: t.Transactor.From,

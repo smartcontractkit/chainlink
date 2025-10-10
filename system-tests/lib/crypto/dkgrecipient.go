@@ -7,28 +7,27 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type DKGRecipientKeys struct {
-	EncryptedJSONs [][]byte
-	PubKeys        []dkgocrtypes.P256ParticipantPublicKey
-	Password       string
+type DKGRecipientKey struct {
+	EncryptedJSON []byte
+	PubKey        dkgocrtypes.P256ParticipantPublicKey
+	Password      string
 }
 
-func GenerateDKGRecipientKeys(password string, n int) (*DKGRecipientKeys, error) {
-	result := &DKGRecipientKeys{
+func NewDKGRecipientKey(password string) (*DKGRecipientKey, error) {
+	result := &DKGRecipientKey{
 		Password: password,
 	}
-	for i := 0; i < n; i++ {
-		key, err := dkgrecipientkey.New()
-		if err != nil {
-			return nil, err
-		}
-		d, err := key.ToEncryptedJSON(password, utils.DefaultScryptParams)
-		if err != nil {
-			return nil, err
-		}
-
-		result.EncryptedJSONs = append(result.EncryptedJSONs, d)
-		result.PubKeys = append(result.PubKeys, key.PublicKey())
+	key, err := dkgrecipientkey.New()
+	if err != nil {
+		return nil, err
 	}
+	d, err := key.ToEncryptedJSON(password, utils.DefaultScryptParams)
+	if err != nil {
+		return nil, err
+	}
+
+	result.EncryptedJSON = d
+	result.PubKey = key.PublicKey()
+
 	return result, nil
 }

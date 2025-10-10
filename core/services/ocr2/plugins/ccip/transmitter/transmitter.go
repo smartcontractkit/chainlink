@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
 type roundRobinKeystore interface {
@@ -138,10 +139,8 @@ func (t *transmitter) FromAddress(ctx context.Context) common.Address {
 }
 
 func (t *transmitter) forwarderAddress() common.Address {
-	for _, a := range t.fromAddresses {
-		if a == t.effectiveTransmitterAddress {
-			return common.Address{}
-		}
+	if slices.Contains(t.fromAddresses, t.effectiveTransmitterAddress) {
+		return common.Address{}
 	}
 	return t.effectiveTransmitterAddress
 }

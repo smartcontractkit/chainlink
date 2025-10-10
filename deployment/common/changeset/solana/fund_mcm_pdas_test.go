@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/quarantine"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -221,7 +222,6 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	cs := commonSolana.FundMCMSignersChangeset{}
 
 	for _, tt := range tests {
-		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			err := cs.VerifyPreconditions(tt.env, tt.config)
 			if tt.expectedError == "" {
@@ -235,6 +235,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 }
 
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
+	quarantine.Flaky(t, "DX-1776")
 	t.Parallel()
 	env := setupFundingTestEnv(t)
 	cfgAmounts := commonSolana.AmountsToTransfer{

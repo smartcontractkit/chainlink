@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"sort"
 	"testing"
 	"time"
@@ -182,7 +183,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 				Capabilities: []changeset2.CapabilitiesRegistryCapability{
 					{
 						CapabilityID: "test-capability@1.0.0",
-						Metadata:     map[string]interface{}{"capabilityType": 2},
+						Metadata:     map[string]any{"capabilityType": 2},
 					},
 				},
 				DONs: []changeset2.CapabilitiesRegistryNewDONParams{
@@ -191,7 +192,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 						F:           uint8(donCfg.F), //nolint:gosec // disable G115
 						Nodes:       nodesP2PIDs,
 						DonFamilies: []string{"test-family"},
-						Config:      map[string]interface{}{"consensus": "basic", "timeout": "30s"},
+						Config:      map[string]any{"consensus": "basic", "timeout": "30s"},
 						CapabilityConfigurations: []changeset2.CapabilitiesRegistryCapabilityConfiguration{
 							{
 								CapabilityID: "test-capability@1.0.0",
@@ -262,9 +263,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 			"type":               "plugin",
 		}
 		if donCfg.Labels != nil {
-			for k, v := range donCfg.Labels {
-				labels[k] = v
-			}
+			maps.Copy(labels, donCfg.Labels)
 		}
 
 		nCfg := envtest.NodeConfig{
@@ -282,9 +281,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		"type":               "bootstrap",
 	}
 	if donCfg.Labels != nil {
-		for k, v := range donCfg.Labels {
-			btLabels[k] = v
-		}
+		maps.Copy(btLabels, donCfg.Labels)
 	}
 	nodesCfg = append(nodesCfg, envtest.NodeConfig{
 		ChainSelectors: []uint64{registryChainSel, aptosChainSel},

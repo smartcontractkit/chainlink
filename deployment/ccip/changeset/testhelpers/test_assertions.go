@@ -111,7 +111,6 @@ func ConfirmTokenPriceUpdatedForAll(
 ) {
 	var wg errgroup.Group
 	for _, chain := range e.BlockChains.EVMChains() {
-		chain := chain
 		wg.Go(func() error {
 			var startBlock *uint64
 			if startBlocks != nil {
@@ -256,10 +255,13 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					true,
 				))
 			case chainsel.FamilyTon:
-				// TODO: proper implementation, for now just stall
-				t.Log("Reached waiting for commit confirm, TON implementation is missing. Stalling to see more node logs")
-				time.Sleep(time.Minute * 5)
-				return fmt.Errorf("unsupported chain family; %v", family)
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeTON(
+					t,
+					srcChain,
+					e.BlockChains.TonChains()[dstChain],
+					state.TonChains[dstChain].OffRamp,
+					expectedSeqNum,
+				))
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}
@@ -332,7 +334,6 @@ func ConfirmMultipleCommits(
 	errGrp := &errgroup.Group{}
 
 	for sourceDest, seqRange := range expectedSeqNums {
-		seqRange := seqRange
 		srcChain := sourceDest.SourceChainSelector
 		destChain := sourceDest.DestChainSelector
 
@@ -838,6 +839,18 @@ func ConfirmExecWithSeqNrsForAll(
 				if err != nil {
 					return err
 				}
+			case chainsel.FamilyTon:
+				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsTON(
+					t,
+					srcChain,
+					e.BlockChains.TonChains()[dstChain],
+					state.TonChains[dstChain].OffRamp,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}
@@ -1118,7 +1131,7 @@ func getExecutionState(t *testing.T, sourceSelector uint64, offRamp offramp.OffR
 	return scc, executionState
 }
 
-func RequireConsistently(t *testing.T, condition func() bool, duration time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+func RequireConsistently(t *testing.T, condition func() bool, duration time.Duration, tick time.Duration, msgAndArgs ...any) {
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
 	tickTimer := time.NewTicker(tick)

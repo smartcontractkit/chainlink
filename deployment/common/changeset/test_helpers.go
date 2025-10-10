@@ -8,21 +8,15 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
@@ -197,45 +191,6 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 		}
 	}
 	return currentEnv, outputs, nil
-}
-
-func DeployLinkTokenTest(t *testing.T, memoryConfig memory.MemoryEnvironmentConfig) {
-	lggr := logger.Test(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memoryConfig)
-	chain1 := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-	config := []uint64{chain1}
-	e, _, err := ApplyChangesets(t, e, []ConfiguredChangeSet{
-		Configure(
-			cldf.CreateLegacyChangeSet(DeployLinkToken),
-			config,
-		),
-	})
-	require.NoError(t, err)
-	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
-	require.NoError(t, err)
-	state, err := commonState.MaybeLoadLinkTokenChainState(e.BlockChains.EVMChains()[chain1], addrs)
-	require.NoError(t, err)
-	// View itself already unit tested
-	_, err = state.GenerateLinkView()
-	require.NoError(t, err)
-
-	// solana test
-	if memoryConfig.SolChains > 0 {
-		solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
-		chainSelectorSolana := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-		e, err = Apply(t, e,
-			Configure(cldf.CreateLegacyChangeSet(DeploySolanaLinkToken), DeploySolanaLinkTokenConfig{
-				ChainSelector: chainSelectorSolana,
-				TokenPrivKey:  solLinkTokenPrivKey,
-				TokenDecimals: 9,
-			}),
-		)
-		require.NoError(t, err)
-		chainSelectorSolana = e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
-		addrs, err = e.ExistingAddresses.AddressesForChain(chainSelectorSolana)
-		require.NoError(t, err)
-		require.NotEmpty(t, addrs)
-	}
 }
 
 func SetPreloadedSolanaAddresses(t *testing.T, env cldf.Environment, selector uint64) {

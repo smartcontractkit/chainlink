@@ -170,7 +170,7 @@ func PermaBlessCommitStoreChangeset(env cldf.Environment, c PermaBlessCommitStor
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, c.MCMSConfig)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(env, state, c.MCMSConfig, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}

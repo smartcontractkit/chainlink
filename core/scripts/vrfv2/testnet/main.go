@@ -452,10 +452,7 @@ func main() {
 		helpers.PanicErr(err)
 
 		for i := 0; i < len(blockRange); i += int(*batchSize) {
-			j := i + int(*batchSize)
-			if j > len(blockRange) {
-				j = len(blockRange)
-			}
+			j := min(i+int(*batchSize), len(blockRange))
 
 			// Get suggested gas price and multiply by multiplier on every iteration
 			// so we don't have our transaction getting stuck. Need to be as fast as

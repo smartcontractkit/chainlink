@@ -457,7 +457,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
 	n := recoveryBatchSize*2 + 2
 	filters := []upkeepFilter{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		filters = append(filters, upkeepFilter{
 			upkeepID: big.NewInt(int64(i)),
 		})
@@ -632,7 +632,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					return errors.New("tx receipt boom")
 				},
 			},
@@ -660,7 +660,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					return nil
 				},
 			},
@@ -688,7 +688,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(200)
 					return nil
@@ -718,7 +718,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(200)
 					return nil
@@ -749,7 +749,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(200)
 					receipt.BlockHash = common.HexToHash("0x1")
@@ -785,7 +785,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(80)
 					return nil
@@ -815,7 +815,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(80)
 					return nil
@@ -855,7 +855,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(80)
 					return nil
@@ -890,7 +890,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(80)
 					return nil
@@ -929,7 +929,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(80)
 					return nil
@@ -980,7 +980,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(80)
 					receipt.BlockHash = [32]byte{1}
@@ -1036,7 +1036,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error {
 					receipt.Status = 1
 					receipt.BlockNumber = big.NewInt(80)
 					receipt.BlockHash = [32]byte{1}
@@ -1211,10 +1211,10 @@ func (p *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.Block, error
 
 type mockClient struct {
 	client.Client
-	CallContextFn func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error
+	CallContextFn func(ctx context.Context, receipt *types.Receipt, method string, args ...any) error
 }
 
-func (c *mockClient) CallContext(ctx context.Context, r interface{}, method string, args ...interface{}) error {
+func (c *mockClient) CallContext(ctx context.Context, r any, method string, args ...any) error {
 	receipt := r.(*types.Receipt)
 	return c.CallContextFn(ctx, receipt, method, args)
 }

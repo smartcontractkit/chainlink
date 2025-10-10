@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -19,7 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -29,6 +33,7 @@ import (
 	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -54,12 +59,40 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	backendTH.Backend.Commit()
 	require.NoError(t, err)
 	// setup the initial contract state
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
+
+	// Add requests to ensure we go above the MaxResultsPerQuery
+	activeAllowlistedRequestsCount := int(MaxResultsPerQuery + 1)
+	expiryTimestamp := time.Now().Add(24 * time.Hour)
+	for i := 0; i < activeAllowlistedRequestsCount; i++ {
+		createSecretsRequestParams, marshalErr := json.Marshal(vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       strconv.Itoa(i),
+						Namespace: "active",
+					},
+					EncryptedValue: "encrypted-value",
+				},
+			},
+		})
+		require.NoError(t, marshalErr)
+
+		allowlistRequest(t, backendTH, wfRegistryC, allowlistRequestParams{
+			Request: jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsCreate,
+				Params: (*json.RawMessage)(&createSecretsRequestParams),
+			},
+			Owner:           backendTH.ContractsOwner.From,
+			ExpiryTimestamp: expiryTimestamp,
+		})
+	}
+
 	// The number of workflows should be greater than the workflow registry contracts pagination limit to ensure
 	// that the syncer will query the contract multiple times to get the full list of workflows
 	numberWorkflows := 250
-	for i := 0; i < numberWorkflows; i++ {
+	for i := range numberWorkflows {
 		var workflowID [32]byte
 		_, err = rand.Read((workflowID)[:])
 		require.NoError(t, err)
@@ -109,6 +142,12 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, WorkflowActivated, event.Name)
 	}
+
+	assert.Len(t,
+		worker.GetAllowlistedRequests(context.Background()),
+		activeAllowlistedRequestsCount,
+		"synced allowlisted requests do not match expectations",
+	)
 }
 
 func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
@@ -180,7 +219,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 
 	// setup the initial contract state
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily1)
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily1, donFamily2}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily1, donFamily2})
 
 	servicetest.Run(t, worker)
 
@@ -278,7 +317,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 
 	// setup the initial contract state
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 	servicetest.Run(t, worker)
 
@@ -376,7 +415,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 
 	// setup the initial contract state
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 	servicetest.Run(t, worker)
 
@@ -409,12 +448,12 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 
 		// setup the initial contract state
 		updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
-		updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+		updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 		// Use a high number of workflows
 		// Tested up to 7_000
 		numberWorkflows := 1_000
-		for i := 0; i < numberWorkflows; i++ {
+		for i := range numberWorkflows {
 			var workflowID [32]byte
 			_, err = rand.Read((workflowID)[:])
 			require.NoError(t, err)
@@ -481,7 +520,7 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 
 	// setup the initial contract state
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
-	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily}, true)
+	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 	var workflowID [32]byte
 	_, err = rand.Read((workflowID)[:])
@@ -568,7 +607,7 @@ func updateAuthorizedAddressV2(
 	require.True(t, isAllowed)
 
 	requestTypeLink := uint8(0)
-	typeAndVersion := "WorkflowRegistry 2.0.0-dev"
+	typeAndVersion := "WorkflowRegistry 2.0.0"
 	chainID, err := th.Backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
 	linkContract := wfRegC.Address()
@@ -629,12 +668,12 @@ func updateAllowedDONsV2(
 	th *testutils.EVMBackendTH,
 	wfRegC *workflow_registry_wrapper_v2.WorkflowRegistry,
 	donFamilies []string,
-	allowed bool,
 ) {
 	t.Helper()
 	for _, donFamily := range donFamilies {
-		workflowLimit := uint32(1000)
-		_, err := wfRegC.SetDONLimit(th.ContractsOwner, donFamily, workflowLimit, allowed)
+		workflowLimit := uint32(10000)
+		userLimit := uint32(1000)
+		_, err := wfRegC.SetDONLimit(th.ContractsOwner, donFamily, workflowLimit, userLimit)
 		require.NoError(t, err, "failed to update DONs")
 
 		th.Backend.Commit()
@@ -646,7 +685,7 @@ func updateAllowedDONsV2(
 			From: th.ContractsOwner.From,
 		}, donFamily)
 		require.NoError(t, err)
-		require.Equal(t, workflowLimit, maxWorkflows)
+		require.Equal(t, workflowLimit, maxWorkflows.MaxWorkflows, "max workflows mismatch")
 	}
 }
 
@@ -713,6 +752,42 @@ func generateOwnershipProofHash(
 	data := workflowOwnerAddress + organizationID + nonce
 	hash := sha256.Sum256([]byte(data))
 	return hash
+}
+
+type allowlistRequestParams struct {
+	Request         jsonrpc.Request[json.RawMessage]
+	Owner           common.Address
+	ExpiryTimestamp time.Time
+}
+
+func allowlistRequest(
+	t *testing.T,
+	th *testutils.EVMBackendTH,
+	wfRegC *workflow_registry_wrapper_v2.WorkflowRegistry,
+	input allowlistRequestParams,
+) {
+	t.Helper()
+	totalAllowlistedRequestsBefore, err := wfRegC.TotalAllowlistedRequests(&bind.CallOpts{
+		From: th.ContractsOwner.From,
+	})
+	require.NoError(t, err, "failed to get total allowlisted requests")
+
+	requestDigest, err := vaulttypes.DigestForRequest(input.Request)
+	require.NoError(t, err)
+
+	_, err = wfRegC.AllowlistRequest(
+		th.ContractsOwner,
+		requestDigest,
+		uint32(input.ExpiryTimestamp.Unix()), //nolint:gosec // safe conversion
+	)
+	require.NoError(t, err, "failed to register allowlisted request")
+	th.Backend.Commit()
+
+	totalAllowlistedRequestsAfter, err := wfRegC.TotalAllowlistedRequests(&bind.CallOpts{
+		From: th.ContractsOwner.From,
+	})
+	require.NoError(t, err, "failed to get total allowlisted requests")
+	require.Equal(t, totalAllowlistedRequestsBefore.Uint64()+1, totalAllowlistedRequestsAfter.Uint64(), "total allowlisted requests mismatch")
 }
 
 // Prepare the ABI arguments, in the exact order as expected by the Solidity contract.

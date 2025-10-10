@@ -48,7 +48,7 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
 		DonName:           "don-1",
-		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]interface{}{"k": "v"}}},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
 	})
 	require.NoError(t, err)
 }
@@ -59,17 +59,17 @@ func TestAddCapabilities_Apply(t *testing.T) {
 
 	// Prepare new capability to add
 	newCapID := "new-test-capability@1.0.0"
-	newCapMetadata := map[string]interface{}{"capabilityType": float64(0), "responseType": float64(0)}
-	newCapConfig := map[string]interface{}{
-		"methodConfigs": map[string]interface{}{
-			"BalanceAt": map[string]interface{}{
-				"remoteExecutableConfig": map[string]interface{}{
+	newCapMetadata := map[string]any{"capabilityType": float64(0), "responseType": float64(0)}
+	newCapConfig := map[string]any{
+		"methodConfigs": map[string]any{
+			"BalanceAt": map[string]any{
+				"remoteExecutableConfig": map[string]any{
 					"requestTimeout":            "30s",
 					"serverMaxParallelRequests": 10,
 				},
 			},
-			"LogTrigger": map[string]interface{}{
-				"remoteTriggerConfig": map[string]interface{}{
+			"LogTrigger": map[string]any{
+				"remoteTriggerConfig": map[string]any{
 					"registrationRefresh":     "20s",
 					"registrationExpiry":      "60s",
 					"minResponsesToAggregate": 2,
@@ -78,8 +78,8 @@ func TestAddCapabilities_Apply(t *testing.T) {
 					"batchCollectionPeriod":   "0.2s",
 				},
 			},
-			"WriteReport": map[string]interface{}{
-				"remoteExecutableConfig": map[string]interface{}{
+			"WriteReport": map[string]any{
+				"remoteExecutableConfig": map[string]any{
 					"transmissionSchedule":      "OneAtATime",
 					"deltaStage":                "38.4s",
 					"requestTimeout":            "268.8s",
@@ -130,13 +130,13 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	err = expectedConfig.UnmarshalProto(configProtoBytes)
 	require.NoError(t, err, "should be able to unmarshal new capability config from proto bytes")
 
-	caps, err := capReg.GetCapabilities(nil)
+	caps, err := pkg.GetCapabilities(nil, capReg)
 	require.NoError(t, err)
 	var found bool
 	for _, c := range caps {
 		if c.CapabilityId == newCapID {
 			// metadata check
-			var gotMeta map[string]interface{}
+			var gotMeta map[string]any
 			require.NoError(t, json.Unmarshal(c.Metadata, &gotMeta))
 			assert.Equal(t, newCapMetadata, gotMeta)
 			found = true
@@ -146,7 +146,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 	require.True(t, found, "new capability should be registered")
 
 	// Nodes should now include new capability id
-	nodes, err := capReg.GetNodes(nil)
+	nodes, err := pkg.GetNodes(nil, capReg)
 	require.NoError(t, err)
 	for _, n := range nodes {
 		assert.Contains(t, n.CapabilityIds, newCapID, "node should have new capability id appended")

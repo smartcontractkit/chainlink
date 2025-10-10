@@ -37,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -62,7 +62,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 		apps               []*cltest.TestApplication
 	)
 	ports := freeport.GetN(t, 4)
-	for i := uint16(0); i < 4; i++ {
+	for i := range uint16(4) {
 		node := SetupNodeOCR2(t, owner, ports[i], true /* useForwarders */, b, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
@@ -121,7 +121,7 @@ chainID 			= 1337
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
 	ctx := testutils.Context(t)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		s := i
 		require.NoError(t, apps[i].Start(testutils.Context(t)))
 
@@ -227,7 +227,7 @@ updateInterval = "1m"
 
 	// Assert that all the OCR jobs get a run with valid values eventually.
 	var wg sync.WaitGroup
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		ic := i
 		wg.Add(1)
 		go func() {
@@ -236,7 +236,7 @@ updateInterval = "1m"
 			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
-			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
+			assert.Equal(t, fmt.Appendf(nil, "[\"%d\"]", 10*ic), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 			require.NoError(t, err)
 		}()
 	}
@@ -276,7 +276,7 @@ updateInterval = "1m"
 	store := keys.NewStore(keystore.NewEthSigner(apps[0].KeyStore.Eth(), testutils.SimulatedChainID))
 	chain, ok := apps[0].GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
 	require.True(t, ok)
-	ct, err := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, chain.Client(), contractABI, nil, chain.LogPoller(), lggr, store)
+	ct, err := transmitter.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, chain.Client(), contractABI, nil, chain.LogPoller(), lggr, store)
 	require.NoError(t, err)
 	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)

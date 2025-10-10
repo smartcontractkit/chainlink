@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -35,8 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 )
 
 const (
@@ -839,7 +838,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	if meteringOK {
-		err := meteringReport.Settle(stepState.Ref, response.Metadata.Metering)
+		err := meteringReport.Settle(stepState.Ref, response.Metadata)
 		if err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
@@ -874,9 +873,7 @@ func merge(baseConfig *values.Map, capConfig capabilities.CapabilityConfiguratio
 	m := values.EmptyMap()
 
 	if capConfig.DefaultConfig != nil {
-		for k, v := range capConfig.DefaultConfig.Underlying {
-			m.Underlying[k] = v
-		}
+		maps.Copy(m.Underlying, capConfig.DefaultConfig.Underlying)
 	}
 
 	// Add in user-provided config, but skipping any restricted keys
@@ -891,9 +888,7 @@ func merge(baseConfig *values.Map, capConfig capabilities.CapabilityConfiguratio
 	}
 
 	// Then overwrite the config with any restricted settings.
-	for k, v := range capConfig.RestrictedConfig.Underlying {
-		m.Underlying[k] = v
-	}
+	maps.Copy(m.Underlying, capConfig.RestrictedConfig.Underlying)
 
 	return m
 }
@@ -1326,8 +1321,8 @@ type Config struct {
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	WorkflowRegistryAddress string
-	// WorkflowRegistryChainID is the chain ID for the workflow registry
-	WorkflowRegistryChainID string
+	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
+	WorkflowRegistryChainSelector string
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
@@ -1451,22 +1446,19 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		return nil, fmt.Errorf("could not get local node state: %w", err)
 	}
 
-	if cfg.WorkflowRegistryChainID == "" {
+	if cfg.WorkflowRegistryChainSelector == "" {
 		// current integration tests (and things like the local-cre) sometimes
 		// need to avoid setting TOML config for the cap and workflow registry
 		// syncers as they spin up relayers. Setting default values like this
 		// prevents current and future tests from needing to setup custom
 		// wiring so that engine instances can be created with the proper registry values.
-		cfg.WorkflowRegistryChainID = "1"
+		// Default to Ethereum mainnet chain selector
+		cfg.WorkflowRegistryChainSelector = "5009297550715157269" // Ethereum mainnet
 	}
 
-	chainIDint, err := strconv.ParseUint(cfg.WorkflowRegistryChainID, 10, 64)
+	chainSelector, err := strconv.ParseUint(cfg.WorkflowRegistryChainSelector, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse chain ID: %w", err)
-	}
-	chainSelector, err := chain_selectors.SelectorFromChainId(chainIDint)
-	if err != nil {
-		return nil, fmt.Errorf("could not get chain selector: %w", err)
+		return nil, fmt.Errorf("could not parse chain selector: %w", err)
 	}
 
 	if cfg.WorkflowRegistryAddress == "" {
@@ -1487,7 +1479,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		)),
 		platform.KeyP2PID, nodeState.PeerID.String(),
 		platform.WorkflowRegistryAddress, cfg.WorkflowRegistryAddress,
-		platform.WorkflowRegistryChain, strconv.FormatUint(chainSelector, 10),
+		platform.WorkflowRegistryChainSelector, strconv.FormatUint(chainSelector, 10),
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,
 		platform.DonVersion, strconv.Itoa(int(nodeState.WorkflowDON.ConfigVersion)),
 		// TODO platform.KeyOrganizationID, wire through org ID from linking service
@@ -1502,7 +1494,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = cfg.WorkflowName
 
-	lggr := logger.With(cfg.Lggr, "workflowID", cfg.WorkflowID, "workflowOwner", cfg.WorkflowOwner, "workflowRegistryAddress", cfg.WorkflowRegistryAddress, "workflowRegistryChainID", cfg.WorkflowRegistryChainID)
+	lggr := logger.With(cfg.Lggr, "workflowID", cfg.WorkflowID, "workflowOwner", cfg.WorkflowOwner, "workflowRegistryAddress", cfg.WorkflowRegistryAddress, "workflowRegistryChainSelector", cfg.WorkflowRegistryChainSelector)
 
 	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String())
 
@@ -1535,7 +1527,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainID, metering.EngineVersionV1),
+		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV1),
 	}
 
 	return engine, nil

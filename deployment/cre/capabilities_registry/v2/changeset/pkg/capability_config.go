@@ -13,7 +13,7 @@ import (
 
 // CapabilityConfig is an untyped map representation of the CapabilityConfig proto message
 // It provides methods to marshal/unmarshal to/from proto bytes
-type CapabilityConfig map[string]interface{}
+type CapabilityConfig map[string]any
 
 // MarshalProto marshals the CapabilityConfig to proto bytes
 // If the CapabilityConfig is nil, it returns nil, nil, to support empty configs
@@ -25,6 +25,8 @@ func (c CapabilityConfig) MarshalProto() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to json marshal config: %w", err)
 	}
+
+	fmt.Println("JSON Encoded Config:", string(jsonEncodedCfg))
 
 	pbCfg := &pb.CapabilityConfig{}
 	ops := protojson.UnmarshalOptions{DiscardUnknown: true}
@@ -59,14 +61,14 @@ func (c *CapabilityConfig) UnmarshalProto(data []byte) error {
 }
 
 func (c CapabilityConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}(c)) // avoid infinite recursion by casting to underlying type
+	return json.Marshal(map[string]any(c)) // avoid infinite recursion by casting to underlying type
 }
 
 func (c *CapabilityConfig) UnmarshalJSON(data []byte) error {
 	if c == nil {
 		return errors.New("cannot unmarshal into nil CapabilityConfig")
 	}
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
 		return fmt.Errorf("failed to json unmarshal into map: %w", err)
 	}

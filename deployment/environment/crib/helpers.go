@@ -182,7 +182,6 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm
 
 	g, waitCtx := errgroup.WithContext(ctx)
 	for _, tx := range signedTxs {
-		tx := tx
 		g.Go(func() error {
 			receipt, err := bind.WaitMined(waitCtx, chain.Client, tx)
 			if err != nil {

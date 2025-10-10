@@ -46,7 +46,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 		report, err := r.BuildReport(ctx, rf)
 		require.NoError(t, err)
 
-		reportElems := make(map[string]interface{})
+		reportElems := make(map[string]any)
 		err = ReportTypes.UnpackIntoMap(reportElems, report)
 		require.NoError(t, err)
 
@@ -98,7 +98,7 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 		assert.EqualError(t, err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
 
 		longBad := make([]byte, 64)
-		for i := 0; i < len(longBad); i++ {
+		for i := range longBad {
 			longBad[i] = byte(i)
 		}
 		_, err = r.Decode(longBad)

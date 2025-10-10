@@ -143,7 +143,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 	expectedUpkeepID := cltest.MustInsertUpkeepForRegistry(t, db, registry).UpkeepID
 	var upkeepIDs []ubig.Big
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		upkeep := cltest.MustInsertUpkeepForRegistry(t, db, registry)
 		upkeepIDs = append(upkeepIDs, *upkeep.UpkeepID)
 	}
@@ -172,7 +172,7 @@ func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 
 	ordered := [100]int64{}
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		k := newUpkeep(registry, int64(i))
 		ordered[i] = int64(i)
 		err := orm.UpsertUpkeep(ctx, &k)
@@ -185,7 +185,7 @@ func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 
 	require.Len(t, eligibleUpkeeps, 100)
 	shuffled := [100]*ubig.Big{}
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		shuffled[i] = eligibleUpkeeps[i].UpkeepID
 	}
 	assert.NotEqualValues(t, ordered, shuffled)
@@ -199,7 +199,7 @@ func TestKeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 	}
 
@@ -227,7 +227,7 @@ func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 3, 10)
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 	}
 
@@ -271,7 +271,7 @@ func TestKeeperDB_NewEligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *testi
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 	}
 
@@ -294,7 +294,7 @@ func TestKeeperDB_NewEligibleUpkeeps_CoverBuddy(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 1, 2, 20)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 	}
 
@@ -319,7 +319,7 @@ func TestKeeperDB_NewEligibleUpkeeps_FirstTurn(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 	}
 

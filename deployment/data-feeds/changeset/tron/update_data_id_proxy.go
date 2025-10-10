@@ -22,7 +22,7 @@ func updateDataIDProxyLogic(env cldf.Environment, c types.UpdateDataIDProxyTronC
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert data ids: %s, %w", c.DataIDs, err)
 	}
 
-	txInfo, err := chain.TriggerContractAndConfirm(context.Background(), c.CacheAddress, "updateDataIdMappingsForProxies(address[],bytes16[])", []interface{}{"address[]", c.ProxyAddresses, "bytes16[]", dataIDs}, c.TriggerOptions)
+	txInfo, err := chain.TriggerContractAndConfirm(context.Background(), c.CacheAddress, "updateDataIdMappingsForProxies(address[],bytes16[])", []any{"address[]", c.ProxyAddresses, "bytes16[]", dataIDs}, c.TriggerOptions)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", txInfo.ID, err)
 	}

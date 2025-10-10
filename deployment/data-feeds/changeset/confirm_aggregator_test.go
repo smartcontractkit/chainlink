@@ -1,109 +1,107 @@
 package changeset_test
 
 import (
+	"crypto/ecdsa"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+
+	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func TestConfirmAggregator(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
-	cfg := memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
-	chainSelector := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0]
-
-	// without MCMS
-	newEnv, err := commonChangesets.Apply(t, env, commonChangesets.Configure(
-		changeset.DeployCacheChangeset,
-		types.DeployConfig{
-			ChainsToDeploy: []uint64{chainSelector},
-			Labels:         []string{"data-feeds"},
-		},
-	), commonChangesets.Configure(
-		changeset.DeployAggregatorProxyChangeset,
-		types.DeployAggregatorProxyConfig{
-			ChainsToDeploy:   []uint64{chainSelector},
-			AccessController: []common.Address{common.HexToAddress("0x")},
-		},
+	selector := chain_selectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
 	))
 	require.NoError(t, err)
 
-	records := newEnv.DataStore.Addresses().Filter(datastore.AddressRefByType("AggregatorProxy"))
+	// without MCMS
+
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.DeployCacheChangeset, types.DeployConfig{
+			ChainsToDeploy: []uint64{selector},
+			Labels:         []string{"data-feeds"},
+		}),
+		runtime.ChangesetTask(changeset.DeployAggregatorProxyChangeset, types.DeployAggregatorProxyConfig{
+			ChainsToDeploy:   []uint64{selector},
+			AccessController: []common.Address{common.HexToAddress("0x")},
+		}),
+	)
+	require.NoError(t, err)
+
+	records := rt.Environment().DataStore.Addresses().Filter(datastore.AddressRefByType("AggregatorProxy"))
 	require.Len(t, records, 1)
 	proxyAddress := records[0].Address
 
-	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
-		changeset.ProposeAggregatorChangeset,
-		types.ProposeConfirmAggregatorConfig{
-			ChainSelector:        chainSelector,
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.ProposeAggregatorChangeset, types.ProposeConfirmAggregatorConfig{
+			ChainSelector:        selector,
 			ProxyAddress:         common.HexToAddress(proxyAddress),
 			NewAggregatorAddress: common.HexToAddress("0x123"),
-		},
-	), commonChangesets.Configure(
-		changeset.ConfirmAggregatorChangeset,
-		types.ProposeConfirmAggregatorConfig{
-			ChainSelector:        chainSelector,
+		}),
+		runtime.ChangesetTask(changeset.ConfirmAggregatorChangeset, types.ProposeConfirmAggregatorConfig{
+			ChainSelector:        selector,
 			ProxyAddress:         common.HexToAddress(proxyAddress),
 			NewAggregatorAddress: common.HexToAddress("0x123"),
-		},
-	), commonChangesets.Configure(
-		cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
-		map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-			chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-		},
-	))
+		}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		}),
+	)
 	require.NoError(t, err)
 
 	// with MCMS
-	newEnv, err = commonChangesets.Apply(t, newEnv, commonChangesets.Configure(
-		changeset.ProposeAggregatorChangeset,
-		types.ProposeConfirmAggregatorConfig{
-			ChainSelector:        chainSelector,
+
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.ProposeAggregatorChangeset, types.ProposeConfirmAggregatorConfig{
+			ChainSelector:        selector,
 			ProxyAddress:         common.HexToAddress(proxyAddress),
 			NewAggregatorAddress: common.HexToAddress("0x124"),
-		},
-	), commonChangesets.Configure(
-		cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
-		commonChangesets.TransferToMCMSWithTimelockConfig{
+		}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2), commonChangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
-				chainSelector: {common.HexToAddress(proxyAddress)},
+				selector: {common.HexToAddress(proxyAddress)},
 			},
 			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
-		},
-	), commonChangesets.Configure(
-		changeset.ConfirmAggregatorChangeset,
-		types.ProposeConfirmAggregatorConfig{
-			ChainSelector:        chainSelector,
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err)
+	require.Len(t, rt.State().Proposals, 1)
+	require.True(t, rt.State().Proposals[0].IsExecuted)
+
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.ConfirmAggregatorChangeset, types.ProposeConfirmAggregatorConfig{
+			ChainSelector:        selector,
 			ProxyAddress:         common.HexToAddress(proxyAddress),
 			NewAggregatorAddress: common.HexToAddress("0x124"),
 			McmsConfig: &types.MCMSConfig{
 				MinDelay: 0,
 			},
-		},
-	))
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+	)
 	require.NoError(t, err)
+	require.Len(t, rt.State().Proposals, 2)
+	require.True(t, rt.State().Proposals[1].IsExecuted)
+
+	// We expect 8 outputs for the 8 changesets we ran.
+	require.Len(t, rt.State().Outputs, 8)
 }

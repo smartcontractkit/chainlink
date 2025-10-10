@@ -201,7 +201,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	lggr := logger.Test(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityPeers[i] = NewP2PPeerID(t)
 	}
 
@@ -219,7 +219,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	}
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeers[i] = NewP2PPeerID(t)
 	}
 
@@ -231,7 +231,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	broker := newTestAsyncMessageBroker(t, 100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeers[i])
 		receiver := newTestServer(capabilityPeers[i], capabilityDispatcher, workflowDonInfo, underlying)
 		broker.RegisterReceiverNode(capabilityPeers[i], receiver)
@@ -240,9 +240,11 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 
 	callers := make([]commoncap.ExecutableCapability, numWorkflowPeers)
 
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		caller := executable.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout, nil, "", lggr)
+		caller := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
+		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil)
+		require.NoError(t, err)
 		servicetest.Run(t, caller)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
@@ -367,4 +369,152 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 			panic(err)
 		}
 	}
+}
+
+func TestClient_SetConfig(t *testing.T) {
+	lggr := logger.Test(t)
+	capabilityID := "test_capability@1.0.0"
+
+	// Create broker and dispatcher like other tests
+	broker := newTestAsyncMessageBroker(t, 100)
+	peerID := NewP2PPeerID(t)
+	dispatcher := broker.NewDispatcherForNode(peerID)
+	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
+
+	// Create valid test data
+	validCapInfo := commoncap.CapabilityInfo{
+		ID:             capabilityID,
+		CapabilityType: commoncap.CapabilityTypeAction,
+		Description:    "Test capability",
+	}
+
+	validDonInfo := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+		F:       0,
+	}
+
+	validTimeout := 30 * time.Second
+
+	t.Run("successful config set", func(t *testing.T) {
+		transmissionConfig := &transmission.TransmissionConfig{
+			Schedule:   transmission.Schedule_OneAtATime,
+			DeltaStage: 10 * time.Millisecond,
+		}
+
+		err := client.SetConfig(validCapInfo, validDonInfo, validTimeout, transmissionConfig)
+		require.NoError(t, err)
+
+		// Verify config was set
+		info, err := client.Info(context.Background())
+		require.NoError(t, err)
+		assert.Equal(t, validCapInfo.ID, info.ID)
+	})
+
+	t.Run("mismatched capability ID", func(t *testing.T) {
+		invalidCapInfo := commoncap.CapabilityInfo{
+			ID:             "different_capability@1.0.0",
+			CapabilityType: commoncap.CapabilityTypeAction,
+		}
+
+		err := client.SetConfig(invalidCapInfo, validDonInfo, validTimeout, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "capability info provided does not match the client's capabilityID")
+		assert.Contains(t, err.Error(), "different_capability@1.0.0 != test_capability@1.0.0")
+	})
+
+	t.Run("empty DON members", func(t *testing.T) {
+		invalidDonInfo := commoncap.DON{
+			ID:      1,
+			Members: []p2ptypes.PeerID{},
+			F:       0,
+		}
+
+		err := client.SetConfig(validCapInfo, invalidDonInfo, validTimeout, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "empty localDonInfo provided")
+	})
+
+	t.Run("successful config update", func(t *testing.T) {
+		// Set initial config
+		initialTimeout := 10 * time.Second
+		err := client.SetConfig(validCapInfo, validDonInfo, initialTimeout, nil)
+		require.NoError(t, err)
+
+		// Replace with new config
+		newTimeout := 60 * time.Second
+		newDonInfo := commoncap.DON{
+			ID:      2,
+			Members: []p2ptypes.PeerID{NewP2PPeerID(t), NewP2PPeerID(t)},
+			F:       1,
+		}
+
+		err = client.SetConfig(validCapInfo, newDonInfo, newTimeout, nil)
+		require.NoError(t, err)
+
+		// Verify the config was completely replaced
+		info, err := client.Info(context.Background())
+		require.NoError(t, err)
+		assert.Equal(t, validCapInfo.ID, info.ID)
+	})
+}
+
+func TestClient_SetConfig_StartClose(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+	capabilityID := "test_capability@1.0.0"
+
+	// Create broker and dispatcher like other tests
+	broker := newTestAsyncMessageBroker(t, 100)
+	peerID := NewP2PPeerID(t)
+	dispatcher := broker.NewDispatcherForNode(peerID)
+	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
+
+	validCapInfo := commoncap.CapabilityInfo{
+		ID:             capabilityID,
+		CapabilityType: commoncap.CapabilityTypeAction,
+		Description:    "Test capability",
+	}
+
+	validDonInfo := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
+		F:       0,
+	}
+
+	validTimeout := 30 * time.Second
+
+	t.Run("start fails without config", func(t *testing.T) {
+		clientWithoutConfig := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
+		err := clientWithoutConfig.Start(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "config not set - call SetConfig() before Start()")
+	})
+
+	t.Run("start succeeds after config set", func(t *testing.T) {
+		require.NoError(t, client.SetConfig(validCapInfo, validDonInfo, validTimeout, nil))
+		require.NoError(t, client.Start(ctx))
+		require.NoError(t, client.Close())
+	})
+
+	t.Run("config can be updated after start", func(t *testing.T) {
+		// Create a fresh client for this test since services can only be started once
+		freshClient := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
+
+		// Set initial config and start
+		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil))
+		require.NoError(t, freshClient.Start(ctx))
+
+		// Update config while running
+		validCapInfo.Description = "new description"
+		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil))
+
+		// Verify config was updated
+		info, err := freshClient.Info(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, validCapInfo.Description, info.Description)
+
+		// Clean up
+		require.NoError(t, freshClient.Close())
+	})
 }

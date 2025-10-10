@@ -61,7 +61,6 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			// Message is the bytes itself from MessageSend(bytes message)
 			// i.e. ABI parsed.

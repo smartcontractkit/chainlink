@@ -258,7 +258,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	var wg sync.WaitGroup
 	wg.Add(nWorkers)
 	errCh := make(chan error, len(dbs))
-	for i := 0; i < nWorkers; i++ {
+	for range nWorkers {
 		go func() {
 			defer wg.Done()
 			for dbname := range ch {

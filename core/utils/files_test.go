@@ -64,7 +64,6 @@ func TestFileSize_MarshalText_String(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 
 		t.Run(test.expected, func(t *testing.T) {
 			t.Parallel()
@@ -113,7 +112,6 @@ func TestFileSize_UnmarshalText(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 
 		t.Run(test.input, func(t *testing.T) {
 			t.Parallel()

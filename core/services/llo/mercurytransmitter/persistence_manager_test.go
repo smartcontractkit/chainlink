@@ -113,7 +113,7 @@ func TestPersistenceManagerPrune(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	transmissions := make([]*Transmission, 45)
-	for i := uint64(0); i < 45; i++ {
+	for i := range uint64(45) {
 		transmissions[i] = makeSampleTransmission(i, sURL, ocrtypes.Report{byte(i)})
 	}
 
@@ -162,7 +162,7 @@ func Test_PersistenceManager_deleteTransmissions(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	transmissions := make([]*Transmission, 45)
-	for i := uint64(0); i < 45; i++ {
+	for i := range uint64(45) {
 		transmissions[i] = makeSampleTransmission(i, sURL, ocrtypes.Report{byte(i)})
 	}
 
@@ -170,7 +170,7 @@ func Test_PersistenceManager_deleteTransmissions(t *testing.T) {
 	require.NoError(t, pm.orm.Insert(ctx, transmissions))
 
 	hashesToDelete := make([][32]byte, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		hashesToDelete[i] = transmissions[i].Hash()
 	}
 	pm.deleteTransmissions(ctx, hashesToDelete, 7)
@@ -179,7 +179,7 @@ func Test_PersistenceManager_deleteTransmissions(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, ts, 25)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		assert.NotContains(t, ts, transmissions[i])
 	}
 	for i := 20; i < 45; i++ {

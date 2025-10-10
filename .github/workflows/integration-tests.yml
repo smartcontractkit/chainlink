@@ -126,6 +126,8 @@ jobs:
               - *core_changes
               - 'core/scripts/cre/environment/**/*'
               - 'system-tests/**'
+              - 'plugins/plugins.private.yaml'
+              - 'plugins/plugins.public.yaml'
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
@@ -280,7 +282,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           docker-additional-build-args: |
-            GO_COVER_FLAG=true
+            CL_IS_PROD_BUILD=false
           go-get-overrides: |
             github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
           gati-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
@@ -439,17 +441,17 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1 # 2025-07-08
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1 # 2025-10-06
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: ${{ needs.run-core-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
-      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      quarantine: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -471,6 +473,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
+      TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
 
   run-ccip-e2e-tests-setup:
     name: Run CCIP E2E Tests Setup
@@ -536,18 +539,18 @@ jobs:
       contents: read
     needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7120f3a614452e1c6b84876c055f574011a947d1 # 2025-07-08
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a1273177bb5fc9577ec88364df09e95e102e87d1 # 2025-10-06
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: ${{ needs.run-ccip-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
-      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       team: "CCIP"
+      quarantine: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -571,6 +574,7 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
+      TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
 
   check-e2e-test-results:
     if: always()

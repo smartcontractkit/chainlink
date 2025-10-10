@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -27,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/upkeepstate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 )
 
 var (
@@ -87,7 +88,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(ctx context.Context, rargs com
 	}
 
 	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI)
+	contractTransmitter, err := transmitter.NewContractTransmitter(ctx, r.lggr, rargs, r.ethKeystore, cfgWatcher.chain, cfgWatcher.contractAddress, transmitter.ConfigTransmitterOpts{PluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI, false)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +178,7 @@ func (t *ocr3keeperProviderContractTransmitter) FromAccount(ctx context.Context)
 
 type ocr2keeperProvider struct {
 	*configWatcher
-	contractTransmitter       ContractTransmitter
+	contractTransmitter       transmitter.ContractTransmitter
 	registry                  automation.Registry
 	encoder                   automation.Encoder
 	transmitEventProvider     automation.EventProvider
@@ -202,7 +203,7 @@ func (c *ocr2keeperProvider) Codec() commontypes.Codec {
 }
 
 func newOCR2KeeperConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
-	var relayConfig types.RelayConfig
+	var relayConfig config.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
 		return nil, err

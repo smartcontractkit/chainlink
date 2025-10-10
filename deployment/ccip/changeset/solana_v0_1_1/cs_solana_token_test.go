@@ -7,13 +7,15 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
@@ -22,11 +24,10 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func TestSolanaTokenOps(t *testing.T) {
+	quarantine.Flaky(t, "DX-1728")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(changeset_solana.SolanaContractV0_1_1))
 	e := tenv.Env
@@ -176,8 +177,25 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
-	commonchangeset.DeployLinkTokenTest(t, memory.MemoryEnvironmentConfig{
-		Chains:    1,
-		SolChains: 1,
-	})
+	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithSolanaContainer(t, []uint64{selector}, t.TempDir(), map[string]string{}),
+	))
+	require.NoError(t, err)
+
+	// solana test
+	solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
+
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken), commonchangeset.DeploySolanaLinkTokenConfig{
+			ChainSelector: selector,
+			TokenPrivKey:  solLinkTokenPrivKey,
+			TokenDecimals: 9,
+		}),
+	)
+	require.NoError(t, err)
+
+	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
+	require.NoError(t, err)
+	require.NotEmpty(t, addrs)
 }

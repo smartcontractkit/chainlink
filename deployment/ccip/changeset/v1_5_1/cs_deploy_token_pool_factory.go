@@ -5,14 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
-
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	ccipopsv1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 // DeployTokenPoolFactoryChangeset is a changeset that deploys the TokenPoolFactory contract on multiple chains.
@@ -97,30 +95,26 @@ func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFacto
 			registryModuleAddress = chainState.RegistryModules1_6[0].Address()
 		}
 
-		tokenPoolFactory, err := cldf.DeployContract(e.Logger, chain, addressBook,
-			func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory] {
-				address, tx, tokenPoolFactory, err := token_pool_factory.DeployTokenPoolFactory(
-					chain.DeployerKey,
-					chain.Client,
-					chainState.TokenAdminRegistry.Address(),
-					registryModuleAddress,
-					chainState.RMNProxy.Address(),
-					chainState.Router.Address(),
-				)
-
-				return cldf.ContractDeploy[*token_pool_factory.TokenPoolFactory]{
-					Address:  address,
-					Contract: tokenPoolFactory,
-					Tx:       tx,
-					Tv:       cldf.NewTypeAndVersion(shared.TokenPoolFactory, deployment.Version1_5_1),
-					Err:      err,
-				}
+		tpfReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipopsv1_5_1.DeployTokenPoolFactoryOp, chain, opsutil.EVMDeployInput[ccipopsv1_5_1.DeployTokenPoolFactoryInput]{
+			ChainSelector: chain.ChainSelector(),
+			DeployInput: ccipopsv1_5_1.DeployTokenPoolFactoryInput{
+				ChainSelector:              chain.ChainSelector(),
+				TokenAdminRegistry:         chainState.TokenAdminRegistry.Address(),
+				RegistryModule1_6Addresses: registryModuleAddress,
+				RMNProxy:                   chainState.RMNProxy.Address(),
+				Router:                     chainState.Router.Address(),
 			},
-		)
+		})
 		if err != nil {
+			e.Logger.Errorw("Failed to deploy token pool factory", "chain", chain.String(), "err", err)
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool factory: %w", err)
 		}
-		e.Logger.Infof("Successfully deployed token pool factory %s on %s", tokenPoolFactory.Address.String(), chain.String())
+
+		err = addressBook.Save(chainSel, tpfReport.Output.Address.Hex(), cldf.MustTypeAndVersionFromString(tpfReport.Output.TypeAndVersion))
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save address %s for chain %d: %w", tpfReport.Output.Address.Hex(), chainSel, err)
+		}
+		e.Logger.Infof("Successfully deployed token pool factory %s on %s", tpfReport.Output.Address.Hex(), chain.String())
 	}
 
 	return cldf.ChangesetOutput{AddressBook: addressBook}, nil

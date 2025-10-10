@@ -35,7 +35,7 @@ func setupORM(t *testing.T) (ORM, sqlutil.DataSource) {
 
 func generateChainSelectors(n int) []uint64 {
 	selectors := make([]uint64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		selectors[i] = rand.Uint64()
 	}
 
@@ -44,7 +44,7 @@ func generateChainSelectors(n int) []uint64 {
 
 func generateGasPrices(chainSelector uint64, n int) []GasPrice {
 	updates := make([]GasPrice, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		// gas prices can take up whole range of uint256
 		uint256Max := new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), big.NewInt(1))
 		row := GasPrice{
@@ -59,7 +59,7 @@ func generateGasPrices(chainSelector uint64, n int) []GasPrice {
 
 func generateTokenAddresses(n int) []string {
 	addrs := make([]string, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		addrs[i] = utils.RandomAddress().Hex()
 	}
 
@@ -79,7 +79,7 @@ func generateRandomTokenPrices(tokenAddrs []string) []TokenPrice {
 
 func generateTokenPrices(tokenAddr string, n int) []TokenPrice {
 	updates := make([]TokenPrice, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		row := TokenPrice{
 			TokenAddr:  tokenAddr,
 			TokenPrice: assets.NewWei(new(big.Int).Mul(big.NewInt(1e18), big.NewInt(int64(i)))),
@@ -157,7 +157,7 @@ func TestORM_InsertAndGetGasPrices(t *testing.T) {
 
 	// 5 jobs, each inserting prices for 10 chains, with 20 updates per chain.
 	expectedPrices := make(map[uint64]GasPrice)
-	for i := 0; i < numJobs; i++ {
+	for range numJobs {
 		for selector, updatesPerSelector := range updates {
 			lastIndex := len(updatesPerSelector) - 1
 
@@ -260,7 +260,7 @@ func TestORM_InsertAndGetTokenPrices(t *testing.T) {
 
 	// 5 jobs, each inserting prices for 10 chains, with 20 updates per chain.
 	expectedPrices := make(map[string]TokenPrice)
-	for i := 0; i < numJobs; i++ {
+	for range numJobs {
 		for addr, updatesPerAddr := range updates {
 			lastIndex := len(updatesPerAddr) - 1
 
@@ -367,9 +367,7 @@ func Benchmark_UpsertsTheSameTokenPrices(b *testing.B) {
 	addrs := generateTokenAddresses(numAddresses)
 	tokenUpdates := generateRandomTokenPrices(addrs)
 
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err1 := orm.UpsertTokenPricesForDestChain(ctx, destSelector, tokenUpdates, time.Second)
 		require.NoError(b, err1)
 	}

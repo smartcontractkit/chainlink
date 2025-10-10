@@ -62,26 +62,26 @@ URL = '%s'
 Username = '%s'
 Password = '%s'`
 
-	minimumNodeSpec = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	minimumNodeSpec = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "2000m",
 				"memory": "4Gi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "2000m",
 				"memory": "4Gi",
 			},
 		},
 	}
 
-	minimumDbSpec = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	minimumDbSpec = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "4000m",
 				"memory": "4Gi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "4000m",
 				"memory": "4Gi",
 			},
@@ -91,13 +91,13 @@ Password = '%s'`
 		"enablePrometheusPostgresExporter": true,
 	}
 
-	recNodeSpec = map[string]interface{}{
-		"resources": map[string]interface{}{
-			"requests": map[string]interface{}{
+	recNodeSpec = map[string]any{
+		"resources": map[string]any{
+			"requests": map[string]any{
 				"cpu":    "4000m",
 				"memory": "8Gi",
 			},
-			"limits": map[string]interface{}{
+			"limits": map[string]any{
 				"cpu":    "4000m",
 				"memory": "8Gi",
 			},
@@ -106,12 +106,12 @@ Password = '%s'`
 
 	recDbSpec = minimumDbSpec
 
-	gethNodeSpec = map[string]interface{}{
-		"requests": map[string]interface{}{
+	gethNodeSpec = map[string]any{
+		"requests": map[string]any{
 			"cpu":    "8000m",
 			"memory": "8Gi",
 		},
-		"limits": map[string]interface{}{
+		"limits": map[string]any{
 			"cpu":    "16000m",
 			"memory": "16Gi",
 		},
@@ -225,9 +225,9 @@ Load Config:
 			NetworkName: testNetwork.Name,
 			Simulated:   testNetwork.Simulated,
 			WsURLs:      testNetwork.URLs,
-			Values: map[string]interface{}{
+			Values: map[string]any{
 				"resources": gethNodeSpec,
-				"geth": map[string]interface{}{
+				"geth": map[string]any{
 					"blocktime":      *loadedTestConfig.Automation.General.BlockTime,
 					"capacity":       "20Gi",
 					"startGaslimit":  "20000000",
@@ -253,8 +253,8 @@ Load Config:
 		nodeSpec = recNodeSpec
 		dbSpec = recDbSpec
 	case "local":
-		nodeSpec = map[string]interface{}{}
-		dbSpec = map[string]interface{}{"stateful": true}
+		nodeSpec = map[string]any{}
+		dbSpec = map[string]any{"stateful": true}
 	default:
 		// minimum:
 	}
@@ -293,7 +293,7 @@ Load Config:
 	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
 
 	for i := 0; i < numberOfUpkeeps+1; i++ { // +1 for the OCR boot node
-		var overrideFn = func(_ interface{}, target interface{}) {
+		var overrideFn = func(_ any, target any) {
 			ctfconfig.MustConfigOverrideChainlinkVersion(loadedTestConfig.GetChainlinkImageConfig(), target)
 			ctfconfig.MightConfigOverridePyroscopeKey(loadedTestConfig.GetPyroscopeConfig(), target)
 		}

@@ -9,49 +9,15 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/burn_mint_with_external_minter_token_pool"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/hybrid_with_external_minter_token_pool"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/latest/token_governor"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
-	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20_with_drip"
-	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
-
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
-
-	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
-	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/factory_burn_mint_erc20"
@@ -60,10 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
@@ -75,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
@@ -86,14 +53,38 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
+	"github.com/smartcontractkit/chainlink/deployment"
+	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
+	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 const chainNotSupportedErr = "chain not supported"
@@ -527,7 +518,7 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 	grp := errgroup.Group{}
 
 	// Start fixed number of workers
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		grp.Go(func() error {
 			for chainSelector := range jobCh {
 				var name string
@@ -619,19 +610,19 @@ func (c CCIPOnChainState) View(e *cldf.Environment, chains []uint64) (CCIPStateV
 		AptosChains: make(map[string]view.AptosChainView),
 		TONChains:   make(map[string]tonstate.TONChainView),
 	}
-	m.Range(func(key, value interface{}) bool {
+	m.Range(func(key, value any) bool {
 		stateView.Chains[key.(string)] = value.(view.ChainView)
 		return true
 	})
-	sm.Range(func(key, value interface{}) bool {
+	sm.Range(func(key, value any) bool {
 		stateView.SolChains[key.(string)] = value.(view.SolChainView)
 		return true
 	})
-	am.Range(func(key, value interface{}) bool {
+	am.Range(func(key, value any) bool {
 		stateView.AptosChains[key.(string)] = value.(view.AptosChainView)
 		return true
 	})
-	tm.Range(func(key, value interface{}) bool {
+	tm.Range(func(key, value any) bool {
 		stateView.TONChains[key.(string)] = value.(tonstate.TONChainView)
 		return true
 	})
@@ -799,6 +790,26 @@ func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector u
 	return chain, chainState, nil
 }
 
+func (c CCIPOnChainState) UpdateMCMSStateWithAddressFromDatastoreForChain(e cldf.Environment, selector uint64, qualifier string) error {
+	mcmsStateWithQualifier, err := commonstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
+	if err != nil {
+		return fmt.Errorf("failed to load mcms state from datastore with qualifier %s: %w", qualifier, err)
+	}
+	for chainSelector, mcmsState := range mcmsStateWithQualifier {
+		if chainState, ok := c.EVMChainState(chainSelector); ok {
+			chainState.MCMSWithTimelockState = *mcmsState
+			chainState.ABIByAddress[mcmsState.ProposerMcm.Address().Hex()] = gethwrappers.ManyChainMultiSigABI
+			chainState.ABIByAddress[mcmsState.CancellerMcm.Address().Hex()] = gethwrappers.ManyChainMultiSigABI
+			chainState.ABIByAddress[mcmsState.BypasserMcm.Address().Hex()] = gethwrappers.ManyChainMultiSigABI
+			chainState.ABIByAddress[mcmsState.Timelock.Address().Hex()] = gethwrappers.RBACTimelockABI
+			chainState.ABIByAddress[mcmsState.CallProxy.Address().Hex()] = gethwrappers.CallProxyABI
+			// write back to state
+			c.WriteEVMChainState(chainSelector, chainState)
+		}
+	}
+	return nil
+}
+
 type LoadOption func(*loadStateOpts)
 
 type loadStateOpts struct {
@@ -833,8 +844,12 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 		evmMu:       &sync.RWMutex{},
 	}
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
-		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
-		if err != nil {
+		// get all addresses for chain from addressbook
+		// here we do not load addresses from datastore as there can be multiple
+		// contracts of the same type and version in datastore which can lead to
+		// ambiguity while loading the state
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
 		}
 		chainState, err := LoadChainState(e.GetContext(), chain, addresses, opts...)
@@ -1111,6 +1126,14 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
 			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
+		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_5_0).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool_and_proxy.NewBurnMintTokenPoolAndProxy, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.BurnMintTokenPoolsAndProxies = helpers.AddValueToNestedMap(state.BurnMintTokenPoolsAndProxies, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1).String():
 			ethAddress := common.HexToAddress(address)

@@ -278,8 +278,8 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		RateLimiter:    rl,
 		WorkflowLimits: sl,
 		// Set default workflow registry configuration for tests
-		WorkflowRegistryAddress: "0x1234567890123456789012345678901234567890",
-		WorkflowRegistryChainID: "11155111", // Ethereum Sepolia
+		WorkflowRegistryAddress:       "0x1234567890123456789012345678901234567890",
+		WorkflowRegistryChainSelector: "16015286601757825753", // Ethereum Sepolia
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -1110,7 +1110,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		// Call RateLimiter once as owner, so next execution gets blocked by per user limit
-		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: testWorkflowOwner})))
+		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: testWorkflowOwner, Workflow: testWorkflowID})))
 		servicetest.Run(t, eng)
 
 		select {
@@ -1164,7 +1164,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 
 		// Call RateLimiter once as other owner, so next execution gets blocked by global limit
-		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "some other owner"})))
+		require.True(t, eng.ratelimiter.Allow(contexts.WithCRE(t.Context(), contexts.CRE{Owner: "some other owner", Workflow: testWorkflowID})))
 		servicetest.Run(t, eng)
 
 		select {
@@ -2871,7 +2871,7 @@ targets:
 			func(cfg *Config) {
 				cfg.BillingClient = mBillingClient
 				cfg.WorkflowRegistryAddress = expectedRegistryAddress
-				cfg.WorkflowRegistryChainID = "11155111"
+				cfg.WorkflowRegistryChainSelector = "16015286601757825753" // Ethereum Sepolia
 			},
 		)
 
@@ -2934,7 +2934,7 @@ targets:
 		mBillingClient := new(mocks.BillingClient)
 
 		expectedRegistryAddress := "0x1234567890123456789012345678901234567890"
-		invalidChainSelector := "invalid-chain-id"
+		invalidChainSelector := "invalid-chain-selector"
 
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
 
@@ -2947,22 +2947,22 @@ targets:
 		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
 			cfg.BillingClient = mBillingClient
 			cfg.WorkflowRegistryAddress = expectedRegistryAddress
-			cfg.WorkflowRegistryChainID = invalidChainSelector
+			cfg.WorkflowRegistryChainSelector = invalidChainSelector
 			cfg.Lggr = lggr
 		})
 		require.Error(t, err)
 
 		// When chain selector parsing fails, the engine should fail to start
-		assert.Contains(t, err.Error(), "could not parse chain ID")
+		assert.Contains(t, err.Error(), "could not parse chain selector")
 
-		// Empty chain ID should now be handled gracefully with defaults
+		// Empty chain selector should now be handled gracefully with defaults
 		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
 			cfg.BillingClient = mBillingClient
 			cfg.WorkflowRegistryAddress = expectedRegistryAddress
-			cfg.WorkflowRegistryChainID = ""
+			cfg.WorkflowRegistryChainSelector = ""
 			cfg.Lggr = lggr
 		})
-		require.NoError(t, err) // Empty chain ID gets default value, no error expected
+		require.NoError(t, err) // Empty chain selector gets default value, no error expected
 
 		// Empty registry address should now be handled gracefully with defaults
 		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {
@@ -3069,7 +3069,7 @@ targets:
 			func(cfg *Config) {
 				cfg.BillingClient = mBillingClient
 				cfg.WorkflowRegistryAddress = expectedRegistryAddress
-				cfg.WorkflowRegistryChainID = "11155111"
+				cfg.WorkflowRegistryChainSelector = "16015286601757825753" // Ethereum Sepolia
 				cfg.Lggr = lggr
 			},
 		)
@@ -3131,7 +3131,7 @@ targets:
 			func(cfg *Config) {
 				cfg.BillingClient = mBillingClient
 				cfg.WorkflowRegistryAddress = ""
-				cfg.WorkflowRegistryChainID = ""
+				cfg.WorkflowRegistryChainSelector = ""
 				cfg.Lggr = lggr
 			},
 		)

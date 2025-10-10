@@ -59,7 +59,6 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 
 	g := new(errgroup.Group)
 	for _, op := range ops {
-		op := op
 		g.Go(func() error {
 			if op.command == closeAction {
 				if err := op.oracle.Close(); err != nil {

@@ -8,11 +8,12 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
-
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -27,11 +28,12 @@ const adapterLWBAErrorName = "AdapterLWBAError"
 
 type Telemeter interface {
 	EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error)
-	MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{})
+	MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any)
 	GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry
 	GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry
 	CaptureEATelemetry() bool
 	CaptureObservationTelemetry() bool
+	TrackSeqNr(digest types.ConfigDigest, seqNr uint64)
 }
 
 type TelemeterService interface {
@@ -69,6 +71,12 @@ func newTelemeter(params TelemeterParams) *telemeter {
 		chch:                        make(chan telemetryCollectionContext, 1000), // chch should be consumed from very quickly so we don't need a large buffer, but it also won't hurt
 		captureEATelemetry:          params.CaptureEATelemetry,
 		captureObservationTelemetry: params.CaptureObservationTelemetry,
+		chTransmissionSeqNr: make(chan struct {
+			digest types.ConfigDigest
+			seqNr  uint64
+		}, 10),
+		currentSeqNr:    make(map[string]uint64),
+		telemetryBuffer: make(map[string]map[uint64][]telemetryEntry),
 	}
 	if params.CaptureOutcomeTelemetry {
 		t.chOutcomeTelemetry = make(chan *datastreamsllo.LLOOutcomeTelemetry, 100) // only one per round so 100 buffer should be more than enough even for very fast rounds
@@ -92,11 +100,18 @@ func newTelemeter(params TelemeterParams) *telemeter {
 			if t.chReportTelemetry != nil {
 				close(t.chReportTelemetry)
 			}
+
+			close(t.chTransmissionSeqNr)
 			return nil
 		},
 	}.NewServiceEngine(params.Logger)
 
 	return t
+}
+
+type telemetryEntry struct {
+	telemType synchronization.TelemetryType
+	msg       proto.Message
 }
 
 type telemeter struct {
@@ -112,6 +127,18 @@ type telemeter struct {
 	chch                        chan telemetryCollectionContext
 	chOutcomeTelemetry          chan *datastreamsllo.LLOOutcomeTelemetry
 	chReportTelemetry           chan *datastreamsllo.LLOReportTelemetry
+
+	currentSeqNrMu      sync.Mutex
+	currentSeqNr        map[string]uint64
+	chTransmissionSeqNr chan struct {
+		digest types.ConfigDigest
+		seqNr  uint64
+	}
+
+	// Buffer Report and Outcome telemetry to only send
+	// for transmitting rounds sequence numbers
+	telemetryBufferMu sync.Mutex
+	telemetryBuffer   map[string]map[uint64][]telemetryEntry
 }
 
 func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
@@ -137,7 +164,7 @@ func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.Task
 }
 
 type telemetryCollectionContext struct {
-	in   <-chan interface{}
+	in   <-chan any
 	opts llo.DSOpts
 }
 
@@ -150,11 +177,11 @@ type telemetryCollectionContext struct {
 //
 // It is necessary to make a new channel for every Observation call because it
 // closes over DSOpts which is scoped to that call only.
-func (t *telemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) chan<- interface{} {
+func (t *telemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) chan<- any {
 	if !(t.captureObservationTelemetry || t.captureEATelemetry) {
 		return nil
 	}
-	ch := make(chan interface{}, size)
+	ch := make(chan any, size)
 	tcc := telemetryCollectionContext{
 		in:   ch,
 		opts: opts,
@@ -204,19 +231,21 @@ func (t *telemeter) start(_ context.Context) error {
 								// channel closed by producer
 								return
 							}
-							t.collectObservationTelemetry(p, tcc.opts)
+							t.prepareObservationTelemetry(p, tcc.opts)
 						case <-ctx.Done():
 							return
 						}
 					}
 				}()
-
-			case rt := <-t.chOutcomeTelemetry:
-				t.collectOutcomeTelemetry(rt)
-			case rt := <-t.chReportTelemetry:
-				t.collectReportTelemetry(rt)
 			case p := <-t.chTelemetryPipeline:
-				t.collectV3PremiumLegacyTelemetry(p)
+				t.prepareV3PremiumLegacyTelemetry(p)
+			case rt := <-t.chOutcomeTelemetry:
+				t.enqueueTelemetry(types.ConfigDigest(rt.ConfigDigest).Hex(), rt.SeqNr, synchronization.LLOOutcome, rt)
+			case rt := <-t.chReportTelemetry:
+				t.enqueueTelemetry(types.ConfigDigest(rt.ConfigDigest).Hex(), rt.SeqNr, synchronization.LLOReport, rt)
+			case tx := <-t.chTransmissionSeqNr:
+				// Drain any pending outcome or report telemetry before sending buffered telemetry
+				t.sendBufferedTelemetry(tx.digest, tx.seqNr)
 			case <-ctx.Done():
 				wg.Wait()
 				return
@@ -226,7 +255,83 @@ func (t *telemeter) start(_ context.Context) error {
 	return nil
 }
 
-func (t *telemeter) collectObservationTelemetry(p interface{}, opts llo.DSOpts) {
+func (t *telemeter) sendBufferedTelemetry(digest types.ConfigDigest, seqNr uint64) {
+	cd := digest.Hex()
+
+	// update current sequence number
+	t.currentSeqNrMu.Lock()
+	currentSeqNr := t.currentSeqNr[cd]
+	t.currentSeqNr[cd] = seqNr
+	t.currentSeqNrMu.Unlock()
+
+	// get buffered messages for this config digest
+	t.telemetryBufferMu.Lock()
+	defer t.telemetryBufferMu.Unlock()
+	digestMessages := t.telemetryBuffer[cd]
+
+	// include any message from the previous sequence number
+	// that was enqueued after the its transmission
+	var messages [2][]telemetryEntry
+	messages[0] = digestMessages[currentSeqNr]
+	messages[1] = digestMessages[seqNr]
+
+	t.eng.Debugw("Telemetry: Sending buffered telemetry",
+		"digest", digest, "currentSeqNr", currentSeqNr, "seqNr", seqNr, "message_count", len(messages[0])+len(messages[1]))
+
+	// drop stale messages
+	for messgesSeqNr := range digestMessages {
+		if messgesSeqNr <= seqNr {
+			delete(digestMessages, messgesSeqNr)
+		}
+	}
+
+	// drop messages for config digests that are not transmitting
+	for d := range t.telemetryBuffer {
+		if d == cd {
+			continue
+		}
+		delete(t.telemetryBuffer, d)
+	}
+
+	go func() {
+		for _, msgs := range messages {
+			for _, msg := range msgs {
+				bytes, err := proto.Marshal(msg.msg)
+				if err != nil {
+					t.eng.Warnf("protobuf marshal failed %v", err.Error())
+					continue
+				}
+				t.monitoringEndpoint.SendTypedLog(msg.telemType, bytes)
+			}
+		}
+	}()
+}
+
+func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchronization.TelemetryType, msg proto.Message) {
+	switch typ {
+	case synchronization.PipelineBridge, synchronization.LLOObservation, synchronization.EnhancedEAMercury:
+		bytes, err := proto.Marshal(msg)
+		if err != nil {
+			t.eng.Warnf("protobuf marshal failed %v", err.Error())
+			return
+		}
+		// observation and bridge telemetry are not buffered
+		t.monitoringEndpoint.SendTypedLog(typ, bytes)
+	default: // synchronization.LLOOutcome, synchronization.LLOReport
+		t.telemetryBufferMu.Lock()
+		defer t.telemetryBufferMu.Unlock()
+
+		if _, ok := t.telemetryBuffer[digest]; !ok {
+			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
+		}
+		t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
+			telemType: typ,
+			msg:       msg,
+		})
+	}
+}
+
+func (t *telemeter) prepareObservationTelemetry(p any, opts llo.DSOpts) {
 	var telemType synchronization.TelemetryType
 	var msg proto.Message
 	switch v := p.(type) {
@@ -264,34 +369,11 @@ func (t *telemeter) collectObservationTelemetry(p interface{}, opts llo.DSOpts) 
 		t.eng.Warnw("Unknown telemetry type", "type", fmt.Sprintf("%T", p))
 		return
 	}
-	bytes, err := proto.Marshal(msg)
-	if err != nil {
-		t.eng.Warnf("protobuf marshal failed %v", err.Error())
-		return
-	}
 
-	t.monitoringEndpoint.SendTypedLog(telemType, bytes)
+	t.enqueueTelemetry(opts.ConfigDigest().Hex(), opts.SeqNr(), telemType, msg)
 }
 
-func (t *telemeter) collectOutcomeTelemetry(rt *datastreamsllo.LLOOutcomeTelemetry) {
-	bytes, err := proto.Marshal(rt)
-	if err != nil {
-		t.eng.Warnf("protobuf marshal failed %v", err.Error())
-		return
-	}
-	t.monitoringEndpoint.SendTypedLog(synchronization.LLOOutcome, bytes)
-}
-
-func (t *telemeter) collectReportTelemetry(rt *datastreamsllo.LLOReportTelemetry) {
-	bytes, err := proto.Marshal(rt)
-	if err != nil {
-		t.eng.Warnf("protobuf marshal failed %v", err.Error())
-		return
-	}
-	t.monitoringEndpoint.SendTypedLog(synchronization.LLOReport, bytes)
-}
-
-func (t *telemeter) collectV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
+func (t *telemeter) prepareV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
 	eaTelemetryValues := ocrcommon.ParseMercuryEATelemetry(t.eng.SugaredLogger, d.trrs, mercuryutils.REPORT_V3)
 	for _, eaTelem := range eaTelemetryValues {
 		var benchmarkPrice, bidPrice, askPrice int64
@@ -342,19 +424,23 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
 			tea.Epoch = int64(epoch)
 		}
 
-		bytes, err := proto.Marshal(tea)
-		if err != nil {
-			t.eng.Warnf("protobuf marshal failed %v", err.Error())
-			continue
-		}
+		t.enqueueTelemetry(d.opts.ConfigDigest().Hex(), d.opts.SeqNr(), synchronization.EnhancedEAMercury, tea)
+	}
+}
 
-		t.monitoringEndpoint.SendTypedLog(synchronization.EnhancedEAMercury, bytes)
+func (t *telemeter) TrackSeqNr(digest types.ConfigDigest, seqNr uint64) {
+	select {
+	case t.chTransmissionSeqNr <- struct {
+		digest types.ConfigDigest
+		seqNr  uint64
+	}{digest, seqNr}:
+	default:
 	}
 }
 
 type TelemetryObserve struct {
 	Opts      llo.DSOpts
-	Telemetry interface{}
+	Telemetry any
 }
 
 type TelemetryPipeline struct {
@@ -372,7 +458,7 @@ type nullTelemeter struct{}
 
 func (t *nullTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
 }
-func (t *nullTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{}) {
+func (t *nullTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any) {
 	return nil
 }
 func (t *nullTelemeter) GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry {
@@ -407,4 +493,6 @@ func (t *nullTelemeter) Name() string {
 }
 func (t *nullTelemeter) Ready() error {
 	return nil
+}
+func (t *nullTelemeter) TrackSeqNr(digest types.ConfigDigest, seqNr uint64) {
 }

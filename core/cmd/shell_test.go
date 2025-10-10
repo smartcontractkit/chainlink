@@ -579,7 +579,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 // flagSetApplyFromAction applies the flags from action to the flagSet.
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
-func flagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
+func flagSetApplyFromAction(action any, flagSet *flag.FlagSet, parentCommand string) {
 	cliApp := cmd.Shell{}
 	app := cmd.NewApp(&cliApp)
 
@@ -615,6 +615,6 @@ func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, pare
 	return nil
 }
 
-func getFuncName(i interface{}) string {
+func getFuncName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }

@@ -131,7 +131,10 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	defer execCancel()
 
+	executionStart := time.Now()
 	capResp, err := capability.Execute(execCtx, capReq)
+	executionDuration := time.Since(executionStart)
+	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		c.lggr.Debugw("Capability execution failed", "capID", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, err)
@@ -144,7 +147,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	_ = events.EmitCapabilityFinishedEvent(ctx, c.loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, nil)
 
 	if meterReport != nil {
-		if err = meterReport.Settle(meteringRef, capResp.Metadata.Metering); err != nil {
+		if err = meterReport.Settle(meteringRef, capResp.Metadata); err != nil {
 			c.lggr.Errorw("failed to set metering for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		}
 	}

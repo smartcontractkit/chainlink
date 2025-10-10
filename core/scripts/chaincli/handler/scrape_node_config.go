@@ -264,7 +264,7 @@ func (h *baseHandler) scrapeNodeInfo(ctx context.Context, wg *sync.WaitGroup, i 
 	nodes[nodeAddresses[0]] = ni
 }
 
-func JSONMarshalWithoutEscape(t interface{}) ([]byte, error) {
+func JSONMarshalWithoutEscape(t any) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffer)
 	encoder.SetEscapeHTML(false)
@@ -273,7 +273,7 @@ func JSONMarshalWithoutEscape(t interface{}) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-func writeJSON(data interface{}, path string) error {
+func writeJSON(data any, path string) error {
 	dataBytes, err := JSONMarshalWithoutEscape(data)
 	if err != nil {
 		return err

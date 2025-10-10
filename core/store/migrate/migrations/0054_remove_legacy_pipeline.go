@@ -29,7 +29,7 @@ ALTER TABLE job_spec_errors_v2 RENAME TO job_spec_errors;
 `
 
 type queryer interface {
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 func Up54(ctx context.Context, tx *sql.Tx) error {

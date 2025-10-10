@@ -159,7 +159,6 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 	var idStrs []string
 	var reportCoordinator *common.Address
 	for _, result := range results {
-		result := result
 		reportCoordinator, err = ShouldIncludeCoordinator(result.CoordinatorContractAddress, reportCoordinator)
 		if err != nil {
 			r.logger.Debug("FunctionsReporting Query: skipping request with mismatched coordinator contract address", commontypes.LogFields{

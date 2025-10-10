@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"golang.org/x/sync/errgroup"
 
@@ -457,7 +458,7 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 	if cfg.MCMS == nil || len(batches) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -526,10 +527,8 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env cldf.Environment) error {
 			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
 				return fmt.Errorf("can't allowlist senders with disabled allowlist for src=%d, dest=%d", srcSel, destSel)
 			}
-			for _, sender := range update.AddedAllowlistedSenders {
-				if sender == (common.Address{}) {
-					return fmt.Errorf("can't allowlist 0-address sender for src=%d, dest=%d", srcSel, destSel)
-				}
+			if slices.Contains(update.AddedAllowlistedSenders, (common.Address{})) {
+				return fmt.Errorf("can't allowlist 0-address sender for src=%d, dest=%d", srcSel, destSel)
 			}
 		}
 	}
@@ -616,7 +615,7 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, onchain, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -661,13 +660,7 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(e cldf.Environment, state stat
 			return err
 		}
 		for _, feeToken := range feeTokens {
-			found := false
-			for _, onchainFeeToken := range onchainFeeTokens {
-				if onchainFeeToken == feeToken {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(onchainFeeTokens, feeToken)
 			if !found {
 				return fmt.Errorf("unknown fee token address=%s on chain=%d", feeToken.Hex(), chainSel)
 			}
@@ -719,7 +712,7 @@ func WithdrawOnRampFeeTokensChangeset(e cldf.Environment, cfg WithdrawOnRampFeeT
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1523,7 +1516,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1638,7 +1631,7 @@ func UpdateDynamicConfigOffRampChangeset(e cldf.Environment, cfg UpdateDynamicCo
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
@@ -1986,7 +1979,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e cldf.Environment, cfg UpdateToken
 	if cfg.MCMS == nil {
 		return cldf.ChangesetOutput{}, nil
 	}
-	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS)
+	mcmsContractByChain, err := deployergroup.BuildMcmAddressesPerChainByAction(e, state, cfg.MCMS, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}

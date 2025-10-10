@@ -32,7 +32,7 @@ const (
 	testWorkflowID          = "workflowId"
 	testWorkflowExecutionID = "workflowExecutionId"
 	dummyRegistryAddress    = "0x123"
-	dummyChainSelector      = "11155111"
+	dummyChainSelector      = "16015286601757825753" // Ethereum Sepolia chain selector
 	workflowV1              = "v1"
 	workflowV2              = "v2"
 )
@@ -341,13 +341,50 @@ func Test_Report_MeteringMode(t *testing.T) {
 		_, err := report.Deduct("ref1", ByResource(testUnitA, "", two))
 		require.NoError(t, err)
 
-		steps := []capabilities.MeteringNodeDetail{
+		steps := capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
-		}
+		}}
 		require.NoError(t, report.Settle("ref1", steps))
 
 		balanceAfter := report.balance.balance
 		require.Equal(t, balanceBefore, balanceAfter)
+	})
+
+	t.Run("single execution switches to metering mode for multiple executions", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "10000000000", // 10 gwei per credit
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		stepRef := "ref1"
+
+		_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		balanceBefore := report.balance.balance
+		require.NoError(t, report.Settle(stepRef, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "42"},
+			{Peer2PeerID: "abc", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "44"},
+			{Peer2PeerID: "abc", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
+			{Peer2PeerID: "lmno", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "12"},
+			{Peer2PeerID: "lmno", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
+		}}))
+
+		balanceAfter := report.balance.balance
+
+		assert.Equal(t, balanceBefore.String(), balanceAfter.String())
+		assert.True(t, report.meteringMode)
+		billingClient.AssertExpectations(t)
 	})
 }
 
@@ -757,7 +794,7 @@ func Test_Report_Settle(t *testing.T) {
 			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
 		report := newTestReport(t, logger.Nop(), billingClient)
 
-		require.ErrorIs(t, report.Settle("ref1", []capabilities.MeteringNodeDetail{}), ErrNoReserve)
+		require.ErrorIs(t, report.Settle("ref1", capabilities.ResponseMetadata{}), ErrNoReserve)
 	})
 
 	t.Run("returns an error if Deduct is not called first", func(t *testing.T) {
@@ -773,7 +810,7 @@ func Test_Report_Settle(t *testing.T) {
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 			Return(&successReserveResponse, nil)
 		require.NoError(t, report.Reserve(t.Context()))
-		require.ErrorIs(t, report.Settle("ref1", []capabilities.MeteringNodeDetail{}), ErrNoDeduct)
+		require.ErrorIs(t, report.Settle("ref1", capabilities.ResponseMetadata{}), ErrNoDeduct)
 		billingClient.AssertExpectations(t)
 	})
 
@@ -791,9 +828,9 @@ func Test_Report_Settle(t *testing.T) {
 			Return(&successReserveResponse, nil)
 		require.NoError(t, report.Reserve(t.Context()))
 
-		steps := []capabilities.MeteringNodeDetail{
+		steps := capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
-		}
+		}}
 
 		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(2)))
 		require.NoError(t, err)
@@ -817,10 +854,10 @@ func Test_Report_Settle(t *testing.T) {
 			Return(&successReserveResponseWithRates, nil)
 		require.NoError(t, report.Reserve(t.Context()))
 
-		steps := []capabilities.MeteringNodeDetail{
+		steps := capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "????"},
 			{Peer2PeerID: "abc", SpendUnit: testUnitA, SpendValue: "1"},
-		}
+		}}
 
 		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(2)))
 		require.NoError(t, err)
@@ -845,9 +882,9 @@ func Test_Report_Settle(t *testing.T) {
 			Return(&successReserveResponseWithRates, nil)
 		require.NoError(t, report.Reserve(t.Context()))
 
-		steps := []capabilities.MeteringNodeDetail{
+		steps := capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "xyz", SpendUnit: testUnitA, SpendValue: "2"},
-		}
+		}}
 
 		_, err := report.Deduct("ref1", ByResource(testUnitA, "", decimal.NewFromInt(1)))
 		require.NoError(t, err)
@@ -857,7 +894,7 @@ func Test_Report_Settle(t *testing.T) {
 		billingClient.AssertExpectations(t)
 	})
 
-	t.Run("successfully settles gas token usage", func(t *testing.T) {
+	t.Run("successfully settles gas token usage as single execution", func(t *testing.T) {
 		t.Parallel()
 
 		billingClient := mocks.NewBillingClient(t)
@@ -893,9 +930,9 @@ func Test_Report_Settle(t *testing.T) {
 		_, err := report.Deduct("ref1", ByDerivedAvailability(value, 1, info, config))
 		require.NoError(t, err)
 
-		steps := []capabilities.MeteringNodeDetail{
+		steps := capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "0.000700000000000000"}, // should convert to 3.5 credits
-		}
+		}, CapDON_N: 42}
 
 		require.NoError(t, report.Settle("ref1", steps))
 
@@ -966,9 +1003,9 @@ func Test_Report_FormatReport(t *testing.T) {
 			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 			require.NoError(t, err)
 
-			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
+			require.NoError(t, report.Settle(stepRef, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 				{Peer2PeerID: "xyz", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "42"},
-			}))
+			}, CapDON_N: 10}))
 
 			expected[stepRef] = &eventspb.MeteringReportStep{
 				Nodes: []*eventspb.MeteringReportNodeDetail{
@@ -979,9 +1016,17 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "84.0000000000",
 					},
 				},
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "840.0000000000",
+					},
+				},
 				AggSpendValue:    "42.0000000000",
-				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
-				AggSpendValueCre: "84.0000000000",
+				AggSpendUnit:     "RESOURCE_TYPE_COMPUTE",
+				AggSpendValueCre: "840.0000000000",
+				CapdonN:          10,
 			}
 		}
 
@@ -1009,11 +1054,11 @@ func Test_Report_FormatReport(t *testing.T) {
 			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 			require.NoError(t, err)
 
-			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
+			require.NoError(t, report.Settle(stepRef, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 				{Peer2PeerID: "xyz", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "42"},
 				{Peer2PeerID: "abc", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "44"},
 				{Peer2PeerID: "lmno", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "12"},
-			}))
+			}}))
 
 			expected[stepRef] = &eventspb.MeteringReportStep{
 				Nodes: []*eventspb.MeteringReportNodeDetail{
@@ -1036,9 +1081,106 @@ func Test_Report_FormatReport(t *testing.T) {
 						SpendValueCre: "24.0000000000",
 					},
 				},
-				AggSpendValue:    "42.0000000000", // median of 42, 44, 12
-				AggSpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+				AggSpendValue:    "42.0000000000",
+				AggSpendUnit:     "RESOURCE_TYPE_COMPUTE",
 				AggSpendValueCre: "84.0000000000",
+				CapdonN:          1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000", // median of 42, 44, 12
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "84.0000000000",
+					},
+				},
+			}
+		}
+
+		assert.Equal(t, expected, report.FormatReport().Steps)
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("single execution does not aggregate", func(t *testing.T) {
+		t.Parallel()
+
+		numSteps := 1
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRatesMulti,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "10000000000", // 10 gwei per credit
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		expected := map[string]*eventspb.MeteringReportStep{}
+
+		for i := range numSteps {
+			stepRef := strconv.Itoa(i)
+
+			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
+			require.NoError(t, err)
+
+			require.NoError(t, report.Settle(stepRef, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+				{Peer2PeerID: "xyz", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "42"},
+				{Peer2PeerID: "abc", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "44"},
+				{Peer2PeerID: "abc", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
+				{Peer2PeerID: "lmno", SpendUnit: billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(), SpendValue: "12"},
+				{Peer2PeerID: "lmno", SpendUnit: testUnitGas, SpendValue: "0.000001"}, // 1000 gwei as a decimal
+			}}))
+
+			expected[stepRef] = &eventspb.MeteringReportStep{
+				Nodes: []*eventspb.MeteringReportNodeDetail{
+					{
+						Peer_2PeerId:  "xyz",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:    "42",
+						SpendValueCre: "84.0000000000",
+					},
+					{
+						Peer_2PeerId:  "abc",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:    "44",
+						SpendValueCre: "88.0000000000",
+					},
+					{
+						Peer_2PeerId:  "lmno",
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValue:    "12",
+						SpendValueCre: "24.0000000000",
+					},
+					{
+						Peer_2PeerId:  "abc",
+						SpendUnit:     testUnitGas,
+						SpendValue:    "0.000001",
+						SpendValueCre: "100.0000000000",
+					},
+					{
+						Peer_2PeerId:  "lmno",
+						SpendUnit:     testUnitGas,
+						SpendValue:    "0.000001",
+						SpendValueCre: "100.0000000000",
+					},
+				},
+				AggSpendValue:    "1000000000000.0000000000",
+				AggSpendUnit:     "GAS.5009297550715157269",
+				AggSpendValueCre: "100.0000000000",
+				CapdonN:          1,
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000", // median of 42, 44, 12
+						SpendUnit:     billing.ResourceType_RESOURCE_TYPE_COMPUTE.String(),
+						SpendValueCre: "84.0000000000",
+					},
+					{
+						SpendValue:    "1000000000000.0000000000", // converted to wei before median is taken
+						SpendUnit:     testUnitGas,
+						SpendValueCre: "100.0000000000",
+					},
+				},
 			}
 		}
 
@@ -1152,21 +1294,21 @@ func Test_Report_SendReceipt(t *testing.T) {
 		// Each deduction of 2 units of compute consumes 1 credit (rate: 2 units per credit)
 		_, err := report.Deduct("step1", ByResource(testUnitA, "", decimal.NewFromInt(2)))
 		require.NoError(t, err)
-		require.NoError(t, report.Settle("step1", []capabilities.MeteringNodeDetail{
+		require.NoError(t, report.Settle("step1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "node1", SpendUnit: testUnitA, SpendValue: "2"},
-		}))
+		}}))
 
 		_, err = report.Deduct("step2", ByResource(testUnitA, "", decimal.NewFromInt(4)))
 		require.NoError(t, err)
-		require.NoError(t, report.Settle("step2", []capabilities.MeteringNodeDetail{
+		require.NoError(t, report.Settle("step2", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "node2", SpendUnit: testUnitA, SpendValue: "4"},
-		}))
+		}}))
 
 		_, err = report.Deduct("step3", ByResource(testUnitA, "", decimal.NewFromInt(2)))
 		require.NoError(t, err)
-		require.NoError(t, report.Settle("step3", []capabilities.MeteringNodeDetail{
+		require.NoError(t, report.Settle("step3", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "node3", SpendUnit: testUnitA, SpendValue: "2"},
-		}))
+		}}))
 
 		// Total deducted: 2 + 4 + 2 = 8 units of compute = 16 credits consumed
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
@@ -1257,14 +1399,22 @@ func Test_Report_EmitReceipt(t *testing.T) {
 			_, err := report.Deduct(stepRef, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 			require.NoError(t, err)
 
-			require.NoError(t, report.Settle(stepRef, []capabilities.MeteringNodeDetail{
+			require.NoError(t, report.Settle(stepRef, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 				{Peer2PeerID: "xyz", SpendUnit: "a", SpendValue: "42"},
-			}))
+			}}))
 
 			expected[stepRef] = &eventspb.MeteringReportStep{
+				AggSpend: []*eventspb.AggregatedSpendDetail{
+					{
+						SpendValue:    "42.0000000000",
+						SpendUnit:     "a",
+						SpendValueCre: "0.0000000000",
+					},
+				},
 				AggSpendValue:    "42.0000000000",
 				AggSpendUnit:     "a",
 				AggSpendValueCre: "0.0000000000",
+				CapdonN:          1,
 				Nodes: []*eventspb.MeteringReportNodeDetail{
 					{
 						Peer_2PeerId:  "xyz",
@@ -1328,12 +1478,12 @@ func Test_MeterReports(t *testing.T) {
 		_, err = r.Deduct(capabilityCall1, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 		require.NoError(t, err)
 
-		require.NoError(t, r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
+		require.NoError(t, r.Settle(capabilityCall1, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "1", SpendUnit: testUnitA, SpendValue: "0.8"},
 			{Peer2PeerID: "2", SpendUnit: testUnitA, SpendValue: "0.9"},
 			{Peer2PeerID: "3", SpendUnit: testUnitA, SpendValue: "1"},
 			{Peer2PeerID: "4", SpendUnit: testUnitA, SpendValue: "1"},
-		}))
+		}}))
 		require.NoError(t, mrs.End(t.Context(), workflowExecutionID1))
 		billingClient.AssertExpectations(t)
 	})
@@ -1347,7 +1497,7 @@ func Test_MeterReports(t *testing.T) {
 			Return(&billing.GetWorkflowExecutionRatesResponse{
 				RateCards: successRates,
 			}, nil)
-		// Use a valid chain selector (Sepolia: 11155111)
+		// Use a valid chain selector (Sepolia: 16015286601757825753)
 		mrs := NewReports(billingClient, testAccountID, testWorkflowID, logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).Return(&successReserveResponse, nil)
@@ -1362,12 +1512,12 @@ func Test_MeterReports(t *testing.T) {
 		_, err = r.Deduct(capabilityCall1, ByResource(testUnitA, "", decimal.NewFromInt(1)))
 		require.NoError(t, err)
 
-		require.NoError(t, r.Settle(capabilityCall1, []capabilities.MeteringNodeDetail{
+		require.NoError(t, r.Settle(capabilityCall1, capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
 			{Peer2PeerID: "1", SpendUnit: testUnitA, SpendValue: "1"},
 			{Peer2PeerID: "2", SpendUnit: testUnitA, SpendValue: "1"},
 			{Peer2PeerID: "3", SpendUnit: testUnitA, SpendValue: "1"},
 			{Peer2PeerID: "4", SpendUnit: testUnitA, SpendValue: "1"},
-		}))
+		}}))
 		require.NoError(t, mrs.End(t.Context(), workflowExecutionID1))
 		billingClient.AssertExpectations(t)
 	})

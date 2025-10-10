@@ -151,7 +151,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 				WriteTargetName:       writeTargetName,
 			},
 		}
-		testLogger.Info().Msgf("Workflow config for chain %d: WriteTarget=%s, DataFeedsCache=%s", chainID, writeTargetName, dataFeedsCacheAddress.Hex())
+		testLogger.Info().Msgf("Workflow config for chain %d: WriteTarget=%s, DataFeedsCache=%s, FeedID: %s", chainID, writeTargetName, dataFeedsCacheAddress.Hex(), feedID)
 		workflowFileLocation := cfg.WorkflowFileLocation
 
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &workflowConfig, workflowFileLocation)
@@ -331,7 +331,7 @@ func validateTronPrices(t *testing.T, testEnv *ttypes.TestEnvironment, bcOutput 
 			tronChain.Address,          // caller address
 			cacheAddr,                  // contract address
 			"getLatestAnswer(bytes16)", // function signature
-			[]interface{}{"bytes16", [16]byte(common.Hex2Bytes(feedID))}, // parameters
+			[]any{"bytes16", [16]byte(common.Hex2Bytes(feedID))}, // parameters
 		)
 		if err != nil {
 			testEnv.Logger.Error().Err(err).Msgf("FAILED to call getLatestAnswer on Tron chain %d", bcOutput.ChainSelector)

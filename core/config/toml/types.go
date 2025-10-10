@@ -1808,9 +1808,7 @@ func (m *MercurySecrets) SetFrom(f *MercurySecrets) (err error) {
 	}
 
 	if m.Credentials != nil && f.Credentials != nil {
-		for k, v := range f.Credentials {
-			m.Credentials[k] = v
-		}
+		maps.Copy(m.Credentials, f.Credentials)
 	} else if v := f.Credentials; v != nil {
 		m.Credentials = v
 	}

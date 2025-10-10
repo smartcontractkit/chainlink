@@ -1,13 +1,14 @@
 package changeset
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -19,7 +20,9 @@ var _ cldf.ChangeSetV2[ConfigureCapabilitiesRegistryInput] = ConfigureCapabiliti
 
 // ConfigureCapabilitiesRegistryInput must be JSON and YAML Serializable with no private fields
 type ConfigureCapabilitiesRegistryInput struct {
-	ChainSelector               uint64                             `json:"chainSelector" yaml:"chainSelector"`
+	ChainSelector uint64 `json:"chainSelector" yaml:"chainSelector"`
+	// Deprecated: Use Qualifier instead
+	// TODO(PRODCRE-1030): Remove support for CapabilitiesRegistryAddress
 	CapabilitiesRegistryAddress string                             `json:"capabilitiesRegistryAddress" yaml:"capabilitiesRegistryAddress"`
 	MCMSConfig                  *ocr3.MCMSConfig                   `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
 	Nops                        []CapabilitiesRegistryNodeOperator `json:"nops,omitempty" yaml:"nops,omitempty"`
@@ -37,8 +40,8 @@ type ConfigureCapabilitiesRegistryDeps struct {
 type ConfigureCapabilitiesRegistry struct{}
 
 func (l ConfigureCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, config ConfigureCapabilitiesRegistryInput) error {
-	if config.CapabilitiesRegistryAddress == "" {
-		return errors.New("capabilitiesRegistryAddress is not set")
+	if config.CapabilitiesRegistryAddress == "" && config.Qualifier == "" {
+		return fmt.Errorf("must set either contract address or qualifier (address: %s, qualifier: %s)", config.CapabilitiesRegistryAddress, config.Qualifier)
 	}
 	if _, ok := e.BlockChains.EVMChains()[config.ChainSelector]; !ok {
 		return fmt.Errorf("chain %d not found in environment", config.ChainSelector)
@@ -58,7 +61,7 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		}
 	}
 
-	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperator, len(config.Nops))
+	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, len(config.Nops))
 	for i, nop := range config.Nops {
 		nops[i] = nop.ToWrapper()
 	}
@@ -90,6 +93,16 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		dons[i] = d
 	}
 
+	var (
+		registryRef  datastore.AddressRefKey
+		contractAddr = config.CapabilitiesRegistryAddress
+	)
+
+	if config.Qualifier != "" {
+		registryRef = pkg.GetCapRegV2AddressRefKey(config.ChainSelector, config.Qualifier)
+		contractAddr = ""
+	}
+
 	capabilitiesRegistryConfigurationReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		sequences.ConfigureCapabilitiesRegistry,
@@ -100,7 +113,8 @@ func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config Configur
 		sequences.ConfigureCapabilitiesRegistryInput{
 			RegistryChainSel: config.ChainSelector,
 			MCMSConfig:       config.MCMSConfig,
-			ContractAddress:  config.CapabilitiesRegistryAddress,
+			ContractAddress:  contractAddr,
+			RegistryRef:      registryRef,
 			Nops:             nops,
 			Capabilities:     capabilities,
 			Nodes:            nodes,

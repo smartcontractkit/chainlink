@@ -6,7 +6,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
@@ -230,8 +232,10 @@ func startCmd() *cobra.Command {
 		doSetup                  bool
 		cleanupWait              time.Duration
 		withBeholder             bool
+		withDashboards           bool
 		withBilling              bool
 		protoConfigs             []string
+		setupConfig              SetupConfig
 	)
 
 	cmd := &cobra.Command{
@@ -387,6 +391,13 @@ func startCmd() *cobra.Command {
 				}
 			}
 
+			if withDashboards {
+				err := setupDashboards(setupConfig)
+				if err != nil {
+					return errors.Wrap(err, "failed to setup dashboards")
+				}
+			}
+
 			if withBilling {
 				startBillingErr := startBilling(
 					cmdContext,
@@ -435,8 +446,8 @@ func startCmd() *cobra.Command {
 					keystone_changeset.WorkflowRegistry.String())
 
 				var workflowDonID uint32
-				for idx, don := range output.DonTopology.DonsWithMetadata {
-					if flags.HasFlag(don.Flags, cre.WorkflowDON) {
+				for idx, don := range output.DonTopology.Dons.List() {
+					if don.HasFlag(cre.WorkflowDON) {
 						workflowDonID = libc.MustSafeUint32(idx + 1)
 						break
 					}
@@ -471,11 +482,66 @@ func startCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
+	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().StringArrayVarP(&protoConfigs, "with-proto-configs", "c", []string{"./proto-configs/default.toml"}, "Protos configs to use (e.g. './proto-configs/config_one.toml,./proto-configs/config_two.toml')")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v1", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
+	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	return cmd
+}
+
+func setupDashboards(setupCfg SetupConfig) error {
+	cfg, cfgErr := readConfig(setupCfg.ConfigPath)
+	if cfgErr != nil {
+		return errors.Wrap(cfgErr, "failed to read config")
+	}
+
+	// Run the `ctf obs up -f` command from the ./bin directory
+	ctfCmd := exec.Command("./bin/ctf", "obs", "up", "-f")
+
+	obsOutput, err := ctfCmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		return errors.Wrap(err, "failed to start ctf observability stack: "+string(obsOutput))
+	}
+
+	fmt.Print(libformat.PurpleText("\nObservabilty stack setup completed successfully\n"))
+
+	// Wait for grafana at localhost:3000 to be available
+	fmt.Print(libformat.PurpleText("\nWaiting for Grafana to be available at http://localhost:3000\n"))
+	grafanaContacted := false
+	for range 30 {
+		time.Sleep(1 * time.Second)
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
+		_, err = http.DefaultClient.Do(req)
+		if err != nil {
+			continue
+		}
+		grafanaContacted = true
+		break
+	}
+
+	if !grafanaContacted {
+		return errors.New("timed out waiting for Grafana to be available at http://localhost:3000")
+	}
+
+	// Check the file exists before trying to run the script
+	scriptPath := filepath.Join(cfg.Observability.TargetPath, "deploy-cre-local.sh")
+	if _, err = os.Stat(scriptPath); os.IsNotExist(err) {
+		return errors.New("deploy-cre-local.sh script does not exist, ensure the setup command has been run")
+	}
+
+	deployDashboardsCmd := exec.Command("./deploy-cre-local.sh")
+	deployDashboardsCmd.Dir = cfg.Observability.TargetPath
+	deployOutput, err := deployDashboardsCmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		return errors.Wrap(err, "failed to deploy dashboards: "+string(deployOutput))
+	}
+
+	fmt.Print(libformat.PurpleText("\nDashboards successfully deployed\n"))
+	return nil
 }
 
 func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
@@ -628,7 +694,7 @@ func StartCLIEnvironment(
 		ContractVersions:          env.ContractVersions(),
 		WithV2Registries:          env.WithV2Registries(),
 		JdInput:                   in.JD,
-		InfraInput:                *in.Infra,
+		Provider:                  *in.Infra,
 		S3ProviderInput:           in.S3ProviderInput,
 		CapabilityConfigs:         in.CapabilityConfigs,
 		CopyCapabilityBinaries:    withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)

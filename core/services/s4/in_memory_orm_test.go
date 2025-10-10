@@ -75,7 +75,7 @@ func TestInMemoryORM_DeleteExpired(t *testing.T) {
 	orm := s4.NewInMemoryORM()
 	baseTime := time.Now().Add(time.Minute).UTC()
 
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		var thisAddress common.Address
 		thisAddress[0] = byte(i)
 
@@ -109,7 +109,7 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	orm := s4.NewInMemoryORM()
 	expiration := time.Now().Add(100 * time.Second).UnixMilli()
 
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		var thisAddress common.Address
 		thisAddress[0] = byte(i)
 
@@ -140,7 +140,7 @@ func TestInMemoryORM_GetSnapshot(t *testing.T) {
 	expiration := time.Now().Add(100 * time.Second).UnixMilli()
 
 	const n = 256
-	for i := 0; i < n; i++ {
+	for i := range n {
 		var thisAddress common.Address
 		thisAddress[0] = byte(i)
 
@@ -162,7 +162,7 @@ func TestInMemoryORM_GetSnapshot(t *testing.T) {
 	assert.Len(t, rows, n)
 
 	testMap := make(map[uint64]int)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		testMap[rows[i].Version]++
 	}
 	assert.Len(t, testMap, n)

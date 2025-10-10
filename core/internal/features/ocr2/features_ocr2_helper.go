@@ -58,7 +58,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -114,7 +114,7 @@ func SetupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, c
 		"TEST",
 	)
 	// Ensure we have finality depth worth of blocks to start.
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		b.Commit()
 	}
 	require.NoError(t, err)
@@ -221,7 +221,6 @@ func RunTestIntegrationOCR2(t *testing.T) {
 		{"legacy", false},
 		{"chain-reader", true},
 	} {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
@@ -236,7 +235,7 @@ func RunTestIntegrationOCR2(t *testing.T) {
 				apps         []*cltest.TestApplication
 			)
 			ports := freeport.GetN(t, 4)
-			for i := 0; i < 4; i++ {
+			for i := range 4 {
 				node := SetupNodeOCR2(t, owner, ports[i], false /* useForwarders */, b, []commontypes.BootstrapperLocator{
 					// Supply the bootstrap IP and port as a V2 peer address
 					{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
@@ -291,7 +290,7 @@ fromBlock = %d
 				"0": {}, "10": {}, "20": {}, "30": {},
 			}
 			returnData := int(10)
-			for i := 0; i < 4; i++ {
+			for i := range 4 {
 				s := i
 				require.NoError(t, apps[i].Start(testutils.Context(t)))
 
@@ -555,20 +554,20 @@ updateInterval = "1m"
 			}()
 
 			ctx := testutils.Context(t)
-			for trial := 0; trial < 2; trial++ {
+			for trial := range 2 {
 				var retVal int
 
 				metaLock.Lock()
 				returnData = 10 * (trial + 1)
 				retVal = returnData
-				for i := 0; i < 4; i++ {
+				for i := range 4 {
 					expectedMeta[strconv.Itoa(returnData*i)] = struct{}{}
 				}
 				metaLock.Unlock()
 
 				// Assert that all the OCR jobs get a run with valid values eventually.
 				var wg sync.WaitGroup
-				for i := 0; i < 4; i++ {
+				for i := range 4 {
 					ic := i
 					wg.Add(1)
 					go func() {
@@ -583,7 +582,7 @@ updateInterval = "1m"
 						if !assert.NoError(t, err2) {
 							return
 						}
-						assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", retVal*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
+						assert.Equal(t, fmt.Appendf(nil, "[\"%d\"]", retVal*ic), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 					}()
 				}
 				wg.Wait()
@@ -634,7 +633,7 @@ updateInterval = "1m"
 				store := keys.NewStore(keystore.NewEthSigner(apps[0].KeyStore.Eth(), testutils.SimulatedChainID))
 				mp := mocks.NewLogPoller(t)
 				mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-				ct, err2 := evm.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, b.Client(), contractABI, nil, mp, lggr, store)
+				ct, err2 := transmitter.NewOCRContractTransmitter(testutils.Context(t), ocrContractAddress, b.Client(), contractABI, nil, mp, lggr, store)
 				require.NoError(t, err2)
 				configDigest, epoch, err2 := ct.LatestConfigDigestAndEpoch(testutils.Context(t))
 				require.NoError(t, err2)

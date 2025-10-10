@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum"
@@ -18,6 +19,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -25,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
-	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type txManager interface {
@@ -58,7 +59,7 @@ type contractTransmitter struct {
 }
 
 var _ FunctionsContractTransmitter = &contractTransmitter{}
-var _ evmRelayTypes.RouteUpdateSubscriber = &contractTransmitter{}
+var _ config.RouteUpdateSubscriber = &contractTransmitter{}
 
 func transmitterFilterName(addr common.Address) string {
 	return logpoller.FilterName("FunctionsOCR2ContractTransmitter", addr.String())
@@ -134,10 +135,8 @@ func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddre
 }
 
 func (oc *contractTransmitter) forwarderAddress() common.Address {
-	for _, a := range oc.fromAddresses {
-		if a == oc.effectiveTransmitterAddress {
-			return common.Address{}
-		}
+	if slices.Contains(oc.fromAddresses, oc.effectiveTransmitterAddress) {
+		return common.Address{}
 	}
 	return oc.effectiveTransmitterAddress
 }
@@ -229,7 +228,7 @@ func parseTransmitted(log []byte) ([32]byte, uint32, error) {
 	return configDigest, epoch, err
 }
 
-func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []interface{}, caller contractReader) ([]interface{}, error) {
+func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []any, caller contractReader) ([]any, error) {
 	input, err := contractABI.Pack(method, args...)
 	if err != nil {
 		return nil, err

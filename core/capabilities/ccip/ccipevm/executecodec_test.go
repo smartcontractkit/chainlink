@@ -34,14 +34,14 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uin
 	const numTokensPerMsg = 3
 
 	chainReports := make([]cciptypes.ExecutePluginReportSingleChain, numChainReports)
-	for i := 0; i < numChainReports; i++ {
+	for i := range numChainReports {
 		reportMessages := make([]cciptypes.Message, msgsPerReport)
-		for j := 0; j < msgsPerReport; j++ {
+		for j := range msgsPerReport {
 			data, err := cciptypes.NewBytesFromString(utils.RandomAddress().String())
 			assert.NoError(t, err)
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
-			for z := 0; z < numTokensPerMsg; z++ {
+			for z := range numTokensPerMsg {
 				encodedDestExecData, err2 := abiEncodeUint32(destGasAmount)
 				require.NoError(t, err2)
 
@@ -80,7 +80,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uin
 		}
 
 		tokenData := make([][][]byte, numTokensPerMsg)
-		for j := 0; j < numTokensPerMsg; j++ {
+		for j := range numTokensPerMsg {
 			tokenData[j] = [][]byte{{0x1}, {0x2, 0x3}}
 		}
 

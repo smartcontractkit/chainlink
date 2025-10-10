@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -191,9 +191,10 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
-			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+			platform.KeyWorkflowOwner, wfOwner,
 			platform.KeyWorkflowTag, payload.WorkflowTag,
 			platform.KeyOrganizationID, orgID,
+			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 		)
 
 		var err error
@@ -231,6 +232,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 			platform.KeyWorkflowTag, payload.Tag,
 			platform.KeyOrganizationID, orgID,
+			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 		)
 
 		var err error
@@ -279,6 +281,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowName, wfName,
 			platform.KeyWorkflowOwner, wfOwner,
 			platform.KeyOrganizationID, orgID,
+			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 		)
 
 		var herr error
@@ -444,7 +447,8 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 }
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte) (services.Service, error) {
-	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
+	lggr := h.lggr.Named("WorkflowEngine.Module").With("workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	moduleConfig := &host.ModuleConfig{Logger: lggr, Labeler: h.emitter}
 
 	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
 	module, err := host.NewModule(moduleConfig, binary, host.WithDeterminism())

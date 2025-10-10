@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"testing"
 	"time"
@@ -82,9 +83,7 @@ func (c DonContext) WaitForCapabilitiesToBeExposed(t *testing.T, dons ...*DON) {
 	for _, don := range dons {
 		caps, err := don.GetExternalCapabilities()
 		require.NoError(t, err)
-		for k, v := range caps {
-			allExpectedCapabilities[k] = v
-		}
+		maps.Copy(allExpectedCapabilities, caps)
 	}
 
 	require.Eventually(t, func() bool {

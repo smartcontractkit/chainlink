@@ -1207,7 +1207,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	destChain.Commit()
 
 	// Ensure we have at least finality blocks.
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		sourceChain.Commit()
 		destChain.Commit()
 	}

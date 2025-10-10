@@ -219,6 +219,7 @@ func Test_CCIPMessaging_MultiExecReports_EVM2Solana(t *testing.T) {
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+			params.ExecuteOffChainConfig.SolanaChainWriterConfigVersion = &cctypes.SolanaChainWriterExecuteConfigVersionV2
 			return params
 		}),
 	)
@@ -355,6 +356,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = true
 			params.ExecuteOffChainConfig.MaxReportMessages = 1
 			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+			params.ExecuteOffChainConfig.SolanaChainWriterConfigVersion = &cctypes.SolanaChainWriterExecuteConfigVersionV2
 			return params
 		}),
 	)
@@ -455,7 +457,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		numAccounts := 60
 		accountsFailure := make([][32]byte, numAccounts)
 		writableIndexes := []int{0, 1, 2} // Mark first 3 as writable
-		for i := 0; i < numAccounts; i++ {
+		for i := range numAccounts {
 			accountsFailure[i] = common.HexToHash(fmt.Sprintf("0x%064d", i+1))
 		}
 		// Set required accounts

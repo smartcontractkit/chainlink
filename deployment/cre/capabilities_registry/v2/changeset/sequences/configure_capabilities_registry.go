@@ -2,10 +2,12 @@ package sequences
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -22,18 +24,24 @@ type ConfigureCapabilitiesRegistryDeps struct {
 
 type ConfigureCapabilitiesRegistryInput struct {
 	RegistryChainSel uint64
+	RegistryRef      datastore.AddressRefKey
 	MCMSConfig       *ocr3.MCMSConfig
 	Description      string
-	ContractAddress  string
-	Nops             []capabilities_registry_v2.CapabilitiesRegistryNodeOperator
-	Nodes            []capabilities_registry_v2.CapabilitiesRegistryNodeParams
-	Capabilities     []capabilities_registry_v2.CapabilitiesRegistryCapability
-	DONs             []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
+	// Deprecated: Use RegistryRef
+	// TODO(PRODCRE-1030): Remove support for ContractAddress
+	ContractAddress string
+	Nops            []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams
+	Nodes           []capabilities_registry_v2.CapabilitiesRegistryNodeParams
+	Capabilities    []capabilities_registry_v2.CapabilitiesRegistryCapability
+	DONs            []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
 }
 
 func (c ConfigureCapabilitiesRegistryInput) Validate() error {
-	if c.ContractAddress == "" {
-		return errors.New("ContractAddress is not set")
+	if c.ContractAddress == "" && c.RegistryRef == nil {
+		return errors.New("must set either registry ref or contract address")
+	}
+	if c.RegistryRef != nil && c.ContractAddress != "" {
+		return errors.New("cannot set both address and registry ref")
 	}
 	return nil
 }
@@ -53,13 +61,22 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 	func(b operations.Bundle, deps ConfigureCapabilitiesRegistryDeps, input ConfigureCapabilitiesRegistryInput) (ConfigureCapabilitiesRegistryOutput, error) {
 		var allProposals []mcmslib.TimelockProposal
 
+		addr := input.ContractAddress
+		if input.RegistryRef != nil {
+			registryAddressRef, err := deps.Env.DataStore.Addresses().Get(input.RegistryRef)
+			if err != nil {
+				return ConfigureCapabilitiesRegistryOutput{}, fmt.Errorf("failed to get registry address: %w", err)
+			}
+			addr = registryAddressRef.Address
+		}
+
 		// Register Node Operators
 		registerNopsReport, err := operations.ExecuteOperation(b, contracts.RegisterNops, contracts.RegisterNopsDeps{
 			Env:           deps.Env,
 			MCMSContracts: deps.MCMSContracts,
 		}, contracts.RegisterNopsInput{
 			ChainSelector: input.RegistryChainSel,
-			Address:       input.ContractAddress,
+			Address:       addr,
 			Nops:          input.Nops,
 			MCMSConfig:    input.MCMSConfig,
 		})
@@ -74,7 +91,7 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			MCMSContracts: deps.MCMSContracts,
 		}, contracts.RegisterCapabilitiesInput{
 			ChainSelector: input.RegistryChainSel,
-			Address:       input.ContractAddress,
+			Address:       addr,
 			Capabilities:  input.Capabilities,
 			MCMSConfig:    input.MCMSConfig,
 		})
@@ -89,7 +106,7 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			MCMSContracts: deps.MCMSContracts,
 		}, contracts.RegisterNodesInput{
 			ChainSelector: input.RegistryChainSel,
-			Address:       input.ContractAddress,
+			Address:       addr,
 			Nodes:         input.Nodes,
 			MCMSConfig:    input.MCMSConfig,
 		})
@@ -104,7 +121,7 @@ var ConfigureCapabilitiesRegistry = operations.NewSequence(
 			MCMSContracts: deps.MCMSContracts,
 		}, contracts.RegisterDonsInput{
 			ChainSelector: input.RegistryChainSel,
-			Address:       input.ContractAddress,
+			Address:       addr,
 			DONs:          input.DONs,
 			MCMSConfig:    input.MCMSConfig,
 		})

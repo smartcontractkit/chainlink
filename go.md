@@ -40,6 +40,7 @@ flowchart LR
 	chainlink-common --> chainlink-common/pkg/chipingress
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> chainlink-protos/cre/go
+	chainlink-common --> chainlink-protos/linking-service/go
 	chainlink-common --> chainlink-protos/storage-service
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
@@ -105,7 +106,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-evm
 	chainlink/v2 --> chainlink-feeds
-	chainlink/v2 --> chainlink-protos/linking-service/go
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> chainlink-sui
@@ -244,6 +244,7 @@ flowchart LR
 	chainlink-common --> chainlink-common/pkg/workflows/sdk/v2/pb
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> chainlink-protos/cre/go
+	chainlink-common --> chainlink-protos/linking-service/go
 	chainlink-common --> chainlink-protos/storage-service
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
@@ -353,6 +354,7 @@ flowchart LR
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/cron --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/core/scripts/cre/environment/examples/workflows/v2/cron href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> chainlink-common
+	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> chainlink-evm/gethwrappers
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/networking/http
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/scheduler/cron
@@ -379,14 +381,21 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/consensus --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/regression/cre/consensus href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/evm/evmread-negative --> chainlink-evm/gethwrappers
 	chainlink/system-tests/tests/regression/cre/evm/evmread-negative --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/regression/cre/evm/evmread-negative --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/evm/evmread-negative href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative --> cre-sdk-go/capabilities/blockchain/evm
+	chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/regression/cre/http --> cre-sdk-go/capabilities/networking/http
 	click chainlink/system-tests/tests/regression/cre/http href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> chainlink/system-tests/tests/smoke/cre/evmread
@@ -398,7 +407,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-evm
 	chainlink/v2 --> chainlink-feeds
-	chainlink/v2 --> chainlink-protos/linking-service/go
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> chainlink-sui
@@ -454,7 +462,9 @@ flowchart LR
 		 chainlink/load-tests
 		 chainlink/system-tests/lib
 		 chainlink/system-tests/tests
+		 chainlink/system-tests/tests/regression/cre/consensus
 		 chainlink/system-tests/tests/regression/cre/evm/evmread-negative
+		 chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
 		 chainlink/system-tests/tests/regression/cre/http
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
 		 chainlink/system-tests/tests/smoke/cre/evmread

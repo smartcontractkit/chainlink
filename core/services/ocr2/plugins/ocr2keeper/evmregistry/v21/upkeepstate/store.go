@@ -141,10 +141,7 @@ func (u *upkeepStateStore) flush(ctx context.Context) {
 	u.mu.Unlock()
 
 	for i := 0; i < len(cloneRecords); i += u.batchSize {
-		end := i + u.batchSize
-		if end > len(cloneRecords) {
-			end = len(cloneRecords)
-		}
+		end := min(i+u.batchSize, len(cloneRecords))
 
 		batch := cloneRecords[i:end]
 

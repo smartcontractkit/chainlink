@@ -31,7 +31,7 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 
 	fakeKeys := []p2pkey.KeyV2{}
 	expectedKeys := []map[string]string{}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		k := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 		fakeKeys = append(fakeKeys, k)
 		expectedKeys = append(expectedKeys, map[string]string{
@@ -41,8 +41,8 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 		})
 	}
 
-	d, err := json.Marshal(map[string]interface{}{
-		"p2pKeys": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"p2pKeys": map[string]any{
 			"results": expectedKeys,
 		},
 	})
@@ -86,9 +86,9 @@ func TestResolver_CreateP2PKey(t *testing.T) {
 
 	fakeKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
-	d, err := json.Marshal(map[string]interface{}{
-		"createP2PKey": map[string]interface{}{
-			"p2pKey": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"createP2PKey": map[string]any{
+			"p2pKey": map[string]any{
 				"id":        fakeKey.ID(),
 				"peerID":    fakeKey.PeerID().String(),
 				"publicKey": fakeKey.PublicKeyHex(),
@@ -140,16 +140,16 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 		}
 	`
 
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"id": fakeKey.ID(),
 	}
 
 	peerID, err := p2pkey.MakePeerID(fakeKey.ID())
 	assert.NoError(t, err)
 
-	d, err := json.Marshal(map[string]interface{}{
-		"deleteP2PKey": map[string]interface{}{
-			"p2pKey": map[string]interface{}{
+	d, err := json.Marshal(map[string]any{
+		"deleteP2PKey": map[string]any{
+			"p2pKey": map[string]any{
 				"id":        fakeKey.ID(),
 				"peerID":    fakeKey.PeerID().String(),
 				"publicKey": fakeKey.PublicKeyHex(),

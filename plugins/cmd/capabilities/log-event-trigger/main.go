@@ -85,27 +85,18 @@ func (cs *LogEventTriggerGRPCService) Infos(ctx context.Context) ([]capabilities
 
 func (cs *LogEventTriggerGRPCService) Initialise(
 	ctx context.Context,
-	config string,
-	telemetryService core.TelemetryService,
-	store core.KeyValueStore,
-	capabilityRegistry core.CapabilitiesRegistry,
-	errorLog core.ErrorLog,
-	pipelineRunner core.PipelineRunnerService,
-	relayerSet core.RelayerSet,
-	oracleFactory core.OracleFactory,
-	gatewayConnector core.GatewayConnector,
-	keystore core.Keystore,
+	dependencies core.StandardCapabilitiesDependencies,
 ) error {
 	cs.s.Logger.Debugf("Initialising %s", serviceName)
 
 	var logEventConfig logevent.Config
-	err := json.Unmarshal([]byte(config), &logEventConfig)
+	err := json.Unmarshal([]byte(dependencies.Config), &logEventConfig)
 	if err != nil {
 		return fmt.Errorf("error decoding log_event_trigger config: %w", err)
 	}
 
 	relayID := types.NewRelayID(logEventConfig.Network, logEventConfig.ChainID)
-	relayer, err := relayerSet.Get(ctx, relayID)
+	relayer, err := dependencies.RelayerSet.Get(ctx, relayID)
 	if err != nil {
 		return fmt.Errorf("error fetching relayer for chainID %s from relayerSet: %w", logEventConfig.ChainID, err)
 	}
@@ -122,8 +113,8 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 	}
 	cs.triggerService = triggerService
 
-	if err := capabilityRegistry.Add(ctx, cs.triggerService); err != nil {
-		return fmt.Errorf("error when adding cron trigger to the registry: %w", err)
+	if err := dependencies.CapabilityRegistry.Add(ctx, cs.triggerService); err != nil {
+		return fmt.Errorf("error when adding log event trigger to the registry: %w", err)
 	}
 
 	return nil

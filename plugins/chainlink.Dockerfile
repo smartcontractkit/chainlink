@@ -26,6 +26,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 ARG CL_INSTALL_PRIVATE_PLUGINS=false
 # Flag to control installation of testing plugins (default: false).
 ARG CL_INSTALL_TESTING_PLUGINS=false
+# Flag to control whether this is a prod build (default: true)
+ARG CL_IS_PROD_BUILD=true
 # Flags for Go Delve debugger
 ARG GO_GCFLAGS
 # Env vars needed for chainlink build
@@ -56,7 +58,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Build chainlink.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    GOBIN=/gobins make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
+    if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
+          GOBIN=/gobins make install-chainlink-dev; \
+      else \
+          GOBIN=/gobins make install-chainlink; \
+      fi
 
 ##
 # Final Image

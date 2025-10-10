@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -23,23 +22,25 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/base_token_pool"
@@ -205,6 +206,9 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 	case chainsel.FamilyAptos:
 		// Aptos is not using LogPoller
 		return nil
+	case chainsel.FamilyTon:
+		// TODO: TON is not using LogPoller
+		return nil
 	default:
 		return fmt.Errorf("unsupported chain family; %v", family)
 	}
@@ -334,9 +338,7 @@ func allocateCCIPChainSelectors(chains map[uint64]cldf_evm.Chain) (homeChainSel 
 	for chainSel := range chains {
 		chainSels = append(chainSels, chainSel)
 	}
-	sort.Slice(chainSels, func(i, j int) bool {
-		return chainSels[i] < chainSels[j]
-	})
+	slices.Sort(chainSels)
 	// Take lowest for determinism.
 	return chainSels[HomeChainIndex], chainSels[FeedChainIndex]
 }
@@ -969,7 +971,7 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		onRamp, err := state.GetOnRampAddressBytes(to)
+		onRamp, err := state.GetOnRampAddressBytes(from)
 		if err != nil {
 			return err
 		}
@@ -1833,7 +1835,6 @@ func MintAndAllow(
 	allowance := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
 
 	for chain, mintTokenInfos := range tokenMap {
-		mintTokenInfos := mintTokenInfos
 
 		configurePoolGrp.Go(func() error {
 			for _, mintTokenInfo := range mintTokenInfos {

@@ -56,8 +56,15 @@ type gatewayHandler struct {
 }
 
 type ResponseCache interface {
+	// Set caches a response if it is cacheable (2xx or 4xx status codes) and the cache is empty or expired for the given request.
 	Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse)
-	CachedFetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse) gateway_common.OutboundHTTPResponse
+
+	// Fetch retrieves a response from the cache if it exists and the age of cached response is less than the max age of the request.
+	// If the cached response is expired or not cached, it fetches a new response from the fetchFn.
+	// The response is cached if it is cacheable and storeOnFetch is true.
+	Fetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse
+
+	// DeleteExpired removes all cached responses that have exceeded their TTL (Time To Live).
 	DeleteExpired(ctx context.Context) int
 }
 
@@ -311,12 +318,14 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		var outboundResp gateway_common.OutboundHTTPResponse
 		callback := h.createHTTPRequestCallback(newCtx, requestID, httpReq, req)
-		if req.CacheSettings.ReadFromCache {
+		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.Action.IncrementCacheReadCount(ctx, h.lggr)
-			outboundResp = h.responseCache.CachedFetch(ctx, workflowID, req, callback)
+			outboundResp = h.responseCache.Fetch(ctx, workflowID, req, callback, req.CacheSettings.Store)
 		} else {
 			outboundResp = callback()
-			h.responseCache.Set(workflowID, req, outboundResp)
+			if req.CacheSettings.Store {
+				h.responseCache.Set(workflowID, req, outboundResp)
+			}
 		}
 		h.metrics.Action.IncrementCapabilityRequestCount(ctx, nodeAddr, h.lggr)
 		err := h.sendResponseToNode(newCtx, requestID, outboundResp, nodeAddr)

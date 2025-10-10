@@ -57,8 +57,8 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		FeedID                   string
 		Relay                    string
 		PluginType               string
-		RelayConfig              map[string]interface{}
-		PluginConfig             map[string]interface{}
+		RelayConfig              map[string]any
+		PluginConfig             map[string]any
 		P2PV2Bootstrappers       []string
 		OCRKeyBundleID           string
 		MonitoringEndpoint       string
@@ -139,7 +139,7 @@ observationSource                      = """
 }
 
 // MarshallTemplate Helper to marshall templates
-func MarshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
+func MarshallTemplate(jobSpec any, name, templateString string) (string, error) {
 	var buf bytes.Buffer
 	tmpl, err := template.New(name).Parse(templateString)
 	if err != nil {
@@ -230,7 +230,7 @@ func (params CCIPJobSpecParams) CommitJobSpec() (*OCR2TaskJobSpec, error) {
 		return nil, fmt.Errorf("invalid job spec params: %w", err)
 	}
 
-	pluginConfig := map[string]interface{}{
+	pluginConfig := map[string]any{
 		"offRamp": fmt.Sprintf(`"%s"`, params.OffRamp.Hex()),
 	}
 	if params.TokenPricesUSDPipeline != "" {
@@ -252,7 +252,7 @@ func (params CCIPJobSpecParams) CommitJobSpec() (*OCR2TaskJobSpec, error) {
 		ContractConfigTrackerPollInterval: sqlutil.Interval(20 * time.Second),
 		P2PV2Bootstrappers:                params.P2PV2Bootstrappers,
 		PluginConfig:                      pluginConfig,
-		RelayConfig: map[string]interface{}{
+		RelayConfig: map[string]any{
 			"chainID": params.DestEvmChainId,
 		},
 	}
@@ -284,8 +284,8 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		ContractConfigTrackerPollInterval: sqlutil.Interval(20 * time.Second),
 
 		P2PV2Bootstrappers: params.P2PV2Bootstrappers,
-		PluginConfig:       map[string]interface{}{},
-		RelayConfig: map[string]interface{}{
+		PluginConfig:       map[string]any{},
+		RelayConfig: map[string]any{
 			"chainID": params.DestEvmChainId,
 		},
 	}
@@ -325,7 +325,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec
 		Relay:                             relay.NetworkEVM,
 		ContractConfigConfirmations:       1,
 		ContractConfigTrackerPollInterval: sqlutil.Interval(20 * time.Second),
-		RelayConfig: map[string]interface{}{
+		RelayConfig: map[string]any{
 			"chainID": params.DestEvmChainId,
 		},
 	}

@@ -57,21 +57,14 @@ func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerSer
 	}
 }
 
-func (f *ManualCronTriggerService) Initialise(ctx context.Context, config string, _ core.TelemetryService,
-	_ core.KeyValueStore,
-	_ core.ErrorLog,
-	_ core.PipelineRunnerService,
-	_ core.RelayerSet,
-	_ core.OracleFactory,
-	_ core.GatewayConnector,
-	_ core.Keystore) error {
+func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
 	f.lggr.Debugf("Initialising %s", ServiceName)
 
 	var cronConfig ManualCronConfig
-	if len(config) > 0 {
-		err := json.Unmarshal([]byte(config), &cronConfig)
+	if len(dependencies.Config) > 0 {
+		err := json.Unmarshal([]byte(dependencies.Config), &cronConfig)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal config: %s %w", config, err)
+			return fmt.Errorf("failed to unmarshal config: %s %w", dependencies.Config, err)
 		}
 	}
 

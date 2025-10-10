@@ -33,6 +33,7 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -86,7 +87,6 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -1252,7 +1252,7 @@ func (d *Delegate) newServicesMercury(
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
-	var relayConfig evmrelaytypes.RelayConfig
+	var relayConfig evmconfig.RelayConfig
 	err = json.Unmarshal(jb.OCR2OracleSpec.RelayConfig.Bytes(), &relayConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error while unmarshalling relay config: %w", err)
@@ -1854,7 +1854,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	}
 	cid := chain.ID()
 	ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKs, cid), cid)
-	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
+	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmconfig.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
 			ctx,
 			chain,

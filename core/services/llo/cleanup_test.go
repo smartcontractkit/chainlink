@@ -31,7 +31,7 @@ func (m *mockLogPoller) UnregisterFilter(ctx context.Context, name string) error
 
 func makeSampleTransmissions(n int) []*mercurytransmitter.Transmission {
 	transmissions := make([]*mercurytransmitter.Transmission, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		transmissions[i] = makeSampleTransmission(uint64(i), "http://example.com/foo") //nolint:gosec // G115 don't care in test code
 	}
 	return transmissions

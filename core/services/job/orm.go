@@ -322,7 +322,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.New("dual transmission is enabled but no dual transmission config present")
 				}
 
-				dualTransmissionConfig, ok := rawDualTransmissionConfig.(map[string]interface{})
+				dualTransmissionConfig, ok := rawDualTransmissionConfig.(map[string]any)
 				if !ok {
 					return errors.New("invalid dual transmission config")
 				}
@@ -337,7 +337,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.New("invalid transmitter address in dual transmission config")
 				}
 
-				if _, ok := dualTransmissionConfig["meta"].(map[string]interface{}); !ok {
+				if _, ok := dualTransmissionConfig["meta"].(map[string]any); !ok {
 					return errors.New("invalid dual transmission meta")
 				}
 
@@ -1102,7 +1102,7 @@ WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 	return int32(results[0]), nil
 }
 
-func (o *orm) findJob(ctx context.Context, jb *Job, col string, arg interface{}) error {
+func (o *orm) findJob(ctx context.Context, jb *Job, col string, arg any) error {
 	err := o.transact(ctx, false, func(tx *orm) error {
 		sql := fmt.Sprintf(`SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.%s = $1 AND job_pipeline_specs.is_primary = true LIMIT 1`, col)
 		err := tx.ds.GetContext(ctx, jb, sql, arg)

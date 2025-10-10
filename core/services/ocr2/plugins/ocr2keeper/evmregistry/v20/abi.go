@@ -143,7 +143,7 @@ func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]ocr2keeper
 	var (
 		enc     = EVMAutomationEncoder20{}
 		decoded []ocr2keepers.UpkeepResult
-		out     []interface{}
+		out     []any
 		err     error
 		b       []byte
 		ok      bool

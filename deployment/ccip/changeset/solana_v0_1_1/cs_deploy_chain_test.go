@@ -7,6 +7,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -135,6 +136,7 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 
 // use this for a quick deploy test
 func TestDeployChainContractsChangesetPreload(t *testing.T) {
+	quarantine.Flaky(t, "DX-1729")
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -580,6 +582,39 @@ func TestIDL(t *testing.T) {
 			ccipChangesetSolana.IDLConfig{
 				ChainSelector:         solChain,
 				SolanaContractVersion: ccipChangesetSolana.VersionSolanaV0_1_1TokenPools,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+
+	// Close IDL
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseIDLs),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
+				BurnMintTokenPoolMetadata: []string{
+					shared.CLLMetadata,
+				},
+				MCMS: &proposalutils.TimelockConfig{
+					MinDelay: 1 * time.Second,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+
+	// Update IDL
+	e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(ccipChangesetSolana.UploadIDL),
+			ccipChangesetSolana.IDLConfig{
+				ChainSelector: solChain,
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},

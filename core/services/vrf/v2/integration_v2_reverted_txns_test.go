@@ -69,12 +69,12 @@ func TestVRFV2Integration_BatchRevertedTxn_ForceFulfillment(t *testing.T) {
 
 	numReqs := 2
 	reqs := make([]*vrfReq, numReqs)
-	for i := 0; i < numReqs; i++ {
+	for i := range numReqs {
 		reqs[i] = makeVRFReq(t, th, th.subs[0])
 	}
 	fulfilBatchVRFReq(t, th, reqs, th.subs[0])
 
-	for i := 0; i < numReqs; i++ {
+	for i := range numReqs {
 		// The last request will be the successful one because of the way the example
 		// contract is written.
 		success := false
@@ -608,7 +608,7 @@ func newRevertTxnTH(t *testing.T,
 	require.NoError(t, err, "failed to deploy eoa consumer")
 	uni.backend.Commit()
 
-	for i := 0; i < len(subBalances); i++ {
+	for i := range subBalances {
 		subID := uint64(i + 1)
 		setupSub(t, th, subID, subBalances[i])
 		th.subs[i] = &vrfSub{subID: subID, balance: subBalances[i]}

@@ -234,7 +234,7 @@ func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, method
 			TriggerEventId: "action_1234567890",
 			Timestamp:      ts,
 			Topics:         topics,
-			Params: webapicap.TriggerRequestPayloadParams(map[string]interface{}{
+			Params: webapicap.TriggerRequestPayloadParams(map[string]any{
 				"bid": "101",
 				"ask": "102",
 			}),
