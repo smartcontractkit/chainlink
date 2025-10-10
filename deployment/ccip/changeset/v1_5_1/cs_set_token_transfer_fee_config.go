@@ -27,7 +27,7 @@ var _ cldf.ChangeSetV2[SetTokenTransferFeeConfig] = SetTokenTransferFeeConfigCha
 var SetTokenTransferFeeConfigChangeset = cldf.CreateChangeSet(setTokenTransferFeeConfigLogic, setTokenTransferFeeConfigPrecondition)
 
 type SetTokenTransferFeeConfig struct {
-	// A map of chain selector => token transfer fee input which describes the updates to make on each chain
+	// A mapping from src chain selector => dst chain selector => token transfer fee input
 	InputsByChain map[uint64]map[uint64]SetTokenTransferFeeArgs `json:"inputsByChain"`
 
 	// The timelock config - all updates can be merged into one MCMS proposal with this setting
