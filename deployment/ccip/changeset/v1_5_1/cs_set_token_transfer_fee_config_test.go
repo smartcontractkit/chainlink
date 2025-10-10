@@ -139,23 +139,6 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 			},
 		},
 		{
-			Msg: "Duplicate token in update args",
-			Err: "duplicate token in TokenTransferFeeConfigArgs",
-			Config: v1_5_1.SetTokenTransferFeeConfig{
-				MCMS: mcmCfg,
-				InputsByChain: map[uint64]map[uint64]v1_5_1.SetTokenTransferFeeArgs{
-					src: {
-						dst: {
-							TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-								{Token: tokenA, MinFeeUSDCents: pointer.To(uint32(1)), MaxFeeUSDCents: pointer.To(uint32(2)), DeciBps: pointer.To(uint16(10)), DestGasOverhead: pointer.To(uint32(100)), DestBytesOverhead: pointer.To(uint32(200)), AggregateRateLimitEnabled: pointer.To(true)},
-								{Token: tokenA, MinFeeUSDCents: pointer.To(uint32(1)), MaxFeeUSDCents: pointer.To(uint32(2)), DeciBps: pointer.To(uint16(10)), DestGasOverhead: pointer.To(uint32(100)), DestBytesOverhead: pointer.To(uint32(200)), AggregateRateLimitEnabled: pointer.To(true)},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
 			Msg: "Zero token in update args",
 			Err: "zero address not allowed in TokenTransferFeeConfigArgs",
 			Config: v1_5_1.SetTokenTransferFeeConfig{
@@ -163,8 +146,8 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 				InputsByChain: map[uint64]map[uint64]v1_5_1.SetTokenTransferFeeArgs{
 					src: {
 						dst: {
-							TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-								{Token: utils.ZeroAddress},
+							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
+								utils.ZeroAddress: {},
 							},
 						},
 					},
@@ -180,8 +163,15 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 					src: {
 						dst: {
 							TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
-							TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-								{Token: tokenB, MinFeeUSDCents: pointer.To(uint32(1)), MaxFeeUSDCents: pointer.To(uint32(2)), DeciBps: pointer.To(uint16(10)), DestGasOverhead: pointer.To(uint32(100)), DestBytesOverhead: pointer.To(uint32(200)), AggregateRateLimitEnabled: pointer.To(true)},
+							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
+								tokenB: {
+									MinFeeUSDCents:            pointer.To(uint32(1)),
+									MaxFeeUSDCents:            pointer.To(uint32(2)),
+									DeciBps:                   pointer.To(uint16(10)),
+									DestGasOverhead:           pointer.To(uint32(100)),
+									DestBytesOverhead:         pointer.To(uint32(200)),
+									AggregateRateLimitEnabled: pointer.To(true),
+								},
 							},
 						},
 					},
@@ -196,8 +186,8 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 				InputsByChain: map[uint64]map[uint64]v1_5_1.SetTokenTransferFeeArgs{
 					src: {
 						dst: {
-							TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-								{Token: utils.RandomAddress(), MinFeeUSDCents: pointer.To(uint32(1))}, // others nil -> should error
+							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
+								utils.RandomAddress(): {MinFeeUSDCents: pointer.To(uint32(1))}, // others nil -> should error
 							},
 						},
 					},
@@ -298,9 +288,8 @@ func TestSetTokenTransferFeeConfig_Execution_WithoutMCMS(t *testing.T) {
 					src: {
 						dst: {
 							TokensToUseDefaultFeeConfigs: []common.Address{},
-							TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-								{
-									Token:                     tokenA,
+							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
+								tokenA: {
 									MinFeeUSDCents:            pointer.To(uint32(100)),
 									MaxFeeUSDCents:            pointer.To(uint32(5000)),
 									DeciBps:                   pointer.To(uint16(25)),
@@ -370,9 +359,8 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 				src: {
 					dst: {
 						TokensToUseDefaultFeeConfigs: []common.Address{},
-						TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-							{
-								Token:                     tokenA,
+						TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
+							tokenA: {
 								MinFeeUSDCents:            pointer.To(uint32(100)),
 								MaxFeeUSDCents:            pointer.To(uint32(5000)),
 								DeciBps:                   pointer.To(uint16(25)),
@@ -414,9 +402,8 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 				src: {
 					dst: {
 						TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
-						TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-							{
-								Token:                     tokenA,
+						TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
+							tokenA: {
 								MinFeeUSDCents:            nil,                    // keep current
 								MaxFeeUSDCents:            nil,                    // keep current
 								DeciBps:                   pointer.To(uint16(30)), // change
@@ -486,9 +473,8 @@ func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
 			src: {
 				dst: {
 					TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
-					TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-						{
-							Token:                     tokenA,
+					TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
+						tokenA: {
 							MinFeeUSDCents:            pointer.To(uint32(101)),
 							MaxFeeUSDCents:            pointer.To(uint32(5001)),
 							DeciBps:                   pointer.To(uint16(26)),
@@ -502,9 +488,8 @@ func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
 			dst: {
 				src: {
 					TokensToUseDefaultFeeConfigs: []common.Address{tokenD},
-					TokenTransferFeeConfigArgs: []v1_5_1.TokenTransferFeeArgs{
-						{
-							Token:                     tokenC,
+					TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
+						tokenC: {
 							MinFeeUSDCents:            pointer.To(uint32(202)),
 							MaxFeeUSDCents:            pointer.To(uint32(6002)),
 							DeciBps:                   pointer.To(uint16(31)),

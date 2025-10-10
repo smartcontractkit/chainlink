@@ -36,24 +36,22 @@ type SetTokenTransferFeeConfig struct {
 
 type SetTokenTransferFeeArgs struct {
 	// Tokens specified here will be given custom token transfer fee configs (isEnabled will be set to true on-chain)
-	TokenTransferFeeConfigArgs []TokenTransferFeeArgs
+	TokenTransferFeeConfigArgs map[common.Address]TokenTransferFeeArgs
 
 	// Tokens specified here will have their custom token transfer fee configs reset (isEnabled will be set to false on-chain)
 	TokensToUseDefaultFeeConfigs []common.Address
 }
 
-// NOTE: the contract's _setTokenTransferFeeConfig method replaces the entire TokenTransferFeeConfig
-// for each token included in TokenTransferFeeConfigArgs (it does not merge fields) so we need to be
+// NOTE: the _setTokenTransferFeeConfig method in the Solidity contract overwrites all config values
+// for each token included in TokenTransferFeeConfigArgs (it doesn't upsert values) so we need to be
 // extra careful here. In Go, it is *very* easy to unintentionally pass an input struct with missing
-// fields to a function without realizing that default values are being used for the missing fields.
-// This isn't ideal for this changeset because it can lead to some configs being set to zero onchain
-// (which more often than not is a mistake). To avoid these types of situations, we use pointers for
-// each config field in the struct below to make things much more explicit. If a field isn't defined
-// or set to nil then the Go code will fall back to the value onchain before sending. Otherwise, the
-// user's provided value is used. When a token has no preexisting custom config (isEnabled == false)
-// then all fields must be explicitly provided by the caller.
+// fields to a func without realizing that zero values are really being used for the missing fields.
+// To avoid these types of situations, we use pointers for each config field in the struct below. If
+// a field is undefined or set to nil in the struct, then we will fallback to using any pre-existing
+// values from the chain before sending the transaction. Otherwise the user's input values are used.
+// If a token has no pre-existing config values on-chain (i.e. isEnabled == false), then every field
+// must be explicitly provided by the caller.
 type TokenTransferFeeArgs struct {
-	Token                     common.Address
 	MinFeeUSDCents            *uint32
 	MaxFeeUSDCents            *uint32
 	DeciBps                   *uint16
@@ -101,34 +99,26 @@ func setTokenTransferFeeConfigPrecondition(env cldf.Environment, cfg SetTokenTra
 			}
 
 			tokensToReset := map[common.Address]bool{}
-			for _, address := range input.TokensToUseDefaultFeeConfigs {
-				if _, exists := tokensToReset[address]; exists {
-					return fmt.Errorf("duplicate address in TokensToUseDefaultFeeConfigs (src = %d, dst = %d, addr = %s)", srcSelector, dstSelector, address.Hex())
+			for _, tokenAddress := range input.TokensToUseDefaultFeeConfigs {
+				if _, exists := tokensToReset[tokenAddress]; exists {
+					return fmt.Errorf("duplicate address in TokensToUseDefaultFeeConfigs (src = %d, dst = %d, addr = %s)", srcSelector, dstSelector, tokenAddress.Hex())
 				}
-				if address == utils.ZeroAddress {
+				if tokenAddress == utils.ZeroAddress {
 					return fmt.Errorf("zero address not allowed in TokensToUseDefaultFeeConfigs (src = %d, dst = %d)", srcSelector, dstSelector)
 				}
-				tokensToReset[address] = true
+				tokensToReset[tokenAddress] = true
 			}
 
-			tokensToSetup := map[common.Address]bool{}
-			for _, args := range input.TokenTransferFeeConfigArgs {
-				if _, exists := tokensToSetup[args.Token]; exists {
-					return fmt.Errorf("duplicate token in TokenTransferFeeConfigArgs (src = %d, dst = %d, token = %s)", srcSelector, dstSelector, args.Token.Hex())
-				}
-				if args.Token == utils.ZeroAddress {
+			for tokenAddress := range input.TokenTransferFeeConfigArgs {
+				if tokenAddress == utils.ZeroAddress {
 					return fmt.Errorf("zero address not allowed in TokenTransferFeeConfigArgs (src = %d, dst = %d)", srcSelector, dstSelector)
 				}
-				tokensToSetup[args.Token] = true
-			}
-
-			for addr := range tokensToSetup {
-				if _, exists := tokensToReset[addr]; exists {
+				if _, exists := tokensToReset[tokenAddress]; exists {
 					return fmt.Errorf(
 						"the same address cannot be referenced in both TokensToUseDefaultFeeConfigs and TokenTransferFeeConfigArgs (src = %d, dst = %d, addr = %s)",
 						srcSelector,
 						dstSelector,
-						addr.Hex(),
+						tokenAddress.Hex(),
 					)
 				}
 			}
@@ -188,23 +178,23 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 			}
 
 			tokenTransferFeeConfigArgs := []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{}
-			for _, args := range input.TokenTransferFeeConfigArgs {
+			for tokenAddress, args := range input.TokenTransferFeeConfigArgs {
 				// This gets the token transfer fee config for the given token - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
-				env.Logger.Infof("fetching token transfer fee config (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), args.Token.Hex())
-				curConfig, err := onramp.GetTokenTransferFeeConfig(&bind.CallOpts{Context: env.GetContext()}, args.Token)
+				env.Logger.Infof("fetching token transfer fee config (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
+				curConfig, err := onramp.GetTokenTransferFeeConfig(&bind.CallOpts{Context: env.GetContext()}, tokenAddress)
 				if err != nil {
-					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch token transfer fee config (src = %s, dst = %s, token = %s): %w", srcChain.String(), dstChain.String(), args.Token.Hex(), err)
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch token transfer fee config (src = %s, dst = %s, token = %s): %w", srcChain.String(), dstChain.String(), tokenAddress.Hex(), err)
 				}
 
 				// If no custom config already exists on-chain for the token, then we have no fallback values to use - in this case the caller must explicitly provide all fields
-				env.Logger.Infof("fetched token transfer fee config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), args.Token.Hex(), curConfig)
+				env.Logger.Infof("fetched token transfer fee config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
 				if !curConfig.IsEnabled && args.HasMissingFields() {
-					return cldf.ChangesetOutput{}, fmt.Errorf("invalid args - when enabling a new token, all fields must be provided (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), args.Token.Hex())
+					return cldf.ChangesetOutput{}, fmt.Errorf("invalid args - when enabling a new token, all fields must be provided (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
 				}
 
 				// At this point, we're either using fallback values from the chain or the caller has explicitly provided the inputs
 				newConfig := evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-					Token:                     args.Token,
+					Token:                     tokenAddress,
 					MinFeeUSDCents:            pointer.Coalesce(args.MinFeeUSDCents, curConfig.MinFeeUSDCents),
 					MaxFeeUSDCents:            pointer.Coalesce(args.MaxFeeUSDCents, curConfig.MaxFeeUSDCents),
 					DeciBps:                   pointer.Coalesce(args.DeciBps, curConfig.DeciBps),
@@ -225,11 +215,11 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 				}
 
 				// Only perform an update if the new config is different from the on-chain config
-				env.Logger.Infof("constructed token transfer fee config (src = %s, dst = %s, token = %s, new_cfg = %+v)", srcChain.String(), dstChain.String(), args.Token.Hex(), newConfig)
+				env.Logger.Infof("constructed token transfer fee config (src = %s, dst = %s, token = %s, new_cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), newConfig)
 				if isDifferent {
 					tokenTransferFeeConfigArgs = append(tokenTransferFeeConfigArgs, newConfig)
 				} else {
-					env.Logger.Infof("skipping update since input config is the same as on-chain config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), args.Token.Hex(), curConfig)
+					env.Logger.Infof("skipping update since input config is the same as on-chain config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
 				}
 			}
 
