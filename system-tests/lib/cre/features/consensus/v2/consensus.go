@@ -47,7 +47,7 @@ func (o *Consensus) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
+	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	for _, donMetadata := range topology.DonsMetadataWithFlag(flag) {
@@ -70,7 +70,7 @@ func (o *Consensus) PreEnvStartup(
 	}, nil
 }
 
-const ConsensusV2ContractQualifier = "capability_consensus"
+const ContractQualifier = "capability_consensus"
 
 func (o *Consensus) PostEnvStartup(
 	ctx context.Context,
@@ -92,7 +92,7 @@ func (o *Consensus) PostEnvStartup(
 	}
 	consensusV2DON := dons[0]
 
-	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, ConsensusV2ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
+	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if ocrErr != nil {
 		return fmt.Errorf("failed to deploy OCR3 (consensus v2) contract %w", ocrErr)
 	}
@@ -188,7 +188,7 @@ func createJobs(
 		provider,
 		flag,
 		func(_ uint64) string {
-			return ConsensusV2ContractQualifier
+			return ContractQualifier
 		},
 		dataStoreOCR3ContractKeyProvider,
 		donlevel.CapabilityEnabler,

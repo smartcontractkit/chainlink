@@ -49,22 +49,22 @@ const (
 
 // Capabilities
 const (
-	ConsensusCapability     CapabilityFlag = "ocr3"
-	DONTimeCapability       CapabilityFlag = "don-time"
-	ConsensusCapabilityV2   CapabilityFlag = "consensus" // v2
-	CronCapability          CapabilityFlag = "cron"
-	EVMCapability           CapabilityFlag = "evm"
-	CustomComputeCapability CapabilityFlag = "custom-compute"
-	WriteEVMCapability      CapabilityFlag = "write-evm"
-	WriteSolanaCapability   CapabilityFlag = "write-solana"
-	ReadContractCapability  CapabilityFlag = "read-contract"
-	LogTriggerCapability    CapabilityFlag = "log-event-trigger"
-	WebAPITargetCapability  CapabilityFlag = "web-api-target"
-	WebAPITriggerCapability CapabilityFlag = "web-api-trigger"
-	MockCapability          CapabilityFlag = "mock"
-	VaultCapability         CapabilityFlag = "vault"
-	HTTPTriggerCapability   CapabilityFlag = "http-trigger"
-	HTTPActionCapability    CapabilityFlag = "http-action"
+	ConsensusCapability       CapabilityFlag = "ocr3"
+	DONTimeCapability         CapabilityFlag = "don-time"
+	ConsensusCapabilityV2     CapabilityFlag = "consensus" // v2
+	CronCapability            CapabilityFlag = "cron"
+	EVMCapability             CapabilityFlag = "evm"
+	CustomComputeCapability   CapabilityFlag = "custom-compute"
+	WriteEVMCapability        CapabilityFlag = "write-evm"
+	WriteSolanaCapability     CapabilityFlag = "write-solana"
+	ReadContractCapability    CapabilityFlag = "read-contract"
+	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
+	WebAPITargetCapability    CapabilityFlag = "web-api-target"
+	WebAPITriggerCapability   CapabilityFlag = "web-api-trigger"
+	MockCapability            CapabilityFlag = "mock"
+	VaultCapability           CapabilityFlag = "vault"
+	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
+	HTTPActionCapability      CapabilityFlag = "http-action"
 	// Add more capabilities as needed
 )
 
@@ -1356,7 +1356,7 @@ type Feature interface {
 		blockchainOutputs []*WrappedBlockchainOutput,
 		capabilityConfigs CapabilityConfigs,
 		contractVersions map[string]string,
-		gatewayConfigs map[NodeUUID]*config.GatewayConfig,
+		gatewayJobConfigs map[NodeUUID]*config.GatewayConfig,
 	) (*PreEnvStartupOutput, error)
 	PostEnvStartup(
 		ctx context.Context,
@@ -1372,5 +1372,15 @@ type Feature interface {
 
 type PreEnvStartupOutput struct {
 	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
-	GatewayConfigs           map[NodeUUID]*config.GatewayConfig
+	GatewayJobConfigs        map[NodeUUID]*config.GatewayConfig
+}
+
+func (o *PreEnvStartupOutput) Merge(otherDONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig, otherGatewayJobConfigs map[NodeUUID]*config.GatewayConfig) {
+	for donIdx, caps := range o.DONCapabilityWithConfigs {
+		if otherDONCapabilityWithConfigs[donIdx] == nil {
+			otherDONCapabilityWithConfigs[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
+		}
+		otherDONCapabilityWithConfigs[donIdx] = append(otherDONCapabilityWithConfigs[donIdx], caps...)
+	}
+	maps.Copy(otherGatewayJobConfigs, o.GatewayJobConfigs)
 }

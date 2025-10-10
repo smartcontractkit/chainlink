@@ -45,7 +45,7 @@ func (o *Consensus) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
+	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	for _, donMetadata := range topology.DonsMetadataWithFlag(flag) {
@@ -69,7 +69,7 @@ func (o *Consensus) PreEnvStartup(
 }
 
 const (
-	OCR3ContractQualifier = "capability_ocr3"
+	ContractQualifier = "capability_ocr3"
 )
 
 func (o *Consensus) PostEnvStartup(
@@ -92,7 +92,7 @@ func (o *Consensus) PostEnvStartup(
 	}
 	consensusDON := dons[0]
 
-	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, OCR3ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
+	_, ocr3ContractAddr, ocrErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if ocrErr != nil {
 		return fmt.Errorf("failed to deploy OCR3 contract %w", ocrErr)
 	}

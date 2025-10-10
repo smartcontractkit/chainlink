@@ -27,7 +27,7 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.EVMCapability,
 			cre.WriteEVMCapability,
 			cre.ReadContractCapability,
-			cre.LogTriggerCapability,
+			cre.LogEventTriggerCapability,
 		},
 	}
 }
@@ -68,7 +68,7 @@ func NewExtensibleCapabilityFlagsProvider(extraGlobalFlags []string) *Extensible
 			cre.EVMCapability,
 			cre.WriteEVMCapability,
 			cre.ReadContractCapability,
-			cre.LogTriggerCapability,
+			cre.LogEventTriggerCapability,
 		},
 	}
 }
@@ -100,7 +100,7 @@ func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 		chainSpecificCapabilities: []cre.CapabilityFlag{
 			cre.EVMCapability,
 			cre.ReadContractCapability,
-			cre.LogTriggerCapability,
+			cre.LogEventTriggerCapability,
 		},
 	}
 }

@@ -41,7 +41,7 @@ func (o *HTTPAction) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs, // move to Topology
 	contractVersions map[string]string,
-	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
+	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())
 	if len(donsMetadata) == 0 {
@@ -61,7 +61,7 @@ func (o *HTTPAction) PreEnvStartup(
 		if confErr != nil {
 			return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.HTTPCapabilityType, donMetadata.Name)
 		}
-		hErr := gateway.AddHandlers(donMetadata, registryChainID, gatewayConfigs, []config.Handler{handlerConfig})
+		hErr := gateway.AddHandlers(donMetadata, registryChainID, gatewayJobConfigs, []config.Handler{handlerConfig})
 		if hErr != nil {
 			return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", donMetadata.Name)
 		}
@@ -92,7 +92,7 @@ func (o *HTTPAction) PreEnvStartup(
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfigs: capabilities,
-		GatewayConfigs:           gatewayConfigs,
+		GatewayJobConfigs:        gatewayJobConfigs,
 	}, nil
 }
 

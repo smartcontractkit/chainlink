@@ -40,7 +40,7 @@ import (
 const flag = cre.VaultCapability
 
 const (
-	VaultOCR3ContractQualifier = "capability_vault"
+	ContractQualifier = "capability_vault"
 )
 
 type Vault struct{}
@@ -58,7 +58,7 @@ func (o *Vault) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
+	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	donsMetadata := topology.DonsMetadataWithFlag(o.Flag())
 	if len(donsMetadata) == 0 {
@@ -78,7 +78,7 @@ func (o *Vault) PreEnvStartup(
 		if confErr != nil {
 			return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.VaultHandlerType, donMetadata.Name)
 		}
-		hErr := gateway.AddHandlers(donMetadata, registryChainID, gatewayConfigs, []config.Handler{handlerConfig})
+		hErr := gateway.AddHandlers(donMetadata, registryChainID, gatewayJobConfigs, []config.Handler{handlerConfig})
 		if hErr != nil {
 			return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", donMetadata.Name)
 		}
@@ -131,7 +131,7 @@ func (o *Vault) PostEnvStartup(
 	}
 	vaultDON := dons[0]
 
-	vaultOCR3Addr, vaultDKGOCR3Addr, err := deployVaultContracts(testLogger, VaultOCR3ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
+	vaultOCR3Addr, vaultDKGOCR3Addr, err := deployVaultContracts(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Vault OCR3 contract %w", err)
 	}
@@ -312,17 +312,6 @@ func dkgReportingPluginConfig(don *cre.DON) (*dkgocrtypes.ReportingPluginConfig,
 	cfg := &dkgocrtypes.ReportingPluginConfig{
 		T: 1,
 	}
-
-	// vaultIndex := -1
-	// for i, don := range topology.DonsMetadata.List() {
-	// 	if don.HasFlag(cre.VaultCapability) {
-	// 		vaultIndex = i
-	// 		break
-	// 	}
-	// }
-	// if vaultIndex == -1 {
-	// 	return nil, errors.New("no vault DON found in the topology")
-	// }
 
 	workers, wErr := don.Workers()
 	if wErr != nil {

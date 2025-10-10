@@ -42,14 +42,14 @@ func (o *DONTime) PreEnvStartup(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
-	gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig,
+	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {
 	// nothing to do
 	return nil, nil
 }
 
 const (
-	DONTimeContractQualifier = "capability_dontime"
+	ContractQualifier = "capability_dontime"
 )
 
 func (o *DONTime) PostEnvStartup(
@@ -72,7 +72,7 @@ func (o *DONTime) PostEnvStartup(
 	}
 	donTimeDON := dons[0]
 
-	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, DONTimeContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
+	_, donTimeContractAddr, timeErr := contracts.DeployOCR3Contract(testLogger, ContractQualifier, creEnv.DonTopology.HomeChainSelector, creEnv.CldfEnvironment, contractVersions)
 	if timeErr != nil {
 		return fmt.Errorf("failed to deploy DONTime contract %w", timeErr)
 	}

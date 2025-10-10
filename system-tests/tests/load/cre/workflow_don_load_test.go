@@ -51,6 +51,8 @@ import (
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
+	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
@@ -1137,7 +1139,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			crecontracts.OCR3ContractQualifier,
+			consensus_v1_feature.ContractQualifier,
 		)
 		ocr3CapabilityAddress, err := input.CldEnvironment.DataStore.Addresses().Get(ocr3Key)
 		if err != nil {
@@ -1148,7 +1150,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			input.DonTopology.HomeChainSelector,
 			datastore.ContractType(keystone_changeset.OCR3Capability.String()),
 			semver.MustParse("1.0.0"),
-			crecontracts.DONTimeContractQualifier,
+			don_time_feature.ContractQualifier,
 		)
 		donTimeAddress, err := input.CldEnvironment.DataStore.Addresses().Get(donTimeKey)
 		if err != nil {

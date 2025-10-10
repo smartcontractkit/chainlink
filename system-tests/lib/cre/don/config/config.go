@@ -47,7 +47,8 @@ func PrepareNodeTOMLs(
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
 	addressBook cldf.AddressBook,
 	datastore datastore.DataStore,
-	capabilities []cre.InstallableCapability,
+	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
+	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 	capabilityConfigs cre.CapabilityConfigs,
 ) (*cre.Topology, []*cre.CapabilitiesAwareNodeSet, error) {
 	topology, tErr := cre.NewTopology(nodeSets, provider)
@@ -113,6 +114,7 @@ func PrepareNodeTOMLs(
 		for _, capability := range capabilities {
 			configFactoryFunctions = append(configFactoryFunctions, capability.NodeConfigTransformerFn())
 		}
+		configFactoryFunctions = append(configFactoryFunctions, nodeConfigTransformerFns...) // allow passing custom transformers
 
 		// generate node TOML configs only if they are not provided in the environment TOML config
 		if configsFound == 0 {

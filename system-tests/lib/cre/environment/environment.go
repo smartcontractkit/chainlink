@@ -74,14 +74,13 @@ type SetupInput struct {
 	Features                  cre.Features
 
 	// Gateway config
+	// TODO wrap in a struct
 	ExtraAllowedPorts                    []int
 	ExtraAllowedIPs, ExtraAllowedIPsCIDR []string
 
-	// Deprecated: use Capabilities []cre.InstallableCapability instead
-	ConfigFactoryFunctions []cre.NodeConfigTransformerFn
-	// Deprecated: use Capabilities []cre.InstallableCapability instead
-	JobSpecFactoryFunctions []cre.JobSpecFn
-	// Deprecated: use Capabilities []cre.InstallableCapability instead
+	// allow to pass custom transformers for extensibility
+	ConfigFactoryFunctions               []cre.NodeConfigTransformerFn
+	JobSpecFactoryFunctions              []cre.JobSpecFn
 	CapabilitiesContractFactoryFunctions []cre.CapabilityRegistryConfigFn
 
 	StageGen *stagegen.StageGen
@@ -176,13 +175,14 @@ func SetupTestEnvironment(
 		deployKeystoneContractsOutput.Env.ExistingAddresses, //nolint:staticcheck // won't migrate now
 		deployKeystoneContractsOutput.Env.DataStore,
 		input.Capabilities,
+		input.ConfigFactoryFunctions,
 		input.CapabilityConfigs,
 	)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
-	gatewayConfig, gErr := gateway.GatewayConfig(
+	gatewayJobConfigs, gErr := gateway.JobConfigs(
 		deployKeystoneContractsOutput.Env,
 		startBlockchainsOutput.RegistryChain().BlockchainOutput,
 		topology,
@@ -194,11 +194,11 @@ func SetupTestEnvironment(
 		input.ExtraAllowedIPsCIDR,
 	)
 	if gErr != nil {
-		return nil, pkgerrors.Wrap(gErr, "failed to build gateway config")
+		return nil, pkgerrors.Wrap(gErr, "failed to build gateway job config")
 	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs configuration prepared in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before DON startup")))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	for _, feature := range input.Features.List() {
 		testLogger.Info().Msgf("Executing PreEnvStartup for feature %s", feature.Flag())
@@ -211,19 +211,13 @@ func SetupTestEnvironment(
 			startBlockchainsOutput.BlockChainOutputs,
 			input.CapabilityConfigs,
 			input.ContractVersions,
-			gatewayConfig,
+			gatewayJobConfigs,
 		)
 		if preErr != nil {
-			return nil, fmt.Errorf("failed to execute PreDONStartup for feature %s: %w", feature.Flag(), preErr)
+			return nil, fmt.Errorf("failed to execute PreEnvStartup for feature %s: %w", feature.Flag(), preErr)
 		}
 		if output != nil {
-			for donIdx, caps := range output.DONCapabilityWithConfigs {
-				if donsCapabilities[donIdx] == nil {
-					donsCapabilities[donIdx] = []keystone_changeset.DONCapabilityWithConfig{}
-				}
-				donsCapabilities[donIdx] = append(donsCapabilities[donIdx], caps...)
-			}
-			maps.Copy(gatewayConfig, output.GatewayConfigs)
+			output.Merge(donsCapabilities, gatewayJobConfigs)
 		}
 
 		testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
@@ -279,19 +273,19 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, creEnvironment.DonTopology, gatewayConfig)
+	gJobErr := gateway.CreateJobs(ctx, startedJD.Client, creEnvironment.DonTopology, gatewayJobConfigs)
 	if gJobErr != nil {
 		return nil, pkgerrors.Wrap(gErr, "failed to create gateway jobs with Job Distributor")
 	}
 
+	// Deprecated: use Features instead. Support for InstallableCapability will be removed in the future.
 	jobSpecFactoryFunctions := make([]cre.JobSpecFn, 0)
 	for _, capability := range input.Capabilities {
 		jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, capability.JobSpecFn())
 	}
 
-	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...) // Deprecated, use Capabilities instead
-
-	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the OCR3 contracts.
+	// allow to pass custom job spec factories for extensibility
+	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                    testLogger,
 		SingleFileLogger:          singleFileLogger,
@@ -413,7 +407,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after DON startup")))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))
 	for _, feature := range input.Features.List() {
 		testLogger.Info().Msgf("Executing PostEnvStartup for feature %s", feature.Flag())
 		if pErr := feature.PostEnvStartup(

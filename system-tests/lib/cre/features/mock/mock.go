@@ -1,4 +1,4 @@
-package webapitarget
+package mock
 
 import (
 	"context"
@@ -7,16 +7,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	coregateway "github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	factory "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability/donlevel"
@@ -24,15 +21,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
-const flag = cre.WebAPITargetCapability
+const flag = cre.MockCapability
 
-type WebAPITarget struct{}
+type Mock struct{}
 
-func (o *WebAPITarget) Flag() cre.CapabilityFlag {
+func (o *Mock) Flag() cre.CapabilityFlag {
 	return flag
 }
 
-func (o *WebAPITarget) PreEnvStartup(
+func (o *Mock) PreEnvStartup(
 	testLogger zerolog.Logger,
 	registryChainSelector uint64,
 	cldfEnv *cldf.Environment,
@@ -48,32 +45,6 @@ func (o *WebAPITarget) PreEnvStartup(
 		return nil, nil
 	}
 
-	// use registry chain, because that is the chain we used when generating gateway connector part of node config (check below)
-	registryChainID, chErr := chainselectors.ChainIdFromSelector(registryChainSelector)
-	if chErr != nil {
-		return nil, errors.Wrapf(chErr, "failed to get chain ID from selector %d", registryChainSelector)
-	}
-
-	// add 'web-api' handler to gateway config (future jobspec)
-	// add gateway connector to to node TOML config, so that node can route http requests to the gateway
-	for idx, donMetadata := range donsMetadata {
-		handlerConfig, confErr := gateway.HandlerConfig(coregateway.WebAPICapabilitiesType)
-		if confErr != nil {
-			return nil, errors.Wrapf(confErr, "failed to get %s handler config for don %s", coregateway.WebAPICapabilitiesType, donMetadata.Name)
-		}
-		hErr := gateway.AddHandlers(donMetadata, registryChainID, gatewayJobConfigs, []config.Handler{handlerConfig})
-		if hErr != nil {
-			return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config (jobspec) for don %s ", donMetadata.Name)
-		}
-
-		cErr := gateway.AddConnectors(donMetadata, registryChainID, topology.GatewayConnectorOutput)
-		if cErr != nil {
-			return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", donMetadata.Name)
-		}
-
-		donsMetadata[idx] = donMetadata
-	}
-
 	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	for _, donMetadata := range donsMetadata {
 		if capabilities[donMetadata.ID] == nil {
@@ -82,10 +53,9 @@ func (o *WebAPITarget) PreEnvStartup(
 
 		capabilities[donMetadata.ID] = append(capabilities[donMetadata.ID], keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "web-api-target",
+				LabelledName:   "mock",
 				Version:        "1.0.0",
-				CapabilityType: 3, // TARGET
-				ResponseType:   1, // OBSERVATION_IDENTICAL
+				CapabilityType: 0, // TRIGGER
 			},
 			Config: &capabilitiespb.CapabilityConfig{},
 		})
@@ -93,19 +63,20 @@ func (o *WebAPITarget) PreEnvStartup(
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfigs: capabilities,
-		GatewayJobConfigs:        gatewayJobConfigs,
 	}, nil
 }
 
 const configTemplate = `"""
-[rateLimiter]
-GlobalRPS = {{.GlobalRPS}}
-GlobalBurst = {{.GlobalBurst}}
-PerSenderRPS = {{.PerSenderRPS}}
-PerSenderBurst = {{.PerSenderBurst}}
+port={{.Port}}
+{{- range .DefaultMocks }}
+[[DefaultMocks]]
+id = "{{ .Id }}"
+description = "{{ .Description }}"
+type = "{{ .Type }}"
+{{- end }}
 """`
 
-func (o *WebAPITarget) PostEnvStartup(
+func (o *Mock) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
@@ -139,10 +110,8 @@ func (o *WebAPITarget) PostEnvStartup(
 	donsToJobSpecs, specErr := perDonJobSpecFactory.BuildJobSpec(
 		flag,
 		configTemplate,
-		factory.NoOpExtractor, // No runtime values extraction needed
-		func(_ *cre.JobSpecInput, _ cre.CapabilityConfig) (string, error) {
-			return "__builtin_web-api-target", nil
-		},
+		factory.NoOpExtractor,
+		factory.BinaryPathBuilder,
 	)(&cre.JobSpecInput{
 		CldEnvironment: creEnv.CldfEnvironment,
 		DonTopology:    creEnv.DonTopology,

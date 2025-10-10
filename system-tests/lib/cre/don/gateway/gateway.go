@@ -31,7 +31,7 @@ var (
 	DefaultAllowedPorts = []int{80, 443}
 )
 
-func GatewayConfig(
+func JobConfigs(
 	cldEnvironment *cldf.Environment,
 	blockchainOutput *blockchain.Output,
 	topology *cre.Topology,
@@ -49,11 +49,11 @@ func GatewayConfig(
 		return nil, errors.Wrap(chErr, "failed to parse chain ID")
 	}
 
-	// ALWAYS REQUIRE A GATEWAY
-	// if we don't have a gateway connector outputs, we don't need to create any job specs
-	// if topology.GatewayConnectorOutput == nil || len(topology.GatewayConnectorOutput.Configurations) == 0 {
-	// 	return nil, nil
-	// }
+	// if we don't have a gateway connector outputs, it means that this topology does not require a gateway
+	// so we can skip the rest of the setup
+	if topology.GatewayConnectorOutput == nil || len(topology.GatewayConnectorOutput.Configurations) == 0 {
+		return nil, nil
+	}
 
 	// for each gateway node prepare GatewayConfig, which will be later used in a job spec
 	// by default we add only add web-api handler to the workflow DON (so that it can download workflows)
@@ -195,7 +195,7 @@ forwardingAllowed = false
 	return jobs.Create(ctx, jd, donTopology, jobSpecs)
 }
 
-func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig, handlerConfigs []config.Handler) error {
+func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig, handlerConfigs []config.Handler) error {
 	workers, wErr := donMetadata.Workers()
 	if wErr != nil {
 		return wErr
@@ -206,7 +206,7 @@ func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayCo
 	}
 
 	// for each DON, we need to add a handler config specific for this capability
-	for nodeUUID, gc := range gatewayConfigs {
+	for nodeUUID, gc := range gatewayJobConfigs {
 		donFound := false
 		for donIdx, maybeDON := range gc.Dons {
 			// first we try to find DON configuration that matches current don, because it might be already present
@@ -250,7 +250,7 @@ func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayCo
 				}
 			}
 
-			gatewayConfigs[nodeUUID].Dons = append(gatewayConfigs[nodeUUID].Dons, config.DONConfig{
+			gatewayJobConfigs[nodeUUID].Dons = append(gatewayJobConfigs[nodeUUID].Dons, config.DONConfig{
 				DonId:    donMetadata.Name,
 				F:        1,
 				Members:  members,
