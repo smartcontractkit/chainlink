@@ -15,6 +15,7 @@ func TestBalanceStore(t *testing.T) {
 	two := decimal.NewFromInt(2)
 	five := decimal.NewFromInt(5)
 	seven := decimal.NewFromInt(7)
+	eight := decimal.NewFromInt(8)
 	nine := decimal.NewFromInt(9)
 	ten := decimal.NewFromInt(10)
 	eleven := decimal.NewFromInt(11)
@@ -108,5 +109,21 @@ func TestBalanceStore(t *testing.T) {
 		assert.True(t, balanceStore.Get().Equal(two))
 		require.NoError(t, balanceStore.MinusAs("resourceA", one))
 		assert.True(t, balanceStore.Get().Equal(decimal.NewFromFloat(1.8)), balanceStore.Get())
+	})
+
+	t.Run("spent credits never go negative", func(t *testing.T) {
+		t.Parallel()
+
+		// Start with 10 credits, spend 5, then add back 8 (more than was spent)
+		balanceStore, err := NewBalanceStore(ten, map[string]decimal.Decimal{"resourceA": decimal.NewFromInt(1)})
+		require.NoError(t, err)
+
+		// Spend 5 credits
+		require.NoError(t, balanceStore.Minus(five))
+		assert.True(t, balanceStore.GetSpent().Equal(five), "should have spent 5 credits")
+
+		// Add back 8 credits (more than was spent) - spent should not go negative
+		require.NoError(t, balanceStore.Add(eight))
+		assert.True(t, balanceStore.GetSpent().Equal(decimal.Zero), "spent should be 0, not negative")
 	})
 }

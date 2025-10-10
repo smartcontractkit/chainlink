@@ -91,7 +91,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251009203201-900123a5c46a
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251009153055-c381b51a6d6e
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251010025452-96327b3f910f
 	github.com/smartcontractkit/chainlink-data-streams v0.1.5
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251007172225-ba2f4b5ef962
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251003185510-17234095940f
@@ -107,7 +107,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251008185222-47a7460f5207
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251007010318-c9a7b2d44524
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20251010023359-5b4252deb189
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250930221620-ce57bba04eab
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20251009173109-af31806bede5
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20250815105909-75499abc4335
 	github.com/smartcontractkit/cre-sdk-go v0.7.1-0.20250919133015-2df149f34a81
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v0.7.0

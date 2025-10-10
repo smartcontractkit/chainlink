@@ -270,10 +270,13 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					true,
 				))
 			case chainsel.FamilyTon:
-				// TODO: proper implementation, for now just stall
-				t.Log("Reached waiting for commit confirm, TON implementation is missing. Stalling to see more node logs")
-				time.Sleep(time.Minute * 5)
-				return fmt.Errorf("unsupported chain family; %v", family)
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeTON(
+					t,
+					srcChain,
+					e.BlockChains.TonChains()[dstChain],
+					state.TonChains[dstChain].OffRamp,
+					expectedSeqNum,
+				))
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}
@@ -872,6 +875,18 @@ func ConfirmExecWithSeqNrsForAll(
 					srcChain,
 					e.BlockChains.SuiChains()[dstChain],
 					state.SuiChains[dstChain].OffRampAddress,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			case chainsel.FamilyTon:
+				innerExecutionStates, err = ConfirmExecWithExpectedSeqNrsTON(
+					t,
+					srcChain,
+					e.BlockChains.TonChains()[dstChain],
+					state.TonChains[dstChain].OffRamp,
 					startBlock,
 					seqRange,
 				)
