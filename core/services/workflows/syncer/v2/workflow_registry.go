@@ -814,6 +814,10 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 		// If search is not complete, set the end index to the start index minus MaxResultsPerQuery
 		// to continue fetching the next batch of allowlisted requests
 		endIndex = endIndex.Sub(endIndex, big.NewInt(MaxResultsPerQuery))
+		// Ensure endIndex doesn't go below zero
+		if endIndex.Cmp(big.NewInt(0)) < 0 {
+			endIndex = big.NewInt(0)
+		}
 	}
 
 	return newAllowlistedRequests, totalAllowlistedRequestsResult, headAtLastRead, nil
