@@ -1,20 +1,27 @@
 package ccip
 
 import (
-	"encoding/base64"
+	"fmt"
 	"math/big"
 	"slices"
 	"testing"
 
-	"github.com/xssnick/tonutils-go/tlb"
-
-	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
-	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/xssnick/tonutils-go/address"
+	"github.com/xssnick/tonutils-go/tlb"
+	"github.com/xssnick/tonutils-go/tvm/cell"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+
+	"github.com/smartcontractkit/chainlink-ton/pkg/bindings"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/onramp"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ccip/codec"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ton/tracetracking"
+	"github.com/smartcontractkit/chainlink-ton/pkg/ton/wrappers"
 
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -22,38 +29,42 @@ import (
 )
 
 func Test_CCIPMessaging_TON2EVM(t *testing.T) {
-	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
+	// setup environment with 1 ton chain
+	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithTonChains(1),
+	)
 
-	t.Logf("Environment: %+v", e.Env)
+	// load state
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	t.Logf("Loaded state: %v", state)
-	_ = state
-
-	// make evm chains sorted for deterministic test results
-	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
-	slices.Sort(evmChainSelectors)
-
+	// get chain selectors
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := allTonChainSelectors[0]
+	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
+	slices.Sort(evmChainSelectors) // make evm chains sorted for deterministic test results
 	destChain := evmChainSelectors[0]
-	t.Log("TON chain selectors:", allTonChainSelectors,
-		", EVM chain selectors:", evmChainSelectors,
-		", home chain selector:", e.HomeChainSel,
-		", feed chain selector:", e.FeedChainSel,
-		", source chain selector:", sourceChain,
-		", dest chain selector:", destChain,
+	t.Log("Chain selectors",
+		"TON", allTonChainSelectors,
+		"EVM", evmChainSelectors,
+		"home", e.HomeChainSel,
+		"feed", e.FeedChainSel,
+		"source", sourceChain,
+		"dest", destChain,
 	)
 
-	tonChain := e.Env.BlockChains.TonChains()[sourceChain]
-	ac := codec.NewAddressCodec()
-	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
-	require.NoError(t, err)
-
+	// setup lane
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
+	// encode sender address(deployer address)
+	ac := codec.NewAddressCodec()
+	tonChain := e.Env.BlockChains.TonChains()[sourceChain]
+	addrBytes, err := ac.AddressStringToBytes(tonChain.WalletAddress.String())
+	require.NoError(t, err)
+
+	// ready to test
 	var (
 		sender = addrBytes
 		out    mt.TestCaseOutput
@@ -70,13 +81,10 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
 		receiver := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), 32)
-		require.NoError(t, err)
-
-		ea := onramp.GenericExtraArgsV2{
+		extraArgs, err := tlb.ToCell(onramp.GenericExtraArgsV2{
 			GasLimit:                 big.NewInt(1000000),
 			AllowOutOfOrderExecution: true,
-		}
-		c, err := tlb.ToCell(ea)
+		})
 		require.NoError(t, err)
 		out = mt.Run(
 			t,
@@ -87,7 +95,7 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 				Nonce:                  nil, // TON nonce check is skipped
 				Receiver:               receiver,
 				MsgData:                []byte("hello CCIPReceiver"),
-				ExtraArgs:              c.ToBOC(),
+				ExtraArgs:              extraArgs.ToBOC(),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
@@ -97,50 +105,42 @@ func Test_CCIPMessaging_TON2EVM(t *testing.T) {
 }
 
 func Test_CCIPMessaging_EVM2TON(t *testing.T) {
-	t.Skip("Test stalls because TON test assertions aren't implemented yet")
-	// Setup 2 chains (EVM and Ton) and a single lane.
-	// ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithTonChains(1))
+	// setup environment with 1 ton chain
+	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithTonChains(1),
+	)
 
-	t.Logf("Environment: %+v", e.Env)
+	// load state
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	t.Logf("Loaded state: %v", state)
-	_ = state
-
+	// get chain selectors
 	evmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	slices.Sort(evmChainSelectors)
 	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	sourceChain := evmChainSelectors[0]
 	destChain := allTonChainSelectors[0]
-	t.Log("EVM chain selectors:", evmChainSelectors,
-		", TON chain selectors:", allTonChainSelectors,
-		", home chain selector:", e.HomeChainSel,
-		", feed chain selector:", e.FeedChainSel,
-		", source chain selector:", sourceChain,
-		", dest chain selector:", destChain,
+
+	t.Log("Chain selectors",
+		"TON", allTonChainSelectors,
+		"EVM", evmChainSelectors,
+		"home", e.HomeChainSel,
+		"feed", e.FeedChainSel,
+		"source", sourceChain,
+		"dest", destChain,
 	)
+	t.Logf("  OnRamp:       %s", state.Chains[sourceChain].OnRamp.Address())
 
-	tonChain := e.Env.BlockChains.TonChains()[destChain]
-	tonClient := tonChain.Client
-	deployerWallet := tonChain.Wallet
-
-	masterInfo, err := tonClient.GetMasterchainInfo(t.Context())
-	require.NoError(t, err, "Failed to get masterchain info")
-	acc, err := tonClient.GetAccount(t.Context(), masterInfo, deployerWallet.Address())
-	require.NoError(t, err, "Failed to get deployer account")
-	require.NotNil(t, acc, "Deployer account should not be nil")
-	require.NotNil(t, acc.State, "Deployer account state should not be nil")
-	require.True(t, acc.IsActive, "Deployer account should be active")
-
-	// Check deployer wallet balance
-	expected := tlb.MustFromTON("1000")
-	require.GreaterOrEqual(t, acc.State.Balance.Compare(&expected), 0)
-
+	// setup lane
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
+	// wait for event filter registration
+	t.Logf("Waiting for event filter registration (~2 mins)...")
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+
+	// ready to test
 	var (
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 		out    mt.TestCaseOutput
@@ -155,26 +155,66 @@ func Test_CCIPMessaging_EVM2TON(t *testing.T) {
 		)
 	)
 
-	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		ccipChainState := state.TonChains[destChain]
-		receiver := ccipChainState.ReceiverAddress
-		receiverBase64Bytes, err := base64.RawURLEncoding.DecodeString(receiver.String())
+	t.Run("message to contract receiver", func(t *testing.T) {
+		// deploy receiver contract
+		tonChain := e.Env.BlockChains.TonChains()[destChain]
+		offRampAddr := state.TonChains[destChain].OffRamp
+		receiver, err := deployReceiverContract(tonChain, &offRampAddr)
 		require.NoError(t, err)
-		// Prepare 36-byte raw address
-		receiver.FlagsToByte()
+
+		t.Logf("  TON OffRamp:  %s", offRampAddr.String())
+		t.Logf("  TON Receiver: %s", receiver.String())
+
+		// TODO: should receiver address be saved in state?
+		ccipChainState := state.TonChains[destChain]
+		ccipChainState.ReceiverAddress = *receiver
+		state.TonChains[destChain] = ccipChainState
+
+		ac := codec.NewAddressCodec()
+		receiverBytes, err := ac.AddressStringToBytes(receiver.String())
+		require.NoError(t, err)
+		require.Len(t, receiverBytes, 36, "receiver bytes should be 36 bytes")
+
 		out = mt.Run(
 			t,
 			mt.TestCase{
 				ValidationType:         mt.ValidationTypeExec,
 				TestSetup:              setup,
 				Nonce:                  nil, // TON nonce check is skipped
-				Receiver:               receiverBase64Bytes,
+				Receiver:               receiverBytes,
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(100000, false),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // state would be failed
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 			},
 		)
 	})
-
 	_ = out
+}
+
+func deployReceiverContract(tonChain ton.Chain, offRampAddr *address.Address) (*address.Address, error) {
+	// parse compiled contract
+	// Note: receiver is under ccip/test (not examples) so it's included in GitHub releases
+	codeCell, err := wrappers.ParseCompiledContract(bindings.GetBuildDir("ccip.test.receiver.compiled.json"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Receiver compiled contract: %w", err)
+	}
+
+	// create initial storage - must match TypeScript: beginCell().storeAddress(offRampAddress).endCell()
+	receiverStorage := cell.BeginCell().
+		MustStoreAddr(offRampAddr).
+		EndCell()
+
+	conn := tracetracking.NewSignedAPIClient(tonChain.Client, *tonChain.Wallet)
+	contract, _, err := wrappers.Deploy(
+		&conn,
+		codeCell,
+		receiverStorage,
+		tlb.MustFromTON("0.1"), // should be enough for testing
+		cell.BeginCell().EndCell(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy Receiver contract: %w", err)
+	}
+	receiver := contract.Address
+	return receiver, nil
 }
