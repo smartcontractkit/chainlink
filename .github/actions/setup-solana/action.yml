@@ -1,8 +1,6 @@
 name: Setup Solana CLI
 description: Setup solana CLI
 inputs:
-
-
   # version and installer checksum default values should
   # be kept in sync with the values in tools/ci/install_solana
   cli-version:
@@ -18,15 +16,24 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/cache@v4
-      id: cache
-      name: Cache solana CLI
-      with:
-        path: |
-          ~/.local/share/solana/install/active_release/bin
-        key: ${{ runner.os }}-${{ runner.arch }}-solana-cli-${{ hashFiles('tools/ci/install_solana') }}
+    - name: Setup Path and Cache Key
+      id: setup
+      shell: bash
+      env:
+        CACHE_PATH: "~/.local/share/solana/install/active_release/bin"
+        CACHE_KEY: "${{ runner.os }}-${{ runner.arch }}-solana-cli-${{ inputs.cli-version }}-${{ hashFiles('tools/ci/install_solana') }}"
+      run: |
+        echo "cache-path=$CACHE_PATH" | tee -a $GITHUB_OUTPUT
+        echo "cache-key=$CACHE_KEY" | tee -a $GITHUB_OUTPUT
 
-    - if: ${{ steps.cache.outputs.cache-hit != 'true' && runner.arch != 'ARM64' }}
+    - name: Restore cached Solana CLI
+      uses: actions/cache/restore@v4
+      id: cache-restore
+      with:
+        path: ${{ steps.setup.outputs.cache-path }}
+        key: ${{ steps.setup.outputs.cache-key }}
+
+    - if: ${{ steps.cache-restore.outputs.cache-hit != 'true' && runner.arch != 'ARM64' }}
       name: Install solana cli
       shell: bash
       env:
@@ -34,7 +41,7 @@ runs:
         SOLANA_CLI_INSTALLER_CHECKSUM: ${{ inputs.installer-checksum }}
       run: ./tools/ci/install_solana
 
-    - if: ${{ steps.cache.outputs.cache-hit != 'true' && runner.arch == 'ARM64' }}
+    - if: ${{ steps.cache-restore.outputs.cache-hit != 'true' && runner.arch == 'ARM64' }}
       name: Build solana cli (arm64)
       uses: ./.github/actions/setup-solana/build-solana-cli
       with:
@@ -45,20 +52,30 @@ runs:
       env:
         INSTALL_DIR: /home/runner/.local/share/solana/install/active_release/bin
       run: |
+        echo "::group::Check install directory"
         if [ -d "$INSTALL_DIR" ]; then
           ls -la "$INSTALL_DIR"
         else
           echo "Directory $INSTALL_DIR does not exist"
           exit 1
         fi
+        echo "::endgroup::"
 
+        echo "::group::Add to path and verify"
+        export "PATH=$INSTALL_DIR:$PATH"
         echo "PATH=$INSTALL_DIR:$PATH" >> $GITHUB_ENV
 
-    - name: Verify installation
-      shell: bash
-      run: |
         if ! command -v solana &> /dev/null
         then
-          echo "solana could not be found"
+          echo "::error::solana command was not found in PATH"
           exit 1
         fi
+        echo "::endgroup::"
+
+    # Save the cache immmediately so it is available even if the job fails afterwards
+    - name: Cache Solana CLI
+      if: ${{ steps.cache-restore.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.setup.outputs.cache-path }}
+        key: ${{ steps.setup.outputs.cache-key }}
