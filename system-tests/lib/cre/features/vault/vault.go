@@ -4,16 +4,20 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
@@ -92,6 +96,45 @@ func (o *Vault) PreEnvStartup(
 		}
 
 		donsMetadata[idx] = donMetadata
+	}
+
+	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(cldfEnv.ExistingAddresses, registryChainSelector, keystone_changeset.WorkflowRegistry.String())
+	if wfErr != nil {
+		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
+	}
+
+	// enable workflow registry syncer in node's TOML config
+	for _, donMetadata := range donsMetadata {
+		workerNodes, wErr := donMetadata.Workers()
+		if wErr != nil {
+			return nil, errors.Wrap(wErr, "failed to find worker nodes")
+		}
+
+		for _, workerNode := range workerNodes {
+			currentConfig := donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+
+			var typedConfig corechainlink.Config
+			unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
+			if unmarshallErr != nil {
+				return nil, errors.Wrapf(unmarshallErr, "failed to unmarshal config for node index %d", workerNode.Index)
+			}
+
+			// enable workflow registry syncer
+			typedConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
+				Address:         ptr.Ptr(workflowRegistryAddress.Hex()),
+				NetworkID:       ptr.Ptr("evm"),
+				ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
+				SyncStrategy:    ptr.Ptr("reconciliation"),
+				ContractVersion: ptr.Ptr(wfRegTypeVersion.String()),
+			}
+
+			stringifiedConfig, mErr := toml.Marshal(typedConfig)
+			if mErr != nil {
+				return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
+			}
+
+			donMetadata.CapabilitiesAwareNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = string(stringifiedConfig)
+		}
 	}
 
 	capabilities := make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
