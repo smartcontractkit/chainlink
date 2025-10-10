@@ -353,12 +353,12 @@ jobs:
           name: ${{ matrix.type.cmd }}_logs
           path: |
             ./output.txt
-            ./output-short.txt
             ./race.*
             ./coverage.txt
             ./postgres_logs.txt
             ./junit.xml
             ./deployment/junit.xml
+            ./deployment/output.txt
           retention-days: 7
 
       - name: Notify Slack on Race Test Failure
