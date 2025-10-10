@@ -7,20 +7,21 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ptypes "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	standardcapability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -128,7 +129,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 			}
 
 			// create job specs for the bootstrap node
-			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.BootstrapOCR3(bootstrapNode.JobDistributorDetails.NodeID, contractName, ocr3ConfigContractAddress.Address, chainID))
+			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], BootstrapOCR3(bootstrapNode.JobDistributorDetails.NodeID, contractName, ocr3ConfigContractAddress.Address, chainID))
 			logger.Debug().Msgf("Found deployed '%s' OCR3 contract on chain %d at %s", contractName, chainID, ocr3ConfigContractAddress.Address)
 
 			for _, workerNode := range workerNodes {
@@ -190,7 +191,7 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 					jobName = jobName + "-" + strconv.FormatUint(chainID, 10)
 				}
 
-				jobSpec := jobs.WorkerStandardCapability(workerNode.JobDistributorDetails.NodeID, jobName, binaryPath, jobConfig, oracleStr)
+				jobSpec := standardcapability.WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, jobName, binaryPath, jobConfig, oracleStr)
 				jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &flag}}
 
 				if _, ok := donToJobSpecs[don.ID]; !ok {
@@ -203,6 +204,31 @@ func GenerateJobSpecsForStandardCapabilityWithOCR(
 	}
 
 	return donToJobSpecs, nil
+}
+
+func BootstrapOCR3(nodeID string, name string, ocr3CapabilityAddress string, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec: fmt.Sprintf(`
+	type = "bootstrap"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "%s"
+	contractID = "%s"
+	contractConfigTrackerPollInterval = "1s"
+	contractConfigConfirmations = 1
+	relay = "evm"
+	[relayConfig]
+	chainID = %d
+	providerType = "ocr3-capability"
+`,
+			uuid,
+			"ocr3-bootstrap-"+name+fmt.Sprintf("-%d", chainID),
+			ocr3CapabilityAddress,
+			chainID),
+	}
 }
 
 // ConfigMerger merges default config with overrides (either on DON or chain level)

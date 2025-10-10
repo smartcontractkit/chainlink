@@ -21,8 +21,6 @@ import (
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
-	// clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"

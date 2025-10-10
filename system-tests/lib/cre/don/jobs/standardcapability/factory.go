@@ -1,4 +1,4 @@
-package factory
+package standardcapability
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 )
 
 // Type aliases for cleaner function signatures
@@ -169,7 +168,7 @@ func (f *CapabilityJobSpecFactory) BuildJobSpec(
 						return nil, errors.Wrapf(err, "%s template validation failed", capabilityFlag)
 					}
 
-					jobSpec := jobs.WorkerStandardCapability(workerNode.JobDistributorDetails.NodeID, f.jobNamer(chainID, capabilityFlag), command, configStr, "")
+					jobSpec := WorkerJobSpec(workerNode.JobDistributorDetails.NodeID, f.jobNamer(chainID, capabilityFlag), command, configStr, "")
 					jobSpec.Labels = []*ptypes.Label{{Key: cre.CapabilityLabelKey, Value: &capabilityFlag}}
 					donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobSpec)
 				}

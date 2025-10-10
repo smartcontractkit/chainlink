@@ -36,7 +36,7 @@ func (o *ReadContract) PreEnvStartup(
 	provider infra.Provider,
 	topology *cre.Topology,
 	blockchainOutputs []*cre.WrappedBlockchainOutput,
-	capabilityConfigs cre.CapabilityConfigs, // move to Topology
+	capabilityConfigs cre.CapabilityConfigs,
 	contractVersions map[string]string,
 	gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig,
 ) (*cre.PreEnvStartupOutput, error) {

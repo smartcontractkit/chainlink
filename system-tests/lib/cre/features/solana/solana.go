@@ -134,7 +134,7 @@ func (o *Solana) PreEnvStartup(
 
 	cldfEnv.DataStore = memoryDatastore.Seal()
 
-	// modify node config
+	// add solana configuration to node's TOML config
 	data := solanaInput{}
 	for _, bcOut := range blockchainOutputs {
 		if bcOut.SolChain == nil {

@@ -33,7 +33,7 @@ var (
 
 func JobConfigs(
 	cldEnvironment *cldf.Environment,
-	blockchainOutput *blockchain.Output,
+	registryChainOutput *blockchain.Output,
 	topology *cre.Topology,
 	infraInput infra.Provider,
 	capabilityConfigs map[string]cre.CapabilityConfig,
@@ -44,7 +44,7 @@ func JobConfigs(
 		return nil, errors.New("topology is nil")
 	}
 
-	chainID, chErr := strconv.ParseUint(blockchainOutput.ChainID, 10, 64)
+	chainID, chErr := strconv.ParseUint(registryChainOutput.ChainID, 10, 64)
 	if chErr != nil {
 		return nil, errors.Wrap(chErr, "failed to parse chain ID")
 	}
@@ -58,6 +58,7 @@ func JobConfigs(
 	// for each gateway node prepare GatewayConfig, which will be later used in a job spec
 	// by default we add only add web-api handler to the workflow DON (so that it can download workflows)
 	// all other handlers should be added by capabilities/features that require them
+	// gateway configurations that contain networking data are added, when a new topology is created
 	result := make(map[string]*config.GatewayConfig)
 	for _, donMetadata := range topology.DonsMetadata.List() {
 		gateway, hasGateway := donMetadata.Gateway()
@@ -151,6 +152,7 @@ func JobConfigs(
 	return result, nil
 }
 
+// CreateJobs creates gateway job spec for each gateway node in the DON topology and sends it to JD for creation and approval
 func CreateJobs(ctx context.Context, jd *jd.JobDistributor, donTopology *cre.DonTopology, gatewayConfigs map[cre.NodeUUID]*config.GatewayConfig) error {
 	jobSpecs := make(cre.DonJobs, 0)
 
@@ -195,6 +197,7 @@ forwardingAllowed = false
 	return jobs.Create(ctx, jd, donTopology, jobSpecs)
 }
 
+// AddHandlers adds the given handler configurations to the gateway job config of the given DON. It only adds handlers, if they are not already present.
 func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJobConfigs map[cre.NodeUUID]*config.GatewayConfig, handlerConfigs []config.Handler) error {
 	workers, wErr := donMetadata.Workers()
 	if wErr != nil {
@@ -262,6 +265,7 @@ func AddHandlers(donMetadata *cre.DonMetadata, registryChainID uint64, gatewayJo
 	return nil
 }
 
+// AddConnectors adds gateway connector configuration to the node TOML config of each node in the given DON. It only adds connectors, if they are not already present.
 func AddConnectors(donMetadata *cre.DonMetadata, registryChainID uint64, output *cre.GatewayConnectorOutput) error {
 	workers, wErr := donMetadata.Workers()
 	if wErr != nil {

@@ -382,11 +382,6 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	return nil
 }
 
-type GatewayConnectorDons struct {
-	MembersEthAddresses []string `toml:"members_eth_addresses" json:"members_eth_addresses"`
-	ID                  string   `toml:"id" json:"id"`
-	Handlers            []config.Handler
-}
 type GatewayConnectorOutput struct {
 	Configurations []*DonGatewayConfiguration `toml:"configurations" json:"configurations"`
 }
@@ -407,7 +402,6 @@ func NewGatewayConnectorOutput() *GatewayConnectorOutput {
 }
 
 type DonGatewayConfiguration struct {
-	// Dons []GatewayConnectorDons `toml:"dons" json:"dons"` // do not set, it will be set dynamically
 	*GatewayConfiguration
 }
 
@@ -526,7 +520,6 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider) (*DonGatewayConfiguration,
 	}
 
 	return &DonGatewayConfiguration{
-		// Dons:                 make([]GatewayConnectorDons, 0),
 		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
 	}, nil
 }
@@ -1275,14 +1268,12 @@ type (
 )
 
 type JobSpecInput struct {
-	CldEnvironment *cldf.Environment
-	// BlockchainOutput          *blockchain.Output
+	CldEnvironment    *cldf.Environment
 	DonTopology       *DonTopology
 	InfraInput        infra.Provider
 	CapabilityConfigs map[string]CapabilityConfig
 	Capabilities      []InstallableCapability
-	// CapabilitiesAwareNodeSets []*CapabilitiesAwareNodeSet
-	NodeSets []NodeSetWithCapabilityConfigs
+	NodeSets          []NodeSetWithCapabilityConfigs
 }
 
 type NodeSetWithCapabilityConfigs interface {

@@ -100,7 +100,6 @@ func (o *Consensus) PostEnvStartup(
 	jobsErr := createJobs(
 		ctx,
 		creEnv.CldfEnvironment,
-		// creEnv.DonTopology.HomeChainSelector,
 		creEnv.DonTopology,
 		provider,
 		capabilityConfigs,
@@ -146,7 +145,6 @@ const configTemplate = `'{"chainId":{{.ChainID}},"network":"{{.NetworkFamily}}",
 func createJobs(
 	ctx context.Context,
 	cldfEnv *cldf.Environment,
-	// registryChainSelector uint64,
 	donTopology *cre.DonTopology,
 	provider infra.Provider,
 	capabilityConfigs map[string]cre.CapabilityConfig,

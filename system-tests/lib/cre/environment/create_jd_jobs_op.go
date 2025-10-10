@@ -44,8 +44,7 @@ var CreateJobsWithJdOp = operations.NewOperation(
 				continue
 			}
 			singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cre.JobSpecInput{
-				CldEnvironment: deps.CreEnvironment.CldfEnvironment,
-				// BlockchainOutput:          deps.HomeChainBlockchainOutput,
+				CldEnvironment:    deps.CreEnvironment.CldfEnvironment,
 				DonTopology:       deps.CreEnvironment.DonTopology,
 				InfraInput:        deps.InfraInput,
 				CapabilityConfigs: deps.CapabilitiesConfigs,

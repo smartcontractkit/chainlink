@@ -7,17 +7,19 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
@@ -33,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
@@ -248,8 +251,8 @@ func createJobs(
 		return errors.Wrap(err, "failed to get peering configs")
 	}
 
-	jobSpecs := []*job.ProposeJobRequest{}
-	jobSpecs = append(jobSpecs, jobs.BootstrapOCR3(bootstrap.JobDistributorDetails.NodeID, "vault-capability", vaultOCR3Addr.Hex(), chainID))
+	jobSpecs := []*jobv1.ProposeJobRequest{}
+	jobSpecs = append(jobSpecs, ocr.BootstrapOCR3(bootstrap.JobDistributorDetails.NodeID, "vault-capability", vaultOCR3Addr.Hex(), chainID))
 
 	for _, workerNode := range workerNodes {
 		evmKey, ok := workerNode.Keys.EVM[chainID]
@@ -264,7 +267,7 @@ func createJobs(
 		}
 
 		// we pass here bundles for all chains to enable multi-chain signing
-		jobSpecs = append(jobSpecs, jobs.WorkerVaultOCR3(workerNode.JobDistributorDetails.NodeID, vaultOCR3Addr.Hex(), vaultDKGOCR3Addr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
+		jobSpecs = append(jobSpecs, workerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, vaultOCR3Addr.Hex(), vaultDKGOCR3Addr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
 	}
 
 	// pass whole topology, since some jobs might need to be created on multiple DONs
@@ -346,4 +349,43 @@ func EncryptSecret(secret, masterPublicKeyStr string) (string, error) {
 		return "", errors.Wrap(err, "failed to marshal encrypted secrets to bytes")
 	}
 	return hex.EncodeToString(cipherBytes), nil
+}
+
+func workerOCR3JobSpec(nodeID string, vaultCapabilityAddress, dkgAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec: fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "%s"
+	contractID = "%s"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	relay = "evm"
+	pluginType = "%s"
+	transmitterID = "%s"
+	[relayConfig]
+	chainID = "%d"
+	[pluginConfig]
+	requestExpiryDuration = "60s"
+	[pluginConfig.dkg]
+	dkgContractID = "%s"
+`,
+			uuid,
+			"Vault OCR3 Capability",
+			vaultCapabilityAddress,
+			ocr2KeyBundleID,
+			ocrPeeringData.OCRBootstraperPeerID,
+			fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+			types.VaultPlugin,
+			nodeEthAddress,
+			chainID,
+			dkgAddress,
+		),
+	}
 }

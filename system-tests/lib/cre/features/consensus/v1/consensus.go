@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -12,7 +13,7 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -171,8 +173,8 @@ func createJobs(
 		return errors.Wrap(err, "failed to get peering configs")
 	}
 
-	jobSpecs := []*job.ProposeJobRequest{}
-	jobSpecs = append(jobSpecs, jobs.BootstrapOCR3(bootstrap.JobDistributorDetails.NodeID, "ocr3-capability", ocr3ContractAddr.Hex(), chainID))
+	jobSpecs := []*jobv1.ProposeJobRequest{}
+	jobSpecs = append(jobSpecs, ocr.BootstrapOCR3(bootstrap.JobDistributorDetails.NodeID, "ocr3-capability", ocr3ContractAddr.Hex(), chainID))
 
 	for _, workerNode := range workerNodes {
 		evmKey, ok := workerNode.Keys.EVM[chainID]
@@ -187,9 +189,58 @@ func createJobs(
 		}
 
 		// we pass here bundles for all chains to enable multi-chain signing
-		jobSpecs = append(jobSpecs, jobs.WorkerOCR3(workerNode.JobDistributorDetails.NodeID, ocr3ContractAddr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringCfg, chainID))
+		jobSpecs = append(jobSpecs, workerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, ocr3ContractAddr.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringCfg, chainID))
 	}
 
 	// pass whole topology, since some jobs might need to be created on multiple DONs
 	return jobs.Create(ctx, jdClient, donTopology, jobSpecs)
+}
+
+func workerOCR3JobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, offchainBundleID string, ocr2KeyBundles map[string]string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+	uuid := uuid.NewString()
+
+	spec := fmt.Sprintf(`
+	type = "offchainreporting2"
+	schemaVersion = 1
+	externalJobID = "%s"
+	name = "%s"
+	contractID = "%s"
+	ocrKeyBundleID = "%s"
+	p2pv2Bootstrappers = [
+		"%s@%s",
+	]
+	relay = "evm"
+	pluginType = "plugin"
+	transmitterID = "%s"
+	[relayConfig]
+	chainID = "%d"
+	[pluginConfig]
+	command = "/usr/local/bin/chainlink-ocr3-capability"
+	ocrVersion = 3
+	pluginName = "ocr-capability"
+	providerType = "ocr3-capability"
+	telemetryType = "plugin"
+	[onchainSigningStrategy]
+	strategyName = "multi-chain"
+	[onchainSigningStrategy.config]
+`,
+		uuid,
+		cre.ConsensusCapability,
+		ocr3CapabilityAddress,
+		offchainBundleID,
+		ocrPeeringData.OCRBootstraperPeerID,
+		fmt.Sprintf("%s:%d", ocrPeeringData.OCRBootstraperHost, ocrPeeringData.Port),
+		nodeEthAddress,
+		chainID,
+	)
+	for family, key := range ocr2KeyBundles {
+		spec += fmt.Sprintf(`
+        %s = "%s"`, family, key)
+		spec += "\n"
+	}
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec:   spec,
+	}
 }
