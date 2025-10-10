@@ -27,13 +27,18 @@ runs:
       shell: bash
       working-directory: agave
       run: |
+        echo "::group::Update package registry"
         sudo apt-get update
+        echo "::endgroup::"
+
+        echo "::group::Install dependencies"
         # https://github.com/anza-xyz/agave/blob/v1.18.26/docs/src/cli/install.md#build-from-source
         sudo apt-get install -y \
           build-essential \
           pkg-config \
           libudev-dev llvm libclang-dev \
           protobuf-compiler
+        echo "::endgroup::"
 
     - name: Build solana CLI
       shell: bash
@@ -41,7 +46,12 @@ runs:
         INSTALL_PATH: ${{ inputs.install-path }}
       working-directory: agave
       run: |
+        echo "::group::Build solana CLI"
         ./scripts/cargo-install-all.sh .
+        echo "::endgroup::"
+
+        echo "::group::Check build output and move to install path"
         ls -la bin
         mkdir -p $INSTALL_PATH
         mv bin/* $INSTALL_PATH
+        echo "::endgroup::"
