@@ -2,7 +2,6 @@ package v2
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -45,35 +44,29 @@ func isCacheableStatusCode(statusCode int) bool {
 // isExpiredOrNotCached returns true if the cached response is expired or not cached.
 // IMPORTANT: this method does not lock the cache map. MUST be called with the cacheMu locked.
 func (rc *responseCache) isExpiredOrNotCached(workflowID string, req gateway.OutboundHTTPRequest) bool {
-	key := cacheKey(workflowID, req)
-	cachedResp, exists := rc.cache[key]
+	cachedResp, exists := rc.cache[req.Hash()]
 	if !exists || time.Now().After(cachedResp.storedAt.Add(rc.ttl)) {
 		return true
 	}
 	return false
 }
 
-func cacheKey(workflowID string, req gateway.OutboundHTTPRequest) string {
-	return fmt.Sprintf("%s:%s", workflowID, req.Hash())
-}
-
-// CachedFetch fetches a response from the cache if it exists and
+// Fetch fetches a response from the cache if it exists and
 // the age of cached response is less than the max age of the request.
 // If the cached response is expired or not cached, it fetches a new response from the fetchFn.
-// and caches the response if it is cacheable.
-func (rc *responseCache) CachedFetch(ctx context.Context, workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse) gateway.OutboundHTTPResponse {
+// and caches the response if it is cacheable and storeOnFetch is true.
+func (rc *responseCache) Fetch(ctx context.Context, workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse, storeOnFetch bool) gateway.OutboundHTTPResponse {
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
-	key := cacheKey(workflowID, req)
 	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
-	cachedResp, exists := rc.cache[key]
+	cachedResp, exists := rc.cache[req.Hash()]
 	if exists && cachedResp.storedAt.Add(cacheMaxAge).After(time.Now()) {
 		rc.metrics.Action.IncrementCacheHitCount(ctx, rc.lggr)
 		return cachedResp.response
 	}
 	response := fetchFn()
-	if isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
-		rc.cache[key] = &cachedResponse{
+	if storeOnFetch && isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
+		rc.cache[req.Hash()] = &cachedResponse{
 			response: response,
 			storedAt: time.Now(),
 		}
@@ -86,8 +79,7 @@ func (rc *responseCache) Set(workflowID string, req gateway.OutboundHTTPRequest,
 	rc.cacheMu.Lock()
 	defer rc.cacheMu.Unlock()
 	if isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
-		cacheKey := cacheKey(workflowID, req)
-		rc.cache[cacheKey] = &cachedResponse{
+		rc.cache[req.Hash()] = &cachedResponse{
 			response: response,
 			storedAt: time.Now(),
 		}
