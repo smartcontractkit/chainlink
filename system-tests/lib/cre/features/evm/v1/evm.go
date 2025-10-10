@@ -212,7 +212,6 @@ func (o *EVM) PreEnvStartup(
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
-
 		}
 	}
 

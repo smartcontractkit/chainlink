@@ -80,7 +80,7 @@ func (o *Consensus) PostEnvStartup(
 		return nil
 	}
 	if len(dons) > 1 {
-		return fmt.Errorf("more than one DON with consensus v2 capability is not supported yet")
+		return errors.New("more than one DON with consensus v2 capability is not supported yet")
 	}
 	consensusV2DON := dons[0]
 

@@ -114,7 +114,7 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					AddressBook:             creEnv.CldfEnvironment.ExistingAddresses,
+					AddressBook:             creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
 					Datastore:               creEnv.CldfEnvironment.DataStore,
 					DonMetadata:             donMetadata,
 					BlockchainOutput:        chainPerSelector,

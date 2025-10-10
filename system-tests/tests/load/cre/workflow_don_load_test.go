@@ -49,7 +49,7 @@ import (
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/ocr"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
 	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
@@ -149,7 +149,7 @@ func setupLoadTestEnvironment(
 	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
 
 	forwarderAddress, _, forwarderErr := crecontracts.FindAddressesForChain(
-		universalSetupOutput.CldEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate now
+		universalSetupOutput.CldEnvironment.ExistingAddresses,
 		universalSetupOutput.BlockchainOutput[0].ChainSelector,
 		keystone_changeset.KeystoneForwarder.String(),
 	)
@@ -1176,7 +1176,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 			bootstrapNodeID := strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_")
 
 			// create job specs for the bootstrap node
-			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
+			donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], ocr.BootstrapOCR3(bootstrapNodeID, "ocr3-capability", ocr3CapabilityAddress.Address, chainID))
 
 			ocrPeeringData := cretypes.OCRPeeringData{
 				OCRBootstraperPeerID: bootstrapNodeID,
@@ -1196,8 +1196,8 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 					return nil, fmt.Errorf("node %s does not have OCR2 key bundle for EVM", workerNode.Name)
 				}
 
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.WorkerOCR3(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
-				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], jobs.DonTimeJob(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
+				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], consensus_v1_feature.WorkerOCR3JobSpec(workerNode.JobDistributorDetails.NodeID, ocr3CapabilityAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, workerNode.Keys.OCR2BundleIDs, ocrPeeringData, chainID))
+				donToJobSpecs[don.ID] = append(donToJobSpecs[don.ID], don_time_feature.DonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Address, evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringData, chainID))
 			}
 		}
 

@@ -18,12 +18,12 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	keystone_contracts "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -88,12 +88,11 @@ func (o *EVM) PreEnvStartup(
 			if flags.RequiresForwarderContract(donMetadata.ComputedCapabilities, bcOut.ChainID) {
 				if strings.EqualFold(bcOut.BlockchainOutput.Family, blockchain.FamilyTron) {
 					continue
-				} else {
-					// deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
-					forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
-					if forwarderAddr == nil {
-						evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
-					}
+				}
+				// deploy EVM forwarder only if not deployed yet (evm_v2 capability high have deployed it already)
+				forwarderAddr := contracts.MightGetAddressFromDataStore(cldfEnv.DataStore, bcOut.ChainSelector, keystone_changeset.KeystoneForwarder.String(), creEnv.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+				if forwarderAddr == nil {
+					evmForwardersSelectors = append(evmForwardersSelectors, bcOut.ChainSelector)
 				}
 			}
 		}
@@ -376,7 +375,7 @@ func createJobs(
 		donTopology.Dons.AsNodeSetWithChainCapabilities(),
 		provider,
 		flag,
-		keystone_contracts.CapabilityContractIdentifier,
+		ks_contracts_op.CapabilityContractIdentifier,
 		dataStoreOCR3ContractKeyProvider,
 		chainlevel.CapabilityEnabler,
 		chainlevel.EnabledChainsProvider,
@@ -401,7 +400,6 @@ func createJobs(
 	}
 
 	return nil
-
 }
 
 // buildRuntimeValues creates runtime-generated  values for any keys not specified in TOML

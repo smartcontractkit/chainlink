@@ -3,7 +3,7 @@ package evm
 import (
 	"fmt"
 
-	"cosmossdk.io/errors"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"

@@ -14,12 +14,13 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -94,7 +95,11 @@ func (o *Vault) PreEnvStartup(
 		donsMetadata[idx] = donMetadata
 	}
 
-	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(creEnv.CldfEnvironment.ExistingAddresses, registryChainSelector, keystone_changeset.WorkflowRegistry.String())
+	workflowRegistryAddress, wfRegTypeVersion, wfErr := contracts.FindAddressesForChain(
+		creEnv.CldfEnvironment.ExistingAddresses, //nolint:staticcheck // won't migrate
+		registryChainSelector,
+		keystone_changeset.WorkflowRegistry.String(),
+	)
 	if wfErr != nil {
 		return nil, errors.Wrap(wfErr, "failed to find WorkflowRegistry address")
 	}
@@ -164,7 +169,7 @@ func (o *Vault) PostEnvStartup(
 		return nil
 	}
 	if len(dons) > 1 {
-		return fmt.Errorf("more than one DON with vault capability is not supported yet")
+		return errors.New("more than one DON with vault capability is not supported yet")
 	}
 	vaultDON := dons[0]
 

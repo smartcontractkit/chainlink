@@ -377,12 +377,12 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 		return nil, errors.Wrap(err, "input validation failed")
 	}
 
-	dons, err := toDons(input)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to map input to dons")
+	dons, dErr := toDons(input)
+	if dErr != nil {
+		return nil, errors.Wrap(dErr, "failed to map input to dons")
 	}
 	if !input.WithV2Registries {
-		_, err := operations.ExecuteSequence(
+		_, seqErr := operations.ExecuteSequence(
 			input.CldEnv.OperationsBundle,
 			ks_contracts_op.ConfigureCapabilitiesRegistrySeq,
 			ks_contracts_op.ConfigureCapabilitiesRegistrySeqDeps{
@@ -395,24 +395,24 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 				ContractAddress:  input.CapabilitiesRegistryAddress,
 			},
 		)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to configure capabilities registry")
+		if seqErr != nil {
+			return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
 		}
 
-		capReg, err := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+		capReg, cErr := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
 			input.CldEnv.DataStore.Addresses(),
 			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
 			input.CapabilitiesRegistryAddress.Hex(),
 		)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get capabilities registry contract")
+		if cErr != nil {
+			return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
 		}
 		return &registryWrapper{V1: capReg.Contract}, nil
 	}
 
 	// Transform dons data to V2 sequence input format
 	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex())
-	_, err = operations.ExecuteSequence(
+	_, seqErr := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
@@ -420,17 +420,17 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 		},
 		v2Input,
 	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to configure capabilities registry")
+	if seqErr != nil {
+		return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
 	}
 
-	capReg, err := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
+	capReg, cErr := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
 		input.CldEnv.DataStore.Addresses(),
 		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
 		input.CapabilitiesRegistryAddress.Hex(),
 	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get capabilities registry contract")
+	if cErr != nil {
+		return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
 	}
 
 	return &registryWrapper{V2: capReg.Contract}, nil

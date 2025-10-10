@@ -86,7 +86,7 @@ func JobConfigs(
 					RequestTimeoutMillis: 10_000,
 					WriteTimeoutMillis:   1_000,
 					Path:                 configuration.Outgoing.Path,
-					Port:                 uint16(configuration.Outgoing.Port),
+					Port:                 uint16(configuration.Outgoing.Port), //nolint:gosec //should never happen unless someone uses an incorrect negative port
 				},
 			},
 			UserServerConfig: gw_net.HTTPServerConfig{
@@ -98,7 +98,7 @@ func JobConfigs(
 				CORSEnabled:          false,
 				CORSAllowedOrigins:   []string{},
 				Path:                 configuration.Incoming.Path,
-				Port:                 uint16(configuration.Incoming.InternalPort),
+				Port:                 uint16(configuration.Incoming.InternalPort), //nolint:gosec //should never happen unless someone uses an incorrect negative port
 			},
 			HTTPClientConfig: gw_net.HTTPClientConfig{
 				MaxResponseBytes: 100_000_000,

@@ -58,7 +58,7 @@ func (o *DONTime) PostEnvStartup(
 		return nil
 	}
 	if len(dons) > 1 {
-		return fmt.Errorf("more than one DON with DON Time capability is not supported yet")
+		return errors.New("more than one DON with DON Time capability is not supported yet")
 	}
 	donTimeDON := dons[0]
 
@@ -149,14 +149,14 @@ func createJobs(
 		}
 
 		// we pass here bundles for all chains to enable multi-chain signing
-		jobSpecs = append(jobSpecs, donTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
+		jobSpecs = append(jobSpecs, DonTimeJobSpec(workerNode.JobDistributorDetails.NodeID, donTimeAddress.Hex(), evmKey.PublicAddress.Hex(), evmOCR2KeyBundle, ocrPeeringCfg, chainID))
 	}
 
 	// pass whole topology, since some jobs might need to be created on multiple DONs
 	return jobs.Create(ctx, jdClient, donTopology, jobSpecs)
 }
 
-func donTimeJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func DonTimeJobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData cre.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
