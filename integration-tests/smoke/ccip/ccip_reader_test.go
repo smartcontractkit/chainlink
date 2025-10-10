@@ -940,7 +940,8 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	// Call the ccip chain reader with DiscoverContracts for test
 	contractAddresses, err := reader.DiscoverContracts(ctx,
 		[]cciptypes.ChainSelector{chainS1, chainD},
-		[]cciptypes.ChainSelector{chainS1, chainD})
+		[]cciptypes.ChainSelector{chainS1, chainD},
+	)
 
 	require.NoError(t, err)
 
@@ -960,10 +961,9 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 	// Since config poller has default refresh interval of 30s, we need to wait for the contract to be discovered
 	require.Eventually(t, func() bool {
-		contractAddresses, err := reader.DiscoverContracts(ctx,
+		contractAddresses, err = reader.DiscoverContracts(ctx,
 			[]cciptypes.ChainSelector{chainS1, chainD},
-			[]cciptypes.ChainSelector{chainS1, chainD},
-		)
+			[]cciptypes.ChainSelector{chainS1, chainD})
 		if err != nil {
 			return false
 		}

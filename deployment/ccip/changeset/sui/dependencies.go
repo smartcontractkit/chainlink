@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-type SuiDeps struct {
+type Deps struct {
 	AB               *cldf.AddressBookMap
 	SuiChain         sui_ops.OpTxDeps
 	CCIPOnChainState stateview.CCIPOnChainState

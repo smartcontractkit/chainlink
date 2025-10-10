@@ -51,7 +51,8 @@ func Test_CCIPTokenTransfer_Sui2EVM(t *testing.T) {
 
 	t.Log("Source chain (Sui): ", sourceChain, "Dest chain (EVM): ", destChain)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
 
 	_, err = e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
 	require.NoError(t, err)
@@ -208,10 +209,11 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 
 	require.NoError(t, err)
 
-	require.Equal(t, 32, len(suiTokenBytes), "expected 32-byte sui token address")
+	require.Len(t, suiTokenBytes, 32, "expected 32-byte sui address")
 	copy(suiTokenAddr[:], suiTokenBytes)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
 
 	// get sui address in [32]bytes for extraArgs.TokenReceiver
 	var suiAddr [32]byte
@@ -223,7 +225,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 	addrBytes, err := hex.DecodeString(suiAddrStr)
 	require.NoError(t, err)
 
-	require.Equal(t, 32, len(addrBytes), "expected 32-byte sui address")
+	require.Len(t, addrBytes, 32, "expected 32-byte sui address")
 	copy(suiAddr[:], addrBytes)
 
 	// Token Pool setup on both SUI and EVM
@@ -247,9 +249,9 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 		},
 	)
 
-	// Deploy SUI Reciever
+	// Deploy SUI Receiver
 	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.DeployDummyReciever{}, sui_cs.DeployDummyRecieverConfig{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
 			SuiChainSelector: destChain,
 			McmsOwner:        "0x1",
 		}),
@@ -265,9 +267,9 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 	receiverByteDecoded, err := hex.DecodeString(id)
 	require.NoError(t, err)
 
-	// register the reciever
+	// register the receiver
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(sui_cs.RegisterDummyReciever{}, sui_cs.RegisterDummyReceiverConfig{
+		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
 			SuiChainSelector:       destChain,
 			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
 			DummyReceiverPackageId: outputMap.PackageId,
@@ -287,7 +289,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 		outputMap.Objects.CCIPReceiverStateObjectId,
 	))
 
-	recieverObjectIds := [][32]byte{clockObj, stateObj}
+	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
 	// TODO: might be needed for validation
 	// getPoolBySourceToken
@@ -319,8 +321,8 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 			Name:             "Send token to EOA",
 			SourceChain:      sourceChain,
 			DestChain:        destChain,
-			Receiver:         receiverByte, // reciever contract pkgId
-			TokenReceiverATA: suiAddr[:],   // tokenReciever extracted from extraArgs (the address that actually gets the token)
+			Receiver:         receiverByte, // receiver contract pkgId
+			TokenReceiverATA: suiAddr[:],   // tokenReceiver extracted from extraArgs (the address that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
@@ -328,7 +330,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 					Amount: big.NewInt(1e18),
 				},
 			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, recieverObjectIds, suiAddr),
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, suiAddr),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  suiTokenBytes,
@@ -340,8 +342,8 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 			Name:             "Send token to an Object",
 			SourceChain:      sourceChain,
 			DestChain:        destChain,
-			Receiver:         receiverByte, // reciever contract pkgId
-			TokenReceiverATA: stateObj[:],  // tokenReciever extracted from extraArgs (the object that actually gets the token)
+			Receiver:         receiverByte, // receiver contract pkgId
+			TokenReceiverATA: stateObj[:],  // tokenReceiver extracted from extraArgs (the object that actually gets the token)
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
@@ -349,7 +351,7 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 					Amount: big.NewInt(1e18),
 				},
 			},
-			ExtraArgs:             testhelpers.MakeSuiExtraArgs(1000000, true, recieverObjectIds, stateObj), // receiver is objectId this time
+			ExtraArgs:             testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj), // receiver is objectId this time
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{},
 		},
 	}
@@ -376,5 +378,4 @@ func Test_CCIPTokenTransfer_EVM2SUI(t *testing.T) {
 	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
-
 }

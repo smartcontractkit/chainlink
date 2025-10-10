@@ -9,8 +9,6 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
-	ccipocr3common "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.
@@ -103,7 +101,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	s.Struct(&tokenReceiverAddr)
 
 	// 11. token_amounts: vector<Any2AptosTokenTransfer>
-	bcs.SerializeSequenceWithFunction(message.TokenAmounts, s, func(s *bcs.Serializer, item ccipocr3common.RampTokenAmount) {
+	bcs.SerializeSequenceWithFunction(message.TokenAmounts, s, func(s *bcs.Serializer, item ccipocr3.RampTokenAmount) {
 		// 11a. source_pool_address: vector<u8>
 		s.WriteBytes(item.SourcePoolAddress)
 
@@ -157,7 +155,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	}
 
 	// 13. proofs: vector<fixed_vector_u8(32)>
-	bcs.SerializeSequenceWithFunction(chainReport.Proofs, s, func(s *bcs.Serializer, item ccipocr3common.Bytes32) {
+	bcs.SerializeSequenceWithFunction(chainReport.Proofs, s, func(s *bcs.Serializer, item ccipocr3.Bytes32) {
 		if len(item) != 32 {
 			s.SetError(fmt.Errorf("invalid proof length: expected 32, got %d", len(item)))
 			return
@@ -179,14 +177,14 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	return s.ToBytes(), nil
 }
 
-func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (ccipocr3common.ExecutePluginReport, error) {
+func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (ccipocr3.ExecutePluginReport, error) {
 	des := bcs.NewDeserializer(encodedReport)
-	report := ccipocr3common.ExecutePluginReport{}
-	var chainReport ccipocr3common.ExecutePluginReportSingleChain
-	var message ccipocr3common.Message
+	report := ccipocr3.ExecutePluginReport{}
+	var chainReport ccipocr3.ExecutePluginReportSingleChain
+	var message ccipocr3.Message
 
 	// 1. source_chain_selector: u64
-	chainReport.SourceChainSelector = ccipocr3common.ChainSelector(des.U64())
+	chainReport.SourceChainSelector = ccipocr3.ChainSelector(des.U64())
 	if des.Error() != nil {
 		return report, fmt.Errorf("failed to deserialize source_chain_selector: %w", des.Error())
 	}
@@ -200,19 +198,19 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	copy(message.Header.MessageID[:], messageIDBytes)
 
 	// 3. header_source_chain_selector: u64
-	message.Header.SourceChainSelector = ccipocr3common.ChainSelector(des.U64())
+	message.Header.SourceChainSelector = ccipocr3.ChainSelector(des.U64())
 	if des.Error() != nil {
 		return report, fmt.Errorf("failed to deserialize header_source_chain_selector: %w", des.Error())
 	}
 
 	// 4. dest_chain_selector: u64
-	message.Header.DestChainSelector = ccipocr3common.ChainSelector(des.U64())
+	message.Header.DestChainSelector = ccipocr3.ChainSelector(des.U64())
 	if des.Error() != nil {
 		return report, fmt.Errorf("failed to deserialize dest_chain_selector: %w", des.Error())
 	}
 
 	// 5. sequence_number: u64
-	message.Header.SequenceNumber = ccipocr3common.SeqNum(des.U64())
+	message.Header.SequenceNumber = ccipocr3.SeqNum(des.U64())
 	if des.Error() != nil {
 		return report, fmt.Errorf("failed to deserialize sequence_number: %w", des.Error())
 	}
@@ -261,7 +259,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	message.Receiver = tokenReceiverBytes
 
 	// 11. token_amounts: vector<Any2AptosTokenTransfer>
-	message.TokenAmounts = bcs.DeserializeSequenceWithFunction(des, func(des *bcs.Deserializer, item *ccipocr3common.RampTokenAmount) {
+	message.TokenAmounts = bcs.DeserializeSequenceWithFunction(des, func(des *bcs.Deserializer, item *ccipocr3.RampTokenAmount) {
 		// 11a. source_pool_address: vector<u8>
 		item.SourcePoolAddress = des.ReadBytes()
 		if des.Error() != nil {
@@ -300,7 +298,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		if des.Error() != nil {
 			return // Error handled by caller
 		}
-		item.Amount = ccipocr3common.NewBigInt(&amountU256)
+		item.Amount = ccipocr3.NewBigInt(&amountU256)
 	})
 	if des.Error() != nil {
 		return report, fmt.Errorf("failed to deserialize token_amounts: %w", des.Error())
@@ -324,7 +322,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		return report, fmt.Errorf("failed to deserialize proofs: %w", des.Error())
 	}
 	// Convert [][]byte to [][32]byte
-	chainReport.Proofs = make([]ccipocr3common.Bytes32, len(proofsBytes))
+	chainReport.Proofs = make([]ccipocr3.Bytes32, len(proofsBytes))
 	for i, proofB := range proofsBytes {
 		if len(proofB) != 32 {
 			// This shouldn't happen if ReadFixedBytes worked correctly
@@ -340,20 +338,20 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 
 	fmt.Println("DECODEDD MESSAGE: ", message)
 	// Set empty fields
-	message.Header.MsgHash = ccipocr3common.Bytes32{}
-	message.Header.OnRamp = ccipocr3common.UnknownAddress{}
-	message.FeeToken = ccipocr3common.UnknownAddress{}
-	message.ExtraArgs = ccipocr3common.Bytes{}
-	message.FeeTokenAmount = ccipocr3common.BigInt{}
+	message.Header.MsgHash = ccipocr3.Bytes32{}
+	message.Header.OnRamp = ccipocr3.UnknownAddress{}
+	message.FeeToken = ccipocr3.UnknownAddress{}
+	message.ExtraArgs = ccipocr3.Bytes{}
+	message.FeeTokenAmount = ccipocr3.BigInt{}
 
 	// Assemble the final report
-	chainReport.Messages = []ccipocr3common.Message{message}
+	chainReport.Messages = []ccipocr3.Message{message}
 	// ProofFlagBits is not part of the Sui report, initialize it empty/zero.
-	chainReport.ProofFlagBits = ccipocr3common.NewBigInt(big.NewInt(0))
-	report.ChainReports = []ccipocr3common.ExecutePluginReportSingleChain{chainReport}
+	chainReport.ProofFlagBits = ccipocr3.NewBigInt(big.NewInt(0))
+	report.ChainReports = []ccipocr3.ExecutePluginReportSingleChain{chainReport}
 
 	return report, nil
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface
-var _ ccipocr3common.ExecutePluginCodec = (*ExecutePluginCodecV1)(nil)
+var _ ccipocr3.ExecutePluginCodec = (*ExecutePluginCodecV1)(nil)

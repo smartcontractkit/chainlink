@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	suichain "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -29,8 +28,10 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -508,7 +509,7 @@ func CreateKeys(t *testing.T,
 	chains map[uint64]cldf_evm.Chain,
 	solchains map[uint64]cldf_solana.Chain,
 	aptoschains map[uint64]cldf_aptos.Chain,
-	suichains map[uint64]suichain.Chain,
+	suichains map[uint64]cldf_sui.Chain,
 	tonchains map[uint64]cldf_ton.Chain,
 	tronchains map[uint64]cldf_tron.Chain,
 ) Keys {
@@ -689,7 +690,6 @@ func CreateKeys(t *testing.T,
 
 			err = FundSuiAccount(chain.FaucetURL, "0x"+transmitter.Account())
 			require.NoError(t, err)
-
 		}
 	}
 

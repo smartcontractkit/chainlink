@@ -3,7 +3,7 @@ package testhelpers
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
+	"errors"
 	"math/big"
 	"strconv"
 	"strings"
@@ -57,7 +57,7 @@ type SuiTokenAmount struct {
 }
 
 type RampMessageHeader struct {
-	MessageId           []byte `json:"message_id"`
+	MessageID           []byte `json:"message_id"`
 	SourceChainSelector string `json:"source_chain_selector"`
 	DestChainSelector   string `json:"dest_chain_selector"`
 	SequenceNumber      string `json:"sequence_number"`
@@ -95,7 +95,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	suiChains := e.BlockChains.SuiChains()
 	suiChain := suiChains[cfg.SourceChain]
 
-	deps := suideps.SuiDeps{
+	deps := suideps.Deps{
 		SuiChain: sui_ops.OpTxDeps{
 			Client: suiChain.Client,
 			Signer: suiChain.Signer,
@@ -110,22 +110,22 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		},
 	}
 
-	ccipObjectRefId := state.SuiChains[cfg.SourceChain].CCIPObjectRef
-	ccipPackageId := state.SuiChains[cfg.SourceChain].CCIPAddress
-	onRampPackageId := state.SuiChains[cfg.SourceChain].OnRampAddress
-	onRampStateObjectId := state.SuiChains[cfg.SourceChain].OnRampStateObjectId
-	linkTokenPkgId := state.SuiChains[cfg.SourceChain].LinkTokenAddress
-	linkTokenObjectMetadataId := state.SuiChains[cfg.SourceChain].LinkTokenCoinMetadataId
-	ccipOwnerCapId := state.SuiChains[cfg.SourceChain].CCIPOwnerCapObjectId
+	ccipObjectRefID := state.SuiChains[cfg.SourceChain].CCIPObjectRef
+	ccipPackageID := state.SuiChains[cfg.SourceChain].CCIPAddress
+	onRampPackageID := state.SuiChains[cfg.SourceChain].OnRampAddress
+	onRampStateObjectID := state.SuiChains[cfg.SourceChain].OnRampStateObjectId
+	linkTokenPkgID := state.SuiChains[cfg.SourceChain].LinkTokenAddress
+	linkTokenObjectMetadataID := state.SuiChains[cfg.SourceChain].LinkTokenCoinMetadataId
+	ccipOwnerCapID := state.SuiChains[cfg.SourceChain].CCIPOwnerCapObjectId
 
-	bigIntSourceUsdPerToken, ok := new(big.Int).SetString("21377040000000000000000000000", 10) // 1e27 since sui is 1e9
-	if !ok {
-		return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("failed converting SourceUSDPerToken to bigInt")
+	bigIntSourceUsdPerToken, parsed := new(big.Int).SetString("21377040000000000000000000000", 10) // 1e27 since sui is 1e9
+	if !parsed {
+		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting SourceUSDPerToken to bigInt")
 	}
 
-	bigIntGasUsdPerUnitGas, ok := new(big.Int).SetString("41946474500", 10) // optimism 4145822215
+	bigIntGasUsdPerUnitGas, ok := new(big.Int).SetString("41946474500", 10) // optimism sep 4145822215
 	if !ok {
-		return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("failed converting GasUsdPerUnitGas to bigInt")
+		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed converting GasUsdPerUnitGas to bigInt")
 	}
 
 	// getValidatedFee
@@ -134,20 +134,20 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// Update Prices on FeeQuoter with minted LinkToken
 	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
 		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-			CCIPPackageId:         ccipPackageId,
-			CCIPObjectRef:         ccipObjectRefId,
-			OwnerCapObjectId:      ccipOwnerCapId,
-			SourceTokens:          []string{linkTokenObjectMetadataId},
+			CCIPPackageId:         ccipPackageID,
+			CCIPObjectRef:         ccipObjectRefID,
+			OwnerCapObjectId:      ccipOwnerCapID,
+			SourceTokens:          []string{linkTokenObjectMetadataID},
 			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
 			GasDestChainSelectors: []uint64{cfg.DestChain},
 			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
 		})
 	if err != nil {
-		return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("failed to updatePrice for Sui chain %d: %w", cfg.SourceChain, err)
+		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
 	}
 
 	// TODO: might be needed for validation
-	// feeQuoter, err := module_fee_quoter.NewFeeQuoter(ccipPackageId, deps.SuiChain.Client)
+	// feeQuoter, err := module_fee_quoter.NewFeeQuoter(ccipPackageID, deps.SuiChain.Client)
 	// if err != nil {
 	// 	return &ccipclient.AnyMsgSentEvent{}, err
 	// }
@@ -156,7 +156,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// 	Signer:           deps.SuiChain.Signer,
 	// 	WaitForExecution: true,
 	// },
-	// 	suiBind.Object{Id: ccipObjectRefId},
+	// 	suiBind.Object{Id: ccipObjectRefID},
 	// 	suiBind.Object{Id: "0x6"},
 	// 	cfg.DestChain,
 	// 	[]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -167,7 +167,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// 	[]byte("hello evm from sui"),
 	// 	[]string{},
 	// 	[]uint64{},
-	// 	linkTokenObjectMetadataId,
+	// 	linkTokenObjectMetadataID,
 	// 	[]byte{},
 	// )
 	// if err != nil {
@@ -177,12 +177,8 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// fmt.Println("VALIDATED FEE:", validatedFee)
 
 	if len(msg.TokenAmounts) > 0 {
-		fmt.Println("TOKEN TRANSFER DETECTED: ", msg)
-
-		BurnMintTPPkgId := state.SuiChains[cfg.SourceChain].CCIPBurnMintTokenPool
+		BurnMintTPPkgID := state.SuiChains[cfg.SourceChain].CCIPBurnMintTokenPool
 		BurnMintTPState := state.SuiChains[cfg.SourceChain].CCIPBurnMintTokenPoolState
-
-		fmt.Println("BNMTPPKGID: ", BurnMintTPPkgId, BurnMintTPState)
 
 		// 3 ptb calls
 		// 1. create_token_transfer_params
@@ -196,45 +192,50 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 
 		// Bind contracts
 		ccipStateHelperContract, err := suiBind.NewBoundContract(
-			ccipPackageId,
+			ccipPackageID,
 			"ccip",
 			"onramp_state_helper",
 			client,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create onramp state helper bound contract when appending PTB command: %w", err)
+			return nil, errors.New("failed to create onramp state helper bound contract when appending PTB command: " + err.Error())
 		}
 
 		BurnMintTPContract, err := suiBind.NewBoundContract(
-			BurnMintTPPkgId,
+			BurnMintTPPkgID,
 			"burn_mint_token_pool",
 			"burn_mint_token_pool",
 			client,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create burn_mint_token_pool bound contract when appending PTB command: %w", err)
+			return nil, errors.New("failed to create burn_mint_token_pool bound contract when appending PTB command: " + err.Error())
 		}
 
 		onRampContract, err := suiBind.NewBoundContract(
-			onRampPackageId,
+			onRampPackageID,
 			"ccip_onramp",
 			"onramp",
 			client,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create ccip_onramp contract when appending PTB command: %w", err)
+			return nil, errors.New("failed to create ccip_onramp contract when appending PTB command: " + err.Error())
 		}
 
 		/*********  1. create_token_transfer_params *******/
 		typeArgsList := []string{}
 		typeParamsList := []string{}
 		paramTypes := []string{
-			"address",
+			"vector<u8>",
 		}
+
+		// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
+		// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
+		decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
+		var tokenReceiver [32]byte
+		copy(tokenReceiver[:], decodedTokenReceiver)
+
 		paramValues := []any{
-			// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Reciever as tokenReciever, this field is only used in usdc token pool
-			// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
-			"0x0000000000000000000000000000000000000000000000000000000000000000",
+			decodedTokenReceiver,
 		}
 
 		onRampCreateTokenTransferParamsCall, err := ccipStateHelperContract.EncodeCallArgsWithGenerics(
@@ -246,38 +247,38 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			nil,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encode onRampCreateTokenTransferParamsCall call: %w", err)
+			return nil, errors.New("failed to encode onRampCreateTokenTransferParamsCall call: " + err.Error())
 		}
 
 		createTokenTransferParamsResult, err := ccipStateHelperContract.AppendPTB(ctx, deps.SuiChain.GetCallOpts(), ptb, onRampCreateTokenTransferParamsCall)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build PTB (get_token_param_data) using bindings: %w", err)
+			return nil, errors.New("failed to build PTB (get_token_param_data) using bindings: " + err.Error())
 		}
 
 		/*********  2. lock_or_burn *******/
 		normalizedModuleBMTP, err := client.SuiGetNormalizedMoveModule(ctx, models.GetNormalizedMoveModuleRequest{
-			Package:    BurnMintTPPkgId,
+			Package:    BurnMintTPPkgID,
 			ModuleName: "burn_mint_token_pool",
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to get normalized module: %w", err)
+			return nil, errors.New("failed to get normalized module: " + err.Error())
 		}
 
-		functionSignatureLnB, ok := normalizedModuleBMTP.ExposedFunctions["lock_or_burn"]
-		if !ok {
-			return nil, fmt.Errorf("missing function signature for receiver function not found in module (%s)", "lock_or_burn")
+		functionSignatureLnB, isValidLockOrBurn := normalizedModuleBMTP.ExposedFunctions["lock_or_burn"]
+		if !isValidLockOrBurn {
+			return nil, errors.New("missing function signature for receiver function not found in module lock_or_burn")
 		}
 
 		// Figure out the parameter types from the normalized module of the token pool
 		paramTypesLockBurn, err := suiofframp_helper.DecodeParameters(e.Logger, functionSignatureLnB.(map[string]any), "parameters")
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode parameters for token pool function: %w", err)
+			return nil, errors.New("failed to decode parameters for token pool function: " + err.Error())
 		}
 
-		typeArgsListLinkTokenPkgId := []string{linkTokenPkgId + "::link::LINK"}
+		typeArgsListLinkTokenPkgID := []string{linkTokenPkgID + "::link::LINK"}
 		typeParamsList = []string{}
 		paramValuesLockBurn := []any{
-			suiBind.Object{Id: ccipObjectRefId},           // ref
+			suiBind.Object{Id: ccipObjectRefID},           // ref
 			createTokenTransferParamsResult,               // token_params
 			suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
 			cfg.DestChain,
@@ -287,71 +288,74 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 
 		lockOrBurnParamsCall, err := BurnMintTPContract.EncodeCallArgsWithGenerics(
 			"lock_or_burn",
-			typeArgsListLinkTokenPkgId,
+			typeArgsListLinkTokenPkgID,
 			typeParamsList,
 			paramTypesLockBurn,
 			paramValuesLockBurn,
 			nil,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encode lockOrBurnParamsCall call: %w", err)
+			return nil, errors.New("failed to encode lockOrBurnParamsCall call: " + err.Error())
 		}
 
 		_, err = BurnMintTPContract.AppendPTB(ctx, deps.SuiChain.GetCallOpts(), ptb, lockOrBurnParamsCall)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build PTB (get_token_param_data) using bindings: %w", err)
+			return nil, errors.New("failed to build PTB (get_token_param_data) using bindings: " + err.Error())
 		}
 
 		/********* 3. ccip_send *******/
 		normalizedModule, err := client.SuiGetNormalizedMoveModule(ctx, models.GetNormalizedMoveModuleRequest{
-			Package:    onRampPackageId,
+			Package:    onRampPackageID,
 			ModuleName: "onramp",
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to get normalized module: %w", err)
+			return nil, errors.New("failed to get normalized module: " + err.Error())
 		}
 
-		functionSignature, ok := normalizedModule.ExposedFunctions["ccip_send"]
-		if !ok {
-			return nil, fmt.Errorf("missing function signature for receiver function not found in module (%s)", "ccip_send")
+		functionSignature, parsedccipSend := normalizedModule.ExposedFunctions["ccip_send"]
+		if !parsedccipSend {
+			return nil, errors.New("missing function signature for receiver function not found in module ccip_send")
 		}
 
 		// Figure out the parameter types from the normalized module of the token pool
 		paramTypesCCIPSend, err := suiofframp_helper.DecodeParameters(e.Logger, functionSignature.(map[string]any), "parameters")
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode parameters for token pool function: %w", err)
+			return nil, errors.New("failed to decode parameters for token pool function: " + err.Error())
 		}
 
 		paramValuesCCIPSend := []any{
-			suiBind.Object{Id: ccipObjectRefId},
-			suiBind.Object{Id: onRampStateObjectId},
+			suiBind.Object{Id: ccipObjectRefID},
+			suiBind.Object{Id: onRampStateObjectID},
 			suiBind.Object{Id: "0x6"},
 			cfg.DestChain,
 			msg.Receiver, // receiver
 			[]byte("hello evm from sui"),
 			createTokenTransferParamsResult,               // tokenParams from the original create_token_transfer_params
-			suiBind.Object{Id: linkTokenObjectMetadataId}, // feeTokenMetadata
+			suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
 			suiBind.Object{Id: msg.FeeToken},
 			[]byte{}, // extraArgs
 		}
 
 		encodedOnRampCCIPSendCall, err := onRampContract.EncodeCallArgsWithGenerics(
 			"ccip_send",
-			typeArgsListLinkTokenPkgId,
+			typeArgsListLinkTokenPkgID,
 			[]string{},
 			paramTypesCCIPSend,
 			paramValuesCCIPSend,
 			nil,
 		)
+		if err != nil {
+			return nil, errors.New("failed to encode calls for ccip_send: " + err.Error())
+		}
 
 		_, err = onRampContract.AppendPTB(ctx, deps.SuiChain.GetCallOpts(), ptb, encodedOnRampCCIPSendCall)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build PTB (receiver call) using bindings: %w", err)
+			return nil, errors.New("failed to build PTB (receiver call) using bindings: " + err.Error())
 		}
 
 		executeCCIPSend, err := suiBind.ExecutePTB(ctx, deps.SuiChain.GetCallOpts(), client, ptb)
 		if err != nil {
-			return nil, fmt.Errorf("failed to execute ccip_send with err: %w", err)
+			return nil, errors.New("failed to execute ccip_send with err: " + err.Error())
 		}
 
 		suiEvent := executeCCIPSend.Events[2].ParsedJson
@@ -371,23 +375,30 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	ptb.SetSuiClient(client.(*sui.Client))
 
 	ccipStateHelperContract, err := suiBind.NewBoundContract(
-		ccipPackageId,
+		ccipPackageID,
 		"ccip",
 		"onramp_state_helper",
 		client,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create onramp state helper bound contract when appending PTB command: %w", err)
+		return nil, errors.New("failed to create onramp state helper bound contract when appending PTB command: " + err.Error())
 	}
 
 	// Note: these will be different for token transfers
 	typeArgsList := []string{}
 	typeParamsList := []string{}
 	paramTypes := []string{
-		"address",
+		"vector<u8>",
 	}
+
+	// For SUI -> EVM BurnMint Pool token Transfer, we can use msg.Receiver as tokenReceiver, this field is only used in usdc token pool
+	// bc we need to check the recipient with Circle's packages from the onramp side before sending USDC. and it's not used anyway else.
+	decodedTokenReceiver, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000000")
+	var tokenReceiver [32]byte
+	copy(tokenReceiver[:], decodedTokenReceiver)
+
 	paramValues := []any{
-		"0x0000000000000000000000000000000000000000000000000000000000000000", // zero address as it's msg transfer
+		decodedTokenReceiver,
 	}
 
 	onRampCreateTokenTransferParamsCall, err := ccipStateHelperContract.EncodeCallArgsWithGenerics(
@@ -399,55 +410,55 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode onRampCreateTokenTransferParamsCall call: %w", err)
+		return nil, errors.New("failed to encode onRampCreateTokenTransferParamsCall call: " + err.Error())
 	}
 
 	extractedAny2SuiMessageResult, err := ccipStateHelperContract.AppendPTB(ctx, deps.SuiChain.GetCallOpts(), ptb, onRampCreateTokenTransferParamsCall)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build PTB (get_token_param_data) using bindings: %w", err)
+		return nil, errors.New("failed to build PTB (get_token_param_data) using bindings: " + err.Error())
 	}
 
 	onRampContract, err := suiBind.NewBoundContract(
-		onRampPackageId,
+		onRampPackageID,
 		"ccip_onramp",
 		"onramp",
 		client,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create onramp bound contract when appending PTB command: %w", err)
+		return nil, errors.New("failed to create onramp bound contract when appending PTB command: " + err.Error())
 	}
 
 	// normalize module
 	normalizedModule, err := client.SuiGetNormalizedMoveModule(ctx, models.GetNormalizedMoveModuleRequest{
-		Package:    onRampPackageId,
+		Package:    onRampPackageID,
 		ModuleName: "onramp",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get normalized module: %w", err)
+		return nil, errors.New("failed to get normalized module: " + err.Error())
 	}
 
 	functionSignature, ok := normalizedModule.ExposedFunctions["ccip_send"]
 	if !ok {
-		return nil, fmt.Errorf("missing function signature for receiver function not found in module (%s)", "ccip_send")
+		return nil, errors.New("missing function signature for receiver function not found in module ccip_send")
 	}
 
 	// Figure out the parameter types from the normalized module of the token pool
 	paramTypes, err = suiofframp_helper.DecodeParameters(e.Logger, functionSignature.(map[string]any), "parameters")
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode parameters for token pool function: %w", err)
+		return nil, errors.New("failed to decode parameters for token pool function: " + err.Error())
 	}
 
-	typeArgsList = []string{linkTokenPkgId + "::link::LINK"}
+	typeArgsList = []string{linkTokenPkgID + "::link::LINK"}
 	typeParamsList = []string{}
 	paramValues = []any{
-		suiBind.Object{Id: ccipObjectRefId},
-		suiBind.Object{Id: onRampStateObjectId},
+		suiBind.Object{Id: ccipObjectRefID},
+		suiBind.Object{Id: onRampStateObjectID},
 		suiBind.Object{Id: "0x6"},
 		cfg.DestChain,
 		msg.Receiver, // receiver (TODO: replace this with sender Address use environment.NormalizeTo32Bytes(ethereumAddress) from sui repo)
 		[]byte("hello evm from sui"),
 		extractedAny2SuiMessageResult,                 // tokenParams
-		suiBind.Object{Id: linkTokenObjectMetadataId}, // feeTokenMetadata
+		suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
 		suiBind.Object{Id: msg.FeeToken},
 		[]byte{}, // extraArgs
 	}
@@ -461,21 +472,21 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode receiver call: %w", err)
+		return nil, errors.New("failed to encode receiver call: " + err.Error())
 	}
 
 	_, err = onRampContract.AppendPTB(ctx, deps.SuiChain.GetCallOpts(), ptb, encodedOnRampCCIPSendCall)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build PTB (receiver call) using bindings: %w", err)
+		return nil, errors.New("failed to build PTB (receiver call) using bindings: " + err.Error())
 	}
 
 	executeCCIPSend, err := suiBind.ExecutePTB(ctx, deps.SuiChain.GetCallOpts(), client, ptb)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute ccip_send with err: %w", err)
+		return nil, errors.New("failed to execute ccip_send with err: " + err.Error())
 	}
 
 	if len(executeCCIPSend.Events) == 0 {
-		return nil, fmt.Errorf("no events returned from Sui CCIPSend")
+		return nil, errors.New("no events returned from Sui CCIPSend")
 	}
 
 	suiEvent := executeCCIPSend.Events[0].ParsedJson
@@ -487,15 +498,14 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		SequenceNumber: seq,
 		RawEvent:       suiEvent, // just dump raw
 	}, nil
-
 }
 
-func MakeSuiExtraArgs(gasLimit uint64, allowOOO bool, receiverObjectIds [][32]byte, tokenReceiver [32]byte) []byte {
+func MakeSuiExtraArgs(gasLimit uint64, allowOOO bool, receiverObjectIDs [][32]byte, tokenReceiver [32]byte) []byte {
 	extraArgs, err := ccipevm.SerializeClientSUIExtraArgsV1(message_hasher.ClientSuiExtraArgsV1{
 		GasLimit:                 new(big.Int).SetUint64(gasLimit),
 		AllowOutOfOrderExecution: allowOOO,
 		TokenReceiver:            tokenReceiver,
-		ReceiverObjectIds:        receiverObjectIds,
+		ReceiverObjectIds:        receiverObjectIDs,
 	})
 	if err != nil {
 		panic(err)
@@ -514,22 +524,22 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 	evmDeployerKey := evmChain.DeployerKey
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
-		return cldf.Environment{}, nil, nil, fmt.Errorf("failed load onstate chains %w", err)
+		return cldf.Environment{}, nil, nil, errors.New("failed load onstate chains " + err.Error())
 	}
 
-	linkTokenPkgId := state.SuiChains[suiChainSel].LinkTokenAddress
-	linkTokenObjectMetadataId := state.SuiChains[suiChainSel].LinkTokenCoinMetadataId
-	linkTokenTreasuryCapId := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
+	linkTokenPkgID := state.SuiChains[suiChainSel].LinkTokenAddress
+	linkTokenObjectMetadataID := state.SuiChains[suiChainSel].LinkTokenCoinMetadataId
+	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
 
 	// Deploy transferrable token on EVM
 	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
 	if err != nil {
-		return cldf.Environment{}, nil, nil, fmt.Errorf("failed to deploy transfer token for evm chain %d: %w", evmChainSel, err)
+		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
 	}
 
 	err = attachTokenToTheRegistry(evmChain, state.MustGetEVMChainState(evmChain.Selector), evmDeployerKey, evmToken.Address(), evmPool.Address())
 	if err != nil {
-		return cldf.Environment{}, nil, nil, fmt.Errorf("failed to attach token to registry for evm %d: %w", evmChainSel, err)
+		return cldf.Environment{}, nil, nil, errors.New("failed to attach token to registry for evm " + err.Error())
 	}
 
 	// eploy & Configure BurnMint TP on SUI
@@ -538,9 +548,9 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 			SuiChainSelector: suiChainSel,
 			TokenPoolTypes:   []string{"bnm"},
 			BurnMintTpInput: burnminttokenpoolops.DeployAndInitBurnMintTokenPoolInput{
-				CoinObjectTypeArg:    linkTokenPkgId + "::link::LINK",
-				CoinMetadataObjectId: linkTokenObjectMetadataId,
-				TreasuryCapObjectId:  linkTokenTreasuryCapId,
+				CoinObjectTypeArg:    linkTokenPkgID + "::link::LINK",
+				CoinMetadataObjectId: linkTokenObjectMetadataID,
+				TreasuryCapObjectId:  linkTokenTreasuryCapID,
 
 				// apply dest chain updates
 				RemoteChainSelectorsToRemove: []uint64{},
@@ -568,7 +578,7 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 	// reload onChainState to get deployed TP contracts
 	state, err = stateview.LoadOnchainState(e)
 	if err != nil {
-		return cldf.Environment{}, nil, nil, fmt.Errorf("failed load onstate chains %w", err)
+		return cldf.Environment{}, nil, nil, errors.New("failed load onstate chains " + err.Error())
 	}
 
 	// TODO: might be needed for validation
@@ -582,7 +592,7 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 	// val, err := bmtp.DevInspect().GetRemotePools(context.Background(), &suiBind.CallOpts{
 	// 	Signer:           e.BlockChains.SuiChains()[suiChainSel].Signer,
 	// 	WaitForExecution: true,
-	// }, []string{linkTokenPkgId + "::link::LINK"}, suiBind.Object{Id: state.SuiChains[suiChainSel].CCIPBurnMintTokenPoolState}, evmChainSel)
+	// }, []string{linkTokenPkgID + "::link::LINK"}, suiBind.Object{Id: state.SuiChains[suiChainSel].CCIPBurnMintTokenPoolState}, evmChainSel)
 	// if err != nil {
 	// 	return cldf.Environment{}, nil, nil, err
 	// }
@@ -590,28 +600,28 @@ func HandleTokenAndPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChai
 	// val1, err := bmtp.DevInspect().IsRemotePool(context.Background(), &suiBind.CallOpts{
 	// 	Signer:           e.BlockChains.SuiChains()[suiChainSel].Signer,
 	// 	WaitForExecution: true,
-	// }, []string{linkTokenPkgId + "::link::LINK"}, suiBind.Object{Id: state.SuiChains[suiChainSel].CCIPBurnMintTokenPoolState}, evmChainSel, evmPool.Address().Bytes())
+	// }, []string{linkTokenPkgID + "::link::LINK"}, suiBind.Object{Id: state.SuiChains[suiChainSel].CCIPBurnMintTokenPoolState}, evmChainSel, evmPool.Address().Bytes())
 	// if err != nil {
 	// 	return cldf.Environment{}, nil, nil, err
 	// }
 
-	suiTokenBytes, err := hex.DecodeString(strings.TrimPrefix(linkTokenObjectMetadataId, "0x"))
+	suiTokenBytes, err := hex.DecodeString(strings.TrimPrefix(linkTokenObjectMetadataID, "0x"))
 	if err != nil {
-		return cldf.Environment{}, nil, nil, fmt.Errorf("Error while decoding suiToken")
+		return cldf.Environment{}, nil, nil, errors.New("error while decoding suiToken")
 	}
 	suiPoolBytes, err := hex.DecodeString(strings.TrimPrefix(state.SuiChains[suiChainSel].CCIPBurnMintTokenPool, "0x"))
 	if err != nil {
-		return cldf.Environment{}, nil, nil, fmt.Errorf("Error while decoding suiPool")
+		return cldf.Environment{}, nil, nil, errors.New("error while decoding suiPool")
 	}
 
-	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChain.Selector], evmPool, evmDeployerKey, suiChain.Selector, suiTokenBytes[:], suiPoolBytes[:])
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChain.Selector], evmPool, evmDeployerKey, suiChain.Selector, suiTokenBytes, suiPoolBytes)
 	if err != nil {
-		return cldf.Environment{}, nil, nil, fmt.Errorf("failed to add token to the counterparty %d: %w", evmChainSel, err)
+		return cldf.Environment{}, nil, nil, errors.New("failed to add token to the counterparty " + err.Error())
 	}
 
 	err = grantMintBurnPermissions(e.Logger, e.BlockChains.EVMChains()[evmChain.Selector], evmToken, evmDeployerKey, evmPool.Address())
 	if err != nil {
-		return cldf.Environment{}, nil, nil, fmt.Errorf("failed to grant burnMint %d: %w", evmChainSel, err)
+		return cldf.Environment{}, nil, nil, errors.New("failed to grant burnMint " + err.Error())
 	}
 
 	return e, evmToken, evmPool, nil

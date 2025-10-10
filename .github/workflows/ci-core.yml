@@ -249,7 +249,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
         uses: ./.github/actions/setup-sui
         with:
-          version: mainnet-v1.57.2
+          version: mainnet-1.57.2
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}

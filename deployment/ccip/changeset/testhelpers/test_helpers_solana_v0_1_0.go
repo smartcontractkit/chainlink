@@ -540,11 +540,6 @@ func SendRequest(
 	}
 }
 
-// Helper function to convert a string to a string pointer
-func strPtr(s string) *string {
-	return &s
-}
-
 func SendRequestEVM(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,

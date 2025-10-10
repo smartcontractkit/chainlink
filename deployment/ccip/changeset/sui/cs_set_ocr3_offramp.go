@@ -5,18 +5,22 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/crypto/blake2b"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	offrampops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_offramp"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"golang.org/x/crypto/blake2b"
 )
 
 var _ cldf.ChangeSetV2[v1_6.SetOCR3OffRampConfig] = SetOCR3Offramp{}
@@ -46,7 +50,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 		suiChain := suiChains[remoteSelector]
 		suiSigner := suiChain.Signer
 
-		deps := SuiDeps{
+		deps := Deps{
 			AB: ab,
 			SuiChain: sui_ops.OpTxDeps{
 				Client: suiChain.Client,
@@ -112,7 +116,6 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			commitTransmitters = append(commitTransmitters, addr)
 		}
 
-		fmt.Println("OFFRAMPADDRRR", suiState[remoteSelector].OffRampAddress, suiState[remoteSelector].OffRampStateObjectId, suiState[remoteSelector].OffRampOwnerCapId, suiState[remoteSelector].CCIPObjectRef)
 		setOCR3ConfigCommitInput := offrampops.SetOCR3ConfigInput{
 			OffRampPackageId: suiState[remoteSelector].OffRampAddress,
 			OffRampStateId:   suiState[remoteSelector].OffRampStateObjectId,
@@ -162,7 +165,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			BigF:                           execArgs.F,
 			IsSignatureVerificationEnabled: execArgs.IsSignatureVerificationEnabled,
 			Signers:                        execArgs.Signers,
-			Transmitters:                   commitTransmitters,
+			Transmitters:                   execTransmitters,
 		}
 
 		_, err = operations.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigExecInput)

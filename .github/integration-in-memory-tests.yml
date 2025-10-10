@@ -477,7 +477,7 @@ runner-test-matrix:
     test_cmd: cd smoke/ccip && go test -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource" -timeout 15m -test.parallel=2 -count=1 -json
     test_go_project_path: integration-tests
 
-  Aptos tests
+  # Aptos tests
   - id: smoke/ccip/ccip_aptos_messaging_test.go:Test_CCIP_Messaging_EVM2Aptos
     path: integration-tests/smoke/ccip/ccip_aptos_messaging_test.go
     test_env_type: in-memory
@@ -633,7 +633,6 @@ runner-test-matrix:
     test_go_project_path: integration-tests
     aptos_cli_version: 7.8.1
     install_plugins_public: true
-    sui_cli_version: mainnet-v1.50.1
 
   # TON tests
   - id: smoke/ccip/ccip_ton_messaging_test.go:*
@@ -782,48 +781,48 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_Messaging_Sui2EVM
     path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
     test_env_type: in-memory
-    runs_on: ubuntu24.04-8cores-32GB
+    runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_Sui2EVM" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.57.2
+    sui_cli_version: mainnet-1.57.2
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_Messaging_EVM2Sui
     path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
     test_env_type: in-memory
-    runs_on: ubuntu24.04-8cores-32GB
+    runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_EVM2Sui" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.57.2
+    sui_cli_version: mainnet-1.57.2
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
     test_env_type: in-memory
-    runs_on: ubuntu24.04-8cores-32GB
+    runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.57.2
+    sui_cli_version: mainnet-1.57.2
     install_plugins_public: true
 
   - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2SUI
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
     test_env_type: in-memory
-    runs_on: ubuntu24.04-8cores-32GB
+    runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: go test ./smoke/ccip -run "Test_CCIPTokenTransfer_EVM2SUI" -timeout 10m -test.parallel=1 -count=1 -json
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.57.2
+    sui_cli_version: mainnet-1.57.2
     install_plugins_public: true
   # END: CCIP tests

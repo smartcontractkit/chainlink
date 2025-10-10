@@ -214,7 +214,6 @@ func BuildSetOCR3ConfigArgsSui(
 		var signerAddresses [][]byte
 		var transmitterAddresses []string
 		for _, node := range configForOCR3.Config.Nodes {
-
 			signerAddresses = append(signerAddresses, node.SignerKey)
 
 			transmitterAddress := "0x" + hex.EncodeToString(node.TransmitterKey)
