@@ -33,6 +33,7 @@ import (
 	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	vaultutils "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -772,7 +773,7 @@ func allowlistRequest(
 	})
 	require.NoError(t, err, "failed to get total allowlisted requests")
 
-	requestDigest, err := vaulttypes.DigestForRequest(input.Request)
+	requestDigest, err := vaultutils.DigestForRequest(input.Request)
 	require.NoError(t, err)
 
 	_, err = wfRegC.AllowlistRequest(
