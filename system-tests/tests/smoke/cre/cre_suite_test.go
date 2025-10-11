@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/quarantine"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
@@ -53,6 +55,7 @@ func Test_CRE_V1_SecureMint(t *testing.T) {
 
 // TODO: Move Billing tests to v2 Registries
 func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
+	quarantine.Flaky(t, "DX-1911")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// TODO remove this when OCR works properly with multiple chains in Local CRE
