@@ -187,9 +187,9 @@ func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRe
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.store.getNodeByP2P(p2pKey(req.Id))
+	_, err := s.store.getNode(req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("node not found for p2p %s", req.Id)
+		return nil, fmt.Errorf("node not found for id %s", req.Id)
 	}
 
 	w, err := newWrapperFromUpdate(req)
