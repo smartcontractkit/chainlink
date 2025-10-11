@@ -2179,6 +2179,105 @@ type TokenTransferFeeConfigRemoveArg struct {
 	Token     shared.TokenSymbol
 }
 
+type ApplyTokenTransferFeeConfigUpdatesConfigV2Input struct {
+	TokenTransferFeeConfigRemoveArgs []common.Address
+	TokenTransferFeeConfigArgs       map[common.Address]fee_quoter.FeeQuoterTokenTransferFeeConfig
+}
+
+type ApplyTokenTransferFeeConfigUpdatesConfigV2 struct {
+	InputsByChain map[uint64]map[uint64]ApplyTokenTransferFeeConfigUpdatesConfigV2Input
+	MCMS          *proposalutils.TimelockConfig
+}
+
+// ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2 is a thin wrapper around ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
+// that accepts address-keyed inputs instead of symbol-keyed inputs. V2 loads on-chain state to resolve each token address to its symbol
+// per chain, builds the symbol-keyed per-chain updates/removals (skipping pure no-ops), and then delegates to the original function for
+// execution or MCMS proposal creation. It returns an error if state loading fails, a chain selector is unknown, the address -> symbol
+// mapping cannot be fetched, or a token address has no known symbol on the specified chain.
+func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(e cldf.Environment, config ApplyTokenTransferFeeConfigUpdatesConfigV2) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	tokenAddressToSymbol := map[uint64]map[common.Address]shared.TokenSymbol{}
+	for srcSelector := range config.InputsByChain {
+		chainState, exists := state.Chains[srcSelector]
+		if !exists {
+			return cldf.ChangesetOutput{}, fmt.Errorf("unknown source chain selector: %d", srcSelector)
+		}
+		currentMapping, err := chainState.TokenAddressBySymbol()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token addresses by symbol (src selector = %d): %w", srcSelector, err)
+		}
+		reverseMapping := make(map[common.Address]shared.TokenSymbol, len(currentMapping))
+		for sym, addr := range currentMapping {
+			reverseMapping[addr] = sym
+		}
+		tokenAddressToSymbol[srcSelector] = reverseMapping
+	}
+
+	updatesByChain := map[uint64]ApplyTokenTransferFeeConfigUpdatesConfigPerChain{}
+	for srcSelector, inputs := range config.InputsByChain {
+		tokenTransferFeeConfigRemoveArgs := []TokenTransferFeeConfigRemoveArg{}
+		tokenTransferFeeConfigArgs := []TokenTransferFeeConfigArg{}
+		for dstSelector, input := range inputs {
+			for _, tokenAddress := range input.TokenTransferFeeConfigRemoveArgs {
+				if tokenSymbol, exists := tokenAddressToSymbol[srcSelector][tokenAddress]; !exists {
+					return cldf.ChangesetOutput{}, fmt.Errorf("token symbol not found on source chain (src selector = %d, token = %s)", srcSelector, tokenAddress.Hex())
+				} else {
+					tokenTransferFeeConfigRemoveArgs = append(
+						tokenTransferFeeConfigRemoveArgs,
+						TokenTransferFeeConfigRemoveArg{
+							DestChain: dstSelector,
+							Token:     tokenSymbol,
+						},
+					)
+				}
+			}
+
+			tokenTransferFeeConfigPerToken := make(map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig, len(input.TokenTransferFeeConfigArgs))
+			for tokenAddress, tokenConfig := range input.TokenTransferFeeConfigArgs {
+				if tokenSymbol, exists := tokenAddressToSymbol[srcSelector][tokenAddress]; !exists {
+					return cldf.ChangesetOutput{}, fmt.Errorf("token symbol not found on source chain (src selector = %d, token = %s)", srcSelector, tokenAddress.Hex())
+				} else {
+					tokenTransferFeeConfigPerToken[tokenSymbol] = fee_quoter.FeeQuoterTokenTransferFeeConfig{
+						MinFeeUSDCents:    tokenConfig.MinFeeUSDCents,
+						MaxFeeUSDCents:    tokenConfig.MaxFeeUSDCents,
+						DeciBps:           tokenConfig.DeciBps,
+						DestGasOverhead:   tokenConfig.DestGasOverhead,
+						DestBytesOverhead: tokenConfig.DestBytesOverhead,
+						IsEnabled:         tokenConfig.IsEnabled,
+					}
+				}
+			}
+
+			if len(tokenTransferFeeConfigPerToken) > 0 {
+				tokenTransferFeeConfigArgs = append(tokenTransferFeeConfigArgs, TokenTransferFeeConfigArg{
+					TokenTransferFeeConfigPerToken: tokenTransferFeeConfigPerToken,
+					DestChain:                      dstSelector,
+				})
+			}
+		}
+
+		if len(tokenTransferFeeConfigRemoveArgs) == 0 && len(tokenTransferFeeConfigArgs) == 0 {
+			// skip pure no-op selectors
+			continue
+		}
+
+		updatesByChain[srcSelector] = ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+			TokenTransferFeeConfigRemoveArgs: tokenTransferFeeConfigRemoveArgs,
+			TokenTransferFeeConfigArgs:       tokenTransferFeeConfigArgs,
+		}
+	}
+
+	return ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e,
+		ApplyTokenTransferFeeConfigUpdatesConfig{
+			UpdatesByChain: updatesByChain,
+			MCMS:           config.MCMS,
+		})
+}
+
 // ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset applies the token transfer fee config updates for provided tokens to the fee quoter.
 // If TokenTransferFeeConfigRemoveArgs is provided, it will remove the token transfer fee config for the provided tokens and dest chains.
 // If TokenTransferFeeConfigArgs is provided, it will update the token transfer fee config for the provided tokens and dest chains.

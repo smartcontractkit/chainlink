@@ -1478,6 +1478,140 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 	}
 }
 
+func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Environment setup
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			allChains := maps.Keys(tenv.Env.BlockChains.EVMChains())
+			require.Len(t, allChains, 2)
+			src := allChains[0]
+			dst := allChains[1]
+			state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
+			require.NoError(t, err)
+
+			// MCMS setup
+			var mcmsConfig *proposalutils.TimelockConfig
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				testhelpers.TransferToTimelock(t, tenv, state, []uint64{src, dst}, true)
+				mcmsConfig = &proposalutils.TimelockConfig{MinDelay: 0}
+			}
+
+			// Tokens under test
+			srcLinkTokenAddress := state.MustGetEVMChainState(src).LinkToken.Address()
+			dstLinkTokenAddress := state.MustGetEVMChainState(dst).LinkToken.Address()
+			callOpts := &bind.CallOpts{Context: tenv.Env.GetContext()}
+
+			// Try an invalid update
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2),
+					v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2{
+						InputsByChain: map[uint64]map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2Input{
+							src: {
+								dst: {
+									TokenTransferFeeConfigRemoveArgs: []common.Address{
+										srcLinkTokenAddress,
+									},
+								},
+							},
+							dst: {
+								src: {
+									TokenTransferFeeConfigArgs: map[common.Address]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+										dstLinkTokenAddress: {
+											MinFeeUSDCents:    1,
+											MaxFeeUSDCents:    1,
+											DeciBps:           1,
+											DestGasOverhead:   1,
+											DestBytesOverhead: 1,
+											IsEnabled:         true,
+										},
+									},
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					}),
+			)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "min fee must be less than max fee for token")
+
+			// dst->src token config should still be disabled
+			dstConfig1, err := state.MustGetEVMChainState(dst).FeeQuoter.GetTokenTransferFeeConfig(callOpts, src, dstLinkTokenAddress)
+			require.NoError(t, err)
+			require.Equal(t, fee_quoter.FeeQuoterTokenTransferFeeConfig{}, dstConfig1)
+
+			// src->dst token config should still be disabled
+			srcConfig1, err := state.MustGetEVMChainState(src).FeeQuoter.GetTokenTransferFeeConfig(callOpts, dst, srcLinkTokenAddress)
+			require.NoError(t, err)
+			require.Equal(t, fee_quoter.FeeQuoterTokenTransferFeeConfig{}, srcConfig1)
+
+			// Now try a valid update
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2),
+					v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2{
+						InputsByChain: map[uint64]map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigV2Input{
+							src: {
+								dst: {
+									TokenTransferFeeConfigRemoveArgs: []common.Address{
+										srcLinkTokenAddress,
+									},
+								},
+							},
+							dst: {
+								src: {
+									TokenTransferFeeConfigArgs: map[common.Address]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+										dstLinkTokenAddress: {
+											MinFeeUSDCents:    1,
+											MaxFeeUSDCents:    2,
+											DeciBps:           1,
+											DestGasOverhead:   1,
+											DestBytesOverhead: 64,
+											IsEnabled:         true,
+										},
+									},
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					}),
+			)
+			require.NoError(t, err)
+
+			// dst->src token config should be enabled now
+			dstConfig2, err := state.MustGetEVMChainState(dst).FeeQuoter.GetTokenTransferFeeConfig(callOpts, src, dstLinkTokenAddress)
+			require.NoError(t, err)
+			require.Equal(t, fee_quoter.FeeQuoterTokenTransferFeeConfig{
+				MinFeeUSDCents:    uint32(1),
+				MaxFeeUSDCents:    uint32(2),
+				DeciBps:           uint16(1),
+				DestGasOverhead:   uint32(1),
+				DestBytesOverhead: uint32(64),
+				IsEnabled:         true,
+			}, dstConfig2)
+
+			// src->dst token config should still be disabled
+			srcConfig2, err := state.MustGetEVMChainState(src).FeeQuoter.GetTokenTransferFeeConfig(callOpts, dst, srcLinkTokenAddress)
+			require.NoError(t, err)
+			require.Equal(t, fee_quoter.FeeQuoterTokenTransferFeeConfig{}, srcConfig2)
+		})
+	}
+}
+
 func TestUpdateWrappedNativeOnRouterChangeset(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
