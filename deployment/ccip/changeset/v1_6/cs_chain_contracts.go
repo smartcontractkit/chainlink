@@ -2223,32 +2223,32 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(e cldf.Environment, 
 		tokenTransferFeeConfigArgs := []TokenTransferFeeConfigArg{}
 		for dstSelector, input := range inputs {
 			for _, tokenAddress := range input.TokenTransferFeeConfigRemoveArgs {
-				if tokenSymbol, exists := tokenAddressToSymbol[srcSelector][tokenAddress]; !exists {
+				tokenSymbol, exists := tokenAddressToSymbol[srcSelector][tokenAddress]
+				if !exists {
 					return cldf.ChangesetOutput{}, fmt.Errorf("token symbol not found on source chain (src selector = %d, token = %s)", srcSelector, tokenAddress.Hex())
-				} else {
-					tokenTransferFeeConfigRemoveArgs = append(
-						tokenTransferFeeConfigRemoveArgs,
-						TokenTransferFeeConfigRemoveArg{
-							DestChain: dstSelector,
-							Token:     tokenSymbol,
-						},
-					)
 				}
+				tokenTransferFeeConfigRemoveArgs = append(
+					tokenTransferFeeConfigRemoveArgs,
+					TokenTransferFeeConfigRemoveArg{
+						DestChain: dstSelector,
+						Token:     tokenSymbol,
+					},
+				)
 			}
 
 			tokenTransferFeeConfigPerToken := make(map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig, len(input.TokenTransferFeeConfigArgs))
 			for tokenAddress, tokenConfig := range input.TokenTransferFeeConfigArgs {
-				if tokenSymbol, exists := tokenAddressToSymbol[srcSelector][tokenAddress]; !exists {
+				tokenSymbol, exists := tokenAddressToSymbol[srcSelector][tokenAddress]
+				if !exists {
 					return cldf.ChangesetOutput{}, fmt.Errorf("token symbol not found on source chain (src selector = %d, token = %s)", srcSelector, tokenAddress.Hex())
-				} else {
-					tokenTransferFeeConfigPerToken[tokenSymbol] = fee_quoter.FeeQuoterTokenTransferFeeConfig{
-						MinFeeUSDCents:    tokenConfig.MinFeeUSDCents,
-						MaxFeeUSDCents:    tokenConfig.MaxFeeUSDCents,
-						DeciBps:           tokenConfig.DeciBps,
-						DestGasOverhead:   tokenConfig.DestGasOverhead,
-						DestBytesOverhead: tokenConfig.DestBytesOverhead,
-						IsEnabled:         tokenConfig.IsEnabled,
-					}
+				}
+				tokenTransferFeeConfigPerToken[tokenSymbol] = fee_quoter.FeeQuoterTokenTransferFeeConfig{
+					MinFeeUSDCents:    tokenConfig.MinFeeUSDCents,
+					MaxFeeUSDCents:    tokenConfig.MaxFeeUSDCents,
+					DeciBps:           tokenConfig.DeciBps,
+					DestGasOverhead:   tokenConfig.DestGasOverhead,
+					DestBytesOverhead: tokenConfig.DestBytesOverhead,
+					IsEnabled:         tokenConfig.IsEnabled,
 				}
 			}
 
