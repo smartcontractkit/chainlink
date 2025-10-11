@@ -598,7 +598,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				opts.DS,
 				opts.CapabilitiesRegistry,
 				creServices.workflowRegistrySyncer,
-				globalLogger),
+				globalLogger,
+				opts.LimitsFactory,
+			),
 			job.Stream: streams.NewDelegate(
 				globalLogger,
 				streamRegistry,
