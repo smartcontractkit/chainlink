@@ -178,8 +178,10 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, valida
 		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	homeChainState := c.MustGetEVMChainState(homeChain)
-	if err := homeChainState.ValidateHomeChain(e, nodes, offRampsBySelector); err != nil {
-		return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
+	if validateHomeChain {
+		if err := homeChainState.ValidateHomeChain(e, nodes, offRampsBySelector); err != nil {
+			return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
+		}
 	}
 	rmnHomeActiveDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{
 		Context: e.GetContext(),
