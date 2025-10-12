@@ -336,7 +336,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		return report, fmt.Errorf("unexpected remaining bytes after decoding: %d", des.Remaining())
 	}
 
-	fmt.Println("DECODEDD MESSAGE: ", message)
 	// Set empty fields
 	message.Header.MsgHash = ccipocr3.Bytes32{}
 	message.Header.OnRamp = ccipocr3.UnknownAddress{}

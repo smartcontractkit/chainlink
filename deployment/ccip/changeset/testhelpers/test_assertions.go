@@ -440,9 +440,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
 
 	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
-		fmt.Println("REPORT: ", report)
 		processRoots := func(roots []offramp.InternalMerkleRoot) bool {
-			fmt.Println("ROOTS: ", roots)
 			for _, mr := range roots {
 				t.Logf(
 					"Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",

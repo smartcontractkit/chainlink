@@ -187,12 +187,6 @@ func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainSt
 	return token, tokenPoolAddress, nil
 }
 
-type SuiChainUpdate struct {
-	RateLimiterConfig RateLimiterConfig
-	TokenAddress      string
-	Type              cldf.ContractType
-}
-
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
 type TokenPoolConfig struct {
 	// ChainUpdates defines the chains and corresponding rate limits that should be defined on the token pool.
@@ -203,9 +197,6 @@ type TokenPoolConfig struct {
 
 	// AptosChainUpdates defines the Aptos chains and corresponding rate limits that should be defined on the token pool.
 	AptosChainUpdates map[uint64]AptosChainUpdate
-
-	// SuiChainUpdate defines the Sui chains and corresponding rate limits that should be defined on the token pool.
-	SuiChainUpdates map[uint64]SuiChainUpdate
 
 	// Type is the type of the token pool.
 	Type cldf.ContractType `json:"type"`
