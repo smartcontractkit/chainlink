@@ -496,7 +496,6 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			}
 			for iter.Next() {
 				event := iter.Event
-				fmt.Printf("RECEIpVED COMMIT REPORt ACCEPTED: %v", *event)
 				verified := verifyCommitReport(event)
 				if verified {
 					return event, nil
@@ -1382,7 +1381,6 @@ func SuiEventEmitter[T any](
 	limit := uint64(50)
 	var lastSeenTxDigest string
 
-	fmt.Println("SUI EVENTS EMITTER")
 	go func() {
 		ticker := time.NewTicker(time.Second * 2)
 		defer ticker.Stop()
@@ -1459,7 +1457,6 @@ func ConfirmCommitWithExpectedSeqNumRangeSui(
 	boundOffRamp, err := sui_ccip_offramp.NewOfframp(offRampAddress, dest.Client)
 	require.NoError(t, err)
 
-	fmt.Println("SUI COMMIT REPORT TRACKING", boundOffRamp.Address())
 	done := make(chan any)
 	defer close(done)
 	sink, errChan := SuiEventEmitter[sui_module_offramp.CommitReportAccepted](t, dest.Client, boundOffRamp.Address(), "offramp", "CommitReportAccepted", done)
