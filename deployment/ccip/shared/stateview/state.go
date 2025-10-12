@@ -1059,20 +1059,6 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.TestRouter = r
 			state.ABIByAddress[address] = router.RouterABI
-		case cldf.NewTypeAndVersion(ccipshared.FeeQuoter, deployment.Version1_6_0).String():
-			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.FeeQuoter = fq
-			state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
-		case cldf.NewTypeAndVersion(ccipshared.FeeQuoter, deployment.Version1_6_3Dev).String():
-			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.FeeQuoter = fq
-			state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
 		case cldf.NewTypeAndVersion(ccipshared.USDCToken, deployment.Version1_0_0).String():
 			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {

@@ -91,7 +91,7 @@ func NewTokenPoolWithMetadata[P tokenPool](
 	}
 	version, err := semver.NewVersion(versionStr)
 	if err != nil {
-		// fallback: try to normalize invalid semver like 1.6.x-dev → 1.6.0-dev
+		// fallback: try to normalize invalid semver like 1.6.x-dev -> 1.6.0-dev
 		safeVersion := strings.ReplaceAll(versionStr, "x", "3")
 		version, err = semver.NewVersion(safeVersion)
 		if err != nil {

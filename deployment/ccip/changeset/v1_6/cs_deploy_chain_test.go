@@ -15,7 +15,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -145,7 +145,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	}
 
 	// deploy feequoter with higher version
-	newFqVersion := semver.MustParse("1.6.2")
+	newFqVersion := semver.MustParse("1.6.4")
 	for sel, params := range contractParams {
 		params.FeeQuoterOpts = &opsutils.ContractOpts{
 			Version:     newFqVersion,
@@ -167,6 +167,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	// verify all contracts populated
 	postState, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
+
 	for _, sel := range evmSelectors {
 		require.Equal(t, state.Chains[sel].RMNRemote, postState.Chains[sel].RMNRemote)
 		require.Equal(t, state.Chains[sel].Router, postState.Chains[sel].Router)
