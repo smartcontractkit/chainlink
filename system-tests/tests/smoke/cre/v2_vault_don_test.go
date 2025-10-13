@@ -24,6 +24,7 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
@@ -449,13 +450,13 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], opts *bind.TransactOpts, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	digest, err := vaulttypes.DigestForRequest(request)
+	digest, err := vaultutils.DigestForRequest(request)
 	require.NoError(t, err, "failed to get digest for request")
 	_, err = wfRegistryContract.AllowlistRequest(opts, digest, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
 	require.NoError(t, err, "failed to allowlist request")
 
 	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, hex.EncodeToString(digest[:]))
-	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated
+	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated onchain, gateway and vault don nodes
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
 	for _, req := range allowedList {

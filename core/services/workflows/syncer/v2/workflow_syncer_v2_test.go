@@ -34,6 +34,7 @@ import (
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -772,7 +773,7 @@ func allowlistRequest(
 	})
 	require.NoError(t, err, "failed to get total allowlisted requests")
 
-	requestDigest, err := vaulttypes.DigestForRequest(input.Request)
+	requestDigest, err := vaultutils.DigestForRequest(input.Request)
 	require.NoError(t, err)
 
 	_, err = wfRegC.AllowlistRequest(
