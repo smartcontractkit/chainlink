@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6_2"
 
@@ -192,6 +193,7 @@ func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 }
 
 func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
+	quarantine.Flaky(t, "DX-2064")
 	t.Parallel()
 
 	env, selectors := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)

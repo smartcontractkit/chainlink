@@ -10,6 +10,7 @@ import (
 	"time"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/quarantine"
 
@@ -111,7 +112,9 @@ func TestIntegration_CCIP(t *testing.T) {
 				require.NoError(t, err)
 				priceGetterConfigJson = string(priceGetterConfigBytes)
 			}
-			jobParams := ccipTH.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, priceGetterConfigJson, "")
+			bootstrapNode, _, configBlock := ccipTH.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
+			jobParams := ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, priceGetterConfigJson, configBlock)
+			ccipTH.SetUpJobs(t, bootstrapNode, configBlock, jobParams)
 
 			// track sequence number and nonce separately since nonce doesn't bump for messages with allowOutOfOrderExecution == true,
 			// but sequence number always bumps.
@@ -396,7 +399,7 @@ func TestIntegration_CCIP(t *testing.T) {
 				ccipTH.Dest.Chain.Commit()
 
 				// create new jobs
-				jobParams = ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, priceGetterConfigJson, newConfigBlock, "")
+				jobParams = ccipTH.NewCCIPJobSpecParams(tokenPricesUSDPipeline, priceGetterConfigJson, newConfigBlock)
 				jobParams.Version = "v2"
 				jobParams.SourceStartBlock = srcStartBlock
 				ccipTH.AddAllJobs(t, jobParams)
@@ -699,8 +702,9 @@ func TestReorg(t *testing.T) {
 	}
 	priceGetterConfigBytes, err := json.MarshalIndent(priceGetterConfig, "", " ")
 	require.NoError(t, err)
-	priceGetterConfigJSON := string(priceGetterConfigBytes)
-	ccipTH.SetUpNodesAndJobs(t, "", priceGetterConfigJSON, "")
+	bootstrapNode, _, configBlock := ccipTH.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
+	jobParams := ccipTH.NewCCIPJobSpecParams("", string(priceGetterConfigBytes), configBlock)
+	ccipTH.SetUpJobs(t, bootstrapNode, configBlock, jobParams)
 
 	gasLimit := big.NewInt(200_00)
 	tokenAmount := big.NewInt(1)
