@@ -10,14 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -70,18 +69,39 @@ func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contr
 	return "", fmt.Errorf("%s not found", contractType)
 }
 
+// searchAddressesInBothSources searches for a contract address in both AddressBook and DataStore
+// Returns the address if found in either source
+func searchAddressesInBothSources(e cldf.Environment, chainSelector uint64, address string) (bool, error) {
+	// Use the merged address loading from the EVM state function
+	addressesChain, err := state.AddressesForChain(e, chainSelector, "")
+	if err != nil {
+		return false, fmt.Errorf("failed to load addresses: %w", err)
+	}
+
+	// Search through merged addresses for the contract type
+	for addr, _ := range addressesChain {
+		if addr == address {
+			return true, nil
+		}
+
+	}
+
+	return false, fmt.Errorf("%s not found", address)
+}
+
 func (t TransferToMCMSWithTimelockConfig) Validate(e cldf.Environment) error {
 	evmChains := e.BlockChains.EVMChains()
 	for chainSelector, contracts := range t.ContractsByChain {
 		for _, contract := range contracts {
 			// Cannot transfer an unknown address.
 			// Note this also assures non-zero addresses.
-			if exists, err := cldf.AddressBookContains(e.ExistingAddresses, chainSelector, contract.String()); err != nil || !exists {
+			if exists, err := searchAddressesInBothSources(e, chainSelector, contract.String()); err != nil || !exists {
 				if err != nil {
 					return fmt.Errorf("failed to check address book: %w", err)
 				}
-				return fmt.Errorf("contract %s not found in address book", contract)
+				return fmt.Errorf("contract %s not found in address book or datstore", contract)
 			}
+
 			owner, _, err := LoadOwnableContract(contract, evmChains[chainSelector].Client)
 			if err != nil {
 				return fmt.Errorf("failed to load ownable: %w", err)
