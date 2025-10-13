@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
+	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -327,6 +328,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 }
 
 func TestKeeperForwarderEthIntegration(t *testing.T) {
+	quarantine.Flaky(t, "DX-2042")
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
 		ctx := testutils.Context(t)
