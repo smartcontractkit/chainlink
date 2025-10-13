@@ -24,6 +24,8 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -1144,6 +1146,19 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 	err = initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
 	if err != nil {
 		return errors.Wrap(err, "failed initializing globals")
+	}
+
+	// If log streaming is enabled swap core to add Otel
+	if s.Config.Telemetry().LogStreamingEnabled() {
+		if s.SetOtelCore == nil {
+			return errors.New("Shell.SetOtelCore is nil")
+		}
+		otelLogger := beholder.GetLogger()
+		logLevel := s.Config.Log().Level()
+		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(logLevel))
+
+		s.SetOtelCore(&otelCore)
+		lggr.Info("Log streaming enabled")
 	}
 
 	return nil
