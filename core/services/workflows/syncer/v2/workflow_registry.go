@@ -32,14 +32,15 @@ var (
 	defaultMaxRetryInterval      = 5 * time.Minute
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
-	GetWorkflowsByDONMethodName      = "getWorkflowListByDON"
-	GetAllowlistedRequestsMethodName = "getAllowlistedRequests"
+	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
+	GetActiveAllowlistedRequestsReverseMethodName = "getActiveAllowlistedRequestsReverse"
+	TotalAllowlistedRequestsMethodName            = "totalAllowlistedRequests"
 
 	defaultTickIntervalForAllowlistedRequests = 5 * time.Second
 
 	// MaxResultsPerQuery defines the maximum number of results that can be queried in a single request.
 	// The default value of 1,000 was chosen based on expected system performance and typical use cases.
-	MaxResultsPerQuery = uint64(1_000)
+	MaxResultsPerQuery = int64(1_000)
 )
 
 // WorkflowRegistrySyncer is the public interface of the package.
@@ -68,8 +69,11 @@ type workflowRegistry struct {
 	lggr                    logger.Logger
 	workflowRegistryAddress string
 
-	allowListedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
-	allowListedMu       sync.RWMutex
+	// lastSeenAllowlistedRequestsCount tracks the last seen allowlisted requests count to avoid fetching the same allowlisted requests multiple times.
+	// This value is stored in memory and not persisted to the database.
+	lastSeenAllowlistedRequestsCount *big.Int
+	allowListedRequests              []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+	allowListedMu                    sync.RWMutex
 
 	contractReaderFn versioning.ContractReaderFactory
 	contractReader   types.ContractReader
@@ -139,19 +143,19 @@ func NewWorkflowRegistry(
 	}
 
 	wr := &workflowRegistry{
-		lggr:                    lggr,
-		contractReaderFn:        contractReaderFn,
-		workflowRegistryAddress: addr,
-		allowListedRequests:     []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{},
-		config:                  config,
-		stopCh:                  make(services.StopChan),
-		handler:                 handler,
-		workflowDonNotifier:     workflowDonNotifier,
-		metrics:                 m,
-		engineRegistry:          engineRegistry,
-		retryInterval:           defaultRetryInterval,
-		maxRetryInterval:        defaultMaxRetryInterval,
-		clock:                   clockwork.NewRealClock(),
+		lggr:                             lggr,
+		contractReaderFn:                 contractReaderFn,
+		workflowRegistryAddress:          addr,
+		lastSeenAllowlistedRequestsCount: big.NewInt(0),
+		config:                           config,
+		stopCh:                           make(services.StopChan),
+		handler:                          handler,
+		workflowDonNotifier:              workflowDonNotifier,
+		metrics:                          m,
+		engineRegistry:                   engineRegistry,
+		retryInterval:                    defaultRetryInterval,
+		maxRetryInterval:                 defaultMaxRetryInterval,
+		clock:                            clockwork.NewRealClock(),
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
 		},
@@ -449,17 +453,34 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 			w.lggr.Debug("shutting down syncAllowlistedRequests, %s", ctx.Err())
 			return
 		case <-ticker:
-			allowListedRequests, head, err := w.getAllowlistedRequests(ctx, w.contractReader)
+			newAllowListedRequests, totalAllowlistedRequests, head, err := w.getAllowlistedRequests(ctx, w.contractReader)
 			if err != nil {
 				w.lggr.Errorw("failed to call getAllowlistedRequests", "err", err)
 				continue
 			}
 			w.allowListedMu.Lock()
-			w.allowListedRequests = []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}
-			w.allowListedRequests = append(w.allowListedRequests, allowListedRequests...)
-			if len(w.allowListedRequests) > 0 {
-				w.lggr.Infow("fetched allowlisted requests", "allowListedRequests", w.allowListedRequests, "blockHeight", head.Height)
+			// Prune expired requests
+			activeAllowlistedRequests := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}
+			expiredRequestsCount := 0
+			for _, request := range w.allowListedRequests {
+				if int64(request.ExpiryTimestamp) > time.Now().Unix() {
+					activeAllowlistedRequests = append(activeAllowlistedRequests, request)
+				} else {
+					expiredRequestsCount++
+				}
 			}
+
+			// Add new requests
+			activeAllowlistedRequests = append(activeAllowlistedRequests, newAllowListedRequests...)
+			w.allowListedRequests = activeAllowlistedRequests
+			w.lastSeenAllowlistedRequestsCount = totalAllowlistedRequests
+			w.lggr.Debugw("synced allowlisted requests",
+				"newRequestsNum", len(newAllowListedRequests),
+				"expiredRequestsNum", expiredRequestsCount,
+				"activeRequestsNum", len(w.allowListedRequests),
+				"lastSeenOnchainRequestsNum", w.lastSeenAllowlistedRequestsCount,
+				"blockHeight", head.Height,
+			)
 			w.allowListedMu.Unlock()
 		}
 	}
@@ -584,8 +605,12 @@ func (w *workflowRegistry) newWorkflowRegistryContractReader(
 						ChainSpecificName: GetWorkflowsByDONMethodName,
 						ReadType:          config.Method,
 					},
-					GetAllowlistedRequestsMethodName: {
-						ChainSpecificName: GetAllowlistedRequestsMethodName,
+					GetActiveAllowlistedRequestsReverseMethodName: {
+						ChainSpecificName: GetActiveAllowlistedRequestsReverseMethodName,
+						ReadType:          config.Method,
+					},
+					TotalAllowlistedRequestsMethodName: {
+						ChainSpecificName: TotalAllowlistedRequestsMethodName,
 						ReadType:          config.Method,
 					},
 				},
@@ -638,7 +663,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 		params := GetWorkflowListByDONParams{
 			DonFamily: family,
 			Start:     big.NewInt(0),
-			Limit:     big.NewInt(int64(MaxResultsPerQuery)), //nolint:gosec // safe conversion
+			Limit:     big.NewInt(MaxResultsPerQuery),
 		}
 
 		for {
@@ -672,7 +697,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 			}
 
 			// if less workflows than limit, then we have reached the end of the list
-			if uint64(len(workflows.List)) < MaxResultsPerQuery {
+			if int64(len(workflows.List)) < MaxResultsPerQuery {
 				break
 			}
 
@@ -696,52 +721,101 @@ func (w *workflowRegistry) GetAllowlistedRequests(_ context.Context) []workflow_
 	return allowListedRequests
 }
 
+func (w *workflowRegistry) GetLastSeenOnchainAllowlistedRequestsCount(_ context.Context) *big.Int {
+	w.allowListedMu.RLock()
+	defer w.allowListedMu.RUnlock()
+	if w.lastSeenAllowlistedRequestsCount == nil {
+		return nil
+	}
+	return new(big.Int).Set(w.lastSeenAllowlistedRequestsCount)
+}
+
 // GetAllowlistedRequests uses contract reader to query the contract for all allowlisted requests
-func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractReader types.ContractReader) ([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, *types.Head, error) {
+func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractReader types.ContractReader) ([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, *big.Int, *types.Head, error) {
 	if contractReader == nil {
-		return nil, nil, errors.New("cannot fetch allow listed requests: nil contract reader")
+		return nil, nil, nil, errors.New("cannot fetch allow listed requests: nil contract reader")
 	}
 	contractBinding := types.BoundContract{
 		Address: w.workflowRegistryAddress,
 		Name:    WorkflowRegistryContractName,
 	}
 
-	readIdentifier := contractBinding.ReadIdentifier(GetAllowlistedRequestsMethodName)
+	// Read current total allowlisted requests
 	var headAtLastRead *types.Head
-	var allAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
-	params := GetAllowlistedRequestsParams{
-		Start: big.NewInt(0),
-		Limit: big.NewInt(int64(MaxResultsPerQuery)), //nolint:gosec // safe conversion
+	var totalAllowlistedRequestsResult *big.Int
+	readIdentifier := contractBinding.ReadIdentifier(TotalAllowlistedRequestsMethodName)
+	headAtLastRead, err := contractReader.GetLatestValueWithHeadData(
+		ctx, readIdentifier, primitives.Unconfirmed, nil, &totalAllowlistedRequestsResult,
+	)
+	if err != nil {
+		return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, w.lastSeenAllowlistedRequestsCount, &types.Head{Height: "0"}, errors.New("failed to get latest value with head data. error: " + err.Error())
 	}
+
+	if w.lastSeenAllowlistedRequestsCount.Cmp(totalAllowlistedRequestsResult) == 0 {
+		return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, totalAllowlistedRequestsResult, headAtLastRead, nil
+	}
+
+	var newAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+	readIdentifier = contractBinding.ReadIdentifier(GetActiveAllowlistedRequestsReverseMethodName)
+	var endIndex = new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1))
+	var startIndex *big.Int
 
 	for {
 		var err error
-		var results struct {
+		var response struct {
 			AllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+			SearchComplete      bool
+			err                 error
 		}
 
-		// Read at confidenceLevel Unconfirmed, since we want to see new allowlisted requests asap, even if awaiting finalization.
-		// The delay in detecting allowlisted requests will directly affect user experience.
-		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Unconfirmed, params, &results)
+		// Start index should be no more than MaxResultsPerQuery away from end index
+		startIndex = new(big.Int).Sub(endIndex, big.NewInt(MaxResultsPerQuery-1))
+		// If start index is less than last seen allowlisted requests count, set it to last seen allowlisted requests
+		// count to avoid duplicate requests
+		if startIndex.Cmp(w.lastSeenAllowlistedRequestsCount) < 0 {
+			startIndex = w.lastSeenAllowlistedRequestsCount
+		}
+
+		params := GetActiveAllowlistedRequestsReverseParams{
+			EndIndex:   endIndex,
+			StartIndex: startIndex,
+		}
+		w.lggr.Debugw("getting active allowlisted requests",
+			"endIndex", endIndex,
+			"startIndex", startIndex,
+		)
+		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(
+			ctx, readIdentifier, primitives.Unconfirmed, params, &response,
+		)
 		if err != nil {
-			w.lggr.Infow("onchain call GetLatestValueWithHeadData failed ", "err", err)
-			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
+			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, w.lastSeenAllowlistedRequestsCount, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
 		}
 
-		allAllowlistedRequests = append(allAllowlistedRequests, results.AllowlistedRequests...)
+		w.lggr.Debugw("contract call response",
+			"fetchedAllowlistedRequestsNum", len(response.AllowlistedRequests),
+			"searchComplete", response.SearchComplete,
+			"error", response.err,
+			"blockHeight", headAtLastRead.Height)
 
-		// if less results than limit, then we have reached the end of the list
-		if uint64(len(results.AllowlistedRequests)) < MaxResultsPerQuery {
+		for _, request := range response.AllowlistedRequests {
+			newAllowlistedRequests = append(newAllowlistedRequests, workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
+				RequestDigest:   request.RequestDigest,
+				Owner:           request.Owner,
+				ExpiryTimestamp: request.ExpiryTimestamp,
+			})
+		}
+
+		// We can break early if the search is complete even if we haven't
+		// looked at all the allowlisted requests. This is because the contract
+		// method determines if there are more allowlisted requests to fetch.
+		if response.SearchComplete {
 			break
 		}
 
-		// otherwise, increment the start parameter and continue to fetch more workflows
-		params.Start = params.Start.Add(params.Start, big.NewInt(int64(len(results.AllowlistedRequests))))
+		// If search is not complete, set the end index to the start index minus MaxResultsPerQuery
+		// to continue fetching the next batch of allowlisted requests
+		endIndex = endIndex.Sub(endIndex, big.NewInt(MaxResultsPerQuery))
 	}
 
-	if headAtLastRead == nil {
-		return allAllowlistedRequests, &types.Head{Height: "0"}, nil
-	}
-
-	return allAllowlistedRequests, headAtLastRead, nil
+	return newAllowlistedRequests, totalAllowlistedRequestsResult, headAtLastRead, nil
 }

@@ -206,6 +206,9 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 	case chainsel.FamilyAptos:
 		// Aptos is not using LogPoller
 		return nil
+	case chainsel.FamilyTon:
+		// TODO: TON is not using LogPoller
+		return nil
 	default:
 		return fmt.Errorf("unsupported chain family; %v", family)
 	}
@@ -968,7 +971,7 @@ func AddLane(
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
 	case chainsel.FamilyTon:
-		onRamp, err := state.GetOnRampAddressBytes(to)
+		onRamp, err := state.GetOnRampAddressBytes(from)
 		if err != nil {
 			return err
 		}

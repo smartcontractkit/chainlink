@@ -1298,6 +1298,7 @@ func newCREServices(
 		getPeerID:               getPeerID,
 		srvs:                    srvcs,
 		workflowRegistrySyncer:  workflowRegistrySyncerV2,
+		orgResolver:             orgResolver,
 	}, nil
 }
 

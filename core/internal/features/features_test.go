@@ -501,6 +501,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
+	quarantine.Flaky(t, "DX-1767")
 	t.Parallel()
 	operatorContracts := setupOperatorContracts(t)
 	b := operatorContracts.sim

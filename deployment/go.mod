@@ -35,12 +35,12 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20250826190403-aed7f5f33cde
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
-	github.com/smartcontractkit/chain-selectors v1.0.72
+	github.com/smartcontractkit/chain-selectors v1.0.73
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20250916164650-970686360fbf
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20251006204220-06f2720ee9a0
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250912190424-fd2e35d7deb5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251009034109-f9f749cef5ae
+	github.com/smartcontractkit/chainlink-common v0.9.6-0.20251010025452-96327b3f910f
 	github.com/smartcontractkit/chainlink-deployments-framework v0.54.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20251007172225-ba2f4b5ef962
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251003185510-17234095940f
@@ -51,8 +51,8 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20251007010318-c9a7b2d44524
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.10.34
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20250930221620-ce57bba04eab
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20250930221620-ce57bba04eab
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20251009173109-af31806bede5
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20251009173109-af31806bede5
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20250905115425-2785a5cee79d
 	github.com/smartcontractkit/mcms v0.25.0
@@ -412,7 +412,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251006153136-770c21cddddc // indirect
+	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20251008185222-47a7460f5207 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20250916193659-4becc28a467f // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.2 // indirect

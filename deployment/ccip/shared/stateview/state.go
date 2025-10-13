@@ -1037,6 +1037,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				state.USDCTokenPoolsV1_6 = make(map[semver.Version]*usdc_token_pool_v1_6_2.USDCTokenPool)
 			}
 			state.USDCTokenPoolsV1_6[deployment.Version1_6_2] = utp
+			state.ABIByAddress[address] = usdc_token_pool_v1_6_2.USDCTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
