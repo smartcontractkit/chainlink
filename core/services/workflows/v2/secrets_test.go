@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -85,6 +86,10 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 	encryptedDecryptionShare2, err := workflowEncryptionKey.Encrypt(decryptionShare2Bytes)
 	require.NoError(t, err)
 
+	owner := "1234567890abcdef1234567890abcdef12345678"
+	normalizedOwner, err := normalizeOwner(owner)
+	require.NoError(t, err)
+
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			resp := &vault.GetSecretsResponse{
@@ -93,7 +98,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						Id: &vault.SecretIdentifier{
 							Key:       "R1",
 							Namespace: "Bar",
-							Owner:     "owner",
+							Owner:     normalizedOwner,
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
@@ -115,7 +120,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						Id: &vault.SecretIdentifier{
 							Key:       "R2",
 							Namespace: "Bar",
-							Owner:     "owner",
+							Owner:     normalizedOwner,
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
@@ -137,7 +142,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 						Id: &vault.SecretIdentifier{
 							Key:       "R3",
 							Namespace: "Bar",
-							Owner:     "owner",
+							Owner:     normalizedOwner,
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
@@ -167,7 +172,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
-		"owner",
+		owner,
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
@@ -195,12 +200,12 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 	assert.Len(t, resp, 3)
 	require.Nil(t, resp[0].GetError())
 	r := resp[0].GetSecret()
-	assert.Equal(t, keyFor("owner", "Bar", "R1"), keyFor(r.Owner, r.Namespace, r.Id))
+	assert.Equal(t, keyFor(normalizedOwner, "Bar", "R1"), keyFor(r.Owner, r.Namespace, r.Id))
 	assert.Equal(t, rawSecret, r.Value)
 
 	require.Nil(t, resp[1].GetError())
 	r = resp[1].GetSecret()
-	assert.Equal(t, keyFor("owner", "Bar", "R2"), keyFor(r.Owner, r.Namespace, r.Id))
+	assert.Equal(t, keyFor(normalizedOwner, "Bar", "R2"), keyFor(r.Owner, r.Namespace, r.Id))
 	assert.Equal(t, rawSecret, r.Value)
 
 	assert.NotNil(t, resp[2].GetError())
@@ -218,12 +223,14 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
 	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+	owner := "1234567890abcdef1234567890abcdef12345678"
+
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
-		"owner",
+		owner,
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
@@ -260,12 +267,14 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
 	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+	owner := "1234567890abcdef1234567890abcdef12345678"
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
-		"owner",
+		owner,
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
@@ -303,12 +312,17 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
 	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+	owner := "1234567890abcdef1234567890abcdef12345678"
+	normalizedOwner, err := normalizeOwner(owner)
+	require.NoError(t, err)
+
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
-		"owner",
+		owner,
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
@@ -327,13 +341,18 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 	assert.Len(t, resp, 1)
 	assert.NotNil(t, resp[0].GetError())
 	errVal := resp[0].GetError()
-	assert.Equal(t, "could not find response for the request: owner::Bar::Foo", errVal.Error)
+	assert.Equal(t, fmt.Sprintf("could not find response for the request: %s::Bar::Foo", normalizedOwner), errVal.Error)
 }
 
 func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
+
+	owner := "1234567890abcdef1234567890abcdef12345678"
+	normalizedOwner, err := normalizeOwner(owner)
+	require.NoError(t, err)
+
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -342,7 +361,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 						Id: &vault.SecretIdentifier{
 							Key:       "Foo",
 							Namespace: "Bar",
-							Owner:     "owner",
+							Owner:     normalizedOwner,
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
@@ -359,7 +378,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 			}, nil
 		},
 	}
-	err := reg.Add(t.Context(), mc)
+	err = reg.Add(t.Context(), mc)
 	require.NoError(t, err)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
@@ -368,12 +387,13 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
 	require.NoError(t, err)
 	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
-		"owner",
+		owner,
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
@@ -431,6 +451,10 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, plainText1, string(plaintext))
 
+	owner := "1234567890abcdef1234567890abcdef12345678"
+	normalizedOwner, err := normalizeOwner(owner)
+	require.NoError(t, err)
+
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			resp := &vault.GetSecretsResponse{
@@ -439,7 +463,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 						Id: &vault.SecretIdentifier{
 							Key:       "Foo",
 							Namespace: "Bar",
-							Owner:     "owner",
+							Owner:     normalizedOwner,
 						},
 						Result: &vault.SecretResponse_Data{
 							Data: &vault.SecretData{
@@ -468,7 +492,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
-		"owner",
+		owner,
 		"workflowName",
 		"workflowID",
 		"workflowExecID",

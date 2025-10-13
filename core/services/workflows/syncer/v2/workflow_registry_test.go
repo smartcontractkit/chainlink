@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -759,7 +760,6 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 func Test_Start(t *testing.T) {
 	t.Run("successful start and close", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		mockReader := &mockContractReader{startErr: nil}
 		er := NewEngineRegistry()
@@ -782,9 +782,8 @@ func Test_Start(t *testing.T) {
 		fakeClock := clockwork.NewFakeClock()
 		wr.clock = fakeClock
 		require.NoError(t, err)
-		require.NoError(t, wr.Start(ctx))
+		servicetest.Run(t, wr)
 		workflowDonNotifier.NotifyDonSet(commonCap.DON{})
-		require.NoError(t, wr.Close())
 	})
 }
 
