@@ -32,6 +32,7 @@ import (
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/tracking"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -700,7 +701,7 @@ func StartCLIEnvironment(
 		Capabilities:              capabilities,
 		JobSpecFactoryFunctions:   extraJobSpecFunctions,
 		StageGen:                  initLocalCREStageGen(in),
-		BlockchainDeployers:       blockchains_sets.NewDeployerSet(testLogger, in.Infra),
+		BlockchainDeployers:       blockchains_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

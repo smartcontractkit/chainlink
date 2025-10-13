@@ -137,7 +137,7 @@ func setupLoadTestEnvironment(
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
 		ContractVersions:                     cretypes.NewContractVersionsProvider(envconfig.DefaultContractSet(false)).ContractVersions(),
-		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	singleFileLogger := cldlogger.NewSingleFileLogger(t)

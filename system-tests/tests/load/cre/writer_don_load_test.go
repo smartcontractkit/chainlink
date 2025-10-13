@@ -92,7 +92,7 @@ func setupLoadTestWriterEnvironment(
 		JdInput:                              in.JD,
 		Provider:                             *in.Infra,
 		JobSpecFactoryFunctions:              jobSpecFactoryFns,
-		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra),
+		BlockchainDeployers:                  blockchain_sets.NewDeployerSet(testLogger, in.Infra, infra.CribConfigsDir),
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(t.Context(), testLogger, cldlogger.NewSingleFileLogger(t), &universalSetupInput, relativePathToRepoRoot)

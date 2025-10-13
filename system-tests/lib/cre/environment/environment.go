@@ -47,7 +47,6 @@ const (
 	GithubReadTokenEnvVarName          = "GITHUB_READ_TOKEN"
 	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
-	CribConfigsDir                     = "crib-configs"
 )
 
 type SetupOutput struct {

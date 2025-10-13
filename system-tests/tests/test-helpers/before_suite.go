@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -117,7 +116,7 @@ func setConfigurationIfMissing(configName string) error {
 		}
 	}
 
-	return blockchains.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
+	return environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey)
 }
 
 func createEnvironmentIfNotExists(relativePathToRepoRoot, environmentDir string, flags ...string) error {

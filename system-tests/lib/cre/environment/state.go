@@ -15,13 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	docker_blockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/docker"
-	k8s_blockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/kubernetes"
+	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 // BuildFromSavedState rebuilds the CLDF environment and per‑chain clients from
@@ -44,13 +43,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.New("environment artifact cannot be nil")
 	}
 
-	var blockchainDeployers map[blockchain.ChainFamily]blockchains.Deployer
-	if cachedInput.Infra.IsDocker() {
-		blockchainDeployers = docker_blockchains.NewDeployerSet()
-	} else {
-		blockchainDeployers = k8s_blockchains.NewDeployerSet(framework.L, cachedInput.Infra.CRIB.Namespace, CribConfigsDir)
-	}
-
+	blockchainDeployers := blockchain_sets.NewDeployerSet(framework.L, cachedInput.Infra, infra.CribConfigsDir)
 	deployedBlockchains, startErr := blockchains.Start(
 		cldLogger,
 		cachedInput.Blockchains,

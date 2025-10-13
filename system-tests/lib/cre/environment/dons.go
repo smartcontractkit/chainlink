@@ -60,7 +60,7 @@ func StartDONs(
 		deployCribDonsInput := &cre.DeployCribDonsInput{
 			Topology:       topology,
 			NodeSetInputs:  capabilitiesAwareNodeSets,
-			CribConfigsDir: CribConfigsDir,
+			CribConfigsDir: infra.CribConfigsDir,
 			Namespace:      infraInput.CRIB.Namespace,
 		}
 
