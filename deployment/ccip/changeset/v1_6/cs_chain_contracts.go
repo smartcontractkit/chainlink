@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
@@ -2181,7 +2182,7 @@ type TokenTransferFeeConfigRemoveArg struct {
 
 type ApplyTokenTransferFeeConfigUpdatesConfigV2Input struct {
 	TokenTransferFeeConfigRemoveArgs []common.Address
-	TokenTransferFeeConfigArgs       map[common.Address]fee_quoter.FeeQuoterTokenTransferFeeConfig
+	TokenTransferFeeConfigArgs       map[common.Address]OptionalFeeQuoterTokenTransferFeeConfig
 }
 
 type ApplyTokenTransferFeeConfigUpdatesConfigV2 struct {
@@ -2189,11 +2190,28 @@ type ApplyTokenTransferFeeConfigUpdatesConfigV2 struct {
 	MCMS          *proposalutils.TimelockConfig
 }
 
-// ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2 is a thin wrapper around ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset
-// that accepts address-keyed inputs instead of symbol-keyed inputs. V2 loads on-chain state to resolve each token address to its symbol
-// per chain, builds the symbol-keyed per-chain updates/removals (skipping pure no-ops), and then delegates to the original function for
-// execution or MCMS proposal creation. It returns an error if state loading fails, a chain selector is unknown, the address -> symbol
-// mapping cannot be fetched, or a token address has no known symbol on the specified chain.
+type OptionalFeeQuoterTokenTransferFeeConfig struct {
+	MinFeeUSDCents    *uint32
+	MaxFeeUSDCents    *uint32
+	DeciBps           *uint16
+	DestGasOverhead   *uint32
+	DestBytesOverhead *uint32
+	IsEnabled         *bool
+}
+
+func (cfg OptionalFeeQuoterTokenTransferFeeConfig) HasMissingFields() bool {
+	return cfg.MinFeeUSDCents == nil ||
+		cfg.MaxFeeUSDCents == nil ||
+		cfg.DeciBps == nil ||
+		cfg.DestGasOverhead == nil ||
+		cfg.DestBytesOverhead == nil ||
+		cfg.IsEnabled == nil
+}
+
+// ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2 is a thin wrapper around the v1 changeset that converts
+// address-keyed inputs to symbol-keyed per source EVM chain (dest can be non-EVM). Resolves address->symbol, uses
+// current on-chain config for partial updates (all fields required when enabling), skips no-ops, and translates
+// removals. Errors on state load, unknown source, mapping/read failures, or missing fields when enabling.
 func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(e cldf.Environment, config ApplyTokenTransferFeeConfigUpdatesConfigV2) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -2219,6 +2237,11 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(e cldf.Environment, 
 
 	updatesByChain := map[uint64]ApplyTokenTransferFeeConfigUpdatesConfigPerChain{}
 	for srcSelector, inputs := range config.InputsByChain {
+		chainState, exists := state.Chains[srcSelector]
+		if !exists {
+			return cldf.ChangesetOutput{}, fmt.Errorf("unknown source chain selector: %d", srcSelector)
+		}
+
 		tokenTransferFeeConfigRemoveArgs := []TokenTransferFeeConfigRemoveArg{}
 		tokenTransferFeeConfigArgs := []TokenTransferFeeConfigArg{}
 		for dstSelector, input := range inputs {
@@ -2236,19 +2259,54 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(e cldf.Environment, 
 				)
 			}
 
-			tokenTransferFeeConfigPerToken := make(map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig, len(input.TokenTransferFeeConfigArgs))
+			tokenTransferFeeConfigPerToken := map[shared.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{}
 			for tokenAddress, tokenConfig := range input.TokenTransferFeeConfigArgs {
+				// Translate the token address to its symbol
 				tokenSymbol, exists := tokenAddressToSymbol[srcSelector][tokenAddress]
 				if !exists {
 					return cldf.ChangesetOutput{}, fmt.Errorf("token symbol not found on source chain (src selector = %d, token = %s)", srcSelector, tokenAddress.Hex())
 				}
-				tokenTransferFeeConfigPerToken[tokenSymbol] = fee_quoter.FeeQuoterTokenTransferFeeConfig{
-					MinFeeUSDCents:    tokenConfig.MinFeeUSDCents,
-					MaxFeeUSDCents:    tokenConfig.MaxFeeUSDCents,
-					DeciBps:           tokenConfig.DeciBps,
-					DestGasOverhead:   tokenConfig.DestGasOverhead,
-					DestBytesOverhead: tokenConfig.DestBytesOverhead,
-					IsEnabled:         tokenConfig.IsEnabled,
+
+				// This gets the token transfer fee config for the given token - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
+				e.Logger.Infof("fetching token transfer fee config (src = %d, dst = %d, token = %s)", srcSelector, dstSelector, tokenAddress.Hex())
+				curConfig, err := chainState.FeeQuoter.GetTokenTransferFeeConfig(&bind.CallOpts{Context: e.GetContext()}, dstSelector, tokenAddress)
+				if err != nil {
+					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch token transfer fee config (src = %d, dst = %d, token = %s): %w", srcSelector, dstSelector, tokenAddress.Hex(), err)
+				}
+
+				// If no custom config already exists on-chain for the token, then we have no fallback values to use - in this case the caller must explicitly provide all fields
+				e.Logger.Infof("fetched token transfer fee config (src = %d, dst = %d, token = %s, cfg = %+v)", srcSelector, dstSelector, tokenAddress.Hex(), curConfig)
+				if !curConfig.IsEnabled && tokenConfig.HasMissingFields() {
+					return cldf.ChangesetOutput{}, fmt.Errorf("invalid args - when no existing config is on-chain, all fields must be provided (src = %d, dst = %d, token = %s)", srcSelector, dstSelector, tokenAddress.Hex())
+				}
+
+				// At this point, we're either using fallback values from the chain or the caller has explicitly provided the inputs
+				newConfig := fee_quoter.FeeQuoterTokenTransferFeeConfig{
+					MinFeeUSDCents:    pointer.Coalesce(tokenConfig.MinFeeUSDCents, curConfig.MinFeeUSDCents),
+					MaxFeeUSDCents:    pointer.Coalesce(tokenConfig.MaxFeeUSDCents, curConfig.MaxFeeUSDCents),
+					DeciBps:           pointer.Coalesce(tokenConfig.DeciBps, curConfig.DeciBps),
+					DestGasOverhead:   pointer.Coalesce(tokenConfig.DestGasOverhead, curConfig.DestGasOverhead),
+					DestBytesOverhead: pointer.Coalesce(tokenConfig.DestBytesOverhead, curConfig.DestBytesOverhead),
+					IsEnabled:         pointer.Coalesce(tokenConfig.IsEnabled, curConfig.IsEnabled),
+				}
+
+				// Check if the new config is different from the on-chain config
+				isDifferent := !curConfig.IsEnabled
+				if curConfig.IsEnabled {
+					isDifferent = newConfig.MinFeeUSDCents != curConfig.MinFeeUSDCents ||
+						newConfig.MaxFeeUSDCents != curConfig.MaxFeeUSDCents ||
+						newConfig.DeciBps != curConfig.DeciBps ||
+						newConfig.DestGasOverhead != curConfig.DestGasOverhead ||
+						newConfig.DestBytesOverhead != curConfig.DestBytesOverhead ||
+						newConfig.IsEnabled != curConfig.IsEnabled
+				}
+
+				// Only perform an update if the new config is different from the on-chain config
+				e.Logger.Infof("constructed token transfer fee config (src = %d, dst = %d, token = %s, new_cfg = %+v)", srcSelector, dstSelector, tokenAddress.Hex(), newConfig)
+				if isDifferent {
+					tokenTransferFeeConfigPerToken[tokenSymbol] = newConfig
+				} else {
+					e.Logger.Infof("skipping update since input config is the same as on-chain config (src = %d, dst = %d, token = %s, cfg = %+v)", srcSelector, dstSelector, tokenAddress.Hex(), curConfig)
 				}
 			}
 

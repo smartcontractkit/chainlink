@@ -33,6 +33,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -1530,14 +1531,14 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 							},
 							dst: {
 								src: {
-									TokenTransferFeeConfigArgs: map[common.Address]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
 										dstLinkTokenAddress: {
-											MinFeeUSDCents:    1,
-											MaxFeeUSDCents:    1,
-											DeciBps:           1,
-											DestGasOverhead:   1,
-											DestBytesOverhead: 1,
-											IsEnabled:         true,
+											MinFeeUSDCents:    pointer.To(uint32(1)),
+											MaxFeeUSDCents:    pointer.To(uint32(2)),
+											DeciBps:           pointer.To(uint16(1)),
+											DestGasOverhead:   pointer.To(uint32(1)),
+											DestBytesOverhead: pointer.To(uint32(1)),
+											IsEnabled:         pointer.To(true),
 										},
 									},
 								},
@@ -1574,14 +1575,14 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 							},
 							dst: {
 								src: {
-									TokenTransferFeeConfigArgs: map[common.Address]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
 										dstLinkTokenAddress: {
-											MinFeeUSDCents:    1,
-											MaxFeeUSDCents:    2,
-											DeciBps:           1,
-											DestGasOverhead:   1,
-											DestBytesOverhead: 64,
-											IsEnabled:         true,
+											MinFeeUSDCents:    pointer.To(uint32(1)),
+											MaxFeeUSDCents:    pointer.To(uint32(2)),
+											DeciBps:           pointer.To(uint16(1)),
+											DestGasOverhead:   pointer.To(uint32(1)),
+											DestBytesOverhead: pointer.To(uint32(64)),
+											IsEnabled:         pointer.To(true),
 										},
 									},
 								},
