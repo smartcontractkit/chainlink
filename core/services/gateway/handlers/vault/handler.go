@@ -286,7 +286,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
 	if h.getActiveRequest(req.ID) != nil {
 		h.lggr.Errorw("request id already exists", "requestID", req.ID, "owner", owner)
-		return errors.New("request ID already exists" + req.ID)
+		return errors.New("request ID already exists: " + req.ID)
 	}
 	ar := h.newActiveRequest(req, callback)
 
