@@ -196,11 +196,10 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				case <-ticker:
 					// Async initialization of contract reader because there is an on-chain
 					// call dependency.  Blocking on initialization results in a
-					// deadlock.  Instead wait until the node has identified it's DON
-					// as a proxy for a DON and on-chain ready state .
+					// deadlock. Instead, wait until the contract reader is ready.
 					reader, err := w.newWorkflowRegistryContractReader(ctx)
 					if err != nil {
-						w.lggr.Errorw("contract reader unavailable", "error", err.Error())
+						w.lggr.Infow("contract reader unavailable", "error", err.Error())
 						break
 					}
 					w.contractReader = reader
@@ -815,6 +814,10 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 		// If search is not complete, set the end index to the start index minus MaxResultsPerQuery
 		// to continue fetching the next batch of allowlisted requests
 		endIndex = endIndex.Sub(endIndex, big.NewInt(MaxResultsPerQuery))
+		// Ensure endIndex doesn't go below zero
+		if endIndex.Cmp(big.NewInt(0)) < 0 {
+			endIndex = big.NewInt(0)
+		}
 	}
 
 	return newAllowlistedRequests, totalAllowlistedRequestsResult, headAtLastRead, nil
