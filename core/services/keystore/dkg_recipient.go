@@ -114,7 +114,7 @@ func (ks *dkgRecipient) Import(ctx context.Context, keyJSON []byte, password str
 		return dkgrecipientkey.Key{}, errors.Wrap(err, "dkgRecipient#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.DKGRecipient[key.ID()]; found {
-		return dkgrecipientkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return dkgrecipientkey.Key{}, fmt.Errorf("%w: key with ID %s already exists", ErrKeyExists, key.ID())
 	}
 	return key, ks.safeAddKey(ctx, key)
 }
