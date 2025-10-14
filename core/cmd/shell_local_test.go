@@ -649,8 +649,8 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 			// Always clean up database if it was opened, regardless of authentication success
 			defer func() {
 				if shell.LDB != nil {
-					err := shell.AfterNode(c)
-					require.NoError(t, err)
+					cleanupErr := shell.AfterNode(c)
+					require.NoError(t, cleanupErr)
 				}
 			}()
 
