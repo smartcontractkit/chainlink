@@ -16,17 +16,17 @@ var _ cldf.ChangeSetV2[ProposeStandardCapabilityJobInput] = ProposeStandardCapab
 
 type ProposeStandardCapabilityJobInput struct {
 	Domain  string `json:"domain" yaml:"domain"`
-	DONName string `json:"don_name" yaml:"don_name"`
-	JobName string `json:"job_name" yaml:"job_name"`
+	DONName string `json:"donName" yaml:"donName"`
+	JobName string `json:"jobName" yaml:"jobName"`
 	Command string `json:"command" yaml:"command"`
 	Config  string `json:"config" yaml:"config"`
 
-	ExternalJobID         string            `json:"external_job_id" yaml:"external_job_id"`                 // Optional
-	OracleFactory         pkg.OracleFactory `json:"oracle_factory" yaml:"oracle_factory"`                   // Optional
-	GenerateOracleFactory bool              `json:"generate_oracle_factory" yaml:"generate_oracle_factory"` // Optional
+	ExternalJobID         string            `json:"externalJobID" yaml:"externalJobID"`                 // Optional
+	OracleFactory         pkg.OracleFactory `json:"oracleFactory" yaml:"oracleFactory"`                 // Optional
+	GenerateOracleFactory bool              `json:"generateOracleFactory" yaml:"generateOracleFactory"` // Optional
 
-	DONFilters  []offchain.TargetDONFilter `json:"don_filters" yaml:"don_filters"`
-	ExtraLabels map[string]string          `json:"extra_labels,omitempty" yaml:"extra_labels,omitempty"`
+	DONFilters  []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`
+	ExtraLabels map[string]string          `json:"extraLabels,omitempty" yaml:"extraLabels,omitempty"`
 }
 
 type ProposeStandardCapabilityJob struct{}

@@ -49,6 +49,7 @@ type WorkflowMetadataHandler struct {
 	stopCh          services.StopChan
 	metrics         *metrics.Metrics
 	jwtCache        *jwtReplayCache // JWT replay protection cache
+	wg              sync.WaitGroup
 }
 
 // NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler.
@@ -235,7 +236,9 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 }
 
 func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func()) {
+	h.wg.Add(1)
 	go func() {
+		defer h.wg.Done()
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {
@@ -299,6 +302,7 @@ func (h *WorkflowMetadataHandler) Close() error {
 			h.lggr.Errorw("Failed to close WorkflowMetadataAggregator", "error", err)
 		}
 		close(h.stopCh)
+		h.wg.Wait()
 		return nil
 	})
 }

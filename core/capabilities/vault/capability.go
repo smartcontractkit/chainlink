@@ -167,8 +167,8 @@ func validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSec
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
 
-		if req.Id.Key == "" || req.Id.Namespace == "" {
-			return errors.New("secret ID must have key and namespace set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
+		if req.Id.Key == "" || req.Id.Namespace == "" || req.Id.Owner == "" {
+			return errors.New("secret ID must have key, namespace and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
 		if req.EncryptedValue == "" {
@@ -216,10 +216,12 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
 	}
-	for _, req := range request.EncryptedSecrets {
-		// Right owner for secrets can only be set here, after authorization
-		// This ensures that users cannot access secrets belonging to other owners
-		req.Id.Owner = owner
+	for idx, req := range request.EncryptedSecrets {
+		// Ensure that users cannot access secrets belonging to other owners
+		if req.Id.Owner != owner {
+			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
+			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
+		}
 	}
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -246,10 +248,12 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
 	}
-	for _, req := range request.EncryptedSecrets {
-		// Right owner for secrets can only be set here, after authorization
-		// This ensures that users cannot access secrets belonging to other owners
-		req.Id.Owner = owner
+	for idx, req := range request.EncryptedSecrets {
+		// Ensure that users cannot access secrets belonging to other owners
+		if req.Id.Owner != owner {
+			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
+			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
+		}
 	}
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -265,8 +269,8 @@ func ValidateDeleteSecretsRequest(request *vaultcommon.DeleteSecretsRequest) err
 
 	uniqueIDs := map[string]bool{}
 	for idx, id := range request.Ids {
-		if id.Key == "" {
-			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + id.String())
+		if id.Key == "" || id.Namespace == "" || id.Owner == "" {
+			return errors.New("secret ID must have key, namespace and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
 		}
 
 		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
@@ -297,10 +301,12 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
 	}
-	for _, req := range request.Ids {
-		// Right owner for secrets can only be set here, after authorization
-		// This ensures that users cannot access secrets belonging to other owners
-		req.Owner = owner
+	for idx, req := range request.Ids {
+		// Ensure that users cannot access secrets belonging to other owners
+		if req.Owner != owner {
+			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Owner, owner)
+			return nil, errors.New("secret ID owner: " + req.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
+		}
 	}
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -315,6 +321,9 @@ func ValidateGetSecretsRequest(request *vaultcommon.GetSecretsRequest) error {
 	}
 
 	for idx, req := range request.Requests {
+		if req.Id == nil {
+			return errors.New("secret ID must have id set at index " + strconv.Itoa(idx))
+		}
 		if req.Id.Key == "" {
 			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
@@ -335,8 +344,8 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 }
 
 func ValidateListSecretIdentifiersRequest(request *vaultcommon.ListSecretIdentifiersRequest) error {
-	if request.RequestId == "" {
-		return errors.New("request ID must not be empty")
+	if request.RequestId == "" || request.Owner == "" || request.Namespace == "" {
+		return errors.New("requestID, owner or namespace must not be empty")
 	}
 	return nil
 }
@@ -359,9 +368,12 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
 	}
-	// Right owner for secrets can only be set here, after authorization
-	// This ensures that users cannot access secrets belonging to other owners
+	// Ensures that users cannot access secrets belonging to other owners
 	request.Owner = owner
+	if request.Owner != owner {
+		s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", request.Owner, owner)
+		return nil, errors.New("secret ID owner: " + request.Owner + " does not match authorized owner: " + owner)
+	}
 
 	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)

@@ -28,8 +28,10 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -91,6 +93,10 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 		family, _ := chainsel.GetSelectorFamily(sel)
 		chainID, _ := chainsel.GetChainIDFromSelector(sel)
 		if family == "aptos" {
+			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
+			continue
+		}
+		if family == "sui" {
 			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
 			continue
 		}
@@ -184,6 +190,8 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ocrtype = chaintype.Cosmos
 		case chainsel.FamilyAptos:
 			ocrtype = chaintype.Aptos
+		case chainsel.FamilySui:
+			ocrtype = chaintype.Sui
 		case chainsel.FamilyTon:
 			ocrtype = chaintype.TON
 		case chainsel.FamilyTron:
@@ -213,6 +221,8 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ctype = nodev1.ChainType_CHAIN_TYPE_STARKNET
 		case chainsel.FamilyAptos:
 			ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
+		case chainsel.FamilySui:
+			ctype = nodev1.ChainType_CHAIN_TYPE_SUI
 		case chainsel.FamilyTon:
 			ctype = nodev1.ChainType_CHAIN_TYPE_TON
 		case chainsel.FamilyTron:
@@ -357,6 +367,16 @@ func NewNode(
 		}
 		c.Aptos = aptosConfigs
 
+		var suiConfigs chainlink.RawConfigs
+		for chainID, chain := range nodecfg.BlockChains.SuiChains() {
+			suiChainID, err := chainsel.GetChainIDFromSelector(chainID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			suiConfigs = append(suiConfigs, createSuiChainConfig(suiChainID, chain))
+		}
+		c.Sui = suiConfigs
+
 		var tonConfigs chainlink.RawConfigs
 		for chainID, chain := range nodecfg.BlockChains.TonChains() {
 			tonChainID, err := chainsel.GetChainIDFromSelector(chainID)
@@ -443,6 +463,7 @@ func NewNode(
 		nodecfg.BlockChains.EVMChains(),
 		nodecfg.BlockChains.SolanaChains(),
 		nodecfg.BlockChains.AptosChains(),
+		nodecfg.BlockChains.SuiChains(),
 		nodecfg.BlockChains.TonChains(),
 		nodecfg.BlockChains.TronChains(),
 	)
@@ -488,6 +509,7 @@ func CreateKeys(t *testing.T,
 	chains map[uint64]cldf_evm.Chain,
 	solchains map[uint64]cldf_solana.Chain,
 	aptoschains map[uint64]cldf_aptos.Chain,
+	suichains map[uint64]cldf_sui.Chain,
 	tonchains map[uint64]cldf_ton.Chain,
 	tronchains map[uint64]cldf_tron.Chain,
 ) Keys {
@@ -639,6 +661,35 @@ func CreateKeys(t *testing.T,
 		transmitter := tonkeys[0]
 		for chainSelector := range tonchains {
 			transmitters[chainSelector] = transmitter.AddressBase64()
+		}
+	}
+
+	if len(suichains) > 0 {
+		ctype := chaintype.Sui
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+
+		keybundles[ctype] = keybundle
+
+		for sel, chain := range suichains {
+			keystore := app.GetKeyStore().Sui()
+			err = keystore.EnsureKey(ctx)
+			require.NoError(t, err, "failed to create key for sui")
+
+			keys, err := keystore.GetAll()
+			require.NoError(t, err)
+			require.Len(t, keys, 1)
+
+			transmitter := keys[0]
+			transmitters[sel] = transmitter.ID()
+			t.Logf("Created Sui Key: ID %v, Account %v", transmitter.ID(), transmitter.Account())
+
+			err = FundSuiAccount(chain.FaucetURL, "0x"+transmitter.Account())
+			require.NoError(t, err)
 		}
 	}
 

@@ -171,9 +171,8 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 }
 
 func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context, blockNumber uint64, calls []EvmCall) ([]DataAndErr, error) {
-	lim := min(
-		// Limit the batch size to the number of calls
-		uint(len(calls)), c.batchSizeLimit)
+	// Limit the batch size to the number of calls
+	lim := min(uint(len(calls)), c.batchSizeLimit)
 	for {
 		results, err := c.batchCallLimit(ctx, blockNumber, calls, lim)
 		if err == nil {

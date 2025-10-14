@@ -13,7 +13,7 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -47,7 +47,7 @@ var (
 		shared.FeeQuoter,
 		fee_quoter.FeeQuoterMetaData,
 		&opsutil.ContractOpts{
-			Version:          &deployment.Version1_6_0,
+			Version:          &deployment.Version1_6_3, // defaults to v1_6_3, but can be overwritten by input params.FeeQuoterOpts
 			EVMBytecode:      common.FromHex(fee_quoter.FeeQuoterBin),
 			ZkSyncVMBytecode: fee_quoter.ZkBytecode,
 		},
