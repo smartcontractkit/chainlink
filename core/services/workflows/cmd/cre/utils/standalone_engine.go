@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
@@ -154,12 +153,12 @@ func NewStandaloneEngine(
 	}
 
 	cfg := &v2.EngineConfig{
-		Lggr:            lggr,
-		Module:          module,
-		WorkflowConfig:  config,
-		CapRegistry:     registry,
-		DonTimeStore:    dontime.NewStore(dontime.DefaultRequestTimeout),
-		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		Lggr:                 lggr,
+		Module:               module,
+		WorkflowConfig:       config,
+		CapRegistry:          registry,
+		UseLocalTimeProvider: true,
+		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
@@ -180,7 +179,6 @@ func NewStandaloneEngine(
 		DebugMode:      true,
 	}
 
-	cfg.UseLocalTimeProvider = true
 	engine, err := v2.NewEngine(cfg)
 	if err != nil {
 		return nil, nil, err
