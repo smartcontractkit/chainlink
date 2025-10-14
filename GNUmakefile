@@ -56,7 +56,7 @@ install-chainlink: operator-ui ## Install the chainlink binary.
 
 .PHONY: install-chainlink-dev
 install-chainlink-dev: operator-ui ## Install the chainlink binary.
-	go install -tags dev $(GCFLAGS) $(GOFLAGS) .
+	go install -race -tags dev $(GCFLAGS) $(GOFLAGS) .
 
 .PHONY: install-chainlink-cover
 install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
@@ -68,7 +68,7 @@ chainlink: ## Build the chainlink binary.
 
 .PHONY: chainlink-dev
 chainlink-dev: ## Build a dev build of chainlink binary.
-	go build -tags dev $(GOFLAGS) .
+	go build -race -tags dev $(GOFLAGS) .
 
 .PHONY: chainlink-test
 chainlink-test: ## Build a test build of chainlink binary.
