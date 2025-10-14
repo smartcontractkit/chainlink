@@ -29,6 +29,7 @@ var (
 				if !ok {
 					return nil, fmt.Errorf("chain with selector %d not defined", chainSel)
 				}
+
 				report, err := operations.ExecuteOperation(b, ccipops.OffRampApplySourceChainConfigUpdatesOp, chain, update)
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute OffRampApplySourceChainConfigUpdatesOp on %s: %w", chain, err)

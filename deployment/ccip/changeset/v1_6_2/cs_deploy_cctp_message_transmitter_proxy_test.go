@@ -1,20 +1,22 @@
 package v1_6_2_test
 
 import (
+	"maps"
 	"math/big"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -23,18 +25,16 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-func setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t *testing.T, withPrereqs bool) (cldf.Environment, []uint64) {
-	env := memory.NewMemoryEnvironment(t,
-		logger.Test(t),
-		zapcore.InfoLevel,
-		memory.MemoryEnvironmentConfig{Chains: 2},
-	)
+func setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t *testing.T, withPrereqs bool) *runtime.Runtime {
+	selectors := []uint64{chain_selectors.TEST_90000001.Selector, chain_selectors.TEST_90000002.Selector}
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, selectors),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
 
-	selectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	if withPrereqs {
 		var err error
 
@@ -45,18 +45,15 @@ func setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t *testing.T, withPrereqs 
 			}
 		}
 
-		env, err = commoncs.Apply(t, env,
-			commoncs.Configure(
-				cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
-				changeset.DeployPrerequisiteConfig{
-					Configs: prereqCfg,
-				},
-			),
+		err = rt.Exec(
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset), changeset.DeployPrerequisiteConfig{
+				Configs: prereqCfg,
+			}),
 		)
 		require.NoError(t, err)
 	}
 
-	return env, selectors
+	return rt
 }
 
 func setupCCTPMsgTransmitterProxyContractsForDeploy(
@@ -120,12 +117,13 @@ func setupCCTPMsgTransmitterProxyContractsForDeploy(
 func TestValidateDeployCCTPMessageTransmitterProxyInput(t *testing.T) {
 	t.Parallel()
 
-	env, selectors := setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t, false)
+	rt := setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t, false)
+	chains := rt.Environment().BlockChains.EVMChains()
+	require.GreaterOrEqual(t, len(chains), 1)
 
-	require.GreaterOrEqual(t, len(selectors), 1)
-	chain := env.BlockChains.EVMChains()[selectors[0]]
+	chain := slices.Collect(maps.Values(chains))[0]
 
-	state, err := stateview.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(rt.Environment())
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -149,7 +147,7 @@ func TestValidateDeployCCTPMessageTransmitterProxyInput(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			err := test.Input.Validate(env.GetContext(), chain, state.Chains[chain.Selector])
+			err := test.Input.Validate(t.Context(), chain, state.Chains[chain.Selector])
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
@@ -158,38 +156,35 @@ func TestValidateDeployCCTPMessageTransmitterProxyInput(t *testing.T) {
 func TestDeployCCTPMessageTransmitterProxy(t *testing.T) {
 	t.Parallel()
 
-	env, selectors := setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t, true)
+	rt := setupCCTPMsgTransmitterProxyEnvironmentForDeploy(t, true)
+	chains := rt.Environment().BlockChains.EVMChains()
 
-	newProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(selectors))
+	newProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(chains))
 	addressBook := cldf.NewMemoryAddressBook()
-	for _, selector := range selectors {
-		blockchain := env.BlockChains.EVMChains()[selector]
-		tokenMsngr := setupCCTPMsgTransmitterProxyContractsForDeploy(t, env.Logger, blockchain, addressBook)
-		newProxies[selector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
+	for _, chain := range chains {
+		tokenMsngr := setupCCTPMsgTransmitterProxyContractsForDeploy(t, rt.Environment().Logger, chain, addressBook)
+		newProxies[chain.Selector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
 			TokenMessenger: tokenMsngr.Address,
 		}
 	}
 
-	env, err := commoncs.Apply(t, env,
-		commoncs.Configure(
-			v1_6_2.DeployCCTPMessageTransmitterProxyNew,
-			v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
-				USDCProxies: newProxies,
-			},
-		),
+	err := rt.Exec(
+		runtime.ChangesetTask(v1_6_2.DeployCCTPMessageTransmitterProxyNew, v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
+			USDCProxies: newProxies,
+		}),
 	)
 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(env)
+	state, err := stateview.LoadOnchainState(rt.Environment())
 	require.NoError(t, err)
-	for _, selector := range selectors {
-		proxies := state.Chains[selector].CCTPMessageTransmitterProxies
+	for _, chain := range chains {
+		proxies := state.Chains[chain.Selector].CCTPMessageTransmitterProxies
 		require.Len(t, proxies, 1)
 
 		owner, err := proxies[deployment.Version1_6_2].Owner(nil)
 		require.NoError(t, err)
 
-		deployer := env.BlockChains.EVMChains()[selector].DeployerKey.From
+		deployer := chain.DeployerKey.From
 		require.Equal(t, deployer, owner)
 	}
 }

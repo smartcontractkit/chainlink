@@ -1121,7 +1121,18 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	sortedResps := []*vaultcommon.CreateSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
-		req := idToReqs[id]
+		req, found := idToReqs[id]
+		if !found {
+			// This shouldn't happen, as we've validated that the request and response
+			// have the same number of items.
+			r.lggr.Errorw("could not find request for response", "id", id, "requestID", reqID)
+			sortedResps = append(sortedResps, &vaultcommon.CreateSecretResponse{
+				Id:      resp.Id,
+				Success: false,
+				Error:   "internal error: could not find request for response",
+			})
+			continue
+		}
 		resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			r.lggr.Errorw("failed to handle create secret request", "id", req.Id, "requestID", reqID, "error", err)
@@ -1227,7 +1238,16 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	sortedResps := []*vaultcommon.UpdateSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
-		req := idToReqs[id]
+		req, found := idToReqs[id]
+		if !found {
+			r.lggr.Errorw("could not find request for response", "id", id, "requestID", reqID)
+			sortedResps = append(sortedResps, &vaultcommon.UpdateSecretResponse{
+				Id:      resp.Id,
+				Success: false,
+				Error:   "internal error: could not find request for response",
+			})
+			continue
+		}
 		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			r.lggr.Errorw("failed to handle update secret request", "id", req.Id, "requestID", reqID, "error", err)
@@ -1323,7 +1343,16 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	sortedResps := []*vaultcommon.DeleteSecretResponse{}
 	for _, id := range slices.Sorted(maps.Keys(idToResps)) {
 		resp := idToResps[id]
-		req := idToReqs[id]
+		req, found := idToReqs[id]
+		if !found {
+			r.lggr.Errorw("could not find request for response", "id", id)
+			sortedResps = append(sortedResps, &vaultcommon.DeleteSecretResponse{
+				Id:      resp.Id,
+				Success: false,
+				Error:   "internal error: could not find request for response",
+			})
+			continue
+		}
 		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			r.lggr.Errorw("failed to handle delete secret request", "id", id, "requestId", reqID, "error", err)

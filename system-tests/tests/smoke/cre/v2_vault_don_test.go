@@ -24,7 +24,6 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
@@ -323,7 +322,6 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL string, opts *bind.TransactOpts, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	framework.L.Info().Msg("Listing secret...")
 	uniqueRequestID := uuid.New().String()
-
 	secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
 		RequestId: uniqueRequestID,
 		Owner:     owner,
@@ -340,6 +338,25 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 	}
 	allowlistRequest(t, owner, jsonRequest, opts, wfRegistryContract)
 
+	// Ensure that multiple requests can be allowlisted
+	uniqueRequestIDTwo := uuid.New().String()
+	secretsListRequestTwo := vault_helpers.ListSecretIdentifiersRequest{
+		RequestId: uniqueRequestIDTwo,
+		Owner:     owner,
+		Namespace: "main",
+	}
+	secretsListRequestBodyTwo, err := json.Marshal(secretsListRequestTwo) //nolint:govet // The lock field is not set on this proto
+	require.NoError(t, err, "failed to marshal secrets request")
+	secretsUpdateRequestBodyJSONTwo := json.RawMessage(secretsListRequestBodyTwo)
+	jsonRequestTwo := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestIDTwo,
+		Method:  vaulttypes.MethodSecretsList,
+		Params:  &secretsUpdateRequestBodyJSONTwo,
+	}
+	allowlistRequest(t, owner, jsonRequestTwo, opts, wfRegistryContract)
+
+	// Request 1
 	requestBody, err := json.Marshal(jsonRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
@@ -359,6 +376,24 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
+
+	// Request 2
+	requestBodyTwo, err := json.Marshal(jsonRequestTwo)
+	require.NoError(t, err, "failed to marshal secrets request")
+	statusCodeTwo, httpResponseBodyTwo := sendVaultRequestToGateway(t, gatewayURL, requestBodyTwo)
+	require.Equal(t, http.StatusOK, statusCodeTwo, "Gateway endpoint should respond with 200 OK")
+	var jsonResponseTwo jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	err = json.Unmarshal(httpResponseBodyTwo, &jsonResponseTwo)
+	require.NoError(t, err, "failed to unmarshal getResponse")
+	framework.L.Info().Msgf("JSON Body: %v", jsonResponseTwo)
+	if jsonResponseTwo.Error != nil {
+		require.Empty(t, jsonResponseTwo.Error.Error())
+	}
+	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponseTwo.Version)
+	require.Equal(t, uniqueRequestIDTwo, jsonResponseTwo.ID)
+	require.Equal(t, vaulttypes.MethodSecretsList, jsonResponseTwo.Method)
+	signedOCRResponseTwo := jsonResponseTwo.Result
+	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponseTwo.String())
 
 	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
 
@@ -450,17 +485,20 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], opts *bind.TransactOpts, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	digest, err := vaultutils.DigestForRequest(request)
+	requestDigest, err := request.Digest()
 	require.NoError(t, err, "failed to get digest for request")
-	_, err = wfRegistryContract.AllowlistRequest(opts, digest, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
+	requestDigestBytes, err := hex.DecodeString(requestDigest)
+	require.NoError(t, err, "failed to decode digest")
+	reqDigestBytes := [32]byte(requestDigestBytes)
+	_, err = wfRegistryContract.AllowlistRequest(opts, reqDigestBytes, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
 	require.NoError(t, err, "failed to allowlist request")
 
-	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, hex.EncodeToString(digest[:]))
+	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, requestDigest)
 	time.Sleep(5 * time.Second) // wait a bit to ensure the allowlist is propagated onchain, gateway and vault don nodes
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
 	for _, req := range allowedList {
-		if req.RequestDigest == digest {
+		if req.RequestDigest == reqDigestBytes {
 			framework.L.Info().Msgf("Request digest found in allowlist")
 		}
 		framework.L.Info().Msgf("Allowlisted request digestHexStr: %s, owner: %s, expiry: %d", hex.EncodeToString(req.RequestDigest[:]), req.Owner.Hex(), req.ExpiryTimestamp)
