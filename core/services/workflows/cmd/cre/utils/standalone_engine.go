@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
@@ -153,12 +154,13 @@ func NewStandaloneEngine(
 	}
 
 	cfg := &v2.EngineConfig{
-		Lggr:                 lggr,
-		Module:               module,
-		WorkflowConfig:       config,
-		CapRegistry:          registry,
-		UseLocalTimeProvider: true,
-		ExecutionsStore:      store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		Lggr:           lggr,
+		Module:         module,
+		WorkflowConfig: config,
+		CapRegistry:    registry,
+		DonTimeStore:   dontime.NewStore(dontime.DefaultRequestTimeout),
+		//UseLocalTimeProvider: true,
+		ExecutionsStore: store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 
 		WorkflowID:    defaultWorkflowID,
 		WorkflowOwner: defaultOwner,
