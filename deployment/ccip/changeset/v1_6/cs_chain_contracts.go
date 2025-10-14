@@ -23,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -59,12 +59,15 @@ const (
 					bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
 					// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
 		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+					// bytes4(keccak256("CCIP ChainFamilySelector Sui"))
+				bytes4(keccak256("CCIP ChainFamilySelector Sui")) = 0xc4e05953
 				```
 	*/
 	EVMFamilySelector   = "2812d52c"
 	SVMFamilySelector   = "1e10bdc4"
 	AptosFamilySelector = "ac77ffec"
 	TVMFamilySelector   = "647e2ba9"
+	SuiFamilySelector   = "c4e05953"
 )
 
 var (
@@ -1346,7 +1349,6 @@ func UpdateRouterRampsChangeset(e cldf.Environment, cfg UpdateRouterRampsConfig)
 	if err := cfg.Validate(e, state); err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		ccipseqs.RouterApplyRampUpdatesSequence,
@@ -1412,6 +1414,13 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *cldf.Environment, state *st
 		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
+	case chain_selectors.FamilySui:
+		_, ok := state.SuiChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+		return nil
+
 	case chain_selectors.FamilyTon:
 		_, ok := state.TonChains[chainSelector]
 		if !ok {
@@ -1724,6 +1733,8 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
 		} else if destFamily == chain_selectors.FamilyTon {
 			familySelector, _ = hex.DecodeString(TVMFamilySelector) // ton
+		} else if destFamily == chain_selectors.FamilySui {
+			familySelector, _ = hex.DecodeString(SuiFamilySelector) // Sui
 		}
 	}
 	return fee_quoter.FeeQuoterDestChainConfig{

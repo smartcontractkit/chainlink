@@ -312,6 +312,69 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
+	t.Run("unhappy path - duplicate requestId", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callback, don, _ := setupHandler(t)
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		requestID := "1"
+		reqData := &vaultcommon.ListSecretIdentifiersRequest{
+			RequestId: requestID,
+			Owner:     owner,
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsList,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		responseData := &vaultcommon.ListSecretIdentifiersResponse{
+			Identifiers: []*vaultcommon.SecretIdentifier{
+				{
+					Key:       "foo",
+					Owner:     owner,
+					Namespace: "default",
+				},
+			},
+		}
+		resultBytes, err := json.Marshal(responseData)
+		require.NoError(t, err)
+		expectedRequestID := owner + "::" + requestID
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     expectedRequestID,
+			Result: (*json.RawMessage)(&resultBytes),
+			Method: vaulttypes.MethodSecretsList,
+		}
+		resultBytes, err = json.Marshal(responseData)
+		require.NoError(t, err)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+			var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
+			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
+			assert.NoError(t, err2)
+			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
+		}()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.NoError(t, err)
+
+		// send duplicate request
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.ErrorContains(t, err, "request ID already exists")
+
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
 	t.Run("unhappy path - quorum unobtainable", func(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)

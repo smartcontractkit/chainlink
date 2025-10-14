@@ -24,6 +24,7 @@ import (
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonOperation "github.com/smartcontractkit/chainlink-ton/deployment/ccip/operation"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
@@ -37,17 +38,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	latest_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/fee_quoter"
-
+	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	sui_cs_core "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
@@ -55,11 +56,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	solBinary "github.com/gagliardetto/binary"
 
 	solFeeQuoterV0_1_0 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/fee_quoter"
 	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
+
+	fee_quoterV1_6_3 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
@@ -109,6 +113,7 @@ type TestConfigs struct {
 	Chains                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	SolChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	AptosChains                int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	SuiChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	TonChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain         int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -336,6 +341,12 @@ func WithAptosChains(numChains int) TestOps {
 	}
 }
 
+func WithSuiChains(numChains int) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.SuiChains = numChains
+	}
+}
+
 func WithTonChains(numChains int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.TonChains = numChains
@@ -401,6 +412,7 @@ type MemoryEnvironment struct {
 	Chains      map[uint64]cldf_evm.Chain
 	SolChains   map[uint64]cldf_solana.Chain
 	AptosChains map[uint64]cldf_aptos.Chain
+	SuiChains   map[uint64]cldf_sui.Chain
 	TonChains   map[uint64]cldf_ton.Chain
 }
 
@@ -458,12 +470,14 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	solChains := memory.NewMemoryChainsSol(t, tc.SolChains, commitSha)
 
 	aptosChains := memory.NewMemoryChainsAptos(t, tc.AptosChains)
+	suiChains := memory.NewMemoryChainsSui(t, tc.SuiChains)
 	tonChains := memory.NewMemoryChainsTon(t, tc.TonChains)
 	// if we have Aptos and Solana chains, we need to set their chain selectors on the wrapper
 	// environment, so we have to convert it back to the concrete type. This needs to be refactored
 	m.AptosChains = cldf_chain.NewBlockChainsFromSlice(aptosChains).AptosChains()
 	m.SolChains = cldf_chain.NewBlockChainsFromSlice(solChains).SolanaChains()
 	m.TonChains = cldf_chain.NewBlockChainsFromSlice(tonChains).TonChains()
+	m.SuiChains = cldf_chain.NewBlockChainsFromSlice(suiChains).SuiChains()
 
 	blockChains := map[uint64]cldf_chain.BlockChain{}
 	for selector, ch := range m.Chains {
@@ -476,6 +490,10 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 		blockChains[ch.ChainSelector()] = ch
 	}
 	for selector, ch := range m.TonChains {
+		blockChains[selector] = ch
+	}
+
+	for selector, ch := range m.SuiChains {
 		blockChains[selector] = ch
 	}
 
@@ -748,14 +766,18 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	var err error
 	e := NewEnvironmentWithPrerequisitesContracts(t, tEnv)
+
 	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	aptosChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
 	tonChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyTon))
+	suiChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySui))
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	allChains := append(evmChains, solChains...)
 	allChains = append(allChains, aptosChains...)
 	allChains = append(allChains, tonChains...)
+	allChains = append(allChains, suiChains...)
+
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
 	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
@@ -778,8 +800,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	// load the state again to get the latest addresses
 	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
+
 	err = state.ValidatePostDeploymentState(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
 	require.NoError(t, err)
+
 	return e
 }
 
@@ -1018,7 +1042,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 
 	var (
-		evmChains, solChains, aptosChains, tonChains []uint64
+		evmChains, solChains, aptosChains, suiChains, tonChains []uint64
 	)
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
@@ -1030,6 +1054,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		if _, ok := e.Env.BlockChains.AptosChains()[chain]; ok {
 			aptosChains = append(aptosChains, chain)
 		}
+		if _, ok := e.Env.BlockChains.SuiChains()[chain]; ok {
+			suiChains = append(suiChains, chain)
+		}
+	}
+
+	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.TonChains()[chain]; ok {
 			tonChains = append(tonChains, chain)
 		}
@@ -1048,8 +1078,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		if useLatestFeeQuoter {
 			params.FeeQuoterOpts = &opsutil.ContractOpts{
 				Version:          semver.MustParse("1.6.0-latest"),
-				EVMBytecode:      common.FromHex(latest_fee_quoter.FeeQuoterBin),
-				ZkSyncVMBytecode: latest_fee_quoter.ZkBytecode,
+				EVMBytecode:      common.FromHex(fee_quoterV1_6_3.FeeQuoterBin),
+				ZkSyncVMBytecode: fee_quoterV1_6_3.ZkBytecode,
 			}
 		}
 		evmContractParams[chain] = params
@@ -1093,8 +1123,33 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			apps = append(apps, solCs...)
 		}
 	}
+
 	e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, apps)
 	require.NoError(t, err)
+
+	// Currently only one sui chain is supported in test environment
+	if len(suiChains) != 0 {
+		// Deploy Link Token
+		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{
+			commonchangeset.Configure(sui_cs.DeployLinkToken{}, sui_cs.DeployLinkTokenConfig{
+				ChainSelector: suiChains[0],
+			}),
+		})
+		require.NoError(t, err)
+
+		state, err := stateview.LoadOnchainState(e.Env)
+		require.NoError(t, err)
+
+		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{
+			commonchangeset.Configure(sui_cs.DeploySuiChain{}, sui_cs.DeploySuiChainConfig{
+				SuiChainSelector:              suiChains[0],
+				DestChainSelector:             evmChains[0],
+				DestChainOnRampAddressBytes:   state.MustGetEVMChainState(e.HomeChainSel).OnRamp.Address().Bytes(),
+				LinkTokenCoinMetadataObjectId: state.SuiChains[suiChains[0]].LinkTokenCoinMetadataId,
+			}),
+		})
+		require.NoError(t, err)
+	}
 
 	if len(aptosChains) != 0 {
 		// Currently only one aptos chain is supported in test environment
@@ -1285,6 +1340,37 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
+	for _, chain := range suiChains {
+		// TODO(sui): update this for token transfers
+		tokenInfo := map[ccipocr3common.UnknownEncodedAddress]ccipocr3common.TokenInfo{}
+		tokenInfo[ccipocr3common.UnknownEncodedAddress(state.SuiChains[chain].LinkTokenAddress)] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+		ocrOverride := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			// Commit
+			params.CommitOffChainConfig.RMNEnabled = false
+			// Execute
+			params.ExecuteOffChainConfig.MultipleReportsEnabled = false
+			params.ExecuteOffChainConfig.MaxReportMessages = 1
+			params.ExecuteOffChainConfig.MaxSingleChainReports = 1
+			params.ExecuteOffChainConfig.MaxCommitReportsToFetch = 1
+			if tc.OCRConfigOverride != nil {
+				tc.OCRConfigOverride(params)
+			}
+			return params
+		}
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
+		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+		chainConfigs[chain] = v1_6.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    ccipocr3common.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  ccipocr3common.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
+			},
+		}
+	}
+
 	for _, chain := range aptosChains {
 		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
 		linkTokenAddress := state.AptosChains[chain].LinkTokenAddress
@@ -1412,13 +1498,22 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		))
 		apps = append(apps, commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
-			cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+			sui_cs_core.SetOCR3Offramp{},
 			v1_6.SetOCR3OffRampConfig{
 				HomeChainSel:       e.HomeChainSel,
-				RemoteChainSels:    evmChains,
+				RemoteChainSels:    suiChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
-		))
+		),
+			commonchangeset.Configure(
+				// Enable the OCR config on the remote chains.
+				cldf.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+				v1_6.SetOCR3OffRampConfig{
+					HomeChainSel:       e.HomeChainSel,
+					RemoteChainSels:    evmChains,
+					CCIPHomeConfigType: globals.ConfigTypeActive,
+				},
+			))
 		apps = append(apps, commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
 			aptoscs.SetOCR3Offramp{},

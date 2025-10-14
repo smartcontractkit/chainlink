@@ -75,8 +75,8 @@ type CapabilityConfig struct {
 }
 
 type Capability struct {
-	CapabilityID          string         `json:"capability_id" yaml:"capability_id"`
-	ConfigurationContract common.Address `json:"configuration_contract" yaml:"configuration_contract"`
+	CapabilityID          string         `json:"capabilityID" yaml:"capabilityID"`
+	ConfigurationContract common.Address `json:"configurationContract" yaml:"configurationContract"`
 	// Metadata is the capability metadata. It will be marshalled to json config.
 	Metadata map[string]any `json:"metadata" yaml:"metadata"`
 }

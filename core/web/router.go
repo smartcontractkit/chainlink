@@ -382,6 +382,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		wfkc := WorkflowKeysController{app}
 		authv2.GET("/keys/workflow", wfkc.Index)
 
+		dkrkc := DKGRecipientKeysController{app}
+		authv2.GET("/keys/dkgrecipient", dkrkc.Index)
+
 		jc := JobsController{app}
 		authv2.GET("/jobs", paginatedRequest(jc.Index))
 		authv2.GET("/jobs/:ID", jc.Show)
