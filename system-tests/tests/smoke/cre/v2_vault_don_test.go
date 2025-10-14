@@ -322,7 +322,6 @@ func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string
 func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL string, opts *bind.TransactOpts, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	framework.L.Info().Msg("Listing secret...")
 	uniqueRequestID := uuid.New().String()
-
 	secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
 		RequestId: uniqueRequestID,
 		Owner:     owner,
@@ -339,6 +338,25 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 	}
 	allowlistRequest(t, owner, jsonRequest, opts, wfRegistryContract)
 
+	// Ensure that multiple requests can be allowlisted
+	uniqueRequestIDTwo := uuid.New().String()
+	secretsListRequestTwo := vault_helpers.ListSecretIdentifiersRequest{
+		RequestId: uniqueRequestIDTwo,
+		Owner:     owner,
+		Namespace: "main",
+	}
+	secretsListRequestBodyTwo, err := json.Marshal(secretsListRequestTwo) //nolint:govet // The lock field is not set on this proto
+	require.NoError(t, err, "failed to marshal secrets request")
+	secretsUpdateRequestBodyJSONTwo := json.RawMessage(secretsListRequestBodyTwo)
+	jsonRequestTwo := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestIDTwo,
+		Method:  vaulttypes.MethodSecretsList,
+		Params:  &secretsUpdateRequestBodyJSONTwo,
+	}
+	allowlistRequest(t, owner, jsonRequestTwo, opts, wfRegistryContract)
+
+	// Request 1
 	requestBody, err := json.Marshal(jsonRequest)
 	require.NoError(t, err, "failed to marshal secrets request")
 
@@ -358,6 +376,24 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL strin
 
 	signedOCRResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
+
+	// Request 2
+	requestBodyTwo, err := json.Marshal(jsonRequestTwo)
+	require.NoError(t, err, "failed to marshal secrets request")
+	statusCodeTwo, httpResponseBodyTwo := sendVaultRequestToGateway(t, gatewayURL, requestBodyTwo)
+	require.Equal(t, http.StatusOK, statusCodeTwo, "Gateway endpoint should respond with 200 OK")
+	var jsonResponseTwo jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	err = json.Unmarshal(httpResponseBodyTwo, &jsonResponseTwo)
+	require.NoError(t, err, "failed to unmarshal getResponse")
+	framework.L.Info().Msgf("JSON Body: %v", jsonResponseTwo)
+	if jsonResponseTwo.Error != nil {
+		require.Empty(t, jsonResponseTwo.Error.Error())
+	}
+	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponseTwo.Version)
+	require.Equal(t, uniqueRequestIDTwo, jsonResponseTwo.ID)
+	require.Equal(t, vaulttypes.MethodSecretsList, jsonResponseTwo.Method)
+	signedOCRResponseTwo := jsonResponseTwo.Result
+	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponseTwo.String())
 
 	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
 
