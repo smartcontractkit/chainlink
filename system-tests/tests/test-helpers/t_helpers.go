@@ -49,6 +49,7 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -254,8 +255,12 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addressToRead.Hex())
 
 		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
+		fundingKeyBytes := []byte{0}
+		if bcOutput.CtfOutput.Family == blockchain.FamilyEVM {
+			fundingKeyBytes = crypto.FromECDSA(sethClient.MustGetRootPrivateKey())
+		}
 
-		if err := bcOutput.Funder.Fund(t.Context(), addressToRead.Hex(), amountToFund.Uint64(), crypto.FromECDSA(sethClient.MustGetRootPrivateKey())); err != nil {
+		if err := bcOutput.Funder.Fund(t.Context(), addressToRead.Hex(), amountToFund.Uint64(), fundingKeyBytes); err != nil {
 			return nil, err
 		}
 
