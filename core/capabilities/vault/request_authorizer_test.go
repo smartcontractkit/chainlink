@@ -153,15 +153,6 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
 	auth := NewRequestAuthorizer(lggr, mockSyncer)
 
-	// Invalid method
-	invalidReq := jsonrpc.Request[json.RawMessage]{
-		Method: "invalid-method",
-		Params: nil,
-	}
-	isAuthorized, _, err := auth.AuthorizeRequest(context.Background(), invalidReq)
-	require.ErrorContains(t, err, "unauthorized method: invalid-method")
-	require.False(t, isAuthorized)
-
 	// Happy path
 	digest, err := allowlistedRequest.Digest()
 	require.NoError(t, err)

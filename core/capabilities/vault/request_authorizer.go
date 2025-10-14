@@ -26,6 +26,8 @@ type requestAuthorizer struct {
 	lggr                      logger.Logger
 }
 
+// AuthorizeRequest authorizes a request based on the request digest and the allowlisted requests.
+// It does NOT check if the request method is allowed.
 func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error) {
 	defer r.clearExpiredAuthorizedRequests()
 	r.lggr.Infow("AuthorizeRequest", "method", req.Method, "requestID", req.ID)
