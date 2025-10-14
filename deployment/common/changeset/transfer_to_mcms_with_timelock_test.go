@@ -139,6 +139,7 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 	})
 	require.NoError(t, err)
 	err = ds.Merge(rt.State().DataStore)
+	require.NoError(t, err)
 	rt.State().DataStore = ds.Seal()
 	newEnv := rt.Environment()
 	newEnv.DataStore = ds.Seal()
