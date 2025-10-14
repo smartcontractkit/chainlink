@@ -9,8 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -143,10 +144,6 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 	newEnv.DataStore = ds.Seal()
 	// Re create runtime with new environment
 	rt = runtime.NewFromEnvironment(newEnv)
-
-	// re-load the addresses to ensure AddressBook is missing the LinkToken
-	addrs, err = rt.State().AddressBook.AddressesForChain(selector)
-	require.NoError(t, err)
 
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.TransferToMCMSWithTimelockV2), changeset.TransferToMCMSWithTimelockConfig{

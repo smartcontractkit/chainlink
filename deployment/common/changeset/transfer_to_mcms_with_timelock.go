@@ -10,13 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -79,11 +80,10 @@ func searchAddressesInBothSources(e cldf.Environment, chainSelector uint64, addr
 	}
 
 	// Search through merged addresses for the contract type
-	for addr, _ := range addressesChain {
+	for addr := range addressesChain {
 		if addr == address {
 			return true, nil
 		}
-
 	}
 
 	return false, fmt.Errorf("%s not found", address)
@@ -230,7 +230,7 @@ func TransferToDeployer(e cldf.Environment, cfg TransferToDeployerConfig) (cldf.
 		},
 	}
 	var salt [32]byte
-	binary.BigEndian.PutUint32(salt[:], uint32(time.Now().Unix()))
+	binary.BigEndian.PutUint32(salt[:], uint32(time.Now().Unix())) //nolint:gosec // this is a salt, so any value is fine
 	tx, err = tls.Timelock.ScheduleBatch(evmChains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt, big.NewInt(0))
 	if _, err = cldf.ConfirmIfNoErrorWithABI(evmChains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return cldf.ChangesetOutput{}, err
