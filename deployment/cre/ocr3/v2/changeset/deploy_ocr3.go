@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -27,6 +29,10 @@ type DeployOCR3 struct{}
 func (l DeployOCR3) VerifyPreconditions(_ cldf.Environment, input DeployOCR3Input) error {
 	if input.ChainSelector == 0 {
 		return errors.New("chainSelector is required")
+	}
+	_, err := chain_selectors.GetChainIDFromSelector(input.ChainSelector) // validate chain selector
+	if err != nil {
+		return fmt.Errorf("could not resolve chain selector %d: %w", input.ChainSelector, err)
 	}
 	if input.Qualifier == "" {
 		return errors.New("qualifier is required")

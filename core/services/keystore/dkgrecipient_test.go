@@ -84,7 +84,8 @@ func Test_DKGRecipientKeyStore_E2E(t *testing.T) {
 
 			assert.Zero(t, k)
 			require.Error(t, err2)
-			assert.Equal(t, fmt.Sprintf("key with ID %s already exists", key.ID()), err2.Error())
+			assert.Equal(t, fmt.Sprintf("Key already exists: key with ID %s already exists", key.ID()), err2.Error())
+			assert.True(t, errors.Is(err2, keystore.ErrKeyExists))
 		})
 
 		t.Run("fails to import malformed key", func(t *testing.T) {

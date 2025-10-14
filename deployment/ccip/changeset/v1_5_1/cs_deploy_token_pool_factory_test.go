@@ -6,27 +6,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/registry_module_owner_custom"
+	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
@@ -100,17 +96,24 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			lggr := logger.TestLogger(t)
-			e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-				Chains: 2,
-			})
-			selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+			selector1 := chain_selectors.TEST_90000001.Selector
+			selector2 := chain_selectors.TEST_90000002.Selector
+			selectors := []uint64{selector1, selector2}
+
+			lggr := logger.Test(t)
+			rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+				environment.WithEVMSimulated(t, selectors),
+				environment.WithLogger(lggr),
+			))
+			require.NoError(t, err)
 
 			if !test.ForgetPrerequisites {
 				// NOTE: We don't use the DeployPrerequisites changeset because the TokenPoolFactory is a prerequisite in itself.
 				for _, selector := range selectors {
+					chain := rt.Environment().BlockChains.EVMChains()[selector]
+
 					// Deploy token admin registry
-					tokenAdminRegistry, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], e.ExistingAddresses,
+					tokenAdminRegistry, err := cldf.DeployContract(lggr, chain, rt.State().AddressBook,
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
 							tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
 								chain.DeployerKey,
@@ -121,7 +124,7 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 						})
 					require.NoError(t, err, "failed to deploy token admin registry")
 					// Deploy RMN proxy
-					rmnProxy, err := cldf.DeployContract(lggr, e.BlockChains.EVMChains()[selector], e.ExistingAddresses,
+					rmnProxy, err := cldf.DeployContract(lggr, chain, rt.State().AddressBook,
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*rmn_proxy_contract.RMNProxy] {
 							rmnProxyAddr, tx2, rmnProxy2, err2 := rmn_proxy_contract.DeployRMNProxy(
 								chain.DeployerKey,
@@ -136,7 +139,7 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 						})
 					require.NoError(t, err, "failed to deploy RMN proxy")
 					// Deploy router
-					_, err = cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], e.ExistingAddresses,
+					_, err = cldf.DeployContract(lggr, chain, rt.State().AddressBook,
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*router.Router] {
 							routerAddr, tx2, routerC, err2 := router.DeployRouter(
 								chain.DeployerKey,
@@ -152,7 +155,7 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 						})
 					require.NoError(t, err, "failed to deploy router")
 					// Deploy registry module
-					_, err = cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], e.ExistingAddresses,
+					_, err = cldf.DeployContract(lggr, chain, rt.State().AddressBook,
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 							regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 								chain.DeployerKey,
@@ -169,10 +172,11 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 
 			if test.MultipleRegistryModules {
 				// Add a new registry module to each chain
-				state, err := stateview.LoadOnchainState(e)
+				state, err := stateview.LoadOnchainState(rt.Environment())
 				require.NoError(t, err, "failed to load onchain state")
 				for _, selector := range selectors {
-					_, err := cldf.DeployContract(e.Logger, e.BlockChains.EVMChains()[selector], e.ExistingAddresses,
+					chain := rt.Environment().BlockChains.EVMChains()[selector]
+					_, err := cldf.DeployContract(lggr, chain, rt.State().AddressBook,
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 							regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 								chain.DeployerKey,
@@ -186,20 +190,19 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 				}
 			}
 
-			state, err := stateview.LoadOnchainState(e)
+			state, err := stateview.LoadOnchainState(rt.Environment())
 			require.NoError(t, err, "failed to load onchain state")
 
-			e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
-				v1_5_1.DeployTokenPoolFactoryChangeset,
-				test.ConfigFn(selectors, state),
-			))
+			err = rt.Exec(
+				runtime.ChangesetTask(v1_5_1.DeployTokenPoolFactoryChangeset, test.ConfigFn(selectors, state)),
+			)
 			if test.ExpectedErr != "" {
 				require.ErrorContains(t, err, test.ExpectedErr, "expected error not found")
 				return
 			}
 			require.NoError(t, err, "failed to apply DeployTokenPoolFactoryChangeset")
 
-			state, err = stateview.LoadOnchainState(e)
+			state, err = stateview.LoadOnchainState(rt.Environment())
 			require.NoError(t, err, "failed to load onchain state")
 
 			for _, chainSel := range selectors {
@@ -211,12 +214,11 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 			}
 
 			// IDEMPOTENCY CHECK
-			e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
-				v1_5_1.DeployTokenPoolFactoryChangeset,
-				v1_5_1.DeployTokenPoolFactoryConfig{
+			err = rt.Exec(
+				runtime.ChangesetTask(v1_5_1.DeployTokenPoolFactoryChangeset, v1_5_1.DeployTokenPoolFactoryConfig{
 					Chains: selectors,
-				},
-			))
+				}),
+			)
 			require.ErrorContains(t, err, "token pool factory already deployed")
 		})
 	}

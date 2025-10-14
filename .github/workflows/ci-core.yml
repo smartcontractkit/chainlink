@@ -202,6 +202,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             setup-solana: "true"
             setup-aptos: "true"
+            setup-sui: "true"
             trunk-auto-quarantine: "true"
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
@@ -243,6 +244,12 @@ jobs:
         uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
           CLI_VERSION: 7.8.1
+
+      - name: Setup Sui CLI v1.57.2
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
+        uses: ./.github/actions/setup-sui
+        with:
+          version: mainnet-1.57.2
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}

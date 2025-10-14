@@ -1,9 +1,11 @@
-package vault
+package vaultutils
 
 import (
 	"encoding/json"
+	"fmt"
 
-	"github.com/gibson042/canonicaljson-go"
+	jsonv2 "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -27,5 +29,16 @@ func ToCanonicalJSON(msg proto.Message) ([]byte, error) {
 		return nil, err
 	}
 
-	return canonicaljson.Marshal(jsond)
+	JSONBytes, err := jsonv2.Marshal(jsond, jsonv2.Deterministic(true))
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling JSON: %w", err)
+	}
+
+	canonicalJSONBytes := jsontext.Value(JSONBytes)
+	err = canonicalJSONBytes.Canonicalize()
+	if err != nil {
+		return nil, fmt.Errorf("error canonicalizing JSON: %w", err)
+	}
+
+	return canonicalJSONBytes, nil
 }

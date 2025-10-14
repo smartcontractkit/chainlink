@@ -313,6 +313,8 @@ flowchart LR
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
+	chainlink-sui/deployment --> chainlink-deployments-framework
+	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-testing-framework/framework
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/framework/components/dockercompose --> chainlink-testing-framework/framework
@@ -360,6 +362,7 @@ flowchart LR
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-contract-examples/chains/evm
+	chainlink/deployment --> chainlink-sui/deployment
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink-ton/deployment
 	chainlink/deployment --> chainlink/v2
@@ -516,6 +519,12 @@ flowchart LR
 	end
 	click chainlink-protos-repo href "https://github.com/smartcontractkit/chainlink-protos"
 
+	subgraph chainlink-sui-repo[chainlink-sui]
+		 chainlink-sui
+		 chainlink-sui/deployment
+	end
+	click chainlink-sui-repo href "https://github.com/smartcontractkit/chainlink-sui"
+
 	subgraph chainlink-testing-framework-repo[chainlink-testing-framework]
 		 chainlink-testing-framework/framework
 		 chainlink-testing-framework/framework/components/dockercompose
@@ -551,5 +560,5 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-repo,chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo outline
 ```
